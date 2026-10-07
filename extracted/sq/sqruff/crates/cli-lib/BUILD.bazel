@@ -1,35 +1,53 @@
+load("//:compiler.bzl", "compiler_targets")
+load("//:clippy.bzl", "cargo_lints", "clippy_config")
+load("//:python_tests.bzl", "python_rust_test")
 load("@crates//:defs.bzl", "all_crate_deps")
 load("@rules_rust//rust:defs.bzl", "rust_library")
 
 exports_files(["Cargo.toml"])
 
+_CARGO_FEATURES = [
+    "clap-markdown",
+    "codegen-docs",
+    "minijinja",
+    "parser",
+    "pyo3",
+    "python",
+]
+
+
 rust_library(
     name = "sqruff-cli-lib",
+    lint_config = ":cargo_lints",
+    crate_features = clippy_config([], _CARGO_FEATURES),
+    compile_data = clippy_config([], glob(["src/docs/*.md"])),
     srcs = glob(["src/**/*.rs"]),
     proc_macro_deps = all_crate_deps(proc_macro = True),
     visibility = ["//visibility:public"],
-    deps = all_crate_deps(normal = True) + [
+    deps = all_crate_deps(normal = True) + clippy_config([], [
+        "//crates/lib-dialects:sqruff-lib-dialects",
+        "@crates//:clap-markdown",
+        "@crates//:minijinja",
+        "@rules_python//python/cc:current_py_cc_libs",
+    ]) + [
         "//crates/lib:sqruff-lib",
         "//crates/lib-core:sqruff-lib-core",
         "//crates/lsp:sqruff-lsp",
     ],
 )
 
-# Variant with codegen-docs feature enabled for doc generation
-# codegen-docs requires the python feature which enables more templaters
+# Variant with codegen-docs feature enabled for doc generation.
 rust_library(
     name = "sqruff-cli-lib-codegen",
+    lint_config = ":cargo_lints",
     srcs = glob(["src/**/*.rs"]),
     compile_data = glob(["src/docs/*.md"]),
-    crate_features = [
-        "codegen-docs",
-        "python",
-    ],
+    crate_features = ["codegen-docs"],
     crate_name = "sqruff_cli_lib",
     proc_macro_deps = all_crate_deps(proc_macro = True),
     visibility = ["//visibility:public"],
     deps = all_crate_deps(normal = True) + [
-        "//crates/lib:sqruff-lib-python",
+        "//crates/lib:sqruff-lib",
         "//crates/lib-core:sqruff-lib-core",
         "//crates/lib-dialects:sqruff-lib-dialects",
         "//crates/lsp:sqruff-lsp",
@@ -57,3 +75,35 @@ filegroup(
     ) + ["Cargo.toml"],
     visibility = ["//visibility:public"],
 )
+
+# Keep Rust and Clippy lint levels inherited from Cargo.toml.
+cargo_lints()
+
+rust_library(
+    name = "sqruff-cli-lib-python",
+    srcs = glob(["src/**/*.rs"]),
+    crate_name = "sqruff_cli_lib",
+    crate_features = clippy_config(["python", "parser"], _CARGO_FEATURES),
+    compile_data = clippy_config([], glob(["src/docs/*.md"])),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    visibility = ["//visibility:public"],
+    deps = all_crate_deps(normal = True) + clippy_config([], ["@crates//:clap-markdown", "@crates//:minijinja"]) + [
+        "//crates/lib:sqruff-lib-python",
+        "//crates/lib-core:sqruff-lib-core",
+        "//crates/lib-dialects:sqruff-lib-dialects",
+        "//crates/lsp:sqruff-lsp",
+    ],
+)
+
+python_rust_test(
+    name = "sqruff-cli-lib-test",
+    lint_config = ":cargo_lints",
+    crate = ":sqruff-cli-lib-python",
+    crate_features = clippy_config(["python", "parser", "codegen-docs"], _CARGO_FEATURES),
+    compile_data = glob(["src/docs/*.md"]),
+    deps = all_crate_deps(normal_dev = True) + [
+        "@rules_python//python/cc:current_py_cc_libs",
+    ],
+)
+
+compiler_targets(libraries = [":sqruff-cli-lib"])

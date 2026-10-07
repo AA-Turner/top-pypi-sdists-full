@@ -52,7 +52,9 @@ class TestPutAgents(unittest.TestCase):
                                         resource_kind = '', 
                                         resource_id = '0', 
                                         query = '', ), 
-                                    last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
+                                    last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                    external_id = '', 
+                                    last_scanned = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                                 ], 
                             runs_on = 'aws', 
                             platform = 'darwin', ), 
@@ -128,7 +130,9 @@ class TestPutAgents(unittest.TestCase):
                                         resource_kind = '', 
                                         resource_id = '0', 
                                         query = '', ), 
-                                    last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
+                                    last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                    external_id = '', 
+                                    last_scanned = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                                 ], 
                             runs_on = 'aws', 
                             platform = 'darwin', ), 

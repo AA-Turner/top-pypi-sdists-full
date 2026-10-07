@@ -10,7 +10,11 @@ from sqlbuild.cli.commands._helpers.entry.errors import (
 )
 from sqlbuild.cli.commands._helpers.skills.update import maintain_sqlbuild_skills
 from sqlbuild.cli.commands.classes.cli_namespace import CliNamespace
-from sqlbuild.cli.commands.exceptions import CliUserError, QueryDiffExecutionError
+from sqlbuild.cli.commands.exceptions import (
+    CliUserError,
+    QueryDiffExecutionError,
+    QueryDiffOutcomeError,
+)
 from sqlbuild.cli.commands.main.entrypoint._dispatch_with_observability import (
     dispatch_with_observability,
 )
@@ -23,6 +27,7 @@ from sqlbuild.cli.output.models import (
     SkillMaintenanceResult,
 )
 from sqlbuild.lint.exceptions import LintError
+from sqlbuild.presentation.main.transient_line_coordinator import shared_transient_line_coordinator
 from sqlbuild.rule_engine.exceptions import RulesError
 
 
@@ -37,7 +42,7 @@ def dispatch_and_handle_errors(
 
     _report_skill_freshness(invocation=invocation)
     try:
-        return dispatch_with_observability(args=args, handlers=handlers)
+        return _dispatch_clearing_transient_line(args=args, handlers=handlers)
     except SystemExit as error:
         return error.code if isinstance(error.code, int) else 1
     except (CliUserError, RulesError) as error:
@@ -50,9 +55,8 @@ def dispatch_and_handle_errors(
             if output_error is not None:
                 effective_error = output_error
         _write_compile_machine_error(args=args, error=effective_error, fallback_code="C000")
-        outcome_status: object | None = getattr(effective_error, "status", None)
-        if outcome_status is not None:
-            print(f"Query diff outcome  {outcome_status}", file=sys.stderr)
+        if isinstance(effective_error, QueryDiffOutcomeError):
+            print(f"Query diff outcome  {effective_error.status}", file=sys.stderr)
         print(
             format_expected_error(error=effective_error, fallback_code="C000", use_color=use_color),
             file=sys.stderr,
@@ -78,6 +82,17 @@ def dispatch_and_handle_errors(
             file=sys.stderr,
         )
         return 1
+
+
+def _dispatch_clearing_transient_line(
+    *, args: CliNamespace, handlers: CliEntrypointHandlers
+) -> int:
+    """Stop a status line a failed command left running before its error is reported."""
+
+    try:
+        return dispatch_with_observability(args=args, handlers=handlers)
+    finally:
+        shared_transient_line_coordinator().clear_active()
 
 
 def _expected_command_failure_types() -> tuple[type[Exception], ...]:
@@ -150,6 +165,8 @@ def _write_diff_machine_error(
         status=str(getattr(error, "status", "execution_failed")),
         code=error.code,
         message=error.message,
+        help_text=error.help,
+        size_guard=getattr(error, "details", None),
     )
     if json_path is not None:
         try:

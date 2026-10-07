@@ -43,3 +43,5 @@ class SelfEmployedConfirmationType:
     """
     REDIRECT = 'redirect'
     """Необходимо направить плательщика на страницу партнера."""
+    UNKNOWN = 'unknown'
+    """Неизвестный сценарий подтверждения."""

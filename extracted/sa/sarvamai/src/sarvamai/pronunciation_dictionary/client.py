@@ -61,7 +61,7 @@ class PronunciationDictionaryClient:
         self, *, file: core.File, request_options: typing.Optional[RequestOptions] = None
     ) -> PronunciationDictionaryResponse:
         """
-        Upload a `.json` file to create a new pronunciation dictionary. Only supported by **bulbul:v3**.
+        Upload a `.json` file to create a new pronunciation dictionary. Only supported by **bulbul:v3** and **bulbul:v4-flash**.
 
         The file should contain a JSON object with a `pronunciations` key mapping language codes to word-pronunciation pairs. See the [Pronunciation Dictionary guide](/api-reference-docs/api-guides-tutorials/text-to-speech/pronunciation-dictionary) for format details and examples.
 
@@ -257,7 +257,7 @@ class AsyncPronunciationDictionaryClient:
         self, *, file: core.File, request_options: typing.Optional[RequestOptions] = None
     ) -> PronunciationDictionaryResponse:
         """
-        Upload a `.json` file to create a new pronunciation dictionary. Only supported by **bulbul:v3**.
+        Upload a `.json` file to create a new pronunciation dictionary. Only supported by **bulbul:v3** and **bulbul:v4-flash**.
 
         The file should contain a JSON object with a `pronunciations` key mapping language codes to word-pronunciation pairs. See the [Pronunciation Dictionary guide](/api-reference-docs/api-guides-tutorials/text-to-speech/pronunciation-dictionary) for format details and examples.
 

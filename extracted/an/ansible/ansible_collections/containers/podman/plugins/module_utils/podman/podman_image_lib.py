@@ -10,7 +10,7 @@ import time
 import hashlib
 import sys
 
-from ansible_collections.containers.podman.plugins.module_utils.podman.common import run_podman_command
+from .common import run_podman_command
 
 __metaclass__ = type
 
@@ -275,7 +275,8 @@ class PodmanImagePuller:
         self.executable = executable
         self.auth_config = auth_config or {}
 
-    def pull_image(self, image_name, arch=None, platform=None, pull_extra_args=None):
+    def pull_image(self, image_name, arch=None, platform=None,
+                   pull_extra_args=None, pull_policy=None, retry=None, retry_delay=None):
         """Pull an image from a registry."""
         args = ["pull", image_name]
 
@@ -283,6 +284,13 @@ class PodmanImagePuller:
             args.extend(["--platform", platform])
         elif arch:
             args.extend(["--arch", arch])
+
+        if pull_policy:
+            args.extend(["--policy", pull_policy])
+        if retry is not None:
+            args.extend(["--retry", str(retry)])
+        if retry_delay:
+            args.extend(["--retry-delay", retry_delay])
 
         self._add_auth_args(args)
 
@@ -370,6 +378,13 @@ class PodmanImagePusher:
         self._add_auth_args(args)
         self._add_push_args(args, push_config)
 
+        retry = self.module.params.get("retry")
+        retry_delay = self.module.params.get("retry_delay")
+        if retry is not None:
+            args.extend(["--retry", str(retry)])
+        if retry_delay:
+            args.extend(["--retry-delay", retry_delay])
+
         args.append(image_name)
 
         # Build destination
@@ -415,6 +430,12 @@ class PodmanImagePusher:
 
         if push_config.get("sign_by"):
             args.extend(["--sign-by", push_config["sign_by"]])
+
+        if push_config.get("sign_by_sq_fingerprint"):
+            args.extend(["--sign-by-sq-fingerprint", push_config["sign_by_sq_fingerprint"]])
+
+        if push_config.get("compression_format"):
+            args.extend(["--compression-format", push_config["compression_format"]])
 
         if push_config.get("extra_args"):
             args.extend(shlex.split(push_config["extra_args"]))
@@ -614,7 +635,13 @@ class PodmanImageManager:
 
         if not image or self._should_rebuild_image(image):
             if self.params.get("state") == "build" or self.params.get("path"):
-                self._build_image()
+                # Get image ID before build for change detection
+                id_before = None
+                if image:
+                    inspect_data = self.inspector.inspect_image(self.repository.full_name)
+                    if inspect_data and len(inspect_data) > 0:
+                        id_before = inspect_data[0].get("Id") or inspect_data[0].get("id")
+                self._build_image(id_before)
             else:
                 self._pull_image(digest_before)
 
@@ -626,7 +653,7 @@ class PodmanImageManager:
         if final_image:
             self.results["image"] = self.inspector.inspect_image(self.repository.full_name)
 
-    def _build_image(self):
+    def _build_image(self, id_before=None):
         """Build an image."""
         build_config = self.params.get("build", {})
         path = self.params.get("path")
@@ -650,10 +677,16 @@ class PodmanImageManager:
                 self.params.get("arch"),
             )
             self.results["stdout"] = output
-            self.results["image"] = self.inspector.inspect_image(image_id)
+            self.results["image"] = self.inspector.inspect_image(self.repository.full_name)
             self.results["podman_actions"].append(podman_command)
 
-        self.results["changed"] = True
+            # Compare image ID before and after build for accurate change detection
+            id_after = None
+            if self.results["image"] and len(self.results["image"]) > 0:
+                id_after = self.results["image"][0].get("Id") or self.results["image"][0].get("id")
+            self.results["changed"] = id_before != id_after
+        else:
+            self.results["changed"] = True
         self.results["actions"].append(f"Built image {self.repository.full_name} from {path or 'context'}")
 
     def _pull_image(self, digest_before=None):
@@ -667,6 +700,9 @@ class PodmanImageManager:
                 self.params.get("arch"),
                 self.params.get("platform"),
                 self.params.get("pull_extra_args"),
+                self.params.get("pull_policy"),
+                self.params.get("retry"),
+                self.params.get("retry_delay"),
             )
             self.results["image"] = self.inspector.inspect_image(self.repository.full_name)
             self.results["podman_actions"].append(podman_command)

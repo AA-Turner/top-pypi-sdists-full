@@ -1,0 +1,26 @@
+file:
+- statement:
+  - magic_cell_segment:
+    - magic_start: |
+        -- MAGIC %md
+    - magic_line: '-- MAGIC # Dummy Notebook'
+- command_cell: -- COMMAND ----------
+- statement:
+  - magic_cell_segment:
+    - magic_single_line: -- MAGIC %run ./Notebook
+- command_cell: -- COMMAND ----------
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - column_reference:
+          - naked_identifier: a
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - object_reference:
+                - naked_identifier: b

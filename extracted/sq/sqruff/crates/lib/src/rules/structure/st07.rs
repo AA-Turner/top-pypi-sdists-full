@@ -111,19 +111,61 @@ INNER JOIN table_b
             return vec![unfixable_result];
         };
 
-        let select_info = get_select_statement_info(parent_select, context.dialect.into(), true);
-        let mut table_aliases =
-            select_info.map_or(Vec::new(), |select_info| select_info.table_aliases);
+        let Some(select_info) =
+            get_select_statement_info(parent_select, context.dialect.into(), true)
+        else {
+            return vec![unfixable_result];
+        };
+        let mut table_aliases = select_info.table_aliases;
         table_aliases.retain(|it| !it.ref_str.is_empty());
 
         if table_aliases.len() < 2 {
             return vec![unfixable_result];
         }
 
+        let using_col_segments = extract_cols_from_using(segment.clone(), using_anchor);
+        let using_cols = using_col_segments
+            .iter()
+            .map(|seg| seg.raw().to_smolstr())
+            .collect();
+        // USING de-duplicates its columns. A leading reference to one of them
+        // could become ambiguous after rewriting the join to ON, including a
+        // struct access whose leading name also matches a table alias.
+        if select_info.reference_buffer.iter().any(|reference| {
+            reference
+                .iter_raw_references()
+                .first()
+                .and_then(|part| part.segments.first())
+                .is_some_and(|first| {
+                    using_col_segments.iter().any(|using_col| {
+                        first
+                            .raw_normalized()
+                            .eq_ignore_ascii_case(&using_col.raw_normalized())
+                    })
+                })
+        }) {
+            return vec![unfixable_result];
+        }
+
         let (to_delete, insert_after_anchor) = extract_deletion_sequence_and_anchor(&segment);
 
-        let [table_a, table_b, ..] = &table_aliases[..] else {
-            unreachable!()
+        // The first two SELECT aliases might not be the tables joined here,
+        // e.g. `FROM a, b JOIN c USING (id)` joins b to c.
+        let left_element = tables_in_join.first();
+        let right_element = segment
+            .children_where(|it: &ErasedSegment| it.is_type(SyntaxKind::FromExpressionElement));
+        let table_a = left_element.and_then(|element| {
+            table_aliases
+                .iter()
+                .find(|alias| alias.from_expression_element.id() == element.id())
+        });
+        let table_b = right_element.first().and_then(|element| {
+            table_aliases
+                .iter()
+                .find(|alias| alias.from_expression_element.id() == element.id())
+        });
+        let (Some(table_a), Some(table_b)) = (table_a, table_b) else {
+            return vec![unfixable_result];
         };
 
         let mut edit_segments = vec![
@@ -136,7 +178,7 @@ INNER JOIN table_b
             context.dialect.name,
             &table_a.ref_str,
             &table_b.ref_str,
-            extract_cols_from_using(segment, using_anchor),
+            using_cols,
         ));
 
         let mut fixes = Vec::with_capacity(1 + to_delete.len());
@@ -161,17 +203,21 @@ INNER JOIN table_b
     }
 }
 
-fn extract_cols_from_using(join_clause: Segments, using_segs: &ErasedSegment) -> Vec<SmolStr> {
+fn extract_cols_from_using(
+    join_clause: Segments,
+    using_segs: &ErasedSegment,
+) -> Vec<ErasedSegment> {
     join_clause
         .children_all()
         .after(using_segs)
         .filter(|it: &ErasedSegment| it.is_type(SyntaxKind::Bracketed))
         .head()
         .children_where(|it: &ErasedSegment| {
-            it.is_type(SyntaxKind::Identifier) || it.is_type(SyntaxKind::NakedIdentifier)
+            it.is_type(SyntaxKind::Identifier)
+                || it.is_type(SyntaxKind::NakedIdentifier)
+                || it.is_type(SyntaxKind::QuotedIdentifier)
         })
         .into_iter()
-        .map(|it| it.raw().to_smolstr())
         .collect()
 }
 

@@ -1,18 +1,18 @@
 //! Italic parsing.
 
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::satisfy;
 use nom::combinator::peek;
 use nom::sequence::delimited;
-use nom::Parser;
 
 use crate::context::Context;
 use crate::error::ParseError;
 use crate::node::SpannedNodes;
 use crate::span::Span;
 use crate::unparse::Unparse;
-use crate::{inline, Input};
+use crate::{Input, inline};
 
 use super::Grammar;
 

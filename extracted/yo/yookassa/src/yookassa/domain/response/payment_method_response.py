@@ -2,11 +2,13 @@
 import datetime
 import re  # noqa: F401
 
-from yookassa.domain.common import ResponseObject
+from yookassa.domain.common import ResponseObject, ConfirmationType
 from yookassa.domain.models.payment_data.response.credit_card import CreditCard
 from yookassa.domain.models.payment_method import SavePaymentMethodConfirmationFactory
+from yookassa.domain.models.payment_method.save_payment_method_confirmation_class_map import SavePaymentMethodConfirmationClassMap
 from yookassa.domain.models.payment_method.response import SavePaymentMethodHolder, SavePaymentMethodSbpPayerBankDetails
 from yookassa.domain.models.payment_method.save_payment_method_type import SavePaymentMethodType
+from yookassa.domain.models.payment_method.save_payment_method_status import SavePaymentMethodStatus
 
 
 class SavePaymentMethodResponse(ResponseObject):
@@ -107,6 +109,9 @@ class SavePaymentMethodResponse(ResponseObject):
         :param value: status модели SavePaymentMethodResponse.
         :type value: str
         """
+        value = str(value)
+        if value not in {getattr(SavePaymentMethodStatus, _n) for _n in dir(SavePaymentMethodStatus) if not _n.startswith('_')}:
+            value = SavePaymentMethodStatus.UNKNOWN
         self.__status = value
 
     @property
@@ -161,6 +166,8 @@ class SavePaymentMethodResponse(ResponseObject):
         :param value: confirmation модели SavePaymentMethodResponse.
         :type value: ConfirmationResponse
         """
+        if isinstance(value, dict) and 'type' in value and value['type'] not in SavePaymentMethodConfirmationClassMap().response:
+            value['type'] = ConfirmationType.UNKNOWN
         self.__confirmation = SavePaymentMethodConfirmationFactory().create(value, self.context())
 
     @property

@@ -10,14 +10,14 @@ from .ctx import context, ctx_batch, ctx_get
 from .ctx_write import context_patch, ctx_create
 from .database import db_insert, db_query, db_schema, db_update
 from .datasets_tools import (
-    usertable_add_rows,
-    usertable_delete_row,
-    usertable_get_all,
-    usertable_get_data,
-    usertable_get_fields,
-    usertable_get_metadata,
-    usertable_search_data,
-    usertable_update_row,
+    dataset_add_rows,
+    dataset_delete_row,
+    dataset_get_all,
+    dataset_get_data,
+    dataset_get_fields,
+    dataset_get_metadata,
+    dataset_search_data,
+    dataset_update_row,
 )
 from .filesystem import fs_list, fs_mkdir, fs_patch, fs_read, fs_search, fs_write
 from .kind_authoring import (
@@ -48,13 +48,13 @@ from .math import math_calculate
 from .memory import memory_forget, memory_recall, memory_search, memory_store, memory_update
 from .news import news_get_headlines
 from .notes import note_create, note_delete, note_get, note_list, note_patch, note_update
-from .picklists_tools import (
-    userlist_batch_update,
-    userlist_create,
-    userlist_create_simple,
-    userlist_get_all,
-    userlist_get_details,
-    userlist_update_item,
+from .pick_list_tools import (
+    pick_list_batch_update,
+    pick_list_create,
+    pick_list_create_simple,
+    pick_list_get_all,
+    pick_list_get_details,
+    pick_list_update_item,
 )
 from .questionnaire import interaction_ask
 from .seo import (
@@ -127,12 +127,12 @@ __all__ = [
     "shell_python",
     # Browser
     # Picklists (user-owned structured lists)
-    "userlist_create",
-    "userlist_create_simple",
-    "userlist_get_all",
-    "userlist_get_details",
-    "userlist_update_item",
-    "userlist_batch_update",
+    "pick_list_create",
+    "pick_list_create_simple",
+    "pick_list_get_all",
+    "pick_list_get_details",
+    "pick_list_update_item",
+    "pick_list_batch_update",
     # SEO
     "seo_check_meta_titles",
     "seo_check_meta_descriptions",
@@ -146,14 +146,14 @@ __all__ = [
     # News
     "news_get_headlines",
     # Datasets (a person's tables, in the record store)
-    "usertable_get_all",
-    "usertable_get_metadata",
-    "usertable_get_fields",
-    "usertable_get_data",
-    "usertable_search_data",
-    "usertable_add_rows",
-    "usertable_update_row",
-    "usertable_delete_row",
+    "dataset_get_all",
+    "dataset_get_metadata",
+    "dataset_get_fields",
+    "dataset_get_data",
+    "dataset_search_data",
+    "dataset_add_rows",
+    "dataset_update_row",
+    "dataset_delete_row",
     # Interaction
     "interaction_ask",
     # Tool Component Agent

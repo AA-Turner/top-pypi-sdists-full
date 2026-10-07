@@ -1,12 +1,11 @@
 use std::borrow::Cow;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use crate::Formatter;
 use crate::core::config::FluffConfig;
-use crate::core::linter::common::{BatchRenderedResult, ParsedString, RenderedFile};
+use crate::core::linter::common::{BatchRenderedResult, ParsedString, ParsedVariant, RenderedFile};
+use crate::core::linter::discovery::paths_from_path;
 use crate::core::linter::linted_file::LintedFile;
 use crate::core::linter::linting_result::LintingResult;
 use crate::core::rules::noqa::IgnoreMask;
@@ -22,18 +21,17 @@ use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use sqruff_lib_core::errors::{
     SQLBaseError, SQLFluffUserError, SQLLexError, SQLLintError, SQLParseError, SQLTemplaterError,
 };
-use sqruff_lib_core::helpers;
 use sqruff_lib_core::linter::compute_anchor_edit_info;
 use sqruff_lib_core::parser::Parser;
 use sqruff_lib_core::parser::segments::{ErasedSegment, Tables};
 use sqruff_lib_core::templaters::TemplatedFile;
-use walkdir::WalkDir;
+use sqruff_lib_core::value::Value;
 
 pub struct Linter {
     config: FluffConfig,
     formatter: Option<Arc<dyn Formatter>>,
     templater: &'static dyn Templater,
-    rules: OnceLock<Vec<ErasedRule>>,
+    rulepack: OnceLock<RulePack>,
 
     /// include_parse_errors is a flag to indicate whether to include parse errors in the output
     include_parse_errors: bool,
@@ -54,7 +52,7 @@ impl Linter {
             config,
             formatter,
             templater,
-            rules: OnceLock::new(),
+            rulepack: OnceLock::new(),
             include_parse_errors,
         })
     }
@@ -80,10 +78,38 @@ impl Linter {
         sql: &str,
         filename: Option<String>,
     ) -> Result<ParsedString, SQLFluffUserError> {
-        let f_name = filename.unwrap_or_else(|| "<string>".to_string());
+        if let Some(linter) = self.with_inline_config(sql)? {
+            return linter.parse_string_with_config(tables, sql, filename);
+        }
+        self.parse_string_with_config(tables, sql, filename)
+    }
 
-        // Scan the raw file for config commands.
-        self.config.process_raw_file_for_config(sql);
+    fn with_inline_config(&self, sql: &str) -> Result<Option<Self>, SQLFluffUserError> {
+        if !sql.lines().any(|line| {
+            let line = line.trim();
+            line.starts_with("-- sqlfluff:") || line.starts_with("-- sqruff:")
+        }) {
+            return Ok(None);
+        }
+        let mut config = self.config.clone();
+        config.process_raw_file_for_config(sql)?;
+        Self::new(
+            config,
+            self.formatter.clone(),
+            None,
+            self.include_parse_errors,
+        )
+        .map(Some)
+        .map_err(SQLFluffUserError::new)
+    }
+
+    fn parse_string_with_config(
+        &self,
+        tables: &Tables,
+        sql: &str,
+        filename: Option<String>,
+    ) -> Result<ParsedString, SQLFluffUserError> {
+        let f_name = filename.unwrap_or_else(|| "<string>".to_string());
         let rendered = self.render_string(sql, f_name.clone(), &self.config)?;
 
         Ok(self.parse_rendered(tables, rendered))
@@ -96,20 +122,31 @@ impl Linter {
         filename: Option<String>,
         fix: bool,
     ) -> Result<LintedFile, SQLFluffUserError> {
+        let scoped = self.with_inline_config(sql)?;
+        let linter = scoped.as_ref().unwrap_or(self);
         let tables = Tables::default();
-        let parsed = self.parse_string(&tables, sql, filename)?;
-
-        // Lint the file and return the LintedFile
-        self.lint_parsed(&tables, parsed, fix)
+        let parsed = linter.parse_string_with_config(&tables, sql, filename)?;
+        linter.lint_parsed(&tables, parsed, fix)
     }
 
     /// ignorer is an optional argument that takes in a function that returns a bool based on the
     /// path passed to it. If the function returns true, the path is ignored.
     pub fn lint_paths(
         &mut self,
+        paths: Vec<PathBuf>,
+        fix: bool,
+        ignorer: &(dyn Fn(&Path) -> bool + Send + Sync),
+    ) -> Result<LintingResult, SQLFluffUserError> {
+        self.lint_paths_with_ignore_files(paths, fix, ignorer, true)
+    }
+
+    /// Lint paths, optionally applying ignore files during discovery.
+    pub fn lint_paths_with_ignore_files(
+        &mut self,
         mut paths: Vec<PathBuf>,
         fix: bool,
         ignorer: &(dyn Fn(&Path) -> bool + Send + Sync),
+        ignore_files: bool,
     ) -> Result<LintingResult, SQLFluffUserError> {
         if paths.is_empty() {
             paths.push(std::env::current_dir().unwrap());
@@ -118,18 +155,15 @@ impl Linter {
         let mut expanded_paths = Vec::new();
 
         for path in paths {
-            if path.is_file() {
-                expanded_paths.push(path.to_string_lossy().to_string());
-            } else {
-                expanded_paths.extend(self.paths_from_path(
-                    path,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(ignorer),
-                ));
-            };
+            expanded_paths.extend(paths_from_path(
+                path,
+                None,
+                None,
+                Some(ignore_files),
+                None,
+                self.config.sql_file_exts(),
+                Some(ignorer),
+            ));
         }
 
         let paths: Vec<String> = expanded_paths
@@ -145,6 +179,17 @@ impl Linter {
                 !should_ignore
             })
             .collect_vec();
+
+        let mut files_skipped = 0;
+        let mut selected_paths = Vec::with_capacity(paths.len());
+        for path in paths {
+            if !self.skip_large_file(&path)? {
+                selected_paths.push(path);
+            } else {
+                files_skipped += 1;
+            }
+        }
+        let paths = selected_paths;
 
         let mut files = Vec::with_capacity(paths.len());
 
@@ -171,6 +216,7 @@ impl Linter {
                             files.push(self.lint_rendered(rendered, fix)?);
                         }
                         BatchRenderedResult::Skipped { filename, reason } => {
+                            files_skipped += 1;
                             if let Some(formatter) = &self.formatter {
                                 formatter.dispatch_file_skip(&filename, &reason);
                             }
@@ -186,7 +232,73 @@ impl Linter {
             }
         }
 
-        Ok(LintingResult::new(files))
+        Ok(LintingResult::new_with_files_skipped(files, files_skipped))
+    }
+
+    fn skip_large_file(&self, path: &str) -> Result<bool, SQLFluffUserError> {
+        let byte_limit = self.large_file_limit("large_file_skip_byte_limit")?;
+        if let Some(limit) = byte_limit {
+            let size = std::fs::metadata(path)
+                .map_err(|error| {
+                    SQLFluffUserError::new(format!("Cannot read file size for {path}: {error}"))
+                })?
+                .len();
+            if i128::from(size) > limit {
+                let reason = format!(
+                    "File is {size} bytes, exceeding large_file_skip_byte_limit of {limit} bytes."
+                );
+                log::warn!("Skipping {path}: {reason}");
+                if let Some(formatter) = &self.formatter {
+                    formatter.dispatch_file_skip(path, &reason);
+                }
+                return Ok(true);
+            }
+        }
+
+        let char_limit = self.large_file_limit("large_file_skip_char_limit")?;
+        if let Some(limit) = char_limit {
+            log::warn!(
+                "The config value large_file_skip_char_limit is deprecated; use the more \
+                 efficient large_file_skip_byte_limit instead."
+            );
+            let contents = std::fs::read_to_string(path).map_err(|error| {
+                SQLFluffUserError::new(format!("Cannot read file contents for {path}: {error}"))
+            })?;
+            let size = contents.chars().count();
+            if size as i128 > limit {
+                let reason = format!(
+                    "File is {size} characters, exceeding large_file_skip_char_limit of {limit} \
+                     characters."
+                );
+                log::warn!("Skipping {path}: {reason}");
+                if let Some(formatter) = &self.formatter {
+                    formatter.dispatch_file_skip(path, &reason);
+                }
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    fn large_file_limit(&self, key: &str) -> Result<Option<i128>, SQLFluffUserError> {
+        let value = &self.config.raw["core"][key];
+        if !value.to_bool() {
+            return Ok(None);
+        }
+        let invalid = || {
+            SQLFluffUserError::new(format!(
+                "{key} cannot be converted to an integer: {value:?}"
+            ))
+        };
+        let limit = match value {
+            Value::Int(value) => i128::from(*value),
+            Value::String(value) => value.trim().parse::<i128>().map_err(|_| invalid())?,
+            Value::Bool(value) => i128::from(*value),
+            Value::Float(value) if value.is_finite() => value.trunc() as i128,
+            _ => return Err(invalid()),
+        };
+        Ok(Some(limit))
     }
 
     pub fn get_rulepack(&self) -> Result<RulePack, SQLFluffUserError> {
@@ -210,6 +322,7 @@ impl Linter {
                         None,
                     )
                     .expect("Creating raw TemplatedFile should not fail"),
+                    alternate_templated_files: Vec::new(),
                     templater_violations: vec![SQLTemplaterError::new(format!(
                         "Failed to template file {fname}: {err}"
                     ))],
@@ -245,6 +358,7 @@ impl Linter {
                             None,
                         )
                         .expect("Creating raw TemplatedFile should not fail"),
+                        alternate_templated_files: Vec::new(),
                         templater_violations: vec![],
                         filename: fname.clone(),
                         source_str,
@@ -270,18 +384,44 @@ impl Linter {
             .collect();
 
         // Process all files in batch
-        let results = self
-            .templater
-            .process(&file_refs, &self.config, &self.formatter);
+        let results =
+            self.templater
+                .process_with_variants(&file_refs, &self.config, &self.formatter);
 
         // Convert results to BatchRenderedResults, preserving order
         results
             .into_iter()
             .zip(files.iter())
             .map(|(result, (source_str, fname))| match result {
-                Ok(templated_file) => BatchRenderedResult::Rendered(RenderedFile {
-                    templated_file,
-                    templater_violations: vec![],
+                Ok(mut templated_files) if !templated_files.is_empty() => {
+                    let variant_limit = self
+                        .config
+                        .get("render_variant_limit", "core")
+                        .as_int()
+                        .unwrap_or(5)
+                        .max(1) as usize;
+                    templated_files.truncate(variant_limit);
+                    BatchRenderedResult::Rendered(RenderedFile {
+                        templated_file: templated_files.remove(0),
+                        alternate_templated_files: templated_files,
+                        templater_violations: vec![],
+                        filename: fname.clone(),
+                        source_str: source_str.clone(),
+                    })
+                }
+                Ok(_) => BatchRenderedResult::Rendered(RenderedFile {
+                    templated_file: TemplatedFile::new(
+                        source_str.clone(),
+                        fname.clone(),
+                        None,
+                        None,
+                        None,
+                    )
+                    .expect("Creating raw TemplatedFile should not fail"),
+                    alternate_templated_files: Vec::new(),
+                    templater_violations: vec![SQLTemplaterError::new(format!(
+                        "Templater returned no variants for file {fname}"
+                    ))],
                     filename: fname.clone(),
                     source_str: source_str.clone(),
                 }),
@@ -307,6 +447,7 @@ impl Linter {
                             None,
                         )
                         .expect("Creating raw TemplatedFile should not fail"),
+                        alternate_templated_files: Vec::new(),
                         templater_violations: vec![SQLTemplaterError::new(format!(
                             "Failed to template file {fname}: {err}"
                         ))],
@@ -334,34 +475,105 @@ impl Linter {
         parsed_string: ParsedString,
         fix: bool,
     ) -> Result<LintedFile, SQLFluffUserError> {
-        let mut violations = parsed_string.violations;
-
-        let (patches, ignore_mask, initial_linting_errors) = match parsed_string.tree {
-            Some(erased_segment) => {
-                let (tree, ignore_mask, initial_linting_errors) = self.lint_fix_parsed(
-                    tables,
-                    erased_segment,
-                    &parsed_string.templated_file,
-                    fix,
-                )?;
-                let patches = tree.iter_patches(&parsed_string.templated_file);
-                (patches, ignore_mask, initial_linting_errors)
-            }
-            None => (Vec::new(), None, Vec::new()),
+        let tree_is_unparsable = |tree: &ErasedSegment| {
+            tree.is_type(SyntaxKind::Unparsable)
+                || tree.descendant_type_set().contains(SyntaxKind::Unparsable)
         };
-        violations.extend(initial_linting_errors.into_iter().map_into());
+        let ParsedString {
+            tree,
+            violations: primary_violations,
+            templated_file,
+            filename,
+            alternate_variants,
+            ..
+        } = parsed_string;
+        let mut variants = vec![ParsedVariant {
+            tree,
+            violations: primary_violations,
+            templated_file,
+        }];
+        variants.extend(alternate_variants);
+
+        // The first variant with a parse tree is the root. Parse errors from
+        // other branches must not invalidate it.
+        let root_index = variants.iter().position(|variant| variant.tree.is_some());
+        let has_parse_or_templating_errors = root_index.is_none_or(|index| {
+            !variants[index].violations.is_empty()
+                || variants[index]
+                    .tree
+                    .as_ref()
+                    .is_some_and(tree_is_unparsable)
+        });
+        let mut source_patch_buffers = Vec::new();
+        let (templated_file, mut violations, ignore_mask) = if let Some(root_index) = root_index {
+            let root = variants.remove(root_index);
+            let tree = root.tree.expect("Root variant must have a parse tree");
+            let (fixed_tree, ignore_mask, linting_errors) =
+                self.lint_fix_parsed(tables, tree, &root.templated_file, fix)?;
+            let mut violations = root.violations;
+            violations.extend(linting_errors.into_iter().map_into());
+            if fix {
+                source_patch_buffers.push(LintedFile::generate_source_patches(
+                    fixed_tree.iter_patches(&root.templated_file),
+                    &root.templated_file,
+                ));
+            }
+
+            for alternate in variants {
+                if let Some(tree) = alternate.tree {
+                    let (fixed_tree, _, linting_errors) =
+                        self.lint_fix_parsed(tables, tree, &alternate.templated_file, fix)?;
+                    violations.extend(linting_errors.into_iter().map_into());
+                    if fix {
+                        source_patch_buffers.push(LintedFile::generate_source_patches(
+                            fixed_tree.iter_patches(&alternate.templated_file),
+                            &alternate.templated_file,
+                        ));
+                    }
+                }
+            }
+            (root.templated_file, violations, ignore_mask)
+        } else {
+            let primary = variants.remove(0);
+            let mut violations = primary.violations;
+            for alternate in variants {
+                violations.extend(alternate.violations);
+            }
+            (primary.templated_file, violations, None)
+        };
+        let patches = LintedFile::merge_source_patches(source_patch_buffers);
 
         // Filter violations with ignore mask
         if let Some(ignore_mask) = &ignore_mask {
-            violations.retain(|violation| !ignore_mask.is_masked(violation, None));
+            violations.retain(|violation| !ignore_mask.is_masked(violation, None, true));
         }
 
-        // TODO Need to error out unused noqas
+        // Surface warnings for `-- noqa:` directives that never masked anything,
+        // when `warn_unused_ignores` is enabled.
+        let warn_unused_ignores = self
+            .config
+            .get("warn_unused_ignores", "core")
+            .as_bool()
+            .unwrap_or(false);
+        if warn_unused_ignores && let Some(ignore_mask) = &ignore_mask {
+            violations.extend(ignore_mask.generate_warnings_for_unused());
+        }
+
+        let warnings = self
+            .config
+            .get("warnings", "core")
+            .as_array()
+            .unwrap_or_default();
+        for violation in &mut violations {
+            violation.warning_if_in(warnings.iter().filter_map(|warning| warning.as_string()));
+        }
+
         let linted_file = LintedFile::new(
-            parsed_string.filename,
+            filename,
             patches,
-            parsed_string.templated_file,
+            templated_file,
             violations,
+            has_parse_or_templating_errors,
             ignore_mask,
         );
 
@@ -390,7 +602,14 @@ impl Linter {
 
         // If we are fixing then we want to loop up to the runaway_limit, otherwise just
         // once for linting.
-        let loop_limit = if fix { 10 } else { 1 };
+        let loop_limit = if fix {
+            self.config
+                .get("runaway_limit", "core")
+                .as_int()
+                .expect("runaway_limit must be validated") as usize
+        } else {
+            1
+        };
         // Look for comment segments which might indicate lines to ignore.
         let (ignore_mask, violations): (Option<IgnoreMask>, Vec<SQLBaseError>) = {
             let disable_noqa = self
@@ -398,10 +617,19 @@ impl Linter {
                 .get("disable_noqa", "core")
                 .as_bool()
                 .unwrap_or(false);
-            if disable_noqa {
+            let disable_noqa_except = self
+                .config
+                .get("disable_noqa_except", "core")
+                .as_string()
+                .filter(|value| !value.is_empty());
+            if disable_noqa && disable_noqa_except.is_none() {
                 (None, Vec::new())
             } else {
-                let (ignore_mask, errors) = IgnoreMask::from_tree(&tree);
+                let reference_map = Self::allowed_rule_ref_map(
+                    self.rulepack()?.reference_map(),
+                    disable_noqa_except,
+                );
+                let (ignore_mask, errors) = IgnoreMask::from_tree(&tree, &reference_map);
                 (Some(ignore_mask), errors)
             }
         };
@@ -416,6 +644,11 @@ impl Linter {
             .get("ignore_templated_areas", "core")
             .as_bool()
             .unwrap_or(true);
+        let fix_even_unparsable = self
+            .config
+            .get("fix_even_unparsable", "core")
+            .as_bool()
+            .unwrap_or(false);
 
         let mut anchor_info = HashMap::default();
 
@@ -470,10 +703,11 @@ impl Linter {
                             // matching SQLFluff's `remove_templated_errors`.
                             let suppress_templated_violation = ignore_templated_areas
                                 && !rule.targets_templated()
-                                && result.anchor_in_templated_section();
+                                && result.anchor_in_templated_section()
+                                && !result.anchor_in_semantically_literal_templated_section();
 
                             if ignore_mask.as_ref().is_none_or(|ignore_mask| {
-                                !ignore_mask.is_masked(&result, rule.into())
+                                !ignore_mask.is_masked(&result, rule.into(), is_first_linter_pass)
                             }) {
                                 if !suppress_templated_violation
                                     || (fix && !result.fixes.is_empty())
@@ -506,7 +740,22 @@ impl Linter {
                     }
 
                     if fix && !anchor_info.is_empty() {
-                        let (new_tree, _, _) = tree.apply_fixes(&mut anchor_info);
+                        let parser: Parser = (&self.config).into();
+                        let mut parse_context = (&parser).into();
+                        let (new_tree, _, _, valid) = tree.apply_fixes_with_options(
+                            &mut anchor_info,
+                            &mut parse_context,
+                            fix_even_unparsable,
+                        );
+                        if !valid {
+                            log::warn!(
+                                "Fixes for {} not applied, as they would result in an unparsable \
+                                 file. Please report this as a bug with a minimal query which \
+                                 demonstrates this warning.",
+                                rule.code(),
+                            );
+                            continue;
+                        }
                         let has_source_fixes = !new_tree.get_all_source_fixes().is_empty();
 
                         // For loop detection, we check raw and whether we have source_fixes.
@@ -545,21 +794,33 @@ impl Linter {
         }
 
         let templater_violations = vec![];
-        let mut results = self.templater.process(
+        let mut results = self.templater.process_with_variants(
             &[(sql.as_ref(), filename.as_str())],
             config,
             &self.formatter,
         );
 
         match results.pop() {
-            Some(Ok(templated_file)) => Ok(RenderedFile {
-                templated_file,
-                templater_violations,
-                filename,
-                source_str: sql.to_string(),
-            }),
+            Some(Ok(mut templated_files)) if !templated_files.is_empty() => {
+                let variant_limit = config
+                    .get("render_variant_limit", "core")
+                    .as_int()
+                    .unwrap_or(5)
+                    .max(1) as usize;
+                templated_files.truncate(variant_limit);
+                Ok(RenderedFile {
+                    templated_file: templated_files.remove(0),
+                    alternate_templated_files: templated_files,
+                    templater_violations,
+                    filename,
+                    source_str: sql.to_string(),
+                })
+            }
             Some(Err(err)) => Err(SQLFluffUserError::new(format!(
                 "Failed to template file {filename} with error {err:?}"
+            ))),
+            Some(Ok(_)) => Err(SQLFluffUserError::new(format!(
+                "Templater returned no variants for file {filename}"
             ))),
             None => Err(SQLFluffUserError::new(format!(
                 "Templater returned no results for file {filename}"
@@ -585,19 +846,39 @@ impl Linter {
                 templated_file: rendered.templated_file,
                 filename: rendered.filename,
                 source_str: rendered.source_str,
+                config: self.config.clone(),
+                alternate_variants: Vec::new(),
             };
         }
 
+        let alternate_variants = rendered
+            .alternate_templated_files
+            .into_iter()
+            .map(|templated_file| self.parse_templated_variant(tables, templated_file))
+            .collect();
+        let primary = self.parse_templated_variant(tables, rendered.templated_file);
+
+        ParsedString {
+            tree: primary.tree,
+            violations: primary.violations,
+            templated_file: primary.templated_file,
+            filename: rendered.filename,
+            source_str: rendered.source_str,
+            config: self.config.clone(),
+            alternate_variants,
+        }
+    }
+
+    fn parse_templated_variant(
+        &self,
+        tables: &Tables,
+        templated_file: TemplatedFile,
+    ) -> ParsedVariant {
         let mut violations = Vec::new();
-        let tokens = if rendered.templated_file.is_templated() {
-            let (t, lvs) = Self::lex_templated_file(
-                tables,
-                rendered.templated_file.clone(),
-                &self.config.dialect,
-            );
-            if !lvs.is_empty() {
-                unimplemented!("violations.extend(lvs);")
-            }
+        let tokens = if templated_file.is_templated() {
+            let (t, lvs) =
+                Self::lex_templated_file(tables, templated_file.clone(), &self.config.dialect);
+            violations.extend(lvs.into_iter().map_into());
             t
         } else {
             None
@@ -613,12 +894,10 @@ impl Linter {
             parsed = None;
         };
 
-        ParsedString {
+        ParsedVariant {
             tree: parsed,
             violations,
-            templated_file: rendered.templated_file,
-            filename: rendered.filename,
-            source_str: rendered.source_str,
+            templated_file,
         }
     }
 
@@ -633,7 +912,10 @@ impl Linter {
 
         let parsed = match parser.parse(tables, tokens) {
             Ok(parsed) => parsed,
-            Err(error) => {
+            Err(mut error) => {
+                if error.segment.is_none() {
+                    error.segment = tokens.iter().find(|segment| segment.is_code()).cloned();
+                }
                 violations.push(error);
                 None
             }
@@ -683,189 +965,60 @@ impl Linter {
         lazy_regex::regex!("\r\n|\r").replace_all(string, "\n")
     }
 
-    // Return a set of sql file paths from a potentially more ambiguous path string.
-    // Here we also deal with the .sqlfluffignore file if present.
-    // When a path to a file to be linted is explicitly passed
-    // we look for ignore files in all directories that are parents of the file,
-    // up to the current directory.
-    // If the current directory is not a parent of the file we only
-    // look for an ignore file in the direct parent of the file.
-    fn paths_from_path(
-        &self,
-        path: PathBuf,
-        ignore_file_name: Option<String>,
-        ignore_non_existent_files: Option<bool>,
-        ignore_files: Option<bool>,
-        working_path: Option<String>,
-        ignorer: Option<&(dyn Fn(&Path) -> bool + Send + Sync)>,
-    ) -> Vec<String> {
-        let ignore_file_name = ignore_file_name.unwrap_or_else(|| String::from(".sqlfluffignore"));
-        let ignore_non_existent_files = ignore_non_existent_files.unwrap_or(false);
-        let ignore_files = ignore_files.unwrap_or(true);
-        let _working_path =
-            working_path.unwrap_or_else(|| std::env::current_dir().unwrap().display().to_string());
-
-        let Ok(metadata) = std::fs::metadata(&path) else {
-            if ignore_non_existent_files {
-                return Vec::new();
-            } else {
-                panic!("Specified path does not exist. Check it/they exist(s): {path:?}");
-            }
-        };
-
-        // Files referred to exactly are also ignored if
-        // matched, but we warn the users when that happens
-        let is_exact_file = metadata.is_file();
-
-        let mut path_walk = if is_exact_file {
-            let path = Path::new(&path);
-            let dirpath = path.parent().unwrap().to_str().unwrap().to_string();
-            let files = vec![path.file_name().unwrap().to_str().unwrap().to_string()];
-            vec![(dirpath, None, files)]
-        } else {
-            let walkdir = WalkDir::new(&path);
-            let entries: Vec<_> = if let Some(ignorer) = ignorer {
-                // Apply ignorer during traversal to skip ignored directories entirely
-                walkdir
-                    .into_iter()
-                    .filter_entry(|entry| {
-                        let should_ignore = ignorer(entry.path());
-                        if should_ignore {
-                            let path_type = if entry.file_type().is_dir() {
-                                "directory"
-                            } else {
-                                "file"
-                            };
-                            log::debug!(
-                                "Skipping {} '{}' during file discovery traversal",
-                                path_type,
-                                entry.path().display()
-                            );
-                        }
-                        !should_ignore
-                    })
-                    .filter_map(Result::ok)
-                    .collect()
-            } else {
-                // No ignorer provided, use original behavior
-                walkdir.into_iter().filter_map(Result::ok).collect()
-            };
-
-            // Group entries by directory to maintain the original data structure
-            let mut dir_files: HashMap<String, Vec<String>> = HashMap::new();
-
-            for entry in entries {
-                if entry.file_type().is_file() {
-                    let dirpath = entry.path().parent().unwrap().to_str().unwrap().to_string();
-                    let filename = entry.file_name().to_str().unwrap().to_string();
-                    dir_files.entry(dirpath).or_default().push(filename);
-                }
-            }
-
-            dir_files
-                .into_iter()
-                .map(|(dirpath, files)| (dirpath, None, files))
-                .collect_vec()
-        };
-
-        // TODO:
-        // let ignore_file_paths = ConfigLoader.find_ignore_config_files(
-        //     path=path, working_path=working_path, ignore_file_name=ignore_file_name
-        // );
-        let ignore_file_paths: Vec<String> = Vec::new();
-
-        // Add paths that could contain "ignore files"
-        // to the path_walk list
-        let path_walk_ignore_file: Vec<(String, Option<()>, Vec<String>)> = ignore_file_paths
-            .iter()
-            .map(|ignore_file_path| {
-                let ignore_file_path = Path::new(ignore_file_path);
-
-                // Extracting the directory name from the ignore file path
-                let dir_name = ignore_file_path
-                    .parent()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-
-                // Only one possible file, since we only
-                // have one "ignore file name"
-                let file_name = vec![
-                    ignore_file_path
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string(),
-                ];
-
-                (dir_name, None, file_name)
-            })
-            .collect();
-
-        path_walk.extend(path_walk_ignore_file);
-
-        let mut buffer = Vec::new();
-        let mut ignores = HashMap::new();
-        let sql_file_exts = self.config.sql_file_exts();
-
-        for (dirpath, _, filenames) in path_walk {
-            for fname in filenames {
-                let fpath = Path::new(&dirpath).join(&fname);
-
-                // Handle potential .sqlfluffignore files
-                if ignore_files && fname == ignore_file_name {
-                    let file = File::open(&fpath).unwrap();
-                    let lines = BufReader::new(file).lines();
-                    let spec = lines.map_while(Result::ok); // Simple placeholder for pathspec logic
-                    ignores.insert(dirpath.clone(), spec.collect::<Vec<String>>());
-
-                    // We don't need to process the ignore file any further
-                    continue;
-                }
-
-                // We won't purge files *here* because there's an edge case
-                // that the ignore file is processed after the sql file.
-
-                // Scan for remaining files
-                for ext in sql_file_exts {
-                    // is it a sql file?
-                    if fname.to_lowercase().ends_with(ext) {
-                        buffer.push(fpath.clone());
-                    }
-                }
-            }
-        }
-
-        let mut filtered_buffer = HashSet::new();
-
-        for fpath in buffer {
-            let npath = helpers::normalize(&fpath).to_str().unwrap().to_string();
-            filtered_buffer.insert(npath);
-        }
-
-        let mut files = filtered_buffer.into_iter().collect_vec();
-        files.sort();
-        files
-    }
-
     pub fn config(&self) -> &FluffConfig {
         &self.config
     }
 
     pub fn config_mut(&mut self) -> &mut FluffConfig {
-        self.rules = OnceLock::new();
+        self.rulepack = OnceLock::new();
         &mut self.config
     }
 
-    pub fn rules(&self) -> Result<&[ErasedRule], SQLFluffUserError> {
-        if let Some(rules) = self.rules.get() {
-            return Ok(rules);
+    fn rulepack(&self) -> Result<&RulePack, SQLFluffUserError> {
+        if let Some(rulepack) = self.rulepack.get() {
+            return Ok(rulepack);
         }
-        let rulepack = self.get_rulepack()?;
-        let _ = self.rules.set(rulepack.rules);
-        Ok(self.rules.get().unwrap())
+        let _ = self.rulepack.set(self.get_rulepack()?);
+        Ok(self.rulepack.get().unwrap())
+    }
+
+    pub fn rules(&self) -> Result<&[ErasedRule], SQLFluffUserError> {
+        Ok(&self.rulepack()?.rules)
+    }
+
+    pub fn allowed_rule_ref_map(
+        reference_map: &HashMap<&'static str, HashSet<&'static str>>,
+        disable_noqa_except: Option<&str>,
+    ) -> HashMap<&'static str, HashSet<&'static str>> {
+        let Some(disable_noqa_except) = disable_noqa_except else {
+            return reference_map.clone();
+        };
+
+        let mut output_map = reference_map.clone();
+        for special_rule in ["PRS", "LXR", "TMP"] {
+            output_map.insert(special_rule, HashSet::from([special_rule]));
+        }
+
+        let mut allowed_rules = HashSet::new();
+        for rule_ref in disable_noqa_except.split(',').map(str::trim) {
+            let pattern = glob::Pattern::new(rule_ref).ok();
+            for (reference, codes) in &output_map {
+                if pattern
+                    .as_ref()
+                    .is_some_and(|pattern| pattern.matches(reference))
+                {
+                    allowed_rules.extend(codes.iter().copied());
+                }
+            }
+        }
+
+        output_map
+            .into_iter()
+            .map(|(reference, codes)| {
+                let codes = codes.intersection(&allowed_rules).copied().collect();
+                (reference, codes)
+            })
+            .collect()
     }
 
     pub fn formatter(&self) -> Option<&Arc<dyn Formatter>> {
@@ -879,7 +1032,12 @@ impl Linter {
 
 #[cfg(test)]
 mod tests {
-    use sqruff_lib_core::parser::segments::Tables;
+    use hashbrown::HashMap;
+    use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
+    use sqruff_lib_core::lint_fix::LintFix;
+    use sqruff_lib_core::linter::compute_anchor_edit_info;
+    use sqruff_lib_core::parser::Parser;
+    use sqruff_lib_core::parser::segments::{SegmentBuilder, Tables};
 
     use crate::core::config::FluffConfig;
     use crate::core::linter::core::Linter;
@@ -897,109 +1055,73 @@ rules = all
         Linter::new(config, None, None, true).unwrap()
     }
 
-    fn normalise_paths(paths: Vec<String>) -> Vec<String> {
-        paths
-            .into_iter()
-            .map(|path| path.replace(['/', '\\'], "."))
-            .collect()
-    }
-
     #[test]
-    fn test_linter_path_from_paths_dir() {
-        // Test extracting paths from directories.
-        let lntr = Linter::new(
-            FluffConfig::new(<_>::default(), None, None),
-            None,
-            None,
-            false,
-        )
-        .unwrap();
-        let paths =
-            lntr.paths_from_path("test/fixtures/lexer".into(), None, None, None, None, None);
-        let expected = vec![
-            "test.fixtures.lexer.basic.sql",
-            "test.fixtures.lexer.block_comment.sql",
-            "test.fixtures.lexer.inline_comment.sql",
-        ];
-        assert_eq!(normalise_paths(paths), expected);
-    }
+    fn large_file_limit_accepts_numeric_strings_and_rejects_invalid_values() {
+        use sqruff_lib_core::value::Value;
 
-    #[test]
-    fn test_linter_path_from_paths_default() {
-        // Test .sql files are found by default.
-        let lntr = Linter::new(
-            FluffConfig::new(<_>::default(), None, None),
-            None,
-            None,
-            false,
-        )
-        .unwrap();
-        let paths = normalise_paths(lntr.paths_from_path(
-            "test/fixtures/linter".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
+        let path = std::env::temp_dir().join(format!(
+            "sqruff-large-file-limit-{}.sql",
+            std::process::id()
         ));
-        assert!(paths.contains(&"test.fixtures.linter.passing.sql".to_string()));
-        assert!(paths.contains(&"test.fixtures.linter.passing_cap_extension.SQL".to_string()));
-        assert!(!paths.contains(&"test.fixtures.linter.discovery_file.txt".to_string()));
+        std::fs::write(&path, "SELECT 1\n").unwrap();
+        let size = std::fs::metadata(&path).unwrap().len() as i32;
+        let cases = [
+            (Value::Int(0), Some(false)),
+            (Value::None, Some(false)),
+            (Value::Int(200), Some(false)),
+            (Value::String("200".into()), Some(false)),
+            (Value::String("Not a Valid value".into()), None),
+            (Value::String("None".into()), None),
+            (Value::Array(vec![Value::Int(1)]), None),
+            (Value::Int(size), Some(false)),
+            (Value::String(size.to_string().into()), Some(false)),
+            (Value::Int(size - 1), Some(true)),
+            (Value::Int(-1), Some(true)),
+        ];
+        for (value, expected) in cases {
+            let mut config = FluffConfig::from_source("[sqruff]\ndialect = ansi\n", None);
+            config
+                .raw
+                .get_mut("core")
+                .unwrap()
+                .as_map_mut()
+                .unwrap()
+                .insert("large_file_skip_byte_limit".into(), value.clone());
+            let mut linter = Linter::new(config, None, None, false).unwrap();
+            let result = linter.lint_paths(vec![path.clone()], false, &|_| false);
+            match expected {
+                Some(skip) => {
+                    let result = result.unwrap();
+                    assert_eq!(result.len(), usize::from(!skip), "{value:?}");
+                    assert_eq!(result.files_skipped(), usize::from(skip), "{value:?}");
+                }
+                None => assert!(result.is_err(), "{value:?}"),
+            }
+        }
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
-    fn test_linter_path_from_paths_exts() {
-        // Assuming Linter is initialized with a configuration similar to Python's
-        // FluffConfig
-        let config =
-            FluffConfig::new(<_>::default(), None, None).with_sql_file_exts(vec![".txt".into()]);
-        let lntr = Linter::new(config, None, None, false).unwrap();
-
-        let paths =
-            lntr.paths_from_path("test/fixtures/linter".into(), None, None, None, None, None);
-
-        // Normalizing paths as in the Python version
-        let normalized_paths = normalise_paths(paths);
-
-        // Assertions as per the Python test
-        assert!(!normalized_paths.contains(&"test.fixtures.linter.passing.sql".into()));
-        assert!(
-            !normalized_paths.contains(&"test.fixtures.linter.passing_cap_extension.SQL".into())
+    fn large_file_character_limit_tracks_skipped_files() {
+        let path = std::env::temp_dir().join(format!(
+            "sqruff-large-file-character-limit-{}.sql",
+            std::process::id()
+        ));
+        std::fs::write(&path, "SELECT 1\n").unwrap();
+        let config = FluffConfig::from_source(
+            "[sqruff]\ndialect = ansi\nlarge_file_skip_byte_limit = 0\nlarge_file_skip_char_limit = 5\n",
+            None,
         );
-        assert!(normalized_paths.contains(&"test.fixtures.linter.discovery_file.txt".into()));
+        let mut linter = Linter::new(config, None, None, false).unwrap();
+        let result = linter
+            .lint_paths(vec![path.clone()], false, &|_| false)
+            .unwrap();
+
+        assert_eq!(result.len(), 0);
+        assert_eq!(result.files_skipped(), 1);
+        std::fs::remove_file(path).unwrap();
     }
 
-    #[test]
-    fn test_linter_path_from_paths_file() {
-        let lntr = Linter::new(
-            FluffConfig::new(<_>::default(), None, None),
-            None,
-            None,
-            false,
-        )
-        .unwrap();
-        let paths = lntr.paths_from_path(
-            "test/fixtures/linter/indentation_errors.sql".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
-
-        assert_eq!(
-            normalise_paths(paths),
-            &["test.fixtures.linter.indentation_errors.sql"]
-        );
-    }
-
-    // test__linter__skip_large_bytes
-    // test__linter__path_from_paths__not_exist
-    // test__linter__path_from_paths__not_exist_ignore
-    // test__linter__path_from_paths__explicit_ignore
-    // test__linter__path_from_paths__sqlfluffignore_current_directory
-    // test__linter__path_from_paths__dot
-    // test__linter__path_from_paths__ignore
     // test__linter__lint_string_vs_file
     // test__linter__get_violations_filter_rules
     // test__linter__linting_result__sum_dicts
@@ -1023,6 +1145,234 @@ rules = all
         let parsed = linter.parse_string(&tables, "", None).unwrap();
 
         assert!(parsed.violations.is_empty());
+    }
+
+    #[test]
+    fn max_parse_depth_rejects_deeply_nested_sql_with_an_anchor() {
+        let config =
+            FluffConfig::from_source("[sqruff]\ndialect = ansi\nmax_parse_depth = 100\n", None);
+        let linter = Linter::new(config, None, None, true).unwrap();
+        let sql = format!("SELECT {}1{}", "(".repeat(120), ")".repeat(120));
+        let parsed = linter.parse_string(&Tables::default(), &sql, None).unwrap();
+
+        let error = parsed
+            .violations
+            .iter()
+            .find(|error| error.description.contains("Maximum parse depth exceeded"))
+            .expect("expected a maximum parse depth violation");
+        assert!(error.description.contains("limit 100"));
+        assert!(error.line_no > 0);
+        assert!(error.line_pos > 0);
+    }
+
+    #[test]
+    fn default_max_parse_depth_allows_nested_tsql_function_calls() {
+        // SQLFluff #7805: ordinary nested calls can exceed the old 255-depth default.
+        let config = FluffConfig::from_source("[sqruff]\ndialect = tsql\n", None);
+        let linter = Linter::new(config, None, None, true).unwrap();
+        let sql = r#"CREATE FUNCTION [dbo].[fn_StringWithoutSpace]
+(
+    @string NVARCHAR(MAX)
+)
+RETURNS NVARCHAR(MAX)
+WITH INLINE = OFF
+AS
+BEGIN
+    RETURN (
+        SELECT LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(REPLACE(
+            @string,
+            CHAR(160), CHAR(32)),
+            CHAR(32),  '()'),
+            ')(',      ''),
+            '()',      CHAR(32))))
+    )
+END
+"#;
+        let parsed = linter.parse_string(&Tables::default(), sql, None).unwrap();
+
+        assert!(
+            parsed
+                .violations
+                .iter()
+                .all(|error| !error.description.contains("Maximum parse depth exceeded")),
+            "unexpected parse-depth violation: {:?}",
+            parsed.violations
+        );
+
+        let old_config =
+            FluffConfig::from_source("[sqruff]\ndialect = tsql\nmax_parse_depth = 255\n", None);
+        let old_linter = Linter::new(old_config, None, None, true).unwrap();
+        let old_result = old_linter
+            .parse_string(&Tables::default(), sql, None)
+            .unwrap();
+        assert!(
+            old_result
+                .violations
+                .iter()
+                .any(|error| error.description.contains("Maximum parse depth exceeded"))
+        );
+    }
+
+    #[test]
+    fn zero_max_parse_depth_disables_the_limit() {
+        let config =
+            FluffConfig::from_source("[sqruff]\ndialect = ansi\nmax_parse_depth = 0\n", None);
+        let parser: Parser = (&config).into();
+
+        assert_eq!(parser.max_parse_depth(), 0);
+    }
+
+    #[test]
+    fn max_parse_nodes_rejects_wide_sql_with_an_anchor() {
+        let config =
+            FluffConfig::from_source("[sqruff]\ndialect = ansi\nmax_parse_nodes = 300\n", None);
+        let linter = Linter::new(config, None, None, true).unwrap();
+        let expr = "x=x=x=x=x=x=x";
+        let sql = format!("SELECT {}", vec![expr; 80].join(","));
+        let parsed = linter.parse_string(&Tables::default(), &sql, None).unwrap();
+
+        let error = parsed
+            .violations
+            .iter()
+            .find(|error| {
+                error
+                    .description
+                    .contains("Maximum parse node count exceeded")
+            })
+            .expect("expected a maximum parse node violation");
+        assert!(error.description.contains("limit 300"));
+        assert!(error.line_no > 0);
+        assert!(error.line_pos > 0);
+    }
+
+    #[test]
+    fn max_parse_nodes_counts_tree_nodes_beyond_tokens() {
+        let config =
+            FluffConfig::from_source("[sqruff]\ndialect = ansi\nmax_parse_nodes = 6\n", None);
+        let linter = Linter::new(config, None, None, true).unwrap();
+        let parsed = linter
+            .parse_string(&Tables::default(), "SELECT 1", None)
+            .unwrap();
+        assert!(parsed.violations.iter().any(|error| {
+            error
+                .description
+                .contains("Maximum parse node count exceeded")
+        }));
+    }
+
+    #[test]
+    fn zero_max_parse_nodes_disables_the_limit() {
+        let config =
+            FluffConfig::from_source("[sqruff]\ndialect = ansi\nmax_parse_nodes = 0\n", None);
+        let parser: Parser = (&config).into();
+        assert_eq!(parser.max_parse_nodes(), 0);
+        let linter = Linter::new(config, None, None, true).unwrap();
+        let parsed = linter
+            .parse_string(&Tables::default(), "SELECT 1", None)
+            .unwrap();
+        assert!(!parsed.violations.iter().any(|error| {
+            error
+                .description
+                .contains("Maximum parse node count exceeded")
+        }));
+    }
+
+    #[test]
+    fn test_structural_fix_that_breaks_parsing_is_invalid() {
+        let config = FluffConfig::new(<_>::default(), None, None);
+        let linter = Linter::new(config, None, None, false).unwrap();
+        let tables = Tables::default();
+        let tree = linter
+            .parse_string(&tables, "SELECT 1 FROM a", None)
+            .unwrap()
+            .tree
+            .unwrap();
+        let numeric = tree
+            .recursive_crawl(
+                &SyntaxSet::single(SyntaxKind::NumericLiteral),
+                true,
+                &SyntaxSet::EMPTY,
+                true,
+            )
+            .into_iter()
+            .next()
+            .unwrap();
+        let replacement = vec![
+            SegmentBuilder::token(tables.next_id(), "1", SyntaxKind::NumericLiteral).finish(),
+            SegmentBuilder::whitespace(tables.next_id(), " "),
+            SegmentBuilder::token(tables.next_id(), "1", SyntaxKind::NumericLiteral).finish(),
+            SegmentBuilder::whitespace(tables.next_id(), " "),
+            SegmentBuilder::token(tables.next_id(), "1", SyntaxKind::NumericLiteral).finish(),
+        ];
+        let mut fixes = HashMap::new();
+        compute_anchor_edit_info(
+            &mut fixes,
+            vec![LintFix::replace(numeric, replacement, None)],
+        );
+        let parser: Parser = linter.config().into();
+        let mut parse_context = (&parser).into();
+
+        let (_, _, _, valid) = tree.apply_fixes(&mut fixes, &mut parse_context);
+
+        assert!(!valid);
+    }
+
+    #[test]
+    fn test_apply_fixes_respects_fix_even_unparsable() {
+        const SQL: &str = "SELECT\n    a as b,\n    42,\n    `multiple_x` as c\nfrom cte\n";
+
+        let apply_inside_unparsable = |fix_even_unparsable| {
+            let config = FluffConfig::from_source(
+                r#"
+[sqruff]
+dialect = ansi
+"#,
+                None,
+            );
+            let linter = Linter::new(config, None, None, true).unwrap();
+            let tables = Tables::default();
+            let tree = linter
+                .parse_string(&tables, SQL, None)
+                .unwrap()
+                .tree
+                .unwrap();
+            let unparsable = tree
+                .recursive_crawl(
+                    &SyntaxSet::single(SyntaxKind::Unparsable),
+                    true,
+                    &SyntaxSet::EMPTY,
+                    true,
+                )
+                .into_iter()
+                .next()
+                .unwrap();
+            let target = unparsable
+                .get_raw_segments()
+                .into_iter()
+                .find(|segment| segment.is_code())
+                .unwrap();
+            let replacement = SegmentBuilder::token(
+                tables.next_id(),
+                "fixed_unparsable_token",
+                target.get_type(),
+            )
+            .finish();
+            let mut fixes = HashMap::new();
+            compute_anchor_edit_info(
+                &mut fixes,
+                vec![LintFix::replace(target, vec![replacement], None)],
+            );
+            let parser: Parser = linter.config().into();
+            let mut parse_context = (&parser).into();
+            let (fixed, _, _, valid) =
+                tree.apply_fixes_with_options(&mut fixes, &mut parse_context, fix_even_unparsable);
+
+            assert!(valid);
+            fixed.raw().to_string()
+        };
+
+        assert_eq!(apply_inside_unparsable(false), SQL);
+        assert!(apply_inside_unparsable(true).contains("fixed_unparsable_token"));
     }
 
     // test__linter__mask_templated_violations
@@ -1096,6 +1446,7 @@ rules = all
                 None,
             )
             .unwrap(),
+            alternate_templated_files: Vec::new(),
             templater_violations: vec![SQLTemplaterError::new(
                 "Failed to template file: dbt project not found".to_string(),
             )],

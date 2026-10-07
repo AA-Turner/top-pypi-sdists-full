@@ -47,6 +47,58 @@ impl RuleRF01 {
         )
     }
 
+    fn get_implicit_targets(context: &RuleContext) -> Vec<Vec<SmolStr>> {
+        if context.dialect.name == DialectKind::Postgres {
+            for segment in context.parent_stack.iter().rev() {
+                if segment.is_type(SyntaxKind::CreatePolicyStatement)
+                    || segment.is_type(SyntaxKind::AlterPolicyStatement)
+                {
+                    let references = segment.recursive_crawl(
+                        &SyntaxSet::single(SyntaxKind::TableReference),
+                        true,
+                        &SyntaxSet::EMPTY,
+                        true,
+                    );
+                    if let Some(reference) = references.first() {
+                        return vec![
+                            reference
+                                .reference()
+                                .iter_raw_references()
+                                .into_iter()
+                                .map(|part| part.part.into())
+                                .collect(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        if context.dialect.name != DialectKind::Sqlite {
+            return Vec::new();
+        }
+
+        let Some(create_trigger) = context
+            .parent_stack
+            .iter()
+            .rev()
+            .find(|segment| segment.is_type(SyntaxKind::CreateTriggerStatement))
+        else {
+            return Vec::new();
+        };
+
+        for segment in create_trigger.segments() {
+            if segment.is_keyword("INSERT") {
+                return vec![vec!["new".into()]];
+            } else if segment.is_keyword("UPDATE") {
+                return vec![vec!["new".into()], vec!["old".into()]];
+            } else if segment.is_keyword("DELETE") {
+                return vec![vec!["old".into()]];
+            }
+        }
+
+        Vec::new()
+    }
+
     #[allow(clippy::only_used_in_recursion)]
     fn resolve_reference<'a>(
         &self,
@@ -55,6 +107,7 @@ impl RuleRF01 {
         dml_target_table: &[SmolStr],
         query: Query<'a>,
         payloads: &RF01State<'a>,
+        implicit_targets: &[Vec<SmolStr>],
     ) -> Option<LintResult> {
         let possible_references: Vec<_> = tbl_refs
             .clone()
@@ -101,6 +154,8 @@ impl RuleRF01 {
             return None;
         }
 
+        targets.extend(implicit_targets.iter().cloned());
+
         if !object_ref_matches_table(&possible_references, &targets) {
             if let Some(parent) = RefCell::borrow(&query.inner).parent.clone() {
                 return self.resolve_reference(
@@ -109,6 +164,7 @@ impl RuleRF01 {
                     dml_target_table,
                     parent,
                     payloads,
+                    implicit_targets,
                 );
             } else if dml_target_table.is_empty()
                 || !object_ref_matches_table(&possible_references, &[dml_target_table.to_vec()])
@@ -163,6 +219,7 @@ impl RuleRF01 {
         query: Query<'a>,
         dml_target_table: &[SmolStr],
         payloads: &mut RF01State<'a>,
+        implicit_targets: &[Vec<SmolStr>],
         violations: &mut Vec<LintResult>,
     ) {
         payloads.entry(query.id()).or_default();
@@ -188,6 +245,7 @@ impl RuleRF01 {
                             dml_target_table,
                             query.clone(),
                             payloads,
+                            implicit_targets,
                         );
                         violations.extend(violation);
                     }
@@ -198,7 +256,13 @@ impl RuleRF01 {
         RefCell::borrow_mut(&query.inner).selectables = selectables;
 
         for child in query.children() {
-            self.analyze_table_references(child, dml_target_table, payloads, violations);
+            self.analyze_table_references(
+                child,
+                dml_target_table,
+                payloads,
+                implicit_targets,
+                violations,
+            );
         }
     }
 
@@ -207,14 +271,60 @@ impl RuleRF01 {
         reference: &ObjectReferenceSegment,
         selectable: &Selectable,
     ) -> bool {
+        if Self::is_sequence_pseudocolumn(reference, selectable) {
+            return true;
+        }
+
         let ref_path = selectable.selectable.path_to(&reference.0);
 
         if !ref_path.is_empty() {
-            ref_path
-                .iter()
-                .any(|ps| ps.segment.is_type(SyntaxKind::IntoTableClause))
+            ref_path.iter().any(|ps| {
+                ps.segment.is_type(SyntaxKind::IntoTableClause)
+                    || ps.segment.is_type(SyntaxKind::ContainstableSegment)
+            })
         } else {
             false
+        }
+    }
+
+    /// Whether the reference is a dialect-specific pseudocolumn access.
+    ///
+    /// Oracle and Snowflake treat `sequence.NEXTVAL` and `sequence.CURRVAL`
+    /// (or `db.schema.sequence.NEXTVAL`) as sequence pseudocolumn access rather
+    /// than table/column access. Databricks and SparkSQL treat `_metadata` as a
+    /// virtual column for file-based data sources.
+    fn is_sequence_pseudocolumn(
+        reference: &ObjectReferenceSegment,
+        selectable: &Selectable,
+    ) -> bool {
+        let reference_parts = reference.iter_raw_references();
+        if reference_parts.len() < 2 {
+            return false;
+        }
+
+        match selectable.dialect.name {
+            DialectKind::Oracle | DialectKind::Snowflake => {
+                let last_part = reference_parts.last().unwrap();
+
+                // Quoted identifiers should still be treated as ordinary references.
+                last_part
+                    .segments
+                    .first()
+                    .is_some_and(|segment| segment.is_type(SyntaxKind::NakedIdentifier))
+                    && matches!(
+                        last_part.part.to_uppercase().as_str(),
+                        "NEXTVAL" | "CURRVAL"
+                    )
+            }
+            DialectKind::Databricks | DialectKind::Sparksql => {
+                let first_part = &reference_parts[0];
+                first_part
+                    .segments
+                    .first()
+                    .is_some_and(|segment| segment.is_type(SyntaxKind::NakedIdentifier))
+                    && first_part.part.eq_ignore_ascii_case("_metadata")
+            }
+            _ => false,
         }
     }
 }
@@ -271,6 +381,7 @@ FROM foo
         let query = Query::from_segment(&context.segment, context.dialect, None);
         let mut payloads = RF01State::default();
         let mut violations = Vec::new();
+        let implicit_targets = Self::get_implicit_targets(context);
         let tmp;
 
         let dml_target_table = if !context.segment.is_type(SyntaxKind::SelectStatement) {
@@ -296,7 +407,13 @@ FROM foo
             &[]
         };
 
-        self.analyze_table_references(query, dml_target_table, &mut payloads, &mut violations);
+        self.analyze_table_references(
+            query,
+            dml_target_table,
+            &mut payloads,
+            &implicit_targets,
+            &mut violations,
+        );
 
         violations
     }
@@ -314,5 +431,55 @@ FROM foo
         )
         .disallow_recurse()
         .into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sqruff_lib_core::parser::segments::Tables;
+    use sqruff_lib_core::utils::analysis::select::get_aliases_from_select;
+
+    use super::*;
+    use crate::core::config::FluffConfig;
+    use crate::core::linter::core::Linter;
+
+    #[test]
+    fn test_unnest_offset_aliases_are_collected_from_from_and_join() {
+        let config = FluffConfig::from_source("[sqruff]\ndialect = bigquery\n", None);
+        let linter = Linter::new(config, None, None, false).unwrap();
+        for sql in [
+            "SELECT ix, v FROM UNNEST([1, 2]) AS v WITH OFFSET AS ix",
+            "SELECT ix, v FROM t LEFT JOIN UNNEST(t.value_list) AS v WITH OFFSET AS ix",
+        ] {
+            let tables = Tables::default();
+            let parsed = linter.parse_string(&tables, sql, None).unwrap();
+            assert!(parsed.violations.is_empty());
+            let tree = parsed.tree.unwrap();
+            assert!(
+                tree.recursive_crawl(
+                    &SyntaxSet::single(SyntaxKind::Unparsable),
+                    true,
+                    &SyntaxSet::EMPTY,
+                    true,
+                )
+                .is_empty()
+            );
+            let select = tree
+                .recursive_crawl(
+                    &SyntaxSet::single(SyntaxKind::SelectStatement),
+                    true,
+                    &SyntaxSet::EMPTY,
+                    true,
+                )
+                .into_iter()
+                .next()
+                .unwrap();
+            let (_, aliases) = get_aliases_from_select(&select, Some(&linter.config().dialect));
+            assert_eq!(
+                aliases,
+                vec![SmolStr::new("v"), SmolStr::new("ix")],
+                "{sql}"
+            );
+        }
     }
 }

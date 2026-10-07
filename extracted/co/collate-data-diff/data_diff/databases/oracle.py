@@ -152,7 +152,8 @@ class Dialect(
         format_str = "FM" + "9" * (38 - coltype.precision)
         if coltype.precision:
             format_str += "0." + "9" * (coltype.precision - 1) + "0"
-        return f"to_char({value}, '{format_str}')"
+        # Round first: to_char keeps the sign of a value that rounds to zero ("-0.00" for -0.004)
+        return f"to_char(round({value}, {coltype.precision}), '{format_str}')"
 
 
 @attrs.define(frozen=False, init=False, kw_only=True)

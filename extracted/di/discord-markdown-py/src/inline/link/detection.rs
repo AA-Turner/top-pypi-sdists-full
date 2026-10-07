@@ -5,25 +5,25 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
+	Input,
 	context::Context,
 	error::ParseError,
 	inline::link::scheme,
 	span::{Span, TraceOk, TraceParse},
 	util::iter_alt,
-	Input,
 };
 use nom::{
+	Mode, Parser,
 	branch::alt,
 	bytes::complete::tag,
 	combinator::{map, peek},
 	error::ErrorKind,
 	sequence::preceded,
-	Mode, Parser,
 };
 use tracing::Level;
 use url::Url;
 
-use super::{verify_url, Link};
+use super::{Link, verify_url};
 
 /// Host prefixes that are enough to know a run of text might be a link written without a scheme.
 ///
@@ -361,6 +361,47 @@ mod test {
 		assert_eq!(res, url(s));
 	}
 
+	/// None of a run of trailing punctuation belongs to the link, however long the run is.
+	#[test]
+	fn url_leaves_all_trailing_punctuation() {
+		for (s, expected, expected_rem) in [
+			("https://wnelson.dev..", "https://wnelson.dev", ".."),
+			("https://google.com/foo.,", "https://google.com/foo", ".,"),
+			("https://google.com/foo...", "https://google.com/foo", "..."),
+			(
+				"https://google.com/foo'.\"",
+				"https://google.com/foo",
+				"'.\"",
+			),
+			("https://discord.com.).", "https://discord.com", ".)."),
+			(
+				"https://google.com/search?q=cat(s)..",
+				"https://google.com/search?q=cat(s)",
+				"..",
+			),
+			("discord.gg/abc..", "https://discord.gg/abc", ".."),
+		] {
+			let (rem, res) = parse(s);
+			assert_eq!(rem, expected_rem, "{s}");
+			assert_eq!(res, url(expected), "{s}");
+		}
+	}
+
+	/// A run of punctuation the link carries on past is part of the link.
+	#[test]
+	fn url_keeps_interior_punctuation() {
+		for s in [
+			"https://google.com/foo..bar",
+			"https://google.com/a.,b",
+			"https://discord.com.)x",
+			"https://en.wikipedia.org/wiki/Foo_(bar.)",
+		] {
+			let (rem, res) = parse(s);
+			assert_eq!(rem, "", "{s}");
+			assert_eq!(res, url(s), "{s}");
+		}
+	}
+
 	// (stuff https://google.com) <-- not include
 	// https://google.com/cat(s) <-- should include
 	// https://google.com/bob)a <-- should include
@@ -460,7 +501,10 @@ mod test {
 
 		let (rem, res) = parse("https://en.wikipedia.org/wiki/Endemic_(epidemiology)).");
 		assert_eq!(rem, ").");
-		assert_eq!(res, url("https://en.wikipedia.org/wiki/Endemic_(epidemiology)"));
+		assert_eq!(
+			res,
+			url("https://en.wikipedia.org/wiki/Endemic_(epidemiology)")
+		);
 	}
 
 	#[test]

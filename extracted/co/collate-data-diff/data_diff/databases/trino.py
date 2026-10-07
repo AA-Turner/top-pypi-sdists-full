@@ -3,10 +3,14 @@ from typing import Any, ClassVar, Type
 import attrs
 from requests import Session
 
-from data_diff.abcs.database_types import TemporalType, TimestampTZ, ColType_UUID
+from data_diff.abcs.database_types import ColType, ColType_UUID, Date, DbPath, TemporalType, Time, TimestampTZ
 from data_diff.databases import presto
 from data_diff.databases.base import import_helper
 from data_diff.databases.base import TIMESTAMP_PRECISION_POS, BaseDialect
+from data_diff.schema import RawColumnInfo
+from data_diff.utils import match_regexps
+
+TIME_PRECISION_POS = 9  # len("12:24:35.") == 9
 
 
 @import_helper("trino")
@@ -31,7 +35,21 @@ class Dialect(presto.Dialect):
             return f"TIMESTAMP({t.precision}) WITH TIME ZONE"
         return super().type_repr(t)
 
+    def parse_type(self, table_path: DbPath, info: RawColumnInfo) -> ColType:
+        for m, t_cls in match_regexps({r"time\((\d)\)": Time}, info.data_type):
+            return t_cls(precision=int(m.group(1)), rounds=self.ROUNDS_ON_PREC_LOSS)
+        return super().parse_type(table_path, info)
+
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
+        if isinstance(coltype, Date):
+            return f"CAST({value} AS VARCHAR)"  # yyyy-mm-dd, as the other dialects render dates
+
+        if isinstance(coltype, Time):
+            # hh:mm:ss.ffffff: the cast rounds to the column's precision, like the other dialects' times
+            precision = min(coltype.precision, 6)
+            s = f"CAST(CAST({value} AS TIME({precision})) AS VARCHAR)"
+            return f"RPAD(RPAD({s}, {TIME_PRECISION_POS + precision}, '.'), {TIME_PRECISION_POS + 6}, '0')"
+
         # Trino's date_format truncates fractional seconds to millisecond
         # precision and loses any trailing microseconds. Casting the value to
         # TIMESTAMP(p) and then to VARCHAR keeps the full precision. For

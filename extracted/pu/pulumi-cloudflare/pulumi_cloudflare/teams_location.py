@@ -32,6 +32,7 @@ class TeamsLocationArgs:
         """
         The set of arguments for constructing a TeamsLocation resource.
 
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.str] name: Specify the location name.
         :param pulumi.Input[_builtins.bool] client_default: Indicate whether this location is the default location.
         :param pulumi.Input[_builtins.str] dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location. When creating a location, if this field is absent or set to null, the pair of shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned. When updating a location, if this field is absent or set to null, the pre-assigned pair remains unchanged.
@@ -58,6 +59,9 @@ class TeamsLocationArgs:
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Input[_builtins.str]:
+        """
+        Specify the Cloudflare account identifier.
+        """
         return pulumi.get(self, "account_id")
 
     @account_id.setter
@@ -170,6 +174,7 @@ class _TeamsLocationState:
         """
         Input properties used for looking up and filtering TeamsLocation resources.
 
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.bool] client_default: Indicate whether this location is the default location.
         :param pulumi.Input[_builtins.str] dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location. When creating a location, if this field is absent or set to null, the pair of shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned. When updating a location, if this field is absent or set to null, the pre-assigned pair remains unchanged.
         :param pulumi.Input[_builtins.str] dns_destination_ipv6_block_id: Specify the UUID of the IPv6 block brought to the gateway so that this location's IPv6 address is allocated from the Bring Your Own IPv6 (BYOIPv6) block rather than the standard Cloudflare IPv6 block.
@@ -217,6 +222,9 @@ class _TeamsLocationState:
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specify the Cloudflare account identifier.
+        """
         return pulumi.get(self, "account_id")
 
     @account_id.setter
@@ -401,10 +409,10 @@ class TeamsLocation(pulumi.CustomResource):
                  client_default: pulumi.Input[Optional[_builtins.bool]] = None,
                  dns_destination_ips_id: pulumi.Input[Optional[_builtins.str]] = None,
                  ecs_support: pulumi.Input[Optional[_builtins.bool]] = None,
-                 endpoints: pulumi.Input[Optional[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict']]] = None,
-                 max_ttl: pulumi.Input[Optional[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict']]] = None,
+                 endpoints: pulumi.Input[Optional[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict', 'outputs.TeamsLocationEndpoints']]] = None,
+                 max_ttl: pulumi.Input[Optional[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict', 'outputs.TeamsLocationMaxTtl']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict']]]]] = None,
+                 networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict', 'outputs.TeamsLocationNetwork']]]]] = None,
                  __props__=None):
         """
         Accepted Permissions
@@ -467,13 +475,14 @@ class TeamsLocation(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.bool] client_default: Indicate whether this location is the default location.
         :param pulumi.Input[_builtins.str] dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location. When creating a location, if this field is absent or set to null, the pair of shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned. When updating a location, if this field is absent or set to null, the pre-assigned pair remains unchanged.
         :param pulumi.Input[_builtins.bool] ecs_support: Indicate whether the location must resolve EDNS queries.
-        :param pulumi.Input[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict']] endpoints: Configure the destination endpoints for this location.
-        :param pulumi.Input[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict']] max_ttl: Controls how DNS response TTLs are capped for this location relative to the account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to `inherit`.
+        :param pulumi.Input[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict', 'outputs.TeamsLocationEndpoints']] endpoints: Configure the destination endpoints for this location.
+        :param pulumi.Input[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict', 'outputs.TeamsLocationMaxTtl']] max_ttl: Controls how DNS response TTLs are capped for this location relative to the account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to `inherit`.
         :param pulumi.Input[_builtins.str] name: Specify the location name.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict']]]] networks: Specify the list of network ranges from which requests at this location originate. The list takes effect only if it is non-empty and the IPv4 endpoint is enabled for this location.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict', 'outputs.TeamsLocationNetwork']]]] networks: Specify the list of network ranges from which requests at this location originate. The list takes effect only if it is non-empty and the IPv4 endpoint is enabled for this location.
         """
         ...
     @overload
@@ -559,10 +568,10 @@ class TeamsLocation(pulumi.CustomResource):
                  client_default: pulumi.Input[Optional[_builtins.bool]] = None,
                  dns_destination_ips_id: pulumi.Input[Optional[_builtins.str]] = None,
                  ecs_support: pulumi.Input[Optional[_builtins.bool]] = None,
-                 endpoints: pulumi.Input[Optional[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict']]] = None,
-                 max_ttl: pulumi.Input[Optional[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict']]] = None,
+                 endpoints: pulumi.Input[Optional[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict', 'outputs.TeamsLocationEndpoints']]] = None,
+                 max_ttl: pulumi.Input[Optional[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict', 'outputs.TeamsLocationMaxTtl']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict']]]]] = None,
+                 networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict', 'outputs.TeamsLocationNetwork']]]]] = None,
                  __props__=None):
         pulumi.log.warn("""TeamsLocation is deprecated: cloudflare.index/teamslocation.TeamsLocation has been deprecated in favor of cloudflare.index/zerotrustdnslocation.ZeroTrustDnsLocation""")
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -611,13 +620,13 @@ class TeamsLocation(pulumi.CustomResource):
             dns_destination_ipv6_block_id: pulumi.Input[Optional[_builtins.str]] = None,
             doh_subdomain: pulumi.Input[Optional[_builtins.str]] = None,
             ecs_support: pulumi.Input[Optional[_builtins.bool]] = None,
-            endpoints: pulumi.Input[Optional[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict']]] = None,
+            endpoints: pulumi.Input[Optional[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict', 'outputs.TeamsLocationEndpoints']]] = None,
             ip: pulumi.Input[Optional[_builtins.str]] = None,
             ipv4_destination: pulumi.Input[Optional[_builtins.str]] = None,
             ipv4_destination_backup: pulumi.Input[Optional[_builtins.str]] = None,
-            max_ttl: pulumi.Input[Optional[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict']]] = None,
+            max_ttl: pulumi.Input[Optional[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict', 'outputs.TeamsLocationMaxTtl']]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
-            networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict']]]]] = None,
+            networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict', 'outputs.TeamsLocationNetwork']]]]] = None,
             updated_at: pulumi.Input[Optional[_builtins.str]] = None) -> 'TeamsLocation':
         """
         Get an existing TeamsLocation resource's state with the given name, id, and optional extra
@@ -626,18 +635,19 @@ class TeamsLocation(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.bool] client_default: Indicate whether this location is the default location.
         :param pulumi.Input[_builtins.str] dns_destination_ips_id: Specify the identifier of the pair of IPv4 addresses assigned to this location. When creating a location, if this field is absent or set to null, the pair of shared IPv4 addresses (0e4a32c6-6fb8-4858-9296-98f51631e8e6) is auto-assigned. When updating a location, if this field is absent or set to null, the pre-assigned pair remains unchanged.
         :param pulumi.Input[_builtins.str] dns_destination_ipv6_block_id: Specify the UUID of the IPv6 block brought to the gateway so that this location's IPv6 address is allocated from the Bring Your Own IPv6 (BYOIPv6) block rather than the standard Cloudflare IPv6 block.
         :param pulumi.Input[_builtins.str] doh_subdomain: Specify the DNS over HTTPS domain that receives DNS requests. Gateway automatically generates this value.
         :param pulumi.Input[_builtins.bool] ecs_support: Indicate whether the location must resolve EDNS queries.
-        :param pulumi.Input[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict']] endpoints: Configure the destination endpoints for this location.
+        :param pulumi.Input[Union['TeamsLocationEndpointsArgs', 'TeamsLocationEndpointsArgsDict', 'outputs.TeamsLocationEndpoints']] endpoints: Configure the destination endpoints for this location.
         :param pulumi.Input[_builtins.str] ip: Defines the automatically generated IPv6 destination IP assigned to this location. Gateway counts all DNS requests sent to this IP as requests under this location.
         :param pulumi.Input[_builtins.str] ipv4_destination: Show the primary destination IPv4 address from the pair identified dns*destination*ips_id. This field read-only.
         :param pulumi.Input[_builtins.str] ipv4_destination_backup: Show the backup destination IPv4 address from the pair identified dns*destination*ips_id. This field read-only.
-        :param pulumi.Input[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict']] max_ttl: Controls how DNS response TTLs are capped for this location relative to the account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to `inherit`.
+        :param pulumi.Input[Union['TeamsLocationMaxTtlArgs', 'TeamsLocationMaxTtlArgsDict', 'outputs.TeamsLocationMaxTtl']] max_ttl: Controls how DNS response TTLs are capped for this location relative to the account `max_ttl_secs` setting. Omitting `max_ttl` on update resets it to `inherit`.
         :param pulumi.Input[_builtins.str] name: Specify the location name.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict']]]] networks: Specify the list of network ranges from which requests at this location originate. The list takes effect only if it is non-empty and the IPv4 endpoint is enabled for this location.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['TeamsLocationNetworkArgs', 'TeamsLocationNetworkArgsDict', 'outputs.TeamsLocationNetwork']]]] networks: Specify the list of network ranges from which requests at this location originate. The list takes effect only if it is non-empty and the IPv4 endpoint is enabled for this location.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -663,6 +673,9 @@ class TeamsLocation(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specify the Cloudflare account identifier.
+        """
         return pulumi.get(self, "account_id")
 
     @_builtins.property

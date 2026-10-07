@@ -140,7 +140,7 @@ from matrx_ai.tools.kinds.voice import VOICE_TOOL_RESULT_KINDS  # noqa: E402
 from matrx_ai.tools.kinds.weather import WeatherHistoryReading  # noqa: E402
 from matrx_ai.tools.kinds.wheel import WheelSpinResult  # noqa: E402
 from matrx_ai.tools.kinds.workbench import (  # noqa: E402
-    PicklistToolResult,
+    PickListToolResult,
     SkillToolResult,
     TaskToolResult,
 )
@@ -327,7 +327,7 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # conversation agent tasklist) and not `task_list` (the content checklist).
     "task": TaskToolResult,
     "skill": SkillToolResult,
-    "picklist": PicklistToolResult,
+    "pick_list": PickListToolResult,
     # aidream-hosted agent-ops tools (lead-w2f batch 2). `office` does NOT bind
     # the office_file_result/office_extraction_result node kinds — one declared
     # kind per tool, and its extract branch is a summary (see kinds/agent_ops.py).
@@ -362,7 +362,9 @@ def result_kind_model(tool_name: str) -> type[KindModel] | None:
 
 def result_kind_slug(tool_name: str) -> str | None:
     """The registered kind slug ``tool_name``'s result is declared to carry."""
-    model = result_kind_model(tool_name)
+    from matrx_ai.tools.declared import code_name_for
+
+    model = result_kind_model(code_name_for(tool_name))
     return None if model is None else str(model.kind_slug)
 
 

@@ -11,19 +11,20 @@
  *
  * Three ways to run it:
  *
- *   uno_q [flags]             SELF-TEST. Synthesises one second of what an
- *                             RTL-SDR would send for a tone at --offset in
- *                             noise, runs the chain, and CHECKS the result.
- *                             Every failed check exits non-zero; this is the
- *                             mode `make run` and CI use.
- *   uno_q [flags] - | FILE    LIVE. Reads cu8 from stdin or a capture file
- *                             and reports what it found. Nothing is checked
- *                             — live RF is not known in advance.
- *   uno_q [flags] --nats URL  NATS. Receives ci8 frames that uno_q_pub
- *                             published (built only when the doppler install
- *                             has its stream component). Counts lost and
- *                             duplicated frames from the wire header, then
- *                             runs the same chain.
+ *   uno_q_shared [flags]
+ *       SELF-TEST. Synthesises one second of what an RTL-SDR would send for
+ *       a tone at --offset in noise, runs the chain, and CHECKS the result.
+ *       Every failed check exits non-zero; this is the mode `make run` and
+ *       CI use.
+ *   uno_q_shared [flags] - | FILE
+ *       LIVE. Reads cu8 from stdin or a capture file and reports what it
+ *       found. Nothing is checked — live RF is not known in advance.
+ *   uno_q_shared [flags] --nats URL
+ *       NATS. Receives ci8 frames that uno_q_pub published (built only when
+ *       the doppler install has its stream component). Counts lost and
+ *       duplicated frames from the wire header, then runs the same chain.
+ *
+ * (`uno_q_static` is the same program linked against libdoppler.a.)
  *
  *     --fs HZ        input sample rate (default 2.4e6; NATS: from the header)
  *     --offset HZ    where the wanted channel sits relative to the tuned
@@ -72,6 +73,7 @@
 #include "doppler/i8_to_f32/i8_to_f32_core.h"
 #include "doppler/psd/psd_core.h"
 #include "doppler/spectral/spectral_core.h"
+#include "doppler/timing/timing_core.h"
 #include "doppler/u8_to_f32/u8_to_f32_core.h"
 #ifdef UNO_Q_NATS
 #include "doppler/stream/stream.h"
@@ -98,13 +100,11 @@ check (int ok, const char *what)
     failures++;
 }
 
-/** @brief Monotonic seconds. CLOCK_MONOTONIC, so it is not NTP's to move. */
+/** @brief Monotonic seconds, from the library's clock (dp_mono_ns). */
 static double
 now_s (void)
 {
-  struct timespec t;
-  clock_gettime (CLOCK_MONOTONIC, &t);
-  return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
+  return (double)dp_mono_ns () * 1e-9;
 }
 
 /** @brief Process CPU seconds, to report load as a share of one core. */
@@ -249,47 +249,43 @@ chain_push_ci8 (chain_t *c, const int8_t *ci8, size_t pairs)
     }
 }
 
-/** @brief Strongest bin of the averaged spectrum, as (frequency Hz, dB). */
+/**
+ * @brief Strongest peak of the averaged spectrum, as (frequency Hz, dB), from
+ * the library's interpolating peak finder rather than a bin argmax.
+ */
 static void
 spectrum_peak (chain_t *c, double fs_out, float *db, double *f_hz,
                double *level_db)
 {
+  dp_peak_t pk;
   dp_psd_psd_db (c->psd, c->n, db, c->n);
-  size_t k = 0;
-  for (size_t i = 1; i < c->n; i++)
-    if (db[i] > db[k])
-      k = i;
-  /* DC-centred: bin i is (i - n/2) / n of the output rate. */
-  *f_hz     = ((double)k - (double)(c->n / 2)) * fs_out / (double)c->n;
-  *level_db = db[k];
+  /* A gate nothing falls under: the strongest local maximum, whatever it is.
+   */
+  size_t np = dp_find_peaks_f32 (db, c->n, 1, -1e30f, &pk);
+  *f_hz     = np ? (double)pk.freq_norm * fs_out : 0.0;
+  *level_db = np ? (double)pk.amplitude_db : -1e30;
 }
 
 /**
- * @brief Mean noise per bin near DC, dB: bins 3 .. CHANNEL * n from the
- * centre, averaged in linear power, so the tone's own bins are excluded.
+ * @brief Noise level in the bins within `half` of bin `k`, dB: the library's
+ * dp_noise_floor_db() (a median) over just those bins.
  *
- * Why not dp_psd_noise_floor(): that is the MEDIAN over the whole output band,
- * and the plain DDC's output is not white. dp_ddc_create() uses an
- * UNCOMPENSATED CIC (see ddc_core.h), whose droop reaches about -3.5 dB at a
- * quarter of the output rate and -12 dB near its edge, so the band-wide
- * median sits ~3.5 dB below the noise actually next to the tone. Measure the
- * noise where the signal is.
+ * Why a sub-array and not dp_psd_noise_floor(): that is the median over the
+ * WHOLE output band, and the plain DDC's output is not white.
+ * dp_ddc_create() uses an UNCOMPENSATED CIC (see ddc_core.h), whose droop
+ * reaches about -3.5 dB at a quarter of the output rate and -12 dB near its
+ * edge, so the band-wide median sits ~3.5 dB below the noise actually next to
+ * the tone. Measure the noise where the signal is. A median needs no bins
+ * excluded: the tone's few bins are outliers it ignores. Against the mean of
+ * the linear power it agrees to 0.02 dB here (the PSD has averaged hundreds
+ * of frames, so each bin is nearly Gaussian in dB).
  */
 static double
-channel_noise_db (const float *db, size_t n)
+noise_near (const float *db, size_t n, size_t k, size_t half)
 {
-  double sum = 0.0;
-  size_t cnt = 0;
-  for (size_t i = 0; i < n; i++)
-    {
-      size_t d = i > n / 2 ? i - n / 2 : n / 2 - i;
-      if (d >= 3 && (double)d <= CHANNEL * (double)n)
-        {
-          sum += pow (10.0, db[i] / 10.0);
-          cnt++;
-        }
-    }
-  return cnt ? 10.0 * log10 (sum / (double)cnt) : 0.0;
+  size_t lo = k > half ? k - half : 0;
+  size_t hi = k + half < n ? k + half : n - 1;
+  return dp_noise_floor_db (db + lo, hi - lo + 1);
 }
 
 /** @brief Index of the bin nearest `f_hz` in the DC-centred spectrum. */
@@ -298,29 +294,6 @@ bin_of (size_t n, double fs_out, double f_hz)
 {
   long k = lround (f_hz / fs_out * (double)n) + (long)(n / 2);
   return k < 0 ? 0 : k >= (long)n ? n - 1 : (size_t)k;
-}
-
-/**
- * @brief Mean noise per bin AROUND bin `k`, dB: bins 3 .. 12 away on either
- * side, in linear power. The comparison a spur test needs -- the level next
- * to it -- because the droop makes any one band-wide number wrong somewhere.
- */
-static double
-local_noise_db (const float *db, size_t n, size_t k)
-{
-  double sum = 0.0;
-  size_t cnt = 0;
-  for (long d = 3; d <= 12; d++)
-    for (int sgn = -1; sgn <= 1; sgn += 2)
-      {
-        long i = (long)k + sgn * d;
-        if (i >= 0 && i < (long)n)
-          {
-            sum += pow (10.0, db[i] / 10.0);
-            cnt++;
-          }
-      }
-  return cnt ? 10.0 * log10 (sum / (double)cnt) : 0.0;
 }
 
 /* ── Reports ───────────────────────────────────────────────────────────────
@@ -346,9 +319,10 @@ report_checked (chain_t *c, double fs, double offset, double rate)
   double f_peak, peak_db;
   spectrum_peak (c, fs_out, db, &f_peak, &peak_db);
   const double floor_db = dp_psd_noise_floor (c->psd);
-  const double chan_db  = channel_noise_db (db, n);
-  const double bin_hz   = fs_out / (double)n;
-  const double snr      = peak_db - chan_db;
+  const double chan_db
+      = noise_near (db, n, n / 2, (size_t)(CHANNEL * (double)n));
+  const double bin_hz = fs_out / (double)n;
+  const double snr    = peak_db - chan_db;
 
   /* Predictions, from the scene and the chain's own parameters. In the flat
      channel around DC the DDC passes white input noise (quantization
@@ -371,7 +345,7 @@ report_checked (chain_t *c, double fs, double offset, double rate)
   double       f_bias             = remainder (-offset, fs_out);
   const size_t k_bias             = bin_of (n, fs_out, f_bias);
   const double bias_db            = db[k_bias];
-  const double bias_local_db      = local_noise_db (db, n, k_bias);
+  const double bias_local_db      = noise_near (db, n, k_bias, 12);
   const double bias_unfiltered_db = 10.0 * log10 (2.0 * bias * bias);
 
   printf ("\nconverted input (before the DDC):\n");
@@ -426,9 +400,10 @@ report_live (chain_t *c, double fs, double offset, double dt, double dc)
           fs_out / 1e3);
   printf ("  strongest bin %+.1f kHz at %.1f dBFS\n", f_peak / 1e3, peak_db);
   /* Not "noise" here: live, whatever occupies the channel is in it. */
-  printf ("  mean level in the channel (|f| < %.2f fs_out, excluding DC) "
+  printf ("  median level in the channel (|f| < %.2f fs_out) "
           "%.1f dBFS/bin;\n    band-wide median %.1f dBFS/bin\n",
-          CHANNEL, channel_noise_db (db, n), dp_psd_noise_floor (c->psd));
+          CHANNEL, noise_near (db, n, n / 2, (size_t)(CHANNEL * (double)n)),
+          dp_psd_noise_floor (c->psd));
   printf ("  occupied bandwidth (99%%): %.1f kHz\n",
           dp_psd_occupied_bw (c->psd, 0.99) / 1e3);
 

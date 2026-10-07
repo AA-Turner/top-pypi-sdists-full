@@ -341,3 +341,165 @@ test_multiline_single:
             )
         ) AS col
     FROM test_table
+
+test_multiline_expressions:
+  # NOTE: LT09 doesn't fix the indentation, so that may still look strange here,
+  # but we should make sure we're inserting new line breaks in the right places.
+  # https://github.com/sqlfluff/sqlfluff/issues/5258
+  fail_str: |
+    SELECT
+        a,
+        b1, b2,
+        COUNT(DISTINCT id) AS c1, COUNT(DISTINCT name) AS c2, COUNT(DISTINCT city) AS c3,
+        COUNT(
+            DISTINCT id) AS d1, COUNT(DISTINCT name) AS d2, COUNT(DISTINCT city) AS d3,
+        COUNT(DISTINCT
+            id) AS e1, COUNT(DISTINCT name) AS e2, COUNT(DISTINCT city) AS e3
+    FROM some_table;
+  fix_str: |
+    SELECT
+        a,
+        b1,
+    b2,
+        COUNT(DISTINCT id) AS c1,
+    COUNT(DISTINCT name) AS c2,
+    COUNT(DISTINCT city) AS c3,
+        COUNT(
+            DISTINCT id) AS d1,
+    COUNT(DISTINCT name) AS d2,
+    COUNT(DISTINCT city) AS d3,
+        COUNT(DISTINCT
+            id) AS e1,
+    COUNT(DISTINCT name) AS e2,
+    COUNT(DISTINCT city) AS e3
+    FROM some_table;
+
+test_leading_commas:
+  pass_str: |
+    SELECT
+        a
+        , b
+        , COUNT(
+            DISTINCT id) AS c
+        , d
+    FROM some_table;
+  configs:
+    layout:
+      type:
+        comma:
+          line_position: leading
+
+test_pass_leading_commas:
+  # https://github.com/sqlfluff/sqlfluff/issues/5329
+  # NOTE: We shouldn't even need to configure the leading commas here.
+  # Commas shouldn't be accounted for in whether elements are on the same line.
+  pass_str: |
+    select
+        a
+        , b
+        , c
+
+# Tests for single_target_policy = new_line
+# https://github.com/sqlfluff/sqlfluff/issues/6549
+
+test_single_target_new_line_policy_pass_on_new_line:
+  # Single target already on a new line should pass.
+  pass_str: |
+    SELECT
+        a
+    FROM foo
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line
+
+test_single_target_new_line_policy_fail_on_same_line:
+  # Single target on the same line as SELECT should fail.
+  fail_str: |
+    SELECT a
+    FROM foo
+  fix_str: "SELECT\na\nFROM foo\n"
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line
+
+test_single_target_new_line_policy_no_from:
+  # Single target on the same line as SELECT without FROM should fail.
+  fail_str: |
+    SELECT a
+  fix_str: "SELECT\na\n"
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line
+
+test_single_target_new_line_policy_consistent_with_multi:
+  # Verify consistency: both single and multi target use new lines.
+  pass_str: |
+    SELECT
+        a,
+        b
+    FROM foo
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line
+
+test_single_target_new_line_policy_with_distinct:
+  # Single target with DISTINCT on same line should fail.
+  fail_str: |
+    SELECT DISTINCT a
+    FROM foo
+  fix_str: "SELECT DISTINCT\na\nFROM foo\n"
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line
+
+test_single_target_new_line_policy_with_distinct_already_on_new_line:
+  # Single target with DISTINCT already on new line should pass.
+  pass_str: |
+    SELECT DISTINCT
+        a
+    FROM foo
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line
+
+test_single_target_same_line_policy_default_behavior:
+  # Default behavior: single target on same line as SELECT is fine.
+  pass_str: |
+    SELECT a
+    FROM foo
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: same_line
+
+test_single_target_new_line_policy_multiline_expression:
+  # Multiline single target already on new line should pass.
+  pass_str: |
+    SELECT
+        SUM(
+            1 + SUM(
+                2 + 3
+            )
+        ) AS col
+    FROM test_table
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line
+
+test_single_target_new_line_policy_with_wildcard:
+  # Single wildcard target on same line should fail with new_line policy.
+  fail_str: |
+    SELECT *
+    FROM foo
+  fix_str: "SELECT\n*\nFROM foo\n"
+  configs:
+    rules:
+      layout.select_targets:
+        single_target_policy: new_line

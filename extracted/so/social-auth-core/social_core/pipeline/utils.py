@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from social_core.exceptions import (
-    StrategyMissingBackendError,
-)
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from social_core.backends.base import BaseAuth
@@ -24,11 +21,11 @@ def is_dict_type(value):
     )
 
 
-def to_plain_dict(value):
+def to_plain_dict(value) -> dict[str, Any]:
     if any(cls.__name__ == "MultiValueDict" for cls in value.__class__.mro()):
         dict_method = getattr(value, "dict", None)
         if callable(dict_method):
-            return dict_method()
+            return cast("dict[str, Any]", dict_method())
     return dict(value)
 
 
@@ -41,8 +38,7 @@ def partial_prepare(
     *args,
     **kwargs,
 ) -> PartialMixin:
-    if strategy.storage is None:
-        raise StrategyMissingBackendError
+    storage = strategy.get_storage(stage="pipeline")
     kwargs.update(
         {
             "response": kwargs.get("response") or {},
@@ -62,40 +58,54 @@ def partial_prepare(
     # Clean any MergeDict data type from the values
     clean_kwargs = {}
     for name, value in kwargs.items():
+        if name == "request":
+            continue
         value = to_plain_dict(value) if is_dict_type(value) else value
         if isinstance(value, SERIALIZABLE_TYPES):
             clean_kwargs[name] = strategy.to_session_value(value)
 
-    return strategy.storage.partial.prepare(
-        backend.name, next_step, {"args": clean_args, "kwargs": clean_kwargs}
+    request_data = strategy.request_data()
+    return storage.partial.prepare(
+        backend.name,
+        next_step,
+        {
+            "args": clean_args,
+            "kwargs": clean_kwargs,
+            "request_data": strategy.to_session_value(to_plain_dict(request_data)),
+            "pipeline_type": backend.pipeline_type,
+        },
     )
 
 
 def partial_store(
     strategy: BaseStrategy, backend: BaseAuth, next_step, *args, **kwargs
 ) -> PartialMixin:
-    if strategy.storage is None:
-        raise StrategyMissingBackendError
+    storage = strategy.get_storage(stage="pipeline")
     partial = partial_prepare(strategy, backend, next_step, *args, **kwargs)
-    return strategy.storage.partial.store(partial)
+    return storage.partial.store(partial)
 
 
 def partial_load(strategy: BaseStrategy, token: str) -> PartialMixin | None:
-    if strategy.storage is None:
-        raise StrategyMissingBackendError
-    partial = strategy.storage.partial.load(token)
+    storage = strategy.get_storage(stage="pipeline")
+    partial = storage.partial.load(token)
 
     if partial:
         args = partial.args
         kwargs = partial.kwargs.copy()
+        request_data = partial.data.pop("request_data", kwargs.get("request"))
+        if request_data is not None:
+            request_data = strategy.from_session_value(request_data)
+            if isinstance(request_data, Mapping):
+                partial.request_data = to_plain_dict(request_data)
+        kwargs.pop("request", None)
         user = kwargs.get("user")
         social = kwargs.get("social")
 
         if isinstance(social, dict):
-            kwargs["social"] = strategy.storage.user.get_social_auth(**social)
+            kwargs["social"] = storage.user.get_social_auth(**social)
 
         if user:
-            kwargs["user"] = strategy.storage.user.get_user(user)
+            kwargs["user"] = storage.user.get_user(user)
 
         partial.args = [strategy.from_session_value(val) for val in args]
         partial.kwargs = {

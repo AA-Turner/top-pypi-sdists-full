@@ -18,6 +18,7 @@ import ctypes
 import ntpath
 import os
 import select
+import struct
 import subprocess
 import sys
 import time
@@ -26,6 +27,9 @@ import pytest
 
 from coord.key_spec import UnsupportedKey
 from coord.win_native_driver import (
+    IMAGE_SUBSYSTEM_WINDOWS_CUI,
+    IMAGE_SUBSYSTEM_WINDOWS_GUI,
+    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     NativeRunner,
     NativeSpec,
     NativeStep,
@@ -34,12 +38,21 @@ from coord.win_native_driver import (
     WinNativeSession,
     WinNativeSpecError,
     Win32Calls,
+    _DRIVE_REMOTE,
+    _detect_console_subsystem,
     _encode_win_chord,
     _execute_staging,
     _find_a11y_match,
+    _get_drive_type,
+    _guess_exe_path,
+    _is_remote_exe_token,
+    _is_rooted_or_drive_qualified,
     _is_unc_path,
+    _JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     _leading_token,
     _looks_shell_composed,
+    _normalize_posix_exe_token,
+    _pe_subsystem,
     _plan_staging,
     _popen_command_and_cwd,
     _StagingPlan,
@@ -240,6 +253,44 @@ steps:
                 "steps:\n  - type: expect_panel_switch\n    x: 0\n    y: 0\n    name: Explorer\n"
             )
 
+    # -- #3650: type_text / expect_file / expect_frontmost / region / tofu --
+
+    def test_type_text_expect_file_frontmost_region_tofu_parse(self) -> None:
+        spec = parse_native_spec(
+            "steps:\n"
+            "  - type: type_text\n"
+            "    text: hello\n"
+            "  - type: expect_file\n"
+            "    path: C:/temp/probe.txt\n"
+            "    contains: hi\n"
+            "  - type: expect_frontmost\n"
+            "  - type: expect_region_not_uniform\n"
+            "    x: 1\n    y: 2\n    width: 3\n    height: 4\n"
+            "    tolerance: 10\n"
+            "  - type: expect_no_tofu\n"
+            "    x: 5\n    y: 6\n    width: 7\n    height: 8\n"
+        )
+        kinds = [s.kind for s in spec.steps]
+        assert kinds == [
+            "type_text", "expect_file", "expect_frontmost",
+            "expect_region_not_uniform", "expect_no_tofu",
+        ]
+        type_text, expect_file, _frontmost, region, tofu = spec.steps
+        assert type_text.text == "hello"
+        assert expect_file.contains == "hi"
+        assert (region.x, region.y, region.width, region.height, region.tolerance) == (1, 2, 3, 4, 10)
+        assert (tofu.x, tofu.y, tofu.width, tofu.height) == (5, 6, 7, 8)
+
+    def test_type_text_requires_text(self) -> None:
+        with pytest.raises(WinNativeSpecError, match="text"):
+            parse_native_spec("steps:\n  - type: type_text\n")
+
+    def test_expect_region_not_uniform_requires_geometry(self) -> None:
+        with pytest.raises(WinNativeSpecError, match="width"):
+            parse_native_spec(
+                "steps:\n  - type: expect_region_not_uniform\n    x: 0\n    y: 0\n"
+            )
+
 
 # ── _win_key_encodings / _encode_win_chord (#3639) ──────────────────────────
 
@@ -393,6 +444,7 @@ class FakeWinCalls:
         closes_after_n_polls: int | None = None,
         session_ok: bool = True,
         session_reason: str = "",
+        frontmost_script: list[tuple[bool, int]] | None = None,
     ) -> None:
         self.launch_fails = launch_fails
         self.window_never_appears = window_never_appears
@@ -410,9 +462,11 @@ class FakeWinCalls:
         self.moved: list[tuple[int, int, int, int, int]] = []
         self.clicks: list[tuple[int, int, int, str]] = []
         self.keys: list[tuple[int, str]] = []
+        self.typed: list[tuple[int, str]] = []
         self.killed: list[int] = []
         self._next_pid = 1000
         self._hwnd = 5555
+        self._frontmost_script = list(frontmost_script or [(True, 5555)])
 
     def session_available(self) -> tuple[bool, str]:
         return self._session_ok, self._session_reason
@@ -454,6 +508,14 @@ class FakeWinCalls:
 
     def send_key(self, hwnd: int, key: str) -> None:
         self.keys.append((hwnd, key))
+
+    def type_text(self, hwnd: int, text: str) -> None:
+        self.typed.append((hwnd, text))
+
+    def is_frontmost(self, hwnd: int) -> tuple[bool, int]:
+        if len(self._frontmost_script) > 1:
+            return self._frontmost_script.pop(0)
+        return self._frontmost_script[0]
 
     def uia_elements(self, hwnd: int) -> list[dict]:
         if len(self._uia_script) > 1:
@@ -602,6 +664,192 @@ class TestNativeRunnerActions:
         capture_entry = results[1]
         assert capture_entry["status"] == "pass"
         assert base64.b64decode(capture_entry["capture_b64"]) == b"one-frame"
+
+    def test_type_text_step_forwards_to_calls(self) -> None:
+        # #3650
+        calls = FakeWinCalls()
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0), _step("type_text", 1, text="hello world"),
+        ]))
+        assert results[1]["status"] == "pass"
+        assert calls.typed == [(calls._hwnd, "hello world")]
+
+
+class TestNativeRunnerExpectFile:
+    """#3650 — delegates to :func:`coord.native_fs_wait.wait_for_file`; see
+    ``tests/test_native_fs_wait.py`` for that function's own coverage."""
+
+    def test_passes_once_file_exists(self, tmp_path) -> None:
+        target = tmp_path / "probe.txt"
+        target.write_text("ready")
+        calls = FakeWinCalls()
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_file", 1, path=str(target), timeout_ms=1000),
+        ]))
+        assert results[1]["status"] == "pass"
+
+    def test_fails_when_file_never_appears(self, tmp_path) -> None:
+        target = tmp_path / "never.txt"
+        calls = FakeWinCalls()
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_file", 1, path=str(target), timeout_ms=100),
+        ]))
+        assert results[1]["status"] == "fail"
+        assert "did not appear" in results[1]["message"]
+
+    def test_env_appdata_resolves_against_the_isolated_launch_dir_not_ambient(
+        self, tmp_path, monkeypatch,
+    ) -> None:
+        """Regression (#3650 review): #3637 isolates a launched app's own
+        ``%APPDATA%`` via ``env=`` on the CHILD process alone — an
+        ``expect_file: {path: '$env:APPDATA\\...'}`` step (the issue's own
+        "install an extension -> check the file" use case) must resolve
+        against THAT directory, not this test process's ambient one."""
+        ambient_dir = tmp_path / "ambient"
+        isolated_dir = tmp_path / "isolated"
+        ambient_dir.mkdir()
+        isolated_dir.mkdir()
+        (isolated_dir / "settings.json").write_text("{}")
+        monkeypatch.setenv("APPDATA", str(ambient_dir))
+
+        calls = FakeWinCalls()
+        calls.launched_appdata_dir = str(isolated_dir)
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step(
+                "expect_file", 1,
+                path="$env:APPDATA/settings.json", timeout_ms=500,
+            ),
+        ]))
+        assert results[1]["status"] == "pass"
+
+    def test_env_appdata_falls_back_to_ambient_when_launch_did_not_isolate(
+        self, tmp_path, monkeypatch,
+    ) -> None:
+        """No staging engaged (non-UNC `cwd`, the common same-host case) —
+        `launched_appdata_dir` stays `None`, same as a scripted test fake
+        that never sets it at all — so resolution falls back to the
+        ambient environment exactly as before this fix."""
+        ambient_dir = tmp_path / "ambient"
+        ambient_dir.mkdir()
+        (ambient_dir / "settings.json").write_text("{}")
+        monkeypatch.setenv("APPDATA", str(ambient_dir))
+
+        calls = FakeWinCalls()
+        assert getattr(calls, "launched_appdata_dir", None) is None
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step(
+                "expect_file", 1,
+                path="$env:APPDATA/settings.json", timeout_ms=500,
+            ),
+        ]))
+        assert results[1]["status"] == "pass"
+
+
+class TestNativeRunnerExpectFrontmost:
+    def test_passes_when_frontmost(self) -> None:
+        calls = FakeWinCalls(frontmost_script=[(True, 5555)])
+        runner = _runner(calls)
+        results = runner.run(_spec([_step("launch", 0), _step("expect_frontmost", 1)]))
+        assert results[1]["status"] == "pass"
+
+    def test_fails_when_another_hwnd_is_foreground(self) -> None:
+        calls = FakeWinCalls(frontmost_script=[(False, 9999)])
+        runner = _runner(calls)
+        results = runner.run(_spec([_step("launch", 0), _step("expect_frontmost", 1)]))
+        assert results[1]["status"] == "fail"
+        assert "9999" in results[1]["message"]
+
+
+def _bmp_bytes(rows: list[list[tuple[int, int, int]]]) -> bytes:
+    """A minimal 24-bit, bottom-up, uncompressed BMP — the exact shape
+    :func:`coord.win_native_driver._bitmap_to_bmp_bytes` writes. See
+    ``tests/test_native_pixels.py``'s own encoder for the full explanation;
+    duplicated narrowly here so this test module doesn't reach into another
+    module's test-only helpers."""
+    import struct
+
+    height = len(rows)
+    width = len(rows[0])
+    row_bytes = ((width * 3 + 3) // 4) * 4
+    body = bytearray()
+    for row in reversed(rows):
+        line = bytearray(row_bytes)
+        for i, (r, g, b) in enumerate(row):
+            line[i * 3:i * 3 + 3] = bytes((b, g, r))
+        body += line
+    info_header = struct.pack(
+        "<IiiHHIIiiII", 40, width, height, 1, 24, 0, len(body), 0, 0, 0, 0,
+    )
+    pixel_offset = 14 + len(info_header)
+    file_header = struct.pack("<2sIHHI", b"BM", pixel_offset + len(body), 0, 0, pixel_offset)
+    return file_header + info_header + bytes(body)
+
+
+class TestNativeRunnerExpectRegionNotUniform:
+    """#3650 — decodes via :func:`coord.native_pixels.decode_bmp`, judged by
+    the one shared :func:`coord.native_pixels.region_not_uniform`."""
+
+    def test_passes_for_a_varied_region(self) -> None:
+        rows = [[(255, 0, 0), (0, 255, 0)], [(0, 0, 255), (10, 10, 10)]]
+        calls = FakeWinCalls(capture_script=[_bmp_bytes(rows)])
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_region_not_uniform", 1, x=0, y=0, width=2, height=2),
+        ]))
+        assert results[1]["status"] == "pass"
+
+    def test_fails_for_a_uniform_region_the_vimcode_1676_black_bar_shape(self) -> None:
+        rows = [[(0, 0, 0)] * 4 for _ in range(4)]
+        calls = FakeWinCalls(capture_script=[_bmp_bytes(rows)])
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_region_not_uniform", 1, x=0, y=0, width=4, height=4),
+        ]))
+        assert results[1]["status"] == "fail"
+        assert "uniform" in results[1]["message"]
+
+
+class TestNativeRunnerExpectNoTofu:
+    def test_passes_for_textured_content(self) -> None:
+        rows = [
+            [(255, 0, 0), (0, 255, 0), (0, 0, 255), (10, 10, 10)],
+            [(255, 255, 255), (128, 128, 128), (64, 64, 64), (0, 0, 0)],
+            [(1, 2, 3), (4, 5, 6), (7, 8, 9), (10, 11, 12)],
+        ]
+        calls = FakeWinCalls(capture_script=[_bmp_bytes(rows)])
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_no_tofu", 1, x=0, y=0, width=4, height=3),
+        ]))
+        assert results[1]["status"] == "pass"
+
+    def test_fails_for_a_classic_tofu_box(self) -> None:
+        size = 8
+        rows = [
+            [(0, 0, 0) if (px in (0, size - 1) or py in (0, size - 1)) else (255, 255, 255)
+             for px in range(size)]
+            for py in range(size)
+        ]
+        calls = FakeWinCalls(capture_script=[_bmp_bytes(rows)])
+        runner = _runner(calls)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_no_tofu", 1, x=0, y=0, width=size, height=size),
+        ]))
+        assert results[1]["status"] == "fail"
+        assert "tofu" in results[1]["message"]
 
 
 class TestNativeRunnerExpectMenu:
@@ -980,7 +1228,9 @@ def _make_win32_calls(user32, kernel32) -> Win32Calls:
     calls._user32 = user32
     calls._kernel32 = kernel32
     calls._staged_session_dirs = {}  # #3617 — normally set by `__init__`
+    calls._job_handles = {}  # #3634 — normally set by `__init__`
     calls.staging_warning = None  # #3617 — normally set by `__init__`
+    calls.launched_appdata_dir = None  # #3650 — normally set by `__init__`
     return calls
 
 
@@ -1080,6 +1330,119 @@ class TestSendKeyRealSequence:
         calls = _make_win32_calls(user32, kernel32=None)
         with pytest.raises(WinNativeRuntimeError, match="SendInput"):
             calls.send_key(1, "a")
+
+
+class TestTypeTextRealSequence:
+    """#3650 — :meth:`Win32Calls.type_text` against the same fake
+    ``user32`` as :class:`TestSendKeyRealSequence`."""
+
+    KEYEVENTF_KEYUP = 0x0002
+    KEYEVENTF_UNICODE = 0x0004
+
+    def test_posts_one_down_up_pair_per_character(self) -> None:
+        user32 = _FakeUser32SendInput()
+        calls = _make_win32_calls(user32, kernel32=None)
+        calls.type_text(1, "ab")
+        assert len(user32.calls) == 2
+        a_code, b_code = ord("a"), ord("b")
+        assert user32.calls[0] == [
+            (0, a_code, self.KEYEVENTF_UNICODE),
+            (0, a_code, self.KEYEVENTF_UNICODE | self.KEYEVENTF_KEYUP),
+        ]
+        assert user32.calls[1] == [
+            (0, b_code, self.KEYEVENTF_UNICODE),
+            (0, b_code, self.KEYEVENTF_UNICODE | self.KEYEVENTF_KEYUP),
+        ]
+
+    def test_empty_text_sends_nothing(self) -> None:
+        user32 = _FakeUser32SendInput()
+        calls = _make_win32_calls(user32, kernel32=None)
+        calls.type_text(1, "")
+        assert user32.calls == []
+
+    def test_short_count_raises_rather_than_a_silent_ok(self) -> None:
+        user32 = _FakeUser32SendInput(sent_count=0)
+        calls = _make_win32_calls(user32, kernel32=None)
+        with pytest.raises(WinNativeRuntimeError, match="SendInput"):
+            calls.type_text(1, "a")
+
+    def test_non_bmp_character_sends_a_surrogate_pair_not_a_truncated_code(self) -> None:
+        """Regression: iterating ``ord(ch)`` over a non-BMP character (any
+        emoji, exactly an ``expect_no_tofu`` use case) overflowed the
+        16-bit ``wScan`` field — `ctypes` wraps silently rather than
+        raising, so the previous code would have typed the WRONG, truncated
+        character instead of the two-code-unit surrogate pair Windows'
+        own Unicode keyboard input expects."""
+        user32 = _FakeUser32SendInput()
+        calls = _make_win32_calls(user32, kernel32=None)
+        emoji = "\U0001F600"  # U+1F600 GRINNING FACE — above the BMP
+        calls.type_text(1, emoji)
+        high_unit, low_unit = struct.unpack("<2H", emoji.encode("utf-16-le"))
+        assert len(user32.calls) == 2
+        assert user32.calls[0] == [
+            (0, high_unit, self.KEYEVENTF_UNICODE),
+            (0, high_unit, self.KEYEVENTF_UNICODE | self.KEYEVENTF_KEYUP),
+        ]
+        assert user32.calls[1] == [
+            (0, low_unit, self.KEYEVENTF_UNICODE),
+            (0, low_unit, self.KEYEVENTF_UNICODE | self.KEYEVENTF_KEYUP),
+        ]
+        # Both surrogate halves fit in 16 bits — the bug this guards
+        # against was a silent wraparound of a value that does NOT fit.
+        assert high_unit <= 0xFFFF and low_unit <= 0xFFFF
+        assert ord(emoji) > 0xFFFF
+
+
+class _FakeUser32Foreground:
+    """*hwnd_pids* maps a fake ``hwnd`` to its owning pid — defaulting an
+    unlisted hwnd's pid to the hwnd value itself, so most tests can just
+    pick distinct hwnd numbers and get distinct "pids" for free, while a
+    test that wants two different hwnds to be the SAME app's two windows
+    (a popup/dialog in front of its own main window) can say so by giving
+    them equal entries in *hwnd_pids*."""
+
+    def __init__(self, foreground_hwnd: int, hwnd_pids: dict[int, int] | None = None) -> None:
+        self._foreground_hwnd = foreground_hwnd
+        self._hwnd_pids = hwnd_pids or {}
+
+    def GetForegroundWindow(self) -> int:
+        return self._foreground_hwnd
+
+    def GetWindowThreadProcessId(self, hwnd, owner_pid_ref) -> None:
+        owner_pid_ref._obj.value = self._hwnd_pids.get(hwnd, hwnd)
+
+
+class TestIsFrontmost:
+    """#3650 — :meth:`Win32Calls.is_frontmost`, the vimcode#1824 "app never
+    becomes frontmost" class of bug. Compares OWNING PID, not hwnd
+    identity (review finding): a popup/dialog/second top-level window of
+    the SAME app in front must still read as frontmost."""
+
+    def test_true_when_hwnd_is_the_foreground_window(self) -> None:
+        calls = _make_win32_calls(_FakeUser32Foreground(5555), kernel32=None)
+        assert calls.is_frontmost(5555) == (True, 5555)
+
+    def test_false_when_another_apps_hwnd_is_foreground(self) -> None:
+        calls = _make_win32_calls(_FakeUser32Foreground(9999), kernel32=None)
+        assert calls.is_frontmost(5555) == (False, 9999)
+
+    def test_true_when_a_different_hwnd_of_the_same_pid_is_foreground(self) -> None:
+        """Regression: a popup/dialog belonging to the same app (same
+        owning pid, different hwnd from the one `find_top_window` latched
+        onto) must still count as frontmost — the whole point of comparing
+        pids instead of raw hwnd equality."""
+        calls = _make_win32_calls(
+            _FakeUser32Foreground(7777, hwnd_pids={7777: 42, 5555: 42}), kernel32=None,
+        )
+        assert calls.is_frontmost(5555) == (True, 7777)
+
+    def test_false_when_a_different_pids_hwnd_is_foreground_even_with_overlapping_numbers(
+        self,
+    ) -> None:
+        calls = _make_win32_calls(
+            _FakeUser32Foreground(9999, hwnd_pids={9999: 99, 5555: 42}), kernel32=None,
+        )
+        assert calls.is_frontmost(5555) == (False, 9999)
 
 
 class _FakeKernel32ProcessTree:
@@ -1309,6 +1672,133 @@ class TestIsUncPath:
         assert not _is_unc_path("")
 
 
+class TestIsRootedOrDriveQualified:
+    r""":func:`_is_rooted_or_drive_qualified` — #3633 CI: the
+    version-independent stand-in for `ntpath.isabs`, which Python 3.13
+    narrowed so that a `/`-rooted token (`/home/me/x.exe`, the WSL shape
+    #3633 normalizes and stages) is `True` on 3.12 and `False` on 3.13.
+
+    These assertions are deliberately spelled out against literal path
+    strings rather than deferred to `ntpath`, so they pin ONE answer on
+    every supported interpreter — which is the whole point of the
+    function."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/home/me/.coord/cargo-target/vimcode/release/vimcode.exe",
+            "/home/me",
+            "/",
+            r"\home\me\vimcode.exe",
+            r"\\wsl.localhost\Ubuntu-24.04\home\me\vimcode.exe",
+            "//wsl.localhost/Ubuntu-24.04/home/me/vimcode.exe",
+            r"C:\Tools\vimcode.exe",
+            "C:/Tools/vimcode.exe",
+            # Drive-relative (no root): `ntpath.isabs` is False on BOTH
+            # 3.12 and 3.13, but it is not cwd-relative either and
+            # `ntpath.join` treats it specially, so the relative-exe
+            # branch must not see it.
+            r"C:vimcode.exe",
+        ],
+    )
+    def test_non_relative_shapes(self, path: str) -> None:
+        assert _is_rooted_or_drive_qualified(path) is True
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "vimcode.exe",
+            r"target\release\vimcode.exe",
+            "target/release/vimcode.exe",
+            r"..\target\release\vimcode.exe",
+            "../target/release/vimcode.exe",
+            ".",
+            "",
+        ],
+    )
+    def test_genuinely_relative_shapes(self, path: str) -> None:
+        assert _is_rooted_or_drive_qualified(path) is False
+
+    def test_it_does_not_agree_with_ntpath_isabs_on_the_3_13_split(self) -> None:
+        """The regression this function exists for, stated directly: a
+        `/`-rooted token's classification must NOT be whatever this
+        interpreter's `ntpath.isabs` happens to say about it (3.12 says
+        True, 3.13 says False) — it must be `True` either way."""
+        posix_token = "/home/me/.coord/cargo-target/vimcode/release/vimcode.exe"
+        assert _is_rooted_or_drive_qualified(posix_token) is True
+        # Whichever way this interpreter answers, our own answer stood.
+        assert ntpath.isabs(posix_token) in (True, False)
+
+
+class TestGetDriveType:
+    """:func:`_get_drive_type` — the injectable `GetDriveTypeW` seam
+    #3633 widens `_is_remote_exe_token` with. The real `ctypes.windll`
+    call only exists on Windows; off it (this worktree runs on Linux)
+    it must return `0` (`DRIVE_UNKNOWN`) rather than raise or guess."""
+
+    def test_non_windows_returns_unknown(self) -> None:
+        assert _get_drive_type(r"Z:\home\me\repo") == 0
+
+    def test_a_unc_path_with_no_drive_letter_returns_unknown(self) -> None:
+        assert _get_drive_type(r"\\wsl.localhost\Ubuntu\home\me") == 0
+
+
+class TestNormalizePosixExeToken:
+    r""":func:`_normalize_posix_exe_token` — #3633's fix option (b):
+    rewrite a bare `/`-rooted WSL-style exe token onto the
+    `\\wsl.localhost\<distro>\...` UNC shape, borrowing the distro name
+    from `cwd` rather than fabricating one."""
+
+    UNC_CWD = r"\\wsl.localhost\Ubuntu-24.04\home\me\repo"
+
+    def test_borrows_the_distro_prefix_from_cwd(self) -> None:
+        normalized = _normalize_posix_exe_token(
+            "/home/me/.coord/cargo-target/vimcode/release/vimcode.exe", self.UNC_CWD,
+        )
+        assert normalized == (
+            r"\\wsl.localhost\Ubuntu-24.04\home\me\.coord\cargo-target\vimcode"
+            r"\release\vimcode.exe"
+        )
+
+    def test_returns_none_when_cwd_has_no_wsl_localhost_prefix(self) -> None:
+        r"""A same-host, non-WSL UNC share (`\\fileserver\tools\...`) has
+        no distro to borrow — nothing to safely guess."""
+        assert _normalize_posix_exe_token(
+            "/home/me/app.exe", r"\\fileserver\tools\repo",
+        ) is None
+
+    def test_returns_none_for_a_non_unc_cwd(self) -> None:
+        assert _normalize_posix_exe_token("/home/me/app.exe", r"C:\Users\me\repo") is None
+
+
+class TestIsRemoteExeToken:
+    r""":func:`_is_remote_exe_token` — #3633: the widened "is this exe
+    reachable only over the network" predicate the review asked for,
+    replacing the pre-fix `_is_unc_path`-only check that mislabelled a
+    mapped network drive (`Z:\...`, dell64's own observed shape) as
+    "already genuinely local"."""
+
+    def test_a_unc_path_is_remote(self) -> None:
+        assert _is_remote_exe_token(r"\\wsl.localhost\Ubuntu-24.04\home\me\app.exe")
+
+    def test_a_mapped_drive_letter_is_remote_via_injected_drive_type(self) -> None:
+        assert _is_remote_exe_token(
+            r"Z:\home\me\.coord\cargo-target\vimcode\release\vimcode.exe",
+            get_drive_type=lambda _path: _DRIVE_REMOTE,
+        )
+
+    def test_a_fixed_drive_letter_is_not_remote(self) -> None:
+        _DRIVE_FIXED = 3
+        assert not _is_remote_exe_token(
+            r"C:\Tools\vimcode.exe", get_drive_type=lambda _path: _DRIVE_FIXED,
+        )
+
+    def test_drive_type_unknown_is_not_remote(self) -> None:
+        assert not _is_remote_exe_token(
+            r"C:\Tools\vimcode.exe", get_drive_type=lambda _path: 0,
+        )
+
+
 class TestPopenCommandAndCwd:
     """#3543: `translate_to_windows_path` renders a WSL-hosted repo's `cwd`
     as a UNC path (`\\wsl.localhost\\...`), but `cmd.exe` — what
@@ -1500,13 +1990,186 @@ class TestPlanStaging:
         for command in ("a.exe | b.exe", "a.exe > out.txt", "a.exe & b.exe"):
             assert _plan_staging(command, self.UNC, session_root=self.SESSION).staged is False
 
-    def test_an_absolute_exe_token_is_left_alone(self) -> None:
+    def test_a_genuinely_local_absolute_exe_token_is_left_alone(self) -> None:
         """Nothing under `cwd`'s own tree to stage for an exe that's
-        already an absolute path — left alone rather than guessed at."""
+        already an absolute, LOCAL path — left alone rather than guessed
+        at."""
         plan = _plan_staging(
             r"C:\Tools\vimcode.exe sample.txt", self.UNC, session_root=self.SESSION,
         )
         assert plan.staged is False
+
+    def test_an_absolute_unc_exe_token_is_staged_by_basename(self) -> None:
+        """#3633: a route's relative `../target/.../X.exe` doesn't exist
+        under this fleet's actual (shared) `CARGO_TARGET_DIR`, so a worker
+        substitutes the real, absolute build path instead — one the
+        Windows side still only ever reaches as a UNC path. That still
+        pays the same `\\wsl$` 9P cost staging exists to avoid, so it must
+        be staged too, not left alone the way a genuinely local absolute
+        exe is. Staged by basename alone (an absolute token carries no
+        position relative to `cwd` to preserve), and `command`'s own
+        leading token is rewritten to the staged, quoted copy."""
+        absolute_exe = (
+            r"\\wsl.localhost\Ubuntu-24.04\home\me\.coord\cargo-target\vimcode"
+            r"\x86_64-pc-windows-msvc\release\vimcode.exe"
+        )
+        plan = _plan_staging(
+            f"{absolute_exe} sample.txt", self.UNC, session_root=self.SESSION,
+        )
+        assert plan.staged is True
+        assert plan.cwd == self.SESSION
+        assert plan.source_exe == absolute_exe
+        assert plan.dest_exe == f"{self.SESSION}\\vimcode.exe"
+        assert plan.command == f'"{self.SESSION}\\vimcode.exe" sample.txt'
+        # The fixture dir is still queued opportunistically, exactly as
+        # the relative-exe case does.
+        assert (f"{self.UNC}\\.smoke", f"{self.SESSION}\\.smoke") in plan.fixture_copies
+
+    def test_a_cd_prefix_then_absolute_unc_exe_is_staged_and_command_rewritten(
+        self,
+    ) -> None:
+        """The same #3633 shape, but preceded by the fleet's own
+        `cd <fixture-dir> && ` convention — the `cd` prefix is carried
+        through unchanged ahead of the rewritten, staged exe token."""
+        absolute_exe = (
+            r"\\wsl.localhost\Ubuntu-24.04\home\me\.coord\cargo-target\vimcode"
+            r"\x86_64-pc-windows-msvc\release\vimcode.exe"
+        )
+        plan = _plan_staging(
+            f"cd .smoke && {absolute_exe} sample.txt", self.UNC, session_root=self.SESSION,
+        )
+        assert plan.staged is True
+        assert plan.cwd == self.SESSION
+        assert plan.dest_exe == f"{self.SESSION}\\vimcode.exe"
+        assert plan.command == f'cd ".smoke" && "{self.SESSION}\\vimcode.exe" sample.txt'
+        assert (f"{self.UNC}\\.smoke", f"{self.SESSION}\\.smoke") in plan.fixture_copies
+
+    def test_a_mapped_network_drive_exe_token_is_staged(self) -> None:
+        """#3633's own dell64 evidence: every launch actually ran from
+        `Z:\\home\\john\\.coord\\cargo-target\\...` — a drive letter
+        MAPPED to the WSL tree (`net use Z: \\wsl$\\Ubuntu...`).
+        `ntpath.isabs` is `True` for that and `_is_unc_path` is `False`,
+        so the pre-fix check mislabelled it "already genuinely local" and
+        never staged it — the one shape #3633's own bug report showed,
+        reproduced here via the injected `get_drive_type` fake (the real
+        `GetDriveTypeW` call only exists on Windows)."""
+        mapped_drive_exe = r"Z:\home\john\.coord\cargo-target\vimcode\x86_64-pc-windows-msvc\release\vimcode.exe"
+        plan = _plan_staging(
+            f"{mapped_drive_exe} sample.txt", self.UNC, session_root=self.SESSION,
+            get_drive_type=lambda _path: _DRIVE_REMOTE,
+        )
+        assert plan.staged is True
+        assert plan.cwd == self.SESSION
+        assert plan.source_exe == mapped_drive_exe
+        assert plan.dest_exe == f"{self.SESSION}\\vimcode.exe"
+        assert plan.command == f'"{self.SESSION}\\vimcode.exe" sample.txt'
+
+    def test_a_fixed_drive_letter_exe_token_is_left_alone(self) -> None:
+        """The same `Z:\\...` shape as above, but `get_drive_type` now
+        reports a genuinely local (fixed) drive — nothing to stage."""
+        _DRIVE_FIXED = 3
+        plan = _plan_staging(
+            r"Z:\Tools\vimcode.exe sample.txt", self.UNC, session_root=self.SESSION,
+            get_drive_type=lambda _path: _DRIVE_FIXED,
+        )
+        assert plan.staged is False
+        assert "already" in plan.skip_reason
+
+    def test_a_posix_wsl_exe_token_is_normalized_and_staged(self) -> None:
+        r"""#3633's fix option (b): a bare `/`-rooted WSL-style exe token
+        that reached the Windows side unmapped/untranslated — normalized
+        onto the `\\wsl.localhost\<distro>\...` UNC shape (borrowing
+        `cwd`'s own distro prefix) and staged exactly like a UNC token."""
+        posix_exe = "/home/me/.coord/cargo-target/vimcode/release/vimcode.exe"
+        plan = _plan_staging(f"{posix_exe} sample.txt", self.UNC, session_root=self.SESSION)
+        assert plan.staged is True
+        assert plan.cwd == self.SESSION
+        assert plan.source_exe == (
+            r"\\wsl.localhost\Ubuntu-24.04\home\me\.coord\cargo-target\vimcode\release\vimcode.exe"
+        )
+        assert plan.dest_exe == f"{self.SESSION}\\vimcode.exe"
+        assert plan.command == f'"{self.SESSION}\\vimcode.exe" sample.txt'
+
+    def test_a_posix_exe_token_is_left_alone_without_a_wsl_distro_to_borrow(self) -> None:
+        r"""When `cwd` itself isn't a `\\wsl.localhost\<distro>\...` UNC
+        path (a same-host, non-WSL UNC share), there's no distro name to
+        borrow for the `/`-rooted token — left alone rather than
+        guessed at."""
+        plan = _plan_staging(
+            "/home/me/app.exe sample.txt", r"\\fileserver\tools\repo",
+            session_root=self.SESSION,
+        )
+        assert plan.staged is False
+
+    @pytest.mark.parametrize(
+        "exe_token",
+        [
+            "/home/me/.coord/cargo-target/vimcode/release/vimcode.exe",
+            r"\home\me\.coord\cargo-target\vimcode\release\vimcode.exe",
+            "//wsl.localhost/Ubuntu-24.04/home/me/vimcode.exe",
+            r"\\wsl.localhost\Ubuntu-24.04\home\me\vimcode.exe",
+            r"C:\Tools\vimcode.exe",
+            r"C:vimcode.exe",
+        ],
+    )
+    def test_a_rooted_exe_token_never_stages_outside_the_session_root(
+        self, exe_token: str,
+    ) -> None:
+        r"""#3633 CI regression. `_plan_staging` used `ntpath.isabs` to
+        decide "is this token absolute?", and Python 3.13 narrowed that
+        to mean drive-plus-root/UNC only — so on 3.13 (and 3.13 alone) a
+        `/`-rooted WSL token fell past the absolute-exe branch into the
+        *relative* one, where `ntpath.join(session_root, "\\home\\me\\…")`
+        discards `session_root` wholesale and produced
+        `dest_exe = C:\home\me\…`: the exe staged to the DRIVE ROOT,
+        outside this session's own directory — the exact escape the
+        `..`-guard exists to prevent, reached by a different route.
+
+        Whatever any given rooted shape's verdict is, the invariant holds
+        on every interpreter: if it stages at all, it stages INSIDE
+        `session_root`."""
+        plan = _plan_staging(
+            f"{exe_token} sample.txt", self.UNC, session_root=self.SESSION,
+            get_drive_type=lambda _path: _DRIVE_REMOTE,
+        )
+        if plan.staged:
+            assert plan.dest_exe.startswith(f"{self.SESSION}\\")
+            assert ntpath.basename(plan.dest_exe) == "vimcode.exe"
+
+    def test_an_altsep_spelled_unc_exe_token_is_respelled_and_staged(self) -> None:
+        r"""A UNC token written with forward slashes
+        (`//wsl.localhost/Ubuntu/...`) is the same path in a different
+        spelling — respelled onto `\\…` and staged, not handed to the
+        `/`-rooted branch (which would graft a SECOND
+        `\\wsl.localhost\<distro>` prefix in front of it)."""
+        plan = _plan_staging(
+            "//wsl.localhost/Ubuntu-24.04/home/me/vimcode.exe sample.txt",
+            self.UNC, session_root=self.SESSION,
+        )
+        assert plan.staged is True
+        assert plan.source_exe == r"\\wsl.localhost\Ubuntu-24.04\home\me\vimcode.exe"
+        assert plan.dest_exe == f"{self.SESSION}\\vimcode.exe"
+        assert plan.command == f'"{self.SESSION}\\vimcode.exe" sample.txt'
+
+    def test_a_root_relative_cd_prefix_is_left_alone(self) -> None:
+        r"""`cd \foo && ...` is not cwd-relative, so joining it onto
+        `session_root` would discard everything but the drive — skipped
+        for the same reason `cd C:\foo && ...` is. (`ntpath.isabs` says
+        `True` for it on 3.12 and `False` on 3.13, which is why the guard
+        no longer asks `ntpath`.)"""
+        plan = _plan_staging(
+            r"cd \foo && vimcode.exe sample.txt", self.UNC, session_root=self.SESSION,
+        )
+        assert plan.staged is False
+        assert "not cwd-relative" in plan.skip_reason
+
+    def test_relative_exe_plan_leaves_command_none_meaning_unchanged(self) -> None:
+        """The common (relative-exe) case never sets `plan.command` —
+        `None` is the caller's cue (`Win32Calls._stage_if_needed`) to keep
+        using the *command* it already has, since it already resolves
+        correctly against the staged `cwd` unchanged."""
+        plan = _plan_staging("vimcode.exe sample.txt", self.UNC, session_root=self.SESSION)
+        assert plan.command is None
 
     def test_empty_command_is_left_alone(self) -> None:
         assert _plan_staging("", self.UNC, session_root=self.SESSION).staged is False
@@ -1627,6 +2290,48 @@ class TestExecuteStaging:
         )
         assert calls_made == []
 
+    def test_an_absolute_token_plan_is_actually_copied_to_its_basename_dest(
+        self, tmp_path,
+    ) -> None:
+        """#3633 review: the stubbed end-to-end test for the absolute-exe
+        case (`TestWin32CallsLocalStaging
+        .test_worker_substituted_absolute_unc_exe_is_staged_and_rewritten_end_to_end`)
+        never actually calls `_execute_staging`, so nothing in the suite
+        proved the absolute-token plan's copy really lands at
+        `dest_exe = session_root\\<basename>` (no nested subdirectory,
+        unlike the relative-exe case above). This exercises exactly that
+        shape with real `tmp_path` I/O."""
+        source_exe = tmp_path / "cargo-target" / "vimcode" / "release" / "vimcode.exe"
+        source_exe.parent.mkdir(parents=True)
+        source_exe.write_text("binary")
+        session = tmp_path / "session"
+        plan = _StagingPlan(
+            staged=True, cwd=str(session),
+            command=f'"{session / "vimcode.exe"}" sample.txt',
+            source_exe=str(source_exe),
+            dest_exe=str(session / "vimcode.exe"),
+        )
+        _execute_staging(plan)
+        assert (session / "vimcode.exe").is_file()
+        assert (session / "vimcode.exe").read_text() == "binary"
+
+    def test_a_copy_that_reports_success_but_leaves_no_file_raises(self, tmp_path) -> None:
+        """#3633 review (non-blocking): pre-copy, `_execute_staging` only
+        ever checked `source_exe` — a `copy_file` that returns without
+        raising but doesn't actually leave `dest_exe` behind degraded,
+        pre-this-fix, straight into a confusing late `find_top_window`
+        timeout once `command` had already been rewritten to point at
+        it. A post-copy check must catch that here instead."""
+        source_exe = tmp_path / "vimcode.exe"
+        source_exe.write_text("binary")
+        session = tmp_path / "session"
+        plan = _StagingPlan(
+            staged=True, cwd=str(session), source_exe=str(source_exe),
+            dest_exe=str(session / "vimcode.exe"),
+        )
+        with pytest.raises(WinNativeRuntimeError, match="isn't there afterward"):
+            _execute_staging(plan, copy_file=lambda *_a, **_kw: None)
+
 
 class TestWin32CallsLocalStaging:
     """:class:`Win32Calls`'s own wiring of the #3617 staging helpers into
@@ -1641,9 +2346,10 @@ class TestWin32CallsLocalStaging:
         class _FakeProc:
             pid = 7777
 
-        def fake_popen(command, *, shell, cwd=None, **kwargs):
+        def fake_popen(command, *, shell, cwd=None, env=None, **kwargs):
             captured["command"] = command
             captured["cwd"] = cwd
+            captured["env"] = env
             return _FakeProc()
 
         return fake_popen
@@ -1698,6 +2404,51 @@ class TestWin32CallsLocalStaging:
         # for `kill` to clean up later.
         assert calls._staged_session_dirs[7777] is not None
 
+    def test_launch_isolates_appdata_to_the_staged_smoke_dir(
+        self, monkeypatch, tmp_path,
+    ) -> None:
+        """#3637: the previously-documented lane setup step (a project-
+        local ``.vimcode`` fixture next to the opened file) was silently
+        ignored — a real Windows app reads its own settings from
+        ``%APPDATA%\\<app>\\...`` unconditionally, never a cwd-relative
+        folder. `launch` must therefore redirect the LAUNCHED process's
+        own ``%APPDATA%`` to the staged ``.smoke`` directory, so a route
+        that stages ``.smoke/vimcode/settings.json`` lands exactly where
+        the real app looks — isolated per session, never the real, shared
+        profile."""
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+
+        def fake_plan_staging(command, cwd, *, session_root):
+            return _StagingPlan(
+                staged=True, cwd=session_root,
+                source_exe=f"{cwd}\\target\\vimcode.exe",
+                dest_exe=f"{session_root}\\target\\vimcode.exe",
+            )
+
+        monkeypatch.setattr("coord.win_native_driver._plan_staging", fake_plan_staging)
+        monkeypatch.setattr("coord.win_native_driver._execute_staging", lambda plan: None)
+        captured_popen: dict = {}
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(captured_popen),
+        )
+
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        calls.launch("cd .smoke && vimcode.exe sample.txt", self.UNC)
+
+        env = captured_popen["env"]
+        assert env is not None
+        # Isolated to a directory UNDER this session's own staged root —
+        # never the real, ambient %APPDATA% this process itself inherited.
+        assert env["APPDATA"] != os.environ.get("APPDATA")
+        assert env["APPDATA"].endswith(".smoke")
+        assert ".smoke" in env["APPDATA"]
+        assert os.path.isdir(env["APPDATA"])  # created even with nothing to copy
+        # Everything else about the environment is passed through
+        # unchanged — only %APPDATA% itself is redirected.
+        for key, value in os.environ.items():
+            if key != "APPDATA":
+                assert env.get(key) == value
+
     def test_launch_falls_back_to_pushd_when_localappdata_is_unset(
         self, monkeypatch,
     ) -> None:
@@ -1736,6 +2487,12 @@ class TestWin32CallsLocalStaging:
         # ... and the fallback is OBSERVABLE, never silent (#3617 review).
         assert calls.staging_warning is not None
         assert "LOCALAPPDATA" in calls.staging_warning
+        # #3637: with no staged session to isolate %APPDATA% into, the
+        # launched process keeps the ambient (unisolated) environment
+        # rather than this silently claiming isolation it never performed
+        # — `calls.staging_warning` (asserted above) is what makes this
+        # observable rather than a quiet, unflagged regression.
+        assert captured_popen["env"] is None
 
     def test_launch_in_terminal_also_stages(self, monkeypatch, tmp_path) -> None:
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
@@ -1805,20 +2562,53 @@ class TestWin32CallsLocalStaging:
         assert set(terminated) == {cmd_pid, vimcode_pid}
         assert not staged_dir.exists()
 
-    def test_kill_without_a_staged_dir_only_terminates_the_one_pid(self) -> None:
-        """The overwhelmingly common (non-staged) case must stay exactly
-        as cheap as it was before #3617's descendant-tree change — no
-        `_descendant_pids` walk at all when there's nothing staged to
-        clean up."""
+    def test_kill_without_a_staged_dir_still_terminates_the_whole_descendant_tree(
+        self,
+    ) -> None:
+        """#3634: a 2026-10-05 bugbash lane showed `kill` leaving every
+        grandchild (the real app under `cmd.exe`, #3542) running in the
+        OVERWHELMINGLY COMMON (non-staged) case — `kill` used to walk
+        `_descendant_pids` only when there was a staged directory to
+        clean up afterward, as if that walk were solely in service of
+        that cleanup rather than `kill`'s own general contract. It must
+        now always terminate the whole tree, staged or not."""
+        cmd_pid, vimcode_pid = 4242, 9999
+        terminated: list[int] = []
 
-        class _ExplodingSnapshot(_FakeKernel32NoSession):
-            def CreateToolhelp32Snapshot(self, *_a, **_kw):
-                raise AssertionError(
-                    "must not walk the process tree when no staged dir is tracked"
-                )
+        class _TrackingKernel32(_FakeKernel32ProcessTree):
+            def OpenProcess(self, _access, _inherit, pid):
+                return pid  # any non-zero/-1 "handle"
 
-        calls = _make_win32_calls(_FakeUser32(), _ExplodingSnapshot())
-        calls.kill(1)  # must not raise / must not walk the process tree
+            def TerminateProcess(self, handle, _exit_code) -> None:
+                terminated.append(handle)
+
+        tracking_kernel32 = _TrackingKernel32([
+            (cmd_pid, 1, b"cmd.exe"), (vimcode_pid, cmd_pid, b"vimcode.exe"),
+        ])
+        calls = _make_win32_calls(_FakeUser32(), tracking_kernel32)
+
+        calls.kill(cmd_pid)  # no staged dir tracked for cmd_pid at all
+
+        assert set(terminated) == {cmd_pid, vimcode_pid}
+
+    def test_kill_closes_the_job_object_handle_assigned_at_launch(self) -> None:
+        """#3634: when `launch`/`launch_in_terminal` successfully assigned
+        *pid* to a ``KILL_ON_JOB_CLOSE`` Job Object, `kill` must close
+        that SAME handle — the mechanism that lets Windows itself tear
+        down the whole tree even if this process can no longer walk it."""
+        closed: list[int] = []
+
+        class _TrackingKernel32(_FakeKernel32NoSession):
+            def CloseHandle(self, handle) -> None:
+                closed.append(handle)
+
+        calls = _make_win32_calls(_FakeUser32(), _TrackingKernel32())
+        calls._job_handles[4242] = 0xABCD
+
+        calls.kill(4242)
+
+        assert 0xABCD in closed
+        assert 4242 not in calls._job_handles
 
 
 class TestLaunchRealPlanStagingEndToEnd:
@@ -1899,6 +2689,50 @@ class TestLaunchRealPlanStagingEndToEnd:
         )
         assert resolved_exe == ntpath.normpath(plan.dest_exe)
 
+    def test_worker_substituted_absolute_unc_exe_is_staged_and_rewritten_end_to_end(
+        self, monkeypatch, tmp_path,
+    ) -> None:
+        """#3633: when the route's own relative exe path doesn't exist
+        (this fleet's actual `CARGO_TARGET_DIR` lives elsewhere) and a
+        worker substitutes the real, absolute build path instead, that
+        path reaching `Popen` must be the STAGED copy, not the original
+        UNC one — unlike the relative-exe case above, this one DOES need
+        `command` itself rewritten, since the absolute token carries no
+        `cwd`-relative position to simply re-root."""
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+        executed: list = []
+        monkeypatch.setattr(
+            "coord.win_native_driver._execute_staging", lambda plan: executed.append(plan),
+        )
+        captured_popen: dict = {}
+
+        class _FakeProc:
+            pid = 6666
+
+        def fake_popen(command, *, shell, cwd=None, **kwargs):
+            captured_popen["command"] = command
+            captured_popen["cwd"] = cwd
+            return _FakeProc()
+
+        monkeypatch.setattr("coord.win_native_driver.subprocess.Popen", fake_popen)
+
+        worker_substituted_command = (
+            "cd .smoke && "
+            r"\\wsl.localhost\Ubuntu-24.04\home\me\.coord\cargo-target\vimcode"
+            r"\x86_64-pc-windows-msvc\release\vimcode.exe sample.txt"
+        )
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        pid = calls.launch(worker_substituted_command, self.UNC)
+
+        assert pid == 6666
+        assert len(executed) == 1
+        plan = executed[0]
+        assert "wsl.localhost" not in captured_popen["command"]
+        assert captured_popen["command"] == plan.command
+        assert captured_popen["command"] == f'cd ".smoke" && "{plan.dest_exe}" sample.txt'
+        assert captured_popen["cwd"] == plan.cwd
+        assert "wsl.localhost" not in captured_popen["cwd"]
+
 
 class TestStageIfNeededFallsBackRatherThanRaising:
     """#3617 review (non-blocking finding): `_stage_if_needed`'s own
@@ -1920,15 +2754,38 @@ class TestStageIfNeededFallsBackRatherThanRaising:
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
         calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
 
-        command, cwd, staged_dir = calls._stage_if_needed(
+        command, cwd, staged_dir, appdata_dir = calls._stage_if_needed(
             "cd .smoke && HOME=$PWD/home ../target/release/vimcode.exe", self.UNC,
         )
 
         assert staged_dir is None
+        assert appdata_dir is None
         assert command == "cd .smoke && HOME=$PWD/home ../target/release/vimcode.exe"
         assert cwd == self.UNC
         assert calls.staging_warning is not None
         assert "exe not found" in calls.staging_warning
+
+    def test_unparseable_command_skips_staging_and_appdata_isolation(
+        self, monkeypatch, tmp_path,
+    ) -> None:
+        """#3637: when `_plan_staging` itself declines (``plan.staged is
+        False`` — here, a command with more than one shell operator), there
+        is no staged session directory to point an isolated ``%APPDATA%``
+        at either. `calls.staging_warning` must say so explicitly rather
+        than silently claiming an isolation that never happened (#2096)."""
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+
+        command, cwd, staged_dir, appdata_dir = calls._stage_if_needed(
+            "cd .smoke && a.exe && b.exe", self.UNC,
+        )
+
+        assert staged_dir is None
+        assert appdata_dir is None
+        assert command == "cd .smoke && a.exe && b.exe"
+        assert cwd == self.UNC
+        assert calls.staging_warning is not None
+        assert "#3637" in calls.staging_warning
 
 
 class TestStagingRootAndSweep:
@@ -2055,6 +2912,182 @@ class TestWin32CallsLaunchDoesNotInheritStdHandles:
         assert captured.get("stdin") is subprocess.DEVNULL
         assert captured.get("stdout") is subprocess.DEVNULL
         assert captured.get("stderr") is subprocess.DEVNULL
+
+
+class _FakeKernel32JobObjects(_FakeKernel32NoSession):
+    """Adds working Job Object calls (#3634) on top of
+    `_FakeKernel32NoSession`'s baseline — `CreateJobObjectW`/
+    `SetInformationJobObject`/`OpenProcess`/`AssignProcessToJobObject` all
+    succeed by default, recording exactly what
+    `Win32Calls._assign_kill_on_close_job` requested, so a test can assert
+    #3634's `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` is really what gets set —
+    not just "some flag" — and that the real pid is what gets assigned.
+    Each ``*_fails`` flag scripts exactly one step of the chain failing,
+    to exercise `_assign_kill_on_close_job`'s best-effort fallback at
+    every stage."""
+
+    def __init__(
+        self, *, create_fails: bool = False, set_info_fails: bool = False,
+        open_process_fails: bool = False, assign_fails: bool = False,
+    ) -> None:
+        super().__init__()
+        self._create_fails = create_fails
+        self._set_info_fails = set_info_fails
+        self._open_process_fails = open_process_fails
+        self._assign_fails = assign_fails
+        self.jobs_created: list[int] = []
+        self.limit_flags_set: list[int] = []
+        self.assigned: list[tuple[int, int]] = []
+        self.closed: list[int] = []
+        self._next_job = 100
+
+    def CreateJobObjectW(self, _attrs, _name):
+        if self._create_fails:
+            return 0
+        job = self._next_job
+        self._next_job += 1
+        self.jobs_created.append(job)
+        return job
+
+    def SetInformationJobObject(self, _job, _info_class, info_ptr, _size):
+        if self._set_info_fails:
+            return 0
+        info = ctypes.cast(
+            info_ptr, ctypes.POINTER(_JOBOBJECT_EXTENDED_LIMIT_INFORMATION),
+        ).contents
+        self.limit_flags_set.append(info.BasicLimitInformation.LimitFlags)
+        return 1
+
+    def OpenProcess(self, _access, _inherit, pid):
+        if self._open_process_fails:
+            return 0
+        return pid  # any non-zero "handle" tied to the real pid
+
+    def AssignProcessToJobObject(self, job, process_handle):
+        if self._assign_fails:
+            return 0
+        self.assigned.append((job, process_handle))
+        return 1
+
+    def CloseHandle(self, handle) -> None:
+        self.closed.append(handle)
+
+
+class TestAssignKillOnCloseJob:
+    """#3634: `Win32Calls.launch`/`launch_in_terminal` assign the freshly
+    launched pid to a ``KILL_ON_JOB_CLOSE`` Job Object, so Windows itself
+    tears down the whole process tree (including a ``cmd.exe /c``
+    grandchild, #3542) the instant the handle closes — even if this
+    process never runs its own ``kill()`` at all (a crash/force-kill has
+    no Windows ``PR_SET_PDEATHSIG`` equivalent to lean on instead, #3583).
+    """
+
+    @staticmethod
+    def _fake_popen(pid: int):
+        class _FakeProc:
+            def __init__(self) -> None:
+                self.pid = pid
+
+        return lambda *a, **kw: _FakeProc()
+
+    def test_launch_assigns_the_pid_to_a_kill_on_close_job(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(4242),
+        )
+        kernel32 = _FakeKernel32JobObjects()
+        calls = _make_win32_calls(_FakeUser32(), kernel32)
+
+        pid = calls.launch("vimcode.exe", r"C:\Users\me\repo")
+
+        assert pid == 4242
+        assert calls._job_handles[4242] == kernel32.jobs_created[0]
+        assert kernel32.limit_flags_set == [JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE]
+        assert kernel32.assigned == [(kernel32.jobs_created[0], 4242)]
+
+    def test_launch_in_terminal_also_assigns_a_job(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(5151),
+        )
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32JobObjects())
+
+        pid = calls.launch_in_terminal(
+            "vimcode.exe", r"C:\Users\me\repo", "windows-terminal",
+        )
+
+        assert pid == 5151
+        assert 5151 in calls._job_handles
+
+    def test_create_job_object_failing_is_best_effort(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(7),
+        )
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32JobObjects(create_fails=True))
+
+        pid = calls.launch("vimcode.exe", r"C:\Users\me\repo")
+
+        assert pid == 7
+        assert calls._job_handles == {}
+
+    def test_set_information_failing_closes_the_job_and_is_best_effort(
+        self, monkeypatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(8),
+        )
+        kernel32 = _FakeKernel32JobObjects(set_info_fails=True)
+        calls = _make_win32_calls(_FakeUser32(), kernel32)
+
+        pid = calls.launch("vimcode.exe", r"C:\Users\me\repo")
+
+        assert pid == 8
+        assert calls._job_handles == {}
+        assert kernel32.jobs_created[0] in kernel32.closed
+
+    def test_open_process_failing_closes_the_job_and_is_best_effort(
+        self, monkeypatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(9),
+        )
+        kernel32 = _FakeKernel32JobObjects(open_process_fails=True)
+        calls = _make_win32_calls(_FakeUser32(), kernel32)
+
+        pid = calls.launch("vimcode.exe", r"C:\Users\me\repo")
+
+        assert pid == 9
+        assert calls._job_handles == {}
+        assert kernel32.jobs_created[0] in kernel32.closed
+
+    def test_assign_process_failing_closes_the_job_and_is_best_effort(
+        self, monkeypatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(10),
+        )
+        kernel32 = _FakeKernel32JobObjects(assign_fails=True)
+        calls = _make_win32_calls(_FakeUser32(), kernel32)
+
+        pid = calls.launch("vimcode.exe", r"C:\Users\me\repo")
+
+        assert pid == 10
+        assert calls._job_handles == {}
+        assert kernel32.jobs_created[0] in kernel32.closed
+
+    def test_no_job_object_support_at_all_is_best_effort(self, monkeypatch) -> None:
+        """A scripted fake kernel32 with no Job Object methods at all
+        raises `AttributeError` — the exact shape of every OTHER fake in
+        this module — and must not break `launch` at all; this is what
+        keeps #3634 from regressing every pre-existing test using
+        `_FakeKernel32NoSession`/`_FakeKernel32ProcessTree` directly."""
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", self._fake_popen(11),
+        )
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+
+        pid = calls.launch("vimcode.exe", r"C:\Users\me\repo")
+
+        assert pid == 11
+        assert calls._job_handles == {}
 
 
 class TestLaunchPipeInheritanceRealSubprocess:
@@ -2242,6 +3275,57 @@ class TestRunNativeSpec:
         assert calls.launched == []
 
 
+class TestWinNativeSessionKillsOnOpenFailure:
+    """#3634: a 2026-10-05 bugbash lane left 4 simultaneous stray
+    ``vimcode.exe`` processes running because a failed/retried open never
+    killed the process it had already launched — `WinNativeSession.__init__`
+    raising (window discovery failing) left no session object for anyone to
+    ever call `close()`/`kill()` on at all."""
+
+    def test_window_never_appearing_kills_the_launched_pid_before_raising(self) -> None:
+        calls = FakeWinCalls(window_never_appears=True)
+
+        with pytest.raises(WinNativeRuntimeError):
+            WinNativeSession("vimcode.exe", "/repo", calls=calls)
+
+        assert calls.launched == [("vimcode.exe", "/repo")]
+        assert calls.killed == [calls._next_pid]
+
+    def test_move_window_failing_also_kills_the_launched_pid_before_raising(self) -> None:
+        calls = FakeWinCalls()
+
+        def _explode(hwnd, x, y, width, height):
+            raise WinNativeRuntimeError("MoveWindow failed")
+
+        calls.move_window = _explode  # type: ignore[method-assign]
+
+        with pytest.raises(WinNativeRuntimeError):
+            WinNativeSession("vimcode.exe", "/repo", calls=calls)
+
+        assert calls.killed == [calls._next_pid]
+
+    def test_kill_raising_during_open_failure_cleanup_does_not_mask_the_real_error(
+        self,
+    ) -> None:
+        """Teardown-on-failure must itself never raise past the original
+        error — the ORIGINAL `find_top_window` failure is what a caller
+        needs to see, not a secondary problem in best-effort cleanup."""
+        calls = FakeWinCalls(window_never_appears=True)
+
+        def _explode(pid):
+            raise OSError("kill itself failed")
+
+        calls.kill = _explode  # type: ignore[method-assign]
+
+        with pytest.raises(WinNativeRuntimeError, match="no window for pid"):
+            WinNativeSession("vimcode.exe", "/repo", calls=calls)
+
+    def test_successful_open_never_calls_kill(self) -> None:
+        calls = FakeWinCalls()
+        WinNativeSession("vimcode.exe", "/repo", calls=calls)
+        assert calls.killed == []
+
+
 class TestWinNativeSessionStagingWarning:
     """#3617 review: `WinNativeSession.staging_warning` is the seam
     :mod:`coord.app_drive_daemon` reads to put a skipped-staging warning
@@ -2273,3 +3357,267 @@ class TestWinNativeSessionStagingWarning:
         assert not hasattr(calls, "staging_warning")
         session = WinNativeSession("vimcode.exe", "/repo", calls=calls)
         assert session.staging_warning is None
+
+
+# ── #3640: console-subsystem detection + WinNativeSession mode selection ────
+
+
+def _pe_bytes(subsystem: int, *, magic: int = 0x10B) -> bytes:
+    """A minimal, otherwise-garbage PE image carrying just enough real
+    structure for :func:`coord.win_native_driver._pe_subsystem` to read
+    *subsystem* back off it — the DOS stub's ``e_lfanew``, the ``PE\\0\\0``
+    signature, a dummy (all-zero) ``IMAGE_FILE_HEADER``, and an optional
+    header whose ``Magic``/``Subsystem`` fields are the only two actually
+    populated. *magic* (``0x10b`` PE32 / ``0x20b`` PE32+) exercises both
+    shapes — :func:`_pe_subsystem`'s own docstring explains why the
+    ``Subsystem`` offset is identical in both."""
+    dos_header = bytearray(64)
+    dos_header[0:2] = b"MZ"
+    pe_offset = 64
+    struct.pack_into("<I", dos_header, 60, pe_offset)
+    file_header = bytes(20)
+    optional_header = bytearray(70)
+    struct.pack_into("<H", optional_header, 0, magic)
+    struct.pack_into("<H", optional_header, 68, subsystem)
+    return bytes(dos_header) + b"PE\x00\x00" + file_header + bytes(optional_header)
+
+
+class TestPeSubsystem:
+    def test_reads_gui_subsystem_pe32(self, tmp_path) -> None:
+        exe = tmp_path / "app.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_GUI, magic=0x10B))
+        assert _pe_subsystem(str(exe)) == IMAGE_SUBSYSTEM_WINDOWS_GUI
+
+    def test_reads_cui_subsystem_pe32(self, tmp_path) -> None:
+        exe = tmp_path / "app.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI, magic=0x10B))
+        assert _pe_subsystem(str(exe)) == IMAGE_SUBSYSTEM_WINDOWS_CUI
+
+    def test_reads_cui_subsystem_pe32_plus_at_the_same_offset(self, tmp_path) -> None:
+        """#3640: the 64-bit (PE32+) optional header shape drops
+        ``BaseOfData`` but widens ``ImageBase`` from 4 to 8 bytes — those
+        two 4-byte deltas must cancel out, leaving ``Subsystem`` at the
+        identical byte offset as PE32's."""
+        exe = tmp_path / "app64.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI, magic=0x20B))
+        assert _pe_subsystem(str(exe)) == IMAGE_SUBSYSTEM_WINDOWS_CUI
+
+    def test_missing_file_returns_none_not_raise(self) -> None:
+        assert _pe_subsystem("/no/such/exe/anywhere.exe") is None
+
+    def test_non_pe_file_returns_none(self, tmp_path) -> None:
+        not_pe = tmp_path / "not-an-exe.exe"
+        not_pe.write_bytes(b"this is not a PE image at all, just text padding" * 4)
+        assert _pe_subsystem(str(not_pe)) is None
+
+    def test_truncated_pe_returns_none(self, tmp_path) -> None:
+        """A real ``MZ``/``PE`` signature but the file ends before the
+        ``Subsystem`` field — must report "couldn't tell", never raise or
+        read garbage past EOF."""
+        truncated = tmp_path / "truncated.exe"
+        truncated.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI)[:80])
+        assert _pe_subsystem(str(truncated)) is None
+
+
+class TestGuessExePath:
+    def test_extracts_the_only_exe_token(self) -> None:
+        assert _guess_exe_path("vcd.exe sample.txt", "/cwd") == "/cwd/vcd.exe"
+
+    def test_resolves_the_exe_token_relative_to_the_cd_prefixed_dir(self) -> None:
+        """#3640's own reproduction: ``coord app-drive open win-native
+        --launch "cd .smoke && ../target/x86_64-pc-windows-msvc/release/
+        vcd.exe sample.txt"``. The exe is reachable as ``../target/...``
+        only AFTER the ``cd .smoke`` — so the resolved path must be
+        relative to ``cwd/.smoke``, never to ``cwd`` itself (the #3640
+        review finding: the previous revision joined the token straight
+        onto ``cwd``, landing one directory above the worktree)."""
+        command = "cd .smoke && ../target/x86_64-pc-windows-msvc/release/vcd.exe sample.txt"
+        token = "../target/x86_64-pc-windows-msvc/release/vcd.exe"
+        assert _guess_exe_path(command, "/cwd") == f"/cwd/.smoke/{token}"
+
+    def test_quoted_exe_with_embedded_space_resolves_the_whole_quoted_token(self) -> None:
+        """#3640 review finding (b): a quoted path containing a space —
+        the old regex-based extractor matched only ``App.exe``, the
+        substring after the last space, where the shared
+        ``_leading_token`` parser (correctly) returns the whole quoted
+        token."""
+        assert (
+            _guess_exe_path('"My App.exe" sample.txt', "/cwd") == "/cwd/My App.exe"
+        )
+
+    def test_absolute_exe_token_is_returned_unchanged(self) -> None:
+        assert _guess_exe_path(r"C:\tools\vimcode.exe", "/cwd") == r"C:\tools\vimcode.exe"
+
+    def test_rooted_posix_style_exe_token_is_returned_unchanged_without_a_distro_to_borrow(
+        self,
+    ) -> None:
+        """A ``/``-rooted token (a WSL-side absolute path, #3633's own
+        shape) must not be joined onto *cwd* either — only a genuinely
+        *cwd*-relative token should be. *cwd* here isn't a
+        ``\\\\wsl.localhost\\...`` UNC path, so there's no distro prefix
+        to normalize the token onto — left alone rather than guessed."""
+        assert _guess_exe_path("/opt/tools/vcd.exe", "/cwd") == "/opt/tools/vcd.exe"
+
+    def test_rooted_posix_style_exe_token_is_normalized_onto_the_cwd_distro(self) -> None:
+        """#3640 review finding (c): a `/`-rooted WSL token must be
+        normalized onto the ``\\\\wsl.localhost\\<distro>\\...`` UNC form
+        *cwd* itself already carries — the shape the bridge host actually
+        needs to read the file at all. Returning it verbatim (the
+        previous revision's behavior) is always unreadable there, so the
+        sniff silently abstained on every WSL-rooted token."""
+        cwd = r"\\wsl.localhost\Ubuntu-24.04\home\me\repo"
+        assert (
+            _guess_exe_path("/home/me/other/vcd.exe", cwd)
+            == r"\\wsl.localhost\Ubuntu-24.04\home\me\other\vcd.exe"
+        )
+
+    def test_no_exe_token_returns_none(self) -> None:
+        assert _guess_exe_path("echo hello", "/cwd") is None
+
+    def test_a_second_shell_operator_declines_to_guess(self) -> None:
+        """Mirrors :func:`_plan_staging`'s own decline for the same
+        shape — an opaque shell pipeline this driver will not guess at
+        rewriting."""
+        assert _guess_exe_path("a.exe && b.exe", "/cwd") is None
+
+    def test_a_rooted_cd_prefix_declines_to_guess(self) -> None:
+        """Mirrors :func:`_plan_staging`'s own decline for ``cd C:\\foo
+        && ...`` — not *cwd*-relative, so there's nothing safe to join it
+        onto."""
+        assert _guess_exe_path(r"cd C:\foo && app.exe", "/cwd") is None
+
+
+class TestDetectConsoleSubsystem:
+    def test_true_for_a_cui_exe(self, tmp_path) -> None:
+        exe = tmp_path / "vcd.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI))
+        assert _detect_console_subsystem(f"{exe} sample.txt", str(tmp_path)) is True
+
+    def test_false_for_a_gui_exe(self, tmp_path) -> None:
+        exe = tmp_path / "vimcode.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_GUI))
+        assert _detect_console_subsystem(str(exe), str(tmp_path)) is False
+
+    def test_none_when_exe_is_unreadable(self, tmp_path) -> None:
+        assert _detect_console_subsystem("missing.exe", str(tmp_path)) is None
+
+    def test_none_when_no_exe_token_in_command(self, tmp_path) -> None:
+        assert _detect_console_subsystem("echo hello", str(tmp_path)) is None
+
+
+class TestWinNativeSessionModeSelection:
+    """#3640: `coord app-drive open win-native --launch '<path>/vcd.exe
+    sample.txt'` hung forever because the ONLY launch path
+    `WinNativeSession` had was the GUI one — it waits for a top-level
+    window owned by the launched pid's own tree, which a console-
+    subsystem exe's window never is (conhost.exe/Windows Terminal owns
+    it instead). These exercise the fix at the one place both `coord
+    app-drive open` and (indirectly, via `_build_backend`) the daemon
+    share — no separate code path to drift out of sync with."""
+
+    def test_auto_mode_launches_in_terminal_for_a_detected_console_exe(self, tmp_path) -> None:
+        exe = tmp_path / "vcd.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI))
+        calls = FakeWinCalls()
+
+        WinNativeSession(f"{exe} sample.txt", str(tmp_path), calls=calls)
+
+        assert calls.launched == []
+        assert calls.launched_in_terminal == [(f"{exe} sample.txt", str(tmp_path), "windows-terminal")]
+
+    def test_auto_mode_launches_in_terminal_for_3640s_own_cd_prefixed_reproduction(
+        self, tmp_path,
+    ) -> None:
+        """#3640's own reported reproduction, end to end, with the exe
+        laid out exactly where the real worktree build puts it: a
+        ``.smoke`` fixture dir and a sibling ``target/<triple>/release/``
+        exe one level up. Pre-fix, ``_guess_exe_path`` resolved the exe
+        token against *cwd* directly (ignoring the ``cd .smoke &&``
+        prefix), landed one directory too high, found nothing, and this
+        fell back to the broken ``mode="window"`` path — this test fails
+        against that revision."""
+        exe_dir = tmp_path / "target" / "x86_64-pc-windows-msvc" / "release"
+        exe_dir.mkdir(parents=True)
+        exe = exe_dir / "vcd.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI))
+        (tmp_path / ".smoke").mkdir()
+        calls = FakeWinCalls()
+
+        launch = "cd .smoke && ../target/x86_64-pc-windows-msvc/release/vcd.exe sample.txt"
+        WinNativeSession(launch, str(tmp_path), calls=calls)
+
+        assert calls.launched == []
+        assert calls.launched_in_terminal == [(launch, str(tmp_path), "windows-terminal")]
+
+    def test_auto_mode_launches_normally_for_a_detected_gui_exe(self, tmp_path) -> None:
+        exe = tmp_path / "vimcode.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_GUI))
+        calls = FakeWinCalls()
+
+        WinNativeSession(str(exe), str(tmp_path), calls=calls)
+
+        assert calls.launched == [(str(exe), str(tmp_path))]
+        assert calls.launched_in_terminal == []
+
+    def test_auto_mode_falls_back_to_window_when_exe_cannot_be_sniffed(self) -> None:
+        """Pre-#3640 behavior, preserved exactly: an unreadable/undetectable
+        target (the common case for every existing caller/test that never
+        set up a real exe on disk) must still use the plain `launch` path,
+        never block on a mode it couldn't determine."""
+        calls = FakeWinCalls()
+
+        WinNativeSession("vimcode.exe", "/no/such/dir", calls=calls)
+
+        assert calls.launched == [("vimcode.exe", "/no/such/dir")]
+        assert calls.launched_in_terminal == []
+
+    def test_explicit_window_mode_overrides_auto_detection(self, tmp_path) -> None:
+        """A caller that already knows better (or wants the pre-#3640
+        behavior for some reason) can still force it — auto-detection is
+        the ``None`` default's behavior, not a mandate."""
+        exe = tmp_path / "vcd.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI))
+        calls = FakeWinCalls()
+
+        WinNativeSession(str(exe), str(tmp_path), calls=calls, mode="window")
+
+        assert calls.launched == [(str(exe), str(tmp_path))]
+        assert calls.launched_in_terminal == []
+
+    def test_explicit_terminal_app_overrides_the_auto_default(self, tmp_path) -> None:
+        exe = tmp_path / "vcd.exe"
+        exe.write_bytes(_pe_bytes(IMAGE_SUBSYSTEM_WINDOWS_CUI))
+        calls = FakeWinCalls()
+
+        WinNativeSession(str(exe), str(tmp_path), calls=calls, terminal_app="conhost")
+
+        assert calls.launched_in_terminal == [(str(exe), str(tmp_path), "conhost")]
+
+    def test_explicit_terminal_mode_without_terminal_app_raises_before_any_launch(self) -> None:
+        calls = FakeWinCalls()
+
+        with pytest.raises(WinNativeSpecError, match="terminal_app"):
+            WinNativeSession("vimcode.exe", "/repo", calls=calls, mode="terminal")
+
+        assert calls.launched == []
+        assert calls.launched_in_terminal == []
+
+    def test_unrecognized_terminal_app_raises_before_any_launch(self) -> None:
+        calls = FakeWinCalls()
+
+        with pytest.raises(WinNativeSpecError, match="terminal_app"):
+            WinNativeSession(
+                "vimcode.exe", "/repo", calls=calls, mode="terminal", terminal_app="iterm2",
+            )
+
+        assert calls.launched == []
+        assert calls.launched_in_terminal == []
+
+    def test_unrecognized_mode_raises_before_any_launch(self) -> None:
+        calls = FakeWinCalls()
+
+        with pytest.raises(WinNativeSpecError, match="mode"):
+            WinNativeSession("vimcode.exe", "/repo", calls=calls, mode="headless")
+
+        assert calls.launched == []
+        assert calls.launched_in_terminal == []

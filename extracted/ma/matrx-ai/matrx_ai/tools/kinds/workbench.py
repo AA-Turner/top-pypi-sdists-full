@@ -1,5 +1,5 @@
 """Kinds for the workbench-surface tool results: ``task`` · ``skill`` ·
-``picklist`` (KIND_TOOL_LEDGER, ``lead-w2f``). All three are package-hosted
+``pick_list`` (KIND_TOOL_LEDGER, ``lead-w2f``). All three are package-hosted
 action dispatchers with NO active ``tool.binding`` row (the census's
 no-binding set), so their runtime half is proven by direct calls of the real
 implementations, the ``sql`` precedent.
@@ -106,7 +106,7 @@ class SkillToolResult(KindModel):
 
 
 @kind(
-    "picklist_tool_result",
+    "pick_list_tool_result",
     disposition="record",
     label="Picklist Tool Result",
     family="picklists",
@@ -114,7 +114,7 @@ class SkillToolResult(KindModel):
     # PLACEHOLDER — the list/get/create/update_item/batch_update union.
     maturity="placeholder",
 )
-class PicklistToolResult(KindModel):
+class PickListToolResult(KindModel):
     #: `create` receipt.
     list_id: str | None = None
     list_name: str | None = None
@@ -140,4 +140,4 @@ class PicklistToolResult(KindModel):
     failed_items: list[JsonValue] | None = None
 
 
-__all__ = ["TaskToolResult", "SkillToolResult", "PicklistToolResult"]
+__all__ = ["TaskToolResult", "SkillToolResult", "PickListToolResult"]

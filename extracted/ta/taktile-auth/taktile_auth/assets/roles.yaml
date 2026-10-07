@@ -98,6 +98,12 @@ ws_admin/org_id,ws_id:
     - data_admin/org_id,ws_id
     - r+w:workspace_wizard/org_id,ws_id,{env=*}
     - case_admin/org_id,ws_id
+
+# Granular permissions, not generally available. Customers can assign the roles
+# from here down to "roles assignable via admin panel" only on the per-user
+# permissions page, which decide-ui shows only when the `granular-permissions`
+# feature flag is on. Check that flag's state in decide-ui's featureFlags.ts
+# for the customer's org before recommending any of these roles.
 # P141c workspace admin: manage permissions, API keys and folders, view all folders.
 # Deliberately no w:flows — folder management stays separable from Edit Logic.
 ws_manager/org_id,ws_id:
@@ -133,6 +139,10 @@ flow_deployer/org_id,ws_id,flow_folder_id:
     - deploy:flows/org_id,ws_id,flow_folder_id,{env=*}
     - deploy:jobs/org_id,ws_id,flow_folder_id
     - w:job_run/org_id,ws_id,flow_folder_id,{env=live}
+    # Lets deployers view and test webhooks, which live in the internal folder (constants.INTERNAL_FLOW_FOLDER_ID).
+    - r:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=*}
+    - execute:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=sandbox}
+    - execute:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=test}
 
 # P141c workspace-scoped agent and session-viewer roles.
 agent_viewer/org_id,ws_id:

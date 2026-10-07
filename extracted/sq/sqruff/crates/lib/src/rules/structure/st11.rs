@@ -56,6 +56,12 @@ SELECT
 FROM foo
 LEFT JOIN bar ON foo.a = bar.a
 ```
+
+In the (*very rare*) situations that it is logically necessary to include
+a table in a join clause, but not otherwise refer to it (likely for
+granularity reasons, or as a stepping stone to another table), we recommend
+ignoring this rule for that specific line by using ``-- noqa: ST11`` at
+the end of the line.
 "#
     }
 
@@ -90,30 +96,13 @@ LEFT JOIN bar ON foo.a = bar.a
         for clause_type in reference_clause_types {
             let clause = segment.child(&SyntaxSet::new(&[*clause_type]));
             if let Some(clause) = clause {
-                // Extract all column references from this clause.
-                for col_ref in clause.recursive_crawl(
-                    const { &SyntaxSet::new(&[SyntaxKind::ColumnReference]) },
-                    true,
-                    &SyntaxSet::EMPTY,
-                    true,
-                ) {
-                    let obj_ref = ObjectReferenceSegment(col_ref, ObjectReferenceKind::Object);
-                    let parts = obj_ref.iter_raw_references();
-                    if parts.len() < 2 {
-                        // Unqualified reference found - abort for this SELECT
-                        // because we can't resolve which table it belongs to.
-                        return Vec::new();
-                    }
-                    // The table qualifier is the second-to-last part.
-                    let table_part = &parts[parts.len() - 2].part;
-                    table_references.insert(
-                        table_part
-                            .to_uppercase()
-                            .trim_matches(|c| {
-                                c == '"' || c == '\'' || c == '`' || c == '[' || c == ']'
-                            })
-                            .to_string(),
-                    );
+                let Some(references) = self.extract_referenced_tables(&clause, false) else {
+                    // Unqualified reference found - abort for this SELECT because
+                    // we can't resolve which table it belongs to.
+                    return Vec::new();
+                };
+                for reference in references {
+                    table_references.insert(reference);
                 }
             }
         }
@@ -174,7 +163,7 @@ impl RuleST11 {
             .to_string()
     }
 
-    /// Extract tables from column references within a segment, yielding
+    /// Extract tables from column references and qualified wildcards, yielding
     /// the uppercase table qualifier. If allow_unqualified is false and an
     /// unqualified reference is found, returns None.
     fn extract_referenced_tables(
@@ -184,35 +173,59 @@ impl RuleST11 {
     ) -> Option<Vec<String>> {
         let mut tables = Vec::new();
         for col_ref in segment.recursive_crawl(
-            const { &SyntaxSet::new(&[SyntaxKind::ColumnReference]) },
+            const {
+                &SyntaxSet::new(&[SyntaxKind::ColumnReference, SyntaxKind::WildcardIdentifier])
+            },
             true,
             &SyntaxSet::EMPTY,
             true,
         ) {
-            let obj_ref = ObjectReferenceSegment(col_ref, ObjectReferenceKind::Object);
+            let is_wildcard = col_ref.is_type(SyntaxKind::WildcardIdentifier);
+            let obj_ref = ObjectReferenceSegment(
+                col_ref,
+                if is_wildcard {
+                    ObjectReferenceKind::WildcardIdentifier
+                } else {
+                    ObjectReferenceKind::Object
+                },
+            );
             let parts = obj_ref.iter_raw_references();
             if parts.len() < 2 {
+                if is_wildcard {
+                    continue;
+                }
                 if allow_unqualified {
                     continue;
                 } else {
                     return None;
                 }
             }
-            let table_part = &parts[parts.len() - 2].part;
-            tables.push(
-                table_part
-                    .to_uppercase()
-                    .trim_matches(|c| c == '"' || c == '\'' || c == '`' || c == '[' || c == ']')
-                    .to_string(),
-            );
+            // Include both the penultimate and first parts to handle unaliased
+            // qualified references (`schema.table.column`) and aliased nested
+            // field references (`alias.struct.field`). For a two-part reference,
+            // these identify the same part, so only include it once.
+            let penultimate = parts.len() - 2;
+            for index in [penultimate, 0]
+                .into_iter()
+                .take(if penultimate == 0 { 1 } else { 2 })
+            {
+                tables.push(
+                    parts[index]
+                        .part
+                        .to_uppercase()
+                        .trim_matches(|c| c == '"' || c == '\'' || c == '`' || c == '[' || c == ']')
+                        .to_string(),
+                );
+            }
         }
         Some(tables)
     }
 
     /// Extract the list of (uppercase_table_ref, segment) for tables brought in
     /// via FROM/JOIN that are candidates for being unused. Only explicit OUTER
-    /// joins (LEFT, RIGHT, FULL) are flagged. Returns None if there are fewer
-    /// than 2 tables overall (single table queries are not checked).
+    /// joins (LEFT, RIGHT, FULL) are flagged, except SEMI and ANTI joins, which
+    /// filter rows without projecting columns from the joined table. Returns
+    /// None if there are fewer than 2 tables overall.
     fn extract_references_from_select(
         &self,
         segment: &ErasedSegment,
@@ -259,6 +272,8 @@ impl RuleST11 {
                 let is_outer = join_keywords.contains("LEFT")
                     || join_keywords.contains("RIGHT")
                     || join_keywords.contains("FULL");
+                let is_semi_or_anti =
+                    join_keywords.contains("SEMI") || join_keywords.contains("ANTI");
 
                 let mut this_clause_refs = Vec::new();
 
@@ -268,7 +283,7 @@ impl RuleST11 {
                     let ref_str = self.extract_reference_from_expression(from_elem);
                     total_table_count += 1;
 
-                    if !ref_str.is_empty() && is_outer {
+                    if !ref_str.is_empty() && is_outer && !is_semi_or_anti {
                         joined_tables.push((ref_str.clone(), from_elem.clone()));
                         this_clause_refs.push(ref_str);
                     }
@@ -311,5 +326,49 @@ impl RuleST11 {
             .collect();
 
         Some(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::config::FluffConfig;
+    use crate::core::linter::core::Linter;
+
+    fn lint_postgres(sql: &str) -> usize {
+        let config = FluffConfig::from_source("[sqruff]\nrules = ST11\ndialect = postgres\n", None);
+        let mut linter = Linter::new(config, None, None, true).unwrap();
+        linter
+            .lint_string_wrapped(sql, false)
+            .unwrap()
+            .violations()
+            .len()
+    }
+
+    #[test]
+    fn test_bare_select_wildcard_is_not_unqualified_reference() {
+        assert_eq!(
+            lint_postgres("SELECT * FROM a LEFT JOIN b ON a.id = b.id"),
+            0
+        );
+    }
+
+    #[test]
+    fn test_wildcard_row_uses_joined_table() {
+        assert_eq!(
+            lint_postgres(
+                "SELECT to_jsonb(other_table.*) FROM my_table LEFT JOIN other_table ON other_table.my_table_id = my_table.id"
+            ),
+            0
+        );
+    }
+
+    #[test]
+    fn test_unrelated_wildcard_row_leaves_join_unused() {
+        assert_eq!(
+            lint_postgres(
+                "SELECT to_jsonb(my_table.*) FROM my_table LEFT JOIN other_table ON other_table.my_table_id = my_table.id"
+            ),
+            1
+        );
     }
 }

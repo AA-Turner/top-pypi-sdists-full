@@ -80,6 +80,30 @@ test_pass_bigquery_date:
       capitalisation.keywords:
         capitalisation_policy: upper
 
+test_fail_athena_ctas_property_names_preserve_case:
+  fail_str: |
+    create table example
+    with (
+        format = 'PARQUET',
+        write_compression = 'ZSTD',
+        external_location = 's3://bucket/athena-results/run/example'
+    ) as
+    select * from example_table;
+  fix_str: |
+    CREATE TABLE example
+    WITH (
+        format = 'PARQUET',
+        write_compression = 'ZSTD',
+        external_location = 's3://bucket/athena-results/run/example'
+    ) AS
+    SELECT * FROM example_table;
+  configs:
+    core:
+      dialect: athena
+    rules:
+      capitalisation.keywords:
+        capitalisation_policy: upper
+
 test_pass_ignore_word:
   pass_str: SeleCT 1
   configs:
@@ -228,6 +252,47 @@ test_fail_select_lower_keyword_functions:
   configs:
     core:
       dialect: tsql
+    rules:
+      capitalisation.keywords:
+        capitalisation_policy: upper
+
+test_pass_bigquery_struct:
+  pass_str: |
+    select
+      STRUCT(
+        first_name as firstName,
+        last_name as lastName
+      ) as name
+    from persons
+  configs:
+    core:
+      dialect: bigquery
+
+test_pass_bigquery_array:
+  pass_str: |
+    select
+      ARRAY<STRUCT<
+        first_name STRING,
+        last_name STRING
+      >>[
+        STRUCT('John' as first_name, 'Doe' as last_name),
+        STRUCT('Jane' as first_name, 'Smith' as last_name)
+      ] as people
+    from dual
+  configs:
+    core:
+      dialect: bigquery
+
+test_fail_sparksql_div_operator:
+  # Test for SparkSQL DIV operator capitalization
+  # Ensures DIV operator can be edited by CP01 rule (issue #6311)
+  fail_str: |
+    SELECT 3 div 2
+  fix_str: |
+    SELECT 3 DIV 2
+  configs:
+    core:
+      dialect: sparksql
     rules:
       capitalisation.keywords:
         capitalisation_policy: upper

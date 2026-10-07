@@ -16,19 +16,6 @@ use crate::utils::functional::context::FunctionalContext;
 
 const REORDERABLE_OPERATORS: &[&str] = &["=", "!=", "<>", "<=>", "<", ">", "<=", ">="];
 
-fn normalize_identifier(raw: &str) -> SmolStr {
-    let is_bracket_quoted = raw.starts_with('[') && raw.ends_with(']') && raw.len() >= 2;
-    let is_matching_quote_quoted = matches!(raw.chars().next(), Some('"') | Some('\'') | Some('`'))
-        && raw.len() >= 2
-        && raw.chars().next() == raw.chars().last();
-
-    if is_bracket_quoted || is_matching_quote_quoted {
-        raw[1..raw.len() - 1].into()
-    } else {
-        raw.into()
-    }
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct RuleST09 {
     preferred_first_table_in_join_clause: String,
@@ -135,8 +122,8 @@ left join bar
         let from_expression_alias = from_expression_alias_info
             .segment
             .as_ref()
-            .map(|segment| normalize_identifier(segment.raw()))
-            .unwrap_or_else(|| normalize_identifier(from_expression_alias_info.ref_str.as_str()));
+            .map(ErasedSegment::raw_normalized)
+            .unwrap_or(from_expression_alias_info.ref_str);
 
         table_aliases.push(from_expression_alias);
 
@@ -154,8 +141,8 @@ left join bar
                 alias_info
                     .segment
                     .as_ref()
-                    .map(|segment| normalize_identifier(segment.raw()))
-                    .unwrap_or_else(|| normalize_identifier(alias_info.ref_str.as_str()))
+                    .map(ErasedSegment::raw_normalized)
+                    .unwrap_or(alias_info.ref_str)
             })
             .collect_vec();
 
@@ -200,6 +187,7 @@ left join bar
             .collect_vec();
 
         let mut fixes = Vec::new();
+        let mut anchor_segment = context.segment.clone();
 
         for subcondition in column_operator_column_subconditions {
             let comparison_operator = subcondition[1].clone();
@@ -239,8 +227,8 @@ left join bar
                 )
                 .unwrap();
 
-            let first_table = normalize_identifier(first_table_seg.raw()).to_uppercase_smolstr();
-            let second_table = normalize_identifier(second_table_seg.raw()).to_uppercase_smolstr();
+            let first_table = first_table_seg.raw_normalized().to_uppercase_smolstr();
+            let second_table = second_table_seg.raw_normalized().to_uppercase_smolstr();
 
             let raw_comparison_operator_opposites = |op| match op {
                 "<" => ">",
@@ -271,6 +259,15 @@ left join bar
                         .unwrap()
                     && self.preferred_first_table_in_join_clause == "later")
             {
+                // Anchor to literal SQL so templated table names do not hide the violation.
+                if fixes.is_empty()
+                    && first_column_reference
+                        .get_position_marker()
+                        .is_some_and(|marker| marker.is_literal())
+                {
+                    anchor_segment = first_column_reference.clone();
+                }
+
                 fixes.push(LintFix::replace(
                     first_column_reference.clone(),
                     vec![second_column_reference.clone()],
@@ -313,7 +310,7 @@ left join bar
         }
 
         vec![LintResult::new(
-            context.segment.clone().into(),
+            anchor_segment.into(),
             fixes,
             format!(
                 "Joins should list the table referenced {} first.",

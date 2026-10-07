@@ -339,9 +339,10 @@ def test_edge_add_still_works_without_provenance_for_runs(monkeypatch) -> None:
         cli_main.app,
         [
             "edge", "add",
-            "--source", "run:a",
+            # Ids, not petnames: a run petname is looked up first (`run get`).
+            "--source", "run:11111111-1111-4111-8111-111111111111",
             "--relation", "consumes",
-            "--target", "run:b",
+            "--target", "run:22222222-2222-4222-8222-222222222222",
         ],
     )
     assert result.exit_code == 0, result.output

@@ -29,6 +29,8 @@ from exp.runtime.gateway.contracts import (
     GatewayFailureClass,
 )
 from exp.runtime.gateway.guardrails.client import assert_not_internal_classification
+from exp.runtime.gateway.guardrails.enforcement import GuardrailEngine
+from exp.runtime.gateway.guardrails.native import require_unguarded_surface
 from exp.runtime.gateway.images_contracts import ImagesRequest
 from exp.runtime.gateway.model_chain_authority import authorize_serving_model_chains
 from exp.runtime.gateway.native_accounting import (
@@ -62,6 +64,7 @@ class _ImagesPlane(Protocol):
     _accounting: NativeAttemptAccounting
     _write_ledger: SyncWriteLedger
     _request_timeout_seconds: float
+    _guardrails: GuardrailEngine | None
 
     def _escalate_accepted(self, authorization: AuthorizationSnapshot, reason: str) -> str: ...
 
@@ -105,6 +108,7 @@ class NativeImagesMixin:
         """
         assert_not_internal_classification()
         self._accounting.sweep_expired()
+        self._accounting.request_settlements.require_clear()
         data = json.loads(argument)
         try:
             decoded = decode_native_images_body(str(data["body"]))
@@ -123,6 +127,7 @@ class NativeImagesMixin:
             authorization = with_client_identity(authorization, data)  # reporting-only app facts
         except Exception as exc:  # noqa: BLE001 - boundary sanitizes every failure.
             raise authority_error(exc) from exc
+        require_unguarded_surface(self._guardrails, authorization, "images")
         try:
             self._write_ledger.accept_request(authorization=authorization)
         except Exception as exc:  # noqa: BLE001 - boundary sanitizes every failure.

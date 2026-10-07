@@ -1,0 +1,75 @@
+name: Generate SDK
+on:
+  # Sent by the API deploy when /v5/openapi changes:
+  #   gh api repos/supermemoryai/python-sdk/dispatches -f event_type=openapi-updated
+  repository_dispatch:
+    types: [openapi-updated]
+  # Backstop in case a deploy didn't dispatch.
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Set the SDK version (PEP 440, e.g. 5.0.0rc2 or 5.0.0). Empty = bump automatically if the SDK changed.
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: generate-sdk
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Generate from https://api.supermemory.ai/v5/openapi
+        run: scripts/generate
+
+      - name: Version
+        id: meta
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$VERSION" ]; then
+            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+            SKIP_FETCH=1 scripts/generate   # re-stamp the User-Agent version
+          elif [ -n "$(git status --porcelain -- src)" ]; then
+            python3 scripts/bump_version.py
+            SKIP_FETCH=1 scripts/generate
+          fi
+          echo "version=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+          {
+            echo 'stat<<EOF'
+            git diff --stat -- fern/openapi.json src | tail -n 25
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: uv run --group dev pytest -q
+
+      # Opens (or updates) one PR; no-op if nothing changed. A PR opened with the
+      # default GITHUB_TOKEN doesn't trigger CI, so set CODEGEN_PR_TOKEN (a
+      # fine-grained PAT or app token with contents + pull-requests write).
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.CODEGEN_PR_TOKEN || github.token }}
+          branch: codegen/regenerate
+          delete-branch: true
+          commit-message: "chore: regenerate SDK from v5 OpenAPI spec (${{ steps.meta.outputs.version }})"
+          title: "chore: regenerate SDK (${{ steps.meta.outputs.version }})"
+          body: |
+            Regenerated `src/supermemory` from `https://api.supermemory.ai/v5/openapi` (`scripts/generate`).
+
+            Merging publishes **supermemory ${{ steps.meta.outputs.version }}** to PyPI.
+
+            ```
+            ${{ steps.meta.outputs.stat }}
+            ```

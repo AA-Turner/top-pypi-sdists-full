@@ -3,6 +3,7 @@ __metaclass__ = type
 
 import sys
 import pytest
+from unittest import mock
 
 from ansible_collections.vmware.vmware.plugins.module_utils.clients.pyvmomi import PyvmomiClient
 from ansible_collections.vmware.vmware.plugins.module_utils.clients.rest import VmwareRestClient
@@ -11,13 +12,16 @@ from ansible_collections.vmware.vmware.plugins.inventory_utils._base import (
     VmwareInventoryHost,
     DISPLAY
 )
+from ansible_collections.vmware.vmware.plugins.inventory.vms import VmInventoryHost
 from ansible.errors import AnsibleError
-from ...common.vmware_object_mocks import (
+from ansible_collections.vmware.vmware.tests.unit.common.vmware_object_mocks import (
     create_mock_vsphere_object,
 )
 pytestmark = pytest.mark.skipif(
     sys.version_info < (2, 7), reason="requires python2.7 or higher"
 )
+
+from pyVmomi import vmodl
 
 
 def get_option(value):
@@ -141,9 +145,119 @@ class TestInventoryUtilsBase():
         with pytest.raises(NotImplementedError):
             self.test_base.set_default_ansible_host_var(mocker.Mock())
 
+    def test_create_from_vcenter_object_skips_path_computation_when_gather_path_false(self, mocker):
+        mock_path_fn = mocker.patch(
+            'ansible_collections.vmware.vmware.plugins.inventory_utils._base.get_folder_path_of_vsphere_object'
+        )
+        mocker.patch(
+            'ansible_collections.vmware.vmware.plugins.inventory_utils._base.vmware_obj_to_json',
+            return_value={},
+        )
+        vmware_obj = mocker.Mock()
+        vmware_obj._GetMoId.return_value = 'vm-1'
+
+        from ansible_collections.vmware.vmware.plugins.inventory.vms import VmInventoryHost
+        host = VmInventoryHost.create_from_vcenter_object(
+            vmware_obj, ['name'], mocker.Mock(), gather_path=False
+        )
+
+        assert 'path' not in host.properties
+        mock_path_fn.assert_not_called()
+
+    def test_create_from_vcenter_object_computes_path_when_gather_path_true(self, mocker):
+        mocker.patch(
+            'ansible_collections.vmware.vmware.plugins.inventory_utils._base.get_folder_path_of_vsphere_object',
+            return_value='/dc/vm/folder',
+        )
+        mocker.patch(
+            'ansible_collections.vmware.vmware.plugins.inventory_utils._base.vmware_obj_to_json',
+            return_value={},
+        )
+        vmware_obj = mocker.Mock()
+        vmware_obj._GetMoId.return_value = 'vm-1'
+
+        from ansible_collections.vmware.vmware.plugins.inventory.vms import VmInventoryHost
+        host = VmInventoryHost.create_from_vcenter_object(
+            vmware_obj, ['name'], mocker.Mock(), gather_path=True
+        )
+
+        assert host.properties.get('path') == '/dc/vm/folder'
+
+    def test_add_tags_from_bulk_result_no_tags(self, mocker):
+        self.__prepare(mocker)
+        self.test_base.rest_client = mocker.Mock()
+        host = VmInventoryHost()
+        host.object = mocker.Mock()
+        host.object._GetMoId.return_value = 'vm-1'
+
+        self.test_base.add_tags_from_bulk_result(host, {})
+
+        assert host.properties['tags'] == {}
+        assert host.properties['tags_by_category'] == {}
+
+    def test_add_tags_from_bulk_result_with_tags(self, mocker):
+        self.__prepare(mocker)
+        tag = mocker.Mock()
+        tag.id = 'tag-id-1'
+        tag.name = 'my-tag'
+        tag.category_id = 'cat-1'
+        rest_client = mocker.Mock()
+        rest_client.tag_category_service.get.return_value.name = 'my-category'
+        self.test_base.rest_client = rest_client
+        host = VmInventoryHost()
+        host.object = mocker.Mock()
+        host.object._GetMoId.return_value = 'vm-1'
+
+        self.test_base.add_tags_from_bulk_result(host, {'vm-1': [tag]})
+
+        assert host.properties['tags'] == {'tag-id-1': 'my-tag'}
+        assert host.properties['tags_by_category'] == {'my-category': [{'tag-id-1': 'my-tag'}]}
+
+    def test_add_tags_from_bulk_result_caches_category_lookups(self, mocker):
+        self.__prepare(mocker)
+        tag1 = mocker.Mock()
+        tag1.id = 'tag-1'
+        tag1.name = 'tag-one'
+        tag1.category_id = 'cat-1'
+        tag2 = mocker.Mock()
+        tag2.id = 'tag-2'
+        tag2.name = 'tag-two'
+        tag2.category_id = 'cat-1'
+        rest_client = mocker.Mock()
+        rest_client.tag_category_service.get.return_value.name = 'my-category'
+        self.test_base.rest_client = rest_client
+        host = VmInventoryHost()
+        host.object = mocker.Mock()
+        host.object._GetMoId.return_value = 'vm-1'
+
+        self.test_base.add_tags_from_bulk_result(host, {'vm-1': [tag1, tag2]})
+
+        # category_service.get should only be called once despite two tags in the same category
+        rest_client.tag_category_service.get.assert_called_once_with('cat-1')
+        assert 'my-category' in host.properties['tags_by_category']
+        assert len(host.properties['tags_by_category']['my-category']) == 2
+
+    def test_populate_from_vcenter_object_not_found(self, mocker):
+        self.__prepare(mocker)
+        test_object = mocker.Mock()
+        test_object.name = 'foo'
+        test_object._GetMoId.return_value = 'bar'
+        mocker.patch.object(VmwareInventoryBase, 'iter_inventory_sources', return_value=[
+            (test_object, [])
+        ])
+        mocker.patch.object(
+            VmwareInventoryBase,
+            '_hydrate_inventory_host_from_vsphere_props',
+            side_effect=vmodl.fault.ManagedObjectNotFound
+        )
+        mocker.patch.object(DISPLAY, 'warning')
+
+        self.test_base.populate_from_vcenter()
+        DISPLAY.warning.assert_called_once()
+
 
 class TestVmwareInventoryHost():
-    class TestHost(VmwareInventoryHost):
+    class MockHost(VmwareInventoryHost):
         def __init__(self):
             super().__init__()
             self._guest_ip = None
@@ -152,7 +266,7 @@ class TestVmwareInventoryHost():
             pass
 
     def __prepare(self, mocker):
-        self.test_host = self.TestHost()
+        self.test_host = self.MockHost()
 
     def test_create_from_vcenter_object_adds_inventory_metadata(self, mocker):
         self.__prepare(mocker)
@@ -174,7 +288,7 @@ class TestVmwareInventoryHost():
             return_value={},
         )
 
-        host = self.TestHost.create_from_vcenter_object(
+        host = self.MockHost.create_from_vcenter_object(
             vmware_object,
             ['customValue'],
             pyvmomi_client,
@@ -198,7 +312,7 @@ class TestVmwareInventoryHost():
             return_value={'name': 'host-one'},
         )
 
-        host = self.TestHost.create_from_vcenter_object(
+        host = self.MockHost.create_from_vcenter_object(
             vmware_object,
             ['name'],
             mocker.Mock(),
@@ -223,7 +337,7 @@ class TestVmwareInventoryHost():
             return_value={},
         )
 
-        host = self.TestHost.create_from_vcenter_object(
+        host = self.MockHost.create_from_vcenter_object(
             vmware_object,
             ['name'],
             mocker.Mock(),
@@ -245,7 +359,7 @@ class TestVmwareInventoryHost():
             return_value={},
         )
 
-        host = self.TestHost.create_from_vcenter_object(
+        host = self.MockHost.create_from_vcenter_object(
             vmware_object,
             ['customValue'],
             mocker.Mock(),
@@ -318,7 +432,9 @@ class TestInventoryPropertyCollector():
             return_value=[obj_content],
         )
 
-        sources = list(self.test_base.iter_inventory_sources(mocker.sentinel.vim_type, ['name']))
+        with mock.patch.object(VmwareInventoryBase, 'vim_class', new_callable=mock.PropertyMock) as mock_vim_class:
+            mock_vim_class.return_value = mocker.sentinel.vim_type
+            sources = list(self.test_base.iter_inventory_sources(['name']))
 
         assert sources == [(obj_content.obj, obj_content.propSet)]
 
@@ -331,7 +447,9 @@ class TestInventoryPropertyCollector():
             return_value=[vmware_object],
         )
 
-        sources = list(self.test_base.iter_inventory_sources(mocker.sentinel.vim_type, []))
+        with mock.patch.object(VmwareInventoryBase, 'vim_class', new_callable=mock.PropertyMock) as mock_vim_class:
+            mock_vim_class.return_value = mocker.sentinel.vim_type
+            sources = list(self.test_base.iter_inventory_sources([]))
 
         assert sources == [(vmware_object, None)]
         self.test_base.get_objects_by_type.assert_called_once_with(vim_type=[mocker.sentinel.vim_type])

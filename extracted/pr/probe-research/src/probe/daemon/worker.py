@@ -92,6 +92,7 @@ from pathlib import Path
 from typing import Callable
 
 from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, tools
+from probe.daemon import gate as gate_mod
 from probe.daemon.adapters.base import MODE_BYPASS, MODE_UNKNOWN, Adapter
 from probe.daemon.events import Event, Kind
 from probe.daemon import shipper as shipper_mod
@@ -191,14 +192,21 @@ EXIT_DO_NOT_RESPAWN = 3
 #: Store facts: where `read only (daemon)` began (first event seq, turn), while it lasts.
 READ_ONLY_FROM = "read_only_from"
 READ_ONLY_TURN = "read_only_turn"
-#: `{since: [first, last]}`: per takeover, the turns the writer left to the agent
-#: (`probe session inline`), until it is told once that takeover ended.
+#: `{since: [first, last]}`: per inline stretch (`/probe inline`), the turns the
+#: writer left to the agent, until it is told once that the stretch ended.
 INLINE_SKIPPED = "inline_skipped"
-#: The takeovers (`since` keys) the writer was already told about: a late event
+#: The stretches (`since` keys) the writer was already told about: a late event
 #: from one of them is still left to the agent, without a second notice.
 INLINE_ANNOUNCED = "inline_announced"
-#: That telling (Richard's approved text, 2026-10-05).
-INLINE_NOTICE = "the daemon skipped {turns}: the agent took Probe over (inline)"
+#: That telling (Richard's approved text, 2026-10-06).
+INLINE_NOTICE = "the daemon skipped {turns}: Probe was inline, the agent's to record."
+#: Why a bite running when `/probe inline` landed stopped (its events stay queued).
+INLINE_STOP = "the researcher set Probe inline"
+#: Set by a supervisor that respawns by the switch itself (tap 0.9.12+, whose
+#: `wanted()` is False while inline): a worker leaving for `/probe inline` exits
+#: 0. Without it (taps 0.9.9-0.9.11, whose `wanted()` is True there) it exits
+#: EXIT_DO_NOT_RESPAWN, or that tap would start a worker again at once.
+SUPERVISOR_FOLLOWS_INLINE_ENV = "PROBE_TAP_FOLLOWS_INLINE"
 #: The worker crashed: the supervisor waits before it starts another.
 EXIT_CRASHED = 4
 #: The worker left because of the SWITCH (unreadable, or not `daemon`): the
@@ -301,7 +309,7 @@ class Worker:
         self.probe_refused_key = False
         #: The reader (daemon reads), started in `loop` when reads are on.
         self.reader = None
-        #: `probe session inline`: the intervals the last marking pass saw, and the
+        #: `/probe inline`: the intervals the last marking pass saw, and the
         #: highest event seq it examined (only newer events are checked until the
         #: intervals change).
         self._inline_seen: tuple = ()
@@ -320,6 +328,10 @@ class Worker:
         self.store.set_fact("harness", self.adapter.name)
         self.store.set_fact("cwd", str(session.cwd))
         self._interrupted_yeses()
+        #: The ML gate (`gate.py`): pauses the daemon in a session that is not ML
+        #: work, where the state is a default. Never in a replay.
+        self.gate = (gate_mod.Gate(self.store, gate_mod.Marker(session.session_id), gate_mod.ask_probe,
+                                   trace=self.trace, clock=clock) if replay is None else None)
 
     def _end_conversation_for_bites(self) -> None:
         """Bites record what a conversation does not know about: switched back to
@@ -336,8 +348,8 @@ class Worker:
     def _renew(self) -> bool:
         """Renew the write lease -- only while recording works (A1): never while a
         release this worker made stands (a refused key, the budget), never when
-        the writer does not record the session (`lease.records`: `daemon`, or
-        taken over from it), never over another process's live lease."""
+        the writer does not record the session (`lease.records`: the switch reads
+        `daemon`), never over another process's live lease."""
         if self.released_reason is not None:
             return False
         sid = self.session.session_id
@@ -376,6 +388,8 @@ class Worker:
         releasing it, until it lapses), the lease could not be renewed."""
         if self.replay is not None:
             return None
+        if self.paused():
+            return "paused: the session is not ML work (the events stay queued)"
         sid = self.session.session_id
         if not lease.records(sid):
             return "the session's switch cannot be read"
@@ -384,6 +398,13 @@ class Worker:
         if self.released_reason in _RECOVERABLE:
             return None
         return lease.may_write(sid)
+
+    def paused(self) -> bool:
+        """The ML gate paused the daemon at its last check (`gate.py`)."""
+        return self.gate is not None and self.gate.paused
+
+    async def _gate_check(self) -> bool:
+        return await self.gate.check() if self.gate is not None else False
 
     def _switch_unreadable(self) -> int | None:
         """The switch cannot be read: no bite starts (`_bite_blocked`); after
@@ -403,6 +424,11 @@ class Worker:
         _device_error(f"session {sid}: its switch file could not be read for {SWITCH_UNREADABLE_EXIT_S:.0f}s; "
                       "the daemon stopped and the agent records")
         return EXIT_RESPAWN_LATER
+
+    def _went_inline(self) -> bool:
+        """The researcher set Probe inline while a bite runs: it stops at the next
+        poll of its model call or between two rounds, not at the call's end."""
+        return self.replay is None and lease.inline(self.session.session_id)
 
     def _parent_gone(self) -> bool:
         """Capture (`tap watch`, the supervisor) exited: this worker is orphaned."""
@@ -849,6 +875,10 @@ class Worker:
             while True:
                 if self.stopping:
                     self.begin_stopping()
+                if self._went_inline():
+                    task.cancel()
+                    await asyncio.wait({task})
+                    raise Interrupted(STOP_LEASE, INLINE_STOP)
                 left = None if self.finish_by is None else self.finish_by - self.clock()
                 if left is not None and left <= 0:
                     task.cancel()
@@ -1233,6 +1263,9 @@ class Worker:
             log.warning("reading between model rounds failed: %s: %s", type(exc).__name__, exc)
         if self.finish_by is not None and self.clock() >= self.finish_by:
             return Interrupted(STOP_DEADLINE, "the session ended and its finish budget is spent")
+        if self._went_inline():
+            # Before the answers: nothing is settled once the agent records.
+            return Interrupted(STOP_LEASE, INLINE_STOP)
         await self.settle_answers()
         if _key_refused(deps) or deps.stopped:
             return Interrupted(STOP_LEASE, deps.stopped or "Probe refused the daemon's key")
@@ -1402,7 +1435,19 @@ class Worker:
         """One poll. An exit code when the worker is done, else None."""
         state = lease.session_state(self.session.session_id)
         if self.replay is None:
-            if lease.writer_paused(self.session.session_id, state):
+            if lease.inline(self.session.session_id, state):
+                # `/probe inline` stops the daemon as `off` does: at once, with no
+                # finishing pass (the agent records from the switch on, and an
+                # approval settled now would race it). What came before the switch
+                # stays pending for the next worker. The folders are looked at
+                # first: an edit made before the switch is stamped before it, and
+                # the agent's edits after it become events of their own.
+                log.info("the researcher set Probe inline: stopping")
+                await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home),
+                                          force=True)
+                self._release(lease.REASON_STOPPED)
+                return inline_exit_code()
+            if lease.reads_only(self.session.session_id, state):
                 return await self._read_only_tick()
             if state is not None and not lease.records(self.session.session_id, state):
                 self._release(lease.REASON_STOPPED)
@@ -1413,22 +1458,41 @@ class Worker:
                     return code
             else:
                 self.switch_unreadable_since = None
-        if self.read_only_from is not None and (
-            state == STATE_DAEMON or (self.replay is None and lease.records(self.session.session_id, state))
-        ):
+        if self.read_only_from is not None and state == STATE_DAEMON:
             await self._end_read_only()
         if not self.stopping and self._parent_gone():
             log.info("capture is gone: finishing what is queued")
             self.begin_stopping()
         self._take_input()
-        await self._inline_tick()
+        self._announce_inline()
+        if self.paused():
+            # No bite runs the folder check while paused: run it here, so a
+            # notebook the agent writes is seen (an ML signal) and queued.
+            await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home))
+        await self._gate_check()
         # Renewed first: a yes settled below runs on a fresh lease, not the end of an old one.
+        # Renewed while paused too: a paused daemon is not a degraded one (the agent
+        # must not start recording a session that is not ML work).
         self._renew()
         await self.settle_answers()
         self._renew()
         if self.handing_over():
             log.info("handing over to the resumed session's worker")
             self._release(lease.REASON_HANDOVER)
+            return 0
+        if self.stopping and self.paused():
+            # The session ends paused: what is queued stays queued (recording it
+            # now would spend what the pause saved), and the researcher can still
+            # have it: `/probe on` in that session, resumed, records it.
+            unrecorded = self.store.queued()
+            log.info("the session ends paused by the ML gate: %s events stay unrecorded", unrecorded)
+            if self.gate is not None:
+                self.gate.note("ended_paused", unrecorded=unrecorded)
+            if unrecorded:
+                _device_error(f"session {self.session.session_id} ended while the daemon was paused by the ML gate: "
+                              f"{unrecorded} events were not recorded; `/probe on` in that session (resume it) "
+                              "records them")
+            self._release(lease.REASON_STOPPED)
             return 0
         left = None if self.finish_by is None else self.finish_by - self.clock()
         trigger = self.due() if left is None or left > 0 else None
@@ -1471,6 +1535,8 @@ class Worker:
         self.read_new()
         with self.store.tx():
             self.store.leave_unrecorded(self.read_only_from)
+        # The reader reads here: the ML gate may pause its unasked turns too.
+        await self._gate_check()
         if self.stopping or self._parent_gone():
             return 0  # ending: nothing to finish, what arrived is marked
         # The folder snapshot moves on silently, so a file written now is never
@@ -1503,13 +1569,13 @@ class Worker:
             self.released_reason = None
 
     def _mark_inline(self) -> None:
-        """`probe session inline` (Richard 2026-10-05): the events stamped inside a
-        stretch the agent held Probe are the agent's, so no bite ever covers them.
-        Runs wherever events enter the store (`read_new`: the poll, the reader's
-        tick, between model rounds), so the writer never sees one unmarked. By the
-        events' own stamps against the times the switch wrote, not by when this
-        worker noticed: a takeover shorter than a poll, or one made while no worker
-        ran, is still the agent's. Only events newer than the last pass are
+        """`/probe inline` (Richard 2026-10-06): the events stamped inside a stretch
+        the researcher handed Probe to the agent are the agent's, so no bite ever
+        covers them. Runs wherever events enter the store (`read_new`: the poll,
+        the reader's tick, between model rounds, a folder check), so the writer
+        never sees one unmarked. By the events' own stamps against the times the
+        switch wrote: no worker runs while inline, so the next one marks the
+        stretch from its stamps. Only events newer than the last pass are
         checked until the set of intervals changes."""
         if self.replay is None:
             from probe.sdk import session_marker
@@ -1537,19 +1603,21 @@ class Worker:
                 spans[key] = [min(first, turn), max(last, turn)]
             self.store.set_fact(INLINE_SKIPPED, spans or None)
 
-    async def _inline_tick(self) -> None:
-        """Each tick on the recording path. While the agent holds Probe the
-        folders are looked at as often as ever (FOLDER_CHECK_S), not only when a
-        bite is due: each change gets its own event, stamped with the file's
-        mtime and left to whoever held Probe then (`_mark_inline`), instead of
-        one diff spanning the takeover. Then the writer is told once per ended
-        takeover which turns it left to the agent -- the notice and its
+    def _inline_unannounced(self) -> bool:
+        """An inline stretch has ended that the writer was not told about yet."""
+        from probe.sdk import session_marker
+
+        announced = set(self.store.fact(INLINE_ANNOUNCED) or [])
+        return any(until is not None and repr(since) not in announced
+                   for since, until in session_marker.inline_intervals(self.session.session_id))
+
+    def _announce_inline(self) -> None:
+        """Each tick on the recording path: the writer is told once per ended
+        inline stretch which turns it left to the agent -- the notice and its
         bookkeeping in one transaction, so a restart cannot tell it twice."""
         if self.replay is not None:
             return
         sid = self.session.session_id
-        if lease.inline_from(sid) is not None:
-            await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home))
         spans = _spans(self.store.fact(INLINE_SKIPPED))
         if not spans:
             return
@@ -1586,6 +1654,12 @@ class Worker:
     async def loop(self) -> int:
         self._renew()
         await folders.baseline(self.store, self.session.cwd, self.session.home)
+        if self.replay is None and self._inline_unannounced():
+            # Back from `/probe inline`: the folders now, before the next edit, so
+            # an edit the agent made inside the stretch is not folded into one
+            # diff with the next edit (stamped after the stretch, the writer's).
+            await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home),
+                                      force=True)
         if self.replay is None and mailbox.enabled(source=self.session.source):
             from probe.daemon.reader_lane import ReaderLane
 
@@ -1791,7 +1865,7 @@ def _spans(value: object) -> dict:
 
 def _stamp(at: object) -> str | None:
     """An epoch time (the supervisor's `received_at`) as an event's ISO stamp, so
-    an SDK message is placed against inline takeovers like any transcript line."""
+    an SDK message is placed against inline stretches like any transcript line."""
     if isinstance(at, bool) or not isinstance(at, (int, float)):
         return None
     from datetime import datetime, timezone
@@ -1850,6 +1924,13 @@ def _device_error(text: str) -> None:
         handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {text}\n")
 
 
+def inline_exit_code() -> int:
+    """How a worker leaves for `/probe inline`: 0 to a supervisor that follows the
+    switch itself (SUPERVISOR_FOLLOWS_INLINE_ENV), else EXIT_DO_NOT_RESPAWN, which
+    an older tap holds until the switch moves."""
+    return 0 if os.environ.get(SUPERVISOR_FOLLOWS_INLINE_ENV) == "1" else EXIT_DO_NOT_RESPAWN
+
+
 def session_lock(session_id: str, *, should_stop: Callable[[], bool] = lambda: False,
                  poll_s: float = LOCK_POLL_S):
     """Take `<state>/probe/daemon/<sid>.lock` for the worker's life: one worker per
@@ -1879,7 +1960,7 @@ def session_lock(session_id: str, *, should_stop: Callable[[], bool] = lambda: F
             _mark(handover)  # every poll: the holder trusts only a fresh one
             if not lease.worker_wanted(session_id):
                 handle.close()
-                return EXIT_RESPAWN_LATER
+                return inline_exit_code() if lease.inline(session_id) else EXIT_RESPAWN_LATER
             if should_stop():
                 handle.close()
                 return 0
@@ -1961,6 +2042,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cwd", required=True)
     parser.add_argument("--source", default="claude_code")
     args = parser.parse_args(argv)
+    if lease.inline(args.session_id):
+        # Started while the researcher has Probe inline (an older tap still wants a
+        # worker there): leave before loading anything.
+        return inline_exit_code()
     # Into the session's folder beside its trace (`trace.py`); warnings on stderr too.
     logging.basicConfig(level=os.environ.get("PROBE_DAEMON_LOG", "INFO"),
                         format="%(asctime)s %(levelname)s %(name)s %(message)s",

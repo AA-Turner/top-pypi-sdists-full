@@ -56,7 +56,7 @@ class WaitingRoomArgs:
         :param pulumi.Input[_builtins.str] cookie_suffix: Appends a '_' + a custom suffix to the end of Cloudflare Waiting Room's cookie name(_*cf*waitingroom). If `cookie_suffix` is "abcd", the cookie name will be `__cf_waitingroom_abcd`. This field is required if using `additional_routes`.
         :param pulumi.Input[_builtins.str] custom_page_html: Only available for the Waiting Room Advanced subscription. This is a template html file that will be rendered at the edge. If no custom*page*html is provided, the default waiting room will be used. The template is based on mustache ( https://mustache.github.io/ ). There are several variables that are evaluated by the Cloudflare edge:
         :param pulumi.Input[_builtins.str] default_template_language: The language of the default page template. If no default_template_language is provided, then `en-US` (English) will be used.
-               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
+               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "lv-LV", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
         :param pulumi.Input[_builtins.str] description: A note that you can use to add more details about the waiting room.
         :param pulumi.Input[_builtins.bool] disable_session_renewal: Only available for the Waiting Room Advanced subscription. Disables automatic renewal of session cookies. If `true`, an accepted user will have session_duration minutes to browse the site. After that, they will have to go through the waiting room again. If `false`, a user's session cookie will be automatically renewed on every request.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_origin_commands: A list of enabled origin commands.
@@ -329,7 +329,7 @@ class WaitingRoomArgs:
     def default_template_language(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The language of the default page template. If no default_template_language is provided, then `en-US` (English) will be used.
-        Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
+        Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "lv-LV", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
         """
         return pulumi.get(self, "default_template_language")
 
@@ -625,7 +625,7 @@ class _WaitingRoomState:
         :param pulumi.Input[_builtins.str] cookie_suffix: Appends a '_' + a custom suffix to the end of Cloudflare Waiting Room's cookie name(_*cf*waitingroom). If `cookie_suffix` is "abcd", the cookie name will be `__cf_waitingroom_abcd`. This field is required if using `additional_routes`.
         :param pulumi.Input[_builtins.str] custom_page_html: Only available for the Waiting Room Advanced subscription. This is a template html file that will be rendered at the edge. If no custom*page*html is provided, the default waiting room will be used. The template is based on mustache ( https://mustache.github.io/ ). There are several variables that are evaluated by the Cloudflare edge:
         :param pulumi.Input[_builtins.str] default_template_language: The language of the default page template. If no default_template_language is provided, then `en-US` (English) will be used.
-               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
+               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "lv-LV", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
         :param pulumi.Input[_builtins.str] description: A note that you can use to add more details about the waiting room.
         :param pulumi.Input[_builtins.bool] disable_session_renewal: Only available for the Waiting Room Advanced subscription. Disables automatic renewal of session cookies. If `true`, an accepted user will have session_duration minutes to browse the site. After that, they will have to go through the waiting room again. If `false`, a user's session cookie will be automatically renewed on every request.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_origin_commands: A list of enabled origin commands.
@@ -867,7 +867,7 @@ class _WaitingRoomState:
     def default_template_language(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The language of the default page template. If no default_template_language is provided, then `en-US` (English) will be used.
-        Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
+        Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "lv-LV", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
         """
         return pulumi.get(self, "default_template_language")
 
@@ -1225,8 +1225,8 @@ class WaitingRoom(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 additional_routes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict']]]]] = None,
-                 cookie_attributes: pulumi.Input[Optional[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict']]] = None,
+                 additional_routes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict', 'outputs.WaitingRoomAdditionalRoute']]]]] = None,
+                 cookie_attributes: pulumi.Input[Optional[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict', 'outputs.WaitingRoomCookieAttributes']]] = None,
                  cookie_suffix: pulumi.Input[Optional[_builtins.str]] = None,
                  custom_page_html: pulumi.Input[Optional[_builtins.str]] = None,
                  default_template_language: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1300,12 +1300,12 @@ class WaitingRoom(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict']]]] additional_routes: Only available for the Waiting Room Advanced subscription. Additional hostname and path combinations to which this waiting room will be applied. There is an implied wildcard at the end of the path. The hostname and path combination must be unique to this and all other waiting rooms.
-        :param pulumi.Input[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict']] cookie_attributes: Configures cookie attributes for the waiting room cookie. This encrypted cookie stores a user's status in the waiting room, such as queue position.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict', 'outputs.WaitingRoomAdditionalRoute']]]] additional_routes: Only available for the Waiting Room Advanced subscription. Additional hostname and path combinations to which this waiting room will be applied. There is an implied wildcard at the end of the path. The hostname and path combination must be unique to this and all other waiting rooms.
+        :param pulumi.Input[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict', 'outputs.WaitingRoomCookieAttributes']] cookie_attributes: Configures cookie attributes for the waiting room cookie. This encrypted cookie stores a user's status in the waiting room, such as queue position.
         :param pulumi.Input[_builtins.str] cookie_suffix: Appends a '_' + a custom suffix to the end of Cloudflare Waiting Room's cookie name(_*cf*waitingroom). If `cookie_suffix` is "abcd", the cookie name will be `__cf_waitingroom_abcd`. This field is required if using `additional_routes`.
         :param pulumi.Input[_builtins.str] custom_page_html: Only available for the Waiting Room Advanced subscription. This is a template html file that will be rendered at the edge. If no custom*page*html is provided, the default waiting room will be used. The template is based on mustache ( https://mustache.github.io/ ). There are several variables that are evaluated by the Cloudflare edge:
         :param pulumi.Input[_builtins.str] default_template_language: The language of the default page template. If no default_template_language is provided, then `en-US` (English) will be used.
-               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
+               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "lv-LV", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
         :param pulumi.Input[_builtins.str] description: A note that you can use to add more details about the waiting room.
         :param pulumi.Input[_builtins.bool] disable_session_renewal: Only available for the Waiting Room Advanced subscription. Disables automatic renewal of session cookies. If `true`, an accepted user will have session_duration minutes to browse the site. After that, they will have to go through the waiting room again. If `false`, a user's session cookie will be automatically renewed on every request.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_origin_commands: A list of enabled origin commands.
@@ -1501,8 +1501,8 @@ class WaitingRoom(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 additional_routes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict']]]]] = None,
-                 cookie_attributes: pulumi.Input[Optional[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict']]] = None,
+                 additional_routes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict', 'outputs.WaitingRoomAdditionalRoute']]]]] = None,
+                 cookie_attributes: pulumi.Input[Optional[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict', 'outputs.WaitingRoomCookieAttributes']]] = None,
                  cookie_suffix: pulumi.Input[Optional[_builtins.str]] = None,
                  custom_page_html: pulumi.Input[Optional[_builtins.str]] = None,
                  default_template_language: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1578,8 +1578,8 @@ class WaitingRoom(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            additional_routes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict']]]]] = None,
-            cookie_attributes: pulumi.Input[Optional[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict']]] = None,
+            additional_routes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict', 'outputs.WaitingRoomAdditionalRoute']]]]] = None,
+            cookie_attributes: pulumi.Input[Optional[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict', 'outputs.WaitingRoomCookieAttributes']]] = None,
             cookie_suffix: pulumi.Input[Optional[_builtins.str]] = None,
             created_on: pulumi.Input[Optional[_builtins.str]] = None,
             custom_page_html: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1611,12 +1611,12 @@ class WaitingRoom(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict']]]] additional_routes: Only available for the Waiting Room Advanced subscription. Additional hostname and path combinations to which this waiting room will be applied. There is an implied wildcard at the end of the path. The hostname and path combination must be unique to this and all other waiting rooms.
-        :param pulumi.Input[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict']] cookie_attributes: Configures cookie attributes for the waiting room cookie. This encrypted cookie stores a user's status in the waiting room, such as queue position.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['WaitingRoomAdditionalRouteArgs', 'WaitingRoomAdditionalRouteArgsDict', 'outputs.WaitingRoomAdditionalRoute']]]] additional_routes: Only available for the Waiting Room Advanced subscription. Additional hostname and path combinations to which this waiting room will be applied. There is an implied wildcard at the end of the path. The hostname and path combination must be unique to this and all other waiting rooms.
+        :param pulumi.Input[Union['WaitingRoomCookieAttributesArgs', 'WaitingRoomCookieAttributesArgsDict', 'outputs.WaitingRoomCookieAttributes']] cookie_attributes: Configures cookie attributes for the waiting room cookie. This encrypted cookie stores a user's status in the waiting room, such as queue position.
         :param pulumi.Input[_builtins.str] cookie_suffix: Appends a '_' + a custom suffix to the end of Cloudflare Waiting Room's cookie name(_*cf*waitingroom). If `cookie_suffix` is "abcd", the cookie name will be `__cf_waitingroom_abcd`. This field is required if using `additional_routes`.
         :param pulumi.Input[_builtins.str] custom_page_html: Only available for the Waiting Room Advanced subscription. This is a template html file that will be rendered at the edge. If no custom*page*html is provided, the default waiting room will be used. The template is based on mustache ( https://mustache.github.io/ ). There are several variables that are evaluated by the Cloudflare edge:
         :param pulumi.Input[_builtins.str] default_template_language: The language of the default page template. If no default_template_language is provided, then `en-US` (English) will be used.
-               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
+               Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "lv-LV", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
         :param pulumi.Input[_builtins.str] description: A note that you can use to add more details about the waiting room.
         :param pulumi.Input[_builtins.bool] disable_session_renewal: Only available for the Waiting Room Advanced subscription. Disables automatic renewal of session cookies. If `true`, an accepted user will have session_duration minutes to browse the site. After that, they will have to go through the waiting room again. If `false`, a user's session cookie will be automatically renewed on every request.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] enabled_origin_commands: A list of enabled origin commands.
@@ -1817,7 +1817,7 @@ class WaitingRoom(pulumi.CustomResource):
     def default_template_language(self) -> pulumi.Output[_builtins.str]:
         """
         The language of the default page template. If no default_template_language is provided, then `en-US` (English) will be used.
-        Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
+        Available values: "en-US", "es-ES", "de-DE", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN", "zh-TW", "nl-NL", "pl-PL", "id-ID", "tr-TR", "ar-EG", "ru-RU", "fa-IR", "bg-BG", "hr-HR", "cs-CZ", "da-DK", "fi-FI", "lt-LT", "lv-LV", "ms-MY", "nb-NO", "ro-RO", "el-GR", "he-IL", "hi-IN", "hu-HU", "sr-BA", "sk-SK", "sl-SI", "sv-SE", "tl-PH", "th-TH", "uk-UA", "vi-VN".
         """
         return pulumi.get(self, "default_template_language")
 

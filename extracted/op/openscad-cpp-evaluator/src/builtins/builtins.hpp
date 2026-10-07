@@ -146,6 +146,12 @@ std::vector<ColoredBody> generateChildren(Evaluator& ev, const CSGParams& params
 // generateTree()'s default child-concatenation, exactly reproducing
 // passthrough).
 CSGParams resolveRender(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx);
+CSGParams resolveProfileTime(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx);
+// profile_time()'s message pieces: "12.40 ms" (or "4.7 µs" under 1 ms), and the label it names --
+// the label as written (a non-string formatted like echo() would), or
+// "line N" (with the file when there is one) when none was given.
+std::string fmtMs(double ms);
+std::string profileLabel(const Value& label, const oscad::Position& pos);
 
 // breakpoint() -- no-op as of Phase 4 (no debugger until Phase 9); still
 // evaluates/validates its optional `condition` argument for parity.
@@ -262,6 +268,14 @@ std::vector<ColoredBody> generateSurface(Evaluator& ev, const CSGParams& params,
 
 // text() -- text.cpp.
 CSGParams resolveText(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx);
+
+// The font size text()/textmetrics()/fontmetrics() draw at: `size`
+// (default 10), or `em` * 72/100 when `em` is given -- upstream's
+// correction for the 100/72 factor that makes `size` the cap height
+// rather than the em square (openscad #4304). `size` given alongside
+// `em` is ignored, with upstream's warning naming `caller`.
+double textSizeArg(Evaluator& ev, const CallArgs& args, std::optional<int> sizePos, std::optional<int> emPos,
+                   const char* caller, const oscad::Position* where);
 std::vector<ColoredBody> generateText(Evaluator& ev, const CSGParams& params,
                                        const std::vector<std::unique_ptr<CSGNode>>& children, const oscad::ASTNode& node);
 

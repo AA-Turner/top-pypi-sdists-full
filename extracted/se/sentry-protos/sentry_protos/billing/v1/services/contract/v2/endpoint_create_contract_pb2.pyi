@@ -34,6 +34,7 @@ class CreateContractRequest(google.protobuf.message.Message):
     SPONSORSHIP_TYPE_FIELD_NUMBER: builtins.int
     TAX_NUMBER_FIELD_NUMBER: builtins.int
     IS_REVERSE_CHARGE_FIELD_NUMBER: builtins.int
+    HIDE_FROM_CUSTOMER_RECEIPTS_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
     month_interval: builtins.int
@@ -55,6 +56,11 @@ class CreateContractRequest(google.protobuf.message.Message):
     """The customer's tax registration number (e.g. VAT ID) on file."""
     is_reverse_charge: builtins.bool
     """Whether the tax provider placed this invoice under reverse charge."""
+    hide_from_customer_receipts: builtins.bool
+    """When true, the created invoice is marked hide_from_customer_receipts so
+    it is omitted from customer-facing receipt lists (e.g. the $0 migration
+    provisioning stub). Default false leaves the invoice visible.
+    """
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig]: ...
     @property
@@ -83,9 +89,10 @@ class CreateContractRequest(google.protobuf.message.Message):
         sponsorship_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType | None = ...,
         tax_number: builtins.str | None = ...,
         is_reverse_charge: builtins.bool = ...,
+        hide_from_customer_receipts: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_sponsorship_type", b"_sponsorship_type", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "billing", b"billing", "credit_card", b"credit_card", "invoiced", b"invoiced", "partner", b"partner", "sponsorship_type", b"sponsorship_type", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_sponsorship_type", b"_sponsorship_type", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "billing", b"billing", "credit_card", b"credit_card", "invoiced", b"invoiced", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "partner", b"partner", "sponsorship_type", b"sponsorship_type", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code", "user_configs", b"user_configs"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_sponsorship_type", b"_sponsorship_type", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "billing", b"billing", "credit_card", b"credit_card", "hide_from_customer_receipts", b"hide_from_customer_receipts", "invoiced", b"invoiced", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "partner", b"partner", "sponsorship_type", b"sponsorship_type", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code", "user_configs", b"user_configs"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_sponsorship_type", b"_sponsorship_type"]) -> typing.Literal["sponsorship_type"] | None: ...
     @typing.overload

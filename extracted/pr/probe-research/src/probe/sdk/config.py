@@ -6,6 +6,8 @@ Env vars:
   PROBE_BASE_URL      e.g. https://api.research.prbe.ai
   PROBE_TOKEN         a user API token (probe_pat_...) for /v1
   PROBE_MCP_TOKEN     a read-only token for the MCP surface (see mcp_token below)
+  PROBE_MCP_URL       the Probe MCP to read from (default: the stock MCP, only beside
+                      the stock API; see mcp_url)
   PROBE_SERVICE_TOKEN a read-only egress token (probe_svc_...) for the read-only Reader
   PROBE_INGEST_TOKEN  an ingest token (ros_ing_...) for /ingest
   PROBE_HMAC_SECRET   optional shared secret for the X-Signature body HMAC on /ingest
@@ -75,6 +77,8 @@ from pathlib import Path
 from . import homedir
 
 DEFAULT_BASE_URL = "https://api.research.prbe.ai"
+#: The hosted Probe MCP that serves the stock API's tenants.
+STOCK_MCP_URL = "https://mcp.research.prbe.ai/mcp"
 
 # Repository configs contain preferences, never data blobs. Their bound prevents a
 # repository symlink to a device or an accidental giant file from exhausting a hook/CLI
@@ -103,6 +107,19 @@ _CONTEXT_KEYS = (
 #: The config path the Probe daemon's shell runs with: a file that never exists, so
 #: a `probe` started from that shell has no key (`probe.daemon.shell.minimal_env`).
 DAEMON_SHELL_CONFIG = "/nonexistent/probe-daemon-shell/config.json"
+
+def mcp_url(base_url: str) -> str | None:
+    """The Probe MCP for a credential that belongs to `base_url`: `PROBE_MCP_URL`
+    when set, the stock MCP beside the stock API, else none -- a key must never be
+    sent to a deployment it was not minted by. The Probe daemon's reader and the
+    CLI's `probe mcp tools|call` (`/probe inline`) both resolve it here."""
+    explicit = os.environ.get("PROBE_MCP_URL")
+    if explicit:
+        return explicit
+    from urllib.parse import urlparse
+
+    return STOCK_MCP_URL if urlparse(base_url).netloc == urlparse(DEFAULT_BASE_URL).netloc else None
+
 
 def config_path() -> Path:
     """`PROBE_CONFIG_PATH`, then `XDG_CONFIG_HOME`, then `~/.config`.

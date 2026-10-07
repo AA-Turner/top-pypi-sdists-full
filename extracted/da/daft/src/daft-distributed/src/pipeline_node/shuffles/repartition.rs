@@ -1,0 +1,163 @@
+use std::sync::Arc;
+
+use common_error::DaftResult;
+use common_metrics::ops::{NodeCategory, NodeType};
+use daft_local_plan::{LocalNodeContext, LocalPhysicalPlan, ShuffleBackend};
+use daft_logical_plan::{partitioning::RepartitionSpec, stats::StatsState};
+use daft_schema::schema::SchemaRef;
+
+use crate::{
+    pipeline_node::{
+        ClusteringStrategy, DistributedPipelineNode, NodeID, PipelineNodeConfig,
+        PipelineNodeContext, PipelineNodeImpl, TaskBuilderStream,
+        clustering::clustering_from_repartition_spec, shuffles::backends::ShuffleContext,
+    },
+    plan::{PlanConfig, PlanExecutionContext, TaskIDCounter},
+    scheduling::{
+        scheduler::SchedulerHandle,
+        task::{SwordfishTask, SwordfishTaskBuilder},
+    },
+    utils::channel::{Sender, create_channel},
+};
+
+pub(crate) struct RepartitionNode {
+    config: PipelineNodeConfig,
+    context: PipelineNodeContext,
+    repartition_spec: RepartitionSpec,
+    shuffle_context: ShuffleContext,
+    num_partitions: usize,
+    child: DistributedPipelineNode,
+}
+
+impl RepartitionNode {
+    const NODE_NAME: &'static str = "Repartition";
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        node_id: NodeID,
+        plan_config: &PlanConfig,
+        repartition_spec: RepartitionSpec,
+        schema: SchemaRef,
+        num_partitions: usize,
+        backend: ShuffleBackend,
+        child: DistributedPipelineNode,
+    ) -> DaftResult<Self> {
+        let context = PipelineNodeContext::new(
+            plan_config.query_idx,
+            plan_config.query_id.clone(),
+            node_id,
+            Arc::from(Self::NODE_NAME),
+            NodeType::Repartition,
+            NodeCategory::BlockingSink,
+        );
+        // The logical->pipeline boundary for repartition clustering: bind the (possibly
+        // resolved-by-name) repartition keys against the input schema once.
+        let clustering_spec = clustering_from_repartition_spec(
+            &repartition_spec,
+            child.config().clustering_spec.num_partitions(),
+            &child.config().schema,
+        )?;
+        let config = PipelineNodeConfig::new(
+            schema.clone(),
+            plan_config.config.clone(),
+            ClusteringStrategy::Explicit(clustering_spec),
+        );
+
+        Ok(Self {
+            config,
+            context: context.clone(),
+            repartition_spec,
+            shuffle_context: ShuffleContext::new(&context, schema, backend),
+            num_partitions,
+            child,
+        })
+    }
+
+    async fn execution_loop(
+        self: Arc<Self>,
+        local_shuffle_write_node: TaskBuilderStream,
+        task_id_counter: TaskIDCounter,
+        result_tx: Sender<SwordfishTaskBuilder>,
+        scheduler_handle: SchedulerHandle<SwordfishTask>,
+    ) -> DaftResult<()> {
+        let outputs = local_shuffle_write_node.materialize(
+            scheduler_handle.clone(),
+            self.context.query_idx,
+            task_id_counter,
+        );
+
+        self.shuffle_context
+            .emit_read_tasks_from_stream(outputs, self.num_partitions, self.as_ref(), result_tx)
+            .await
+    }
+}
+
+impl PipelineNodeImpl for RepartitionNode {
+    fn context(&self) -> &PipelineNodeContext {
+        &self.context
+    }
+
+    fn config(&self) -> &PipelineNodeConfig {
+        &self.config
+    }
+
+    fn children(&self) -> Vec<DistributedPipelineNode> {
+        vec![self.child.clone()]
+    }
+
+    fn produce_tasks(
+        self: Arc<Self>,
+        plan_context: &mut PlanExecutionContext,
+    ) -> TaskBuilderStream {
+        let input_node = self.child.clone().produce_tasks(plan_context);
+        let self_arc = self.clone();
+        self.shuffle_context.register_cleanup(plan_context);
+
+        let schema = self.shuffle_context.schema().clone();
+        let node_id = self.shuffle_context.node_id();
+        let shuffle_backend = self.shuffle_context.backend().clone();
+        let num_partitions = self.num_partitions;
+        let repartition_spec = self.repartition_spec.clone();
+        let local_shuffle_write_node =
+            input_node.pipeline_instruction(self.clone(), move |input| {
+                LocalPhysicalPlan::repartition_write(
+                    input,
+                    num_partitions,
+                    schema.clone(),
+                    shuffle_backend.clone(),
+                    repartition_spec.clone(),
+                    StatsState::NotMaterialized,
+                    LocalNodeContext::new(Some(node_id as usize)),
+                )
+            });
+
+        let (result_tx, result_rx) = create_channel(1);
+
+        let task_id_counter = plan_context.task_id_counter();
+        let scheduler_handle = plan_context.scheduler_handle();
+
+        let execution = async move {
+            self_arc
+                .execution_loop(
+                    local_shuffle_write_node,
+                    task_id_counter,
+                    result_tx,
+                    scheduler_handle,
+                )
+                .await
+        };
+
+        plan_context.spawn(execution);
+        TaskBuilderStream::from(result_rx)
+    }
+
+    fn multiline_display(&self, _verbose: bool) -> Vec<String> {
+        let backend_name = format!("{}Shuffle", self.shuffle_context.backend().name());
+        let mut res = vec![format!(
+            "{backend_name}: {}",
+            self.repartition_spec.var_name()
+        )];
+        res.extend(self.repartition_spec.multiline_display());
+        res
+    }
+}

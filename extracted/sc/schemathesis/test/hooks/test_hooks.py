@@ -119,6 +119,22 @@ def test_before_call_dispatch_preserves_kwargs_styles():
     ]
 
 
+@pytest.mark.parametrize(
+    ("outcome", "expected"),
+    [(pytest.skip, pytest.skip.Exception), (pytest.fail, pytest.fail.Exception)],
+    ids=["skip", "fail"],
+)
+def test_before_call_propagates_pytest_outcomes(outcome, expected):
+    dispatcher = HookDispatcher(scope=HookScope.GLOBAL)
+
+    @dispatcher.hook
+    def before_call(context, case, kwargs):
+        outcome("from hook")
+
+    with pytest.raises(expected, match="from hook"):
+        dispatch_before_call(dispatcher, context=HookContext(), case=object(), kwargs={})
+
+
 @pytest.mark.hypothesis_nested
 @pytest.mark.usefixtures("global_hook")
 def test_global_query_hook(ctx):
@@ -651,6 +667,29 @@ def test_graphql_body(ctx):
     test()
 
 
+def test_flatmap_query_hook_applies_to_openapi_and_graphql(ctx):
+    openapi_schema = schemathesis.openapi.from_url(ctx.openapi.apps.success().schema_url)
+    graphql_schema = schemathesis.graphql.from_url(ctx.graphql.apps.books().schema_url)
+    seen = []
+
+    for schema in (openapi_schema, graphql_schema):
+
+        @schema.hook
+        def flatmap_query(context, query):
+            return st.just({"q": "1"})
+
+    for operation in (openapi_schema["/api/success"]["GET"], graphql_schema["Query"]["getBooks"]):
+
+        @given(case=operation.as_strategy())
+        @settings(max_examples=1, phases=[Phase.generate], suppress_health_check=list(HealthCheck), deadline=None)
+        def test(case):
+            seen.append(case.query)
+
+        test()
+
+    assert seen == [{"q": "1"}, {"q": "1"}]
+
+
 def test_graphql_query(ctx):
     api = ctx.graphql.apps.books()
     schema = schemathesis.graphql.from_url(api.schema_url)
@@ -758,6 +797,24 @@ def test_after_validate_fires_for_schema_level_hook(ctx):
         ("not_a_server_error", Status.SUCCESS),
         ("not_a_server_error", Status.FAILURE),
     ]
+
+
+def test_after_validate_reports_success_when_filter_failure_drops_every_failure(ctx, response_factory):
+    schema = ctx.openapi.load_schema({"/foo": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    results = []
+
+    @schema.hooks.hook
+    def filter_failure(context, failure, case, response):
+        return False
+
+    @schema.hooks.hook
+    def after_validate(context, case, response, check_results):
+        results.extend((r.name, r.status) for r in check_results)
+
+    case = schema["/foo"]["GET"].Case()
+    response = response_factory.requests(status_code=500)
+    assert case.validate_response(response, checks=[schemathesis.checks.not_a_server_error]) is None
+    assert results == [("not_a_server_error", Status.SUCCESS)]
 
 
 def register_recording_component_hooks(dispatcher, container, key, calls):

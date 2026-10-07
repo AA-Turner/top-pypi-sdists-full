@@ -654,6 +654,10 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
         budget_settlement = (
             budget_settlement_nano_usd(row, cost, usage, terminal_event) if tier is None else cost
         )
+        if failure is not None and failure.safe_details.get("input_guardrail_denied") is True:
+            # Usage/list cost remains provider-cost evidence. The caller's
+            # reservation is released because no output passed the input gate.
+            budget_settlement = 0
         usage_source = usage_source_label(
             usage, estimated=terminal_event is not None and terminal_event.usage_estimated
         )
@@ -775,6 +779,7 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
         certify_no_effects: bool = False,
+        web_search_requests: int = 0,
     ) -> bool:
         """Terminalize accepted work and return its committed no-effects certificate.
 
@@ -782,6 +787,7 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
             authorization: Frozen authority identifying the accepted request.
             failure: Sanitized pre-dispatch terminal failure.
             certify_no_effects: Trusted proof that admission could not perform paid prework.
+            web_search_requests: Completed searches with no model attempt to own the meter.
         """
         with self._transaction() as connection:
             return self.apply_finish_request(
@@ -789,6 +795,7 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
                 authorization=authorization,
                 failure=failure,
                 certify_no_effects=certify_no_effects,
+                web_search_requests=web_search_requests,
             )
 
     def apply_finish_request(
@@ -798,21 +805,16 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
         certify_no_effects: bool = False,
+        web_search_requests: int = 0,
     ) -> bool:
-        """Persist a no-effects certificate under the write fence; expose after commit.
-
-        Args:
-            connection: Open write transaction owned by the caller.
-            authorization: Frozen authority identifying the accepted request.
-            failure: Sanitized pre-dispatch terminal failure.
-            certify_no_effects: Trusted proof that admission could not perform paid prework.
-        """
+        """Apply :meth:`finish_request` inside the caller's serialized write transaction."""
         return finish_request(
             connection,
             authorization=authorization,
             failure=failure,
             terminal_at=self._clock.now(),
             certify_no_effects=certify_no_effects,
+            web_search_requests=web_search_requests,
         )
 
     def reconcile_crashed_requests(self, *, cleanup_grace: timedelta) -> tuple[int, int]:

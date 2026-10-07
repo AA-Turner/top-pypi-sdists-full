@@ -62,7 +62,7 @@ class GetWorkersScriptResult:
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        Name of the script, used in URLs and route configuration.
+        Name of the script.
         """
         return pulumi.get(self, "id")
 
@@ -75,7 +75,7 @@ class GetWorkersScriptResult:
     @pulumi.getter(name="scriptName")
     def script_name(self) -> Optional[_builtins.str]:
         """
-        Name of the script, used in URLs and route configuration.
+        Name of the script.
         """
         return pulumi.get(self, "script_name")
 
@@ -94,7 +94,7 @@ class AwaitableGetWorkersScriptResult(GetWorkersScriptResult):
 
 
 def get_workers_script(account_id: Optional[_builtins.str] = None,
-                       filter: Optional[Union['GetWorkersScriptFilterArgs', 'GetWorkersScriptFilterArgsDict']] = None,
+                       filter: Optional[Union['GetWorkersScriptFilterArgs', 'GetWorkersScriptFilterArgsDict', 'outputs.GetWorkersScriptFilterResult']] = None,
                        script_name: Optional[_builtins.str] = None,
                        opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetWorkersScriptResult:
     """
@@ -116,7 +116,7 @@ def get_workers_script(account_id: Optional[_builtins.str] = None,
 
 
     :param _builtins.str account_id: Identifier.
-    :param _builtins.str script_name: Name of the script, used in URLs and route configuration.
+    :param _builtins.str script_name: Name of the script.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -132,7 +132,7 @@ def get_workers_script(account_id: Optional[_builtins.str] = None,
         script=pulumi.get(__ret__, 'script'),
         script_name=pulumi.get(__ret__, 'script_name'))
 def get_workers_script_output(account_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                              filter: pulumi.Input[Optional[Optional[Union['GetWorkersScriptFilterArgs', 'GetWorkersScriptFilterArgsDict']]]] = None,
+                              filter: pulumi.Input[Optional[Optional[Union['GetWorkersScriptFilterArgs', 'GetWorkersScriptFilterArgsDict', 'outputs.GetWorkersScriptFilterResult']]]] = None,
                               script_name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                               opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetWorkersScriptResult]:
     """
@@ -154,7 +154,7 @@ def get_workers_script_output(account_id: pulumi.Input[Optional[Optional[_builti
 
 
     :param _builtins.str account_id: Identifier.
-    :param _builtins.str script_name: Name of the script, used in URLs and route configuration.
+    :param _builtins.str script_name: Name of the script.
     """
     __args__ = dict()
     __args__['accountId'] = account_id

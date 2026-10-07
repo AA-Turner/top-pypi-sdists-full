@@ -69,6 +69,10 @@ class RuntimeClient:
                 last = httpx.TimeoutException("absolute deadline") if not isinstance(e, httpx.TimeoutException) else e
             except httpx.RequestError as e:   # 到達性 / timeout / 本文の decode 失敗（DecodingError は TransportError ではない）
                 last = e
+            except (ValueError, TypeError, RecursionError) as e:
+                # 本文を JSON にできない（NaN・孤立したサロゲート・深すぎる入れ子。Agent の値が混ざる監査で起きうる）。
+                # 送っていないので再送しない。呼び出し側の保存失敗の扱いに乗せる（runner を例外で落とさない）
+                raise WorkflowError(f"request body cannot be encoded: {type(e).__name__}") from None
             else:
                 if resp.status_code in RETRY_STATUSES:
                     last = RuntimeApiError(resp.status_code, _code(resp), "retryable")

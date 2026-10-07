@@ -56,9 +56,11 @@ def apply_patch(patch_path):
         print('PATCH NOT APPLIED:', patch_path)
         return
 
-    # Check if the patch is already applied by doing a reverse dry-run
+    # Check if the patch is already applied by doing a reverse dry-run.
+    # -f: never ask "Unreversed patch detected! Ignore -R?"; BSD patch answers
+    # yes to it and then reports success for a patch that is not applied.
     with open(patch_path, "r") as patch:
-        check = subprocess.Popen(['patch', '-p1', '-R', '--dry-run'],
+        check = subprocess.Popen(['patch', '-p1', '-R', '-f', '--dry-run'],
                                  cwd=ROOT_DIR,
                                  stdin=patch,
                                  stdout=subprocess.PIPE,
@@ -151,6 +153,10 @@ class ClickHouseBuildExt(build_ext):
         # silently wrapping (1944 -> -104). Backport of the ColumnVector::tryInsert fix;
         # remove once the fix lands in the pinned ClickHouse submodule.
         apply_patch("patches/ColumnVectorTryInsert.patch")
+
+        # Keep TTL result validation compatible with ClickHouse versions before 25.8:
+        # DateTime64 and Date32 results must remain rejected until all servers migrate.
+        apply_patch("patches/ttl_result_type_compat.patch")
 
         if sys.platform == 'darwin':
             # We disable whole_archive options destined for AppleClang, which is unsupported but keeps being a PITA
@@ -350,6 +356,9 @@ class CustomBuildWithFromCH(build_ext):
     @staticmethod
     def ldflags():
         link_flags = CustomBuildWithFromCH.ninja_extractor_ldflags('LINK_FLAGS')
+        # On Linux the extracted flags include ClickHouse's `--wrap=malloc` & co.
+        # They stay: ClickHouse code calls `__real_*` directly, which only exists
+        # under --wrap, and src/AllocatorWrappers.cpp provides the `__wrap_*` side.
         if sys.platform == 'linux':
             link_flags.append('-g' if BUILD_FOR_VALGRIND or DEBUG_SYMBOLS else '-s')
             link_flags.append('-Wl,--whole-archive')

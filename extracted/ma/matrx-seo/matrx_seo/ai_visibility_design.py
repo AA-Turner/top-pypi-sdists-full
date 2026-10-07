@@ -76,6 +76,10 @@ from pydantic import (
 )
 
 from .ai_visibility_panel import FALLBACK_COST_PER_PROMPT_ENGINE
+from .name_matching import (
+    common_word_names,
+    proper_name_match,
+)
 from .providers.dataforseo.ai_answers import AI_ANSWER_LOCATION_ENGINES, answer_mentions_target
 
 # ---------------------------------------------------------------------------
@@ -636,9 +640,10 @@ class TermProvenance(_Strict):
 class ContaminationRegister(Envelope):
     target_terms: TargetTerms
     competitor_terms: list[str] = Field(default_factory=list)
-    #: Competitor names that are also everyday words ("Render", "Remote"): matched only as a
-    #: proper name — capitalised and in context — never as the ordinary word. Code fills it at
-    #: build time (:func:`common_word_competitors`); a person may edit it at Gate 1.
+    #: Names that are also everyday words — competitors ("Render", "Remote") and the company's
+    #: own brands and products ("Workers", "Stream"): matched only as a proper name, capitalised
+    #: and in context, never as the ordinary word. Code fills it at build time
+    #: (:func:`common_word_names`); a person may edit it at Gate 1.
     common_word_terms: list[str] = Field(default_factory=list)
     allowed_exceptions: list[AllowedException] = Field(default_factory=list)
     term_provenance: list[TermProvenance] = Field(default_factory=list)
@@ -1939,7 +1944,9 @@ def seed_register(
         ),
         target_terms=TargetTerms(**{c: buckets[c] for c in TARGET_TERM_CLASSES}),
         competitor_terms=buckets["competitor_terms"],
-        common_word_terms=common_word_competitors(buckets["competitor_terms"]),
+        common_word_terms=common_word_names(
+            [*buckets["brands"], *buckets["products"], *buckets["competitor_terms"]]
+        ),
         allowed_exceptions=list(allowed_exceptions),
         term_provenance=provenance,
     )
@@ -2051,32 +2058,9 @@ def _register_classes(register: Mapping[str, Any] | ContaminationRegister) -> di
     return classes
 
 
-_COMMON_WORDS: frozenset[str] | None = None
-
-
-def common_english_words() -> frozenset[str]:
-    """Lower-case English words (Webster's 2nd, public domain; ``data/``), loaded once."""
-    global _COMMON_WORDS
-    if _COMMON_WORDS is None:
-        import gzip
-        from importlib import resources
-
-        raw = resources.files("matrx_seo").joinpath("data/common_english_words.txt.gz")
-        with raw.open("rb") as fh:
-            _COMMON_WORDS = frozenset(gzip.decompress(fh.read()).decode("utf-8").split())
-    return _COMMON_WORDS
-
-
-def common_word_competitors(terms: Iterable[Any]) -> list[str]:
-    """The competitor names that are also an everyday word: one alphabetic token whose
-    lower-case form is an English word ("Render", "Remote", "Square")."""
-    words = common_english_words()
-    out: list[str] = []
-    for term in terms:
-        text = str(term).strip()
-        if re.fullmatch(r"[^\W\d_]+", text) and text.casefold() in words and text not in out:
-            out.append(text)
-    return out
+#: The register classes whose names may also be everyday words (people, slogans and claims are
+#: phrases; domains are never ordinary words).
+COMMON_WORD_CLASSES: tuple[str, ...] = ("brands", "products", "competitor_terms")
 
 
 def _common_word_set(register: Mapping[str, Any] | ContaminationRegister) -> set[str]:
@@ -2084,39 +2068,15 @@ def _common_word_set(register: Mapping[str, Any] | ContaminationRegister) -> set
     flagged = data.get("common_word_terms")
     if flagged is None:
         # A register built before the flag existed: derive it the same way the builder does.
-        flagged = common_word_competitors(_as_list(data.get("competitor_terms")))
+        target = data.get("target_terms") or {}
+        flagged = common_word_names(
+            [
+                *_as_list(target.get("brands")),
+                *_as_list(target.get("products")),
+                *_as_list(data.get("competitor_terms")),
+            ]
+        )
     return {str(t).casefold() for t in _as_list(flagged)}
-
-
-#: Words that put a capitalised everyday word in a naming context when it opens a sentence.
-_NAME_CONTEXT = re.compile(
-    r"^\s*(?:/|,|&|\+|\(|\)|'s\b|\.(?:com|io|co|app|dev|net|org)\b|vs\.?\b|versus\b|or\b|and\b"
-    r"|alternatives?\b|pricing\b|review)",
-    re.IGNORECASE,
-)
-_NAME_CONTEXT_BEFORE = re.compile(r"(?:/|,|&|\+|\bvs\.?|\bversus|\bor|\band|\blike)\s*$", re.I)
-
-
-def _proper_name_match(term: str, text: str) -> str | None:
-    """``term`` used as a proper name in ``text``: written capitalised as a whole word, and —
-    when it opens a sentence or line, where every word is capitalised — with a naming cue next to
-    it ("Render vs …", "… or Render", "Render.com", "Render's")."""
-    folded = unicodedata.normalize("NFKC", text)
-    name = unicodedata.normalize("NFKC", term)
-    for m in re.finditer(r"(?<!\w)" + re.escape(name) + r"(?!\w)", folded, flags=re.IGNORECASE):
-        found = m.group(0)
-        if not found[:1].isupper():
-            continue
-        before = folded[: m.start()]
-        opens = not before.strip() or re.search(r"[.!?:;\n\"“(\[-]\s*$", before) is not None
-        if not opens:
-            return found
-        after = folded[m.end() :]
-        if re.search(r"[\"“'\[]\s*$", before) and re.match(r"\s*[\"”'\]]", after):
-            return found  # the whole value of a quoted or listed item: a name, not a word
-        if _NAME_CONTEXT.match(folded[m.end() :]) or _NAME_CONTEXT_BEFORE.search(before):
-            return found
-    return None
 
 
 def scan_text(
@@ -2134,9 +2094,9 @@ def scan_text(
     common = _common_word_set(register)
     for term_class, terms in _register_classes(register).items():
         for term in terms:
-            if term_class == "competitor_terms" and term.casefold() in common:
-                # An everyday word ("render", "remote") is the competitor only as a proper name.
-                proper = _proper_name_match(term, text or "")
+            if term_class in COMMON_WORD_CLASSES and term.casefold() in common:
+                # An everyday word ("render", "workers") is the name only as a proper name.
+                proper = proper_name_match(term, text or "")
                 if proper is not None:
                     hits.append(
                         TermHit(
@@ -4048,8 +4008,15 @@ class EntityMention(_Strict):
     matched_terms: list[str]
 
 
-def _mentioned_terms(text: str, terms: Sequence[str]) -> list[str]:
-    return [t for t in dict.fromkeys(terms) if t.strip() and answer_mentions_target(text, [t])[0]]
+def _mentioned_terms(text: str, terms: Sequence[str], common: set[str] | None = None) -> list[str]:
+    """The terms an answer mentions. A name that is also an everyday word ("Stream", "Render")
+    counts only as a proper name — the blinding check's own matcher — never as the word."""
+    flags = None if common is None else sorted(common)
+    return [
+        t
+        for t in dict.fromkeys(terms)
+        if t.strip() and answer_mentions_target(text, [t], common_word_terms=flags)[0]
+    ]
 
 
 def entity_mentions(
@@ -4058,15 +4025,23 @@ def entity_mentions(
     target_entity: str,
     target_terms: Sequence[str],
     competitors: Mapping[str, Sequence[str]],
+    common_word_terms: Iterable[str] | None = None,
 ) -> list[EntityMention]:
-    """T14. ``answer_mentions_target`` extended to competitors → ``entities_mentioned``."""
+    """T14. ``answer_mentions_target`` extended to competitors → ``entities_mentioned``.
+
+    ``common_word_terms`` is the register's flag; without one, the names are flagged the way the
+    register builder flags them (:func:`common_word_names`)."""
     text = unicodedata.normalize("NFKC", answer_text or "")
     out: list[EntityMention] = []
-    matched = _mentioned_terms(text, target_terms)
+    if common_word_terms is None:
+        every = [*target_terms, *competitors, *(t for ts in competitors.values() for t in ts)]
+        common_word_terms = common_word_names(every)
+    common = {str(t).casefold() for t in common_word_terms}
+    matched = _mentioned_terms(text, target_terms, common)
     if matched:
         out.append(EntityMention(entity=target_entity, kind="target", matched_terms=matched))
     for name, terms in competitors.items():
-        hits = _mentioned_terms(text, [name, *terms])
+        hits = _mentioned_terms(text, [name, *terms], common)
         if hits:
             out.append(EntityMention(entity=name, kind="competitor", matched_terms=hits))
     return out
@@ -4091,7 +4066,11 @@ def entity_mentions_from_register(
         if term.casefold() not in grouped:
             competitors[term] = []
     return entity_mentions(
-        answer_text, target_entity=target_entity, target_terms=target_terms, competitors=competitors
+        answer_text,
+        target_entity=target_entity,
+        target_terms=target_terms,
+        competitors=competitors,
+        common_word_terms=_common_word_set(register),
     )
 
 

@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
+from hashlib import sha256
 
-from exp.runtime.gateway.contracts import GatewayMessage, GatewayRequest
+from exp.common.core.artifacts import canonical_json_bytes
+from exp.runtime.gateway.contracts import (
+    AuthorizationSnapshot,
+    GatewayFailure,
+    GatewayFailureClass,
+    GatewayRequest,
+)
 from exp.runtime.gateway.guardrails.bounded import BoundedInspect, ClassifierTimeoutError
 from exp.runtime.gateway.guardrails.client import InternalClassifierClient
 from exp.runtime.gateway.guardrails.contracts import (
@@ -19,6 +26,8 @@ from exp.runtime.gateway.guardrails.contracts import (
     guardrail_failure,
     request_content_bytes,
 )
+from exp.runtime.gateway.guardrails.redaction import restored_provider_authority
+from exp.runtime.gateway.guardrails.session import GuardrailSession
 from exp.runtime.gateway.guardrails.store import GuardrailPolicyStore
 from exp.runtime.gateway.guardrails.streaming import (
     StreamingRedactor,
@@ -29,94 +38,8 @@ from exp.runtime.gateway.guardrails.streaming import (
 _logger = logging.getLogger(__name__)
 
 
-def restored_provider_authority(
-    original: Sequence[GatewayMessage],
-    replacement: Sequence[GatewayMessage],
-) -> tuple[GatewayMessage, ...] | None:
-    """Validate visible edits and restore hidden provider replay authority.
-
-    Hosted classifiers receive only the normal serialized message projection,
-    because replay-only reasoning, raw arguments, provider identity, status,
-    and phase are excluded from that contract. A valid replacement must keep
-    the classifier-visible authenticated prefix exact. The gateway then uses
-    the original prefix objects, reattaching every hidden field without asking
-    the classifier to receive or echo it.
-    """
-
-    def has_authority(message: GatewayMessage) -> bool:
-        """Identify fields that must replay byte-exact on a provider continuation."""
-        return bool(
-            message.provider_reasoning
-            or message.provider_item_id is not None
-            or message.provider_output_index is not None
-            or message.provider_status is not None
-            or message.provider_phase is not None
-            or message.provider_tool_name is not None
-            or message.provider_tool_namespace is not None
-            or message.provider_tool_caller is not None
-            or message.tool_is_error
-            or any(
-                call.raw_arguments is not None
-                or call.provider_item_id is not None
-                or call.provider_output_index is not None
-                or call.provider_status is not None
-                or call.provider_namespace is not None
-                or call.provider_caller is not None
-                for call in message.tool_calls
-            )
-        )
-
-    original_carrier_indexes = tuple(
-        index for index, message in enumerate(original) if has_authority(message)
-    )
-    if not original_carrier_indexes:
-        return (
-            None if any(has_authority(message) for message in replacement) else tuple(replacement)
-        )
-    original_fireworks_carriers = tuple(
-        index
-        for index, message in enumerate(original)
-        if any(
-            block.kind in {"reasoning_content", "sealed_reasoning_content"}
-            for block in message.provider_reasoning
-        )
-    )
-    replacement_fireworks_carriers = tuple(
-        index
-        for index, message in enumerate(replacement)
-        if any(
-            block.kind in {"reasoning_content", "sealed_reasoning_content"}
-            for block in message.provider_reasoning
-        )
-    )
-    if original_fireworks_carriers:
-        if not replacement_fireworks_carriers:
-            return (
-                tuple(replacement)
-                if all(message.role in {"system", "developer", "user"} for message in replacement)
-                else None
-            )
-        if replacement_fireworks_carriers != original_fireworks_carriers:
-            return None
-        for index in original_fireworks_carriers:
-            if original[index] != replacement[index]:
-                return None
-    bound = original_carrier_indexes[-1]
-    if len(replacement) <= bound:
-        return None
-    original_visible = tuple(message.model_dump(mode="json") for message in original[: bound + 1])
-    replacement_visible = tuple(
-        message.model_dump(mode="json") for message in replacement[: bound + 1]
-    )
-    if replacement_visible != original_visible:
-        return None
-    if any(has_authority(message) for message in replacement[bound + 1 :]):
-        return None
-    return (*original[: bound + 1], *replacement[bound + 1 :])
-
-
 class GuardrailEngine:
-    """Look up identity policies and run classifier chains once per stage.
+    """Resolve scoped policies and execute their checks through request-owned sessions.
 
     The engine never logs request text, completions, detector payloads, or
     replacements. Decision metadata is limited to identity, policy, check,
@@ -135,7 +58,7 @@ class GuardrailEngine:
         """Bind lookup, the internal client, and the deadline clock.
 
         Args:
-            store: Identity-keyed policy lookup.
+            store: Applicable platform and identity policy lookup.
             client: Injected adapter seam that cannot use the public route.
             monotonic: Process-local clock in seconds.
             inspects: Optional async inflight limiter. ``None`` uses the
@@ -157,9 +80,41 @@ class GuardrailEngine:
         self.output_invocations = 0
         self.classifier_calls = 0
 
-    def policy_for(self, organization_id: str, identity_id: str) -> GuardrailPolicy | None:
-        """Return the assigned policy, or ``None`` for unguarded traffic."""
-        return self._store.policy_for(organization_id, identity_id)
+    def policies_for(self, organization_id: str, identity_id: str) -> tuple[GuardrailPolicy, ...]:
+        """Resolve all applicable scopes through the single policy store contract."""
+        return self._store.policies_for(organization_id, identity_id)
+
+    def open_request(
+        self, authorization: AuthorizationSnapshot, *, deadline_monotonic: float
+    ) -> GuardrailSession | None:
+        """Freeze all applicable policies into one request-owned execution session."""
+        policies = self.policies_for(authorization.organization_id, authorization.identity_id)
+        if not policies:
+            return None
+        return GuardrailSession(
+            engine=self, policies=policies, deadline_monotonic=deadline_monotonic
+        )
+
+    def revision_for(self, authorization: AuthorizationSnapshot) -> str | None:
+        """Bind replay to the full applicable policy, adapter, and execution configuration."""
+        return self.policy_revision(
+            self.policies_for(authorization.organization_id, authorization.identity_id)
+        )
+
+    def policy_revision(self, policies: tuple[GuardrailPolicy, ...]) -> str | None:
+        """Hash an already frozen policy snapshot without consulting the live store again."""
+        return (
+            None
+            if not policies
+            else sha256(
+                canonical_json_bytes(
+                    {
+                        "policies": [p.model_dump(mode="json") for p in policies],
+                        "detectors": dict(self.deterministic_specifications),
+                    }
+                )
+            ).hexdigest()
+        )
 
     async def enforce_input(
         self,
@@ -419,7 +374,11 @@ class GuardrailEngine:
         self._record(policy, check, action, 0.0)
         if policy.protected:
             raise GuardrailRejected(
-                guardrail_failure(action=GuardrailAction.ERROR, check_id=check.check_id)
+                GatewayFailure(
+                    failure_class=GatewayFailureClass.UNAVAILABLE,
+                    safe_message="Content inspection is unavailable. Retry later.",
+                    safe_details={"action": "error", "check_id": check.check_id},
+                )
             )
         return None
 
@@ -470,7 +429,9 @@ class GuardrailEngine:
                 raise GuardrailRejected(
                     guardrail_failure(action=GuardrailAction.ERROR, check_id=check.check_id)
                 )
-            return completion.model_copy(update={"text": verdict.replacement_text})
+            return completion.model_copy(
+                update={"text": verdict.replacement_text, "context": (), "refusal": False}
+            )
         raise GuardrailRejected(guardrail_failure(action=check.action, check_id=check.check_id))
 
     def _record(

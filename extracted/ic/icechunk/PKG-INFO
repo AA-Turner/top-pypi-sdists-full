@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: icechunk
-Version: 2.2.2
+Version: 2.3.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Requires-Dist: zarr>=3.1.0
 License-File: LICENSE
 Summary: Icechunk Python

@@ -1,5 +1,6 @@
 /*
- * Copyright 2014-2025 Jetperch LLC
+ * SPDX-FileCopyrightText: Copyright 2014-2025 Jetperch LLC
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -545,7 +546,7 @@ static void device_add_msg(struct jsdrv_context_s * c, struct jsdrvp_msg_s * msg
         rv = dt->device_factory(&d->device, c, &msg->payload.device);
     }
     if (rv) {
-        // The device never appears in @/list; see doc/plans/design_review_2026-07.md
+        // The device never appears in @/list; see doc/plans/open_issues.md
         // for adding a frontend diagnostic topic.
         JSDRV_LOGE("device_add(%s) failed with %d", model, rv);
         jsdrvp_msg_free(c, msg);
@@ -686,6 +687,8 @@ static bool handle_backend_msg(struct jsdrv_context_s * c, struct jsdrvp_msg_s *
         jsdrv_pubsub_publish(c->pubsub, msg);
     } else if (msg->topic[0] == 'm') {  // buffer
         jsdrv_pubsub_publish(c->pubsub, msg);
+    } else if (jsdrv_cstr_starts_with(msg->topic, "fwup/")) {  // firmware update manager
+        jsdrv_pubsub_publish(c->pubsub, msg);
     } else {
         switch (msg->inner_msg_type) {
             case JSDRV_MSG_TYPE_NORMAL: break;
@@ -819,11 +822,14 @@ void jsdrvp_msg_free(struct jsdrv_context_s * context, struct jsdrvp_msg_s * msg
     if (!jsdrv_list_is_empty(&msg->item)) {
         JSDRV_LOGW("jsdrvp_msg_free but still in list");
     }
-    if (msg->value.app == JSDRV_PAYLOAD_TYPE_BUFFER_RSP) {
+    // app describes the payload only for binary values.  Callers may leave
+    // app uninitialized for other types, so do not trust it there.
+    bool is_bin = (msg->value.type == JSDRV_UNION_BIN);
+    if (is_bin && (msg->value.app == JSDRV_PAYLOAD_TYPE_BUFFER_RSP)) {
         struct jsdrv_buffer_response_s * rsp = (struct jsdrv_buffer_response_s *) msg->value.value.bin;
         jsdrv_tmap_free(rsp->info.tmap);
         rsp->info.tmap = NULL;
-    } else if (msg->value.app == JSDRV_PAYLOAD_TYPE_BUFFER_INFO) {
+    } else if (is_bin && (msg->value.app == JSDRV_PAYLOAD_TYPE_BUFFER_INFO)) {
         struct jsdrv_buffer_info_s * info = (struct jsdrv_buffer_info_s *) msg->value.value.bin;
         jsdrv_tmap_free(info->tmap);
         info->tmap = NULL;
@@ -1041,6 +1047,12 @@ void jsdrv_finalize(struct jsdrv_context_s * context, uint32_t timeout_ms) {
         JSDRV_LOGI("jsdrv_finalize: join frontend_thread timeout=%u", (unsigned) timeout_ms);
         int32_t jrc = jsdrv_thread_join(&context->thread, timeout_ms);
         JSDRV_LOGI("jsdrv_finalize: frontend_thread joined rc=%d", (int) jrc);
+        if (jrc) {
+            // The frontend thread still runs and uses these resources.
+            // Freeing them would crash it, so leak them instead.
+            JSDRV_LOGE("jsdrv_finalize: frontend_thread join failed, leaking context");
+            return;
+        }
         jsdrv_fwup_mgr_finalize();
         jsdrv_buffer_finalize();
         jsdrv_pubsub_finalize(c->pubsub);

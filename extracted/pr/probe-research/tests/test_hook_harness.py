@@ -63,6 +63,7 @@ def test_claude_code_keeps_its_question_tool_under_a_leaked_probe_agent():
 
 def test_the_session_id_fallback_reads_only_captured_harnesses():
     resolver = _resolver()
+    # Cursor is not a harness: its terminal's trace id is no session.
     assert resolver.session_id({"CLAUDECODE": "1", "CURSOR_TRACE_ID": "terminal"}) == ""
     assert resolver.session_id({"CODEX_THREAD_ID": "s-codex"}) == "s-codex"
     assert resolver.session_id({"PI_SESSION_ID": "s-pi"}) == "s-pi"

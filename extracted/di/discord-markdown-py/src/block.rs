@@ -8,22 +8,22 @@ use crate::{
 pub use self::{heading::Heading, list::List, small::Small};
 
 use nom::{
+	Parser,
 	branch::alt,
 	character::complete::line_ending,
 	combinator::{map, value},
 	multi::many0,
 	sequence::{preceded, terminated},
-	Parser,
 };
 use tracing::Level;
 
 use super::{
+	Input,
 	context::Context,
 	grammar::Grammar,
 	inline,
 	node::{Node, SpannedNodes},
 	span::{Span, WithSpan},
-	Input,
 };
 
 /// Markdown headings.

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from yookassa.domain.common.response_object import ResponseObject
+from yookassa.domain.models.pos_link_data.pos_link_status import PosLinkStatus
 from yookassa.domain.models.pos_link_data.response.pos_link_last_payment import PosLinkLastPayment
 from yookassa.domain.models.pos_link_data.pos_link_recipient import PosLinkRecipient
 
@@ -62,6 +63,9 @@ class PosLinkResponse(ResponseObject):
         :param value: status модели PosLinkResponse.
         :type value: str
         """
+        value = str(value)
+        if value not in {getattr(PosLinkStatus, _n) for _n in dir(PosLinkStatus) if not _n.startswith('_')}:
+            value = PosLinkStatus.UNKNOWN
         self.__status = value
 
     @property

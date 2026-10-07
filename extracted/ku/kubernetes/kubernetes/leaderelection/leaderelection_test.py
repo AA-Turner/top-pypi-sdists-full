@@ -20,6 +20,7 @@ from . import electionconfig
 import unittest
 import threading
 import json
+import sys
 import time
 import pytest
 from unittest.mock import patch
@@ -222,6 +223,32 @@ class LeaderElectionTest(unittest.TestCase):
         self.assertIn("daemon", captured)
         self.assertTrue(captured["daemon"])
 
+    """Expected behavior: if onstarted_leading raises, the lease it protects is no
+    longer backed by any running work, so the candidate must stop renewing it and
+    run onstopped_leading. The lock below never refuses a renewal, so the renew
+    loop can only end because the callback failed."""
+    def test_stops_leading_when_onstarted_leading_raises(self):
+        stopped = threading.Event()
+
+        mock_lock = MockResourceLock("mock", "mock_namespace", "mock", thread_lock,
+                                     lambda: None, lambda: None, lambda: None, None)
+        mock_lock.renew_count_max = sys.maxsize
+
+        def on_started_leading():
+            raise RuntimeError("onstarted_leading failed")
+
+        config = electionconfig.Config(lock=mock_lock, lease_duration=2,
+                                       renew_deadline=1.5, retry_period=1.1,
+                                       onstarted_leading=on_started_leading,
+                                       onstopped_leading=stopped.set)
+
+        # Run in a daemon thread so a regression times out instead of hanging.
+        threading.Thread(target=leaderelection.LeaderElection(config).run,
+                         daemon=True).start()
+
+        self.assertTrue(stopped.wait(10),
+                        "onstopped_leading was not called after onstarted_leading raised")
+
     def assert_history(self, history, expected):
         self.assertIsNotNone(expected)
         self.assertIsNotNone(history)
@@ -292,6 +319,77 @@ class MockResourceLock:
             return True
         finally:
             self.lock.release()
+
+
+    def test_acquire_survives_non_json_error_body(self):
+        """A proxy answering with an HTML error page must not kill the elector."""
+        class GatewayErrorLock:
+            def __init__(self):
+                self.name = "lock"
+                self.namespace = "ns"
+                self.identity = "candidate"
+
+            def get(self, name, namespace):
+                return False, ApiException(
+                    status=502, reason="Bad Gateway",
+                    body="<html><body>502 Bad Gateway</body></html>")
+
+        config = electionconfig.Config(
+            lock=GatewayErrorLock(), lease_duration=4, renew_deadline=3,
+            retry_period=1, onstarted_leading=lambda: None,
+            onstopped_leading=lambda: None)
+
+        result = leaderelection.LeaderElection(config).try_acquire_or_renew()
+        self.assertFalse(result)
+
+    def test_acquire_survives_empty_error_body(self):
+        class EmptyErrorLock:
+            def __init__(self):
+                self.name = "lock"
+                self.namespace = "ns"
+                self.identity = "candidate"
+
+            def get(self, name, namespace):
+                return False, ApiException(status=500, reason="Server Error",
+                                           body=None)
+
+        config = electionconfig.Config(
+            lock=EmptyErrorLock(), lease_duration=4, renew_deadline=3,
+            retry_period=1, onstarted_leading=lambda: None,
+            onstopped_leading=lambda: None)
+
+        result = leaderelection.LeaderElection(config).try_acquire_or_renew()
+        self.assertFalse(result)
+
+    def test_acquire_still_creates_on_clean_404(self):
+        class NotFoundLock:
+            def __init__(self):
+                self.name = "lock"
+                self.namespace = "ns"
+                self.identity = "candidate"
+                self.created = False
+
+            def get(self, name, namespace):
+                if self.created:
+                    return True, LeaderElectionRecord(
+                        "candidate", "4", "now", "now")
+                return False, ApiException(
+                    status=404, reason="Not Found",
+                    body=json.dumps({'code': 404}))
+
+            def create(self, name, namespace, election_record):
+                self.created = True
+                return True
+
+            def update(self, name, namespace, updated_record):
+                return True
+
+        config = electionconfig.Config(
+            lock=NotFoundLock(), lease_duration=4, renew_deadline=3,
+            retry_period=1, onstarted_leading=lambda: None,
+            onstopped_leading=lambda: None)
+
+        self.assertTrue(leaderelection.LeaderElection(config).try_acquire_or_renew())
 
 
 if __name__ == '__main__':

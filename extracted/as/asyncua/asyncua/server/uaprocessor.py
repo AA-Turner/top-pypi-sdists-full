@@ -140,7 +140,7 @@ class UaProcessor:
             err = ua.ErrorMessage(ua.StatusCode(e.code), str(e))
             data = uatcp_to_binary(ua.MessageType.Error, err)
             self._transport.write(data)
-            return True
+            return False
         except ua.uaerrors.BadUserAccessDenied:
             _logger.warning("Unauthenticated user attempted to connect")
             return False
@@ -544,28 +544,18 @@ class UaProcessor:
             elif typeid == ua.NodeId(ua.ObjectIds.SetMonitoringModeRequest_Encoding_DefaultBinary):
                 _logger.info("set monitoring mode request (%s)", user)
                 params = struct_from_binary(ua.SetMonitoringModeParameters, body)
-                # FIXME: Implement SetMonitoringMode
-                # For now send dummy results to keep clients happy
+                results = await self.session.set_monitoring_mode(params)
                 response = ua.SetMonitoringModeResponse()
-                results = ua.SetMonitoringModeResult()
-                ids = params.MonitoredItemIds
-                statuses = [ua.StatusCode(ua.StatusCodes.Good) for node_id in ids]
-                results.Results = statuses
-                response.Parameters = results
+                response.Parameters.Results = results
                 _logger.info("sending set monitoring mode response")
                 self.send_response(requesthdr.RequestHandle, seqhdr, response)
 
             elif typeid == ua.NodeId(ua.ObjectIds.SetPublishingModeRequest_Encoding_DefaultBinary):
                 _logger.info("set publishing mode request (%s)", user)
                 params = struct_from_binary(ua.SetPublishingModeParameters, body)
-                # FIXME: Implement SetPublishingMode
-                # For now send dummy results to keep clients happy
+                results = await self.session.set_publishing_mode(params)
                 response = ua.SetPublishingModeResponse()
-                results = ua.SetPublishingModeResult()
-                ids = params.SubscriptionIds
-                statuses = [ua.StatusCode(ua.StatusCodes.Good) for node_id in ids]
-                results.Results = statuses
-                response.Parameters = results
+                response.Parameters.Results = results
                 _logger.info("sending set publishing mode response")
                 self.send_response(requesthdr.RequestHandle, seqhdr, response)
 

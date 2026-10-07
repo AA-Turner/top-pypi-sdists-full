@@ -76,7 +76,6 @@ SCOPED_TENSORFS_FILES = frozenset(
         "derive/quantization.py",
     }
 )
-GENERATED_PROTOCOL_PREFIX = "cozy.worker.v1"
 # Pillow is a base dependency and the actual public Image value type; imports stay at module scope.
 AUTHOR_ALLOWED_THIRD_PARTY = ("msgspec", "PIL")
 # The `media` extra's encoder (cr-017): allowed in the author package ONLY function-scoped,
@@ -251,14 +250,6 @@ def fence_package_imports() -> list[str]:
                 name == "tensorfs.derived"
                 and path.relative_to(SRC).as_posix() in SCOPED_TENSORFS_FILES
             )
-            if pkg != "protocol" and (
-                name == GENERATED_PROTOCOL_PREFIX
-                or name.startswith(GENERATED_PROTOCOL_PREFIX + ".")
-            ):
-                bad.append(
-                    f"{rel}: Runtime modules must import generated bindings through "
-                    "cozy_runtime.protocol"
-                )
             if not scoped_tensorfs and any(
                 name == f or name.startswith(f + ".") for f in forbidden
             ):
@@ -667,6 +658,9 @@ STATIC_READER_IMPORTS = frozenset(
         "cozy_runtime.internal.static_interface",
         "cozy_runtime.internal.static_invocable",
         "cozy_runtime.internal.invocable_interface",
+        # reads uv.lock and fetches the exact wheels it pins through egress; builds, installs
+        # and imports nothing
+        "cozy_runtime.internal.locked_sources",
     }
 )
 
@@ -708,8 +702,6 @@ def fence_static_describe_executes_nothing() -> list[str]:
 
 KERNEL_CALLS = ("attempt", "prepare", "invoke", "run_prepared")
 KERNEL_CALLER = "internal/executor.py"
-ENGINE_CLASS = "AttemptEngine"
-ENGINE_BUILDER = "internal/worker/session.py"
 
 
 def _dotted(node: ast.expr) -> str:
@@ -782,16 +774,6 @@ def fence_one_attempt_kernel() -> list[str]:
                     f"{_dotted(node.value)}.{node.attr} — the ONE kernel runs in "
                     f"{KERNEL_CALLER}"
                 )
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id == ENGINE_CLASS
-                and rel.as_posix() != ENGINE_BUILDER
-            ):
-                bad.append(
-                    f"{where}:{node.lineno}: constructs {ENGINE_CLASS} — only "
-                    f"{ENGINE_BUILDER} may; a second engine is a second lifecycle"
-                )
     return bad
 
 
@@ -799,16 +781,11 @@ def fence_one_attempt_kernel() -> list[str]:
 #: incapable of changing what is resident, where it sits, or what a method may touch.
 OBSERVATION_MODULES = (
     "author/_observations.py",
-    "internal/worker/activity.py",
-    "internal/worker/observe.py",
-    "internal/worker/triage.py",
 )
 #: Modules that DECIDE residency, placement or the component-use contract.
 DECIDING_MODULES = (
     "cozy_runtime.internal.fill",
     "cozy_runtime.internal.derive",
-    "cozy_runtime.internal.worker.plan",
-    "cozy_runtime.internal.worker.ledger",
     "cozy_runtime.author._model",
     "torch",
 )
@@ -836,12 +813,10 @@ def fence_timing_decides_nothing() -> list[str]:
     A TYPE cannot hold this. `stage_ms` is a float the observation plane itself must
     min/max/sum (`_observations.Track.add`) and round for the wire, so an opaque
     non-comparable number would break the observer before it stopped anything — and it
-    would still leave `internal/worker/observe.py` free to import `internal.fill`. The
+    would still permit an observation module to import `internal.fill`. The
     invariant is about a module's import graph, which is not a property of a value.
 
-    `author/_observations.py` is listed for completeness only: `package-imports` already
-    denies the whole author package `cozy_runtime.internal`. The two `internal/worker`
-    modules are what nothing else covers.
+    `package-imports` also denies the author package `cozy_runtime.internal`.
     """
     bad: list[str] = []
     for path in py_files():
@@ -868,181 +843,6 @@ def fence_timing_decides_nothing() -> list[str]:
                     f"{reached!r}, a residency operation — an observer that can move bytes "
                     "is not an observer"
                 )
-    return bad
-
-
-SESSION = pathlib.Path("src/cozy_runtime/internal/worker/session.py")
-
-
-def fence_supervised_worker_lanes() -> list[str]:
-    """A WORKER LANE NEVER DIES SILENTLY (cr-061).
-
-    Every long-lived thread in the worker session is the sole producer of some terminal: the
-    device lane produces attempt outcomes, convergence produces a placement's verdict, the
-    sender is the only thing that puts a frame on the stream. Nothing on the wire describes a
-    dead Python thread, so a lane that dies leaves whoever waits on that terminal waiting on
-    a producer that no longer exists — and the owner's only remaining escape is a timeout.
-
-    `SessionState._lane` is the one answer: it turns any lane death into
-    `WORKER_PHASE_FAILED`, which every owner already reads, and closes a non-persistent
-    host's stream so a one-shot run EXITS. This fence says no thread may be started around
-    it — `target=` in the session is a `self._lane(...)` call or it is a hole.
-    """
-    bad: list[str] = []
-    path = ROOT / SESSION
-    tree = ast.parse(path.read_text())
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        named = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-        if named != "Thread":
-            continue
-        target = next((kw.value for kw in node.keywords if kw.arg == "target"), None)
-        supervised = (
-            isinstance(target, ast.Call)
-            and isinstance(target.func, ast.Attribute)
-            and target.func.attr == "_lane"
-        )
-        if not supervised:
-            bad.append(
-                f"{SESSION}:{node.lineno}: a worker lane is started outside `self._lane(...)` "
-                "— a thread that dies here stops producing a terminal and says nothing"
-            )
-    return bad
-
-
-#: cr-067 hard guard, kept under model-code-fit D9: the worker's preparation plane may not
-#: IMPORT the derive machinery or TensorFS's author facade. `Slot.components` is what the
-#: private bounded child constructed in the package's own environment through the
-#: `internal/derive_child.py` pipe seam; the worker process never loads the meta construction.
-WORKER_DERIVE_FORBIDDEN = ("cozy_runtime.internal.derive", "cozy_runtime.derive", "tensorfs")
-
-
-def worker_derive_free_violations(worker_dir: pathlib.Path) -> list[str]:
-    problems: list[str] = []
-    for path in sorted(worker_dir.glob("*.py")):
-        for name in imports(ast.parse(path.read_text())):
-            for banned in WORKER_DERIVE_FORBIDDEN:
-                if name == banned or name.startswith(banned + "."):
-                    problems.append(
-                        f"{path.relative_to(worker_dir.parent.parent.parent)}: imports {name} — "
-                        "worker prep modules may not reach model derivation (cr-067)"
-                    )
-    return problems
-
-
-def fence_worker_derive_free() -> list[str]:
-    return worker_derive_free_violations(SRC / "internal" / "worker")
-
-
-#: cr-080 (residency-aware-routing.md §5): residency crosses to an orchestrator as TWO SETS —
-#: `DeviceLane.resident_placement_ids`, `ObservedWorkerState.held_manifests` — and nothing that
-#: would let it price VRAM. The emitter names none of the ledger's pricing vocabulary, and the
-#: three residency-bearing messages are constructed with exactly their vendored fields.
-RESIDENCY_EMITTER = pathlib.Path("src/cozy_runtime/internal/worker/lane_wire.py")
-RESIDENCY_MESSAGES = ("DeviceLane", "ObservedWorkerState", "WorkerSnapshotBody")
-DEVICE_LANE_FIELDS = {
-    "lane_id": 1,
-    "device_ordinals": 2,
-    "available_attempt_slots": 3,
-    "placement_ids": 4,
-    "resident_placement_ids": 5,
-}
-PRICING_NAMES = frozenset(
-    {
-        "resident_bytes",
-        "authorized",
-        "authorize",
-        "authorized_device_limit_bytes",
-        "outstanding",
-        "outstanding_bytes",
-        "allocatable",
-        "headroom",
-        "free_bytes",
-        "total_bytes",
-        "ledger",
-        "chooser",
-        "victims",
-        "last_used",
-    }
-)
-
-
-def _residency_words(tree: ast.AST) -> list[tuple[int, str]]:
-    """Every name, attribute, keyword or string literal in `tree` that is a pricing word."""
-    found: list[tuple[int, str]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and node.id in PRICING_NAMES:
-            found.append((node.lineno, node.id))
-        elif isinstance(node, ast.Attribute) and node.attr in PRICING_NAMES:
-            found.append((node.lineno, node.attr))
-        elif isinstance(node, ast.keyword) and node.arg in PRICING_NAMES:
-            found.append((node.value.lineno, node.arg))
-        elif (
-            isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and node.value in PRICING_NAMES
-        ):
-            found.append((node.lineno, node.value))
-    return found
-
-
-def fence_residency_sets_only() -> list[str]:
-    """Two sets, no bytes: the residency emitter and every construction of a residency-
-    bearing message carry membership only (cr-080's grep-level fence, as an AST scan).
-
-    Three arms. (1) `lane_wire.py` names no pricing word anywhere — not as a name, an
-    attribute, a keyword or a document key, so a planted `"resident_bytes"` row key is
-    refused as surely as a planted constructor argument. (2) Every `pb.DeviceLane(...)`,
-    `pb.ObservedWorkerState(...)` and `pb.WorkerSnapshotBody(...)` call under `src/` passes
-    keywords from the vendored package interface only, none of them a pricing word. (3) The
-    positional proof: the vendored `DeviceLane` carries exactly the five proto-026 fields
-    at their numbers, so a field added to the wire message is refused here before any
-    emitter could fill it.
-    """
-    bad: list[str] = []
-    emitter = ROOT / RESIDENCY_EMITTER
-    for line, word in _residency_words(ast.parse(emitter.read_text())):
-        bad.append(
-            f"{RESIDENCY_EMITTER}:{line}: the residency emitter names {word!r} — the wire "
-            "carries two SETS (resident placements, held manifests) and no pricing fact"
-        )
-    sys.path.insert(0, str(ROOT / "src"))
-    try:
-        from cozy.worker.v1 import worker_pb2 as pb
-    finally:
-        sys.path.pop(0)
-    fields = {
-        name: {f.name: f.number for f in getattr(pb, name).DESCRIPTOR.fields}
-        for name in RESIDENCY_MESSAGES
-    }
-    if fields["DeviceLane"] != DEVICE_LANE_FIELDS:
-        bad.append(
-            f"vendored DeviceLane carries {fields['DeviceLane']}; proto-026 fixes it at "
-            f"{DEVICE_LANE_FIELDS} — a residency field beyond the two sets is refused"
-        )
-    for name, numbered in fields.items():
-        for word in sorted(set(numbered) & PRICING_NAMES):
-            bad.append(f"vendored {name}.{word} prices residency on the wire")
-    for path in py_files():
-        tree = ast.parse(path.read_text())
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
-                continue
-            if node.func.attr not in RESIDENCY_MESSAGES or _dotted(node.func.value) != "pb":
-                continue
-            for keyword in node.keywords:
-                if keyword.arg is None:
-                    bad.append(
-                        f"{path.relative_to(ROOT)}:{node.lineno}: pb.{node.func.attr}(**...) "
-                        "hides its fields from the residency fence"
-                    )
-                elif keyword.arg not in fields[node.func.attr] or keyword.arg in PRICING_NAMES:
-                    bad.append(
-                        f"{path.relative_to(ROOT)}:{node.lineno}: pb.{node.func.attr}("
-                        f"{keyword.arg}=...) is not a vendored field of the message"
-                    )
     return bad
 
 
@@ -1097,7 +897,7 @@ def fence_one_address_predicate() -> list[str]:
 #: `dict[str, Any]` record's missing key, 2026-09-28). Records are decoded once, at their
 #: boundary, into typed structs; this count under `internal/` may only fall. Lower it in
 #: the change that removes some.
-ANY_CEILING = 865
+ANY_CEILING = 830
 
 
 def any_references(tree: ast.AST) -> int:
@@ -1159,10 +959,7 @@ FENCES = {
     "timing-decides-nothing": fence_timing_decides_nothing,
     "package-owns-no-residency": fence_package_owns_no_residency,
     "package-owns-no-media-decode": fence_package_owns_no_media_decode,
-    "supervised-worker-lanes": fence_supervised_worker_lanes,
     "base-distributions": fence_base_distributions,
-    "worker-derive-free": fence_worker_derive_free,
-    "residency-sets-only": fence_residency_sets_only,
     "any-ratchet": fence_any_ratchet,
 }
 

@@ -16,7 +16,8 @@ class ConfigureConnectionData(UniversalBaseModel):
     """
     Specifies the model to use for text-to-speech conversion.
     - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-    - **bulbul:v3**: Advanced model with temperature control (no pitch/loudness)
+    - **bulbul:v4-flash**: Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
+    - **bulbul:v3**: Stable model (API default when omitted) with temperature control (no pitch/loudness)
     """
 
     language_code: ConfigureConnectionDataLanguageCode = pydantic.Field()
@@ -28,10 +29,11 @@ class ConfigureConnectionData(UniversalBaseModel):
     """
     The speaker voice to be used for the output audio.
     
-    **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
+    **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2). For **bulbul:v4-flash**, set `speaker` to a persona ID from the Voices guide (v3/v2 defaults are not valid).
     
     **Model Compatibility (Speakers compatible with respective model):**
     - **bulbul:v3:** shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait, anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali
+    - **bulbul:v4-flash:** 200+ persona voices named `<name>_<language>_<style>` (e.g. `shubh_hi_devotional`, `simran_en_customer`); see the Voices guide for the full catalog
     - **bulbul:v2:**
       - Female: anushka (default), manisha, vidya, arya
       - Male: abhilash, karun, hitesh
@@ -47,7 +49,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     while higher values make it sharper. The suitable range is between -0.75 
     and 0.75. Default is 0.0.
     
-    **Note:** NOT supported for bulbul:v3. Will be ignored if provided.
+    **Note:** NOT supported for bulbul:v3 or bulbul:v4-flash. Will be ignored if provided.
     """
 
     pace: typing.Optional[float] = pydantic.Field(default=None)
@@ -58,6 +60,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     **Model-specific ranges:**
     - **bulbul:v2:** 0.3 to 3.0
     - **bulbul:v3:** 0.5 to 2.0
+    - **bulbul:v4-flash:** 0.5 to 2.0
     """
 
     loudness: typing.Optional[float] = pydantic.Field(default=None)
@@ -66,7 +69,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     while higher values make it louder. The suitable range is between 0.3 
     and 3.0. Default is 1.0.
     
-    **Note:** NOT supported for bulbul:v3. Will be ignored if provided.
+    **Note:** NOT supported for bulbul:v3 or bulbul:v4-flash. Will be ignored if provided.
     """
 
     temperature: typing.Optional[float] = pydantic.Field(default=None)
@@ -75,7 +78,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     focused and deterministic, while higher values make it more random. 
     The suitable range is between 0.01 and 1.0. Default is 0.6.
     
-    **Note:** Only supported for bulbul:v3. Will be ignored for bulbul:v2.
+    **Note:** Only supported for bulbul:v3 and bulbul:v4-flash. Will be ignored for bulbul:v2.
     """
 
     speech_sample_rate: typing.Optional[int] = pydantic.Field(default=None)
@@ -83,9 +86,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     Specifies the sample rate of the output audio. Supported values are 
     8000, 16000, 22050, 24000 Hz.
     
-    **Model-specific defaults:**
-    - **bulbul:v2:** 22050 Hz
-    - **bulbul:v3:** 24000 Hz
+    **Default when omitted:** 22050 Hz for all models (`bulbul:v2`, `bulbul:v3`, and `bulbul:v4-flash`).
     """
 
     enable_preprocessing: typing.Optional[bool] = pydantic.Field(default=None)
@@ -97,6 +98,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     **Model-specific defaults:**
     - **bulbul:v2:** false (optional)
     - **bulbul:v3:** Always enabled (cannot be disabled)
+    - **bulbul:v4-flash:** Always enabled (cannot be disabled)
     """
 
     output_audio_codec: typing.Optional[ConfigureConnectionDataOutputAudioCodec] = pydantic.Field(default=None)
@@ -117,7 +119,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     
     Create and manage dictionaries via the `/text-to-speech/pronunciation-dictionary` endpoints.
     
-    **Note:** Only supported by **bulbul:v3**.
+    **Note:** Only supported by **bulbul:v3** and **bulbul:v4-flash**.
     """
 
     min_buffer_size: typing.Optional[int] = pydantic.Field(default=None)

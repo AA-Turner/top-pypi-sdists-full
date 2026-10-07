@@ -174,7 +174,12 @@ namespace wrtc::interfaces {
                 }
             }
             RTC_LOG(LS_INFO) << "Adding incoming audio channel with ssrc " << media_content.main_ssrc();
-            if (const auto sink = remote_audio_sink_.lock()) sink->add_source();
+            decltype(incoming_audio_channels_)::node_type previous_audio_channel;
+            {
+                const std::lock_guard lock(mutex_);
+                previous_audio_channel = incoming_audio_channels_.extract(endpoint);
+            }
+            previous_audio_channel = {};
             auto audio_channel = std::make_unique<media::channels::IncomingAudioChannel>(
                 call_.get(),
                 channel_manager_.get(),
@@ -187,23 +192,29 @@ namespace wrtc::interfaces {
                 encryptor_,
                 nullptr
             );
-            decltype(incoming_audio_channels_)::node_type previous_audio_channel;
             {
                 const std::lock_guard lock(mutex_);
-                previous_audio_channel = incoming_audio_channels_.extract(endpoint);
                 incoming_audio_channels_[endpoint] = std::move(audio_channel);
             }
+            update_audio_source_count();
         } else if (is_addable && media_content.type == models::MediaContent::Type::Video) {
             auto video_codecs = models::OutgoingVideoFormat::get_video_codecs(
                 available_video_formats_,
                 media_content.payload_types,
-                is_group_connection()
+                is_group_connection() && media_content.payload_types.empty()
             );
+            decltype(incoming_video_channels_)::node_type previous_video_channel;
+            {
+                const std::lock_guard lock(mutex_);
+                previous_video_channel = incoming_video_channels_.extract(endpoint);
+            }
+            previous_video_channel = {};
             auto video_channel = std::make_unique<media::channels::IncomingVideoChannel>(
                 call_.get(),
                 channel_manager_.get(),
                 dtls_srtp_transport_.get(),
                 media_content.ssrc_groups,
+                media_content.user_id,
                 factory_->ssrc_generator(),
                 video_codecs,
                 worker_thread(),
@@ -212,12 +223,8 @@ namespace wrtc::interfaces {
                 payload_type_mapping_,
                 encryptor_
             );
-            decltype(incoming_video_channels_)::node_type previous_video_channel;
-            {
-                const std::lock_guard lock(mutex_);
-                previous_video_channel = incoming_video_channels_.extract(endpoint);
-                incoming_video_channels_[endpoint] = std::move(video_channel);
-            }
+            const std::lock_guard lock(mutex_);
+            incoming_video_channels_[endpoint] = std::move(video_channel);
         }
         const std::lock_guard lock(mutex_);
         if (pending_content_.contains(endpoint)) {
@@ -247,7 +254,18 @@ namespace wrtc::interfaces {
             pending_content_.erase(endpoint);
         }
         removed_channel = {};
-        if (const auto sink = remote_audio_sink_.lock()) sink->remove_source();
+        update_audio_source_count();
+    }
+
+    void NativeNetworkInterface::update_audio_source_count() {
+        size_t count;
+        {
+            const std::lock_guard lock(mutex_);
+            count = incoming_audio_channels_.size();
+        }
+        if (const auto sink = remote_audio_sink_.lock()) {
+            sink->update_audio_source_count(static_cast<int>(count));
+        }
     }
 
     void NativeNetworkInterface::dtls_ready_to_send(const bool is_ready_to_send) {
@@ -432,6 +450,10 @@ namespace wrtc::interfaces {
                     removed_channels = std::move(strong->incoming_audio_channels_);
                     strong->incoming_audio_channels_.clear();
                 }
+                if (!removed_channels.empty()) {
+                    removed_channels.clear();
+                    strong->update_audio_source_count();
+                }
             }
         });
     }
@@ -487,7 +509,7 @@ namespace wrtc::interfaces {
     }
 
     void NativeNetworkInterface::close() {
-        const auto was_closed = closed_;
+        const bool was_closed = closed_;
         const std::weak_ptr weak(shared_from_this());
         worker_thread().BlockingCall([weak] {
             const auto strong = weak.lock();
@@ -512,11 +534,26 @@ namespace wrtc::interfaces {
             }
             removed_audio_channels.clear();
             removed_video_channels.clear();
+            strong->update_audio_source_count();
             strong->remote_audio_sink_.reset();
             strong->remote_video_sink_.reset();
             strong->remote_screen_cast_sink_.reset();
             strong->call_ = nullptr;
             strong->channel_manager_ = nullptr;
+        });
+        signaling_thread().BlockingCall([weak] {
+            const auto strong = weak.lock();
+            if (!strong) {
+                return;
+            }
+            for (const auto& audio_track : strong->outgoing_audio_tracks_) {
+                audio_track->RemoveSink(&strong->audio_sink_);
+            }
+            strong->outgoing_audio_tracks_.clear();
+            for (const auto& video_track : strong->outgoing_video_tracks_) {
+                video_track->RemoveSink(&strong->video_sink_);
+            }
+            strong->outgoing_video_tracks_.clear();
         });
         if (!was_closed) {
             RTC_LOG(LS_VERBOSE) << "Removed call";
@@ -556,6 +593,7 @@ namespace wrtc::interfaces {
 
     void NativeNetworkInterface::add_incoming_audio_track(const std::weak_ptr<media::RemoteAudioSink>& sink) {
         remote_audio_sink_ = sink;
+        update_audio_source_count();
     }
 
     void NativeNetworkInterface::add_incoming_video_track(const std::weak_ptr<media::RemoteVideoSink>& sink, const bool is_screen_cast) {
@@ -569,7 +607,14 @@ namespace wrtc::interfaces {
     std::unique_ptr<media::tracks::MediaTrackInterface> NativeNetworkInterface::add_outgoing_track(const webrtc::scoped_refptr<webrtc::MediaStreamTrackInterface>& track) {
         const std::weak_ptr weak(shared_from_this());
         if (const auto audio_track = dynamic_cast<webrtc::AudioTrackInterface*>(track.get())) {
-            audio_track->AddSink(&audio_sink_);
+            signaling_thread().BlockingCall([weak, audio_track] {
+                const auto strong = weak.lock();
+                if (!strong || strong->closed_) {
+                    return;
+                }
+                strong->outgoing_audio_tracks_.emplace_back(audio_track);
+                audio_track->AddSink(&strong->audio_sink_);
+            });
             return std::make_unique<media::tracks::MediaTrackInterface>([weak](const bool enable) {
                 const auto strong = weak.lock();
                 if (!strong) {
@@ -581,7 +626,14 @@ namespace wrtc::interfaces {
             });
         }
         if (const auto video_track = dynamic_cast<webrtc::VideoTrackInterface*>(track.get())) {
-            video_track->AddOrUpdateSink(&video_sink_, webrtc::VideoSinkWants());
+            signaling_thread().BlockingCall([weak, video_track] {
+                const auto strong = weak.lock();
+                if (!strong || strong->closed_) {
+                    return;
+                }
+                strong->outgoing_video_tracks_.emplace_back(video_track);
+                video_track->AddOrUpdateSink(&strong->video_sink_, webrtc::VideoSinkWants());
+            });
             return std::make_unique<media::tracks::MediaTrackInterface>([weak](const bool enable) {
                 const auto strong = weak.lock();
                 if (!strong) {

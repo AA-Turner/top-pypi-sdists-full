@@ -1,0 +1,162 @@
+file:
+- oracle_batch:
+  - statement:
+    - oracle_begin_end_block:
+      - oracle_declare_segment:
+        - keyword: DECLARE
+        - naked_identifier: done
+        - data_type:
+          - data_type_identifier: BOOLEAN
+        - oracle_assignment_operator: :=
+        - expression:
+          - boolean_literal: 'FALSE'
+        - statement_terminator: ;
+      - keyword: BEGIN
+      - statement:
+        - while_loop_statement:
+          - keyword: WHILE
+          - expression:
+            - column_reference:
+              - naked_identifier: done
+          - oracle_loop_statement:
+            - keyword: LOOP
+            - statement:
+              - function:
+                - oracle_function_name:
+                  - naked_identifier: DBMS_OUTPUT
+                  - dot: .
+                  - function_name_identifier: PUT_LINE
+                - function_contents:
+                  - bracketed:
+                    - start_bracket: (
+                    - expression:
+                      - quoted_literal: '''This line does not print.'''
+                    - end_bracket: )
+            - statement_terminator: ;
+            - statement:
+              - assignment_segment_statement:
+                - object_reference:
+                  - naked_identifier: done
+                - oracle_assignment_operator: :=
+                - expression:
+                  - boolean_literal: 'TRUE'
+            - statement_terminator: ;
+            - keyword: END
+            - keyword: LOOP
+      - statement_terminator: ;
+      - statement:
+        - while_loop_statement:
+          - keyword: WHILE
+          - expression:
+            - keyword: NOT
+            - column_reference:
+              - naked_identifier: done
+          - oracle_loop_statement:
+            - keyword: LOOP
+            - statement:
+              - function:
+                - oracle_function_name:
+                  - naked_identifier: DBMS_OUTPUT
+                  - dot: .
+                  - function_name_identifier: PUT_LINE
+                - function_contents:
+                  - bracketed:
+                    - start_bracket: (
+                    - expression:
+                      - quoted_literal: '''Hello, world!'''
+                    - end_bracket: )
+            - statement_terminator: ;
+            - statement:
+              - assignment_segment_statement:
+                - object_reference:
+                  - naked_identifier: done
+                - oracle_assignment_operator: :=
+                - expression:
+                  - boolean_literal: 'TRUE'
+            - statement_terminator: ;
+            - keyword: END
+            - keyword: LOOP
+      - statement_terminator: ;
+      - keyword: END
+  - statement_terminator: ;
+  - slash_buffer_executor:
+    - slash: /
+- oracle_batch:
+  - statement:
+    - oracle_begin_end_block:
+      - keyword: BEGIN
+      - statement:
+        - while_loop_statement:
+          - keyword: WHILE
+          - expression:
+            - boolean_literal: 'TRUE'
+          - oracle_loop_statement:
+            - keyword: LOOP
+            - statement:
+              - while_loop_statement:
+                - keyword: WHILE
+                - expression:
+                  - boolean_literal: 'TRUE'
+                - oracle_loop_statement:
+                  - keyword: LOOP
+                  - statement:
+                    - oracle_null_statement:
+                      - keyword: 'NULL'
+                  - statement_terminator: ;
+                  - keyword: END
+                  - keyword: LOOP
+                  - naked_identifier: inner_loop
+            - statement_terminator: ;
+            - statement:
+              - oracle_exit_statement:
+                - keyword: EXIT
+            - statement_terminator: ;
+            - keyword: END
+            - keyword: LOOP
+      - statement_terminator: ;
+      - keyword: END
+  - statement_terminator: ;
+  - slash_buffer_executor:
+    - slash: /
+- oracle_batch:
+  - statement:
+    - oracle_begin_end_block:
+      - keyword: BEGIN
+      - statement:
+        - for_loop_statement:
+          - keyword: FOR
+          - naked_identifier: i
+          - keyword: IN
+          - numeric_literal: '1'
+          - dot: .
+          - dot: .
+          - numeric_literal: '3'
+          - oracle_loop_statement:
+            - keyword: LOOP
+            - statement:
+              - for_loop_statement:
+                - keyword: FOR
+                - naked_identifier: j
+                - keyword: IN
+                - numeric_literal: '1'
+                - dot: .
+                - dot: .
+                - numeric_literal: '3'
+                - oracle_loop_statement:
+                  - keyword: LOOP
+                  - statement:
+                    - oracle_null_statement:
+                      - keyword: 'NULL'
+                  - statement_terminator: ;
+                  - keyword: END
+                  - keyword: LOOP
+                  - naked_identifier: inner_loop
+            - statement_terminator: ;
+            - keyword: END
+            - keyword: LOOP
+            - naked_identifier: outer_loop
+      - statement_terminator: ;
+      - keyword: END
+  - statement_terminator: ;
+  - slash_buffer_executor:
+    - slash: /

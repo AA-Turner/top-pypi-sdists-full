@@ -345,7 +345,7 @@ class DbSkillProvider:
             _skills_cache[_ALL_ACTIVE_KEY] = (time.monotonic(), rows)
             return rows
 
-    async def _readable_ids(self, user_id: UUID | str) -> set[str] | None:
+    async def _readable_ids(self, user_id: UUID | str, level: str = "viewer") -> set[str] | None:
         """The skill ids this person may read — the platform's ONE access rule.
 
         ``iam.accessible_entity_ids('skill', 'viewer')`` as the person: ownership,
@@ -355,14 +355,14 @@ class DbSkillProvider:
         published-or-owned floor, which is never wider than the rule.
         """
         global _readable_failure_announced
-        key = f"{_READABLE_PREFIX}{user_id}"
+        key = f"{_READABLE_PREFIX}{user_id}" if level == "viewer" else f"{_READABLE_PREFIX}{level}:{user_id}"
         cached = _skills_cache.get(key)
         if _cache_fresh(cached):
             return cached[1]
         try:
             from matrx_orm import platform_accessible_ids
 
-            ids = {str(i) for i in await platform_accessible_ids(str(user_id), SKILL_ENTITY_TOKEN, "viewer")}
+            ids = {str(i) for i in await platform_accessible_ids(str(user_id), SKILL_ENTITY_TOKEN, level)}
         except Exception as exc:  # noqa: BLE001 — a read never errors; it degrades loudly
             if not _readable_failure_announced:
                 _readable_failure_announced = True
@@ -380,6 +380,16 @@ class DbSkillProvider:
     async def readable_ids(self, user_id: UUID | str) -> set[str] | None:
         """Public door to ``_readable_ids`` — the ONE skill-readability answer for every caller."""
         return await self._readable_ids(user_id)
+
+    async def is_editable(self, row: Any, user_id: UUID | str | None) -> bool:
+        """Whether this person may edit this skill row: ``iam.accessible_entity_ids('skill','editor')``
+        (ownership, organization lanes, shares, grants). Floor when unaskable: the creator."""
+        if user_id is None:
+            return False
+        editable = await self._readable_ids(user_id, "editor")
+        if editable is not None:
+            return str(row.id) in editable
+        return str(getattr(row, "created_by", "") or "") == str(user_id)
 
     async def is_readable(self, row: Any, user_id: UUID | str | None) -> bool:
         """Whether this person may read this skill row (the one rule; floor when unaskable)."""

@@ -28,8 +28,10 @@ action_groups:
     - na_sg_grid_metrics
     - na_sg_grid_regions
     - na_sg_grid_recovery_package
+    - na_sg_grid_self_signed_certificate
     - na_sg_grid_snmp
     - na_sg_grid_ssh_security
+    - na_sg_grid_sso
     - na_sg_grid_tenant
     - na_sg_grid_traffic_classes
     - na_sg_grid_untrusted_client_network
@@ -38,9 +40,15 @@ action_groups:
     - na_sg_org_bucket
     - na_sg_org_cloud_mirror_replication
     - na_sg_org_container
+    - na_sg_org_endpoints
     - na_sg_org_group
     - na_sg_org_identity_federation
     - na_sg_org_info
     - na_sg_org_user
     - na_sg_org_user_s3_key
+    - na_sg_pge_config
     - na_sg_pge_info
+    - na_sg_pge_install
+    - na_sg_reset_node_to_pge
+    - na_sg_pge_setup
+    - na_sg_grid_cluster_config

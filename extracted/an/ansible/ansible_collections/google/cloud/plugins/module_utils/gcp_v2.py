@@ -41,6 +41,21 @@ resource_ref: T.Callable = replace_resource_dict
 
 
 ASYNC_RETRY_WAIT = 1.0
+# List of bad-return-value-key sanity check forbidden keys
+# https://github.com/ansible/ansible/blob/devel/test/lib/ansible_test/_util/controller/sanity/validate-modules/validate_modules/constants.py#L29
+RESERVED_RETURN_KEYS = {
+    "clear": "clear_value",
+    "copy": "copy_value",
+    "fromkeys": "fromkey_values",
+    "get": "get_value",
+    "items": "item_values",
+    "keys": "key_values",
+    "pop": "pop_value",
+    "popitem": "popitem_value",
+    "setdefault": "setdefault_value",
+    "update": "update_value",
+    "values": "value_values",
+}
 
 
 # Define a type alias for a nested dictionary structure
@@ -293,11 +308,10 @@ class Resource(object):
 
         return self.response
 
-    def to_request(self) -> T.Optional[NestedDict]:
+    def to_request(self) -> NestedDict:
         "This should be built from self.request"
 
-        req = remove_empties(self._request())
-        req = self.encode(req or {})
+        req = remove_empties(self._request()) or {}
 
         return req
 
@@ -333,6 +347,50 @@ class Resource(object):
 
         return self.if_object(self.session().get(link), allow_not_found)
 
+    def list(self, link: str, key: str, filters: T.Optional[T.List[str]] = None) -> T.List[NestedDict]:
+        """
+        Lists resources from a GCP API list endpoint, handling pagination automatically.
+        I chose not to use GcpSession.list() method because the callback signature makes
+        it hard to adjust to a class method.
+
+        Args:
+            link:    The full URL of the list endpoint to call.
+            key:     The JSON response key whose value contains the list of resources
+                     (e.g. "clusters", "instances"). A special value of '*' indicates
+                     to return the whole response in a single-item list.
+            filters: Optional list of filter expressions to narrow results. Each entry
+                     is a filter string following AIP-160 syntax. Multiple entries are
+                     joined with AND - this is the only logical operator applied
+                     automatically; for OR or NOT, include them explicitly within a
+                     single filter entry. String and enum values must be double-quoted
+                     (e.g. 'some_key = "STRING_VALUE"'). See https://google.aip.dev/160.
+
+        Returns:
+            A flat list of resource dicts across all pages.
+        """
+        self.debug(method="list", link=link, filters=filters)
+        params: T.Dict[str, T.Any] = {}
+        if filters:
+            params["filter"] = " AND ".join(filters)
+
+        items: T.List[NestedDict] = []
+        next_page_token: T.Optional[str] = ""  # non-None to enter the loop
+
+        while next_page_token is not None:
+            self.debug(next_page_token=next_page_token, link=link, params=params)
+            response: T.Optional[RequestsResponse] = self.session().full_get(link, params=params or None)
+            result: T.Optional[NestedDict] = self.if_object(response, allow_not_found=True)
+            if result is None:
+                break
+            if key == "*":  # for singleton resources
+                return [result]
+            items.extend(result.get(key) or [])
+            next_page_token = result.get("nextPageToken")
+            if next_page_token:
+                params["pageToken"] = next_page_token
+
+        return items
+
     def wait_for_op(self, op_url: str, retries: int) -> T.Optional[NestedDict]:
         "Retry the given number of times for an async operation to succeed"
 
@@ -346,7 +404,7 @@ class Resource(object):
                     rsp: T.Any = navigate_hash(op_obj, ["response"], {})
 
                     if rsp is not None:
-                        return self.decode(rsp)
+                        return rsp
 
             self.debug(op_url=op_url, retry=retry)
             time.sleep(ASYNC_RETRY_WAIT)  # TODO: should we relax the check?
@@ -430,7 +488,7 @@ class Resource(object):
         Make POST request.
         """
 
-        req = self.to_request()
+        req = self.encode(self.to_request())
         self.debug(method="post", link=link, request=req)
         return self.if_object(self.session().post(link, req))
 
@@ -439,7 +497,7 @@ class Resource(object):
         Make PUT request.
         """
 
-        req = self.to_request()
+        req = self.encode(self.to_request() or {})
         self.debug(method="put", link=link, request=req)
         return self.if_object(self.session().put(link, req))
 
@@ -448,7 +506,7 @@ class Resource(object):
         Make PATCH request
         """
 
-        req = self.to_request()
+        req = self.encode(self.to_request() or {})
         self.debug(method="patch", link=link, request=req)
         return self.if_object(self.session().patch(link, req))
 
@@ -552,3 +610,23 @@ def remove_empties(data: T.Optional[NestedDict]) -> T.Optional[NestedDict]:
         return {k: v for k, v in data.items() if not empty(v)}
     else:
         return None
+
+
+def filter_reserved_keys(obj: T.Any):
+    """
+    Recursively rename dict keys that collide with dict builtin method
+    names, as per ansible-test sanity bad-return-value-key check
+    """
+
+    if isinstance(obj, dict):
+        return {
+            RESERVED_RETURN_KEYS.get(key, key): filter_reserved_keys(value)
+            for key, value in obj.items()
+        }
+    if isinstance(obj, list):
+        return [filter_reserved_keys(item) for item in obj]
+    return obj
+
+
+def flatten_name(url: str, sep: str = "/"):
+    return url.split(sep)[-1]

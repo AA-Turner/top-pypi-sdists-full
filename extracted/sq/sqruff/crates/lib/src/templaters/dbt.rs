@@ -1,18 +1,30 @@
+#[cfg(feature = "python")]
 use super::Templater;
+use super::TemplaterDocumentation;
+#[cfg(feature = "python")]
 use super::python::PythonTemplatedFile;
+#[cfg(feature = "python")]
 use crate::core::config::FluffConfig;
+#[cfg(feature = "python")]
 use crate::templaters::python_shared::PythonFluffConfig;
+#[cfg(feature = "python")]
 use crate::templaters::{Formatter, ProcessingMode, TemplaterKind};
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use pyo3::types::PyList;
+#[cfg(feature = "python")]
 use pyo3::{Py, PyAny, Python};
+#[cfg(feature = "python")]
 use sqruff_lib_core::errors::SQLFluffUserError;
+#[cfg(feature = "python")]
 use sqruff_lib_core::templaters::TemplatedFile;
+#[cfg(feature = "python")]
 use std::sync::Arc;
 
 pub struct DBTTemplater;
 
-impl Templater for DBTTemplater {
+impl TemplaterDocumentation for DBTTemplater {
     fn name(&self) -> &'static str {
         "dbt"
     }
@@ -37,7 +49,13 @@ Enable the dbt templater in your `.sqruff` config file:
 ```ini
 [sqruff]
 templater = dbt
+encoding = utf-8
 ```
+
+Set `encoding = utf-8` explicitly when using `sqruff fix` with dbt. The dbt
+templater reads project files through dbt, while sqruff writes fixed files using
+its configured encoding. This avoids relying on autodetection and can prevent
+`UnicodeDecodeError` when dbt reads a file after sqruff fixes it.
 
 ## Configuration Options
 
@@ -45,7 +63,7 @@ Configuration options are set in the `[sqruff:templater:dbt]` section:
 
 ```ini
 [sqruff:templater:dbt]
-# Path to your dbt project directory (default: current working directory)
+# Path to your dbt project directory (defaults to dbt environment or current directory)
 project_dir = ./my_dbt_project
 
 # Path to your dbt profiles directory (default: ~/.dbt)
@@ -56,7 +74,19 @@ profile = my_profile
 
 # Specify a target name (optional, uses default from profiles.yml)
 target = dev
+
+# Skip files that raise fatal dbt compilation errors (default: true)
+dbt_skip_compilation_error = true
 ```
+
+When a dbt option is unset, sqruff checks `DBT_ENGINE_*` and then the legacy
+`DBT_*` environment variable; explicit sqruff configuration takes precedence.
+This applies to `PROJECT_DIR`, `PROFILES_DIR`, `PROFILE`, `TARGET`, and
+`TARGET_PATH`. For example, `DBT_ENGINE_PROFILES_DIR` takes precedence over
+`DBT_PROFILES_DIR`.
+
+Fatal dbt compilation errors skip the affected file by default; set
+`dbt_skip_compilation_error = false` to report them as templater errors instead.
 
 ## dbt Variables
 
@@ -117,7 +147,10 @@ WHERE created_at > '2024-01-01'
 
 The linter then operates on this compiled SQL."#
     }
+}
 
+#[cfg(feature = "python")]
+impl Templater for DBTTemplater {
     fn processing_mode(&self) -> ProcessingMode {
         ProcessingMode::Batch
     }

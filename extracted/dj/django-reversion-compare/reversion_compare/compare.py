@@ -8,6 +8,7 @@
     :license: GNU GPL v3 or above, see LICENSE for more details.
 """
 
+import dataclasses
 import datetime
 import decimal
 import logging
@@ -39,17 +40,32 @@ class FieldVersionDoesNotExist:
 DOES_NOT_EXIST = FieldVersionDoesNotExist()
 
 
+@dataclasses.dataclass
+class ManyToSomethingResult:
+    versions: dict = dataclasses.field(default_factory=dict)  # {object_id: Version}
+    missing_objects: dict = dataclasses.field(default_factory=dict)  # {pk: model instance or Version}
+    deleted: list = dataclasses.field(default_factory=list)  # [Version], populated only for reverse relations
+
+
 class CompareObject:
-    def __init__(self, field, field_name, obj, version_record, follow):
+    def __init__(
+        self,
+        field: models.Field,
+        field_name: str,
+        obj: models.Model,
+        version_record: Version,
+        follow: bool | None,
+        compare_foreign_objects_as_id: bool,
+        ignore_not_registered: bool,
+    ):
         self.field = field
         self.field_name = field_name
+        self.internal_type = field.get_internal_type()
         self.obj = obj
         self.version_record = version_record  # instance of reversion.models.Version()
         self.follow = follow
-        # try and get a value, if none punt
-        self.compare_foreign_objects_as_id = getattr(settings, "REVERSION_COMPARE_FOREIGN_OBJECTS_AS_ID", False)
-        # ignore not registered models
-        self.ignore_not_registered = getattr(settings, "REVERSION_COMPARE_IGNORE_NOT_REGISTERED", False)
+        self.compare_foreign_objects_as_id = compare_foreign_objects_as_id
+        self.ignore_not_registered = ignore_not_registered
         if self.compare_foreign_objects_as_id:
             self.value = version_record.field_dict.get(getattr(field, "attname", field_name), DOES_NOT_EXIST)
         else:
@@ -81,7 +97,7 @@ class CompareObject:
         return choices_repr
 
     def _to_string_ManyToManyField(self):
-        return ", ".join(self._obj_repr(item) for item in self.get_many_to_many())
+        return ', '.join(self._obj_repr(item) for item in self.get_many_to_many().versions.values())
 
     def _to_string_ForeignKey(self):
         return self._obj_repr(self.get_related())
@@ -101,23 +117,18 @@ class CompareObject:
         else:
             return self._obj_repr(self.value)
 
-    def __cmp__(self, other):
-        raise NotImplementedError
-
     def __eq__(self, other):
-        if hasattr(self.field, "get_internal_type"):
-            assert self.field.get_internal_type() != "ManyToManyField"
+        if self.internal_type == 'ManyToManyField':
+            raise ValueError('ManyToManyField is not supported in __eq__')
 
         if self.value != other.value:
             return False
 
-        # see - https://hynek.me/articles/hasattr/
         if not self.compare_foreign_objects_as_id:
-            internal_type = getattr(self.field, "get_internal_type", None)
-            if (  # FIXME!
-                (internal_type is None or internal_type() == "ForeignKey")
-                and self.version_record.field_dict != other.version_record.field_dict
-            ):
+            # FK fields need a full field_dict comparison because
+            # the raw value is only the PK, not the related object state.
+            is_foreign_key = self.internal_type == 'ForeignKey'
+            if is_foreign_key and self.version_record.field_dict != other.version_record.field_dict:
                 return False
 
         return True
@@ -136,7 +147,7 @@ class CompareObject:
             except ObjectDoesNotExist:
                 return None
 
-    def get_reverse_foreign_key(self):
+    def get_reverse_foreign_key(self) -> ManyToSomethingResult:
         obj = self.get_object_version().object
         if self.field.related_name and hasattr(obj, self.field.related_name):
             if isinstance(self.field, models.fields.related.OneToOneRel):
@@ -158,34 +169,34 @@ class CompareObject:
                         if not isinstance(p_obj, type(obj)) and hasattr(p_obj, force_str(self.field.related_name)):
                             ids = {force_str(v.pk) for v in getattr(p_obj, force_str(self.field.related_name)).all()}
         else:
-            return {}, {}, []  # TODO: refactor that
+            return ManyToSomethingResult()
 
         # Get the related model of the current field:
         related_model = self.field.field.model
         return self.get_many_to_something(ids, related_model, is_reverse=True)
 
-    def get_many_to_many(self):
+    def get_many_to_many(self) -> ManyToSomethingResult:
         """
         returns a queryset with all many2many objects
         """
-        if self.field.get_internal_type() != "ManyToManyField" or self.value is DOES_NOT_EXIST:  # FIXME!
-            return {}, {}, []  # TODO: refactor that
+        if self.field.get_internal_type() != 'ManyToManyField' or self.value is DOES_NOT_EXIST:  # FIXME!
+            return ManyToSomethingResult()
 
         try:
             ids = frozenset(map(force_str, self.value))
         except TypeError:
             # catch errors e.g. produced by taggit's TaggableManager
             logger.exception("Can't collect m2m ids")
-            return {}, {}, []  # TODO: refactor that
+            return ManyToSomethingResult()
 
         # Get the related model of the current field:
         return self.get_many_to_something(ids, self.field.related_model)
 
-    def get_many_to_something(self, target_ids, related_model, is_reverse=False):
+    def get_many_to_something(self, target_ids, related_model, is_reverse=False) -> ManyToSomethingResult:
         if not is_registered(related_model):
             # There is no history about not registered relations, so we can't build a diff ;)
             logger.info('Related model %s has not been registered with django-reversion', related_model.__name__)
-            return {}, {}, []  # TODO: refactor that
+            return ManyToSomethingResult()
 
         # get instance of reversion.models.Revision():
         # A group of related object versions.
@@ -231,42 +242,43 @@ class CompareObject:
             else:
                 deleted = []
 
-        return versions, missing_objects_dict, deleted
+        return ManyToSomethingResult(versions=versions, missing_objects=missing_objects_dict, deleted=deleted)
 
     def get_debug(self):  # pragma: no cover
         if not settings.DEBUG:
             return
 
         result = [
-            f"field..............: {self.field!r}",
-            f"field_name.........: {self.field_name!r}",
-            f"field internal type: {self.field.get_internal_type()!r}",
-            f"field_dict.........: {self.version_record.field_dict!r}",
-            f"obj................: {self.obj!r} (pk: {self.obj.pk}, id: {id(self.obj)})",
+            f'field..............: {self.field!r}',
+            f'field_name.........: {self.field_name!r}',
+            f'field internal type: {self.field.get_internal_type()!r}',
+            f'field_dict.........: {self.version_record.field_dict!r}',
+            f'obj................: {self.obj!r} (pk: {self.obj.pk}, id: {id(self.obj)})',
             (
-                f"version............: {self.version_record!r}"
-                f" (pk: {self.version_record.pk}, id: {id(self.version_record)})"
+                f'version............: {self.version_record!r}'
+                f' (pk: {self.version_record.pk}, id: {id(self.version_record)})'
             ),
-            f"value..............: {self.value!r}",
-            f"to string..........: {self.to_string()!r}",
-            f"related............: {self.get_related()!r}",
+            f'value..............: {self.value!r}',
+            f'to string..........: {self.to_string()!r}',
+            f'related............: {self.get_related()!r}',
         ]
-        m2m_versions, missing_objects, missing_ids, _deleted = self.get_many_to_many()
-        if m2m_versions or missing_objects or missing_ids:
-            m2m = ', '.join(f'{item} ({item.type})' for item in m2m_versions)
-            result.append(f"many-to-many.......: {m2m}")
+        m2m_result = self.get_many_to_many()
+        m2m_versions, missing_objects, deleted = m2m_result.versions, m2m_result.missing_objects, m2m_result.deleted
+        if m2m_versions or missing_objects or deleted:
+            m2m = ', '.join(f'{item} ({item.type})' for item in m2m_versions.values())
+            result.append(f'many-to-many.......: {m2m}')
 
             if missing_objects:
-                result.append(f"missing m2m objects: {missing_objects!r}")
+                result.append(f'missing m2m objects: {missing_objects!r}')
             else:
-                result.append("missing m2m objects: (has no)")
+                result.append('missing m2m objects: (has no)')
 
-            if missing_ids:
-                result.append(f"missing m2m IDs....: {missing_ids!r}")
+            if deleted:
+                result.append(f'deleted m2m items..: {deleted!r}')
             else:
-                result.append("missing m2m IDs....: (has no)")
+                result.append('deleted m2m items..: (has no)')
         else:
-            result.append("many-to-many.......: (has no)")
+            result.append('many-to-many.......: (has no)')
 
         return result
 
@@ -278,13 +290,22 @@ class CompareObject:
 
 
 class CompareObjects:
-    def __init__(self, field, field_name, obj, version1, version2, is_reversed):
+    def __init__(
+        self,
+        field: models.Field,
+        field_name: str,
+        obj: models.Model,
+        version1: Version,
+        version2: Version,
+        is_reversed: bool,
+    ):
         self.field = field
         self.field_name = field_name
+        self.internal_type = field.get_internal_type()
         self.obj = obj
 
         # is a related field (ForeignKey, ManyToManyField etc.)
-        self.is_related = getattr(self.field, "related_model", None) is not None
+        self.is_related = getattr(self.field, 'related_model', None) is not None
         self.is_reversed = is_reversed
         if not self.is_related:
             self.follow = None
@@ -293,8 +314,15 @@ class CompareObjects:
         else:
             self.follow = False
 
-        self.compare_obj1 = CompareObject(field, field_name, obj, version1, self.follow)
-        self.compare_obj2 = CompareObject(field, field_name, obj, version2, self.follow)
+        compare_foreign_objects_as_id = getattr(settings, 'REVERSION_COMPARE_FOREIGN_OBJECTS_AS_ID', False)
+        ignore_not_registered = getattr(settings, 'REVERSION_COMPARE_IGNORE_NOT_REGISTERED', False)
+
+        self.compare_obj1 = CompareObject(
+            field, field_name, obj, version1, self.follow, compare_foreign_objects_as_id, ignore_not_registered
+        )
+        self.compare_obj2 = CompareObject(
+            field, field_name, obj, version2, self.follow, compare_foreign_objects_as_id, ignore_not_registered
+        )
 
         self.value1 = self.compare_obj1.value
         self.value2 = self.compare_obj2.value
@@ -306,7 +334,7 @@ class CompareObjects:
         """ return True if at least one field has changed values. """
 
         info = None
-        if hasattr(self.field, "get_internal_type") and self.field.get_internal_type() == "ManyToManyField":
+        if self.internal_type == 'ManyToManyField':
             info = self.get_m2m_change_info()
         elif self.is_reversed:
             info = self.get_m2o_change_info()
@@ -332,10 +360,10 @@ class CompareObjects:
     def get_related(self):
         return self.compare_obj1.get_related(), self.compare_obj2.get_related()
 
-    def get_many_to_many(self):
+    def get_many_to_many(self) -> tuple[ManyToSomethingResult, ManyToSomethingResult]:
         return self.compare_obj1.get_many_to_many(), self.compare_obj2.get_many_to_many()
 
-    def get_reverse_foreign_key(self):
+    def get_reverse_foreign_key(self) -> tuple[ManyToSomethingResult, ManyToSomethingResult]:
         return self.compare_obj1.get_reverse_foreign_key(), self.compare_obj2.get_reverse_foreign_key()
 
     def get_m2o_change_info(self):
@@ -359,9 +387,16 @@ class CompareObjects:
     # Abstract Many-to-Something (either -many or -one) as both
     # many2many and many2one relationships looks the same from the referred object.
     def get_m2s_change_info(self, obj1_data, obj2_data):
-
-        result_dict1, missing_objects_dict1, deleted1 = obj1_data
-        result_dict2, missing_objects_dict2, _deleted2 = obj2_data
+        result_dict1, missing_objects_dict1, deleted1 = (
+            obj1_data.versions,
+            obj1_data.missing_objects,
+            obj1_data.deleted,
+        )
+        result_dict2, missing_objects_dict2, _deleted2 = (
+            obj2_data.versions,
+            obj2_data.missing_objects,
+            obj2_data.deleted,
+        )
 
         # Create same_items, removed_items, added_items with related m2m items
         changed_items = []

@@ -37,7 +37,7 @@ import json
 import numpy as np
 import pytest
 
-from momwire import BSplineSolver, SinusoidalGalerkinSolver, SinusoidalSolver
+from momwire import BSplineSolver, SinusoidalSolver
 
 from scripts.m6_residue_cluster import (
     COLUMNS,
@@ -53,6 +53,17 @@ from scripts.m6_residue_cluster import (
     _MATCHED_REFS,
     solve,
 )
+
+
+def _direct_sg(*args, **kw):
+    """The instrument report's numbers (M1-M6, sections 6 and 15) were
+    measured on the DIRECT-field fill, so this module reproduces them on it;
+    `SinusoidalGalerkinSolver`'s default fill is the mixed-potential one since
+    momwire#1354, gated in `test_sinusoidal_mp_1354.py`."""
+    from momwire.sinusoidal_galerkin import SinusoidalGalerkinSolver as _cls
+
+    kw.setdefault("fill", "direct")
+    return _cls(*args, **kw)
 
 
 def _rel(a, b):
@@ -149,17 +160,13 @@ def test_feed_model_option_reproduces_section_6():
     for n in (161, 321):
         kw = _dipole_kwargs(n)
         z_pt = complex(
-            np.atleast_1d(
-                SinusoidalGalerkinSolver(**kw, feed_model="point").compute_impedance()[
-                    0
-                ]
-            )[0]
+            np.atleast_1d(_direct_sg(**kw, feed_model="point").compute_impedance()[0])[
+                0
+            ]
         )
         z_gal = complex(
             np.atleast_1d(
-                SinusoidalGalerkinSolver(
-                    **kw, feed_model="segment"
-                ).compute_impedance()[0]
+                _direct_sg(**kw, feed_model="segment").compute_impedance()[0]
             )[0]
         )
         z_bs2 = complex(
@@ -211,13 +218,9 @@ def test_section_6_mirrors_with_the_oracle_on_the_segment_gap():
 
         z_bs2_seg = _z(BSplineSolver(**kw, degree=2, feed_model="segment"))
         z_bs2_pt = _z(BSplineSolver(**kw, degree=2))
-        z_gal_c = _z(SinusoidalGalerkinSolver(**kw, feed_model="segment"))
-        z_gal_v = _z(
-            SinusoidalGalerkinSolver(
-                **kw, feed_model="segment", feed_readout="variational"
-            )
-        )
-        z_gal_pt = _z(SinusoidalGalerkinSolver(**kw, feed_model="point"))
+        z_gal_c = _z(_direct_sg(**kw, feed_model="segment"))
+        z_gal_v = _z(_direct_sg(**kw, feed_model="segment", feed_readout="variational"))
+        z_gal_pt = _z(_direct_sg(**kw, feed_model="point"))
 
         r_matched = _rel(z_gal_v, z_bs2_seg)
         r_centre = _rel(z_gal_c, z_bs2_seg)
@@ -367,9 +370,7 @@ def test_feed_matched_payoff_is_the_pinned_m3_ratio():
                     (
                         SinusoidalSolver
                         if scheme == "coll"
-                        else functools.partial(
-                            SinusoidalGalerkinSolver, feed_model="segment"
-                        )
+                        else functools.partial(_direct_sg, feed_model="segment")
                     )(**factory(n)).compute_impedance()[0]
                 )[0]
             )
@@ -421,9 +422,7 @@ def test_m3_payoff_is_unmoved_by_a_fully_feed_matched_reference_family():
                     (
                         SinusoidalSolver
                         if scheme == "coll"
-                        else functools.partial(
-                            SinusoidalGalerkinSolver, feed_model="segment"
-                        )
+                        else functools.partial(_direct_sg, feed_model="segment")
                     )(**factory(n)).compute_impedance()[0]
                 )[0]
             )
@@ -552,7 +551,7 @@ def test_point_gap_drive_is_self_dual():
     )
     two_feeds.pop("feed_wire_index")
     two_feeds.pop("feed_arclength")
-    Y = SinusoidalGalerkinSolver(**two_feeds, feed_model="point").compute_y_matrix()
+    Y = _direct_sg(**two_feeds, feed_model="point").compute_y_matrix()
     asym = abs(Y - Y.T).max() / abs(Y).max()
     # The floor is the FILL's reciprocity floor (8.3e-12, momwire#182 M2), not
     # the port algebra's; the default delta gap sits at ~1e-5 here.
@@ -561,9 +560,7 @@ def test_point_gap_drive_is_self_dual():
     # made the point gap this class's default, so a bare construction here
     # would compare the point gap against itself and the strict `>` below
     # would be measuring nothing but round-off.
-    Y_gap = SinusoidalGalerkinSolver(
-        **two_feeds, feed_model="segment"
-    ).compute_y_matrix()
+    Y_gap = _direct_sg(**two_feeds, feed_model="segment").compute_y_matrix()
     assert abs(Y_gap - Y_gap.T).max() / abs(Y_gap).max() > asym
 
 
@@ -613,8 +610,8 @@ def test_all_four_columns_share_one_mesh():
     n = {}
     for label, s in (
         ("coll", SinusoidalSolver(**kw)),
-        ("gal", SinusoidalGalerkinSolver(**kw, feed_model="segment")),
-        ("ptgap", SinusoidalGalerkinSolver(**kw, feed_model="point")),
+        ("gal", _direct_sg(**kw, feed_model="segment")),
+        ("ptgap", _direct_sg(**kw, feed_model="point")),
     ):
         n[label] = s._build_geometry()["n_segs"]
     assert len(set(n.values())) == 1, n

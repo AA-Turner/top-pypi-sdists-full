@@ -76,10 +76,10 @@ def test_uncoercible_match_raises_clear_error() -> None:
 # cloud_file/ctx_patch/dataset) via matrx_ai.tools.arg_models._coercion ─────────
 
 def test_dispatcher_list_field_coerces_json_string_array() -> None:
-    from matrx_ai.tools.arg_models.dispatcher_args import PicklistArgs, SeoArgs
+    from matrx_ai.tools.arg_models.dispatcher_args import PickListArgs, SeoArgs
 
-    m = PicklistArgs.model_validate(
-        {"action": "create", "picklist_name": "p", "items": '[{"label": "A"}]'}
+    m = PickListArgs.model_validate(
+        {"action": "create", "pick_list_name": "p", "items": '[{"label": "A"}]'}
     ).root
     assert m.items == [{"label": "A"}]
 

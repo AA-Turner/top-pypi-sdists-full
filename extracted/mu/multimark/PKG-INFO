@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: multimark
-Version: 0.3.2
+Version: 0.4.0
 Summary: Python bindings to cmark: CommonMark parsing and rendering (HTML, LaTeX, man, XML)
 Author: Rich Iannone
 License-Expression: MIT AND BSD-2-Clause

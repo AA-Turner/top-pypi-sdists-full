@@ -1,0 +1,11 @@
+[dependencies]
+half = {workspace = true}
+serde = {workspace = true}
+
+[lints]
+workspace = true
+
+[package]
+edition = {workspace = true}
+name = "common-hashable-float-wrapper"
+version = {workspace = true}

@@ -11,7 +11,8 @@ class NEBSettings(BaseModel):
     """
     Settings for a nudged elastic band (NEB) TS search.
 
-    :param interpolation_method: method to use for interpolation between nodes
+    :param settings_type: search-settings discriminator; fixed to "neb"
+    :param interpolation_method: method to use for interpolation between nodes (default GEODESIC)
     """
 
     settings_type: Literal["neb"] = "neb"

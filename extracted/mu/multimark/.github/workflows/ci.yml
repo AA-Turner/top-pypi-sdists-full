@@ -20,6 +20,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        # setup-python has no 3.9 build for Ubuntu 26.04 (ubuntu-latest from Oct 2026)
+        exclude:
+          - os: ubuntu-latest
+            python-version: "3.9"
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.9"
 
     steps:
       - uses: actions/checkout@v6
@@ -56,6 +63,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.23.4
 
@@ -64,7 +77,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-native-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   build_pyodide:
@@ -78,13 +91,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pypa/cibuildwheel@v3.4.0
+      - uses: pypa/cibuildwheel@v4.2.1
         env:
           CIBW_PLATFORM: pyodide
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pyodide-wheel
+          name: wheels-pyodide
           path: wheelhouse/*.whl
 
   build_sdist:
@@ -118,13 +131,31 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: wheels-*
+          pattern: wheels-native-*
           path: dist
           merge-multiple: true
 
       - uses: actions/download-artifact@v4
         with:
           name: sdist
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
+
+  # Uploaded separately so a Pyodide failure can't block the native release.
+  publish_pyodide:
+    name: Publish Pyodide wheel to PyPI
+    needs: [publish, build_pyodide]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-pyodide
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@release/v1

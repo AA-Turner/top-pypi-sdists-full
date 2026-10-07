@@ -1,14 +1,14 @@
 use nom::{
+	Parser,
 	character::complete::{char, space1},
 	combinator::map,
 	multi::fold_many_m_n,
 	sequence::separated_pair,
-	Parser,
 };
 
 use crate::{
-	block::inline_block, context::Context, error::ParseError, grammar::Grammar, node::SpannedNodes,
-	span::Span, unparse::Unparse, Input,
+	Input, block::inline_block, context::Context, error::ParseError, grammar::Grammar,
+	node::SpannedNodes, span::Span, unparse::Unparse,
 };
 
 /// The maximum level a heading is allowed to be.
@@ -66,7 +66,7 @@ mod test {
 		{context::Context, inline::timestamp::Timestamp, node::Node},
 	};
 
-	use super::{heading, Heading};
+	use super::{Heading, heading};
 
 	#[test]
 	fn basic_heading() {

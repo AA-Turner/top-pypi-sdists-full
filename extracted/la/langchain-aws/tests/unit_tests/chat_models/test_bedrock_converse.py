@@ -811,6 +811,218 @@ def test__messages_to_bedrock_ignores_foreign_reasoning_block() -> None:
     ]
 
 
+def test__messages_to_bedrock_v1_preserves_redacted_reasoning() -> None:
+    """Encrypted reasoning survives v1 replay so the model can reuse it."""
+    messages = [
+        HumanMessage(content="What is 2 + 2?"),
+        AIMessage(
+            content=[
+                {"type": "reasoning", "extras": {"redacted_content": b"rsn_opaque"}},
+                {"type": "text", "text": "4"},
+            ],
+            response_metadata={
+                "output_version": "v1",
+                "model_provider": "bedrock_converse",
+            },
+        ),
+    ]
+
+    actual_messages, _ = _messages_to_bedrock(messages, model_id="openai.gpt-6-luna")
+
+    assert actual_messages == [
+        {"role": "user", "content": [{"text": "What is 2 + 2?"}]},
+        {
+            "role": "assistant",
+            "content": [
+                {"reasoningContent": {"redactedContent": b"rsn_opaque"}},
+                {"text": "4"},
+            ],
+        },
+    ]
+
+
+_CLAUDE = "us.anthropic.claude-sonnet-5-5"
+_LUNA = "us.openai.gpt-6-luna"
+_CLAUDE_REASONING = {
+    "type": "reasoning_content",
+    "reasoning_content": {"text": "", "signature": "claude_signature"},
+}
+_CLAUDE_REASONING_V1 = {
+    "type": "reasoning",
+    "extras": {"signature": "claude_signature"},
+}
+_LUNA_REASONING = {
+    "type": "reasoning_content",
+    "reasoning_content": {"redacted_content": b"rsn_opaque"},
+}
+_LUNA_REASONING_V1 = {
+    "type": "reasoning",
+    "extras": {"redacted_content": b"rsn_opaque"},
+}
+_CLAUDE_REASONING_BEDROCK = {
+    "reasoningContent": {"reasoningText": {"text": "", "signature": "claude_signature"}}
+}
+_LUNA_REASONING_BEDROCK = {"reasoningContent": {"redactedContent": b"rsn_opaque"}}
+
+
+def _assistant_turn(
+    reasoning: dict, text: str, *, model_name: Optional[str], v1: bool = False
+) -> AIMessage:
+    response_metadata: dict = {"model_provider": "bedrock_converse"}
+    if model_name is not None:
+        response_metadata["model_name"] = model_name
+    if v1:
+        response_metadata["output_version"] = "v1"
+    return AIMessage(
+        content=[reasoning, {"type": "text", "text": text}],
+        response_metadata=response_metadata,
+    )
+
+
+def _replayed_assistant_content(
+    message: AIMessage, *, model_id: str, provider: Optional[str] = None
+) -> list:
+    actual_messages, _ = _messages_to_bedrock(
+        [HumanMessage(content="What is 2 + 2?"), message],
+        model_id=model_id,
+        provider=provider,
+    )
+    return actual_messages[1]["content"]
+
+
+@pytest.mark.parametrize(
+    ("reasoning", "source", "target", "v1"),
+    [
+        (_CLAUDE_REASONING, _CLAUDE, "openai.gpt-6-luna", False),
+        (_CLAUDE_REASONING_V1, _CLAUDE, "openai.gpt-6-luna", True),
+        (_LUNA_REASONING, _LUNA, "anthropic.claude-sonnet-5-5", False),
+        (_LUNA_REASONING_V1, _LUNA, "anthropic.claude-sonnet-5-5", True),
+    ],
+)
+def test__messages_to_bedrock_drops_reasoning_from_other_provider(
+    reasoning: dict, source: str, target: str, v1: bool
+) -> None:
+    message = _assistant_turn(reasoning, "4", model_name=source, v1=v1)
+    original_content = list(message.content)
+
+    assert _replayed_assistant_content(message, model_id=target) == [{"text": "4"}]
+    assert message.content == original_content
+
+
+@pytest.mark.parametrize(
+    ("reasoning", "source", "target", "v1", "expected"),
+    [
+        (
+            _CLAUDE_REASONING,
+            _CLAUDE,
+            "anthropic.claude-sonnet-5",
+            False,
+            _CLAUDE_REASONING_BEDROCK,
+        ),
+        (
+            _CLAUDE_REASONING_V1,
+            _CLAUDE,
+            "anthropic.claude-sonnet-5",
+            True,
+            _CLAUDE_REASONING_BEDROCK,
+        ),
+        (
+            _LUNA_REASONING,
+            _LUNA,
+            "openai.gpt-5.6-luna",
+            False,
+            _LUNA_REASONING_BEDROCK,
+        ),
+        (
+            _LUNA_REASONING_V1,
+            _LUNA,
+            "openai.gpt-5.6-luna",
+            True,
+            _LUNA_REASONING_BEDROCK,
+        ),
+    ],
+)
+def test__messages_to_bedrock_keeps_reasoning_from_same_provider(
+    reasoning: dict, source: str, target: str, v1: bool, expected: dict
+) -> None:
+    message = _assistant_turn(reasoning, "4", model_name=source, v1=v1)
+
+    assert _replayed_assistant_content(message, model_id=target) == [
+        expected,
+        {"text": "4"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [None, "arn:aws:bedrock:us-east-1:123456789012:custom-model/abc"],
+)
+def test__messages_to_bedrock_keeps_reasoning_from_unknown_provider(
+    model_name: Optional[str],
+) -> None:
+    message = _assistant_turn(_CLAUDE_REASONING, "4", model_name=model_name)
+
+    assert _replayed_assistant_content(message, model_id="openai.gpt-6-luna") == [
+        _CLAUDE_REASONING_BEDROCK,
+        {"text": "4"},
+    ]
+
+
+def test__messages_to_bedrock_keeps_reasoning_for_unknown_target() -> None:
+    message = _assistant_turn(_CLAUDE_REASONING, "4", model_name=_CLAUDE)
+    arn = "arn:aws:bedrock:us-east-1:123456789012:custom-model/abc"
+
+    assert _replayed_assistant_content(message, model_id=arn) == [
+        _CLAUDE_REASONING_BEDROCK,
+        {"text": "4"},
+    ]
+
+
+def test__messages_to_bedrock_explicit_provider_identifies_target() -> None:
+    message = _assistant_turn(_CLAUDE_REASONING, "4", model_name=_CLAUDE)
+    arn = "arn:aws:bedrock:us-east-1:123456789012:custom-model/abc"
+
+    assert _replayed_assistant_content(message, model_id=arn, provider="openai") == [
+        {"text": "4"}
+    ]
+
+
+def test__messages_to_bedrock_drops_foreign_reasoning_before_merging_turns() -> None:
+    """Consecutive turns from different models are judged separately."""
+    messages = [
+        HumanMessage(content="What is 2 + 2?"),
+        _assistant_turn(_CLAUDE_REASONING, "4", model_name=_CLAUDE),
+        _assistant_turn(_LUNA_REASONING, "Still 4.", model_name=_LUNA),
+    ]
+
+    actual_messages, _ = _messages_to_bedrock(messages, model_id="openai.gpt-6-luna")
+
+    assert actual_messages[1] == {
+        "role": "assistant",
+        "content": [{"text": "4"}, _LUNA_REASONING_BEDROCK, {"text": "Still 4."}],
+    }
+
+
+def test__messages_to_bedrock_keeps_tool_calls_when_dropping_reasoning() -> None:
+    message = AIMessage(
+        content=[_CLAUDE_REASONING],
+        tool_calls=[
+            {"id": "call_abc", "name": "get_weather", "args": {"city": "Paris"}}
+        ],
+        response_metadata={"model_provider": "bedrock_converse", "model_name": _CLAUDE},
+    )
+
+    assert _replayed_assistant_content(message, model_id="openai.gpt-6-luna") == [
+        {
+            "toolUse": {
+                "toolUseId": "call_abc",
+                "input": {"city": "Paris"},
+                "name": "get_weather",
+            }
+        }
+    ]
+
+
 def test__messages_to_bedrock_preserves_ai_cache_point() -> None:
     """Preserve cache points when replaying normalized assistant history."""
     messages = [
@@ -5179,6 +5391,263 @@ def test_stream_with_iam_permission_error() -> None:
     assert "bedrock:InvokeTool" in error_message
     assert "IAM permission" in error_message
     assert "Example policy statement" in error_message
+
+
+_INPUT_TOO_LONG = "Input is too long for requested model."
+
+
+def _validation_error_response(message: str, code: str = "ValidationException") -> Any:
+    return {
+        "Error": {"Code": code, "Message": message},
+        "ResponseMetadata": {"RequestId": "test-request-id"},
+    }
+
+
+def _bedrock_runtime_client() -> Any:
+    # boto3.client is mocked in conftest; botocore gives a real client for Stubber.
+    return botocore.session.get_session().create_client(
+        "bedrock-runtime",
+        region_name="us-east-1",
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        _INPUT_TOO_LONG,
+        "The model returned the following errors: Input is too long for requested "
+        "model.",
+        "The model returned the following errors: Input Tokens Exceeded: Number of "
+        "input tokens exceeds maximum length. Please update the input to try again.",
+        "The model returned the following errors: This model's maximum context "
+        "length is 131072 tokens. Please reduce the length of the prompt",
+        "The model returned the following errors: Mantle streaming error for "
+        'requestId 0: ErrorEvent { error: APIError { type: "BadRequestError", '
+        "code: Some(400), message: \"Input length (450236) exceeds model's "
+        'maximum context length (131072).", param: None } }',
+        "prompt is too long: 1052304 tokens > 1000000 maximum",
+        "The model returned the following errors: context_length_exceeded: Your "
+        "input exceeds the context window of this model. Please adjust your input "
+        "and try again.",
+        "Your input exceeds the context window of this model.",
+        "Input tokens exceed the configured limit of 272000 tokens. Your messages "
+        "resulted in 450236 tokens.",
+        "prompt tokens (450236) exceed model maximum (262144)",
+        "Too many input tokens.",
+        "The input (450236 tokens) is longer than the model's context length "
+        "(131072 tokens).",
+    ],
+)
+def test_context_overflow_error_detection(message: str) -> None:
+    from botocore.exceptions import ClientError
+    from langchain_core.exceptions import ContextOverflowError
+
+    from langchain_aws.chat_models.bedrock_converse import (
+        BedrockContextOverflowError,
+        _handle_bedrock_error,
+    )
+
+    error = ClientError(_validation_error_response(message), "Converse")
+
+    with pytest.raises(ContextOverflowError) as exc_info:
+        _handle_bedrock_error(error)
+
+    assert isinstance(exc_info.value, BedrockContextOverflowError)
+    assert isinstance(exc_info.value, ClientError)
+    assert exc_info.value.response == error.response
+    assert exc_info.value.operation_name == "Converse"
+    assert str(exc_info.value) == str(error)
+    assert exc_info.value.__cause__ is error
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "The maximum tokens you requested exceeds the model limit of 64000. Try "
+        "again with a maximum tokens value that is lower than 64000.",
+        "Malformed input request: #: extraneous key [foo] is not permitted",
+    ],
+)
+def test_context_overflow_ignores_other_validation_errors(message: str) -> None:
+    from botocore.exceptions import ClientError
+
+    from langchain_aws.chat_models.bedrock_converse import _handle_bedrock_error
+
+    error = ClientError(_validation_error_response(message), "Converse")
+
+    with pytest.raises(ClientError) as exc_info:
+        _handle_bedrock_error(error)
+
+    assert exc_info.value is error
+
+
+def test_context_overflow_requires_validation_exception() -> None:
+    from botocore.exceptions import ClientError
+
+    from langchain_aws.chat_models.bedrock_converse import _handle_bedrock_error
+
+    error = ClientError(
+        _validation_error_response(_INPUT_TOO_LONG, code="ThrottlingException"),
+        "Converse",
+    )
+
+    with pytest.raises(ClientError) as exc_info:
+        _handle_bedrock_error(error)
+
+    assert exc_info.value is error
+
+
+def test_context_overflow_preserves_modeled_exception_type() -> None:
+    from langchain_core.exceptions import ContextOverflowError
+
+    from langchain_aws.chat_models.bedrock_converse import _handle_bedrock_error
+
+    client = _bedrock_runtime_client()
+    error = client.exceptions.ValidationException(
+        _validation_error_response(_INPUT_TOO_LONG), "Converse"
+    )
+
+    with pytest.raises(client.exceptions.ValidationException) as exc_info:
+        _handle_bedrock_error(error)
+
+    assert isinstance(exc_info.value, ContextOverflowError)
+    assert type(exc_info.value).__name__ == "ValidationException"
+
+
+def test_context_overflow_error_survives_pickling() -> None:
+    import pickle
+
+    from botocore.exceptions import ClientError, EventStreamError
+    from langchain_core.exceptions import ContextOverflowError
+
+    from langchain_aws.chat_models.bedrock_converse import (
+        BedrockContextOverflowError,
+        _raise_if_context_overflow,
+    )
+
+    client = _bedrock_runtime_client()
+    errors = [
+        ClientError(_validation_error_response(_INPUT_TOO_LONG), "Converse"),
+        client.exceptions.ValidationException(
+            _validation_error_response(_INPUT_TOO_LONG), "Converse"
+        ),
+        EventStreamError(
+            _validation_error_response(_INPUT_TOO_LONG, code="validationException"),
+            "ConverseStream",
+        ),
+    ]
+    for error in errors:
+        with pytest.raises(ContextOverflowError) as exc_info:
+            _raise_if_context_overflow(error)
+
+        restored = pickle.loads(pickle.dumps(exc_info.value))
+
+        assert isinstance(restored, BedrockContextOverflowError)
+        assert isinstance(restored, ClientError)
+        assert restored.response == error.response
+        assert restored.operation_name == error.operation_name
+
+
+def test_invoke_raises_context_overflow_error() -> None:
+    from botocore.stub import Stubber
+    from langchain_core.exceptions import ContextOverflowError
+
+    client = _bedrock_runtime_client()
+    llm = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        region_name="us-east-1",
+        client=client,
+    )
+    stubber = Stubber(client)
+    stubber.add_client_error(
+        "converse",
+        service_error_code="ValidationException",
+        service_message=_INPUT_TOO_LONG,
+        http_status_code=400,
+    )
+
+    with stubber, pytest.raises(ContextOverflowError) as exc_info:
+        llm.invoke("hello")
+
+    assert isinstance(exc_info.value, client.exceptions.ValidationException)
+
+
+def test_stream_raises_context_overflow_error() -> None:
+    from botocore.stub import Stubber
+    from langchain_core.exceptions import ContextOverflowError
+
+    client = _bedrock_runtime_client()
+    llm = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        region_name="us-east-1",
+        client=client,
+    )
+    stubber = Stubber(client)
+    stubber.add_client_error(
+        "converse_stream",
+        service_error_code="ValidationException",
+        service_message=_INPUT_TOO_LONG,
+        http_status_code=400,
+    )
+
+    with stubber, pytest.raises(ContextOverflowError) as exc_info:
+        list(llm.stream("hello"))
+
+    assert isinstance(exc_info.value, client.exceptions.ValidationException)
+
+
+def test_stream_raises_context_overflow_error_from_event_stream() -> None:
+    from botocore.exceptions import EventStreamError
+    from langchain_core.exceptions import ContextOverflowError
+
+    llm = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )
+    error = EventStreamError(
+        _validation_error_response(_INPUT_TOO_LONG, code="validationException"),
+        "ConverseStream",
+    )
+
+    def _events() -> Iterator[dict]:
+        raise error
+        yield {}
+
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = {"stream": _events()}
+    llm.client = mock_client
+
+    with pytest.raises(ContextOverflowError) as exc_info:
+        list(llm._stream([HumanMessage(content="hello")]))
+
+    assert isinstance(exc_info.value, EventStreamError)
+    assert exc_info.value.__cause__ is error
+
+
+def test_stream_reraises_other_event_stream_errors() -> None:
+    from botocore.exceptions import EventStreamError
+
+    llm = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )
+    error = EventStreamError(
+        _validation_error_response("Too many requests", code="throttlingException"),
+        "ConverseStream",
+    )
+
+    def _events() -> Iterator[dict]:
+        raise error
+        yield {}
+
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = {"stream": _events()}
+    llm.client = mock_client
+
+    with pytest.raises(EventStreamError) as exc_info:
+        list(llm._stream([HumanMessage(content="hello")]))
+
+    assert exc_info.value is error
 
 
 def test_reasoning_config_validation_only_applies_to_nova_2() -> None:

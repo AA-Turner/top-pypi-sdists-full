@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tach
-Version: 0.35.2
+Version: 0.35.3
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Dist: pyyaml~=6.0
-Requires-Dist: tomli>=1.2.2
+Requires-Dist: tomli>=1.2.2 ; python_full_version < '3.11'
 Requires-Dist: tomli-w~=1.0
 Requires-Dist: rich>=13.0
 Requires-Dist: prompt-toolkit~=3.0

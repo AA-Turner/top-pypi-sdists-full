@@ -29,6 +29,13 @@ impl Rule for RuleLT04 {
 
     fn long_description(&self) -> &'static str {
         r#"
+The configuration for whether operators should be `trailing` or `leading` is part of layout configuration. The default configuration is:
+
+```cfg
+[sqlfluff:layout:type:comma]
+line_position = trailing
+```
+
 **Anti-pattern**
 
 There is a mixture of leading and trailing commas.
@@ -72,8 +79,7 @@ FROM foo
             .config
             .reflow()
             .line_position_for(SyntaxKind::Comma)
-            .unwrap()
-            .position();
+            .unwrap();
 
         if self.check_trail_lead_shortcut(
             &context.segment,

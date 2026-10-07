@@ -25,6 +25,8 @@ class RunOptionMetadata(BaseModel):
 
 
 TrainingOptionKey: TypeAlias = Literal[
+  "retries",
+  "intelligent_density_training",
   "algorithm",
   "train_on_truncation",
   "train_on_ungraded",

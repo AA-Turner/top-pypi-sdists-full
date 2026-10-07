@@ -12,6 +12,8 @@ from .config_access import ConfigAccess
 from .execution_access import ExecutionAccess
 from .pod_runtime import PodRuntime
 from .telemetry_access import TelemetryAccess
+# サイクル型の完遂報告（指示書 37）。会話 runner を使わない Agent からも呼べるよう公開する
+from .completion_report import report_completion
 
 __all__ = [
     "PostgreSQLManager",
@@ -24,4 +26,5 @@ __all__ = [
     "ExecutionAccess",
     "PodRuntime",
     "TelemetryAccess",
+    "report_completion",
 ]

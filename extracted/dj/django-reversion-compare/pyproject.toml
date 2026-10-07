@@ -18,7 +18,7 @@ dependencies = [
 ]
 [dependency-groups]
 dev = [
-    "manage_django_project>=0.14.0",  # https://github.com/jedie/manage_django_project
+    "manage_django_project>=0.15.1",  # https://codeberg.org/jedie/manage_django_project
     "bx_django_utils",   # https://github.com/boxine/bx_django_utils
     "django-countries",  # https://github.com/SmileyChris/django-countries
     "model_bakery",  # https://github.com/model-bakers/model_bakery
@@ -53,10 +53,11 @@ require_hashes=true
 
 [tool.cli_base]
 version_module_name = "reversion_compare" # Used by "update-readme-history" pre-commit hook
+force_dev_platform = "codeberg.org"  # Force to build README history links to this platform
 
 [project.urls]
-Documentation = "https://github.com/jedie/django-reversion-compare"
-Source = "https://github.com/jedie/django-reversion-compare"
+Documentation = "https://codeberg.org/jedie/django-reversion-compare"
+Source = "https://codeberg.org/jedie/django-reversion-compare"
 
 
 [project.scripts]
@@ -71,6 +72,9 @@ local_settings='reversion_compare_project.settings.local'
 
 # Django settings used for test/coverage/tox commands:
 test_settings='reversion_compare_project.settings.tests'
+
+# Which modules should be checked in tests via typeguard?
+typeguard_modules=['reversion_compare', 'reversion_compare_project']
 
 
 [build-system]
@@ -93,7 +97,6 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-preview = true  # Needed for some of the rules
 extend-select = [
     "E", # pycodestyle: https://docs.astral.sh/ruff/rules/#error-e
     "I", # isort: https://docs.astral.sh/ruff/rules/#isort-i
@@ -101,6 +104,7 @@ extend-select = [
 ignore = [
     "E402", # https://docs.astral.sh/ruff/rules/module-import-not-at-top-of-file/
     "E731", # https://docs.astral.sh/ruff/rules/lambda-assignment/
+    "FURB152", # https://docs.astral.sh/ruff/rules/math-constant/
 ]
 
 [tool.ruff.lint.isort]
@@ -115,8 +119,9 @@ quote-style = "single"
 branch = true
 parallel = true
 concurrency = ["multiprocessing"]
-source = ['.']
+source_pkgs=['reversion_compare']
 command_line = '-m reversion_compare_project test --shuffle --parallel --buffer --verbosity 2'
+data_file = ".coverage_data/.coverage"
 
 [tool.coverage.report]
 omit = ['.*', '*/tests/*', '*/migrations/*']
@@ -139,10 +144,10 @@ plugins = []
 exclude = ['.venv', 'tests', 'migrations']
 
 
-[manageprojects] # https://github.com/jedie/manageprojects
+[manageprojects] # https://codeberg.org/jedie/manageprojects
 initial_revision = "02d64b0"
 initial_date = 2023-04-06T11:01:20+02:00
-cookiecutter_template = "https://github.com/jedie/cookiecutter_templates/"
+cookiecutter_template = "https://codeberg.org/jedie/cookiecutter_templates/"
 cookiecutter_directory = "managed-django-project"
 applied_migrations = [
     "00fbc5d", # 2023-04-07T12:35:09+02:00
@@ -164,7 +169,7 @@ author_email = "django-reversion-compare@jensdiemer.de"
 package_name = "reversion_compare"
 package_version = "0.15.0"
 package_description = "Add compare view to django-reversion for comparing two versions of a reversion model."
-package_url = "https://github.com/jedie/django-reversion-compare"
+package_url = "https://codeberg.org/jedie/django-reversion-compare"
 license = "GPL-3.0-or-later"
-_template = "https://github.com/jedie/cookiecutter_templates/"
+_template = "https://codeberg.org/jedie/cookiecutter_templates/"
 

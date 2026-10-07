@@ -146,7 +146,7 @@ def test_a_temporary_cli_client_does_not_leak_into_later_commands(monkeypatch, r
 
 # --- the MCP surface ---------------------------------------------------------
 def test_mcp_renders_a_refusal_as_one_friendly_line() -> None:
-    """Inside Cursor / Claude Code, the agent is the one reading this.
+    """Inside Claude Code or Codex, the agent is the one reading this.
 
     A raw 402 reads to a model as a broken tool: it retries, spends what is left
     of an allowance that is already gone, and finally tells the researcher Probe

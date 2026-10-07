@@ -28,6 +28,7 @@ Translation rules:
                               with content[] of {type: text, text} blocks
                               extras: phase
                               drops: startup context / developer instruction frames
+                              withholds: what a `!command` printed (its size ships)
   response_item.reasoning   → CC `assistant` event with
                               {type: thinking, thinking: <flattened text>}
                               extras: structured reasoning_summary
@@ -51,6 +52,9 @@ Translation rules:
   event_msg.<other>                     → drop (fail closed on future payloads)
   world_state / unknown top variants   → drop (may contain instructions/secrets)
 
+probe-events/1's `inference_id` and `usage` are not emitted: a rollout names
+no model call, and `token_count` reports per turn, not per inference.
+
 `sanitize_event(event)` returns:
   - None  → drop the event entirely (turn-boundary, duplicates, pure metadata)
   - dict  → translated CC-shape event including `_codex_extras` if any
@@ -65,9 +69,8 @@ canonical file, never the plugin copy.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
-
-from .sanitize import COMMAND_MAX_LEN
 
 # Compaction is shared with the Claude Code sanitizer on purpose. The two
 # formats differ; what we choose to RECORD about a tool call should not, or
@@ -77,7 +80,7 @@ from .sanitize import COMMAND_MAX_LEN
 # RELATIVE import, deliberately: this file is byte-identical in its two homes
 # (canonical src/probe/tap_core/, vendored plugins/probe-research-tap/tap/),
 # and `.sanitize` resolves correctly inside both packages.
-from .sanitize import _result_size
+from .sanitize import COMMAND_MAX_LEN, _result_size, output_withheld
 
 # Per-message phase from Codex's `MessagePhase` enum. Tracked in extras since
 # CC has no equivalent.
@@ -114,11 +117,35 @@ _TURN_CONTEXT_EXTRAS: tuple[str, ...] = (
 )
 
 _STARTUP_CONTEXT_TAGS: tuple[str, ...] = (
+    # Older Codex wrapped an AGENTS.md file's contents in this tag.
+    "user_instructions",
     "permissions instructions",
     "skills_instructions",
     "plugins_instructions",
     "environment_context",
 )
+
+# A `!command` the researcher types in Codex is recorded as a user message, not
+# a tool call (codex-cli 0.160 `shell.user_command`):
+#
+#   <user_shell_command>
+#   <command>
+#   ls -la
+#   </command>
+#   <result>
+#   Exit code: 0
+#   Duration: 0.0213 seconds
+#   Output:
+#   <whatever it printed>
+#   </result>
+#   </user_shell_command>
+#
+# The command ships (a session's commands are its method section); what it
+# printed does not, as for Claude Code's `<bash-stdout>`, pi's bashExecution
+# and Kimi's shell mode (tap 0.9.13). The exit code and duration are kept.
+_USER_SHELL_OPEN = "<user_shell_command>"
+_USER_SHELL_CLOSE = "</user_shell_command>"
+_RESULT_HEAD = re.compile(r"\n?(?:Exit code: [^\n]*\n)?(?:Duration: [^\n]*\n)?(?:Output:\n?)?")
 
 # Tool input summary keys ordered by "most identifying". Mirrors cc-tap.
 _TOOL_SUMMARY_KEYS: tuple[str, ...] = (
@@ -132,6 +159,8 @@ _TOOL_SUMMARY_MAX_LEN = 200
 # while every other key stays first-line-only.
 #: Single definition in sanitize.py -- see COMMAND_MAX_LEN there.
 _COMMAND_MAX_LEN = COMMAND_MAX_LEN
+#: A local_shell_call `status` is a short enum ("completed", "in_progress").
+_STATUS_MAX_LEN = 64
 
 
 def sanitize_event(event: Any) -> Any:
@@ -142,7 +171,7 @@ def sanitize_event(event: Any) -> Any:
     rollout_type = event.get("type")
     raw_payload = event.get("payload")
     payload = raw_payload if isinstance(raw_payload, dict) else {}
-    timestamp = event.get("timestamp")
+    timestamp = _str_or_none(event.get("timestamp"), _TIMESTAMP_MAX_LEN)
 
     if rollout_type == "session_meta":
         return _translate_session_meta(payload, timestamp)
@@ -180,7 +209,7 @@ def _translate_compacted(payload: dict, timestamp: Any) -> dict:
     out = _system_event(
         subtype="compaction",
         timestamp=timestamp,
-        text=payload.get("message"),
+        text=_str_or_none(payload.get("message")),
     )
     rh = payload.get("replacement_history")
     if isinstance(rh, list):
@@ -190,7 +219,7 @@ def _translate_compacted(payload: dict, timestamp: Any) -> dict:
 
 def _translate_event_msg(payload: dict, timestamp: Any) -> Any:
     sub = payload.get("type")
-    if sub in _DROP_EVENT_MSG_TYPES:
+    if not isinstance(sub, str) or sub in _DROP_EVENT_MSG_TYPES:
         return None
     return None
 
@@ -232,14 +261,19 @@ def _translate_message(payload: dict, timestamp: Any) -> dict | None:
         return None
 
     cc_role = "assistant" if role == "assistant" else "user"
-    blocks = [_translate_content_item(c) for c in payload.get("content") or []]
+    content = payload.get("content")
+    blocks = [_translate_content_item(c) for c in content] if isinstance(content, list) else []
     blocks = [b for b in blocks if b is not None]
     if not blocks:
         return None
+    if cc_role == "user":
+        for block in blocks:
+            if block.get("type") == "text":
+                block["text"] = _withhold_shell_output(block["text"])
 
     extras: dict[str, Any] = {}
     phase = payload.get("phase")
-    if phase in _PHASES:
+    if isinstance(phase, str) and phase in _PHASES:
         extras["phase"] = phase
 
     out: dict[str, Any] = {
@@ -250,6 +284,31 @@ def _translate_message(payload: dict, timestamp: Any) -> dict | None:
     if extras:
         out["_codex_extras"] = extras
     return out
+
+
+def _withhold_shell_output(text: str) -> str:
+    """A `<user_shell_command>` record with what the command printed replaced
+    by its size (sanitize.OUTPUT_WITHHELD); any other text unchanged.
+
+    The output runs from the `Exit code:` / `Duration:` / `Output:` head to
+    the LAST `</result>`, or to the end when the result never closes, so
+    output that prints `</result>` itself still does not ship."""
+    if not text.lstrip().startswith(_USER_SHELL_OPEN):
+        return text
+    start = text.find("<result>")
+    if start < 0:
+        return text
+    body = start + len("<result>")
+    # Only a record that really closes (`</result>` then `</user_shell_command>`
+    # at its end) has an end other than the end of the text: a truncated record
+    # whose output printed `</result>` must not ship what follows that.
+    end = text.rfind("</result>")
+    if end < body or not text.rstrip().endswith(_USER_SHELL_CLOSE):
+        end = len(text)
+    head = min(_RESULT_HEAD.match(text, body).end(), end)
+    output = text[head:end]
+    newline = "\n" if output.endswith("\n") else ""
+    return text[:head] + output_withheld(len(output) - len(newline)) + newline + text[end:]
 
 
 def _is_startup_context_message(payload: dict) -> bool:
@@ -274,6 +333,10 @@ def _content_texts(content: Any) -> list[str]:
 
 def _is_startup_context_text(text: str) -> bool:
     stripped = text.strip().lower()
+    # An AGENTS.md file's contents, which Codex injects as a user turn without a
+    # tag of its own: file content, dropped like Claude Code's CLAUDE.md.
+    if stripped.startswith("# agents.md instructions for") and "<instructions>" in stripped:
+        return True
     return any(
         stripped.startswith(f"<{tag}>") and stripped.endswith(f"</{tag}>")
         for tag in _STARTUP_CONTEXT_TAGS
@@ -299,7 +362,7 @@ def _translate_content_item(item: Any) -> dict | None:
         # one screenshot is one event of its full encoded size. Two things
         # followed from shipping that verbatim. It contradicted the promise the
         # import review screen makes in so many words -- "tool output, file
-        # contents and API metadata never leave" -- for every image small
+        # contents ... never leave" -- for every image small
         # enough to fit a batch. And for the rest it was fatal rather than
         # lossy: a single event above MAX_BODY_BYTES can be put in no batch at
         # all, so `Journal.stage` refused, the session never imported, and no
@@ -326,10 +389,11 @@ def _image_placeholder(url: str) -> dict:
 
     A remote `https://` reference is kept: it is a pointer, not file content,
     and a reader following it later is the point of having it. An inline
-    `data:` payload -- and any other absurdly long value claiming to be a URL
-    -- is replaced by its media type and encoded length.
+    `data:` payload -- and any other value claiming to be a URL: a `file://`
+    path, bare base64, anything absurdly long -- is replaced by its media type
+    and encoded length (tap 0.9.10; it used to keep anything but `data:`).
     """
-    if not url.startswith("data:") and len(url) <= MAX_IMAGE_URL:
+    if url.startswith(("http://", "https://")) and len(url) <= MAX_IMAGE_URL:
         return {"type": "image", "source": {"type": "url", "url": url}}
     media = "image"
     if url.startswith("data:"):
@@ -373,8 +437,8 @@ def _flatten_reasoning_content(content: Any) -> str:
 
 
 def _translate_function_call(payload: dict, timestamp: Any) -> dict:
-    call_id = payload.get("call_id") or ""
-    name = payload.get("name") or ""
+    call_id = _id_str(payload.get("call_id"))
+    name = _id_str(payload.get("name"))
     summary = _summarize_args(payload.get("arguments"))
     block: dict[str, Any] = {"type": "tool_use", "id": call_id, "name": name}
     if summary:
@@ -397,7 +461,7 @@ def _translate_function_call(payload: dict, timestamp: Any) -> dict:
 
 
 def _translate_function_call_output(payload: dict, timestamp: Any) -> dict:
-    call_id = payload.get("call_id") or ""
+    call_id = _id_str(payload.get("call_id"))
     block: dict[str, Any] = {"type": "tool_result", "tool_use_id": call_id}
     if _output_is_error(payload.get("output")):
         block["is_error"] = True
@@ -412,7 +476,7 @@ def _translate_function_call_output(payload: dict, timestamp: Any) -> dict:
 
 
 def _translate_local_shell_call(payload: dict, timestamp: Any) -> dict:
-    call_id = payload.get("call_id") or payload.get("id") or ""
+    call_id = _id_str(payload.get("call_id")) or _id_str(payload.get("id"))
     action = payload.get("action") or {}
     command_summary = ""
     if isinstance(action, dict):
@@ -429,20 +493,19 @@ def _translate_local_shell_call(payload: dict, timestamp: Any) -> dict:
         "timestamp": timestamp,
         "message": {"role": "assistant", "content": [block]},
     }
-    extras: dict[str, Any] = {}
-    if isinstance(action, dict):
-        extras["action"] = action
+    # The `action` object itself does NOT ship (tap 0.9.10). It is the same
+    # command the summary above already carries -- but whole, with no cap, plus
+    # its env, working directory and timeout, which a session's story does not
+    # need and the 4,000-character command cap exists to bound.
     status = payload.get("status")
-    if status is not None:
-        extras["status"] = status
-    if extras:
-        out["_codex_extras"] = extras
+    if isinstance(status, str) and status:
+        out["_codex_extras"] = {"status": status[:_STATUS_MAX_LEN]}
     return out
 
 
 def _translate_custom_tool_call(payload: dict, timestamp: Any) -> dict:
-    call_id = payload.get("call_id") or ""
-    name = payload.get("name") or "custom_tool"
+    call_id = _id_str(payload.get("call_id"))
+    name = _id_str(payload.get("name")) or "custom_tool"
     block: dict[str, Any] = {"type": "tool_use", "id": call_id, "name": name}
     summary = _summarize_args(payload.get("input"))
     if summary:
@@ -455,7 +518,7 @@ def _translate_custom_tool_call(payload: dict, timestamp: Any) -> dict:
 
 
 def _translate_custom_tool_call_output(payload: dict, timestamp: Any) -> dict:
-    call_id = payload.get("call_id") or ""
+    call_id = _id_str(payload.get("call_id"))
     block: dict[str, Any] = {"type": "tool_result", "tool_use_id": call_id}
     if _output_is_error(payload.get("output")):
         block["is_error"] = True
@@ -467,7 +530,7 @@ def _translate_custom_tool_call_output(payload: dict, timestamp: Any) -> dict:
 
 
 def _translate_synthetic_tool_use(payload: dict, timestamp: Any, *, name: str) -> dict:
-    call_id = payload.get("call_id") or payload.get("id") or ""
+    call_id = _id_str(payload.get("call_id")) or _id_str(payload.get("id"))
     block: dict[str, Any] = {"type": "tool_use", "id": call_id, "name": name}
     summary = _summarize_args(payload.get("action") or payload.get("arguments"))
     if summary:
@@ -480,7 +543,7 @@ def _translate_synthetic_tool_use(payload: dict, timestamp: Any, *, name: str) -
 
 
 def _translate_synthetic_tool_result(payload: dict, timestamp: Any) -> dict:
-    call_id = payload.get("call_id") or ""
+    call_id = _id_str(payload.get("call_id"))
     block: dict[str, Any] = {"type": "tool_result", "tool_use_id": call_id}
     if payload.get("status") and payload["status"] != "completed":
         block["is_error"] = True
@@ -492,6 +555,23 @@ def _translate_synthetic_tool_result(payload: dict, timestamp: Any) -> dict:
 
 
 # --- helpers ---------------------------------------------------------------
+
+
+#: probe-events/1 caps every id and tool name at 200 characters.
+_ID_MAX_LEN = 200
+_TIMESTAMP_MAX_LEN = 64
+
+
+def _str_or_none(value: Any, max_len: int | None = None) -> str | None:
+    """An untrusted text field: a string (optionally capped), never an object."""
+    if not isinstance(value, str):
+        return None
+    return value if max_len is None else value[:max_len]
+
+
+def _id_str(value: Any) -> str:
+    """An untrusted id or tool name: a capped string, "" for anything else."""
+    return value[:_ID_MAX_LEN] if isinstance(value, str) else ""
 
 
 def _system_event(
@@ -521,7 +601,8 @@ def _summarize_args(value: Any) -> str:
             if isinstance(parsed, dict):
                 value = parsed
         except (ValueError, TypeError):
-            return value.splitlines()[0][:_TOOL_SUMMARY_MAX_LEN]
+            lines = value.splitlines()
+            return lines[0][:_TOOL_SUMMARY_MAX_LEN] if lines else ""
     if isinstance(value, dict):
         for key in _TOOL_SUMMARY_KEYS:
             candidate = value.get(key)

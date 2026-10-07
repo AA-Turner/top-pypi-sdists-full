@@ -8783,7 +8783,6 @@ def test_the_account_screen_removes_another_saved_account_never_the_active_one(i
         ({"claude_code": "daemon", "codex": "daemon"}, "kimi_code", True),  # the others record via the daemon
         ({}, "kimi_code", False),  # nobody does: stays on the agent
         ({"claude_code": "daemon", "kimi_code": "daemon"}, "kimi_code", False),  # already there
-        ({"claude_code": "daemon"}, "cursor", False),  # no daemon profile
     ],
 )
 def test_a_new_agent_follows_the_devices_daemon(monkeypatch, recorders, source, moves):

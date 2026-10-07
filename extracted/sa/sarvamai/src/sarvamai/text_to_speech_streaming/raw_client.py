@@ -44,14 +44,16 @@ class RawTextToSpeechStreamingClient:
 
         **Model-Specific Notes:**
         - **bulbul:v2:** Supports pitch, loudness, pace (0.3-3.0). Default sample rate: 22050 Hz.
-        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter. Default sample rate: 24000 Hz. Preprocessing is always enabled.
+        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter (0.01–1.0). Default sample rate: 22050 Hz when `speech_sample_rate` is omitted. Preprocessing is always enabled.
+        - **bulbul:v4-flash:** Same request/response contract as bulbul:v3, with 200+ persona voices. Default sample rate: 22050 Hz when omitted.
 
         Parameters
         ----------
         model : typing.Optional[TextToSpeechStreamingModel]
             Text to speech model to use.
             - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-            - **bulbul:v3**: Advanced model with temperature control (no pitch/loudness)
+            - **bulbul:v4-flash**: Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
+            - **bulbul:v3**: Stable model (API default when omitted) with temperature control (no pitch/loudness)
 
         send_completion_event : typing.Optional[TextToSpeechStreamingSendCompletionEvent]
             Enable completion event notifications when TTS generation finishes. When set to true, an event message will be sent when the final audio chunk has been generated.
@@ -129,14 +131,16 @@ class AsyncRawTextToSpeechStreamingClient:
 
         **Model-Specific Notes:**
         - **bulbul:v2:** Supports pitch, loudness, pace (0.3-3.0). Default sample rate: 22050 Hz.
-        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter. Default sample rate: 24000 Hz. Preprocessing is always enabled.
+        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter (0.01–1.0). Default sample rate: 22050 Hz when `speech_sample_rate` is omitted. Preprocessing is always enabled.
+        - **bulbul:v4-flash:** Same request/response contract as bulbul:v3, with 200+ persona voices. Default sample rate: 22050 Hz when omitted.
 
         Parameters
         ----------
         model : typing.Optional[TextToSpeechStreamingModel]
             Text to speech model to use.
             - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-            - **bulbul:v3**: Advanced model with temperature control (no pitch/loudness)
+            - **bulbul:v4-flash**: Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
+            - **bulbul:v3**: Stable model (API default when omitted) with temperature control (no pitch/loudness)
 
         send_completion_event : typing.Optional[TextToSpeechStreamingSendCompletionEvent]
             Enable completion event notifications when TTS generation finishes. When set to true, an event message will be sent when the final audio chunk has been generated.

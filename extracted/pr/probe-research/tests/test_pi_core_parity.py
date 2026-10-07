@@ -61,7 +61,8 @@ def _code(path: Path) -> str:
 
 def test_the_switch_words_are_the_guards():
     guard = _guard()
-    for name in ("OFF_WORDS", "ON_WORDS", "READ_ONLY_WORDS", "TOGGLE_WORDS", "STATUS_WORDS", "LEGACY_SLUGS"):
+    for name in ("OFF_WORDS", "ON_WORDS", "READ_ONLY_WORDS", "TOGGLE_WORDS", "STATUS_WORDS", "INLINE_WORDS",
+                 "LEGACY_SLUGS"):
         assert ts_set(SWITCH, name) == getattr(guard, name), name
 
 
@@ -76,7 +77,8 @@ def test_every_switch_spelling_is_a_slug_the_guard_flips_on():
 
 def test_the_switch_writes_the_states_the_cli_stores():
     sent = set(re.findall(r'\["state", "([^"]+)"\]', SWITCH.read_text(encoding="utf-8")))
-    assert sent == set(session_marker.SWITCH_STATES)
+    # `inline` is the researcher's hand-over (`probe session state inline`), not a stored state.
+    assert sent == set(session_marker.SWITCH_STATES) | {session_marker.INLINE_WORD}
 
 
 # ---------------------------------------------------------------------------

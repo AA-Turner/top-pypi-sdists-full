@@ -4,6 +4,7 @@ import typing
 import kubernetes.client
 
 class V1VolumeMount:
+    bind_mount_options: typing.Optional[list[str]]
     mount_path: str
     mount_propagation: typing.Optional[str]
     name: str
@@ -12,11 +13,12 @@ class V1VolumeMount:
     sub_path: typing.Optional[str]
     sub_path_expr: typing.Optional[str]
     
-    def __init__(self, *, mount_path: str, mount_propagation: typing.Optional[str] = ..., name: str, read_only: typing.Optional[bool] = ..., recursive_read_only: typing.Optional[str] = ..., sub_path: typing.Optional[str] = ..., sub_path_expr: typing.Optional[str] = ...) -> None:
+    def __init__(self, *, bind_mount_options: typing.Optional[list[str]] = ..., mount_path: str, mount_propagation: typing.Optional[str] = ..., name: str, read_only: typing.Optional[bool] = ..., recursive_read_only: typing.Optional[str] = ..., sub_path: typing.Optional[str] = ..., sub_path_expr: typing.Optional[str] = ...) -> None:
         ...
     def to_dict(self) -> V1VolumeMountDict:
         ...
 class V1VolumeMountDict(typing.TypedDict, total=False):
+    bindMountOptions: typing.Optional[list[str]]
     mountPath: str
     mountPropagation: typing.Optional[str]
     name: str

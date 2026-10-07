@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iniconfig
-Version: 2.3.0
+Version: 2.3.1
 Summary: brain-dead simple config-ini parsing
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>, Holger Krekel <holger.krekel@gmail.com>
 License-Expression: MIT
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
@@ -38,7 +39,7 @@ having a unique set of features:
 
 If you encounter issues or have feature wishes please report them to:
 
-    https://github.com/RonnyPfannschmidt/iniconfig/issues
+    https://github.com/pytest-dev/iniconfig/issues
 
 Basic Example
 ===================================
@@ -57,12 +58,12 @@ If you have an ini file like this:
         line1
         line2
 
-then you can do:
+use ``IniConfig.parse()`` to strip inline comments from values:
 
 .. code-block:: pycon
 
     >>> import iniconfig
-    >>> ini = iniconfig.IniConfig("example.ini")
+    >>> ini = iniconfig.IniConfig.parse("example.ini")
     >>> ini['section1']['name1'] # raises KeyError if not exists
     'value1'
     >>> ini.get('section1', 'name1b', [], lambda x: x.split(","))
@@ -77,3 +78,7 @@ then you can do:
     True
     >>> 'inexistendsection' in ini
     False
+
+The ``IniConfig()`` constructor preserves inline comments in values for backward
+compatibility. Use ``IniConfig.parse(..., strip_inline_comments=False)`` to
+preserve them when using the parsing method.

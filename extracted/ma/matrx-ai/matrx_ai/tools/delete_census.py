@@ -265,7 +265,7 @@ DELETE_CENSUS: dict[str, DeletePath] = {
         "custom.* (records store)", "soft",
         "the table's row is a record of the store; custom.record_delete sets deleted_at and /trash restores it",
         impl=(
-            "matrx_ai.tools.implementations.datasets_tools:usertable_delete_row",
+            "matrx_ai.tools.implementations.datasets_tools:dataset_delete_row",
             "matrx_records.agent.dataset_arm:DatasetStoreArm.delete_row",
         ),
         soft_via="record_delete",

@@ -78,7 +78,7 @@ convention = "google"
 
 [project]
 name = "model-bakery"
-version = "1.24.1"
+version = "1.24.2"
 description = "Smart object creation facility for Django."
 readme = "README.md"
 requires-python = ">=3.10"

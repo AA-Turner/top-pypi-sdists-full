@@ -50,30 +50,15 @@ jobs:
         with:
           # A tag-scoped cache is never restored by another tag.
           save-cache: false
-      - uses: actions/setup-go@v6
+      - uses: arduino/setup-task@v2
         with:
-          go-version-file: source/machine-agent/go.mod
-          cache-dependency-path: source/machine-agent/go.sum
+          repo-token: ${{ github.token }}
       - run: uv python install 3.12
       - id: release
         name: Verify immutable unpublished release identity
         run: uv run --no-project --python 3.12 python release-tools/checks/release.py --source source
       - run: uv sync --locked
         working-directory: source
-      # Test the frozen release checkout and its own venv, before builds or provenance
-      # stamping. The delegated scope makes executor containment mandatory on this runner.
-      - name: Child-call progress regression under delegated processes
-        working-directory: source
-        run: |
-          sudo systemd-run --wait --pipe --collect \
-            --unit="cozy-runtime-publish-calls-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --uid="$(id -u)" --gid="$(id -g)" \
-            --property=Delegate=yes --working-directory="$PWD" \
-            --setenv="PATH=$PATH" --setenv="HOME=$HOME" \
-            --setenv="UV_CACHE_DIR=$UV_CACHE_DIR" \
-            --setenv="UV_PYTHON_INSTALL_DIR=$(uv python dir)" \
-            .venv/bin/python -c 'import sys; sys.path.insert(0, "tests"); from test_end_to_end import NO_EXECUTOR; assert not NO_EXECUTOR, NO_EXECUTOR; import pytest; raise SystemExit(pytest.main(["tests/test_machine_call_locking.py", "tests/test_embedded_self_call_interfaces.py", "tests/test_product_retention.py", "tests/test_child_cpu_models.py", "tests/test_run_timing.py::test_real_worker_reports_execution_between_model_progress_events", "-q", "-rs"]))'
-
       # One Python source build plus the kernel wheel (cr-094): the latter is tagged
       # cp312-abi3 and carrying `cozy_runtime/_kernels/_C.abi3.so`. The recipe lives in the
       # scripts so a developer can run the very same build on a box with no CUDA toolkit.
@@ -115,12 +100,6 @@ jobs:
           elif [ "$status" -ne 0 ]; then
             exit "$status"
           fi
-      # Build the Go binaries before stamping Python provenance dirties the checkout.
-      - name: Build the standalone Linux machine agents
-        working-directory: source
-        run: |
-          version=$(uv run --no-project --python 3.12 python -c 'import pathlib,tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')
-          machine-agent/scripts/build-release.sh --version "$version" --output "$RUNNER_TEMP/machine-agent"
       # The pure wheel remains the portable macOS/Windows/source-build artifact.
       - name: Build (sdist + pure-py wheel)
         working-directory: source
@@ -129,17 +108,30 @@ jobs:
         run: |
           uv run python scripts/stamp-build-provenance.py "$COZY_RUNTIME_BUILD_COMMIT"
           uv build --out-dir dist
-      - name: Bundle cozy-machine into the Linux wheels
+      # Read-only deploy keys: cozy-machine's source at its pin and the TensorFS crates it links.
+      - name: Read access to cozy-machine and TensorFS
+        env:
+          COZY_MACHINE_KEY: ${{ secrets.COZY_MACHINE_READ_KEY }}
+          TENSORFS_KEY: ${{ secrets.TENSORFS_READ_KEY }}
+        run: |
+          mkdir -m 700 -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+          for repo in cozy-machine tensorfs; do
+            key=COZY_MACHINE_KEY; [ "$repo" = tensorfs ] && key=TENSORFS_KEY
+            (umask 077; printf '%s\n' "${!key}" > ~/.ssh/$repo)
+            printf 'Host %s.github.com\n  HostName github.com\n  IdentityFile ~/.ssh/%s\n  IdentitiesOnly yes\n' $repo $repo >> ~/.ssh/config
+            git config --global url."git@$repo.github.com:cozy-creator/$repo".insteadOf "https://github.com/cozy-creator/$repo"
+          done
+      - name: Bundle the pinned cozy-machine into the Linux wheel
         working-directory: source
-        run: uv run --script scripts/bundle-machine-agent.py --dist dist --agents "$RUNNER_TEMP/machine-agent"
-      - name: Verify wheel selection and installed agent commands
+        run: task machine
+      - name: Verify wheel selection and the installed machine command
         working-directory: source
         run: uv run --script scripts/verify-machine-wheels.py --dist dist
       # cr-095: a release silently missing a platform file is refused.
       # Everything visible in dist/ is uploaded, so the set is exact; the digests travel to
       # `publish` outside the artifact.
       - id: dist
-        name: Release carries the sdist, portable wheel and two Linux wheels
+        name: Release carries the sdist, portable wheel and the Linux wheel
         working-directory: source
         run: |
           uv run --no-project --python 3.12 python - <<'PY'
@@ -149,7 +141,6 @@ jobs:
               f"cozy_runtime-{v}.tar.gz",
               f"cozy_runtime-{v}-py3-none-any.whl",
               f"cozy_runtime-{v}-cp312-abi3-manylinux_2_28_x86_64.whl",
-              f"cozy_runtime-{v}-py3-none-manylinux_2_17_aarch64.whl",
           }
           dist = pathlib.Path("dist")
           # uv writes dist/.gitignore; hidden files are neither uploaded nor published.

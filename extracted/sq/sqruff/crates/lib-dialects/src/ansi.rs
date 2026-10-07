@@ -5,13 +5,16 @@ use sqruff_lib_core::helpers::{Config, ToMatchable};
 use sqruff_lib_core::parser::grammar::anyof::{AnyNumberOf, one_of, optionally_bracketed};
 use sqruff_lib_core::parser::grammar::conditional::Conditional;
 use sqruff_lib_core::parser::grammar::delimited::Delimited;
+use sqruff_lib_core::parser::grammar::preceded_by::PrecededBy;
 use sqruff_lib_core::parser::grammar::sequence::{Bracketed, Sequence};
 use sqruff_lib_core::parser::grammar::{Anything, Nothing, Ref};
 use sqruff_lib_core::parser::lexer::{Cursor, Matcher, Pattern};
 use sqruff_lib_core::parser::lookahead::LookaheadExclude;
 use sqruff_lib_core::parser::matchable::{Matchable, MatchableTrait};
 use sqruff_lib_core::parser::node_matcher::NodeMatcher;
-use sqruff_lib_core::parser::parsers::{MultiStringParser, RegexParser, StringParser, TypedParser};
+use sqruff_lib_core::parser::parsers::{
+    CaseFold, MultiStringParser, RegexParser, StringParser, TypedParser,
+};
 use sqruff_lib_core::parser::segments::bracketed::BracketedSegmentMatcher;
 use sqruff_lib_core::parser::segments::generator::SegmentGenerator;
 use sqruff_lib_core::parser::segments::meta::MetaSegment;
@@ -161,6 +164,12 @@ pub fn raw_dialect() -> Dialect {
                 .into(),
         ),
         (
+            "ColonPrefixSegment".into(),
+            StringParser::new(":", SyntaxKind::ColonPrefix)
+                .to_matchable()
+                .into(),
+        ),
+        (
             "StartBracketSegment".into(),
             StringParser::new("(", SyntaxKind::StartBracket)
                 .to_matchable()
@@ -299,6 +308,12 @@ pub fn raw_dialect() -> Dialect {
                 .into(),
         ),
         (
+            "GlobOperatorSegment".into(),
+            TypedParser::new(SyntaxKind::GlobOperator, SyntaxKind::GlobOperator)
+                .to_matchable()
+                .into(),
+        ),
+        (
             "LikeOperatorSegment".into(),
             TypedParser::new(SyntaxKind::LikeOperator, SyntaxKind::ComparisonOperator)
                 .to_matchable()
@@ -356,6 +371,7 @@ pub fn raw_dialect() -> Dialect {
 
                 RegexParser::new("[A-Z0-9_]*[A-Z][A-Z0-9_]*", SyntaxKind::NakedIdentifier)
                     .anti_template(&anti_template)
+                    .casefold(CaseFold::Upper)
                     .to_matchable()
             })
             .into(),
@@ -462,6 +478,14 @@ pub fn raw_dialect() -> Dialect {
                 .into(),
         ),
         (
+            "UnknownLiteralSegment".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            "NormalizedGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
             "TrueSegment".into(),
             StringParser::new("true", SyntaxKind::BooleanLiteral)
                 .to_matchable()
@@ -537,6 +561,17 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            "IsDistinctFromGrammar".into(),
+            Sequence::new(vec![
+                Ref::keyword("IS").to_matchable(),
+                Ref::keyword("NOT").optional().to_matchable(),
+                Ref::keyword("DISTINCT").to_matchable(),
+                Ref::keyword("FROM").to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
             "ComparisonOperatorGrammar".into(),
             one_of(vec![
                 Ref::new("EqualsSegment").to_matchable(),
@@ -546,19 +581,7 @@ pub fn raw_dialect() -> Dialect {
                 Ref::new("LessThanOrEqualToSegment").to_matchable(),
                 Ref::new("NotEqualToSegment").to_matchable(),
                 Ref::new("LikeOperatorSegment").to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("IS").to_matchable(),
-                    Ref::keyword("DISTINCT").to_matchable(),
-                    Ref::keyword("FROM").to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("IS").to_matchable(),
-                    Ref::keyword("NOT").to_matchable(),
-                    Ref::keyword("DISTINCT").to_matchable(),
-                    Ref::keyword("FROM").to_matchable(),
-                ])
-                .to_matchable(),
+                Ref::new("IsDistinctFromGrammar").to_matchable(),
             ])
             .to_matchable()
             .into(),
@@ -631,8 +654,25 @@ pub fn raw_dialect() -> Dialect {
                 .into(),
         ),
         (
+            "ColumnGeneratedGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
             // This is a placeholder for other dialects.
             "PreTableFunctionKeywordsGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            "ColumnsExpressionNameGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            // Uses a dedicated grammar so function-layout rules can identify it.
+            "ColumnsExpressionGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            "ListComprehensionGrammar".into(),
             Nothing::new().to_matchable().into(),
         ),
         (
@@ -714,6 +754,30 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            "LikeExpressionGrammar".into(),
+            Sequence::new(vec![
+                Sequence::new(vec![
+                    Ref::keyword("NOT").optional().to_matchable(),
+                    Ref::new("LikeGrammar").to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::new("Expression_A_Grammar").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("ESCAPE").to_matchable(),
+                    Ref::new("Tail_Recurse_Expression_A_Grammar").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
+            // Hookpoint for dialect-specific pattern matching operators.
+            "PatternMatchingGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
             "UnionGrammar".into(),
             Sequence::new(vec![
                 Ref::keyword("UNION").to_matchable(),
@@ -732,7 +796,9 @@ pub fn raw_dialect() -> Dialect {
             one_of(vec![
                 Ref::new("NullLiteralSegment").to_matchable(),
                 Ref::new("NanLiteralSegment").to_matchable(),
+                Ref::new("UnknownLiteralSegment").to_matchable(),
                 Ref::new("BooleanLiteralGrammar").to_matchable(),
+                Ref::new("NormalizedGrammar").to_matchable(),
             ])
             .to_matchable()
             .into(),
@@ -779,7 +845,7 @@ pub fn raw_dialect() -> Dialect {
             "FromClauseTerminatorGrammar".into(),
             one_of(vec![
                 Ref::keyword("WHERE").to_matchable(),
-                Ref::keyword("LIMIT").to_matchable(),
+                Ref::new("LimitClauseSegment").to_matchable(),
                 Sequence::new(vec![
                     Ref::keyword("GROUP").to_matchable(),
                     Ref::keyword("BY").to_matchable(),
@@ -797,6 +863,7 @@ pub fn raw_dialect() -> Dialect {
                 Ref::new("WithNoSchemaBindingClauseSegment").to_matchable(),
                 Ref::new("WithDataClauseSegment").to_matchable(),
                 Ref::keyword("FETCH").to_matchable(),
+                Ref::keyword("OFFSET").to_matchable(),
             ])
             .to_matchable()
             .into(),
@@ -804,7 +871,7 @@ pub fn raw_dialect() -> Dialect {
         (
             "WhereClauseTerminatorGrammar".into(),
             one_of(vec![
-                Ref::keyword("LIMIT").to_matchable(),
+                Ref::new("LimitClauseSegment").to_matchable(),
                 Sequence::new(vec![
                     Ref::keyword("GROUP").to_matchable(),
                     Ref::keyword("BY").to_matchable(),
@@ -832,7 +899,7 @@ pub fn raw_dialect() -> Dialect {
                     Ref::keyword("BY").to_matchable(),
                 ])
                 .to_matchable(),
-                Ref::keyword("LIMIT").to_matchable(),
+                Ref::new("LimitClauseSegment").to_matchable(),
                 Ref::keyword("HAVING").to_matchable(),
                 Ref::keyword("QUALIFY").to_matchable(),
                 Ref::keyword("WINDOW").to_matchable(),
@@ -849,7 +916,7 @@ pub fn raw_dialect() -> Dialect {
                     Ref::keyword("BY").to_matchable(),
                 ])
                 .to_matchable(),
-                Ref::keyword("LIMIT").to_matchable(),
+                Ref::new("LimitClauseSegment").to_matchable(),
                 Ref::keyword("QUALIFY").to_matchable(),
                 Ref::keyword("WINDOW").to_matchable(),
                 Ref::keyword("FETCH").to_matchable(),
@@ -860,7 +927,7 @@ pub fn raw_dialect() -> Dialect {
         (
             "OrderByClauseTerminators".into(),
             one_of(vec![
-                Ref::keyword("LIMIT").to_matchable(),
+                Ref::new("LimitClauseSegment").to_matchable(),
                 Ref::keyword("HAVING").to_matchable(),
                 Ref::keyword("QUALIFY").to_matchable(),
                 Ref::keyword("WINDOW").to_matchable(),
@@ -894,6 +961,10 @@ pub fn raw_dialect() -> Dialect {
             Sequence::new(vec![Ref::keyword("UNIQUE").to_matchable()])
                 .to_matchable()
                 .into(),
+        ),
+        (
+            "NotEnforcedGrammar".into(),
+            Nothing::new().to_matchable().into(),
         ),
         // Odd syntax, but prevents eager parameters being confused for data types
         (
@@ -1003,9 +1074,13 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            // Some dialects do not support ON or USING with CROSS JOIN.
+            "ConditionalCrossJoinKeywordsGrammar".into(),
+            Ref::keyword("CROSS").to_matchable().into(),
+        ),
+        (
             "JoinTypeKeywordsGrammar".into(),
             one_of(vec![
-                Ref::keyword("CROSS").to_matchable(),
                 Ref::keyword("INNER").to_matchable(),
                 Sequence::new(vec![
                     one_of(vec![
@@ -1018,7 +1093,21 @@ pub fn raw_dialect() -> Dialect {
                 ])
                 .to_matchable(),
             ])
-            .config(|this| this.optional())
+            .to_matchable()
+            .into(),
+        ),
+        (
+            // Extensible in individual dialects.
+            "NonStandardJoinTypeKeywordsGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            "ConditionalJoinKeywordsGrammar".into(),
+            one_of(vec![
+                Ref::new("JoinTypeKeywordsGrammar").to_matchable(),
+                Ref::new("ConditionalCrossJoinKeywordsGrammar").to_matchable(),
+                Ref::new("NonStandardJoinTypeKeywordsGrammar").to_matchable(),
+            ])
             .to_matchable()
             .into(),
         ),
@@ -1035,23 +1124,28 @@ pub fn raw_dialect() -> Dialect {
             "NaturalJoinKeywordsGrammar".into(),
             Sequence::new(vec![
                 Ref::keyword("NATURAL").to_matchable(),
-                one_of(vec![
-                    // Note: NATURAL joins do not support CROSS joins
-                    Ref::keyword("INNER").to_matchable(),
-                    Sequence::new(vec![
-                        one_of(vec![
-                            Ref::keyword("LEFT").to_matchable(),
-                            Ref::keyword("RIGHT").to_matchable(),
-                            Ref::keyword("FULL").to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Ref::keyword("OUTER").optional().to_matchable(),
-                    ])
-                    .config(|this| this.optional())
+                Ref::new("JoinTypeKeywordsGrammar")
+                    .optional()
                     .to_matchable(),
-                ])
-                .config(|this| this.optional())
-                .to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "UnconditionalCrossJoinKeywordsGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            // Some dialects support a row-by-row horizontal join between tables.
+            "HorizontalJoinKeywordsGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            "UnconditionalJoinKeywordsGrammar".into(),
+            one_of(vec![
+                Ref::new("NaturalJoinKeywordsGrammar").to_matchable(),
+                Ref::new("UnconditionalCrossJoinKeywordsGrammar").to_matchable(),
+                Ref::new("HorizontalJoinKeywordsGrammar").to_matchable(),
             ])
             .to_matchable()
             .into(),
@@ -1123,6 +1217,20 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            "ReferenceMatchGrammar".into(),
+            Sequence::new(vec![
+                Ref::keyword("MATCH").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("FULL").to_matchable(),
+                    Ref::keyword("PARTIAL").to_matchable(),
+                    Ref::keyword("SIMPLE").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
             "ReferenceDefinitionGrammar".into(),
             Sequence::new(vec![
                 Ref::keyword("REFERENCES").to_matchable(),
@@ -1131,17 +1239,7 @@ pub fn raw_dialect() -> Dialect {
                 Ref::new("ReferencedColumnListGrammar")
                     .optional()
                     .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("MATCH").to_matchable(),
-                    one_of(vec![
-                        Ref::keyword("FULL").to_matchable(),
-                        Ref::keyword("PARTIAL").to_matchable(),
-                        Ref::keyword("SIMPLE").to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .config(|this| this.optional())
-                .to_matchable(),
+                Ref::new("ReferenceMatchGrammar").optional().to_matchable(),
                 AnyNumberOf::new(vec![
                     // ON DELETE clause, e.g. ON DELETE NO ACTION
                     Sequence::new(vec![
@@ -1297,15 +1395,22 @@ pub fn raw_dialect() -> Dialect {
         (
             "FileSegment".into(),
             NodeMatcher::new(SyntaxKind::File, |_| {
-                Delimited::new(vec![Ref::new("StatementSegment").to_matchable()])
-                    .config(|this| {
-                        this.allow_trailing();
-                        this.delimiter(
-                            AnyNumberOf::new(vec![Ref::new("DelimiterGrammar").to_matchable()])
-                                .config(|config| config.min_times(1)),
-                        );
-                    })
-                    .to_matchable()
+                Sequence::new(vec![
+                    AnyNumberOf::new(vec![Ref::new("DelimiterGrammar").to_matchable()])
+                        .to_matchable(),
+                    Delimited::new(vec![Ref::new("StatementSegment").to_matchable()])
+                        .config(|this| {
+                            this.allow_trailing();
+                            this.delimiter(
+                                AnyNumberOf::new(vec![Ref::new("DelimiterGrammar").to_matchable()])
+                                    .config(|config| config.min_times(1)),
+                            );
+                        })
+                        .to_matchable(),
+                    AnyNumberOf::new(vec![Ref::new("DelimiterGrammar").to_matchable()])
+                        .to_matchable(),
+                ])
+                .to_matchable()
             })
             .to_matchable()
             .into(),
@@ -1343,6 +1448,19 @@ pub fn raw_dialect() -> Dialect {
                     Ref::new("StarSegment").to_matchable(),
                 ])
                 .allow_gaps(false)
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "SingleIdentifierWildcardSegment".into(),
+            NodeMatcher::new(SyntaxKind::WildcardIdentifier, |_| {
+                Sequence::new(vec![
+                    Ref::new("SingleIdentifierGrammar").to_matchable(),
+                    Ref::new("ObjectReferenceDelimiterGrammar").to_matchable(),
+                    Ref::new("StarSegment").to_matchable(),
+                ])
                 .to_matchable()
             })
             .to_matchable()
@@ -1408,6 +1526,7 @@ pub fn raw_dialect() -> Dialect {
             "FunctionSegment".into(),
             NodeMatcher::new(SyntaxKind::Function, |_| {
                 one_of(vec![
+                    Ref::new("ColumnsExpressionGrammar").to_matchable(),
                     Sequence::new(vec![
                         Ref::new("DatePartFunctionNameSegment").to_matchable(),
                         Ref::new("DateTimeFunctionContentsSegment").to_matchable(),
@@ -1418,6 +1537,7 @@ pub fn raw_dialect() -> Dialect {
                             Ref::new("FunctionNameSegment")
                                 .exclude(one_of(vec![
                                     Ref::new("DatePartFunctionNameSegment").to_matchable(),
+                                    Ref::new("ColumnsExpressionFunctionNameSegment").to_matchable(),
                                     Ref::new("ValuesClauseSegment").to_matchable(),
                                 ]))
                                 .to_matchable(),
@@ -1429,6 +1549,22 @@ pub fn raw_dialect() -> Dialect {
                     .to_matchable(),
                 ])
                 .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "ColumnsExpressionFunctionNameSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionName, |_| {
+                Ref::new("ColumnsExpressionNameGrammar").to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "ColumnsExpressionFunctionContentsSegment".into(),
+            NodeMatcher::new(SyntaxKind::ColumnsExpression, |_| {
+                Nothing::new().to_matchable()
             })
             .to_matchable()
             .into(),
@@ -1568,21 +1704,19 @@ pub fn raw_dialect() -> Dialect {
         (
             "GroupingExpressionList".into(),
             NodeMatcher::new(SyntaxKind::GroupingExpressionList, |_| {
-                Sequence::new(vec![
-                    MetaSegment::indent().to_matchable(),
-                    Delimited::new(vec![
-                        one_of(vec![
-                            Ref::new("ColumnReferenceSegment").to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                            Ref::new("ExpressionSegment").to_matchable(),
-                            Bracketed::new(vec![]).to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Ref::new("GroupByClauseTerminatorGrammar").to_matchable(),
+                Delimited::new(vec![
+                    one_of(vec![
+                        Ref::new("ColumnReferenceSegment").to_matchable(),
+                        Ref::new("NumericLiteralSegment").to_matchable(),
+                        Ref::new("ExpressionSegment").to_matchable(),
+                        Bracketed::new(vec![]).to_matchable(),
                     ])
                     .to_matchable(),
-                    MetaSegment::dedent().to_matchable(),
                 ])
+                .config(|this| {
+                    this.terminators =
+                        vec![Ref::new("GroupByClauseTerminatorGrammar").to_matchable()];
+                })
                 .to_matchable()
             })
             .to_matchable()
@@ -1620,13 +1754,51 @@ pub fn raw_dialect() -> Dialect {
                         Ref::keyword("NEXT").to_matchable(),
                     ])
                     .to_matchable(),
-                    Ref::new("NumericLiteralSegment").optional().to_matchable(),
+                    one_of(vec![
+                        Ref::new("NumericLiteralSegment").to_matchable(),
+                        Ref::new("ExpressionSegment")
+                            .exclude(Ref::keyword("ROW"))
+                            .to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
                     one_of(vec![
                         Ref::keyword("ROW").to_matchable(),
                         Ref::keyword("ROWS").to_matchable(),
                     ])
                     .to_matchable(),
-                    Ref::keyword("ONLY").to_matchable(),
+                    one_of(vec![
+                        Ref::keyword("ONLY").to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("WITH").to_matchable(),
+                            Ref::keyword("TIES").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "OffsetClauseSegment".into(),
+            NodeMatcher::new(SyntaxKind::OffsetClause, |_| {
+                Sequence::new(vec![
+                    Ref::keyword("OFFSET").to_matchable(),
+                    one_of(vec![
+                        Ref::new("NumericLiteralSegment").to_matchable(),
+                        Ref::new("ExpressionSegment")
+                            .exclude(Ref::keyword("ROW"))
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    one_of(vec![
+                        Ref::keyword("ROW").to_matchable(),
+                        Ref::keyword("ROWS").to_matchable(),
+                    ])
+                    .to_matchable(),
                 ])
                 .to_matchable()
             })
@@ -1652,6 +1824,40 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            "SequenceMinValueGrammar".into(),
+            one_of(vec![
+                Sequence::new(vec![
+                    Ref::keyword("MINVALUE").to_matchable(),
+                    Ref::new("NumericLiteralSegment").to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("NO").to_matchable(),
+                    Ref::keyword("MINVALUE").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "SequenceMaxValueGrammar".into(),
+            one_of(vec![
+                Sequence::new(vec![
+                    Ref::keyword("MAXVALUE").to_matchable(),
+                    Ref::new("NumericLiteralSegment").to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("NO").to_matchable(),
+                    Ref::keyword("MAXVALUE").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
             "AlterSequenceOptionsSegment".into(),
             NodeMatcher::new(SyntaxKind::AlterSequenceOptionsSegment, |_| {
                 one_of(vec![
@@ -1661,32 +1867,8 @@ pub fn raw_dialect() -> Dialect {
                         Ref::new("NumericLiteralSegment").to_matchable(),
                     ])
                     .to_matchable(),
-                    one_of(vec![
-                        Sequence::new(vec![
-                            Ref::keyword("MINVALUE").to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Sequence::new(vec![
-                            Ref::keyword("NO").to_matchable(),
-                            Ref::keyword("MINVALUE").to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
-                    one_of(vec![
-                        Sequence::new(vec![
-                            Ref::keyword("MAXVALUE").to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Sequence::new(vec![
-                            Ref::keyword("NO").to_matchable(),
-                            Ref::keyword("MAXVALUE").to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
+                    Ref::new("SequenceMinValueGrammar").to_matchable(),
+                    Ref::new("SequenceMaxValueGrammar").to_matchable(),
                     one_of(vec![
                         Sequence::new(vec![
                             Ref::keyword("CACHE").to_matchable(),
@@ -1715,6 +1897,14 @@ pub fn raw_dialect() -> Dialect {
         (
             "RoleReferenceSegment".into(),
             NodeMatcher::new(SyntaxKind::RoleReference, |_| {
+                Ref::new("SingleIdentifierGrammar").to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "UserReferenceSegment".into(),
+            NodeMatcher::new(SyntaxKind::UserReference, |_| {
                 Ref::new("SingleIdentifierGrammar").to_matchable()
             })
             .to_matchable()
@@ -1810,17 +2000,25 @@ pub fn raw_dialect() -> Dialect {
                             Ref::new("ColumnConstraintDefaultGrammar").to_matchable(),
                         ])
                         .to_matchable(),
-                        Ref::new("PrimaryKeyGrammar").to_matchable(),
+                        Sequence::new(vec![
+                            Ref::new("PrimaryKeyGrammar").to_matchable(),
+                            Ref::new("NotEnforcedGrammar").optional().to_matchable(),
+                        ])
+                        .to_matchable(),
                         Ref::new("UniqueKeyGrammar").to_matchable(), // UNIQUE
                         Ref::new("AutoIncrementGrammar").to_matchable(),
-                        Ref::new("ReferenceDefinitionGrammar").to_matchable(), /* REFERENCES reftable [ (
-                                                                                * refcolumn) ] */
+                        Sequence::new(vec![
+                            Ref::new("ReferenceDefinitionGrammar").to_matchable(),
+                            Ref::new("NotEnforcedGrammar").optional().to_matchable(),
+                        ])
+                        .to_matchable(), /* REFERENCES reftable [ ( refcolumn) ] */
                         Ref::new("CommentClauseSegment").to_matchable(),
                         Sequence::new(vec![
                             Ref::keyword("COLLATE").to_matchable(),
                             Ref::new("CollationReferenceSegment").to_matchable(),
                         ])
                         .to_matchable(),
+                        Ref::new("ColumnGeneratedGrammar").to_matchable(),
                     ])
                     .to_matchable(),
                 ])
@@ -1956,12 +2154,8 @@ pub fn raw_dialect() -> Dialect {
                 Sequence::new(vec![
                     Ref::keyword("SET").to_matchable(),
                     MetaSegment::indent().to_matchable(),
-                    Ref::new("SetClauseSegment").to_matchable(),
-                    AnyNumberOf::new(vec![
-                        Ref::new("CommaSegment").to_matchable(),
-                        Ref::new("SetClauseSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
+                    Delimited::new(vec![Ref::new("SetClauseSegment").to_matchable()])
+                        .to_matchable(),
                     MetaSegment::dedent().to_matchable(),
                 ])
                 .to_matchable()
@@ -2005,28 +2199,27 @@ pub fn raw_dialect() -> Dialect {
                 Sequence::new(vec![
                     Ref::keyword("GROUP").to_matchable(),
                     Ref::keyword("BY").to_matchable(),
+                    MetaSegment::indent().to_matchable(),
                     one_of(vec![
+                        Ref::keyword("ALL").to_matchable(),
+                        Ref::new("GroupingSetsClauseSegment").to_matchable(),
                         Ref::new("CubeRollupClauseSegment").to_matchable(),
-                        Sequence::new(vec![
-                            MetaSegment::indent().to_matchable(),
-                            Delimited::new(vec![
-                                one_of(vec![
-                                    Ref::new("ColumnReferenceSegment").to_matchable(),
-                                    Ref::new("NumericLiteralSegment").to_matchable(),
-                                    Ref::new("ExpressionSegment").to_matchable(),
-                                ])
-                                .to_matchable(),
+                        Delimited::new(vec![
+                            one_of(vec![
+                                Ref::new("ColumnReferenceSegment").to_matchable(),
+                                Ref::new("NumericLiteralSegment").to_matchable(),
+                                Ref::new("ExpressionSegment").to_matchable(),
                             ])
-                            .config(|this| {
-                                this.terminators =
-                                    vec![Ref::new("GroupByClauseTerminatorGrammar").to_matchable()];
-                            })
                             .to_matchable(),
-                            MetaSegment::dedent().to_matchable(),
                         ])
+                        .config(|this| {
+                            this.terminators =
+                                vec![Ref::new("GroupByClauseTerminatorGrammar").to_matchable()];
+                        })
                         .to_matchable(),
                     ])
                     .to_matchable(),
+                    MetaSegment::dedent().to_matchable(),
                 ])
                 .to_matchable()
             })
@@ -2067,7 +2260,6 @@ pub fn raw_dialect() -> Dialect {
                     Delimited::new(vec![Ref::new("CTEDefinitionSegment").to_matchable()])
                         .config(|this| {
                             this.terminators = vec![Ref::keyword("SELECT").to_matchable()];
-                            this.allow_trailing();
                         })
                         .to_matchable(),
                     Conditional::new(MetaSegment::dedent())
@@ -2092,7 +2284,6 @@ pub fn raw_dialect() -> Dialect {
                     Delimited::new(vec![Ref::new("CTEDefinitionSegment").to_matchable()])
                         .config(|this| {
                             this.terminators = vec![Ref::keyword("SELECT").to_matchable()];
-                            this.allow_trailing();
                         })
                         .to_matchable(),
                     Conditional::new(MetaSegment::dedent())
@@ -2351,7 +2542,7 @@ pub fn raw_dialect() -> Dialect {
             NodeMatcher::new(SyntaxKind::JoinClause, |_| {
                 one_of(vec![
                     Sequence::new(vec![
-                        Ref::new("JoinTypeKeywordsGrammar")
+                        Ref::new("ConditionalJoinKeywordsGrammar")
                             .optional()
                             .to_matchable(),
                         Ref::new("JoinKeywordsGrammar").to_matchable(),
@@ -2391,7 +2582,7 @@ pub fn raw_dialect() -> Dialect {
                     ])
                     .to_matchable(),
                     Sequence::new(vec![
-                        Ref::new("NaturalJoinKeywordsGrammar").to_matchable(),
+                        Ref::new("UnconditionalJoinKeywordsGrammar").to_matchable(),
                         Ref::new("JoinKeywordsGrammar").to_matchable(),
                         MetaSegment::indent().to_matchable(),
                         Ref::new("JoinTargetGrammar").to_matchable(),
@@ -2728,32 +2919,8 @@ pub fn raw_dialect() -> Dialect {
                         Ref::new("NumericLiteralSegment").to_matchable(),
                     ])
                     .to_matchable(),
-                    one_of(vec![
-                        Sequence::new(vec![
-                            Ref::keyword("MINVALUE").to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Sequence::new(vec![
-                            Ref::keyword("NO").to_matchable(),
-                            Ref::keyword("MINVALUE").to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
-                    one_of(vec![
-                        Sequence::new(vec![
-                            Ref::keyword("MAXVALUE").to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Sequence::new(vec![
-                            Ref::keyword("NO").to_matchable(),
-                            Ref::keyword("MAXVALUE").to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
+                    Ref::new("SequenceMinValueGrammar").to_matchable(),
+                    Ref::new("SequenceMaxValueGrammar").to_matchable(),
                     one_of(vec![
                         Sequence::new(vec![
                             Ref::keyword("CACHE").to_matchable(),
@@ -2954,11 +3121,13 @@ pub fn raw_dialect() -> Dialect {
             NodeMatcher::new(SyntaxKind::UpdateStatement, |_| {
                 Sequence::new(vec![
                     Ref::keyword("UPDATE").to_matchable(),
+                    MetaSegment::indent().to_matchable(),
                     Ref::new("TableReferenceSegment").to_matchable(),
                     Ref::new("AliasExpressionSegment")
                         .exclude(Ref::keyword("SET"))
                         .optional()
                         .to_matchable(),
+                    MetaSegment::dedent().to_matchable(),
                     Ref::new("SetClauseListSegment").to_matchable(),
                     Ref::new("FromClauseSegment").optional().to_matchable(),
                     Ref::new("WhereClauseSegment").optional().to_matchable(),
@@ -3027,6 +3196,7 @@ pub fn raw_dialect() -> Dialect {
                 Sequence::new(vec![
                     Ref::keyword("CREATE").to_matchable(),
                     Ref::keyword("ROLE").to_matchable(),
+                    Ref::new("IfNotExistsGrammar").optional().to_matchable(),
                     Ref::new("RoleReferenceSegment").to_matchable(),
                 ])
                 .to_matchable()
@@ -3243,119 +3413,70 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            "AccessSchemaObjectSegment".into(),
+            NodeMatcher::new(SyntaxKind::AccessSchemaObject, |_| {
+                access_schema_object_segment()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "AccessSchemaPluralObjectSegment".into(),
+            NodeMatcher::new(SyntaxKind::AccessSchemaPluralObject, |_| {
+                access_schema_plural_object_segment()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "AccessObjectSegment".into(),
+            NodeMatcher::new(SyntaxKind::AccessObject, |_| access_object_segment())
+                .to_matchable()
+                .into(),
+        ),
+        (
             "AccessPermissionSegment".into(),
-            access_permission_segment().into(),
+            NodeMatcher::new(SyntaxKind::AccessPermission, |_| {
+                access_permission_segment()
+            })
+            .to_matchable()
+            .into(),
         ),
-        ("AccessObjectSegment".into(), access_object_segment().into()),
         (
-            "AccessGranteeSegment".into(),
-            access_grantee_segment().into(),
+            "AccessPermissionsSegment".into(),
+            NodeMatcher::new(SyntaxKind::AccessPermissions, |_| {
+                Delimited::new(vec![Ref::new("AccessPermissionSegment").to_matchable()])
+                    .config(|this| this.terminators = vec![Ref::keyword("ON").to_matchable()])
+                    .to_matchable()
+            })
+            .to_matchable()
+            .into(),
         ),
         (
-            "AccessRevokeeSegment".into(),
-            access_revokee_segment().into(),
+            "AccessTargetSegment".into(),
+            NodeMatcher::new(SyntaxKind::AccessTarget, |_| access_target_segment())
+                .to_matchable()
+                .into(),
+        ),
+        (
+            "GrantStatementSegment".into(),
+            NodeMatcher::new(SyntaxKind::GrantStatement, |_| grant_statement_segment())
+                .to_matchable()
+                .into(),
+        ),
+        (
+            "RevokeStatementSegment".into(),
+            NodeMatcher::new(SyntaxKind::RevokeStatement, |_| revoke_statement_segment())
+                .to_matchable()
+                .into(),
         ),
         (
             "AccessStatementSegment".into(),
             NodeMatcher::new(SyntaxKind::AccessStatement, |_| {
-                {
-                    let permissions = Ref::new("AccessPermissionSegment");
-                    let objects = Ref::new("AccessObjectSegment");
-                    let grantees = Ref::new("AccessGranteeSegment");
-                    let revokees = Ref::new("AccessRevokeeSegment");
-
-                    one_of(vec![
-                        Sequence::new(vec![
-                            Ref::keyword("GRANT").to_matchable(),
-                            one_of(vec![
-                                Sequence::new(vec![
-                                    Delimited::new(vec![permissions.clone().to_matchable()])
-                                        .config(|this| {
-                                            this.terminators =
-                                                vec![Ref::keyword("ON").to_matchable()]
-                                        })
-                                        .to_matchable(),
-                                    Ref::keyword("ON").to_matchable(),
-                                    objects.clone().to_matchable(),
-                                ])
-                                .to_matchable(),
-                                Sequence::new(vec![
-                                    Ref::keyword("ROLE").to_matchable(),
-                                    Ref::new("ObjectReferenceSegment").to_matchable(),
-                                ])
-                                .to_matchable(),
-                                Sequence::new(vec![
-                                    Ref::keyword("OWNERSHIP").to_matchable(),
-                                    Ref::keyword("ON").to_matchable(),
-                                    Ref::keyword("USER").to_matchable(),
-                                    Ref::new("ObjectReferenceSegment").to_matchable(),
-                                ])
-                                .to_matchable(),
-                                Ref::new("ObjectReferenceSegment").to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Ref::keyword("TO").to_matchable(),
-                            grantees.clone().to_matchable(),
-                            Ref::new("AccessStatementSegmentGrantRoleWithOptionGrammar")
-                                .optional()
-                                .to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("GRANTED").to_matchable(),
-                                Ref::keyword("BY").to_matchable(),
-                                one_of(vec![
-                                    Ref::keyword("CURRENT_USER").to_matchable(),
-                                    Ref::keyword("SESSION_USER").to_matchable(),
-                                    Ref::new("ObjectReferenceSegment").to_matchable(),
-                                ])
-                                .to_matchable(),
-                            ])
-                            .config(|this| this.optional())
-                            .to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Sequence::new(vec![
-                            Ref::keyword("REVOKE").to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("GRANT").to_matchable(),
-                                Ref::keyword("OPTION").to_matchable(),
-                                Ref::keyword("FOR").to_matchable(),
-                            ])
-                            .config(|this| this.optional())
-                            .to_matchable(),
-                            one_of(vec![
-                                Sequence::new(vec![
-                                    Delimited::new(vec![permissions.to_matchable()])
-                                        .config(|this| {
-                                            this.terminators =
-                                                vec![Ref::keyword("ON").to_matchable()]
-                                        })
-                                        .to_matchable(),
-                                    Ref::keyword("ON").to_matchable(),
-                                    objects.to_matchable(),
-                                ])
-                                .to_matchable(),
-                                Sequence::new(vec![
-                                    Ref::keyword("ROLE").to_matchable(),
-                                    Ref::new("ObjectReferenceSegment").to_matchable(),
-                                ])
-                                .to_matchable(),
-                                Sequence::new(vec![
-                                    Ref::keyword("OWNERSHIP").to_matchable(),
-                                    Ref::keyword("ON").to_matchable(),
-                                    Ref::keyword("USER").to_matchable(),
-                                    Ref::new("ObjectReferenceSegment").to_matchable(),
-                                ])
-                                .to_matchable(),
-                                Ref::new("ObjectReferenceSegment").to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Ref::keyword("FROM").to_matchable(),
-                            revokees.to_matchable(),
-                            Ref::new("DropBehaviorGrammar").optional().to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                }
+                one_of(vec![
+                    Ref::new("GrantStatementSegment").to_matchable(),
+                    Ref::new("RevokeStatementSegment").to_matchable(),
+                ])
                 .to_matchable()
             })
             .to_matchable()
@@ -3550,6 +3671,11 @@ pub fn raw_dialect() -> Dialect {
                         Sequence::new(vec![
                             Bracketed::new(vec![Ref::new("SelectableGrammar").to_matchable()])
                                 .to_matchable(),
+                            Ref::new("AliasExpressionSegment").optional().to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::new("FunctionSegment").to_matchable(),
                             Ref::new("AliasExpressionSegment").optional().to_matchable(),
                         ])
                         .to_matchable(),
@@ -4017,7 +4143,7 @@ pub fn raw_dialect() -> Dialect {
                         ])
                         .to_matchable(),
                         Ref::new("BracketedArguments").optional().to_matchable(),
-                        one_of(vec![
+                        AnyNumberOf::new(vec![
                             Ref::keyword("UNSIGNED").to_matchable(),
                             Ref::new("CharCharacterSetGrammar").to_matchable(),
                         ])
@@ -4025,6 +4151,7 @@ pub fn raw_dialect() -> Dialect {
                         .to_matchable(),
                     ])
                     .to_matchable(),
+                    Ref::new("ArrayTypeSegment").to_matchable(),
                 ])
                 .to_matchable()
             })
@@ -4154,6 +4281,12 @@ pub fn raw_dialect() -> Dialect {
                 .into(),
         ),
         (
+            "MapTypeSegment".into(),
+            NodeMatcher::new(SyntaxKind::MapType, |_| Nothing::new().to_matchable())
+                .to_matchable()
+                .into(),
+        ),
+        (
             "StructLiteralSegment".into(),
             NodeMatcher::new(SyntaxKind::StructLiteral, |_| {
                 Bracketed::new(vec![
@@ -4199,6 +4332,15 @@ pub fn raw_dialect() -> Dialect {
                         ])
                         .to_matchable(),
                         Ref::new("QuotedLiteralSegment").to_matchable(),
+                        Sequence::new(vec![
+                            Ref::new("QuotedLiteralSegment").to_matchable(),
+                            one_of(vec![
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                                Ref::new("DatetimeUnitSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
                     ])
                     .to_matchable(),
                 ])
@@ -4230,7 +4372,6 @@ pub fn raw_dialect() -> Dialect {
             NodeMatcher::new(SyntaxKind::SelectStatement, |_| {
                 Sequence::new(vec![
                     Ref::new("SelectClauseSegment").to_matchable(),
-                    MetaSegment::dedent().to_matchable(),
                     Ref::new("FromClauseSegment").optional().to_matchable(),
                     Ref::new("WhereClauseSegment").optional().to_matchable(),
                     Ref::new("GroupByClauseSegment").optional().to_matchable(),
@@ -4308,6 +4449,26 @@ pub fn raw_dialect() -> Dialect {
                         .config(|this| this.optional())
                         .to_matchable(),
                     Ref::keyword("DATA").to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "UnorderedSetExpressionSegment".into(),
+            NodeMatcher::new(SyntaxKind::SetExpression, |_| {
+                Sequence::new(vec![
+                    Ref::new("NonSetSelectableGrammar").to_matchable(),
+                    AnyNumberOf::new(vec![
+                        Sequence::new(vec![
+                            Ref::new("SetOperatorSegment").to_matchable(),
+                            Ref::new("NonSetSelectableGrammar").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .config(|this| this.min_times(1))
+                    .to_matchable(),
                 ])
                 .to_matchable()
             })
@@ -4402,7 +4563,7 @@ pub fn raw_dialect() -> Dialect {
                     ])
                     .config(|this| {
                         this.terminators = vec![
-                            Ref::keyword("LIMIT").to_matchable(),
+                            Ref::new("LimitClauseSegment").to_matchable(),
                             Ref::new("FrameClauseUnitGrammar").to_matchable(),
                         ]
                     })
@@ -4432,7 +4593,7 @@ pub fn raw_dialect() -> Dialect {
             NodeMatcher::new(SyntaxKind::FromExpression, |_| {
                 optionally_bracketed(vec![
                     Sequence::new(vec![
-                        MetaSegment::indent().to_matchable(),
+                        MetaSegment::implicit_indent().to_matchable(),
                         one_of(vec![
                             Ref::new("FromExpressionElementSegment").to_matchable(),
                             Bracketed::new(vec![Ref::new("FromExpressionSegment").to_matchable()])
@@ -4511,11 +4672,13 @@ pub fn raw_dialect() -> Dialect {
                         .to_matchable(),
                     optionally_bracketed(vec![Ref::new("TableExpressionSegment").to_matchable()])
                         .to_matchable(),
+                    Ref::new("TemporalQuerySegment").optional().to_matchable(),
                     Ref::new("AliasExpressionSegment")
                         .exclude(one_of(vec![
                             Ref::new("FromClauseTerminatorGrammar").to_matchable(),
                             Ref::new("SamplingExpressionSegment").to_matchable(),
                             Ref::new("JoinLikeClauseGrammar").to_matchable(),
+                            Ref::new("JoinClauseSegment").to_matchable(),
                             LookaheadExclude::new("WITH", "(").to_matchable(),
                         ]))
                         .optional()
@@ -4601,9 +4764,12 @@ pub fn raw_dialect() -> Dialect {
             "FunctionContentsSegment".into(),
             NodeMatcher::new(SyntaxKind::FunctionContents, |_| {
                 Sequence::new(vec![
-                    Bracketed::new(vec![Ref::new("FunctionContentsGrammar").to_matchable()])
-                        .config(|this| this.optional())
-                        .to_matchable(),
+                    Bracketed::new(vec![
+                        Ref::new("FunctionContentsGrammar")
+                            .optional()
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
                 ])
                 .to_matchable()
             })
@@ -4737,6 +4903,23 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            "QuantifiedComparisonOperatorGrammar".into(),
+            Sequence::new(vec![
+                Ref::new("ComparisonOperatorGrammar").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("ALL").to_matchable(),
+                    Ref::keyword("ANY").to_matchable(),
+                    Ref::keyword("SOME").to_matchable(),
+                ])
+                .to_matchable(),
+                Bracketed::new(vec![Ref::new("SelectableGrammar").to_matchable()])
+                    .config(|this| this.parse_mode(ParseMode::Greedy))
+                    .to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
             // Expression_A_Grammar
             // https://www.cockroachlabs.com/docs/v20.2/sql-grammar.html#a_expr
             // The upstream grammar is defined recursively, which if implemented naively
@@ -4785,21 +4968,11 @@ pub fn raw_dialect() -> Dialect {
                 AnyNumberOf::new(vec![
                     one_of(vec![
                         // Like grammar with NOT and optional ESCAPE
-                        Sequence::new(vec![
-                            Sequence::new(vec![
-                                Ref::keyword("NOT").optional().to_matchable(),
-                                Ref::new("LikeGrammar").to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Ref::new("Expression_A_Grammar").to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("ESCAPE").to_matchable(),
-                                Ref::new("Tail_Recurse_Expression_A_Grammar").to_matchable(),
-                            ])
-                            .config(|this| this.optional())
-                            .to_matchable(),
-                        ])
-                        .to_matchable(),
+                        Ref::new("LikeExpressionGrammar").to_matchable(),
+                        // Quantified comparison operators (ANY, ALL, SOME). This must
+                        // precede the binary-operator alternative because sqruff keeps
+                        // the first alternative when both consume the same span.
+                        Ref::new("QuantifiedComparisonOperatorGrammar").to_matchable(),
                         // Binary operator grammar
                         Sequence::new(vec![
                             Ref::new("BinaryOperatorGrammar").to_matchable(),
@@ -4827,6 +5000,11 @@ pub fn raw_dialect() -> Dialect {
                             Ref::new("Expression_B_Grammar").to_matchable(),
                             Ref::keyword("AND").to_matchable(),
                             Ref::new("Tail_Recurse_Expression_A_Grammar").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::new("PatternMatchingGrammar").to_matchable(),
+                            Ref::new("Expression_A_Grammar").to_matchable(),
                         ])
                         .to_matchable(),
                         // Additional sequences and grammar rules can be added here
@@ -4929,6 +5107,20 @@ pub fn raw_dialect() -> Dialect {
             .into(),
         ),
         (
+            "Expression_D_Potential_Select_Statement_Without_Brackets".into(),
+            one_of(vec![
+                Ref::new("SelectStatementSegment").to_matchable(),
+                Ref::new("LiteralGrammar").to_matchable(),
+                Ref::new("IntervalExpressionSegment").to_matchable(),
+                Ref::new("TypedStructLiteralSegment").to_matchable(),
+                Ref::new("ArrayExpressionSegment").to_matchable(),
+                Ref::new("ColumnReferenceSegment").to_matchable(),
+                Ref::new("OverlapsClauseSegment").to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
             "Expression_D_Grammar".into(),
             Sequence::new(vec![
                 one_of(vec![
@@ -4940,10 +5132,11 @@ pub fn raw_dialect() -> Dialect {
                             Ref::new("ExpressionSegment").to_matchable(),
                             Ref::new("SelectableGrammar").to_matchable(),
                             Delimited::new(vec![
+                                Ref::new("LiteralGrammar").to_matchable(),
                                 Ref::new("ColumnReferenceSegment").to_matchable(),
                                 Ref::new("FunctionSegment").to_matchable(),
-                                Ref::new("LiteralGrammar").to_matchable(),
                                 Ref::new("LocalAliasSegment").to_matchable(),
+                                Ref::new("ExpressionSegment").to_matchable(),
                             ])
                             .to_matchable(),
                         ])
@@ -4951,20 +5144,15 @@ pub fn raw_dialect() -> Dialect {
                     ])
                     .config(|this| this.parse_mode(ParseMode::Greedy))
                     .to_matchable(),
-                    Ref::new("SelectStatementSegment").to_matchable(),
-                    Ref::new("LiteralGrammar").to_matchable(),
-                    Ref::new("IntervalExpressionSegment").to_matchable(),
-                    Ref::new("TypedStructLiteralSegment").to_matchable(),
-                    Ref::new("ArrayExpressionSegment").to_matchable(),
-                    Ref::new("ColumnReferenceSegment").to_matchable(),
+                    Ref::new("Expression_D_Potential_Select_Statement_Without_Brackets")
+                        .to_matchable(),
+                    Ref::new("SingleIdentifierWildcardSegment").to_matchable(),
                     Sequence::new(vec![
-                        Ref::new("SingleIdentifierGrammar").to_matchable(),
-                        Ref::new("ObjectReferenceDelimiterGrammar").to_matchable(),
-                        Ref::new("StarSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
-                    Sequence::new(vec![
-                        Ref::new("StructTypeSegment").to_matchable(),
+                        one_of(vec![
+                            Ref::new("StructTypeSegment").to_matchable(),
+                            Ref::new("MapTypeSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
                         Bracketed::new(vec![
                             Delimited::new(vec![Ref::new("ExpressionSegment").to_matchable()])
                                 .to_matchable(),
@@ -4985,6 +5173,7 @@ pub fn raw_dialect() -> Dialect {
                     ])
                     .to_matchable(),
                     Ref::new("LocalAliasSegment").to_matchable(),
+                    Ref::new("ListComprehensionGrammar").to_matchable(),
                 ])
                 .config(|this| this.terminators = vec![Ref::new("CommaSegment").to_matchable()])
                 .to_matchable(),
@@ -5054,14 +5243,29 @@ pub fn raw_dialect() -> Dialect {
                 .to_matchable(),
                 Bracketed::new(vec![Ref::new("NonSetSelectableGrammar").to_matchable()])
                     .to_matchable(),
+                Ref::new("BracketedSetExpressionGrammar").to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "BracketedSetExpressionGrammar".into(),
+            Bracketed::new(vec![
+                Ref::new("UnorderedSetExpressionSegment").to_matchable(),
             ])
             .to_matchable()
             .into(),
         ),
     ]);
 
-    // This is a hook point to allow subclassing for other dialects
+    // These are hook points to allow subclassing for other dialects.
     ansi_dialect.add([
+        (
+            "TemporalQuerySegment".into(),
+            NodeMatcher::new(SyntaxKind::TemporalQuery, |_| Nothing::new().to_matchable())
+                .to_matchable()
+                .into(),
+        ),
         (
             "PostTableExpressionGrammar".into(),
             Nothing::new().to_matchable().into(),
@@ -5078,9 +5282,7 @@ pub fn raw_dialect() -> Dialect {
                     Ref::keyword("TIMESTAMP").to_matchable(),
                 ])
                 .to_matchable(),
-                Bracketed::new(vec![Ref::new("NumericLiteralSegment").to_matchable()])
-                    .config(|this| this.optional())
-                    .to_matchable(),
+                Ref::new("BracketedArguments").optional().to_matchable(),
                 Sequence::new(vec![
                     one_of(vec![
                         Ref::keyword("WITH").to_matchable(),
@@ -5138,7 +5340,7 @@ fn lexer_matchers() -> Vec<Matcher> {
         ),
         Matcher::regex(
             "double_quote",
-            r#""([^"\\]|\\.)*""#,
+            r#""(""|[^"\\]|\\.)*""#,
             SyntaxKind::DoubleQuote,
         ),
         Matcher::regex("back_quote", r"`[^`]*`", SyntaxKind::BackQuote),
@@ -5153,6 +5355,12 @@ fn lexer_matchers() -> Vec<Matcher> {
             numeric_literal,
             SyntaxKind::NumericLiteral,
         ),
+        Matcher::regex(
+            "obevo_annotation",
+            r"////\s*(CHANGE|BODY|METADATA)[^\n]*",
+            SyntaxKind::Comment,
+        ),
+        Matcher::string("glob_operator", "~~~", SyntaxKind::GlobOperator),
         Matcher::regex("like_operator", r"!?~~?\*?", SyntaxKind::LikeOperator),
         Matcher::regex("newline", r"(\r\n|\n)", SyntaxKind::Newline),
         Matcher::string("casting_operator", "::", SyntaxKind::CastingOperator),
@@ -5193,12 +5401,9 @@ pub fn frame_extent() -> AnyNumberOf {
         Sequence::new(vec![
             one_of(vec![
                 Ref::new("NumericLiteralSegment").to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("INTERVAL").to_matchable(),
-                    Ref::new("QuotedLiteralSegment").to_matchable(),
-                ])
-                .to_matchable(),
+                Ref::new("IntervalExpressionSegment").to_matchable(),
                 Ref::keyword("UNBOUNDED").to_matchable(),
+                Ref::new("ColumnReferenceSegment").to_matchable(),
             ])
             .to_matchable(),
             one_of(vec![
@@ -5223,7 +5428,6 @@ pub fn explainable_stmt() -> AnyNumberOf {
 pub fn get_unordered_select_statement_segment_grammar() -> Matchable {
     Sequence::new(vec![
         Ref::new("SelectClauseSegment").to_matchable(),
-        MetaSegment::dedent().to_matchable(),
         Ref::new("FromClauseSegment").optional().to_matchable(),
         Ref::new("WhereClauseSegment").optional().to_matchable(),
         Ref::new("GroupByClauseSegment").optional().to_matchable(),
@@ -5248,6 +5452,7 @@ pub fn select_statement() -> Matchable {
     get_unordered_select_statement_segment_grammar().copy(
         Some(vec![
             Ref::new("OrderByClauseSegment").optional().to_matchable(),
+            Ref::new("OffsetClauseSegment").optional().to_matchable(),
             Ref::new("FetchClauseSegment").optional().to_matchable(),
             Ref::new("LimitClauseSegment").optional().to_matchable(),
             Ref::new("NamedWindowSegment").optional().to_matchable(),
@@ -5274,6 +5479,7 @@ pub fn select_clause_segment() -> Matchable {
         Delimited::new(vec![Ref::new("SelectClauseElementSegment").to_matchable()])
             .config(|this| this.allow_trailing())
             .to_matchable(),
+        MetaSegment::dedent().to_matchable(),
     ])
     .terminators(vec![
         Ref::new("SelectClauseTerminatorGrammar").to_matchable(),
@@ -5330,42 +5536,36 @@ pub fn statement_segment() -> Matchable {
     .to_matchable()
 }
 
-fn access_grantee_segment() -> Matchable {
-    Sequence::new(vec![
-        access_principal_kind_prefix(),
-        Delimited::new(vec![
-            one_of(vec![
-                Ref::new("RoleReferenceSegment").to_matchable(),
-                Ref::new("FunctionSegment").to_matchable(),
-                Ref::keyword("PUBLIC").to_matchable(),
-            ])
-            .to_matchable(),
+fn access_target_segment() -> Matchable {
+    one_of(vec![
+        Sequence::new(vec![
+            Ref::keyword("GROUP").to_matchable(),
+            Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()]).to_matchable(),
         ])
         .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("USER").to_matchable(),
+            Delimited::new(vec![Ref::new("UserReferenceSegment").to_matchable()]).to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("ROLE").to_matchable(),
+            Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()]).to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("SHARE").to_matchable(),
+            Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()]).to_matchable(),
+        ])
+        .to_matchable(),
+        Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()]).to_matchable(),
+        Delimited::new(vec![Ref::new("FunctionSegment").to_matchable()]).to_matchable(),
+        Ref::keyword("PUBLIC").to_matchable(),
     ])
     .to_matchable()
 }
 
-fn access_revokee_segment() -> Matchable {
-    Sequence::new(vec![
-        access_principal_kind_prefix(),
-        Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()]).to_matchable(),
-    ])
-    .to_matchable()
-}
-
-fn access_principal_kind_prefix() -> Matchable {
-    one_of(vec![
-        Ref::keyword("GROUP").to_matchable(),
-        Ref::keyword("USER").to_matchable(),
-        Ref::keyword("ROLE").to_matchable(),
-        Ref::keyword("SHARE").to_matchable(),
-    ])
-    .config(|this| this.optional())
-    .to_matchable()
-}
-
-fn schema_object_types() -> Matchable {
+fn access_schema_object_segment() -> Matchable {
     one_of(vec![
         Ref::keyword("TABLE").to_matchable(),
         Ref::keyword("VIEW").to_matchable(),
@@ -5376,6 +5576,63 @@ fn schema_object_types() -> Matchable {
         Ref::keyword("SEQUENCE").to_matchable(),
         Ref::keyword("STREAM").to_matchable(),
         Ref::keyword("TASK").to_matchable(),
+        Ref::keyword("SCHEMA").to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("MASKING").to_matchable(),
+            Ref::keyword("POLICY").to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("MATERIALIZED").to_matchable(),
+            Ref::keyword("VIEW").to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("EXTERNAL").to_matchable(),
+            Ref::keyword("TABLE").to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("FILE").to_matchable(),
+            Ref::keyword("FORMAT").to_matchable(),
+        ])
+        .to_matchable(),
+    ])
+    .to_matchable()
+}
+
+fn access_schema_plural_object_segment() -> Matchable {
+    one_of(vec![
+        Ref::keyword("TABLES").to_matchable(),
+        Ref::keyword("VIEWS").to_matchable(),
+        Ref::keyword("STAGES").to_matchable(),
+        Ref::keyword("FUNCTIONS").to_matchable(),
+        Ref::keyword("PROCEDURES").to_matchable(),
+        Ref::keyword("ROUTINES").to_matchable(),
+        Ref::keyword("SEQUENCES").to_matchable(),
+        Ref::keyword("STREAMS").to_matchable(),
+        Ref::keyword("TASKS").to_matchable(),
+        Ref::keyword("SCHEMAS").to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("MASKING").to_matchable(),
+            Ref::keyword("POLICIES").to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("MATERIALIZED").to_matchable(),
+            Ref::keyword("VIEWS").to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("EXTERNAL").to_matchable(),
+            Ref::keyword("TABLES").to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("FILE").to_matchable(),
+            Ref::keyword("FORMATS").to_matchable(),
+        ])
+        .to_matchable(),
     ])
     .to_matchable()
 }
@@ -5431,7 +5688,16 @@ fn access_permission_segment() -> Matchable {
                         ])
                         .to_matchable(),
                         Ref::keyword("PIPE").to_matchable(),
-                        schema_object_types(),
+                        Ref::new("AccessSchemaObjectSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("USE").to_matchable(),
+                    one_of(vec![
+                        Ref::keyword("SCHEMA").to_matchable(),
+                        Ref::keyword("CATALOG").to_matchable(),
                     ])
                     .to_matchable(),
                 ])
@@ -5495,6 +5761,7 @@ fn access_object_segment() -> Matchable {
                 Ref::keyword("INTEGRATION").to_matchable(),
                 Ref::keyword("LANGUAGE").to_matchable(),
                 Ref::keyword("SCHEMA").to_matchable(),
+                Ref::keyword("CATALOG").to_matchable(),
                 Ref::keyword("ROLE").to_matchable(),
                 Ref::keyword("TABLESPACE").to_matchable(),
                 Ref::keyword("TYPE").to_matchable(),
@@ -5525,27 +5792,17 @@ fn access_object_segment() -> Matchable {
                     Ref::keyword("DATABASE").to_matchable(),
                 ])
                 .to_matchable(),
-                schema_object_types(),
+                Ref::new("AccessSchemaObjectSegment").to_matchable(),
                 Sequence::new(vec![
                     Ref::keyword("ALL").to_matchable(),
-                    one_of(vec![
-                        Ref::keyword("TABLES").to_matchable(),
-                        Ref::keyword("VIEWS").to_matchable(),
-                        Ref::keyword("STAGES").to_matchable(),
-                        Ref::keyword("FUNCTIONS").to_matchable(),
-                        Ref::keyword("PROCEDURES").to_matchable(),
-                        Ref::keyword("ROUTINES").to_matchable(),
-                        Ref::keyword("SEQUENCES").to_matchable(),
-                        Ref::keyword("STREAMS").to_matchable(),
-                        Ref::keyword("TASKS").to_matchable(),
-                    ])
-                    .to_matchable(),
+                    Ref::new("AccessSchemaPluralObjectSegment").to_matchable(),
                     Ref::keyword("IN").to_matchable(),
                     Ref::keyword("SCHEMA").to_matchable(),
                 ])
                 .to_matchable(),
                 Sequence::new(vec![
                     Ref::keyword("FUTURE").to_matchable(),
+                    Ref::new("AccessSchemaPluralObjectSegment").to_matchable(),
                     Ref::keyword("IN").to_matchable(),
                     one_of(vec![
                         Ref::keyword("DATABASE").to_matchable(),
@@ -5586,11 +5843,96 @@ fn access_object_segment() -> Matchable {
     .to_matchable()
 }
 
+fn grant_statement_segment() -> Matchable {
+    Sequence::new(vec![
+        Ref::keyword("GRANT").to_matchable(),
+        one_of(vec![
+            Sequence::new(vec![
+                Ref::new("AccessPermissionsSegment").to_matchable(),
+                Ref::keyword("ON").to_matchable(),
+                Ref::new("AccessObjectSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("ROLE").to_matchable(),
+                Ref::new("RoleReferenceSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("OWNERSHIP").to_matchable(),
+                Ref::keyword("ON").to_matchable(),
+                Ref::keyword("USER").to_matchable(),
+                Ref::new("UserReferenceSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Ref::new("ObjectReferenceSegment").to_matchable(),
+        ])
+        .to_matchable(),
+        Ref::keyword("TO").to_matchable(),
+        Ref::new("AccessTargetSegment").to_matchable(),
+        Ref::new("AccessStatementSegmentGrantRoleWithOptionGrammar")
+            .optional()
+            .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("GRANTED").to_matchable(),
+            Ref::keyword("BY").to_matchable(),
+            one_of(vec![
+                Ref::keyword("CURRENT_USER").to_matchable(),
+                Ref::keyword("SESSION_USER").to_matchable(),
+                Ref::new("UserReferenceSegment").to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+    ])
+    .to_matchable()
+}
+
+fn revoke_statement_segment() -> Matchable {
+    Sequence::new(vec![
+        Ref::keyword("REVOKE").to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("GRANT").to_matchable(),
+            Ref::keyword("OPTION").to_matchable(),
+            Ref::keyword("FOR").to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        one_of(vec![
+            Sequence::new(vec![
+                Ref::new("AccessPermissionsSegment").to_matchable(),
+                Ref::keyword("ON").to_matchable(),
+                Ref::new("AccessObjectSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("ROLE").to_matchable(),
+                Ref::new("RoleReferenceSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("OWNERSHIP").to_matchable(),
+                Ref::keyword("ON").to_matchable(),
+                Ref::keyword("USER").to_matchable(),
+                Ref::new("UserReferenceSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Ref::new("UserReferenceSegment").to_matchable(),
+        ])
+        .to_matchable(),
+        Ref::keyword("FROM").to_matchable(),
+        Ref::new("AccessTargetSegment").to_matchable(),
+        Ref::new("DropBehaviorGrammar").optional().to_matchable(),
+    ])
+    .to_matchable()
+}
+
 pub fn wildcard_expression_segment() -> Matchable {
     Sequence::new(vec![Ref::new("WildcardIdentifierSegment").to_matchable()]).to_matchable()
 }
 
-fn numeric_literal(cursor: &mut Cursor) -> bool {
+pub(super) fn numeric_literal(cursor: &mut Cursor) -> bool {
     let first_char = cursor.shift();
     match first_char {
         '0'..='9' | '.' => {
@@ -5668,16 +6010,22 @@ fn block_comment(cursor: &mut Cursor) -> bool {
 
 pub(crate) fn select_clause_terminators() -> Vec<Matchable> {
     vec![
-        Ref::keyword("FROM").to_matchable(),
+        Ref::keyword("FROM")
+            .exclude(is_distinct_from_lookbehind())
+            .to_matchable(),
         Ref::keyword("WHERE").to_matchable(),
         Sequence::new(vec![
             Ref::keyword("ORDER").to_matchable(),
             Ref::keyword("BY").to_matchable(),
         ])
         .to_matchable(),
-        Ref::keyword("LIMIT").to_matchable(),
+        Ref::new("LimitClauseSegment").to_matchable(),
         Ref::keyword("OVERLAPS").to_matchable(),
         Ref::new("SetOperatorSegment").to_matchable(),
         Ref::keyword("FETCH").to_matchable(),
     ]
+}
+
+pub(crate) fn is_distinct_from_lookbehind() -> PrecededBy {
+    PrecededBy::new(vec![vec!["IS", "DISTINCT"], vec!["IS", "NOT", "DISTINCT"]])
 }

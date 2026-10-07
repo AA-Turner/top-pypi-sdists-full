@@ -16,6 +16,7 @@ from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -36,6 +37,7 @@ from jinja2_simple_tags import StandaloneTag
 from sqruff.templaters.jinja_templater import JinjaTemplater
 from sqruff.templaters.python_templater import (
     TemplatedFile,
+    SQLFluffSkipFile,
     SQLTemplaterError,
     FluffConfig,
     fluff_config_from_json,
@@ -58,6 +60,18 @@ def _dummy_get_mp_context():
 dbt.mp_context.get_mp_context = _dummy_get_mp_context
 
 
+def _get_dbt_config_value(
+    configured: Optional[str], env_var_suffix: str, default: Optional[str] = None
+) -> Optional[str]:
+    """Prefer explicit sqruff config, then dbt's engine and legacy env vars."""
+    return (
+        configured
+        or os.getenv(f"DBT_ENGINE_{env_var_suffix}")
+        or os.getenv(f"DBT_{env_var_suffix}")
+        or default
+    )
+
+
 @dataclass
 class DbtConfigArgs:
     """Arguments to load dbt runtime config."""
@@ -67,7 +81,7 @@ class DbtConfigArgs:
     profile: Optional[str] = None
     target: Optional[str] = None
     target_path: Optional[str] = None
-    threads: int = 1
+    threads: Optional[int] = None
     single_threaded: bool = False
     # dict in 1.5.x onwards, json string before.
     # NOTE: We always set this value when instantiating this
@@ -126,7 +140,7 @@ def handle_dbt_errors(
 
     https://docs.python.org/3/library/exceptions.html#inheriting-from-built-in-exceptions
     https://github.com/sqlfluff/sqlfluff/issues/6037
-    """  # noqa E501
+    """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         def wrapped_method(*args, **kwargs) -> T:
@@ -198,6 +212,7 @@ class DbtTemplater(JinjaTemplater):
         self.project_dir = None
         self.profiles_dir = None
         self.working_dir = os.getcwd()
+        self.dbt_skip_compilation_error = True
         super().__init__(override_context=override_context)
 
     def config_pairs(self):
@@ -275,6 +290,7 @@ class DbtTemplater(JinjaTemplater):
 
         user_config = None
         cli_vars = self._get_cli_vars()
+        threads = self._get_threads()
 
         flags.set_from_args(
             DbtConfigArgs(
@@ -283,7 +299,7 @@ class DbtTemplater(JinjaTemplater):
                 profile=self._get_profile(),
                 target_path=self._get_target_path(),
                 vars=cli_vars,
-                threads=1,
+                threads=threads,
             ),
             user_config,
         )
@@ -295,7 +311,7 @@ class DbtTemplater(JinjaTemplater):
                 target=self._get_target(),
                 target_path=self._get_target_path(),
                 vars=cli_vars,
-                threads=1,
+                threads=threads,
             )
         )
 
@@ -338,15 +354,11 @@ class DbtTemplater(JinjaTemplater):
             )
 
         from dbt.graph.selector_methods import (
-            MethodManager as DbtSelectorMethodManager,
-        )
-        from dbt.graph.selector_methods import (
+            MethodManager,
             MethodName as DbtMethodName,
         )
 
-        selector_methods_manager = DbtSelectorMethodManager(
-            self.dbt_manifest, previous_state=None
-        )
+        selector_methods_manager = MethodManager(self.dbt_manifest, previous_state=None)
         _dbt_selector_method = selector_methods_manager.get_method(
             DbtMethodName.Path, method_arguments=[]
         )
@@ -363,9 +375,7 @@ class DbtTemplater(JinjaTemplater):
 
         The default is `~/.dbt` but we use the
         default_profiles_dir from the dbt library to
-        support a change of default in the future, as well
-        as to support the same overwriting mechanism as
-        dbt (currently an environment variable).
+        support a change of default in the future.
         """
         # Where default_profiles_dir is available, use it. For dbt 1.2 and
         # earlier, it is not, so fall back to the flags option which should
@@ -382,8 +392,9 @@ class DbtTemplater(JinjaTemplater):
 
         dbt_profiles_dir = os.path.abspath(
             os.path.expanduser(
-                self.config.dbt_profiles_dir
-                or (os.getenv("DBT_PROFILES_DIR") or default_dir)
+                _get_dbt_config_value(
+                    self.config.dbt_profiles_dir, "PROFILES_DIR", default_dir
+                )
             )
         )
 
@@ -401,7 +412,11 @@ class DbtTemplater(JinjaTemplater):
         Defaults to the working directory.
         """
         dbt_project_dir = os.path.abspath(
-            os.path.expanduser(self.config.dbt_project_dir or os.getcwd())
+            os.path.expanduser(
+                _get_dbt_config_value(
+                    self.config.dbt_project_dir, "PROJECT_DIR", os.getcwd()
+                )
+            )
         )
         if not os.path.exists(dbt_project_dir):
             templater_logger.error(
@@ -411,17 +426,25 @@ class DbtTemplater(JinjaTemplater):
 
         return dbt_project_dir
 
+    def _get_dbt_skip_compilation_error(self) -> bool:
+        """Return whether fatal dbt compilation errors should skip the file."""
+        return self.config.dbt_skip_compilation_error
+
     def _get_profile(self) -> str:
         """Get a dbt profile name from the configuration."""
-        return self.config.dbt_profile
+        return _get_dbt_config_value(self.config.dbt_profile, "PROFILE")
 
     def _get_target(self):
         """Get a dbt target name from the configuration."""
-        return self.config.dbt_target
+        return _get_dbt_config_value(self.config.dbt_target, "TARGET")
 
     def _get_target_path(self):
         """Get a dbt target path from the configuration."""
-        return self.config.dbt_target_path
+        return _get_dbt_config_value(self.config.dbt_target_path, "TARGET_PATH")
+
+    def _get_threads(self) -> Optional[int]:
+        """Get configured threads, or let dbt use the profiles.yml value."""
+        return self.config.dbt_threads
 
     def _get_cli_vars(self) -> dict:
         cli_vars = self.context
@@ -495,11 +518,14 @@ class DbtTemplater(JinjaTemplater):
 
                 already_yielded.add(full_paths[fpath])
 
-        outs.extend(fnames)
+        for fname in fnames:
+            if fname not in already_yielded:
+                templater_logger.debug("Yielding file: %s", fname)
+                outs.append(fname)
         return outs
 
     @handle_dbt_errors(
-        SQLTemplaterError, "Error received from dbt during project compilation."
+        SQLTemplaterError, "Error received from dbt during project compilation. "
     )
     def process(
         self,
@@ -522,17 +548,19 @@ class DbtTemplater(JinjaTemplater):
         self.config = config
         self.project_dir = self._get_project_dir()
         self.profiles_dir = self._get_profiles_dir()
+        self.dbt_skip_compilation_error = self._get_dbt_skip_compilation_error()
         fname_absolute_path = os.path.abspath(fname) if fname != "stdin" else fname
 
         # NOTE: dbt exceptions are caught and handled safely for pickling by the outer
         # `handle_dbt_errors` decorator.
-        try:
-            os.chdir(self.project_dir)
-            return self._unsafe_process(fname_absolute_path, in_str, config)
-        finally:
-            os.chdir(self.working_dir)
+        return self._unsafe_process(
+            fname_absolute_path,
+            in_str,
+            config,
+            self.project_dir,
+        )
 
-    def _find_node(self, fname, config=None):
+    def _find_node(self, fname, config=None, dbt_dir=os.getcwd()):
         if not config:  # pragma: no cover
             raise ValueError(
                 "For the dbt templater, the `process()` method "
@@ -546,7 +574,8 @@ class DbtTemplater(JinjaTemplater):
             raise Exception(
                 "The dbt templater does not support stdin input, provide a path instead"
             )
-        relative_fname = os.path.relpath(fname, start=os.getcwd())
+        relative_fname = os.path.relpath(fname, start=dbt_dir)
+        absolute_fname = (Path(dbt_dir) / relative_fname).resolve()
         selected = self.dbt_selector_method.search(
             included_nodes=self.dbt_manifest.nodes,
             # Selector needs to be a relative path
@@ -555,7 +584,15 @@ class DbtTemplater(JinjaTemplater):
         results = [self.dbt_manifest.expect(uid) for uid in selected]
 
         if not results:
-            skip_reason = self._find_skip_reason(fname)
+            for node in self.dbt_manifest.nodes.values():
+                if (
+                    Path(dbt_dir) / node.original_file_path
+                ).resolve() == absolute_fname:
+                    results = [node]
+                    break
+
+        if not results:
+            skip_reason = self._find_skip_reason(absolute_fname)
             if skip_reason:
                 return None, skip_reason
             raise Exception(
@@ -566,20 +603,21 @@ class DbtTemplater(JinjaTemplater):
     def _find_skip_reason(self, fname) -> Optional[str]:
         """Return string reason if model okay to skip, otherwise None."""
         # Scan macros.
-        abspath = os.path.abspath(fname)
         for macro in self.dbt_manifest.macros.values():
-            if os.path.abspath(macro.original_file_path) == abspath:
+            if (Path(self.project_dir) / macro.original_file_path).resolve() == fname:
                 return "dbt macro"
 
         # Scan disabled nodes.
         for nodes in self.dbt_manifest.disabled.values():
             for node in nodes:
-                if os.path.abspath(node.original_file_path) == abspath:
+                if (
+                    Path(self.project_dir) / node.original_file_path
+                ).resolve() == fname:
                     return "dbt model disabled"
         return None
 
-    def _unsafe_process(self, fname, in_str=None, config=None):
-        original_file_path = os.path.relpath(fname, start=os.getcwd())
+    def _unsafe_process(self, fname, in_str=None, config=None, dbt_dir=os.getcwd()):
+        original_file_path = os.path.relpath(fname, start=dbt_dir)
 
         # Below, we monkeypatch Environment.from_string() to intercept when dbt
         # compiles (i.e. runs Jinja) to expand the "node" corresponding to fname.
@@ -595,12 +633,8 @@ class DbtTemplater(JinjaTemplater):
         # overwritten.
         render_func: Optional[Callable[[str], str]] = None
 
-        if self.dbt_version_tuple >= (1, 3):
-            compiled_sql_attribute = "compiled_code"
-            raw_sql_attribute = "raw_code"
-        else:  # pragma: no cover
-            compiled_sql_attribute = "compiled_sql"
-            raw_sql_attribute = "raw_sql"
+        compiled_sql_attribute = "compiled_code"
+        raw_sql_attribute = "raw_code"
 
         def from_string(*args, **kwargs):
             """Replaces (via monkeypatch) the jinja2.Environment function."""
@@ -636,17 +670,25 @@ class DbtTemplater(JinjaTemplater):
         # https://github.com/dbt-labs/dbt-core/pull/7949
         # On the 1.5.x branch this was between 1.5.1 and 1.5.2
         try:
-            from dbt.task.contextvars import cv_project_root
+            from dbt_common.events.contextvars import set_task_contextvars
 
-            cv_project_root.set(self.project_dir)  # pragma: no cover
-        except ImportError:
-            cv_project_root = None
+            set_task_contextvars(project_root=self.project_dir)
+        except ImportError:  # pragma: no cover
+            try:
+                from dbt.events.contextvars import set_task_contextvars
+
+                set_task_contextvars(project_root=self.project_dir)
+            except ImportError:
+                from dbt.task.contextvars import cv_project_root
+
+                cv_project_root.set(self.project_dir)
 
         # NOTE: _find_node will raise a compilation exception if the project
         # fails to compile, and we catch that in the outer `.process()` method.
-        node, skip_reason = self._find_node(fname, config)
+        node, skip_reason = self._find_node(fname, config, dbt_dir)
         if node is None:
             return None, skip_reason
+        original_file_path = node.original_file_path
 
         templater_logger.debug(
             "_find_node for path %r returned object of type %s.", fname, type(node)
@@ -671,6 +713,7 @@ class DbtTemplater(JinjaTemplater):
                 node = self.dbt_compiler.compile_node(
                     node=node,
                     manifest=self.dbt_manifest,
+                    write=False,
                 )
             except UndefinedMacroError as err:
                 # The explanation on the undefined macro error is already fairly
@@ -682,7 +725,9 @@ class DbtTemplater(JinjaTemplater):
                 # to happen if we tried to compile ephemeral models in the
                 # wrong order), but more often because a macro tries to query
                 # a table at compile time which doesn't exist.
-                raise Exception(
+                if self.dbt_skip_compilation_error is False:
+                    raise SQLTemplaterError(str(err))
+                raise SQLFluffSkipFile(
                     f"Skipped file {fname} because dbt raised a fatal "
                     f"exception during compilation: {err!s}"
                 )
@@ -867,7 +912,9 @@ def _get_or_create_templater(
     the dbt manifest and configuration for each file in the same project.
     """
     project_dir = os.path.abspath(
-        os.path.expanduser(config.dbt_project_dir or os.getcwd())
+        os.path.expanduser(
+            _get_dbt_config_value(config.dbt_project_dir, "PROJECT_DIR", os.getcwd())
+        )
     )
 
     if project_dir not in _templater_cache:

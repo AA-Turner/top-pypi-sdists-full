@@ -9,6 +9,7 @@ import contextlib
 import copy
 import importlib
 import logging
+import warnings
 import pathlib
 
 try:
@@ -67,6 +68,22 @@ class SchemaFrozenError(RuntimeError):
     Raised when an attempt is made to modify a frozen (immutable) schema.
 
     See :meth:`BaseSchema._freeze` and :class:`CachedSchema`.
+    """
+
+
+class SchemaVersionWarning(UserWarning):
+    """
+    Warned when a manifest is read that was written by a newer schema than this
+    library implements.
+
+    Reading is only backwards compatible: this schema knows how to migrate an
+    older manifest, but nothing about what a newer one holds. A key it does not
+    have is dropped and a value whose type or legal values changed since is
+    rejected or silently replaced by its default, so the read either fails or
+    quietly returns something other than what was written. Neither is worth
+    ending a run over -- a caller that cannot use the result should fall back to
+    redoing the work, which is what the scheduler does, rerunning the node whose
+    manifest it could not read -- but it is always worth saying.
     """
 
 
@@ -236,9 +253,17 @@ class BaseSchema:
         """
         if isinstance(cls, CachedSchemaMeta):
             # Loading from disk repopulates the object in place, so it must not
-            # return the shared, frozen singleton. Copy it to get a fresh,
-            # mutable instance (copy() unfreezes).
-            return cls().copy()
+            # return the shared, frozen singleton. Construct a private instance
+            # directly, bypassing the cache, rather than copying the singleton:
+            # every value is about to be replaced from the manifest, and a deep
+            # copy of a large library costs far more than building it again.
+            obj = type.__call__(cls)
+            if any(node._is_frozen for node in obj.__iter_subtree()):
+                # The constructor embedded another shared, frozen object.
+                # Copying is the only way to get a mutable version of it
+                # without unfreezing the original in place.
+                return obj.copy()
+            return obj
         return cls()
 
     @staticmethod
@@ -338,6 +363,36 @@ class BaseSchema:
             return tuple([int(v) for v in param.get().split('.')])
         return None
 
+    @staticmethod
+    def _resolve_version(manifest: Dict) -> Tuple[int, ...]:
+        """
+        Returns the schema version a manifest was written with, warning when it
+        is newer than this schema's.
+
+        Shared with :class:`SafeSchema`, which decodes manifests without any of
+        the classes that wrote them and so overrides :meth:`_from_dict` rather
+        than reaching this through it.
+
+        Args:
+            manifest (dict): Manifest to read the version from.
+        """
+        version = BaseSchema.__extractversion(manifest)
+
+        if version is None:
+            # Not every manifest records one -- a design or library written on
+            # its own does not -- so read it as this schema's own.
+            return BaseSchema.__version
+
+        if version > BaseSchema.__version:
+            warnings.warn(
+                f"manifest schema version ({'.'.join([str(v) for v in version])}) is "
+                "newer than the supported schema version "
+                f"({'.'.join([str(v) for v in BaseSchema.__version])}), "
+                "values may be incomplete or incorrect",
+                SchemaVersionWarning, stacklevel=2)
+
+        return version
+
     def __ensure_lazy_elab(self):
         if not self.__lazy:
             return
@@ -362,10 +417,7 @@ class BaseSchema:
         '''
         # find schema version
         if not version:
-            version = BaseSchema.__extractversion(manifest)
-
-            if version is None:
-                version = BaseSchema.__version
+            version = BaseSchema._resolve_version(manifest)
 
         handled = set()
         missing = set()
@@ -1120,7 +1172,8 @@ class BaseSchema:
                     step: Optional[str] = None, index: Optional[Union[int, str]] = None,
                     dataroots: Optional[Dict[str, Union[str, Callable]]] = None,
                     collection_dir: Optional[str] = None,
-                    cwd: Optional[str] = None) \
+                    cwd: Optional[str] = None,
+                    select: Optional[Callable[[NodeValue], bool]] = None) \
             -> Union[Optional[str], List[Optional[str]], Set[Optional[str]]]:
         """
         Returns absolute paths to files or directories based on the keypath
@@ -1138,10 +1191,13 @@ class BaseSchema:
             index (str): Index name to access for parameters that may be specified
                 on a per-node basis.
             dataroots (dict of resolvers): dirctionary of path resolvers for dataroot
-                paths, these can either be a path or a callable function
+                paths, these can either be a path, a callable function or a resolver
             collection_dir (path): optional path to a collections directory
             cwd (path): optional path to current working directory, this will default
                 to os.getcwd() if not provided.
+            select (callable): optional filter, called with each
+                :class:`PathNodeValue` of the parameter. A value it rejects is left
+                out of the result, and its dataroot is not resolved.
 
         Returns:
             If keys points to a scalar entry, returns an absolute path to that
@@ -1159,14 +1215,16 @@ class BaseSchema:
             step=step, index=index,
             dataroots=dataroots,
             collection_dir=collection_dir,
-            cwd=cwd, hash=False)
+            cwd=cwd, hash=False,
+            select=select)
 
     def __find_files_or_hash(self, *keypath: str, missing_ok: bool = False,
                              step: Optional[str] = None, index: Optional[Union[int, str]] = None,
                              dataroots: Optional[Dict[str, Union[str, Callable]]] = None,
                              collection_dir: Optional[str] = None,
                              cwd: Optional[str] = None,
-                             hash: bool = False) \
+                             hash: bool = False,
+                             select: Optional[Callable[[NodeValue], bool]] = None) \
             -> Union[Optional[str], List[Optional[str]], Set[Optional[str]]]:
         """
         Returns absolute paths to files or directories based on the keypath
@@ -1184,11 +1242,14 @@ class BaseSchema:
             index (str): Index name to access for parameters that may be specified
                 on a per-node basis.
             dataroots (dict of resolvers): dirctionary of path resolvers for dataroot
-                paths, these can either be a path or a callable function
+                paths, these can either be a path, a callable function or a resolver
             collection_dir (path): optional path to a collections directory
             cwd (path): optional path to current working directory, this will default
                 to os.getcwd() if not provided.
             hash (bool): hash the files insteasd of getting the paths
+            select (callable): optional filter, called with each
+                :class:`PathNodeValue` of the parameter. A value it rejects is left
+                out of the result, and its dataroot is not resolved.
 
         Returns:
             If keys points to a scalar entry, returns an absolute path to that
@@ -1223,6 +1284,9 @@ class BaseSchema:
             else:
                 paths = []
 
+        if select is not None:
+            paths = [path for path in paths if select(path)]
+
         # Ignore collection directory if it does not exist
         if collection_dir and not os.path.exists(collection_dir):
             collection_dir = None
@@ -1231,7 +1295,7 @@ class BaseSchema:
             cwd = os.getcwd()
 
         if dataroots is None:
-            dataroots = base_schema._find_files_dataroot_resolvers()
+            dataroots = base_schema._find_files_dataroot_resolvers(resolvers=True)
 
         resolved_paths = []
         root_search_paths = base_schema._find_files_search_paths(keypath[-1],
@@ -1241,6 +1305,7 @@ class BaseSchema:
             search_paths = root_search_paths.copy()
 
             dataroot: Optional[str] = path.get(field="dataroot")
+            dataroot_id: Optional[str] = None
             dataroot_except: Optional[Exception] = None
             if dataroot:
                 if dataroot not in dataroots:
@@ -1249,6 +1314,15 @@ class BaseSchema:
                 dataroot_path = dataroots[dataroot]
                 if isinstance(dataroot_path, str):
                     search_paths.append(os.path.abspath(dataroot_path))
+                elif callable(getattr(dataroot_path, "get_path", None)):
+                    # A resolver, whose ID is known without fetching, so a dataroot
+                    # missing here is still found in the collection
+                    try:
+                        if collection_dir:
+                            dataroot_id = dataroot_path.collection_id
+                        search_paths.append(dataroot_path.get_path())
+                    except Exception as e:
+                        dataroot_except = e
                 elif callable(dataroot_path):
                     try:
                         search_paths.append(dataroot_path())
@@ -1265,10 +1339,12 @@ class BaseSchema:
                 if hash:
                     resolved = path.hash(hashalgo,
                                          search=search_paths,
-                                         collection_dir=collection_dir)
+                                         collection_dir=collection_dir,
+                                         dataroot_id=dataroot_id)
                 else:
                     resolved = path.resolve_path(search=search_paths,
-                                                 collection_dir=collection_dir)
+                                                 collection_dir=collection_dir,
+                                                 dataroot_id=dataroot_id)
             except FileNotFoundError:
                 resolved = None
                 if not missing_ok:
@@ -1305,7 +1381,7 @@ class BaseSchema:
             ignore_keys (list of keypaths): list of keypaths to ignore while checking
             logger (:class:`logging.Logger`): optional logger to use to report errors
             dataroots (dict of resolvers): dirctionary of path resolvers for dataroot
-                paths, these can either be a path or a callable function
+                paths, these can either be a path, a callable function or a resolver
             collection_dir (path): optional path to a collections directory
             cwd (path): optional path to current working directory, this will default
                 to os.getcwd() if not provided.
@@ -1395,7 +1471,7 @@ class BaseSchema:
             index (str): Index name to access for parameters that may be specified
                 on a per-node basis.
             dataroots (dict of resolvers): dirctionary of path resolvers for dataroot
-                paths, these can either be a path or a callable function
+                paths, these can either be a path, a callable function or a resolver
             collection_dir (path): optional path to a collections directory
             cwd (path): optional path to current working directory, this will default
                 to os.getcwd() if not provided.

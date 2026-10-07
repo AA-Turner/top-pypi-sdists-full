@@ -1,14 +1,14 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use nom::{branch::alt, error::ErrorKind, Check, Mode, OutputM, OutputMode, PResult, Parser};
+use nom::{Check, Mode, OutputM, OutputMode, PResult, Parser, branch::alt, error::ErrorKind};
 use tracing::Level;
 
 use crate::{
+	Input,
 	error::ParseError,
 	grammar::{Grammar, GrammarSet},
 	span::{TraceOk, TraceParse},
 	util::{iter_alt, maybe},
-	Input,
 };
 
 /// Runs every override that applies here -- see [`crate::Context::overrides`].

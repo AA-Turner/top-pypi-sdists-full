@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import datetime
+from functools import partial
 from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass
 import json as _json
 import logging
 import math
 import os
+import re
 import threading
 import tempfile
 import time
@@ -25,6 +27,7 @@ import grpc
 import numpy as np
 
 from river_client import __version__
+from river_client.losses import CustomLoss, Loss
 from river_client._nested_codec import from_bytes as _nested_from_bytes
 from river_client._nested_codec import to_bytes as _nested_to_bytes
 from river_client._proto import pb2, pb2_grpc
@@ -141,6 +144,25 @@ _FORWARD_BACKWARD_MAX_METRIC_KEYS = frozenset({"moe/expert_capping_ratio_max"})
 
 class _ForwardBackwardNeedsSubBatches(RiverError):
     """Preflight rejection: no RPC or sequence ID has been submitted."""
+
+
+def _routing_capture_unavailable(error: RiverConnectionError) -> bool:
+    # These are the server's two pre-admission ENOENT responses, not a general
+    # FAILED_PRECONDITION retry. Shape/model errors and execution failures must
+    # remain errors. Match the wire protocol until it has a structured reason.
+    if error.status_code != "FAILED_PRECONDITION":
+        return False
+    details = error.details or ""
+    return (
+        details == "routing capture expired before admission"
+        or re.fullmatch(
+            r"data\[\d+\]: routing handle failed the compatibility check "
+            r'\(routing reference "[0-9a-fA-F-]{36}" expired or was never persisted '
+            r"— re-sample the affected prompts\)",
+            details,
+        )
+        is not None
+    )
 
 
 @dataclass(frozen=True)
@@ -1257,12 +1279,78 @@ class Model:
         self._seq_id += 1
         return self._seq_id
 
+    def prepare_loss(self, loss: CustomLoss) -> CustomLoss:
+        """Validate a loss and this session before rollouts.
+
+        The returned loss freezes closure constants and the CPU-captured formula.
+        Device-dependent Python branches are unsupported; no CUDA client is needed.
+        Prepare again to change constants or check another endpoint or model.
+        Actual batches and assigned workers are checked again at dispatch.
+        """
+        from ._loss_capture import capture_loss_graph
+
+        if not isinstance(loss, CustomLoss):
+            raise ValueError("prepare_loss requires CustomLoss with declared inputs")
+        graph = capture_loss_graph(loss.objective, loss.inputs)
+        return self._prepare_loss_graph(loss, graph)
+
+    def _prepare_loss_graph(self, loss: CustomLoss, graph: bytes) -> CustomLoss:
+        from dataclasses import replace
+
+        self._session._client._rpc_with_retry(
+            lambda: self._session._live_stub.PrepareLoss(
+                pb2.PrepareLossRequest(
+                    model_name=self.base_model, graph=graph, model_id=self.model_id
+                ),
+                metadata=self._session._live_metadata,
+            ),
+            context="Validating custom loss",
+            heartbeat_check=self._session._check_heartbeat_health,
+        )
+        prepared = replace(loss)
+        object.__setattr__(prepared, "_graph", graph)
+        object.__setattr__(prepared, "_prepared_for", self)
+        return prepared
+
+    def _encode_loss_request(self, data, loss_fn, loss_config):
+        custom = loss_fn if isinstance(loss_fn, CustomLoss) else None
+        if isinstance(loss_fn, Loss):
+            loss_fn, configured = loss_fn._resolve()
+            duplicates = configured.keys() & loss_config.keys()
+            if duplicates:
+                raise ValueError(
+                    f"loss options supplied twice: {', '.join(sorted(duplicates))}"
+                )
+            loss_config = {**configured, **loss_config}
+        if isinstance(loss_fn, str):
+            return data, loss_fn, loss_config
+        if custom is None:
+            raise TypeError(
+                "custom loss requires CustomLoss(fn, inputs=...) and model.prepare_loss()"
+            )
+        if custom._graph is None or custom._prepared_for is not self:
+            raise ValueError(
+                "call loss = model.prepare_loss(loss) on this model before submitting"
+            )
+        if loss_config:
+            raise ValueError(
+                "custom loss constants belong in the callable, not loss_fn_config"
+            )
+        from ._loss_capture import LOSS_NAME, encode_custom_loss_batch
+
+        prepared = encode_custom_loss_batch(
+            data,
+            inputs=custom.inputs,
+            graph=custom._graph,
+        )
+        return prepared, LOSS_NAME, loss_config
+
     # --- Training operations ---
 
     def forward(
         self,
         data: list[dict],
-        loss_fn: str = "cross_entropy",
+        loss_fn: str | Loss = "cross_entropy",
         timeout: float = _DEFAULT_TIMEOUT_SECS,
         expected_policy_id: str | None = None,
         **loss_config: float,
@@ -1271,13 +1359,18 @@ class Model:
 
         Args:
             data: List of training samples, each with "input_ids" and "labels"
-            loss_fn: Loss function name
+            loss_fn: Built-in name, BuiltinLoss, or a CustomLoss returned by prepare_loss
             timeout: Timeout in seconds
             **loss_config: Loss function configuration
 
         Returns:
-            ForwardResult with metrics
+            ForwardResult with metrics. A CustomLoss preserves its scalar
+            reduction, reports declared metrics under custom/, and returns
+            no per-token logprobs.
         """
+        data, loss_fn, loss_config = self._encode_loss_request(
+            data, loss_fn, loss_config
+        )
         return self._session._forward(
             model_id=self._model_id,
             seq_id=self._next_seq_id(),
@@ -1295,20 +1388,21 @@ class Model:
     def forward_backward(
         self,
         data: list[dict],
-        loss_fn: str = "cross_entropy",
+        loss_fn: str | Loss = "cross_entropy",
         timeout: float = _DEFAULT_TIMEOUT_SECS,
         return_logprobs: bool = False,
         zero_out: bool = True,
         compute_expert_flip_metric: bool = False,
         force_routing_replay: bool = False,
         expected_policy_id: str | None = None,
+        allow_routing_fallback: bool = False,
         **loss_config: float,
     ) -> ForwardResult:
         """Forward + backward pass (compute gradients).
 
         Args:
             data: List of training samples, each with "input_ids" and "labels"
-            loss_fn: Loss function name
+            loss_fn: Built-in name, BuiltinLoss, or a CustomLoss returned by prepare_loss
             timeout: Timeout in seconds
             return_logprobs: Deprecated no-op. Training losses return per-token
                 logprobs when the worker includes them in the result; this
@@ -1331,10 +1425,16 @@ class Model:
                 with the trainer's live gate. Every datum in ``data`` must
                 include the keys returned by
                 ``Sample.routing_datum_keys(required=True)``.
+            allow_routing_fallback: If capture expiry is rejected before admission,
+                retry the affected request without replay or the flip metric.
+                Intended for restored RL data. Other errors still propagate.
             **loss_config: Loss function configuration
 
         Returns:
             ForwardResult with metrics and logprobs when returned by the worker.
+            A CustomLoss preserves its scalar reduction without the built-in
+            response's per-item averaging. Its declared metrics use custom/;
+            built-in loss diagnostics and per-token logprobs are not returned.
 
         Requests larger than the 1 GiB upload limit are split at datum
         boundaries into sequential gradient-accumulation sub-batches. The
@@ -1346,6 +1446,9 @@ class Model:
         combine exactly across sub-batches; per-sub-batch-only metrics are
         omitted.
         """
+        data, loss_fn, loss_config = self._encode_loss_request(
+            data, loss_fn, loss_config
+        )
         _require_ids_only_routing_replay(force_routing_replay)
         _warn_return_logprobs_ignored(return_logprobs)
         request, plan = self._new_forward_backward_request(
@@ -1365,6 +1468,7 @@ class Model:
                 chunk,
                 request_size=chunk.ByteSize(),
                 timeout=timeout,
+                allow_routing_fallback=allow_routing_fallback,
             ).result()
             # PendingOp.result() is typed as the union of op results; this
             # PendingOp was built with the forward-backward parser.
@@ -1372,7 +1476,11 @@ class Model:
 
         self._validate_forward_backward_sub_batch_plan(request, plan)
         return self._run_forward_backward_sub_batches(
-            request, data=data, plan=plan, timeout=timeout
+            request,
+            data=data,
+            plan=plan,
+            timeout=timeout,
+            allow_routing_fallback=allow_routing_fallback,
         )
 
     def optim_step(
@@ -1434,7 +1542,7 @@ class Model:
         data: list[dict],
         lr: float,
         *,
-        loss_fn: str = "cross_entropy",
+        loss_fn: str | Loss = "cross_entropy",
         beta1: float = 0.9,
         beta2: float = 0.999,
         eps: float = 1e-8,
@@ -1480,6 +1588,9 @@ class Model:
         Returns:
             Tuple of (ForwardResult, OptimStepResult).
         """
+        data, loss_fn, loss_config = self._encode_loss_request(
+            data, loss_fn, loss_config
+        )
         self._reject_train_step_forward_backward_kwargs(loss_config)
         _require_ids_only_routing_replay(force_routing_replay)
         request, plan = self._new_forward_backward_request(
@@ -1531,13 +1642,14 @@ class Model:
     def submit_forward_backward(
         self,
         data: list[dict],
-        loss_fn: str = "cross_entropy",
+        loss_fn: str | Loss = "cross_entropy",
         timeout: float = _DEFAULT_TIMEOUT_SECS,
         return_logprobs: bool = False,
         zero_out: bool = True,
         compute_expert_flip_metric: bool = False,
         force_routing_replay: bool = False,
         expected_policy_id: str | None = None,
+        allow_routing_fallback: bool = False,
         **loss_config: float,
     ) -> PendingOp:
         """Submit forward+backward without blocking. Returns a PendingOp.
@@ -1556,6 +1668,9 @@ class Model:
         :meth:`forward_backward` method so the client can keep later
         sub-batches and any optimizer step behind successful earlier ones.
         """
+        data, loss_fn, loss_config = self._encode_loss_request(
+            data, loss_fn, loss_config
+        )
         _require_ids_only_routing_replay(force_routing_replay)
         _warn_return_logprobs_ignored(return_logprobs)
         request, plan = self._new_forward_backward_request(
@@ -1580,6 +1695,7 @@ class Model:
             chunk,
             request_size=chunk.ByteSize(),
             timeout=timeout,
+            allow_routing_fallback=allow_routing_fallback,
         )
 
     def _new_forward_backward_request(
@@ -1608,7 +1724,16 @@ class Model:
         )
         if expected_policy_id is not None:
             request.expected_policy_id = expected_policy_id
-        return request, self._session._plan_forward_backward_request(request, data)
+        plan = self._session._plan_forward_backward_request(request, data)
+        if (
+            loss_fn == "loss_graph_v1"
+            and plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES
+        ):
+            raise RiverError(
+                "custom loss exceeds the 1 GiB upload limit; automatic request splitting "
+                "would change global reductions. Batch explicitly with a shared normalization."
+            )
+        return request, plan
 
     def _submit_forward_backward_request(
         self,
@@ -1616,10 +1741,45 @@ class Model:
         *,
         request_size: int,
         timeout: float,
+        allow_routing_fallback: bool = False,
     ) -> PendingOp:
-        request_id = self._session._submit_forward_backward_request(
-            request, request_size=request_size, timeout=timeout
-        )
+        try:
+            request_id = self._session._submit_forward_backward_request(
+                request, request_size=request_size, timeout=timeout
+            )
+        except RiverConnectionError as error:
+            if not (
+                allow_routing_fallback
+                and request.forward_backward_input.force_routing_replay
+                and _routing_capture_unavailable(error)
+            ):
+                raise
+            # No request was admitted, so reuse its sequence ID and gradient
+            # reset flag. Never retry after PendingOp.result(): GPU work may
+            # already have run. This also keeps earlier upload chunks intact.
+            fallback = pb2.ForwardBackwardRequest()
+            fallback.CopyFrom(request)
+            fb = fallback.forward_backward_input
+            fb.force_routing_replay = ""
+            fb.compute_expert_flip_metric = False
+            for datum in fb.data:
+                values = _nested_from_bytes(datum.data)
+                datum.data = _nested_to_bytes(
+                    {
+                        k: v
+                        for k, v in values.items()
+                        if not k.startswith("expert_routing_")
+                    }
+                )
+            warnings.warn(
+                "Saved routing captures are unavailable; retrying this backward "
+                "request with trainer-computed routing and no expert-flip metric.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            request_id = self._session._submit_forward_backward_request(
+                fallback, request_size=fallback.ByteSize(), timeout=timeout
+            )
         return PendingOp(
             request_id=request_id,
             _session=self._session,
@@ -1654,6 +1814,7 @@ class Model:
         data: list[dict],
         plan: _ForwardBackwardRequestPlan,
         timeout: float,
+        allow_routing_fallback: bool = False,
     ) -> ForwardResult:
         results: list[ForwardResult] = []
         chunk_sizes: list[int] = []
@@ -1665,7 +1826,10 @@ class Model:
                 chunk.seq_id = self._next_seq_id()
                 chunk.forward_backward_input.init_gradients = False
             result = self._submit_forward_backward_request(
-                chunk, request_size=chunk.ByteSize(), timeout=timeout
+                chunk,
+                request_size=chunk.ByteSize(),
+                timeout=timeout,
+                allow_routing_fallback=allow_routing_fallback,
             ).result()
             results.append(cast("ForwardResult", result))
             chunk_sizes.append(chunk_size)
@@ -1727,7 +1891,7 @@ class Model:
         data: list[dict],
         lr: float,
         *,
-        loss_fn: str = "cross_entropy",
+        loss_fn: str | Loss = "cross_entropy",
         beta1: float = 0.9,
         beta2: float = 0.999,
         eps: float = 1e-8,
@@ -1753,6 +1917,9 @@ class Model:
         :meth:`train_step`, which waits for all accumulated sub-batches before
         submitting the optimizer step.
         """
+        data, loss_fn, loss_config = self._encode_loss_request(
+            data, loss_fn, loss_config
+        )
         self._reject_train_step_forward_backward_kwargs(loss_config)
         _require_ids_only_routing_replay(force_routing_replay)
         request, plan = self._new_forward_backward_request(
@@ -4353,6 +4520,16 @@ class Client:
         """Drain started image uploads and close connections off the event loop."""
         await asyncio.to_thread(self.close)
 
+    def _new_async_channel(self):
+        # The sampling collector owns this channel on its event loop and closes
+        # it before that loop exits; Client can be reused across asyncio.run calls.
+        target = f"{self._endpoint}:{self._port}"
+        if self._use_ssl:
+            return grpc.aio.secure_channel(
+                target, grpc.ssl_channel_credentials(), options=self._channel_options
+            )
+        return grpc.aio.insecure_channel(target, options=self._channel_options)
+
     def _get_channel(self) -> grpc.Channel:
         """Get or create gRPC channel."""
         if self._channel is None:
@@ -5363,7 +5540,36 @@ class Client:
         self._reset_heartbeat_channel()
 
 
-def _submit_independent_samples(
+def _submit_independent_samples(session, *args, **kwargs):
+    source, options, finish = _prepare_independent_samples(session, *args, **kwargs)
+    return finish(submit_batch(session, source, **options))
+
+
+async def _submit_sampling_batch_async(submit, collector, **kwargs):
+    call = partial(submit, **kwargs)
+    # Dispatch the actual callable, not an attribute forwarded by a proxy or
+    # inherited by a subclass: overrides may enforce budgets or other policy.
+    method = call.func
+    native = getattr(method, "__func__", None) in (
+        Model.submit_sampling_batch,
+        Session.submit_sampling_batch,
+    )
+    loop = asyncio.get_running_loop()
+    if not native or call.args:
+        return await loop.run_in_executor(collector.executor, call)
+    owner = method.__self__
+    session = owner._session if isinstance(owner, Model) else owner
+    prepare = partial(
+        _prepare_independent_samples,
+        session,
+        **({"model": owner} if isinstance(owner, Model) else {}),
+        **call.keywords,
+    )
+    source, options, finish = await loop.run_in_executor(collector.executor, prepare)
+    return finish(await collector.submit(session, source, **options))
+
+
+def _prepare_independent_samples(
     session,
     prompts=None,
     *,
@@ -5447,9 +5653,7 @@ def _submit_independent_samples(
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise RiverTimeoutError("Sampling timed out before submission")
-    request_ids = submit_batch(
-        session,
-        source,
+    options = dict(
         timeout=remaining,
         idempotency_key=idempotency_key,
         pinned_policy_id=pinned_policy_id,
@@ -5457,37 +5661,41 @@ def _submit_independent_samples(
         retained_kv_groups=retained_kv_groups,
         kv_cache_policy=kv_cache_policy,
     )
-    # Keep the legacy local step estimate; Sample.policy_version carries the
-    # authoritative execution identity returned by the server.
-    model_step = (
-        model._step
-        if model is not None
-        else checkpoint.step
-        if isinstance(checkpoint, Checkpoint)
-        else 0
-    )
 
-    def parse_result(index, response):
-        return _group_sample_dicts(
-            session._inference_to_dicts(response),
-            num_prompts=1,
-            num_samples=1,
-            tokenizer=tokenizer,
-            max_tokens=max_tokens,
-            model_step=model_step,
-            request_id=request_ids[index],
-            return_prompt_logprobs=return_prompt_logprobs,
-            return_prompt_token_ids=return_prompt_token_ids
-            or return_prompt_logprobs
-            or return_expert_routing,
-        )[0][0]
+    def finish(request_ids):
+        # Keep the legacy local step estimate; Sample.policy_version carries the
+        # authoritative execution identity returned by the server.
+        model_step = (
+            model._step
+            if model is not None
+            else checkpoint.step
+            if isinstance(checkpoint, Checkpoint)
+            else 0
+        )
 
-    return PendingSamplingBatch(
-        request_ids=request_ids,
-        _session=session,
-        _deadline=deadline,
-        _parse_result=parse_result,
-        _num_samples=num_samples,
-        _model_id=model._model_id if model is not None else None,
-        _poll_interval=poll_interval,
-    )
+        def parse_result(index, response):
+            return _group_sample_dicts(
+                session._inference_to_dicts(response),
+                num_prompts=1,
+                num_samples=1,
+                tokenizer=tokenizer,
+                max_tokens=max_tokens,
+                model_step=model_step,
+                request_id=request_ids[index],
+                return_prompt_logprobs=return_prompt_logprobs,
+                return_prompt_token_ids=return_prompt_token_ids
+                or return_prompt_logprobs
+                or return_expert_routing,
+            )[0][0]
+
+        return PendingSamplingBatch(
+            request_ids=request_ids,
+            _session=session,
+            _deadline=deadline,
+            _parse_result=parse_result,
+            _num_samples=num_samples,
+            _model_id=model._model_id if model is not None else None,
+            _poll_interval=poll_interval,
+        )
+
+    return source, options, finish

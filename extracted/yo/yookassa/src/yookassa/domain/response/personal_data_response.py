@@ -1,6 +1,6 @@
 # coding: utf-8
 from yookassa.domain.common.response_object import ResponseObject
-from yookassa.domain.models import CancellationDetails
+from yookassa.domain.models import CancellationDetails, PersonalDataStatus
 
 
 class PersonalDataResponse(ResponseObject):
@@ -87,6 +87,9 @@ class PersonalDataResponse(ResponseObject):
         :param value: status модели PersonalDataResponse.
         :type value: str
         """
+        value = str(value)
+        if value not in {getattr(PersonalDataStatus, _n) for _n in dir(PersonalDataStatus) if not _n.startswith('_')}:
+            value = PersonalDataStatus.UNKNOWN
         self.__status = value
 
     @property

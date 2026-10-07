@@ -14,6 +14,7 @@ from data_diff.abcs.database_types import (
     ColType_UUID,
     Boolean,
     Date,
+    Time,
 )
 from data_diff.databases.base import (
     ThreadedDatabase,
@@ -48,6 +49,7 @@ class Dialect(BaseDialect):
         "datetime": Datetime,
         "timestamp": Timestamp,
         "date": Date,
+        "time": Time,
         # Numbers
         "double": Float,
         "float": Float,
@@ -106,6 +108,13 @@ class Dialect(BaseDialect):
         return f"md5({s})"
 
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
+        if isinstance(coltype, Date):
+            return f"DATE_FORMAT({value}, '%Y-%m-%d')"  # As the other dialects render dates, not as a timestamp
+
+        if isinstance(coltype, Time):
+            # hh:mm:ss.ffffff, rounded to the column's precision like the other dialects' times
+            return f"TIME_FORMAT(CAST({value} AS TIME({min(coltype.precision, 6)})), '%H:%i:%s.%f')"
+
         if coltype.rounds:
             return self.to_string(f"cast( cast({value} as datetime({coltype.precision})) as datetime(6))")
 

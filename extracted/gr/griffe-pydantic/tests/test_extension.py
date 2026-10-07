@@ -1,3 +1,21 @@
+# SPDX-License-Identifier: ISC
+#
+# ISC License
+#
+# Copyright (c) 2023, Timothée Mazzucotelli and contributors
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 """Tests for the `extension` module."""
 
 from __future__ import annotations
@@ -387,3 +405,29 @@ def test_field_description_with_annotated_and_dedent() -> None:
         assert package["Model.field1"].docstring is not None
         assert "This is a multiline description." in package["Model.field1"].docstring.value
         assert "With multiple lines." in package["Model.field1"].docstring.value
+
+
+def test_typing_extensions_annotated_fields() -> None:
+    """Test the extension with fields annotated through `typing_extensions`."""
+    code = """
+    from pydantic import BaseModel, Field
+    import typing_extensions as te
+
+    class Model(BaseModel):
+        a: te.Annotated[int, Field(description="Some description.", le=10)]
+        b: te.Annotated[int, Field(description="Another description.")] = 1
+    """
+    with temporary_visited_package(
+        "package",
+        modules={"__init__.py": code},
+        extensions=Extensions(PydanticExtension(schema=False)),
+    ) as package:
+        assert "pydantic-field" in package["Model.a"].labels
+        assert "pydantic-field" in package["Model.b"].labels
+        assert package["Model.a"].docstring.value == "Some description."
+        assert package["Model.b"].docstring.value == "Another description."
+        # The `Annotated` wrapper is unwrapped, leaving the actual type.
+        assert str(package["Model.a"].annotation) == "int"
+        assert str(package["Model.b"].annotation) == "int"
+        # Constraints declared inside `Annotated` are collected too.
+        assert package["Model.a"].extra["griffe_pydantic"]["constraints"] == {"le": "10"}

@@ -5,16 +5,16 @@
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use nom::{character::complete::char, error::ErrorKind, sequence::delimited, Mode, Parser};
+use nom::{Mode, Parser, character::complete::char, error::ErrorKind, sequence::delimited};
 use tracing::Level;
 use url::Url;
 
 use crate::{
+	Input,
 	context::Context,
 	error::ParseError,
 	grammar::{ByteHint, Grammar},
 	span::{TraceOk, TraceParse},
-	Input,
 };
 
 use super::verify_url;
@@ -82,7 +82,7 @@ where
 mod test {
 	use nom::{Finish, Parser};
 
-	use crate::{test_utils::handle_nom_err, Context};
+	use crate::{Context, test_utils::handle_nom_err};
 
 	use super::auto;
 

@@ -96,6 +96,9 @@ class Tree:
         self._field_name = field_name
         self._basket_capacity = initial_basket_capacity
         self._resize_factor = resize_factor
+        self._has_unsupported_branches = False
+        self._has_divergent_baskets = False
+        self._needs_relocation_before_extend = False
 
         if isinstance(branch_types, dict):
             branch_types_items = branch_types.items()
@@ -107,6 +110,7 @@ class Tree:
 
         self._branch_data = []
         self._branch_lookup = {}
+        record_fields = set()
         for branch_name, branch_type in branch_types_items:
             branch_dict = None
             branch_dtype = None
@@ -146,6 +150,7 @@ class Tree:
                     branch_dtype = self._branch_ak_to_np(branch_datashape)
 
             if branch_dict is not None:
+                self._check_not_counter(branch_name)
                 if branch_name not in self._branch_lookup:
                     self._branch_lookup[branch_name] = len(self._branch_data)
                     self._branch_data.append(
@@ -164,12 +169,17 @@ class Tree:
                             raise TypeError(
                                 f"values of a dict must be NumPy types\n\n    key {key!r} has type {content!r}"
                             ) from err
-                        self._branch_lookup[subname] = len(self._branch_data)
-                        self._branch_data.append(
-                            self._branch_np(subname, content, dtype)
-                        )
+                        self._check_not_counter(subname)
+                        record_fields.add(subname)
+                        if subname not in self._branch_lookup:
+                            self._branch_lookup[subname] = len(self._branch_data)
+                            self._branch_data.append(
+                                self._branch_np(subname, content, dtype)
+                            )
 
             elif branch_dtype is not None:
+                if branch_dtype.subdtype is not None or branch_dtype.kind not in "iu":
+                    self._check_not_counter(branch_name)
                 if branch_name not in self._branch_lookup:
                     self._branch_lookup[branch_name] = len(self._branch_data)
                     self._branch_data.append(
@@ -182,6 +192,7 @@ class Tree:
                     parameters = {}
 
                 if parameters.get("__array__") == "string":
+                    self._check_not_counter(branch_name)
                     if branch_name not in self._branch_lookup:
                         self._branch_lookup[branch_name] = len(self._branch_data)
                         self._branch_data.append(
@@ -201,10 +212,35 @@ class Tree:
                         counter_name, counter_dtype, counter_dtype, kind="counter"
                     )
                     if counter_name in self._branch_lookup:
-                        # counters always replace non-counters
-                        del self._branch_data[self._branch_lookup[counter_name]]
-                    self._branch_lookup[counter_name] = len(self._branch_data)
-                    self._branch_data.append(counter)
+                        index = self._branch_lookup[counter_name]
+                        existing = self._branch_data[index]
+                        if existing["kind"] == "counter":
+                            # jagged branches that share a counter share its datum
+                            counter = existing
+                        elif (
+                            existing["kind"] == "normal"
+                            and existing["counter"] is None
+                            and existing["shape"] == ()
+                            and existing["dtype"].kind in "iu"
+                            and counter_name not in record_fields
+                        ):
+                            # counters replace scalar integer branches; replace the
+                            # datum in place, because deleting it would shift every
+                            # later datum down by one and invalidate the indices
+                            # that self._branch_lookup already holds for them
+                            self._branch_data[index] = counter
+                        else:
+                            raise ValueError(
+                                f"counter {counter_name!r} for jagged branch {branch_name!r} "
+                                f"collides with a branch of the same name that is not a "
+                                f"scalar integer; rename one of them or choose a "
+                                f"different counter_name"
+                            )
+                    else:
+                        self._branch_lookup[counter_name] = len(self._branch_data)
+                        self._branch_data.append(counter)
+
+                    self._check_not_counter(branch_name)
 
                     if type(content).__name__ == "RecordType":
                         if hasattr(content, "contents"):
@@ -230,6 +266,7 @@ class Tree:
                                     raise TypeError(
                                         f"fields of a record must be NumPy types, though the record itself may be in a jagged array\n\n    field {key!r} has type {cont!s}"
                                     )
+                                self._check_not_counter(subname)
                                 if subname not in self._branch_lookup:
                                     self._branch_lookup[subname] = len(
                                         self._branch_data
@@ -263,6 +300,7 @@ class Tree:
                     if keys is None:
                         keys = [str(x) for x in range(len(contents))]
 
+                    self._check_not_counter(branch_name)
                     if branch_name not in self._branch_lookup:
                         self._branch_lookup[branch_name] = len(self._branch_data)
                         self._branch_data.append(
@@ -276,6 +314,8 @@ class Tree:
                                 raise TypeError(
                                     f"fields of a record must be NumPy types, though the record itself may be in a jagged array\n\n    field {key!r} has type {content!s}"
                                 )
+                            self._check_not_counter(subname)
+                            record_fields.add(subname)
                             if subname not in self._branch_lookup:
                                 self._branch_lookup[subname] = len(self._branch_data)
                                 self._branch_data.append(
@@ -310,6 +350,15 @@ class Tree:
             "fEstimate": 1000000,
         }
         self._key = None
+
+    def _check_not_counter(self, name):
+        index = self._branch_lookup.get(name)
+        if index is not None and self._branch_data[index]["kind"] == "counter":
+            raise ValueError(
+                f"branch {name!r} collides with a generated counter of the same "
+                f"name; rename one of them or choose a different counter_name or "
+                f"field_name"
+            )
 
     def _branch_ak_to_np(self, branch_datashape):
         if type(branch_datashape).__name__ == "UnknownType":
@@ -446,7 +495,55 @@ class Tree:
     def num_baskets(self):
         return self._num_baskets
 
+    def _relocate(self, file, sink):
+        """
+        Rewrites this tree's whole metadata blob from scratch via write_anew(),
+        relocating it (freeing its old space, allocating new space), and moves
+        the WritableFile._trees cache entry to match. Shared by the two
+        situations that need a full rewrite rather than an incremental
+        write_updates() patch: basket-capacity growth, and (see
+        _needs_relocation_before_extend) establishing Uproot's own canonical
+        layout for a tree write_updates() hasn't verified it can trust yet.
+        """
+        # seek_location is the tree's actual physical on-disk position (it's
+        # what every sink.read(key.seek_location, ...) call in
+        # _load_existing_ttree uses), and what file._move_tree()/
+        # WritableFile._trees are keyed by everywhere else in the codebase.
+        # location coincides with it for any tree Uproot itself has written
+        # (all our own tests, hence never catching this), but can diverge for
+        # a preexisting (e.g. ROOT-written) tree's Key object -- silently
+        # freeing/keying the wrong byte range and cache entry.
+        oldloc = start = self._key.seek_location
+        stop = start + self._key.num_bytes + self._key.compressed_bytes
+
+        self.write_anew(sink)
+
+        newloc = self._key.seek_location
+        file._move_tree(oldloc, newloc)
+
+        self._freesegments.release(start, stop)
+        sink.set_file_length(self._freesegments.fileheader.end)
+        sink.flush()
+
     def extend(self, file, sink, data):
+        if self._needs_relocation_before_extend:
+            # metadata_start/basket_metadata_start (computed structurally by
+            # _build_out(), see _load_existing_ttree) are only guaranteed
+            # correct for a tree actually laid out the way Uproot's own
+            # write_anew() lays one out. A tree loaded from an existing file
+            # may have been written by ROOT instead, with a byte-for-byte
+            # different (but semantically equivalent) layout Uproot's writer
+            # doesn't replicate -- write_updates() patching at Uproot's
+            # assumed offsets would then silently corrupt unrelated bytes.
+            # write_anew() here establishes Uproot's own canonical layout for
+            # real (the same thing add_branches() already always does, which
+            # is why it already works on ROOT-written files), so every
+            # write_updates() patch from here on is guaranteed to target the
+            # right bytes. Costs one full blob rewrite, but only once, on the
+            # first extend() after loading -- not on every call.
+            self._relocate(file, sink)
+            self._needs_relocation_before_extend = False
+
         # expand capacity if this would REACH (not EXCEED) the existing capacity
         # that's because completely a full fBasketEntry has nowhere to put the
         # number of entries in the last basket (it's a fencepost principle thing),
@@ -479,17 +576,7 @@ class Tree:
                 datum["fBasketSeek"][: len(fBasketSeek)] = fBasketSeek
                 datum["fBasketEntry"][len(fBasketEntry)] = self._num_entries
 
-            oldloc = start = self._key.location
-            stop = start + self._key.num_bytes + self._key.compressed_bytes
-
-            self.write_anew(sink)
-
-            newloc = self._key.seek_location
-            file._move_tree(oldloc, newloc)
-
-            self._freesegments.release(start, stop)
-            sink.set_file_length(self._freesegments.fileheader.end)
-            sink.flush()
+            self._relocate(file, sink)
 
         provided = None
 
@@ -560,7 +647,7 @@ class Tree:
                     kk = self._counter_name(k)
                     vv = numpy.asarray(awkward.num(v, axis=1), dtype=">u4")
                     if kk in provided and not numpy.array_equal(
-                        vv, awkward.to_numpy(provided[kk])
+                        vv, numpy.asarray(provided[kk])
                     ):
                         raise ValueError(
                             f"branch {kk!r} provided both as an explicit array and generated as a counter, and they disagree"
@@ -822,7 +909,24 @@ class Tree:
 
         self.write_updates(sink)
 
-    def write_anew(self, sink):
+    def _build_out(self):
+        """
+        Serializes this TTree's metadata blob (TTree + TBranches + TLeaves,
+        everything but the TBaskets themselves) into a list of byte chunks,
+        exactly as ``write_anew`` writes it.
+
+        As a side effect, this sets ``self._metadata_start`` and, for every
+        branch, ``datum["metadata_start"]``, ``datum["basket_metadata_start"]``,
+        and ``datum["tleaf_reference_number"]`` — the byte offsets (relative to
+        this blob) that ``write_updates`` writes at directly, without going
+        through ``write_anew`` again. This is the single source of truth for
+        that layout: computing it any other way (e.g. searching a decompressed
+        blob for the current value of a field) risks disagreeing with it,
+        especially when that field's current value is 0 and matches unrelated
+        bytes. ``uproot.writing.writable.WritableDirectory._load_existing_ttree``
+        calls this once, on a freshly reconstructed cascade, purely to recover
+        these offsets — the returned ``out`` is discarded, nothing is written.
+        """
         key_num_bytes = uproot.reading._key_format_big.size + 6
         name_asbytes = self._name.encode(errors="surrogateescape")
         title_asbytes = self._title.encode(errors="surrogateescape")
@@ -1200,6 +1304,10 @@ class Tree:
 
         self._metadata_start = sum(len(x) for x in out[:metadata_out_index])
 
+        return out
+
+    def write_anew(self, sink):
+        out = self._build_out()
         raw_data = b"".join(out)
         self._key = self._directory.add_object(
             sink,

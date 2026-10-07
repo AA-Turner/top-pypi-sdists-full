@@ -498,7 +498,7 @@ class StreamLiveInput(pulumi.CustomResource):
                  live_input_identifier: pulumi.Input[Optional[_builtins.str]] = None,
                  meta: pulumi.Input[Optional[_builtins.str]] = None,
                  prefer_low_latency: pulumi.Input[Optional[_builtins.bool]] = None,
-                 recording: pulumi.Input[Optional[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict']]] = None,
+                 recording: pulumi.Input[Optional[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict', 'outputs.StreamLiveInputRecording']]] = None,
                  __props__=None):
         """
         Accepted Permissions
@@ -507,6 +507,29 @@ class StreamLiveInput(pulumi.CustomResource):
         - `Stream Write`
 
         ## Example Usage
+
+        ```python
+        import pulumi
+        import json
+        import pulumi_cloudflare as cloudflare
+
+        example_stream_live_input = cloudflare.StreamLiveInput("example_stream_live_input",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            default_creator="defaultCreator",
+            delete_recording_after_days=float(45),
+            enabled=True,
+            meta=json.dumps({
+                "name": "test stream 1",
+            }),
+            prefer_low_latency=True,
+            recording={
+                "allowed_origins": ["example.com"],
+                "hide_live_viewer_count": False,
+                "mode": "off",
+                "require_signed_urls": False,
+                "timeout_seconds": 0,
+            })
+        ```
 
         ## Import
 
@@ -522,7 +545,7 @@ class StreamLiveInput(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] live_input_identifier: A unique identifier for a live input.
         :param pulumi.Input[_builtins.str] meta: A user modifiable key-value store used to reference other systems of record for managing live inputs.
         :param pulumi.Input[_builtins.bool] prefer_low_latency: When enabled, the live stream is delivered using Low-Latency HLS (LL-HLS), reducing glass-to-glass latency for viewers at the cost of reduced player compatibility.
-        :param pulumi.Input[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict']] recording: Records the input to a Cloudflare Stream video. Behavior depends on the mode. In most cases, the video will initially be viewable as a live video and transition to on-demand after a condition is satisfied.
+        :param pulumi.Input[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict', 'outputs.StreamLiveInputRecording']] recording: Records the input to a Cloudflare Stream video. Behavior depends on the mode. In most cases, the video will initially be viewable as a live video and transition to on-demand after a condition is satisfied.
         """
         ...
     @overload
@@ -537,6 +560,29 @@ class StreamLiveInput(pulumi.CustomResource):
         - `Stream Write`
 
         ## Example Usage
+
+        ```python
+        import pulumi
+        import json
+        import pulumi_cloudflare as cloudflare
+
+        example_stream_live_input = cloudflare.StreamLiveInput("example_stream_live_input",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            default_creator="defaultCreator",
+            delete_recording_after_days=float(45),
+            enabled=True,
+            meta=json.dumps({
+                "name": "test stream 1",
+            }),
+            prefer_low_latency=True,
+            recording={
+                "allowed_origins": ["example.com"],
+                "hide_live_viewer_count": False,
+                "mode": "off",
+                "require_signed_urls": False,
+                "timeout_seconds": 0,
+            })
+        ```
 
         ## Import
 
@@ -565,7 +611,7 @@ class StreamLiveInput(pulumi.CustomResource):
                  live_input_identifier: pulumi.Input[Optional[_builtins.str]] = None,
                  meta: pulumi.Input[Optional[_builtins.str]] = None,
                  prefer_low_latency: pulumi.Input[Optional[_builtins.bool]] = None,
-                 recording: pulumi.Input[Optional[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict']]] = None,
+                 recording: pulumi.Input[Optional[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict', 'outputs.StreamLiveInputRecording']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -616,17 +662,17 @@ class StreamLiveInput(pulumi.CustomResource):
             live_input_identifier: pulumi.Input[Optional[_builtins.str]] = None,
             meta: pulumi.Input[Optional[_builtins.str]] = None,
             modified: pulumi.Input[Optional[_builtins.str]] = None,
-            playback: pulumi.Input[Optional[Union['StreamLiveInputPlaybackArgs', 'StreamLiveInputPlaybackArgsDict']]] = None,
+            playback: pulumi.Input[Optional[Union['StreamLiveInputPlaybackArgs', 'StreamLiveInputPlaybackArgsDict', 'outputs.StreamLiveInputPlayback']]] = None,
             prefer_low_latency: pulumi.Input[Optional[_builtins.bool]] = None,
-            recording: pulumi.Input[Optional[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict']]] = None,
-            rtmps: pulumi.Input[Optional[Union['StreamLiveInputRtmpsArgs', 'StreamLiveInputRtmpsArgsDict']]] = None,
-            rtmps_playback: pulumi.Input[Optional[Union['StreamLiveInputRtmpsPlaybackArgs', 'StreamLiveInputRtmpsPlaybackArgsDict']]] = None,
-            srt: pulumi.Input[Optional[Union['StreamLiveInputSrtArgs', 'StreamLiveInputSrtArgsDict']]] = None,
-            srt_playback: pulumi.Input[Optional[Union['StreamLiveInputSrtPlaybackArgs', 'StreamLiveInputSrtPlaybackArgsDict']]] = None,
+            recording: pulumi.Input[Optional[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict', 'outputs.StreamLiveInputRecording']]] = None,
+            rtmps: pulumi.Input[Optional[Union['StreamLiveInputRtmpsArgs', 'StreamLiveInputRtmpsArgsDict', 'outputs.StreamLiveInputRtmps']]] = None,
+            rtmps_playback: pulumi.Input[Optional[Union['StreamLiveInputRtmpsPlaybackArgs', 'StreamLiveInputRtmpsPlaybackArgsDict', 'outputs.StreamLiveInputRtmpsPlayback']]] = None,
+            srt: pulumi.Input[Optional[Union['StreamLiveInputSrtArgs', 'StreamLiveInputSrtArgsDict', 'outputs.StreamLiveInputSrt']]] = None,
+            srt_playback: pulumi.Input[Optional[Union['StreamLiveInputSrtPlaybackArgs', 'StreamLiveInputSrtPlaybackArgsDict', 'outputs.StreamLiveInputSrtPlayback']]] = None,
             status: pulumi.Input[Optional[_builtins.str]] = None,
             uid: pulumi.Input[Optional[_builtins.str]] = None,
-            web_rtc: pulumi.Input[Optional[Union['StreamLiveInputWebRtcArgs', 'StreamLiveInputWebRtcArgsDict']]] = None,
-            web_rtc_playback: pulumi.Input[Optional[Union['StreamLiveInputWebRtcPlaybackArgs', 'StreamLiveInputWebRtcPlaybackArgsDict']]] = None) -> 'StreamLiveInput':
+            web_rtc: pulumi.Input[Optional[Union['StreamLiveInputWebRtcArgs', 'StreamLiveInputWebRtcArgsDict', 'outputs.StreamLiveInputWebRtc']]] = None,
+            web_rtc_playback: pulumi.Input[Optional[Union['StreamLiveInputWebRtcPlaybackArgs', 'StreamLiveInputWebRtcPlaybackArgsDict', 'outputs.StreamLiveInputWebRtcPlayback']]] = None) -> 'StreamLiveInput':
         """
         Get an existing StreamLiveInput resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -643,18 +689,18 @@ class StreamLiveInput(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] live_input_identifier: A unique identifier for a live input.
         :param pulumi.Input[_builtins.str] meta: A user modifiable key-value store used to reference other systems of record for managing live inputs.
         :param pulumi.Input[_builtins.str] modified: The date and time the live input was last modified.
-        :param pulumi.Input[Union['StreamLiveInputPlaybackArgs', 'StreamLiveInputPlaybackArgsDict']] playback: Details for playing a live input's broadcast using the HLS or DASH manifests. URLs reference the live input ID.
+        :param pulumi.Input[Union['StreamLiveInputPlaybackArgs', 'StreamLiveInputPlaybackArgsDict', 'outputs.StreamLiveInputPlayback']] playback: Details for playing a live input's broadcast using the HLS or DASH manifests. URLs reference the live input ID.
         :param pulumi.Input[_builtins.bool] prefer_low_latency: When enabled, the live stream is delivered using Low-Latency HLS (LL-HLS), reducing glass-to-glass latency for viewers at the cost of reduced player compatibility.
-        :param pulumi.Input[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict']] recording: Records the input to a Cloudflare Stream video. Behavior depends on the mode. In most cases, the video will initially be viewable as a live video and transition to on-demand after a condition is satisfied.
-        :param pulumi.Input[Union['StreamLiveInputRtmpsArgs', 'StreamLiveInputRtmpsArgsDict']] rtmps: Details for streaming to an live input using RTMPS.
-        :param pulumi.Input[Union['StreamLiveInputRtmpsPlaybackArgs', 'StreamLiveInputRtmpsPlaybackArgsDict']] rtmps_playback: Details for playback from an live input using RTMPS.
-        :param pulumi.Input[Union['StreamLiveInputSrtArgs', 'StreamLiveInputSrtArgsDict']] srt: Details for streaming to a live input using SRT.
-        :param pulumi.Input[Union['StreamLiveInputSrtPlaybackArgs', 'StreamLiveInputSrtPlaybackArgsDict']] srt_playback: Details for playback from an live input using SRT.
+        :param pulumi.Input[Union['StreamLiveInputRecordingArgs', 'StreamLiveInputRecordingArgsDict', 'outputs.StreamLiveInputRecording']] recording: Records the input to a Cloudflare Stream video. Behavior depends on the mode. In most cases, the video will initially be viewable as a live video and transition to on-demand after a condition is satisfied.
+        :param pulumi.Input[Union['StreamLiveInputRtmpsArgs', 'StreamLiveInputRtmpsArgsDict', 'outputs.StreamLiveInputRtmps']] rtmps: Details for streaming to an live input using RTMPS.
+        :param pulumi.Input[Union['StreamLiveInputRtmpsPlaybackArgs', 'StreamLiveInputRtmpsPlaybackArgsDict', 'outputs.StreamLiveInputRtmpsPlayback']] rtmps_playback: Details for playback from an live input using RTMPS.
+        :param pulumi.Input[Union['StreamLiveInputSrtArgs', 'StreamLiveInputSrtArgsDict', 'outputs.StreamLiveInputSrt']] srt: Details for streaming to a live input using SRT.
+        :param pulumi.Input[Union['StreamLiveInputSrtPlaybackArgs', 'StreamLiveInputSrtPlaybackArgsDict', 'outputs.StreamLiveInputSrtPlayback']] srt_playback: Details for playback from an live input using SRT.
         :param pulumi.Input[_builtins.str] status: The connection status of a live input.
                Available values: "connected", "reconnected", "reconnecting", "client*disconnect", "ttl*exceeded", "failed*to*connect", "failed*to*reconnect", "new*configuration*accepted".
         :param pulumi.Input[_builtins.str] uid: A unique identifier for a live input.
-        :param pulumi.Input[Union['StreamLiveInputWebRtcArgs', 'StreamLiveInputWebRtcArgsDict']] web_rtc: Details for streaming to a live input using WebRTC.
-        :param pulumi.Input[Union['StreamLiveInputWebRtcPlaybackArgs', 'StreamLiveInputWebRtcPlaybackArgsDict']] web_rtc_playback: Details for playback from a live input using WebRTC.
+        :param pulumi.Input[Union['StreamLiveInputWebRtcArgs', 'StreamLiveInputWebRtcArgsDict', 'outputs.StreamLiveInputWebRtc']] web_rtc: Details for streaming to a live input using WebRTC.
+        :param pulumi.Input[Union['StreamLiveInputWebRtcPlaybackArgs', 'StreamLiveInputWebRtcPlaybackArgsDict', 'outputs.StreamLiveInputWebRtcPlayback']] web_rtc_playback: Details for playback from a live input using WebRTC.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 

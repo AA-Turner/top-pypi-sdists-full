@@ -23,6 +23,7 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    get_args,
 )
 
 from typing_extensions import ParamSpec
@@ -102,6 +103,7 @@ from bitfab.span_origin import (
     SpanInstrumentation,
     make_span_origin,
 )
+from bitfab.spans import SpansClient
 from bitfab.thread_propagation import install as install_thread_propagation
 from bitfab.timestamp import now_iso_timestamp
 from bitfab.trace_metadata import (
@@ -189,6 +191,7 @@ _REGISTER_VALUE_UNSET: Any = object()
 
 # Span types matching the backend enum
 SpanType = Literal["llm", "agent", "function", "guardrail", "handoff", "custom"]
+SPAN_TYPES: tuple[SpanType, ...] = get_args(SpanType)
 CaptureWhen = Literal["always", "nested"]
 CaptureSurface = Literal["opt-in", "opt-out"]
 
@@ -1087,6 +1090,7 @@ class Bitfab:
         self.assertion_categories = AssertionCategoriesClient(self.http_client)
         self.organization_members = OrganizationMembersClient(self.http_client)
         self.traces = TracesClient(self.http_client)
+        self.spans = SpansClient(self.http_client)
         self.labels = LabelsClient(self.http_client)
         self.graders = GradersClient(self.http_client)
         self.experiments = ExperimentsClient(self.http_client)
@@ -3997,21 +4001,27 @@ class Bitfab:
         *,
         id: str | None = None,
         name: str | None = None,
+        type: SpanType | None = None,
         occurrence: SpanOccurrence = "last",
     ) -> CapturedSpan | None:
         """Fetch one persisted span without loading the full trace.
 
-        Exactly one of ``id`` or ``name`` is required. Name lookups return
-        the last matching span by default; use ``"first"`` or a zero-based
-        integer occurrence to select another match.
+        Pass ``id`` alone, or ``name`` and/or ``type``. Giving both a name
+        and a type matches spans with that name and that type. ``type`` is one
+        of ``"llm"``, ``"agent"``, ``"function"``, ``"guardrail"``,
+        ``"handoff"``, or ``"custom"``. Name and type lookups return the last
+        matching span by default; use ``"first"`` or a zero-based integer
+        occurrence to select another match in the order the spans ran.
         """
         _validate_trace_id(trace_id)
-        if (id is None) == (name is None):
-            raise ValueError("Provide exactly one of id or name")
+        if (id is None) == (name is None and type is None):
+            raise ValueError("Provide id, or name and/or type")
         if id is not None:
             _validate_span_id(id)
         if name is not None and (not isinstance(name, str) or not name):
             raise ValueError("name must be a non-empty string")
+        if type is not None and type not in SPAN_TYPES:
+            raise ValueError(f"type must be one of: {', '.join(SPAN_TYPES)}")
         if not (
             occurrence in ("first", "last")
             or (
@@ -4028,6 +4038,7 @@ class Bitfab:
             trace_id,
             id=id,
             name=name,
+            type=type,
             occurrence=occurrence,
         )
         return cast(CapturedSpan | None, result)

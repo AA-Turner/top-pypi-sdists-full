@@ -6,7 +6,8 @@ from yookassa.domain.models.payment_method.request import \
     SavePaymentMethodConfirmationQr as RequestPaymentMethodConfirmationQr
 from yookassa.domain.models.payment_method.response import \
     SavePaymentMethodConfirmationRedirect as ResponsePaymentMethodConfirmationRedirect, \
-    SavePaymentMethodConfirmationQr as ResponsePaymentMethodConfirmationQr
+    SavePaymentMethodConfirmationQr as ResponsePaymentMethodConfirmationQr, \
+    SavePaymentMethodConfirmationUnknown as ResponsePaymentMethodConfirmationUnknown
 
 
 class SavePaymentMethodConfirmationClassMap(DataContext):
@@ -29,4 +30,5 @@ class SavePaymentMethodConfirmationClassMap(DataContext):
         return {
             ConfirmationType.REDIRECT: ResponsePaymentMethodConfirmationRedirect,
             ConfirmationType.QR: ResponsePaymentMethodConfirmationQr,
+            ConfirmationType.UNKNOWN: ResponsePaymentMethodConfirmationUnknown,
         }

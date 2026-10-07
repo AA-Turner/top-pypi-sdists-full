@@ -61,6 +61,12 @@ class IngestFlusher:
         self.job_id = self.settings.get_identifier_value(spider)
         self.spider_name = getattr(spider, "name", None)
 
+        if getattr(self.settings, "using_default_sqlite", False):
+            logger.info(
+                "No DB_URL or SEARCH_URL configured — using SQLite at %s",
+                self.settings.db_url,
+            )
+
         if self._use_db():
             self.db = DatabaseConnection(self.settings.db_url)
             if not self.db.connect():

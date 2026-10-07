@@ -14,6 +14,7 @@ use recursive::recursive;
 use serde::{Deserialize, Serialize};
 
 use super::*;
+use crate::dsl::dsl_resolver::{DslResolver, ResolveDslArgs, ResolvedDsl};
 
 // DSL format version in a form of (Major, Minor).
 //
@@ -155,11 +156,6 @@ pub enum DslPlan {
         inputs: Vec<DslPlan>,
         options: HConcatOptions,
     },
-    /// This allows expressions to access other tables
-    ExtContext {
-        input: Arc<DslPlan>,
-        contexts: Vec<DslPlan>,
-    },
     Sink {
         input: Arc<DslPlan>,
         payload: SinkType,
@@ -174,6 +170,14 @@ pub enum DslPlan {
         key: Arc<[PlSmallStr]>,
         maintain_order: bool,
     },
+    /// A SQL query that is resolved during DSL -> IR conversion.
+    SQL {
+        query: Arc<String>,
+        /// The named relations that the query may reference.
+        relations: Vec<(PlSmallStr, DslPlan)>,
+        #[cfg_attr(any(feature = "serde", feature = "dsl-schema"), serde(skip))]
+        cached_stmt: crate::dsl::CachedSqlStatement,
+    },
     IR {
         // Keep the original Dsl around as we need that for serialization.
         dsl: Arc<DslPlan>,
@@ -182,6 +186,12 @@ pub enum DslPlan {
         node: Option<Node>,
         #[cfg_attr(any(feature = "serde", feature = "dsl-schema"), serde(skip))]
         opt_flags: Option<crate::frame::OptFlags>,
+    },
+    Resolver {
+        resolver: Arc<DslResolver>,
+        resolver_schema: Arc<Mutex<Option<SchemaRef>>>,
+        #[cfg_attr(any(feature = "serde", feature = "dsl-schema"), serde(skip, default))]
+        resolved_cache: Arc<Mutex<PlIndexMap<ResolveDslArgs, ResolvedDsl>>>,
     },
 }
 
@@ -212,14 +222,15 @@ impl Clone for DslPlan {
             Self::MapFunction { input, function } => Self::MapFunction { input: input.clone(), function: function.clone() },
             Self::Union { inputs, args} => Self::Union { inputs: inputs.clone(), args: args.clone() },
             Self::HConcat { inputs, options } => Self::HConcat { inputs: inputs.clone(), options: options.clone() },
-            Self::ExtContext { input, contexts, } => Self::ExtContext { input: input.clone(), contexts: contexts.clone() },
             Self::Sink { input, payload } => Self::Sink { input: input.clone(), payload: payload.clone() },
             Self::SinkMultiple { inputs } => Self::SinkMultiple { inputs: inputs.clone() },
             #[cfg(feature = "pivot")]
             Self::Pivot { input, on, on_columns, index, values, agg, separator, maintain_order, column_naming }  => Self::Pivot { input: input.clone(), on: on.clone(), on_columns: on_columns.clone(), index: index.clone(), values: values.clone(), agg: agg.clone(), separator: separator.clone(), maintain_order: *maintain_order, column_naming: *column_naming },
             #[cfg(feature = "merge_sorted")]
             Self::MergeSorted { input_left, input_right, key, maintain_order } => Self::MergeSorted { input_left: input_left.clone(), input_right: input_right.clone(), key: key.clone(), maintain_order: *maintain_order },
+            Self::SQL { query, relations, cached_stmt } => Self::SQL { query: query.clone(), relations: relations.clone(), cached_stmt: cached_stmt.clone() },
             Self::IR {node, dsl, version, opt_flags} => Self::IR {node: *node, dsl: dsl.clone(), version: *version, opt_flags: *opt_flags},
+            Self::Resolver { resolver, resolver_schema, resolved_cache } => Self::Resolver { resolver: resolver.clone(), resolver_schema: resolver_schema.clone(), resolved_cache: resolved_cache.clone() },
         }
     }
 }
@@ -272,6 +283,18 @@ impl DslPlan {
         let plan = IRPlan::new(node, lp_arena, expr_arena);
 
         Ok(plan)
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serialize_json_into(&self, writer: &mut dyn Write) -> PolarsResult<()> {
+        use polars_error::to_compute_err;
+        serde_json::to_writer(writer, self).map_err(to_compute_err)
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn deserialize_json_from_str(json: &str) -> PolarsResult<Self> {
+        use polars_error::to_compute_err;
+        serde_json::from_str(json).map_err(to_compute_err)
     }
 
     #[cfg(feature = "serde")]

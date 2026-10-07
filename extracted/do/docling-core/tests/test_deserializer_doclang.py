@@ -13,6 +13,7 @@ from docling_core.transforms.serializer.doclang import (
 )
 from docling_core.types.doc import (
     BoundingBox,
+    ContentLayer,
     CoordOrigin,
     DescriptionMetaField,
     DocItemLabel,
@@ -26,12 +27,14 @@ from docling_core.types.doc import (
     PictureMeta,
     ProvenanceItem,
     RichTableCell,
+    Script,
     Size,
     SummaryMetaField,
     TableCell,
     TableData,
     TableItem,
     TabularChartMetaField,
+    TextItem,
 )
 from docling_core.types.doc.document import GroupLabel
 from docling_core.types.doc.labels import CodeLanguageLabel, PictureClassificationLabel
@@ -2457,3 +2460,192 @@ def test_default_resolution_sets_page_coordinate_space():
         warnings.simplefilter("always")
         DoclingDocument.validate_document(doc)
     assert [w for w in caught if "clamping" in str(w.message)] == []
+
+
+@pytest.mark.parametrize(
+    ("frag", "expected"),
+    [
+        ("<text>2<superscript>nd</superscript></text>", ["2", "nd"]),
+        ("<text>plain <bold>b</bold></text>", ["plain", "b"]),
+        ("<footnote>see <italic>ibid</italic></footnote>", ["see", "ibid"]),
+        ("<formula>E <bold>=</bold></formula>", ["E", "="]),
+        ("<text>x <bold>a <italic>b</italic></bold></text>", ["x", "a", "b"]),
+        # shapes that already worked
+        ("<text><superscript>nd</superscript> place</text>", ["nd", "place"]),
+        ("<text>H<subscript>2</subscript>O</text>", ["H", "2", "O"]),
+    ],
+)
+def test_leading_text_before_lone_formatting_tag_is_preserved(frag: str, expected: list[str]):
+    doc = _deserialize(f'<doclang version="0.7">{frag}</doclang>')
+    assert [t.text.strip() for t in doc.texts if t.text] == expected
+
+
+def test_mixed_content_footnote_keeps_label_and_provenance():
+    doc = _deserialize(
+        '<doclang version="0.7"><footnote>'
+        '<location value="87"/><location value="417"/><location value="387"/><location value="426"/>'
+        "<superscript>①</superscript>盐池县县志编纂委员会编《盐池县志》</footnote></doclang>"
+    )
+    host = doc.texts[0]
+    assert host.label == DocItemLabel.FOOTNOTE
+    assert host.text == ""
+    assert host.prov and host.prov[0].bbox.as_tuple() == (87, 417, 387, 426)
+    (inline,) = [ref.resolve(doc) for ref in host.children]
+    assert inline.label == GroupLabel.INLINE
+    runs = [ref.resolve(doc) for ref in inline.children]
+    assert [r.text for r in runs] == ["①", "盐池县县志编纂委员会编《盐池县志》"]
+    assert runs[0].formatting is not None and runs[0].formatting.script == Script.SUPER
+
+
+def test_nested_formatting_tag_accumulates_style():
+    """<bold>a <italic>b</italic></bold>: "a" keeps bold, "b" keeps bold *and* italic."""
+    doc = _deserialize('<doclang version="0.7"><text>x <bold>a <italic>b</italic></bold></text></doclang>')
+    runs = {t.text.strip(): t.formatting for t in doc.texts if t.text}
+    assert runs["x"] is None
+    assert runs["a"] is not None and runs["a"].bold and not runs["a"].italic
+    assert runs["b"] is not None and runs["b"].bold and runs["b"].italic
+
+    # Round trip must stay valid DocLang (no <text> nested inside <text>).
+    xml = _serialize(doc)
+    doc2 = _deserialize(xml)
+    runs2 = {t.text.strip(): t.formatting for t in doc2.texts if t.text}
+    assert runs2["a"].bold and not runs2["a"].italic
+    assert runs2["b"].bold and runs2["b"].italic
+
+
+@pytest.mark.parametrize(
+    ("label", "layer"),
+    [
+        (DocItemLabel.FOOTNOTE, ContentLayer.BODY),
+        (DocItemLabel.PAGE_HEADER, ContentLayer.FURNITURE),
+        (DocItemLabel.PAGE_FOOTER, ContentLayer.FURNITURE),
+    ],
+)
+def test_roundtrip_inline_host(label: DocItemLabel, layer: ContentLayer):
+    doc = DoclingDocument(name="t")
+    _add_default_page(doc)
+    host = doc.add_text(label=label, text="", prov=_default_prov(), content_layer=layer)
+    inline = doc.add_inline_group(parent=host, content_layer=layer)
+    doc.add_text(
+        label=DocItemLabel.TEXT,
+        text="1",
+        parent=inline,
+        formatting=Formatting(script=Script.SUPER),
+        content_layer=layer,
+    )
+    doc.add_text(label=DocItemLabel.TEXT, text="body", parent=inline, content_layer=layer)
+
+    doc2 = _deserialize(_serialize(doc))
+
+    host2 = doc2.texts[0]
+    assert host2.label == label
+    assert host2.text == ""
+    assert host2.content_layer == layer
+    assert host2.prov
+    runs = [
+        it
+        for it, _ in doc2.iterate_items(root=host2, included_content_layers=set(ContentLayer))
+        if isinstance(it, TextItem) and it is not host2
+    ]
+    assert [(r.text, r.content_layer) for r in runs] == [("1", layer), ("body", layer)]
+    assert runs[0].formatting is not None and runs[0].formatting.script == Script.SUPER
+
+
+def test_roundtrip_furniture_inline_group():
+    doc = DoclingDocument(name="t")
+    _add_default_page(doc)
+    inline = doc.add_inline_group(content_layer=ContentLayer.FURNITURE)
+    doc.add_text(label=DocItemLabel.TEXT, text="a", parent=inline, content_layer=ContentLayer.FURNITURE)
+    doc.add_text(
+        label=DocItemLabel.TEXT,
+        text="b",
+        parent=inline,
+        formatting=Formatting(bold=True),
+        content_layer=ContentLayer.FURNITURE,
+    )
+
+    doc2 = _deserialize(_serialize(doc))
+
+    items = [it for it, _ in doc2.iterate_items(with_groups=True, included_content_layers=set(ContentLayer))][1:]
+    assert [it.label for it in items] == [GroupLabel.INLINE, DocItemLabel.TEXT, DocItemLabel.TEXT]
+    assert {it.content_layer for it in items} == {ContentLayer.FURNITURE}
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("Wiley & Sons", ["Wiley & Sons"]),
+        ("$q < 0$ and p <0.05 and $a<\\ln b$", ["$q < 0$ and p <0.05 and $a<\\ln b$"]),
+        ("x]]> y", ["x]]> y"]),
+        ("a\x18b", ["ab"]),
+        ("<![CDATA[a & b < c]]> & d", ["a & b < c", "& d"]),
+    ],
+)
+def test_repair_unescaped_text(body: str, expected: list[str]):
+    xml = f"<doclang><text>{body}</text></doclang>"
+    with pytest.raises(ValueError, match="Invalid DocLang XML"):
+        DocLangDocDeserializer().deserialize_str(xml)
+    doc = DocLangDocDeserializer().deserialize_str(xml, repair_unescaped_text=True)
+    assert [t.text for t in doc.texts] == expected
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"repair_unescaped_text": False}])
+def test_repair_unescaped_text_is_opt_in(kwargs):
+    with pytest.raises(ValueError, match="Invalid DocLang XML"):
+        DocLangDocDeserializer().deserialize_str("<doclang><text>a & b</text></doclang>", **kwargs)
+
+
+def test_repair_keeps_well_formed_markup_and_entities():
+    xml = '<doclang><text>a &amp; &#60; &#x3E;<![CDATA[ & < ]]></text><heading level="1">H</heading></doclang>'
+    plain = DocLangDocDeserializer().deserialize_str(xml)
+    repaired = DocLangDocDeserializer().deserialize_str(xml, repair_unescaped_text=True)
+    assert repaired.export_to_dict() == plain.export_to_dict()
+
+
+def test_empty_list_item_does_not_replay_siblings():
+    xml = """<doclang version="0.7"><list>
+<ldiv/><content>Alpha</content>
+<ldiv/><location value="1"/><location value="2"/>
+<location value="3"/><location value="4"/>
+<ldiv/><content>Beta</content>
+</list></doclang>"""
+    doc = DocLangDocDeserializer().deserialize_str(xml)
+    assert sorted(it.text for it in doc.texts if it.text.strip()) == ["Alpha", "Beta"]
+    assert [g for g in doc.groups if not g.children] == []
+
+
+@pytest.mark.parametrize("markup", ["<text></text>", "<text>\n  </text>"])
+def test_empty_text_is_an_empty_text_item(markup: str) -> None:
+    doc = DocLangDocDeserializer().deserialize_str(f'<doclang version="0.7">\n<text>a</text>\n{markup}\n</doclang>')
+
+    assert [t.text for t in doc.texts] == ["a", ""]
+    assert not doc.groups
+
+
+def test_empty_text_keeps_its_locations_and_layer() -> None:
+    locs = "".join(f'<location value="{v}"/>' for v in (10, 20, 30, 40))
+    doc = DocLangDocDeserializer().deserialize_str(
+        f'<doclang version="0.7"><text><layer value="furniture"/>{locs}</text></doclang>'
+    )
+
+    (item,) = doc.texts
+    assert item.text == ""
+    assert item.content_layer.value == "furniture"
+    assert len(item.prov) == 1 and item.prov[0].bbox.l < item.prov[0].bbox.r
+    assert not doc.groups
+
+
+def test_empty_formula_is_kept() -> None:
+    doc = DocLangDocDeserializer().deserialize_str('<doclang version="0.7"><formula></formula><formula/></doclang>')
+
+    assert [type(t).__name__ for t in doc.texts] == ["FormulaItem", "FormulaItem"]
+    assert all(t.text == "" for t in doc.texts)
+    assert not doc.groups
+
+
+def test_empty_code_is_kept() -> None:
+    doc = DocLangDocDeserializer().deserialize_str('<doclang version="0.7"><code></code><code/></doclang>')
+
+    assert [type(t).__name__ for t in doc.texts] == ["CodeItem", "CodeItem"]
+    assert all(t.text == "" for t in doc.texts)
+    assert not doc.groups

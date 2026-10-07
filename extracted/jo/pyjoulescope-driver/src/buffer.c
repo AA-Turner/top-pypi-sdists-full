@@ -1,5 +1,6 @@
 /*
-* Copyright 2023 Jetperch LLC
+* SPDX-FileCopyrightText: Copyright 2023 Jetperch LLC
+* SPDX-License-Identifier: Apache-2.0
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -39,31 +40,9 @@ JSDRV_STATIC_ASSERT(32 == sizeof(struct jsdrv_summary_entry_s[2]), entry_size_tw
 JSDRV_STATIC_ASSERT(JSDRV_BUFSIG_COUNT_MAX <= 256, bufsig_fits_in_u8); // assumed for add/remove/list operations
 
 
-static const char * action_add_meta = "{"
-    "\"dtype\": \"u32\","
-    "\"brief\": \"Add a memory buffer.\""  // any u8 value between 1 and 16, inclusive
-"}";
-
-static const char * action_remove_meta = "{"
-    "\"dtype\": \"u32\","
-    "\"brief\": \"Remove a memory buffer.\""
-"}";
-
-static const char * action_list_meta = "{"
-    "\"brief\": \"The list of available buffers, 0 terminated.\""
-"}";
-
-/*
-static const char * event_signal_add_meta = "{"
-    "\"dtype\": \"str\","
-    "\"brief\": \"Add a signal.\","
-"}";
-
-static const char * event_signal_remove_meta = "{"
-    "\"dtype\": \"str\","
-    "\"brief\": \"Remove a signal.\","
-"}";
-*/
+extern const struct jsdrvp_param_s buffer_mgr_params[];
+extern const struct jsdrvp_param_s buffer_params[];
+extern const struct jsdrvp_param_s bufsig_params[];
 
 enum buffer_state_s {
     ST_IDLE = 0,
@@ -111,9 +90,30 @@ static bool is_signal_idx_valid(uint64_t signal_idx) {
     return ((signal_idx >= 1) && (signal_idx <= JSDRV_BUFSIG_COUNT_MAX));
 }
 
-static void send_to_frontend(struct buffer_mgr_s * self, const char * topic, const struct jsdrv_union_s * value) {
-    struct jsdrvp_msg_s * m = jsdrvp_msg_alloc_value(self->context, topic, value);
-    jsdrvp_backend_send(self->context, m);
+// Publish table metadata, expanding the "{buf}" and "{sig}" topic placeholders.
+static void params_publish(struct jsdrv_context_s * context, const struct jsdrvp_param_s * params,
+                           uint32_t buf_idx, uint32_t sig_idx) {
+    for (const struct jsdrvp_param_s * p = params; p->topic; ++p) {
+        struct jsdrvp_msg_s * m = jsdrvp_msg_alloc_value(context, "", &jsdrv_union_cjson_r(p->meta));
+        char * t = m->topic;
+        char * t_end = m->topic + sizeof(m->topic) - 2;  // room for '$' and terminator
+        for (const char * s = p->topic; *s && (t < t_end); ) {
+            if (jsdrv_cstr_starts_with(s, "{buf}")) {
+                t += tfp_snprintf(t, (size_t) (t_end - t), "%03u", (unsigned) buf_idx);
+                t = (t > t_end) ? t_end : t;
+                s += 5;
+            } else if (jsdrv_cstr_starts_with(s, "{sig}")) {
+                t += tfp_snprintf(t, (size_t) (t_end - t), "%03u", (unsigned) sig_idx);
+                t = (t > t_end) ? t_end : t;
+                s += 5;
+            } else {
+                *t++ = *s++;
+            }
+        }
+        *t++ = JSDRV_TOPIC_SUFFIX_METADATA_RSP;
+        *t = 0;
+        jsdrvp_backend_send(context, m);
+    }
 }
 
 static int32_t subscribe(struct jsdrv_context_s * context, const char * topic, uint8_t flags,
@@ -430,6 +430,7 @@ static bool handle_cmd_q(struct buffer_s * self) {
                 JSDRV_LOGI("signal add %d", (int) msg->u32_a);
                 buffer_free(self);
                 b->active = true;
+                params_publish(self->context, bufsig_params, self->idx, idx);
                 buf_publish_signal_list(self);
                 rc = 0;
             }
@@ -509,7 +510,6 @@ static bool handle_cmd_q(struct buffer_s * self) {
             buffer_free(self);
             rc = 0;
         } else {
-            // todo mode circular or single capture
             JSDRV_LOGW("buffer global unsupported: %s", s);
             rc = JSDRV_ERROR_PARAMETER_INVALID;
         }
@@ -693,6 +693,7 @@ static uint8_t _buffer_add(void * user_data, struct jsdrvp_msg_s * msg) {
         return send_return_code_to_frontend(self->context, JSDRV_BUFFER_MGR_MSG_ACTION_ADD, JSDRV_ERROR_UNSPECIFIED, _buffer_add, NULL);
     }
 
+    params_publish(self->context, buffer_params, buffer_id, 0);
     _send_buffer_list(self);
     return send_return_code_to_frontend(self->context, JSDRV_BUFFER_MGR_MSG_ACTION_ADD, 0, _buffer_add, NULL);
 }
@@ -737,9 +738,7 @@ int32_t jsdrv_buffer_initialize(struct jsdrv_context_s * context) {
     memset(self, 0, sizeof(*self));
     self->context = context;
 
-    send_to_frontend(self, JSDRV_BUFFER_MGR_MSG_ACTION_ADD "$", &jsdrv_union_cjson_r(action_add_meta));
-    send_to_frontend(self, JSDRV_BUFFER_MGR_MSG_ACTION_REMOVE "$", &jsdrv_union_cjson_r(action_remove_meta));
-    send_to_frontend(self, JSDRV_BUFFER_MGR_MSG_ACTION_LIST "$", &jsdrv_union_cjson_r(action_list_meta));
+    params_publish(self->context, buffer_mgr_params, 0, 0);
 
     subscribe(self->context, JSDRV_BUFFER_MGR_MSG_ACTION_ADD, JSDRV_SFLAG_PUB, _buffer_add, NULL);
     subscribe(self->context, JSDRV_BUFFER_MGR_MSG_ACTION_REMOVE, JSDRV_SFLAG_PUB, _buffer_remove, NULL);

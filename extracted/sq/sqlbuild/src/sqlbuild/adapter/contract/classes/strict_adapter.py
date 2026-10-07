@@ -102,6 +102,16 @@ class StrictAdapter(
         ...
 
     @abstractmethod
+    def interrupt_connection(self, connection: Any) -> bool:
+        """Cancel a connection's running statement from another thread; False if unsupported."""
+        ...
+
+    @abstractmethod
+    def lists_relations_authoritatively(self, *, database: str | None, schema: str) -> bool:
+        """Return whether ``list_relations`` reports every relation in this scope."""
+        ...
+
+    @abstractmethod
     def supports_concurrent_microbatch_dml(self) -> bool:
         """Return whether disjoint delete/insert microbatches may execute concurrently."""
         ...
@@ -908,6 +918,11 @@ class StrictAdapter(
         schema: str,
     ) -> tuple[str, ...]:
         """Render optional fingerprint table index DDL statements."""
+        ...
+
+    @abstractmethod
+    def render_create_source_freshness_table_sql(self, *, database: str | None, schema: str) -> str:
+        """Render DDL that creates the source freshness table when it is missing."""
         ...
 
     @abstractmethod

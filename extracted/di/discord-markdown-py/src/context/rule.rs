@@ -1,12 +1,13 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use nom::{
-	combinator::{fail, map},
 	OutputMode, PResult, Parser,
+	combinator::{fail, map},
 };
 use tracing::Level;
 
 use crate::{
+	Input,
 	block::{heading, list, quote, small},
 	error::ParseError,
 	grammar::{ByteHint, Grammar},
@@ -17,7 +18,6 @@ use crate::{
 	node::Node,
 	rule::Rule,
 	span::{Span, TraceOk, TraceParse},
-	Input,
 };
 
 use super::Context;

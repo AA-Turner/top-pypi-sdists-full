@@ -1,32 +1,39 @@
-"""Time-to-first-token is measured by the server and persisted with every turn.
+"""Time-to-first-token is stamped at the provider seam and persisted on EVERY turn.
 
-SUTs: ``StreamEmitter`` (the stamp: the FIRST text or reasoning chunk handed to
-the wire, measured from the request start the auth middleware armed),
-``_turn_ttft_ms`` + ``_finalize_and_persist`` (attribution to THIS execution's
-user turn) and ``CompletedRequest.build_request_summary`` /
-``to_storage_dict`` (the ``chat.user_request.metadata.ttft_ms`` the persistence
-layer writes). Only the DB sinks are doubled: ``persist_completed_request`` is
-replaced by a recorder so the test reads exactly the CompletedRequest the
-finalize would persist.
+SUTs: ``send_once`` (the one step every model call crosses) with
+``matrx_ai.orchestrator.first_output`` (the stamp, measured from the first
+iteration's start — the origin ``total_duration`` uses), and the REAL ``_finalize_and_persist`` →
+``build_request_summary`` / ``to_storage_dict`` (``chat.user_request.metadata.
+ttft_ms`` and ``timing_stats.first_token_seconds``). Doubled: the send
+boundary (``prepare_for_send`` — prompt shaping, DB-backed), the provider
+client (it behaves like every real provider: reads ``get_app_context().
+emitter`` at call time and streams through it), and the DB sinks.
+
+One test per route class, because the defect this guards was a stamp that
+lived on ONE emitter: on 2026-10-05 production recorded ttft_ms on 27/27
+agent-route chat turns and on 0 of every other kind — agent-less chat,
+ai-results, agent-builder, agent-runner, mandates, batch, the MCP agent
+service.
 
 Breaks these tests name:
-* the emitter stops stamping (or re-stamps on a later chunk) — TTFT disappears
-  or measures the last token instead of the first;
-* an empty reasoning frame or a control-token-only chunk counts as output;
-* the finalize stops carrying the number into metadata / timing_stats, or
-  overwrites the caller's own request metadata keys while adding it;
-* a run that never emitted output still records a TTFT;
-* a later execution on the same stream (or a child agent sharing it) claims
-  output an earlier execution emitted.
+* the stamp moves back onto an emitter type (a run with a different emitter,
+  or none, records nothing);
+* a non-streaming / tool-call-only provider reply stops counting as output;
+* TTFT and total duration drift onto different clocks (ttft_ms > total_duration_ms
+  on 2026-10-06, row e3b39db0: 24842 vs 9254 — TTFT counted pre-execution setup);
+* finalize stops carrying the number, or overwrites other metadata keys.
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from matrx_connect.context.app_context import AppContext, set_app_context
+from matrx_connect.emitters.console_emitter import ConsoleEmitter
 from matrx_connect.emitters.stream_emitter import StreamEmitter
 from matrx_connect.request_latency import arm_request_latency, clear_request_latency
 
@@ -34,7 +41,10 @@ import matrx_ai.orchestrator.executor as executor_mod
 from matrx_ai.config import MessageList, TextContent, UnifiedConfig, UnifiedMessage
 from matrx_ai.config.unified_config import UnifiedResponse
 from matrx_ai.orchestrator.execution_state import ExecutionState
+from matrx_ai.orchestrator.first_output import turn_ttft_ms
 from matrx_ai.orchestrator.requests import AIMatrixRequest
+from matrx_ai.orchestrator.send_once import send_once
+from matrx_ai.orchestrator.tracking import TimingUsage
 
 _CONVERSATION_ID = "5b0f3c8e-7d0e-4c55-9a51-1f3f0b8f6a21"
 _REQUEST_ID = "0e9b6f2a-2b8c-4a8e-8a7e-6d1c4c3b2a10"
@@ -43,28 +53,32 @@ _DELAY_S = 0.05
 
 
 @pytest.fixture(autouse=True)
-def _armed_request() -> Any:
-    arm_request_latency(path="/conversations/turn")
+def _no_request() -> Any:
+    clear_request_latency()
     yield
     clear_request_latency()
 
 
-def _use(ctx: AppContext) -> None:
-    # Each async test runs in its own copied Context, so the AppContext set
-    # here dies with the test — no token reset (it would be cross-Context).
-    set_app_context(ctx)
+@pytest.fixture(autouse=True)
+def _boundary_doubled(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _prep(*_a: Any, **_k: Any) -> Any:
+        return SimpleNamespace(wire_config=None)
+
+    monkeypatch.setattr("matrx_ai.config.send_boundary.prepare_for_send", _prep)
+    monkeypatch.setattr("matrx_ai.mandate_taps.observe_first_send", lambda *_a, **_k: None)
 
 
-def _ctx(emitter: StreamEmitter, *, parent_conversation_id: str | None = None) -> AppContext:
-    return AppContext(
-        emitter=emitter,  # type: ignore[arg-type]
-        user_id=_USER_ID,
-        request_id=_REQUEST_ID,
-        conversation_id=_CONVERSATION_ID,
-        parent_conversation_id=parent_conversation_id,
-        store=True,
-        debug=False,
-        snapshot=False,
+def _use(emitter: Any) -> None:
+    set_app_context(
+        AppContext(
+            emitter=emitter,  # type: ignore[arg-type]
+            user_id=_USER_ID,
+            request_id=_REQUEST_ID,
+            conversation_id=_CONVERSATION_ID,
+            store=True,
+            debug=False,
+            snapshot=False,
+        )
     )
 
 
@@ -87,8 +101,45 @@ def _response() -> UnifiedResponse:
     )
 
 
-async def _finalize(monkeypatch: pytest.MonkeyPatch, state: ExecutionState) -> Any:
-    """Run the real _finalize_and_persist with only the DB sinks doubled."""
+class _Provider:
+    """Behaves like a real provider: reads the context emitter at call time."""
+
+    def __init__(self, *, wait_s: float = 0.0, stream: list[tuple[str, str]] | None = None):
+        self.wait_s = wait_s
+        self.stream = stream or []
+
+    async def execute(self, _request: Any) -> UnifiedResponse:
+        from matrx_connect.context.app_context import get_app_context
+
+        emitter = get_app_context().emitter
+        await asyncio.sleep(self.wait_s)
+        for kind, text in self.stream:
+            if emitter is None:
+                continue
+            if kind == "r":
+                await emitter.send_reasoning_chunk(text)
+            else:
+                await emitter.send_chunk(text)
+            await asyncio.sleep(0.02)
+        return _response()
+
+
+async def _iteration(
+    request: AIMatrixRequest, provider: Any, state: ExecutionState, *, tool_s: float = 0.0
+) -> None:
+    """One executor iteration: the same TimingUsage bracket the loop uses."""
+    timing = TimingUsage(start_time=time.time(), iteration=len(request.timing_history) + 1)
+    try:
+        await send_once(provider, request, state=state, iteration=timing.iteration)
+        await asyncio.sleep(tool_s)  # tool execution inside the iteration
+    finally:
+        timing.end_time = time.time()
+        request.add_timing(timing)
+
+
+async def _finalize(
+    monkeypatch: pytest.MonkeyPatch, state: ExecutionState, request: AIMatrixRequest
+) -> Any:
     captured: dict[str, Any] = {}
 
     async def _record(completed: Any, **_k: Any) -> dict[str, Any]:
@@ -106,7 +157,6 @@ async def _finalize(monkeypatch: pytest.MonkeyPatch, state: ExecutionState) -> A
     monkeypatch.setattr(executor_mod, "_apply_turn_directives", _noop)
     monkeypatch.setattr("matrx_ai.config.usage_config.ensure_pricing_lookup", _noop)
     monkeypatch.setattr("matrx_ai.persistence.queue_helpers.get_coordinator", lambda: None)
-    request = _request()
     await executor_mod._finalize_and_persist(
         request,
         1,
@@ -120,127 +170,102 @@ async def _finalize(monkeypatch: pytest.MonkeyPatch, state: ExecutionState) -> A
     return captured["completed"]
 
 
-# ---------------------------------------------------------------------------
-# The stamp
-# ---------------------------------------------------------------------------
-
-
-async def test_first_text_chunk_stamps_ttft_once() -> None:
-    emitter = StreamEmitter()
-    assert emitter.time_to_first_output_s() is None
-    await asyncio.sleep(_DELAY_S)
-    await emitter.send_chunk("Hello")
-    first = emitter.first_output_at
-    ttft = emitter.time_to_first_output_s()
-    assert ttft is not None and _DELAY_S <= ttft < 2.0
-
-    await asyncio.sleep(0.02)
-    await emitter.send_chunk(" world")
-    assert emitter.first_output_at == first  # the FIRST token, never the latest
-
-
-async def test_reasoning_chunk_counts_as_first_output() -> None:
-    emitter = StreamEmitter()
-    await emitter.send_reasoning_chunk("")  # an empty frame is not output
-    assert emitter.first_output_at is None
-    await asyncio.sleep(_DELAY_S)
-    await emitter.send_reasoning_chunk("Considering the question")
-    reasoning_at = emitter.first_output_at
-    assert reasoning_at is not None
-    await emitter.send_chunk("Answer")
-    assert emitter.first_output_at == reasoning_at
-
-
-async def test_no_output_means_no_ttft() -> None:
-    emitter = StreamEmitter()
-    await emitter.send_chunk("")
-    assert emitter.first_output_at is None
-    assert emitter.time_to_first_output_s() is None
-
-
-async def test_unarmed_stream_has_no_ttft() -> None:
-    clear_request_latency()
-    emitter = StreamEmitter()
-    await emitter.send_chunk("internal run")
-    assert emitter.first_output_at is not None
-    assert emitter.time_to_first_output_s() is None
+def _assert_persisted(completed: Any, at_least_ms: int) -> int:
+    ttft_ms = completed.metadata["ttft_ms"]
+    assert isinstance(ttft_ms, int) and ttft_ms >= at_least_ms
+    # ONE origin: ttft can never exceed the turn's total duration.
+    summary = completed.build_request_summary()
+    assert ttft_ms <= summary["total_duration_ms"], (ttft_ms, summary["total_duration_ms"])
+    assert completed.timing_stats["first_token_seconds"] == pytest.approx(ttft_ms / 1000)
+    meta = completed.to_storage_dict()["user_request"]["metadata"]
+    assert meta["ttft_ms"] == ttft_ms
+    assert meta["client_trace"] == "keep-me"  # merged, never overwritten
+    return ttft_ms
 
 
 # ---------------------------------------------------------------------------
-# Attribution + persistence
+# One per route class
 # ---------------------------------------------------------------------------
 
 
-async def test_finalize_persists_ttft_ms_and_timing_stats(monkeypatch: pytest.MonkeyPatch) -> None:
-    emitter = StreamEmitter()
-    _use(_ctx(emitter))
-    state = ExecutionState()
-    await asyncio.sleep(_DELAY_S)
-    await emitter.send_chunk("Revenue rose.")
-    expected_ms = int(round(emitter.time_to_first_output_s() * 1000))  # type: ignore[operator]
-
-    completed = await _finalize(monkeypatch, state)
-
-    assert completed.metadata["ttft_ms"] == expected_ms
-    assert expected_ms >= int(_DELAY_S * 1000)
-    assert completed.timing_stats["first_token_seconds"] == pytest.approx(expected_ms / 1000)
-
-    summary_meta = completed.build_request_summary()["metadata"]
-    assert summary_meta["ttft_ms"] == expected_ms
-    # Merge, never overwrite: the caller's own request metadata survives.
-    assert summary_meta["source"] == "chat"
-    assert summary_meta["client_trace"] == "keep-me"
-    assert isinstance(summary_meta["ttft_ms"], int)
-
-    # The row the persistence layer writes (chat.user_request.metadata).
-    storage_meta = completed.to_storage_dict()["user_request"]["metadata"]
-    assert storage_meta["ttft_ms"] == expected_ms
-    assert storage_meta["client_trace"] == "keep-me"
+async def test_agentless_v2_chat_streaming_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    arm_request_latency(path="/v2/ai/chat")
+    _use(StreamEmitter())
+    await asyncio.sleep(_DELAY_S)  # route prep BEFORE the execution: not counted
+    state, request = ExecutionState(), _request()
+    await _iteration(request, _Provider(wait_s=0.03, stream=[("c", "Rev"), ("c", "enue")]), state)
+    ttft = _assert_persisted(await _finalize(monkeypatch, state, request), at_least_ms=30)
+    assert ttft < _DELAY_S * 1000 + 30  # the pre-execution setup is excluded
 
 
-async def test_no_output_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
-    emitter = StreamEmitter()
-    _use(_ctx(emitter))
-    completed = await _finalize(monkeypatch, ExecutionState())
+async def test_reasoning_delta_counts_as_first_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    _use(StreamEmitter())
+    state, request = ExecutionState(), _request()
+    await _iteration(request, _Provider(stream=[("r", "Thinking"), ("c", "Answer")]), state)
+    ttft = turn_ttft_ms(state, request.timing_history)
+    assert ttft is not None and ttft < 15  # before the 20ms gap to the text
+    completed = await _finalize(monkeypatch, state, request)
+    assert completed.metadata["ttft_ms"] == ttft
+
+
+async def test_manual_builder_non_streaming_provider_stamps_at_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arm_request_latency(path="/v2/ai/manual")
+    _use(ConsoleEmitter("builder", accumulate=False))
+    state, request = ExecutionState(), _request()
+    await _iteration(request, _Provider(wait_s=_DELAY_S), state)  # nothing streamed
+    _assert_persisted(
+        await _finalize(monkeypatch, state, request), at_least_ms=int(_DELAY_S * 1000)
+    )
+
+
+async def test_no_emitter_mandate_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A mandate / batch / MCP run: no HTTP request armed, no emitter at all."""
+    _use(None)
+    state, request = ExecutionState(), _request()
+    await _iteration(request, _Provider(wait_s=_DELAY_S, stream=[("c", "no emitter")]), state)
+    _assert_persisted(
+        await _finalize(monkeypatch, state, request), at_least_ms=int(_DELAY_S * 1000)
+    )
+
+
+async def test_tool_call_first_turn(monkeypatch: pytest.MonkeyPatch) -> None:
+    arm_request_latency(path="/v2/ai/agents/a1")
+    _use(StreamEmitter())
+    state, request = ExecutionState(), _request()
+    await _iteration(request, _Provider(wait_s=_DELAY_S), state, tool_s=0.03)  # tool call only
+    first = state.ttft_first_output_at
+    await _iteration(request, _Provider(stream=[("c", "Answer after the tool")]), state)
+    assert state.ttft_first_output_at == first  # the turn's FIRST output stands
+    _assert_persisted(
+        await _finalize(monkeypatch, state, request), at_least_ms=int(_DELAY_S * 1000)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Edges
+# ---------------------------------------------------------------------------
+
+
+async def test_failed_call_records_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Failing:
+        async def execute(self, _r: Any) -> Any:
+            raise RuntimeError("provider down")
+
+    _use(StreamEmitter())
+    state, request = ExecutionState(), _request()
+    with pytest.raises(RuntimeError):
+        await _iteration(request, _Failing(), state)
+    completed = await _finalize(monkeypatch, state, request)
     assert "ttft_ms" not in completed.metadata
     assert "first_token_seconds" not in completed.timing_stats
-    assert "ttft_ms" not in completed.build_request_summary()["metadata"]
 
 
-async def test_later_execution_never_claims_earlier_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    emitter = StreamEmitter()
-    _use(_ctx(emitter))
-    await emitter.send_chunk("first execution's answer")
-    await asyncio.sleep(0.002)
-    later_state = ExecutionState()  # began after the stream's first output
-    completed = await _finalize(monkeypatch, later_state)
-    assert "ttft_ms" not in completed.metadata
-
-
-async def test_child_agent_sharing_the_stream_records_nothing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    emitter = StreamEmitter()
-    _use(_ctx(emitter, parent_conversation_id="9a3c1f7e-1111-4c55-9a51-1f3f0b8f6a21"))
-    state = ExecutionState()
-    await emitter.send_chunk("child text")
-    completed = await _finalize(monkeypatch, state)
-    assert "ttft_ms" not in completed.metadata
-
-
-async def test_completion_timing_stats_carry_first_token_seconds(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from matrx_connect.context.operations import TimingStatsResult
+async def test_the_watcher_is_removed_after_the_call() -> None:
+    from matrx_connect.context.app_context import get_app_context
 
     emitter = StreamEmitter()
-    _use(_ctx(emitter))
-    state = ExecutionState()
-    await emitter.send_chunk("Revenue rose.")
-    completed = await _finalize(monkeypatch, state)
-    typed = TimingStatsResult(
-        **{k: v for k, v in completed.timing_stats.items() if k in TimingStatsResult.model_fields}
-    )
-    assert typed.first_token_seconds == pytest.approx(completed.metadata["ttft_ms"] / 1000)
+    _use(emitter)
+    await _iteration(_request(), _Provider(stream=[("c", "x")]), ExecutionState())
+    assert get_app_context().emitter is emitter

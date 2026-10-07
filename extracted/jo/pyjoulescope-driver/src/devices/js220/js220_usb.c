@@ -1,5 +1,6 @@
 /*
-* Copyright 2022-2025 Jetperch LLC
+* SPDX-FileCopyrightText: Copyright 2022-2025 Jetperch LLC
+* SPDX-License-Identifier: Apache-2.0
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -903,7 +904,7 @@ static int32_t mem_complete(struct dev_s * d, int32_t status) {
     jsdrvp_backend_send(d->context, m);
 
     jsdrv_topic_clear(&d->mem_topic);
-    memset(&d->mem_hdr, 0, sizeof(d->mem_topic));
+    memset(&d->mem_hdr, 0, sizeof(d->mem_hdr));
     d->mem_offset_valid = 0;
     d->mem_offset_sent = 0;
     if (NULL != d->mem_data) {
@@ -968,7 +969,9 @@ static int32_t handle_cmd_mem(struct dev_s * d, struct jsdrvp_msg_s * msg) {
             JSDRV_LOGW("write size too big: %d > %d", (int) msg->value.size, (int) MEM_SIZE_MAX);
             --d->out_frame_id;
             jsdrvp_msg_free(d->context, msg_bk);
-            return mem_complete(d, JSDRV_ERROR_PARAMETER_INVALID);
+            // no operation started, so mem_complete would not report
+            jsdrv_topic_clear(&d->mem_topic);
+            return send_return_code_to_frontend(d, topic, JSDRV_ERROR_PARAMETER_INVALID);
         }
         m->hdr.op = JS220_PORT3_OP_WRITE_START;
         m->hdr.length = msg->value.size;

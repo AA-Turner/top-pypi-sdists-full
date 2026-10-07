@@ -4,7 +4,13 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
-from graphify.extractors.base import _LANGUAGE_BUILTIN_GLOBALS, _file_stem, _make_id, _read_text
+from graphify.extractors.base import (
+    _LANGUAGE_BUILTIN_GLOBALS,
+    _file_stem,
+    _make_id,
+    _read_source_bytes,
+    _read_text,
+)
 from graphify.ids import normalize_id
 from graphify.extractors.models import LanguageConfig
 from graphify.extractors.resolution import _resolve_js_import_target
@@ -2429,6 +2435,13 @@ def _require_imports_js(node, source: bytes, importer_nid: str, stem: str, edges
         if resolved is None:
             continue
         tgt_nid, resolved_path = resolved
+        # A relative specifier with no file behind it resolves to the attempted
+        # absolute path. Minting an id from that bakes the checkout location
+        # (and the OS username) into the graph, so treat it as unresolved, the
+        # same as static imports do (#2457).
+        if resolved_path is not None and not resolved_path.is_file():
+            tgt_nid = _make_id("ref", raw)
+            resolved_path = None
         line = node.start_point[0] + 1
         edge = {
             "source": importer_nid,
@@ -3244,6 +3257,18 @@ def _ts_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
         return True
     return False
 
+def _csharp_scope_id(node) -> str:
+    """Id of a namespace scope, stored in ``scope_chain`` / ``scope_id`` metadata.
+
+    Row and column, not ``start_byte``: a CRLF checkout has one more byte per
+    line than an LF checkout of the same file, so a byte offset gave a
+    Windows and a Linux build of the same commit different graph.json
+    metadata. Row and column are the same for both and just as unique.
+    """
+    row, column = node.start_point
+    return f"s{row}:{column}"
+
+
 def _csharp_namespace_name(node, source: bytes) -> str:
     name_node = node.child_by_field_name("name")
     if name_node is not None:
@@ -3286,7 +3311,7 @@ def _csharp_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: 
         pushed = False
         if ns_name:
             namespace_stack.append(ns_name)
-            scope_stack.append(f"s{node.start_byte}")
+            scope_stack.append(_csharp_scope_id(node))
             pushed = True
             ns_label = ".".join(namespace_stack)
             ns_nid = _csharp_namespace_id(ns_label)
@@ -3310,7 +3335,7 @@ def _csharp_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: 
         ns_name = _csharp_namespace_name(node, source)
         if ns_name:
             namespace_stack.append(ns_name)
-            scope_stack.append(f"s{node.start_byte}")
+            scope_stack.append(_csharp_scope_id(node))
             ns_label = ".".join(namespace_stack)
             ns_nid = _csharp_namespace_id(ns_label)
             line = node.start_point[0] + 1
@@ -4258,7 +4283,7 @@ def _extract_generic(
 
     try:
         parser = Parser(language)
-        source = path.read_bytes() if source_override is None else source_override
+        source = _read_source_bytes(path) if source_override is None else source_override
         # In C and C++, if the .h file does not end with a newline '\n' an error
         # is throwed even if the file is valid. In order to avoid this, a new line
         # char is added only if the original file does not end with it.
@@ -7101,6 +7126,19 @@ def _extract_generic(
                                 and fname.type == "identifier"
                             ):
                                 member_receiver = _read_text(fname, source)
+                        elif recv is not None and recv.type == "parenthesized_expression":
+                            # ((IStore)x).M() / (x as IStore).M(): the cast names
+                            # the receiver's type in source, so resolve it as
+                            # IStore.M() (#3797).
+                            inner = recv.named_children[0] if recv.named_children else None
+                            cast_type = None
+                            if inner is not None and inner.type == "cast_expression":
+                                cast_type = inner.child_by_field_name("type")
+                            elif inner is not None and inner.type == "as_expression":
+                                cast_type = inner.child_by_field_name("right")
+                            type_info = _read_csharp_type_name(cast_type, source)
+                            if type_info and type_info[0]:
+                                member_receiver = type_info[0]
                 elif fn_node is not None and fn_node.type == "identifier":
                     callee_name = _read_text(fn_node, source)
                 elif fn_node is not None and fn_node.type == "generic_name":

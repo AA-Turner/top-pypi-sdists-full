@@ -61,7 +61,8 @@ GENERIC_INPUT_COMPONENT_KEY = "generic_structured"
 
 # ── The component props contract (verified against the frontend mount site,
 #    features/content-ir/react/db-component/DbKindComponentImpl.tsx:
-#    `<Component data={data} kind={kind} config={resolution.config} />`).
+#    `<Component data={data} kind={kind} config={config} runAction={runAction}
+#    itemState={itemState} />`; actions and item state: skill `kind-actions`).
 #    This is THE #1 silent-failure class for authored components: a component
 #    reading flat props (props.wine_name) renders empty with no crash and no
 #    incident. Stated in every authoring tool's docstring, returned by
@@ -78,6 +79,26 @@ PROPS_CONTRACT: dict[str, str] = {
         "props_transform reshapes the raw kind value BEFORE mounting, but its output "
         "STILL arrives as props.data — it never spreads keys into flat props. Your "
         "component always destructures { data }."
+    ),
+    "actions": (
+        "Your component ALSO receives runAction(key, input) — the one way to make "
+        "something happen (it never throws; it resolves {ok:true,result} or "
+        "{ok:false,error}). Run AI on this item with "
+        "runAction('run_shortcut', { shortcutId, scope: { selection: <text of the "
+        "piece> }, saveAs?: 'idea_3_brief', expect?: 'json'|'text'|'image' }): "
+        "without saveAs it opens the shortcut in its own window; with saveAs it runs "
+        "in the background and the host saves the result onto this item. Save a "
+        "person's own pick or edit with runAction('save_item_state', { patch }). "
+        "Render the ready-made button: import { KindActionButton } from "
+        "\"@/components/kind-kit/KindActionButton\" (props: runAction, action, "
+        "input, label, confirm). Name shortcuts, never raw agent ids. Network calls "
+        "(fetch) are refused; runAction is the door."
+    ),
+    "item_state": (
+        "Your component also receives itemState: what actions saved onto this item "
+        "({} when nothing yet; it survives reload). Results never go into data. A "
+        "saved image is { file_id, mime_type, width, height, src } — render "
+        "<img src={itemState.idea_3_image.src} /> (src is null while loading)."
     ),
     "input_component_key": (
         f"'{GENERIC_INPUT_COMPONENT_KEY}' is the only routable input-role component key. "
@@ -111,6 +132,7 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
         "@/components/kind-kit/SortableList",
         "@/components/kind-kit/KindPanelGrid",
         "@/components/kind-kit/KindPanel",
+        "@/components/kind-kit/KindActionButton",
         "@/components/kind-kit/KindHeaderBar",
         "@/components/kind-kit/StreamingSkeleton",
         "@/components/kind-kit/TagList",

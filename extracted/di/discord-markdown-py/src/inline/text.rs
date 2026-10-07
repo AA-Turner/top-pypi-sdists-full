@@ -10,11 +10,11 @@ use nom::sequence::preceded;
 use nom::{Input as _, Mode, Offset as _, Parser};
 use tracing::Level;
 
+use crate::Input;
 use crate::context::Context;
 use crate::context::TerminalOutput;
 use crate::error::ParseError;
 use crate::span::TraceOk;
-use crate::Input;
 
 use super::emoji;
 

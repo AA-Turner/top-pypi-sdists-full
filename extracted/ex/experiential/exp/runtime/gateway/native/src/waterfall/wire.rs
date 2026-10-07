@@ -242,6 +242,8 @@ pub struct WaterfallContext<'a> {
     /// withholds every call to its tool and the waterfall runs at most
     /// `max_rounds` search rounds. `None` withholds nothing.
     pub tool_search: Option<&'a ToolSearchAdmission>,
+    /// Frozen output policy execution for preambles and terminal responses.
+    pub output_guardrails: Option<super::OutputGuardrailContext<'a>>,
 }
 
 /// The bound on one dial's open (request/response-header) phase: the

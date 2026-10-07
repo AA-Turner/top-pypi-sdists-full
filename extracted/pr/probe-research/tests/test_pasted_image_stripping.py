@@ -4,9 +4,9 @@ Codex inlines a paste as `data:image/png;base64,...` on ONE line, so one
 screenshot is one event of its full encoded size. Shipping that verbatim was
 wrong twice over:
 
-  * the import review screen promises "tool output, file contents and API
-    metadata never leave", and an image is file content, so every paste small
-    enough to fit a batch was quietly breaking that promise;
+  * the import review screen promises "tool output and file contents never
+    leave", and an image is file content, so every paste small enough to fit a
+    batch was quietly breaking that promise;
   * every paste too big for a batch was FATAL. `Journal.stage` could put it in
     no batch at all, refused, and the session never imported -- on every retry,
     forever. Eight sessions failed that way in one real import.
@@ -100,6 +100,21 @@ def test_an_absurdly_long_value_claiming_to_be_a_url_is_still_dropped() -> None:
     image = _blocks(codex_sanitize.sanitize_event(event))[0]
     assert "source" not in image
     assert image["bytes"] > 50_000
+
+
+@pytest.mark.parametrize("value", ["file:///home/u/shot.png", "iVBORw0KGgoAAAANSUhEUg" * 40, "shot.png"])
+def test_a_value_that_is_not_a_remote_url_is_not_kept_as_one(value: str) -> None:
+    """Only an http(s) reference is a pointer. A local path or bare base64
+    under the length bound used to ship verbatim as the "url" (tap 0.9.10)."""
+    event = {
+        "type": "response_item",
+        "payload": {
+            "type": "message", "role": "user",
+            "content": [{"type": "input_image", "image_url": value}],
+        },
+    }
+    image = _blocks(codex_sanitize.sanitize_event(event))[0]
+    assert image == {"type": "image", "mimeType": "image", "bytes": len(value)}
 
 
 @pytest.mark.parametrize("media", ["image/png", "image/jpeg", "image/svg+xml"])

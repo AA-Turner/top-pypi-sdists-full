@@ -5,6 +5,7 @@ from yookassa.domain.models.deal import PayoutDealInfo
 from yookassa.domain.models.payout_data.payout_destination_factory import PayoutDestinationFactory
 from yookassa.domain.models.payout_data.payout_destination_class_map import PayoutDestinationClassMap
 from yookassa.domain.models.payout_data.response.income_receipt import IncomeReceipt
+from yookassa.domain.models.payout import PayoutStatus
 from yookassa.domain.models.self_employed import PayoutSelfEmployed
 
 
@@ -110,6 +111,9 @@ class PayoutResponse(ResponseObject):
         :param value: status модели PayoutResponse.
         :type value: str
         """
+        value = str(value)
+        if value not in {getattr(PayoutStatus, _n) for _n in dir(PayoutStatus) if not _n.startswith('_')}:
+            value = PayoutStatus.UNKNOWN
         self.__status = value
 
     @property

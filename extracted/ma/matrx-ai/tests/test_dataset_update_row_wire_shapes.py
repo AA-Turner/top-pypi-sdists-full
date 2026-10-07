@@ -4,7 +4,7 @@ Live defect (2026-10-01 17:49–17:50Z, org Compass, agent Compass Dispatch Assi
 provider schema declared ``data`` as an ARRAY of objects (the create shape), so for
 ``update_row`` the model could only send the row object as a JSON STRING. The wire model
 decoded that string, but the dispatcher then read the RAW ``args`` and handed the string to
-``usertable_update_row``, which answered "data must be a dict of field values." five times
+``dataset_update_row``, which answered "data must be a dict of field values." five times
 and the run ended without an answer. The arguments below are copied from ``chat.tool_call``
 rows cb819f35…, 3499029b… and a2c3c906… exactly.
 
@@ -128,19 +128,19 @@ async def test_a_bare_string_is_refused_with_the_shape(home):
 
 @pytest.mark.asyncio
 async def test_picklist_create_reads_the_decoded_items_not_the_string(monkeypatch):
-    from matrx_ai.tools.implementations import picklists_tools
+    from matrx_ai.tools.implementations import pick_list_tools
 
     seen: list[Any] = []
 
     async def create_simple(args: dict[str, Any], _ctx: Any):
         seen.append(args["labels"])
-        return picklists_tools.ToolResult(success=True, output={"ok": True})
+        return pick_list_tools.ToolResult(success=True, output={"ok": True})
 
-    monkeypatch.setattr(picklists_tools, "userlist_create_simple", create_simple)
-    result = await picklists_tools.picklist(
+    monkeypatch.setattr(pick_list_tools, "pick_list_create_simple", create_simple)
+    result = await pick_list_tools.pick_list(
         {
             "action": "create",
-            "picklist_name": "Carrier booking status",
+            "pick_list_name": "Carrier booking status",
             "items": '["Booked", "Under way"]',
         },
         _ctx(),

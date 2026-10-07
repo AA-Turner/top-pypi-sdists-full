@@ -1,15 +1,15 @@
 use nom::{
+	Parser,
 	branch::alt,
 	bytes::complete::tag,
 	character::complete::one_of,
 	combinator::{opt, peek},
 	sequence::{preceded, terminated},
-	Parser,
 };
 
 use crate::{
-	context::Context, error::ParseError, grammar::Grammar, node::SpannedNodes, span::Span,
-	unparse::Unparse, Input,
+	Input, context::Context, error::ParseError, grammar::Grammar, node::SpannedNodes, span::Span,
+	unparse::Unparse,
 };
 
 use super::block;

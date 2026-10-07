@@ -3,25 +3,51 @@ Google OpenId, OAuth2, and OAuth1 backends, docs at:
     https://python-social-auth.readthedocs.io/en/latest/backends/google.html
 """
 
-from typing import Any, Literal
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal
 
 from social_core.backends.base import BaseAuth
+from social_core.exceptions import AuthResponseError
 
 from .oauth import BaseOAuth1, BaseOAuth2
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 
 class BaseGoogleAuth(BaseAuth):
-    ID_KEY = "email"
+    LEGACY_ID_KEYS = ("email",)
+    MUTABLE_ID_KEYS = ("email",)
+
+    def validate_email_verified(
+        self,
+        response: Mapping[str, Any] | None,
+        *,
+        stage: Literal["user_info", "token_validation"] = "user_info",
+    ) -> None:
+        """Require Google to explicitly confirm email verification."""
+        email_verified = (
+            response.get("email_verified") if response is not None else None
+        )
+        if email_verified is not True:
+            raise AuthResponseError(
+                self,
+                "Google did not provide a verified email.",
+                code="missing_claim" if email_verified is None else "invalid_claim",
+                claim="email_verified",
+                stage=stage,
+            )
 
     def get_user_id(self, details, response):
-        """Use google email as unique id"""
+        """Use the configured stable Google account identifier."""
         if self.setting("ID_KEY"):
             return super().get_user_id(details, response)
         if self.setting("USE_UNIQUE_USER_ID", False):
             if "sub" in response:
                 return response["sub"]
             return response["id"]
-        return details["email"]
+        return super().get_user_id(details, response)
 
     def get_user_details(self, response):
         """Return user details from Google API account"""
@@ -33,9 +59,9 @@ class BaseGoogleAuth(BaseAuth):
             response.get("family_name", ""),
         )
 
-        fullname, first_name, last_name = self.get_user_names(
-            name, given_name, family_name
-        )
+        fullname = name
+        first_name = given_name
+        last_name = family_name
         return {
             "username": email.split("@", 1)[0],
             "email": email,
@@ -48,12 +74,14 @@ class BaseGoogleAuth(BaseAuth):
 class BaseGoogleOAuth2API(BaseGoogleAuth):
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Return user data from Google API"""
-        return self.get_json(
+        response = self.get_json(
             "https://www.googleapis.com/oauth2/v3/userinfo",
             headers={
                 "Authorization": f"Bearer {access_token}",
             },
         )
+        self.validate_email_verified(response)
+        return response
 
     def revoke_token_params(self, token, uid):
         return {"token": token}
@@ -66,7 +94,10 @@ class GoogleOAuth2(BaseGoogleOAuth2API, BaseOAuth2):
     """Google OAuth2 authentication backend"""
 
     name = "google-oauth2"
+    title = "Google"
+    icon = "google.svg"
     REDIRECT_STATE = False
+    ID_KEY = "sub"
     AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
     ACCESS_TOKEN_URL = "https://accounts.google.com/o/oauth2/token"
     REVOKE_TOKEN_URL = "https://accounts.google.com/o/oauth2/revoke"
@@ -74,6 +105,7 @@ class GoogleOAuth2(BaseGoogleOAuth2API, BaseOAuth2):
     # The order of the default scope is important
     DEFAULT_SCOPE = ["openid", "email", "profile"]
     EXTRA_DATA = [
+        ("sub", "sub"),
         ("refresh_token", "refresh_token", True),
         ("expires_in", "expires_in"),
         ("token_type", "token_type", True),
@@ -84,16 +116,20 @@ class GoogleOAuth(BaseGoogleAuth, BaseOAuth1):
     """Google OAuth authorization mechanism"""
 
     name = "google-oauth"
+    title = "Google"
+    icon = "google.svg"
+    ID_KEY = "id"
     AUTHORIZATION_URL = "https://www.google.com/accounts/OAuthAuthorizeToken"
     REQUEST_TOKEN_URL = "https://www.google.com/accounts/OAuthGetRequestToken"
     ACCESS_TOKEN_URL = "https://www.google.com/accounts/OAuthGetAccessToken"
     DEFAULT_SCOPE = ["https://www.googleapis.com/auth/userinfo#email"]
+    EXTRA_DATA = [("id", "id")]
 
     def user_data(self, access_token: dict, *args, **kwargs) -> dict[str, Any] | None:
         """Return user data from Google API"""
         return self.get_querystring(
             "https://www.googleapis.com/userinfo/email",
-            auth=self.oauth_auth(access_token),
+            auth=self.oauth_auth(access_token, stage="user_info"),
         )
 
     def get_key_and_secret(self):

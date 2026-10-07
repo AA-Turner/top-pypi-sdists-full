@@ -11,6 +11,7 @@ class UpworkOAuth(BaseOAuth1):
     """Upwork OAuth authentication backend"""
 
     name = "upwork"
+    title = "Upwork"
     ID_KEY = "id"
     AUTHORIZATION_URL = "https://www.upwork.com/services/api/auth"
     REQUEST_TOKEN_URL = "https://www.upwork.com/api/auth/v1/oauth/token/request"
@@ -24,12 +25,11 @@ class UpworkOAuth(BaseOAuth1):
         auth_user = response.get("auth_user", {})
         first_name = auth_user.get("first_name")
         last_name = auth_user.get("last_name")
-        fullname = f"{first_name} {last_name}"
         profile_url = info.get("profile_url", "")
         username = profile_url.rsplit("/")[-1].replace("~", "")
         return {
             "username": username,
-            "fullname": fullname,
+            "fullname": "",
             "first_name": first_name,
             "last_name": last_name,
         }
@@ -38,5 +38,5 @@ class UpworkOAuth(BaseOAuth1):
         """Loads user data from service"""
         return self.get_json(
             "https://www.upwork.com/api/auth/v1/info.json",
-            auth=self.oauth_auth(access_token),
+            auth=self.oauth_auth(access_token, stage="user_info"),
         )

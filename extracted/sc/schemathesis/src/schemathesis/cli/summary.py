@@ -174,6 +174,7 @@ class TestCasesSummary:
     with_failures: int
     unique_failures: int
     without_checks: int
+    errored: int
 
 
 @dataclass(slots=True)
@@ -270,7 +271,8 @@ def _reduce_operations(
     stop_reason: StopReason,
 ) -> OperationsSummary:
     errored = len(
-        {
+        statistic.errored_operations - statistic.tested_operations
+        | {
             error.label
             for error in errors
             # Some API operations may have some tests before they have an error
@@ -311,7 +313,8 @@ def build_operations(
     if api_statistic is None:
         return None
     errored = len(
-        {
+        statistic.errored_operations - statistic.tested_operations
+        | {
             error.label
             for error in errors
             if error.related_to_operation and error.label not in statistic.tested_operations
@@ -363,6 +366,7 @@ def reduce_test_cases(statistic: Statistic) -> TestCasesSummary:
         with_failures=statistic.cases_with_failures,
         unique_failures=unique_failures,
         without_checks=statistic.cases_without_checks,
+        errored=statistic.errored_cases,
     )
 
 

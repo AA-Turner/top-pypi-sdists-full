@@ -306,6 +306,79 @@ def precheck_usage() -> None:
         raise UsageLimitReachedError(verdict.usage)
 
 
+def usage_refusal_in(source: Any, *, _max_depth: int = 16) -> UsageLimitReachedError | None:
+    """The usage refusal hiding inside ``source``, or None.
+
+    A refusal raised at the paid-call seam rarely reaches the HTTP layer as
+    itself: ``run_agent`` contains it into a failed result (``.exception``), a
+    mandate wraps that result into a ``MandateError``, a route maps the
+    MandateError to ``HTTPException(500)``. Every layer that turns a failure
+    into a response asks HERE, so the person reads the gate's own sentence
+    (402) instead of "Something went wrong".
+
+    ``source`` is an exception (its ``__cause__`` / ``__context__`` chain and
+    ExceptionGroup members are walked) or any object carrying the failure on
+    ``.exception`` / ``.terminal_exception`` (``AgentRunResult``,
+    ``CompletedRequest``).
+    """
+    seen: set[int] = set()
+    stack: list[Any] = [source]
+    while stack and len(seen) < _max_depth:
+        node = stack.pop()
+        if node is None or id(node) in seen:
+            continue
+        seen.add(id(node))
+        if isinstance(node, UsageLimitReachedError):
+            return node
+        for attr in ("exception", "terminal_exception", "usage_refusal"):
+            carried = getattr(node, attr, None)
+            if isinstance(carried, BaseException):
+                stack.append(carried)
+        if isinstance(node, BaseException):
+            # ``__context__`` is walked even under ``raise … from None``: a
+            # route that hid its cause still must not hide the person's limit.
+            stack.append(node.__cause__)
+            stack.append(node.__context__)
+            members = getattr(node, "exceptions", None)
+            if isinstance(members, (list, tuple)):
+                stack.extend(m for m in members if isinstance(m, BaseException))
+    return None
+
+
+#: What a usage refusal looks like once a layer flattened it to text (a
+#: workflow step's recorded error, a tool's failure line).
+_REFUSAL_MARKERS: tuple[str, ...] = (
+    USAGE_LIMIT_MESSAGE,
+    GUEST_LIMIT_MESSAGE,
+    "UsageLimitReachedError",
+    USAGE_LIMIT_REACHED,
+    GUEST_AI_ALLOWANCE_USED,
+)
+
+
+def usage_refusal_from_text(text: Any, *, user_id: str | None = None) -> UsageLimitReachedError | None:
+    """Rebuild the typed refusal from a failure that was flattened to text.
+
+    A workflow child run records its step's failure as words, so the exception
+    is gone by the time the caller answers. When those words are the gate's,
+    the refusal is rebuilt from the gate's own memory for this person (no
+    database read) so the response still carries the numbers and the reset
+    time; with nothing cached it still carries the gate's sentence.
+    """
+    blob = text if isinstance(text, str) else repr(text)
+    if not blob or not any(marker in blob for marker in _REFUSAL_MARKERS):
+        return None
+    if user_id is None:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        user_id = _gated_person(try_get_app_context())
+    verdict = _verdict_for(user_id) if user_id else None
+    usage = dict(verdict.usage) if verdict is not None and verdict.usage else {"state": "over"}
+    if GUEST_LIMIT_MESSAGE in blob or GUEST_AI_ALLOWANCE_USED in blob:
+        usage.setdefault("plan_key", GUEST_PLAN_KEY)
+    return UsageLimitReachedError(usage)
+
+
 __all__ = [
     "FIX_ACTION_UPGRADE_PLAN",
     "GUEST_AI_ALLOWANCE_USED",
@@ -321,4 +394,6 @@ __all__ = [
     "precheck_usage",
     "reset_usage_gate_state",
     "set_usage_verdict_resolver",
+    "usage_refusal_from_text",
+    "usage_refusal_in",
 ]

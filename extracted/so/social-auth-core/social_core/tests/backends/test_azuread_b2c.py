@@ -30,14 +30,17 @@ import base64
 import json
 from time import time
 from typing import TYPE_CHECKING, cast
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 import jwt
 import responses
 from jwt.algorithms import RSAAlgorithm
 
-from social_core.exceptions import AuthMissingParameter, AuthTokenError
+from social_core.exceptions import AuthConfigurationError, AuthResponseError
 from social_core.utils import get_querystring
 
+from .azuread import AzureOAuth2TestMixin
 from .oauth import BaseAuthUrlTestMixin, OAuth2Test
 
 if TYPE_CHECKING:
@@ -69,7 +72,7 @@ RSA_PRIVATE_JWT_KEY = {
 }
 
 
-class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
+class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin, AzureOAuth2TestMixin):
     AUTH_KEY = "abcdef12-1234-9876-0000-abcdef098765"
     EXPIRES_IN = 3600
     AUTH_TIME = int(time())
@@ -78,6 +81,7 @@ class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
     JWKS_URL = "https://footenant.b2clogin.com/footenant.onmicrosoft.com/discovery/v2.0/keys?p=b2c_1_signin"
     POLICY = "b2c_1_signin"
     TOKEN_POLICY = "B2C_1_SignIn"
+    END_SESSION_URL = "https://footenant.b2clogin.com/footenant.onmicrosoft.com/oauth2/v2.0/logout?p=b2c_1_signin"
 
     backend_path = "social_core.backends.azuread_b2c.AzureADB2COAuth2"
     expected_username = "FooBar"
@@ -136,6 +140,7 @@ class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
         **overrides,
     ) -> str:
         body = {
+            "refresh_token": "foobar-refresh-token",
             "token_type": "bearer",
             "id_token": id_token or self.build_id_token(**overrides),
             "expires_in": self.EXPIRES_IN,
@@ -181,6 +186,7 @@ class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
                 {
                     "issuer": self.ISSUER,
                     "jwks_uri": self.JWKS_URL,
+                    "end_session_endpoint": self.END_SESSION_URL,
                     "id_token_signing_alg_values_supported": ["RS256"],
                 }
             ),
@@ -196,6 +202,100 @@ class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
 
     def test_login(self) -> None:
         self.do_login()
+        query = parse_qs(urlsplit(cast("str", responses.calls[0].request.url)).query)
+        self.assertNotIn("code_challenge", query)
+        token_call = next(
+            call
+            for call in responses.calls
+            if call.request.url == self.backend.access_token_url()
+        )
+        self.assertNotIn(
+            "code_verifier", parse_qs(cast("str", token_call.request.body))
+        )
+
+    def test_logout_url_preserves_policy_and_encodes_parameters(self) -> None:
+        endpoint = "https://custom.example.com/footenant.onmicrosoft.com/oauth2/v2.0/logout?p=b2c_1_signin&extra=one&extra=two&empty=&state=old"
+        with patch.object(
+            self.backend,
+            "openid_configuration",
+            return_value={"end_session_endpoint": endpoint},
+        ):
+            hint = "token+hint"
+            url = self.backend.logout_url(
+                post_logout_redirect_uri="https://app.example.com/?next=a&b=two",
+                id_token_hint=hint,
+                state="state & value",
+            )
+        parsed = urlsplit(url)
+        self.assertEqual(parsed.netloc, "custom.example.com")
+        self.assertEqual(
+            parse_qs(parsed.query, keep_blank_values=True),
+            {
+                "p": [self.POLICY],
+                "extra": ["one", "two"],
+                "empty": [""],
+                "client_id": [self.AUTH_KEY],
+                "post_logout_redirect_uri": ["https://app.example.com/?next=a&b=two"],
+                "id_token_hint": ["token+hint"],
+                "state": ["state & value"],
+            },
+        )
+
+    def test_logout_url_uses_policy_discovery(self) -> None:
+        url = self.backend.logout_url()
+        self.assertEqual(
+            urlsplit(url)._replace(query=""),
+            urlsplit(self.END_SESSION_URL)._replace(query=""),
+        )
+        self.assertEqual(
+            parse_qs(urlsplit(url).query),
+            {"p": [self.POLICY], "client_id": [self.AUTH_KEY]},
+        )
+        self.backend.logout_url()
+        discovery_calls = [
+            call
+            for call in responses.calls
+            if call.request.url == self.backend.openid_configuration_url()
+        ]
+        self.assertLessEqual(len(discovery_calls), 1)
+
+    def test_logout_url_optional_parameters(self) -> None:
+        endpoint = "https://footenant.b2clogin.com/footenant.onmicrosoft.com/b2c_1_signin/oauth2/v2.0/logout"
+        with patch.object(
+            self.backend,
+            "openid_configuration",
+            return_value={"end_session_endpoint": endpoint},
+        ):
+            self.assertEqual(
+                parse_qs(urlsplit(self.backend.logout_url()).query),
+                {"client_id": [self.AUTH_KEY]},
+            )
+            self.strategy.set_settings({f"SOCIAL_AUTH_{self.name}_KEY": None})
+            self.assertEqual(self.backend.logout_url(), endpoint)
+
+    def test_logout_url_rejects_missing_or_invalid_metadata(self) -> None:
+        for endpoint in (
+            None,
+            42,
+            "",
+            "http://example.com/logout",
+            "/logout",
+            "https://user:secret@example.com/logout",
+            "https://@example.com/logout",
+            "https://example.com/logout#fragment",
+            "https://example.com:bad/logout",
+            "https://[invalid/logout",
+        ):
+            with (
+                self.subTest(endpoint=endpoint),
+                patch.object(
+                    self.backend,
+                    "openid_configuration",
+                    return_value={"end_session_endpoint": endpoint},
+                ),
+                self.assertRaises(AuthResponseError),
+            ):
+                self.backend.logout_url()
 
     def test_login_accepts_id_token_only_response(self) -> None:
         self.access_token_body = self.build_access_token_body(access_token=None)
@@ -204,6 +304,33 @@ class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
         user = self.do_login()
 
         self.assertEqual(user.social[0].extra_data["access_token"], id_token)
+
+    def test_invalid_policy_reports_the_active_operation(self) -> None:
+        invalid_policies: tuple[object, ...] = (None, "", "other", True, 42, [], {})
+        for policy in invalid_policies:
+            self.strategy.set_settings({f"SOCIAL_AUTH_{self.name}_POLICY": policy})
+            for operation, stage in (
+                (self.backend.authorization_url, "begin"),
+                (self.backend.auth_extra_arguments, "begin"),
+                (self.backend.access_token_url, "token_exchange"),
+                (self.backend.refresh_token_url, "refresh"),
+                (self.backend.get_openid_configuration_url_format, "token_validation"),
+                (self.backend.jwks_url, "token_validation"),
+                (
+                    lambda: self.backend.validate_id_token_policy(
+                        {"tfp": "b2c_signin"}
+                    ),
+                    "token_validation",
+                ),
+            ):
+                with (
+                    self.subTest(policy=policy, stage=stage),
+                    self.assertRaises(AuthConfigurationError) as caught,
+                ):
+                    operation()
+                self.assertEqual(caught.exception.stage, stage)
+                self.assertEqual(caught.exception.code, "invalid_setting")
+                self.assertEqual(caught.exception.parameter, "POLICY")
 
     def test_partial_pipeline(self) -> None:
         self.do_partial_pipeline()
@@ -224,13 +351,13 @@ class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
             self.tamper_id_token(self.build_id_token(), name="Attacker")
         )
 
-        with self.assertRaises(AuthTokenError):
+        with self.assertRaises(AuthResponseError):
             self.do_start()
 
     def test_login_rejects_wrong_id_token_audience(self) -> None:
         self.access_token_body = self.build_access_token_body(aud="other-app")
 
-        with self.assertRaises(AuthTokenError):
+        with self.assertRaises(AuthResponseError):
             self.do_start()
 
     def test_login_rejects_wrong_id_token_issuer(self) -> None:
@@ -238,19 +365,19 @@ class AzureADB2COAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
             iss="https://footenant.b2clogin.com/00000000-0000-0000-0000-000000000000/v2.0/"
         )
 
-        with self.assertRaises(AuthTokenError):
+        with self.assertRaises(AuthResponseError):
             self.do_start()
 
     def test_login_rejects_wrong_id_token_policy(self) -> None:
         self.access_token_body = self.build_access_token_body(tfp="B2C_1_PasswordReset")
 
-        with self.assertRaises(AuthTokenError):
+        with self.assertRaises(AuthResponseError):
             self.do_start()
 
     def test_login_rejects_missing_id_token_policy(self) -> None:
         self.access_token_body = self.build_access_token_body(tfp=None)
 
-        with self.assertRaises(AuthMissingParameter):
+        with self.assertRaises(AuthResponseError):
             self.do_start()
 
     def test_login_accepts_legacy_acr_policy_claim(self) -> None:

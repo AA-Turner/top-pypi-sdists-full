@@ -29,7 +29,6 @@ _AGENT_MARKERS = (
     "CLAUDECODE",
     "CLAUDE_CODE_ENTRYPOINT",
     "CLAUDE_CODE_SESSION_ID",
-    "CURSOR_TRACE_ID",
     "CODEX_SANDBOX",
     "CODEX_THREAD_ID",
     "PRBE_CODEX_TAP_TOKEN",
@@ -307,15 +306,29 @@ def test_an_older_claude_code_without_a_session_still_authenticates(tmp_path: Pa
     assert "X-Probe-Agent-Session" not in headers
 
 
-def test_cursor_is_detectable_but_never_reported(tmp_path: Path) -> None:
-    """Cursor transcripts are not captured, so a session id we could never resolve is
-    worse than none: it invites someone to follow a dead link."""
+def test_a_cursor_terminal_is_no_agent(tmp_path: Path) -> None:
+    """Cursor is not a harness (removed 2026-10-06): the trace id its terminal exports
+    sends no agent headers, and a paired Codex run in that terminal is still Codex."""
     headers = _run_helper(
         _plugin_root(tmp_path),
         extra_env={"CURSOR_TRACE_ID": "abcdefgh12345678"},
     )
     assert "X-Probe-Agent" not in headers
     assert "X-Probe-Agent-Session" not in headers
+
+    tap = tmp_path / "tap"
+    tap.mkdir()
+    (tap / ".token").write_text("a-credential")
+    codex = _run_helper(
+        _plugin_root(tmp_path),
+        extra_env={
+            "CURSOR_TRACE_ID": "abcdefgh12345678",
+            "CODEX_THREAD_ID": "codex-thread-0001",
+            "PRBE_CODEX_TAP_PLUGIN_DIR": str(tap),
+        },
+    )
+    assert codex["X-Probe-Agent"] == "codex"
+    assert codex["X-Probe-Agent-Session"] == "codex-thread-0001"
 
 
 def test_codex_is_reported_only_once_its_tap_is_paired(tmp_path: Path) -> None:

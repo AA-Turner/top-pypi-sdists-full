@@ -14,7 +14,7 @@ class ModuleDocFragment:
     # Standard LDAP documentation fragment
     DOCUMENTATION = r"""
 notes:
-  - The default authentication settings attempts to use a SASL EXTERNAL bind over a UNIX domain socket. This works well with
+  - The default authentication settings attempt to use a SASL EXTERNAL bind over a UNIX domain socket. This works well with
     the default Ubuntu install for example, which includes a C(cn=peercred,cn=external,cn=auth) ACL rule allowing root to
     modify the server configuration. If you need to use a simple bind to access your server, pass the credentials in O(bind_dn)
     and O(bind_pw).
@@ -87,6 +87,12 @@ options:
     choices: ['external', 'gssapi']
     default: external
     version_added: "2.0.0"
+  sasl_auth_id:
+    description:
+      - The SASL authorization identity, equivalent to the C(-X) CLI argument.
+      - If not provided, no authorization identity is sent.
+    type: str
+    version_added: "13.5.0"
   xorder_discovery:
     description:
       - Set the behavior on how to process Xordered DNs.

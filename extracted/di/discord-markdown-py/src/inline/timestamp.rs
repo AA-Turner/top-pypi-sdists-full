@@ -1,18 +1,18 @@
 //! Timestamp parsing.
 
 use nom::{
+	Parser,
 	bytes::complete::tag,
 	character::complete::{char, i64, one_of},
 	combinator::{map, opt},
 	error::ParseError,
 	sequence::{delimited, pair, preceded},
-	Parser,
 };
-use style::{Style, STYLE_CHARS};
+use style::{STYLE_CHARS, Style};
 
 pub mod style;
 
-use crate::{unparse::Unparse, Input};
+use crate::{Input, unparse::Unparse};
 
 pub const OPEN_DELIMITER: &str = "<t:";
 pub const CLOSE_DELIMITER: &str = ">";
@@ -68,7 +68,7 @@ mod test {
 
 	use crate::{inline::timestamp::Style, test_utils::handle_nom_err};
 
-	use super::{timestamp, Timestamp};
+	use super::{Timestamp, timestamp};
 
 	#[test]
 	fn simple_timestamp() {

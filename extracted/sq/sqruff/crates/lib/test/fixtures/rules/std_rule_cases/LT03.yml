@@ -1,5 +1,20 @@
 rule: LT03
 
+passes_shortcut_fallthrough_alone:
+  # When line_position = "alone", _check_trail_lead_shortcut returns False
+  # (defers to full reflow) since "alone" is not "leading" or "trailing".
+  # An inline := satisfies the alone constraint, so this is a pass.
+  # This covers the return False fallback in _check_trail_lead_shortcut.
+  pass_str: |
+    LET MY_VAR := SOME_VALUE;
+  configs:
+    layout:
+      type:
+        assignment_operator:
+          line_position: alone
+    core:
+      dialect: snowflake
+
 passes_on_before_default:
   pass_str: |
     select
@@ -251,6 +266,33 @@ passes_operator_alone_on_line:
       ||
       'jklm'
 
+passes_leading_align_following_binary_operator:
+  # Ensure leading:align-following doesn't crash on binary operators.
+  pass_str: |
+    select
+        a
+        + b
+    from foo
+  configs:
+    layout:
+      type:
+        binary_operator:
+          line_position: "leading:align-following"
+
+passes_leading_align_following_comparison_operator:
+  # Ensure leading:align-following doesn't crash on comparison operators.
+  pass_str: |
+    select *
+    from foo
+    where
+        a
+        = 1
+  configs:
+    layout:
+      type:
+        comparison_operator:
+          line_position: "leading:align-following"
+
 fixes_tuple_error_issue:
   # https://github.com/sqlfluff/sqlfluff/issues/4184
   # NB: This one isn't fixable.
@@ -266,3 +308,389 @@ fixes_tuple_error_issue:
       templater: jinja
     indentation:
       template_blocks_indent: false
+# Assignment operator (:=) tests (Oracle PL/SQL)
+
+# --- trailing config (tolerates standalone := on its own line) ---
+
+assignment_operator_trailing_passes_same_line:
+  # := on the same line as the variable is fine
+  pass_str: |
+    MY_VAR := SOME_VALUE;
+  configs: &assignment_trailing
+    layout:
+      type:
+        assignment_operator:
+          line_position: trailing
+    core:
+      dialect: oracle
+
+assignment_operator_trailing_passes_truly_trailing:
+  # := at end of first line (before newline) is correct for trailing
+  pass_str: |
+    MY_VAR :=
+        SOME_VALUE;
+  configs: *assignment_trailing
+
+assignment_operator_trailing_fails_leading:
+  # := at start of second line must be moved to end of first line
+  fail_str: |
+    MY_VAR
+      := SOME_VALUE;
+  fix_str: |
+    MY_VAR :=
+      SOME_VALUE;
+  configs: *assignment_trailing
+
+assignment_operator_trailing_passes_on_own_line:
+  # := on its own line (newlines on both sides) is tolerated by plain trailing
+  pass_str: |
+    MY_VAR
+    :=
+    SOME_VALUE;
+  configs: *assignment_trailing
+
+# --- trailing:attached config (operator MUST be on the end of the prev line) ---
+
+assignment_operator_trailing_attached_passes_same_line:
+  # := on the same line as the variable is fine
+  pass_str: |
+    MY_VAR := SOME_VALUE;
+  configs: &assignment_trailing_attached
+    layout:
+      type:
+        assignment_operator:
+          line_position: "trailing:attached"
+    core:
+      dialect: oracle
+
+assignment_operator_trailing_attached_passes_truly_trailing:
+  # := at end of first line (before newline) is correct
+  pass_str: |
+    MY_VAR :=
+      SOME_VALUE;
+  configs: *assignment_trailing_attached
+
+assignment_operator_trailing_attached_fails_leading:
+  # := at start of second line must be moved to end of first line
+  fail_str: |
+    MY_VAR
+      := SOME_VALUE;
+  fix_str: |
+    MY_VAR :=
+      SOME_VALUE;
+  configs: *assignment_trailing_attached
+
+assignment_operator_trailing_attached_fails_on_own_line:
+  # := on its own line (newlines on both sides) must be moved to end of variable line
+  fail_str: |
+    MY_VAR
+    :=
+    SOME_FUNCTION(
+      PARAM1,
+      PARAM2
+    );
+  fix_str: |
+    MY_VAR :=
+    SOME_FUNCTION(
+      PARAM1,
+      PARAM2
+    );
+  configs: *assignment_trailing_attached
+
+assignment_operator_trailing_attached_fails_multiline_rhs:
+  # := on its own line with a multi-line RHS expression
+  fail_str: |
+    AUDITINFO
+    :=
+    AUDITINFO
+    || 'SUFFIX';
+  fix_str: |
+    AUDITINFO :=
+    AUDITINFO
+    || 'SUFFIX';
+  configs: *assignment_trailing_attached
+
+# --- leading config (assignment operator should start the line) ---
+
+assignment_operator_leading_passes_same_line:
+  # := on same line as the variable is fine for leading too (mid-line)
+  pass_str: |
+    MY_VAR := SOME_VALUE;
+  configs: &assignment_leading
+    layout:
+      type:
+        assignment_operator:
+          line_position: leading
+    core:
+      dialect: oracle
+
+assignment_operator_leading_passes_truly_leading:
+  # := at start of second line is correct for leading
+  pass_str: |
+    MY_VAR
+      := SOME_VALUE;
+  configs: *assignment_leading
+
+assignment_operator_leading_fails_trailing:
+  # := at end of first line must be moved to start of second line
+  fail_str: |
+    MY_VAR :=
+      SOME_VALUE;
+  fix_str: |
+    MY_VAR
+      := SOME_VALUE;
+  configs: *assignment_leading
+
+assignment_operator_leading_passes_on_own_line:
+  # := on its own line (newlines on both sides) is ok for leading
+  # (it's on a new line, which satisfies the leading constraint)
+  pass_str: |
+    MY_VAR
+    :=
+    SOME_VALUE;
+  configs: *assignment_leading
+
+# --- leading:attached config (operator MUST start the next line, attached to the RHS) ---
+
+assignment_operator_leading_attached_passes_same_line:
+  # := on the same line is fine (mid-line)
+  pass_str: |
+    MY_VAR := SOME_VALUE;
+  configs: &assignment_leading_attached
+    layout:
+      type:
+        assignment_operator:
+          line_position: "leading:attached"
+    core:
+      dialect: oracle
+
+assignment_operator_leading_attached_passes_truly_leading:
+  # := at the start of the next line, directly before the RHS - correct
+  pass_str: |
+    MY_VAR
+      := SOME_VALUE;
+  configs: *assignment_leading_attached
+
+assignment_operator_leading_attached_fails_trailing:
+  # := at end of first line must be moved to start of second line
+  fail_str: |
+    MY_VAR :=
+      SOME_VALUE;
+  fix_str: |
+    MY_VAR
+      := SOME_VALUE;
+  configs: *assignment_leading_attached
+
+assignment_operator_leading_attached_fails_on_own_line:
+  # := on its own line must be joined to the RHS (remove newline after :=)
+  fail_str: |
+    MY_VAR
+    :=
+    SOME_VALUE;
+  fix_str: |
+    MY_VAR
+    := SOME_VALUE;
+  configs: *assignment_leading_attached
+
+# --- Cross-dialect: Snowflake scripting (LET statement) ---
+# These tests guard that assignment_operator handling is dialect-agnostic.
+# Snowflake uses := in LET statements (scripting blocks); the same
+# trailing:attached and leading:attached semantics should apply.
+
+assignment_operator_snowflake_trailing_attached_passes:
+  # LET var := value on same line is always fine
+  pass_str: |
+    LET MY_VAR := SOME_VALUE;
+  configs: &snowflake_trailing_attached
+    layout:
+      type:
+        assignment_operator:
+          line_position: "trailing:attached"
+    core:
+      dialect: snowflake
+
+assignment_operator_snowflake_trailing_attached_passes_truly_trailing:
+  # := at end of line (before newline) is correct for trailing:attached
+  pass_str: |
+    LET MY_VAR :=
+      SOME_VALUE;
+  configs: *snowflake_trailing_attached
+
+assignment_operator_snowflake_trailing_attached_fails_standalone:
+  # := on its own line must be moved to the end of the LET line
+  fail_str: |
+    LET MY_VAR
+    :=
+    SOME_VALUE;
+  fix_str: |
+    LET MY_VAR :=
+    SOME_VALUE;
+  configs: *snowflake_trailing_attached
+
+assignment_operator_snowflake_leading_attached_passes:
+  # LET var := value on same line is always fine
+  pass_str: |
+    LET MY_VAR := SOME_VALUE;
+  configs: &snowflake_leading_attached
+    layout:
+      type:
+        assignment_operator:
+          line_position: "leading:attached"
+    core:
+      dialect: snowflake
+
+assignment_operator_snowflake_leading_attached_passes_truly_leading:
+  # := at start of next line, directly before the RHS - correct
+  pass_str: |
+    LET MY_VAR
+      := SOME_VALUE;
+  configs: *snowflake_leading_attached
+
+test_pass_bigquery_pipe_operator_leading:
+  # `|>` already starts the line - this is correct.
+  pass_str: |
+    FROM my_database.my_table
+    |> WHERE some_condition
+    |> ORDER BY my_column
+  configs:
+    core:
+      dialect: bigquery
+
+test_fail_bigquery_pipe_operator_trailing:
+  # `|>` should start a new line, not trail the previous one.
+  fail_str: |
+    FROM my_database.my_table |>
+    WHERE some_condition
+  fix_str: |
+    FROM my_database.my_table
+    |> WHERE some_condition
+  configs:
+    core:
+      dialect: bigquery
+
+test_fail_bigquery_pipe_operator_inline:
+  # The default `leading:attached:strict` config moves a mid-line `|>` (no
+  # newline on either side) onto its own line.
+  fail_str: |
+    FROM my_database.my_table |> WHERE some_condition |> ORDER BY my_column
+  fix_str: |
+    FROM my_database.my_table
+    |> WHERE some_condition
+    |> ORDER BY my_column
+  configs:
+    core:
+      dialect: bigquery
+
+test_fail_bigquery_pipe_operator_standalone:
+  # The `attached` part of the default config joins a `|>` floating alone on
+  # its own line back onto the following clause keyword.
+  fail_str: |
+    FROM my_database.my_table
+    |>
+    WHERE some_condition
+  fix_str: |
+    FROM my_database.my_table
+    |> WHERE some_condition
+  configs:
+    core:
+      dialect: bigquery
+
+# --- leading:strict / trailing:strict (insert a newline for mid-line operators)
+
+test_fail_binary_operator_leading_strict_inline:
+  # leading:strict moves a mid-line operator onto the start of a new line.
+  fail_str: |
+    SELECT a + b
+  fix_str: |
+    SELECT a
+    + b
+  configs: &binary_leading_strict
+    layout:
+      type:
+        binary_operator:
+          line_position: "leading:strict"
+
+test_pass_binary_operator_leading_strict_already_leading:
+  pass_str: |
+    SELECT a
+    + b
+  configs: *binary_leading_strict
+
+test_fail_binary_operator_trailing_strict_inline:
+  # trailing:strict moves a mid-line operator onto the end of the line.
+  fail_str: |
+    SELECT a + b
+  fix_str: |
+    SELECT a +
+    b
+  configs: &binary_trailing_strict
+    layout:
+      type:
+        binary_operator:
+          line_position: "trailing:strict"
+
+test_pass_binary_operator_trailing_strict_already_trailing:
+  pass_str: |
+    SELECT a +
+    b
+  configs: *binary_trailing_strict
+
+test_fail_binary_operator_leading_attached_strict_inline:
+  # leading:attached:strict on a mid-line operator inserts a newline before it
+  # while keeping it attached to the following token.
+  fail_str: |
+    SELECT a + b
+  fix_str: |
+    SELECT a
+    + b
+  configs:
+    layout:
+      type:
+        binary_operator:
+          line_position: "leading:attached:strict"
+
+test_fail_binary_operator_trailing_attached_strict_inline:
+  # trailing:attached:strict on a mid-line operator inserts a newline after it
+  # while keeping it attached to the preceding token.
+  fail_str: |
+    SELECT a + b
+  fix_str: |
+    SELECT a +
+    b
+  configs:
+    layout:
+      type:
+        binary_operator:
+          line_position: "trailing:attached:strict"
+
+test_fail_binary_operator_leading_strict_inline_block_comment:
+  # A mid-line operator with inline block comments only inserts a newline next
+  # to the operator - the comments are not reordered.
+  fail_str: |
+    SELECT a /* c1 */ + /* c2 */ b
+  fix_str: |
+    SELECT a /* c1 */
+    + /* c2 */ b
+  configs: *binary_leading_strict
+
+test_fail_bigquery_pipe_operator_inline_block_comment:
+  # The default `leading:strict` pipe handling is comment-safe.
+  fail_str: |
+    FROM t /* c */ |> WHERE x
+  fix_str: |
+    FROM t /* c */
+    |> WHERE x
+  configs:
+    core:
+      dialect: bigquery
+
+assignment_operator_snowflake_leading_attached_fails_standalone:
+  # := on its own line must be joined to the RHS (remove newline after :=)
+  fail_str: |
+    LET MY_VAR
+    :=
+    SOME_VALUE;
+  fix_str: |
+    LET MY_VAR
+    := SOME_VALUE;
+  configs: *snowflake_leading_attached

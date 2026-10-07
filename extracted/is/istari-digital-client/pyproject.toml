@@ -1,6 +1,6 @@
 [project]
 name = "istari-digital-client"
-version = "13.2.0"
+version = "13.2.1"
 description = "Python client for the Istari Digital platform"
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -32,8 +32,8 @@ typing-extensions = "^4.12.2"
 types-python-dateutil = "^2.9.0.20240906"
 deprecation = "^2.1.0"
 inflection = "^0.5.1"
-istari-digital-core = "7.3.2"
-istari-digital-core-fips = { version = "7.3.2", optional = true }
+istari-digital-core = "7.4.0"
+istari-digital-core-fips = { version = "7.4.0", optional = true }
 boto3 = { version = ">=1.26.0", optional = true }
 awscrt = { version = ">=0.19.0", optional = true }
 # Floor, no ceiling. 49.0.0 is the first release carrying the CVE-2026-34073 and

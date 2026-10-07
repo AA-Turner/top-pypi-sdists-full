@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: panther_core
-Version: 0.16.2
+Version: 0.16.3
 Summary: Panther core library
 Home-page: https://github.com/panther-labs/panther_core
-Download-URL: https://github.com/panther-labs/panther_core/archive/refs/tags/v0.16.2.tar.gz
+Download-URL: https://github.com/panther-labs/panther_core/archive/refs/tags/v0.16.3.tar.gz
 Author: Panther Labs Inc
 Author-email: pypi@runpanther.io
 License: AGPL-3.0

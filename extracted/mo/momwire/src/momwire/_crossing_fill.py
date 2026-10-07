@@ -1393,7 +1393,7 @@ def _fast_end_desc(fast, a_wire, pt, rho, z, zp):
             for n in fast.line_xy.get((float(pt[0]), float(pt[1])), ()):
                 if fast.line_z[n] == l0 and np.array_equal(r, fast.line[:, n]):
                     _ROUTES["ends_line_on_node"] += 1
-                    return ("line", fast.kl_rank[:, n].copy())
+                    return ("line", fast.kl_rank[:, n].copy(), n)
             # Group g's local key of (r[g], lv[0]), every g at once: the
             # global key of the pair, then its place among g's own keys.
             k = fast.keys.ids(r, np.full(r.shape, lv[0]))
@@ -1565,7 +1565,7 @@ def _classify_batch(fast, a_wire, pts, rho, end, args, *, n=None, by_nodes=False
                 l0 = float(lv0)
                 for nn in fast.line_xy.get(xy[e], ()):
                     if fast.line_z[nn] == l0:
-                        descs[e] = ("line", fast.kl_rank[:, nn].copy())
+                        descs[e] = ("line", fast.kl_rank[:, nn].copy(), nn)
                         on_node[e] = True
                         break
                 else:
@@ -1603,7 +1603,7 @@ def _classify_batch(fast, a_wire, pts, rho, end, args, *, n=None, by_nodes=False
                 l0 = float(lv0)
                 for nn in fast.line_xy.get(xy[e], ()):
                     if fast.line_z[nn] == l0 and np.array_equal(r, fast.line[:, nn]):
-                        descs[e] = ("line", fast.kl_rank[:, nn].copy())
+                        descs[e] = ("line", fast.kl_rank[:, nn].copy(), nn)
                         on_node[e] = True
                         break
                 else:
@@ -1876,8 +1876,11 @@ def _chunked_tables(ctx, eps_t, k_p, rho, zA, zB, cols, memo):
 # is evaluated under the wrong rule witness, s_min — design C's control),
 # "held" serves every held row's U and dz′W from its neighbour in the held
 # buffer (design C's bookkeeping), "row" serves every fast end one product
-# row off. `_ROUTES` counts which route ran, so a test can prove the new one
-# did; since design C also how many tiles and rows ran, and how much was held.
+# row off, "group0" has the fused vector loop's grouped ends read group 0's
+# rows whatever their group (the one-group assumption #1335 lifted), and
+# "recycle" frees a held slot one tile early (`_held_slots`).
+# `_ROUTES` counts which route ran, so a test can prove the new one did;
+# since design C also how many tiles and rows ran, and how much was held.
 _PRODUCT_TABLES = True
 _PRODUCT_ENDS = True
 _PRODUCT_NEG_CONTROL = None
@@ -1944,6 +1947,7 @@ _ROUTES = dict.fromkeys(
         "fused_unit_tiles",
         "fused_col_te",
         "fused_held_rows",
+        "held_slots",
         "fused_declined",
         "fused_declined_hit",
         "fused_declined_mixed",
@@ -2265,6 +2269,13 @@ _MERGE_BY_Z = True
 _HAVE_MERGE_BY_Z_ACCEL = _accel.acc is not None and bool(
     getattr(_accel.acc, "merge_rows_by_z_1290", False)
 )
+# The plan's key ids by `factorize_line_keys` (momwire#1335); False is
+# `_first_groups` over the raveled line and its broadcast z, the reference
+# (the same integers, ~1.1 GB more transient at razor's inverted L x32).
+_LINE_KEYS_ACCEL = True
+_HAVE_LINE_KEYS_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "factorize_line_keys_1335", False)
+)
 _HAVE_GROUP_RANKS_ACCEL = _accel.acc is not None and bool(
     getattr(_accel.acc, "group_first_ranks_1290", False)
 )
@@ -2335,11 +2346,18 @@ def _merge_groups_z(zids, kids, zfirst, kfirst, nz, nk, n_key, nB):
         rowflat[d0 : d0 + nk[g]] = inv[b0 : b0 + nk[g]]
     del inv
     _cancel.poll()
-    b = np.concatenate(kfirst)[koff[g_s[blk]] + j_first]
-    _cancel.poll()
-    kept_pos = (a_s[blk].astype(np.int64) * nB + b).astype(
-        _index_dtype(int(a_s.max(initial=0)) * nB + nB), copy=False
-    )
+    # Each row's flat grid position, a span of rows at a time (momwire#1335:
+    # the one-shot spelling formed four row-length int64 temporaries, the
+    # inverted L x32's merge spike); the same integers.
+    kcat = np.concatenate(kfirst)
+    kept_pos = np.empty(blk.size, dtype=_index_dtype(int(a_s.max(initial=0)) * nB + nB))
+    step = 1 << 20
+    for c0 in range(0, blk.size, step):
+        _cancel.poll()
+        bb = blk[c0 : c0 + step]
+        b = kcat[koff[g_s[bb]] + j_first[c0 : c0 + step]]
+        kept_pos[c0 : c0 + step] = a_s[bb].astype(np.int64) * nB + b
+    del kcat
     rowtab = [
         rowflat[off[g] : off[g] + nz[g] * nk[g]].reshape(nz[g], nk[g])
         for g in range(nG)
@@ -2451,7 +2469,23 @@ def _product_plan(ctx, eps_t, k_p, A, B, gz):
             np.hypot(raw[g0:g1], float(ctx.a_wire), out=raw[g0:g1])
         raw = None
     zf, zid = _first_groups(gzv)
-    kf, kid = _first_groups(line.ravel(), np.broadcast_to(lzv, line.shape).ravel())
+    if (
+        _LINE_KEYS_ACCEL
+        and _HAVE_LINE_KEYS_ACCEL
+        and _near_interface._FACTORIZE
+        and isinstance(line, np.ndarray)
+        and line.flags.c_contiguous
+        and nG * nL < 2**31 - 1
+    ):
+        # The same (first, ids) as the hash kernel's `_first_groups` below,
+        # without its transients (`factorize_line_keys`, momwire#1335): the
+        # line's z read in place, the ids int32 in the table's own shape,
+        # the table grown with the keys rather than sized by the rows.
+        kf, kid = _accel.acc.factorize_line_keys(
+            line, np.ascontiguousarray(lzv, dtype=float), cancel_flag=_cancel.ptr()
+        )
+    else:
+        kf, kid = _first_groups(line.ravel(), np.broadcast_to(lzv, line.shape).ravel())
     # The (groups, line) index blocks in 32 bits when they fit: they and the
     # row table are the plan's O(groups x line) part (momwire#1224).
     kid = kid.reshape(nG, nL).astype(_index_dtype(kf.size), copy=False)
@@ -2718,6 +2752,126 @@ def _column_tiles(plan, key_cls, cls_rows):
     return t_pos[first], t_pos[pos], int(_t.size)
 
 
+# A many-group product's held store reuses a slot once the row in it has
+# been read for the last time (`_ProductTiles._plan_held`, momwire#1335).
+# False keeps one slot per late row for the whole tile pass, the reference:
+# the slots only ever hold copies, so their numbering moves no bit.
+_RECYCLE_HELD = True
+
+
+def _late_last(n_rows, n_tiles):
+    """A per-row LAST reading tile, -1 for a row nobody reads late: the one
+    array every late reader marks (`np.maximum.at`), O(rows) in 16 bits
+    where the tiles fit -- not a list of (row, tile) pairs, which repeat a
+    row once per group that holds it (4 M entries for 1.5 M rows at the
+    inverted L's x16)."""
+    return np.full(n_rows, -1, dtype=np.int16 if n_tiles < 2**15 else np.int32)
+
+
+def _mark_late(last, rows, tiles_):
+    """`last[rows] = max(last[rows], tiles_)`, element by element (a row
+    named twice keeps its later tile)."""
+    rows = np.asarray(rows)
+    if rows.size:
+        vals = np.broadcast_to(np.asarray(tiles_, dtype=last.dtype), rows.shape)
+        np.maximum.at(last, rows.ravel(), vals.ravel())
+
+
+def _held_live_peak(n_tiles, tile_rows, last):
+    """The most late rows live in any one tile -- `_held_slots`' slot count
+    (interval partitioning reaches it) -- by counts alone: rows written per
+    tile, rows last read per tile. For a budget, without assigning slots."""
+    born = np.zeros(n_tiles, dtype=np.int64)
+    for t in range(n_tiles):
+        born[t] = int(np.count_nonzero(last[tile_rows(t)] >= 0))
+    lv = last[last >= 0].astype(np.int64)
+    if lv.size == 0:
+        return 0
+    gone = np.bincount(lv, minlength=n_tiles)[:n_tiles]
+    live = np.cumsum(born) - np.concatenate(([0], np.cumsum(gone)[:-1]))
+    return int(live.max())
+
+
+def _held_slots(n_tiles, tile_rows, last, hpos=None):
+    """The held store's slots, by a walk over the tiles in order; returns
+    the slot count and, given `hpos`, writes each late row's slot there.
+
+    `tile_rows(t)` is tile t's rows and `last[row]` the last tile reading a
+    row late (-1: none). Tile t first frees the slots of the rows last read
+    at tile t - 1, then hands slots to its own late rows: freed ones first,
+    then fresh. A row is live from its own tile through its last reading
+    tile, and no two live rows share a slot (interval partitioning: the
+    count is the most rows live in any tile). A late row must be read
+    AFTER its own tile; one that is not is refused (its reader would have
+    read it before it was evaluated)."""
+    early = 1 if _PRODUCT_NEG_CONTROL == "recycle" else 0
+    free = np.zeros(0, dtype=np.int64)
+    pending = {}  # last tile -> slot arrays of the rows it frees
+    n_slots = 0
+    for t in range(n_tiles):
+        if not t & 15:
+            _cancel.poll()
+        # TEST-ONLY "recycle": the slots freed one tile early, at their rows'
+        # last reading tile, where a row written there can overwrite them.
+        rel = pending.pop(t - 1 + early, None)
+        if rel:
+            free = np.concatenate([free, *rel])
+        ids = tile_rows(t)
+        lt = last[ids]
+        m = lt >= 0
+        if not m.any():
+            continue
+        new, lt = ids[m], lt[m].astype(np.int64)
+        if np.any(lt <= t):
+            raise AssertionError("a held row is not read after its own tile")
+        k = min(new.size, free.size)
+        slots = np.concatenate(
+            [free[free.size - k :], n_slots + np.arange(new.size - k, dtype=np.int64)]
+        )
+        free = free[: free.size - k]
+        n_slots += new.size - k
+        if hpos is not None:
+            hpos[new] = slots
+        o = np.argsort(lt, kind="stable")
+        lt_s = lt[o]
+        cut = np.flatnonzero(np.diff(lt_s)) + 1
+        for part, L in zip(np.split(slots[o], cut), lt_s[np.r_[0, cut]].tolist()):
+            pending.setdefault(L, []).append(part)
+    return n_slots
+
+
+# `_stable_tile_order`'s chunk of rows (momwire#1335).
+_TILE_ORDER_CHUNK = 1 << 20
+
+
+def _stable_tile_order(t_row, n_tiles, dtype):
+    """`(o, b)`: `o = np.argsort(t_row, kind="stable")` in `dtype` and `b`
+    the tiles' bounds in it (`searchsorted(t_row[o], arange(n_tiles + 1))`),
+    by a counting sort a chunk of rows at a time (momwire#1335). The rows of
+    a tile land in its slots in ascending order -- chunks in order, each
+    chunk's own stable sort -- which is the stable argsort's answer, without
+    its int64 permutation and the narrowing copy of it (~210 MB at razor's
+    inverted L x32)."""
+    n = t_row.size
+    counts = np.bincount(t_row, minlength=n_tiles).astype(np.int64)
+    b = np.zeros(n_tiles + 1, dtype=np.int64)
+    np.cumsum(counts, out=b[1:])
+    cursor = b[:-1].copy()
+    o = np.empty(n, dtype=dtype)
+    step = max(1, int(_TILE_ORDER_CHUNK))
+    for c0 in range(0, n, step):
+        _cancel.poll()
+        ts = t_row[c0 : c0 + step]
+        oc = np.argsort(ts, kind="stable")
+        tsorted = ts[oc]
+        cnt = np.bincount(ts, minlength=n_tiles).astype(np.int64)
+        gstart = np.cumsum(cnt) - cnt
+        dest = cursor[tsorted] + (np.arange(oc.size, dtype=np.int64) - gstart[tsorted])
+        o[dest] = oc + c0
+        cursor += cnt
+    return o, b
+
+
 class _ProductTiles:
     """The product's rows evaluated a TILE at a time, and the main
     sandwich's table columns served as each becomes complete (momwire#1173
@@ -2759,7 +2913,7 @@ class _ProductTiles:
     its row-ordered store (`keep_values`). Nothing is summed. A fused end
     loop (`_FusedEnds`, phase 2) is handed each tile before its columns are
     served, reads the same copies, and names the rows it reads after their
-    own tile (`extra_late`), which the held store keeps beside the
+    own tile (`extra_last`), which the held store keeps beside the
     sandwich's. `_streamed_sandwich` then contracts each
     basis row once, when its whole pattern is present, against its columns
     in ascending order — its own argument, for column SETS; the left
@@ -2829,13 +2983,10 @@ class _ProductTiles:
                     _cancel.poll()
                 t_row[tab] = self.tile_of_key[kj][None, :]
             # A row's tile is its key's, the same in every group holding it.
-            # Stable on 16-bit keys is numpy's radix sort: O(rows).
-            o = np.argsort(t_row, kind="stable")
-            _cancel.poll()
-            b = np.searchsorted(t_row[o], np.arange(self.n_tiles + 1))
+            # The rows in tile order, ascending within a tile: a stable sort
+            # on the tile, by counting (`_stable_tile_order`).
+            self._by_tile = _stable_tile_order(t_row, self.n_tiles, _index_dtype(U))
             del t_row
-            self._by_tile = (o.astype(_index_dtype(U)), b)
-            del o
         else:
             for g, kj in enumerate(plan.kids):
                 if not g & 255:
@@ -2907,7 +3058,7 @@ class _ProductTiles:
         # Set by `_FusedEnds.attach`: the tile listener, and the rows its end
         # loops read after their own tile (held beside the sandwich's).
         self.listener = None
-        self.extra_late = None
+        self.extra_last = None
         self.hpos = None
         self.n_held = 0
         self._mark = None  # `_tile_rows`' row mask, made on first use
@@ -2925,8 +3076,19 @@ class _ProductTiles:
         """`hpos`: each row read AFTER its own tile a slot in the held store,
         written once when its tile runs — the sandwich's late rows (a below
         node whose table column completes at a later tile) and the fused end
-        loops' (`extra_late`)."""
+        loops' (`extra_last`).
+
+        A many-group product (momwire#1335) RECYCLES the slots: each late
+        row is live from its own tile to the last tile that reads it, and a
+        slot is reused once its row's last reader has run (`_held_slots`),
+        so the store is the most rows live at once rather than every row
+        ever held — the fused end loops of razor's inverted L hold a mast's
+        whole column of z rows on every node a straddling unit reads, ~10 M
+        rows over a fill at x32, but only one tile boundary's worth at a
+        time. The slots hold copies of the evaluated floats either way."""
         plan, U = self.plan, self.plan.n_rows
+        if _RECYCLE_HELD and plan.slot == "z" and len(plan.rowtab) > 1:
+            return self._plan_held_recycled()
         late_row = None
         if self._may_hold and plan.slot == "z" and len(plan.rowtab) > 1:
             # Per group rather than per grid pair: whether row (g, z, key)
@@ -2955,17 +3117,65 @@ class _ProductTiles:
                     late_row[plan.chunk_idx(cols)[late]] = True
         n_sandwich = 0 if late_row is None else int(np.count_nonzero(late_row))
         _ROUTES["tile_held_rows"] = max(_ROUTES["tile_held_rows"], n_sandwich)
-        if self.extra_late is not None and self.extra_late.size:
+        extra_rows = (
+            None if self.extra_last is None else np.flatnonzero(self.extra_last >= 0)
+        )
+        if extra_rows is not None and extra_rows.size:
             if late_row is None:
                 late_row = np.zeros(U, dtype=bool)
-            late_row[self.extra_late] = True
+            late_row[extra_rows] = True
             extra = int(np.count_nonzero(late_row)) - n_sandwich
             _ROUTES["fused_held_rows"] = max(_ROUTES["fused_held_rows"], extra)
         if late_row is None:
             return
         self.n_held = int(np.count_nonzero(late_row))
+        _ROUTES["held_slots"] = max(_ROUTES["held_slots"], self.n_held)
         self.hpos = np.full(U, -1, dtype=_index_dtype(U))
         self.hpos[late_row] = np.arange(self.n_held)
+
+    def _plan_held_recycled(self):
+        """`_plan_held` for a many-group product, slots recycled: every late
+        row's LAST reading tile in one per-row array (`_late_last`), then
+        `_held_slots` walks the tiles. The sandwich's: group g's key k is
+        read late by the line nodes n with `kl_rank[g, n] == k` whose column
+        is ready after k's tile, the last at the latest such `ready[n]`, for
+        every z of g. The fused loops' come marked (`extra_last`)."""
+        plan, U = self.plan, self.plan.n_rows
+        ready = self._node_ready
+        last = self.extra_last
+        n_extra = 0 if last is None else int(np.count_nonzero(last >= 0))
+        sand = None
+        if self._may_hold:
+            if last is None:
+                last = _late_last(U, self.n_tiles)
+            sand = np.zeros(U, dtype=bool)
+            for g0, g1 in _group_spans(*plan.kid.shape):
+                _cancel.poll()
+                late = self.tile_of_key[plan.kid[g0:g1]] < ready[None, :]
+                for g in np.flatnonzero(late.any(axis=1)).tolist():
+                    nodes = np.flatnonzero(late[g])
+                    kl, inv = np.unique(
+                        plan.kl_rank[g0 + g][nodes], return_inverse=True
+                    )
+                    lk = np.full(kl.size, -1, dtype=np.int64)
+                    np.maximum.at(lk, np.asarray(inv).ravel(), ready[nodes])
+                    r = plan.rowtab[g0 + g][:, kl]
+                    _mark_late(last, r, lk[None, :])
+                    sand[r] = True
+                del late
+        n_sandwich = 0 if sand is None else int(np.count_nonzero(sand))
+        _ROUTES["tile_held_rows"] = max(_ROUTES["tile_held_rows"], n_sandwich)
+        if self.extra_last is not None:
+            n_fused = (
+                n_extra if sand is None else int(np.count_nonzero(~sand & (last >= 0)))
+            )
+            _ROUTES["fused_held_rows"] = max(_ROUTES["fused_held_rows"], n_fused)
+        del sand
+        if last is None or not np.any(last >= 0):
+            return
+        self.hpos = np.full(U, -1, dtype=_index_dtype(U))
+        self.n_held = _held_slots(self.n_tiles, self._tile_rows, last, self.hpos)
+        _ROUTES["held_slots"] = max(_ROUTES["held_slots"], self.n_held)
 
     def _tile_rows(self, t):
         """Tile t's rows, ascending: every row of its keys, over the groups."""
@@ -4298,13 +4508,123 @@ def _end_matvecs_serve(M, w):
     )
 
 
+# `_tile_matvecs` hands the rows to `end_matvecs_rows` (momwire#1335); False
+# gathers loc / hpos in numpy and calls `end_matvecs`, the reference.
+_TILE_MATVECS_ROWS = True
+_HAVE_END_MATVECS_ROWS_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "end_matvecs_rows_1335", False)
+)
+
+
+# The fused ends' rows formed inside `end_matvecs_table` (momwire#1335);
+# False forms them in numpy (`_fast_desc_rows_batch`, the grouped gathers)
+# and hands them to `_tile_matvecs`, the reference.
+_TABLE_MATVECS = True
+_HAVE_END_MATVECS_TABLE_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "end_matvecs_table_1335", False)
+)
+
+
+def _table_serves(M, w, fast, loc, hpos):
+    """Whether `end_matvecs_table` serves these operands."""
+    return (
+        _TABLE_MATVECS
+        and _HAVE_END_MATVECS_TABLE_ACCEL
+        and _end_matvecs_serve(M, w)
+        and loc.dtype == np.int32
+        and (hpos is None or hpos.dtype == np.int32)
+        and fast.rowflat.dtype == np.int32
+        and fast.kl_rank.dtype in (np.int32, np.int64)
+    )
+
+
+def _desc_matvecs(fast, descs, ax, w, w_tz, loc, tb, held, hpos):
+    """`(vVs, vWs)`: `_tile_matvecs` of `ax`'s Fd and F against the rows the
+    ends `descs` name (`_fast_desc_rows_batch`). "line" descs go to
+    `end_matvecs_table` with the rows formed in the kernel: row (e, m) is
+    `rowflat[off[grank[m]] + zl_rank[m] * nk[grank[m]] + kg_e[grank[m]]]`,
+    the batch spelling's expression, so the same rows and the same sums."""
+    Fd, F = ax["Fd_csr"], ax["F_csr"]
+    if (
+        descs
+        and all(d[0] == "line" for d in descs)
+        and _table_serves(Fd, w, fast, loc, hpos)
+        and _table_serves(F, w_tz, fast, loc, hpos)
+    ):
+        grk = np.asarray(fast.grank, dtype=np.int64)
+        base_j = (fast.off[grk] + fast.zl_rank * fast.nk[grk]).astype(np.int64)
+        KG = np.ascontiguousarray(np.stack([d[1] for d in descs]))
+        if KG.dtype not in (np.int32, np.int64):
+            KG = KG.astype(np.int64)
+        rsel = np.arange(len(descs), dtype=np.int64)
+        base_e = np.zeros(len(descs), dtype=np.int64)
+        out = []
+        for M, x, k in ((Fd, w, 1), (F, w_tz, 2)):
+            out.append(
+                _accel.acc.end_matvecs_table(
+                    M.indptr,
+                    M.indices,
+                    M.data,
+                    M.shape[0],
+                    x,
+                    base_e,
+                    base_j,
+                    KG,
+                    rsel,
+                    grk,
+                    fast.rowflat,
+                    loc,
+                    _EMPTY_I32_1D if hpos is None else hpos,
+                    tb,
+                    held,
+                    k,
+                    _near_interface._physical_cpu_count(),
+                )
+            )
+        return out[0], out[1]
+    R = _fast_desc_rows_batch(fast, descs)
+    vVs = _tile_matvecs(Fd, w, R, 1, loc, tb, held, hpos)
+    vWs = _tile_matvecs(F, w_tz, R, 2, loc, tb, held, hpos)
+    return vVs, vWs
+
+
 def _tile_matvecs(M, w, R, k, loc, tb, held, hpos):
     """`_real_matvec_c(M, w * X[e])` for each row e of `R` (E product rows
     of n nodes each), X being the tile's kernel column `k` at those rows as
     `_FusedEnds._vw` reads it -- the tile block by `loc`, else the held
     store by `hpos`; (E, M.shape[0]) complex. By `end_matvecs` when it
-    serves, else the per-end numpy spelling, the same floats."""
+    serves, else the per-end numpy spelling, the same floats. Where the
+    accelerator carries `end_matvecs_rows` (momwire#1335) the rows go to it
+    whole and the loc / hpos gather is done per element in C++: the same
+    sums, without the two (E, n) index arrays."""
     R = np.asarray(R)
+    if (
+        _TILE_MATVECS_ROWS
+        and _HAVE_END_MATVECS_ROWS_ACCEL
+        and _end_matvecs_serve(M, w)
+        and loc.dtype == np.int32
+        and (hpos is None or hpos.dtype == np.int32)
+        and R.dtype in (np.int32, np.int64)
+    ):
+        try:
+            return _accel.acc.end_matvecs_rows(
+                M.indptr,
+                M.indices,
+                M.data,
+                M.shape[0],
+                w,
+                np.ascontiguousarray(R),
+                loc,
+                _EMPTY_I32_1D if hpos is None else hpos,
+                tb,
+                held,
+                k,
+                _near_interface._physical_cpu_count(),
+            )
+        except RuntimeError as exc:
+            if "not in hand" in str(exc):
+                raise AssertionError("a fused end reads a row not in hand") from None
+            raise
     li = loc[R]
     miss = li < 0
     hp = _EMPTY_I32
@@ -4524,6 +4844,33 @@ def _rank1_add(t_ab, nz, a, b, scale, buf):
     np.multiply.outer(a, b, out=out)
     out *= scale
     t_ab[nz] += out
+
+
+# `_FusedEnds._finish_cols` applies its vector loop's rank-1 updates in one
+# `_rank1_adds` (momwire#1335: at razor's inverted L its ~1,500 grouped ends
+# times every finish batch were ~110 k `_rank1_add` calls). False is the
+# per-term loop, the reference.
+_BATCHED_VECTOR_ADDS = True
+
+
+def _rank1_adds(t_ab, terms):
+    """`_rank1_add(t_ab, nz, a, b, scale, ...)` for each `(nz, a, b, scale)`
+    of `terms`, in order, as one pass. Each update's entries are formed as
+    `_rank1_add` forms them -- the row `a[r] * b` (`multiply.outer`'s
+    broadcast of a real factor against a complex row), then `*= scale` -- and
+    `np.add.at` adds them unbuffered in term order, so an entry several terms
+    write sees the same additions in the same order from the same start."""
+    if not terms:
+        return
+    counts = np.fromiter((t[0].size for t in terms), dtype=np.int64, count=len(terms))
+    rows = np.concatenate([t[0] for t in terms])
+    a = np.concatenate([t[1] for t in terms])
+    B = np.repeat(np.stack([t[2] for t in terms]), counts, axis=0)
+    S = np.repeat(np.array([t[3] for t in terms], dtype=np.complex128), counts)
+    C = np.multiply(a[:, None], B)
+    del B
+    C *= S[:, None]
+    np.add.at(t_ab, rows, C)
 
 
 def _rank1_add_cols(t_ab, nz, a, b, scale, buf):
@@ -5061,6 +5408,23 @@ _Z_SLAB_BYTES = 8 * 2**20
 # The streamed route declines when its holds would outweigh the V/W store it
 # replaces — or this many complex entries (8 MiB), when the store is smaller.
 _STREAM_MIN_HOLD = 1 << 19
+# momwire#1335: the fused route serves a product of SEVERAL groups (razor's
+# inverted L: 257 above groups in the forward block at x32, 3073 in the
+# reversed), so the V/W store (~557 MB per block there) is never allocated.
+# False is the reference it is gated against to the bit: such a product
+# declines ("groups") and keeps the store, as before.
+_FUSED_MULTI_GROUP = True
+# `_FusedEnds._classify` asks the product about its slow ends' rows this
+# many rows at a time (momwire#1335); False asks end by end, the reference.
+_CLASSIFY_HIT_BATCHED = True
+# A many-group product's line end standing on a line node is formed at that
+# node's column tile (`_FusedEnds._line_tiles`, momwire#1335); False forms it
+# at its own keys' latest tile, its earlier rows marked late, the reference.
+_LINE_END_AT_COLUMN = True
+# The fused slow-end prepass skips asking the product (its rows were checked
+# to miss it at attach); False asks anyway, the reference (momwire#1335).
+_PREPASS_MISSES_PROVEN = True
+_CLASSIFY_HIT_ROWS = 1 << 20
 
 
 def _csr_rows(M, rows):
@@ -5180,9 +5544,24 @@ class _FusedEnds:
     finishes, then assigned into zeros and scaled by `c1`, as the whole block
     was.
 
+    SEVERAL GROUPS (momwire#1335). Nothing above needs one group; only the
+    tiles at which an end's rows are in hand do. A grouped end reads its
+    own group g's keys, so a unit is complete for the vector loop's grouped
+    ends at the latest tile any of their groups' keys on its nodes reaches
+    (`_max_tile_line`), and each end's rows are its own group's (`vg_g`,
+    `vg_zl`). A line end asks one key per group, and those may sit in
+    different tiles: it is formed at the latest (`_line_tiles`). Either
+    way the rows read before that tile are held (`_late_rows`), so every
+    matvec still reads copies of the evaluated floats, summed as before.
+    With one group each of these is the expression it replaced. On
+    razor's inverted L the line ends stand on line nodes, so their late
+    rows are the sandwich's own late rows, already held.
+
     Declined — the tiles then keep phase 1's store and the loops run after
-    them — on a product of several groups, a slow end that hits the
-    product, a missing support, or holds that would outweigh the store. A
+    them — on a slow end that hits the product, a missing support, or holds
+    that would outweigh the store (with several groups the held late rows
+    count too); and on a product of several groups when
+    `_FUSED_MULTI_GROUP` is off (the reference). A
     block whose ends are all slow (the default lane) takes the "post" mode:
     no store, and the loops after the tiles as in the unfused route.
 
@@ -5223,21 +5602,120 @@ class _FusedEnds:
         """Each end's `_fast_end_desc`, or the string "hit" for a slow end
         that asks a product row (which this route cannot serve). The descs
         come batched (`_classify_ends`); the walk below is the one-end
-        loop's, counting and stopping where it did."""
-        out = []
+        loop's, counting and stopping where it did.
+
+        The slow ends' rows are asked of the product a span of ends at a
+        time (`_CLASSIFY_HIT_ROWS` rows, momwire#1335): `value_rows` answers
+        each row alone, so one call over several ends' rows is their calls'
+        answers, and the walk's count and stop are read off the first end
+        that hits. At razor's inverted L x32 the per-end calls through a
+        many-group product's `_group_lookup` were ~3.8 s."""
         descs, on_node = _classify_ends(fast, a_wire, ends, args)
-        for (pt, _sign, _fv), desc, on in zip(ends, descs, on_node):
-            _ROUTES["ends_line_on_node"] += int(on)
-            if desc is None:
-                c = np.broadcast_arrays(*args(pt))
-                rows = np.empty((c[0].size, 3), dtype=float)
-                rows[:, 0] = _near_interface.radius_fold(c[0], a_wire).ravel()
-                rows[:, 1] = c[1].ravel()
-                rows[:, 2] = c[2].ravel()
-                if (product.value_rows(rows + 0.0) >= 0).any():
-                    return "hit"
-            out.append(desc)
-        return out
+        if not _CLASSIFY_HIT_BATCHED:
+            out = []
+            for (pt, _sign, _fv), desc, on in zip(ends, descs, on_node):
+                _ROUTES["ends_line_on_node"] += int(on)
+                if desc is None:
+                    rows = self._slow_rows(pt, args, a_wire)
+                    if (product.value_rows(rows + 0.0) >= 0).any():
+                        return "hit"
+                out.append(desc)
+            return out
+        first_hit = None
+        span, owners, n_span = [], [], 0
+
+        def ask():
+            rows = np.concatenate(span)
+            hit = product.value_rows(rows + 0.0) >= 0
+            if hit.any():
+                return int(np.concatenate(owners)[int(np.argmax(hit))])
+            return None
+
+        for e, ((pt, _sign, _fv), desc) in enumerate(zip(ends, descs)):
+            if desc is not None:
+                continue
+            rows = self._slow_rows(pt, args, a_wire)
+            span.append(rows)
+            owners.append(np.full(rows.shape[0], e, dtype=np.int64))
+            n_span += rows.shape[0]
+            if n_span >= _CLASSIFY_HIT_ROWS:
+                first_hit = ask()
+                span, owners, n_span = [], [], 0
+                if first_hit is not None:
+                    break
+        if first_hit is None and span:
+            first_hit = ask()
+        stop = len(ends) if first_hit is None else first_hit + 1
+        _ROUTES["ends_line_on_node"] += int(sum(on_node[:stop]))
+        if first_hit is not None:
+            return "hit"
+        return list(descs)
+
+    def _classify_loops(self, loops, product, fast, a_wire):
+        """`_classify` of the row loop then the column loop, their slow ends'
+        rows asked of the product together (`_CLASSIFY_HIT_ROWS` rows a
+        call): one pass over the keys where each loop paid its own
+        (momwire#1335). The walk is the two loops' in turn -- the first end
+        that hits stops it, counted, and the column loop is not walked when
+        the row loop hit -- so the descs, the decision and the counts are
+        `_classify`'s."""
+        descs, on_node, ends_of = [], [], []
+        for ends, args in loops:
+            d, o = _classify_ends(fast, a_wire, ends, args)
+            descs.append(d)
+            on_node.append(o)
+            ends_of.append((ends, args))
+        first_hit = None
+        span, owners, n_span = [], [], 0
+
+        def ask():
+            rows = np.concatenate(span)
+            hit = product.value_rows(rows + 0.0) >= 0
+            if hit.any():
+                return tuple(np.concatenate(owners)[int(np.argmax(hit))].tolist())
+            return None
+
+        for li, (ends, args) in enumerate(ends_of):
+            for e, ((pt, _sign, _fv), desc) in enumerate(zip(ends, descs[li])):
+                if desc is not None:
+                    continue
+                rows = self._slow_rows(pt, args, a_wire)
+                span.append(rows)
+                owners.append(
+                    np.tile(np.array([[li, e]], dtype=np.int64), (rows.shape[0], 1))
+                )
+                n_span += rows.shape[0]
+                if n_span >= _CLASSIFY_HIT_ROWS:
+                    first_hit = ask()
+                    span, owners, n_span = [], [], 0
+                    if first_hit is not None:
+                        break
+            if first_hit is not None:
+                break
+        if first_hit is None and span:
+            first_hit = ask()
+        for li in range(len(loops)):
+            if first_hit is not None and li > first_hit[0]:
+                break
+            stop = (
+                first_hit[1] + 1
+                if first_hit is not None and li == first_hit[0]
+                else len(descs[li])
+            )
+            _ROUTES["ends_line_on_node"] += int(sum(on_node[li][:stop]))
+        if first_hit is not None:
+            return "hit"
+        return [list(d) for d in descs]
+
+    @staticmethod
+    def _slow_rows(pt, args, a_wire):
+        """The (n, 3) rows a slow end asks, as the memo keys them."""
+        c = np.broadcast_arrays(*args(pt))
+        rows = np.empty((c[0].size, 3), dtype=float)
+        rows[:, 0] = _near_interface.radius_fold(c[0], a_wire).ravel()
+        rows[:, 1] = c[1].ravel()
+        rows[:, 2] = c[2].ravel()
+        return rows
 
     def _decline(self, why):
         _ROUTES["fused_declined"] += 1
@@ -5254,17 +5732,28 @@ class _FusedEnds:
             or _PRODUCT_NEG_CONTROL == "row"
         ):
             return False
-        if len(plan.rowtab) != 1:
+        if len(plan.rowtab) != 1 and not _FUSED_MULTI_GROUP:
             return self._decline("groups")
         R, C, fast = self.R, self.C, plan.fast
         product = tiles.product
         a_wire = float(self.ctx.a_wire)
-        row_cls = self._classify(R["ends"], self.row_args, product, fast, a_wire)
-        if row_cls == "hit":
-            return self._decline("hit")
-        col_cls = self._classify(C["ends"], self.col_args, product, fast, a_wire)
-        if col_cls == "hit":
-            return self._decline("hit")
+        if _CLASSIFY_HIT_BATCHED:
+            got = self._classify_loops(
+                ((R["ends"], self.row_args), (C["ends"], self.col_args)),
+                product,
+                fast,
+                a_wire,
+            )
+            if got == "hit":
+                return self._decline("hit")
+            row_cls, col_cls = got
+        else:
+            row_cls = self._classify(R["ends"], self.row_args, product, fast, a_wire)
+            if row_cls == "hit":
+                return self._decline("hit")
+            col_cls = self._classify(C["ends"], self.col_args, product, fast, a_wire)
+            if col_cls == "hit":
+                return self._decline("hit")
         self.plan, self.tiles, self.fast = plan, tiles, fast
         self.row_cls, self.col_cls = row_cls, col_cls
         self.wR, self.wR_tz = _end_weights(R)
@@ -5281,9 +5770,15 @@ class _FusedEnds:
             self.mode = "stream"
             self.streaming = True
             self._slow_prepass()
-            tiles.extra_late = self._late_rows()
+            tiles.extra_last = self._extra_last
+            self._extra_last = None
         tiles.listener = self
         self.attached = True
+        # Every lookup this block's tiles precede is made (the slow ends',
+        # above, and the classification's): a key table those built is not
+        # read again before `finish`, so it goes now rather than standing
+        # through the tile pass (momwire#1335).
+        product.keys.drop_index()
         _ROUTES["fused_blocks"] += 1
         _ROUTES["fused_mode_" + self.mode] += 1
         return True
@@ -5315,8 +5810,8 @@ class _FusedEnds:
         self.nz_vec = _polled_nonzeros(self.vec_loop[0])
         self.nz_loc = _polled_nonzeros(self.loc_loop[0])
         n_line = plan.kid.shape[1]
-        tile_line = tiles.tile_of_key[plan.kid[0]]
-        self._tile_line = tile_line
+        self._n_line = n_line
+        self._tile_lines = {}  # group -> its keys' tiles along the line
         vcls, lcls = self.vec_loop[1], self.loc_loop[1]
         # The vector loop's grouped ends: per-unit completion tiles.
         self.vg = [i for i, d in enumerate(vcls) if d is not None and d[0] == "grouped"]
@@ -5330,10 +5825,18 @@ class _FusedEnds:
             M = self.vec_loop[2]
             self.MV = _csr_rows(M["Fd_csr"], self.units)
             self.MW = _csr_rows(M["F_csr"], self.units)
+            self.vg_g = np.array([vcls[i][1] for i in self.vg], dtype=np.int64)
+            self.vg_zl = np.array([vcls[i][2] for i in self.vg], dtype=np.int64)
+            # A unit is complete for EVERY grouped end at the latest tile any
+            # of their groups' rows on its nodes reaches (momwire#1335: with
+            # several groups each end reads its own group's keys); the rows
+            # read before it are held (`_late_rows`).
+            tile_line = self._max_tile_line(np.unique(self.vg_g))
             self.unit_tile = np.maximum(
                 np.maximum(_row_max(self.MV, tile_line), _row_max(self.MW, tile_line)),
                 0,
             )
+            del tile_line
             np.maximum(e_tile, self.unit_tile, out=e_tile)
             o = np.argsort(self.unit_tile, kind="stable")
             b = np.searchsorted(self.unit_tile[o], np.arange(tiles.n_tiles + 1))
@@ -5343,10 +5846,9 @@ class _FusedEnds:
             self.vg_batches = {}
         # The vector loop's other ends: whole vectors at one tile (or now).
         self.vw = {}  # end -> (vV[units], vW[units])
-        self.v_tile = {}
-        for i, d in enumerate(vcls):
-            if d is not None and d[0] == "line":
-                self.v_tile[i] = int(tiles.tile_of_key[d[1][0]])
+        self._late = None  # per row, the last tile a fused loop reads it late
+        self.v_tile = self._line_tiles(vcls)
+        l_line_tile = self._line_tiles(lcls)
         if self.v_tile:
             np.maximum(e_tile, max(self.v_tile.values()), out=e_tile)
         # The local loop's ends: a whole vector over the other axis each, at
@@ -5366,11 +5868,11 @@ class _FusedEnds:
             if d is None:
                 t = -1
             elif d[0] == "line":
-                t = int(tiles.tile_of_key[d[1][0]])
+                t = l_line_tile[i]
             else:
                 if O_ax["nodes"].shape[0] != n_line:
                     raise AssertionError("grouped local ends ask over a line not O's")
-                t = int(tile_line.max())
+                t = int(self._tile_line_of(d[1]).max())
                 nO = O_ax["nodes"].shape[0]
                 self.l_te[i] = [
                     np.empty(nO, dtype=np.complex128),
@@ -5381,6 +5883,18 @@ class _FusedEnds:
             if u.size:
                 np.maximum.at(e_tile, u, t)
         self.e_tile = e_tile
+        # Per tile, the line ends formed there (ascending, as the per-tile
+        # scans found them) and the local loop's grouped ends.
+        self._v_at, self._l_at = {}, {}
+        for i, t in sorted(self.v_tile.items()):
+            self._v_at.setdefault(t, []).append(i)
+        for i, d in enumerate(lcls):
+            if d is not None and d[0] == "line":
+                self._l_at.setdefault(self.l_tile[i], []).append(i)
+        self._l_grouped = [
+            i for i, d in enumerate(lcls) if d is not None and d[0] == "grouped"
+        ]
+        self._vterms = None
         # unit -> the local ends writing it (each pair once, ends ascending)
         pairs_u = [self.l_units[i] for i in range(len(lcls))]
         pu = np.concatenate(pairs_u) if pairs_u else np.zeros(0, dtype=np.int64)
@@ -5405,7 +5919,24 @@ class _FusedEnds:
                 _row_max(_csr_rows(U_ax[key], self.units), node_ready),
                 out=s_tile,
             )
-        if self._hold_peak(s_tile, lcls) > max(2 * plan.n_rows, _STREAM_MIN_HOLD):
+        # The rows read after their own tile, held beside the sandwich's (U,
+        # V, W and dz'W each). With several groups they are counted against
+        # the store too, as the upper bound they are (some are the
+        # sandwich's own late rows); one group keeps its old budget.
+        self._extra_last = self._late_rows()
+        held = 0
+        if len(plan.rowtab) > 1 and self._extra_last is not None:
+            if _RECYCLE_HELD:
+                # The held store's slots are recycled (`_plan_held`): what
+                # these rows add is the most of them live at once.
+                held = 4 * _held_live_peak(
+                    tiles.n_tiles, tiles._tile_rows, self._extra_last
+                )
+            else:
+                held = 4 * int(np.count_nonzero(self._extra_last >= 0))
+        if self._hold_peak(s_tile, lcls) + held > max(
+            2 * plan.n_rows, _STREAM_MIN_HOLD
+        ):
             return False
         self.s_cols = {}
         self.e_ready = np.zeros(nU, dtype=bool)
@@ -5444,7 +5975,7 @@ class _FusedEnds:
                 continue
             hold(self.l_tile[i], int(fin[u].max()), per_local)
             if c is not None and c[0] == "grouped":
-                hold(0, self.l_tile[i], 2 * self._tile_line.size)
+                hold(0, self.l_tile[i], 2 * self._n_line)
         return int(np.cumsum(d).max())
 
     def _corner_list(self):
@@ -5462,30 +5993,148 @@ class _FusedEnds:
         return seen
 
     def _late_rows(self):
-        """The rows the vector loop's grouped ends read after their own tile
-        (a unit completing later reads them), for the tiles' held store."""
-        if not self.vg:
+        """The rows the fused loops read after their own tile, for the tiles'
+        held store, as a per-row last reading tile (`_late_last`, -1 for
+        none): the vector loop's grouped ends' (a unit completing later reads
+        them) and the line ends' (`_line_tiles`, marked already); or None."""
+        if self.vg:
+            self._late_grouped_rows()
+        last, self._late = self._late, None
+        if last is None or not np.any(last >= 0):
             return None
-        late = np.zeros(self._tile_line.size, dtype=bool)
+        return last
+
+    def _late_marks(self):
+        if self._late is None:
+            self._late = _late_last(self.plan.n_rows, self.tiles.n_tiles)
+        return self._late
+
+    def _late_grouped_rows(self):
+        """Mark the vector loop's grouped ends' late rows. Group g's row on
+        line node n is read late iff some unit reading n completes after
+        that row's tile: `tile_g[n] < maxT[n]`, maxT[n] the latest
+        `unit_tile` of a unit whose matvec row stores n -- which is also the
+        last tile that reads it. With one group this is the entry-by-entry
+        test it replaced (the same nodes); with several it is made per
+        group, on the zl values its ends ask."""
+        maxT = np.full(self._n_line, -1, dtype=np.int64)
         for M in (self.MV, self.MW):
             t_entry = np.repeat(self.unit_tile, np.diff(M.indptr))
-            early = self._tile_line[M.indices] < t_entry
-            late[M.indices[early]] = True
-        vcls = self.vec_loop[1]
-        zls = np.unique(np.array([vcls[i][2] for i in self.vg], dtype=np.int64))
-        late_nodes = np.flatnonzero(late)
-        if late_nodes.size == 0:
-            return None
+            np.maximum.at(maxT, M.indices, t_entry)
         fast = self.fast
-        base = fast.off[0] + zls * fast.nk[0]
-        return fast.rowflat[
-            base[:, None] + fast.kl_rank[0][late_nodes][None, :]
-        ].ravel()
+        for g in np.unique(self.vg_g).tolist():
+            _cancel.poll()
+            tl = self.tiles.tile_of_key[self.plan.kid[g]]
+            late_nodes = np.flatnonzero(tl < maxT)
+            if late_nodes.size == 0:
+                continue
+            zls = np.unique(self.vg_zl[self.vg_g == g])
+            kn = fast.kl_rank[g][late_nodes]
+            tn = maxT[late_nodes]
+            # A span of the group's z rows at a time (the mast's ~480 z by
+            # its late nodes is ~10 M rows at x32).
+            per = max(1, (1 << 20) // max(1, late_nodes.size))
+            for z0 in range(0, zls.size, per):
+                base = fast.off[g] + zls[z0 : z0 + per] * fast.nk[g]
+                r = fast.rowflat[base[:, None] + kn[None, :]]
+                _mark_late(self._late_marks(), r, tn[None, :])
+                del r
+
+    def _tile_line_of(self, g):
+        """Group g's keys' tiles along the line, `tile_of_key[kid[g]]`
+        (cached for the groups a local grouped end gathers over)."""
+        tl = self._tile_lines.get(g)
+        if tl is None:
+            tl = self.tiles.tile_of_key[self.plan.kid[g]]
+            self._tile_lines[g] = tl
+        return tl
+
+    def _max_tile_line(self, groups):
+        """Per line node, the latest tile of `groups`' keys there (a span of
+        groups at a time: no (groups, line) temporary)."""
+        kid, tk = self.plan.kid, self.tiles.tile_of_key
+        out = np.zeros(kid.shape[1], dtype=np.int64)
+        for g0, g1 in _group_spans(groups.size, kid.shape[1]):
+            _cancel.poll()
+            np.maximum(out, tk[kid[groups[g0:g1]]].max(axis=0), out=out)
+        return out
+
+    def _line_tiles(self, cls):
+        """{end: tile} for a loop's "line" ends: the latest tile of the keys
+        it asks, one per group (`kids[g][kg[g]]`). Its rows in EARLIER tiles
+        are read late, so they are marked for the held store. With
+        one group an end's keys are one key, its tile the old
+        `tile_of_key[kg[0]]` (the group's local key ids are the global
+        ones), and nothing is late."""
+        idx = [i for i, d in enumerate(cls) if d is not None and d[0] == "line"]
+        if not idx:
+            return {}
+        plan, tk, fast = self.plan, self.tiles.tile_of_key, self.fast
+        if len(plan.kids) == 1:
+            return {i: int(tk[plan.kids[0][cls[i][1][0]]]) for i in idx}
+        out = {}
+        if plan.slot == "z" and _LINE_END_AT_COLUMN:
+            # An end standing ON line node n (its desc names n) asks exactly
+            # column n's rows: formed when the sandwich serves that column
+            # (`_node_ready[n]`, never before its rows' tiles), every row it
+            # reads before then is one of the sandwich's own late rows, held
+            # to that tile at least -- nothing to mark (momwire#1335).
+            ready = self.tiles._node_ready
+            rest = []
+            for i in idx:
+                d = cls[i]
+                if len(d) > 2:
+                    out[i] = int(ready[d[2]])
+                else:
+                    rest.append(i)
+            idx = rest
+            if not idx:
+                return out
+        # Each (group, local key)'s tile, concatenated by group.
+        nk = np.asarray(plan.nk, dtype=np.int64)
+        koff = np.zeros(nk.size + 1, dtype=np.int64)
+        np.cumsum(nk, out=koff[1:])
+        tile_gk = np.empty(int(koff[-1]), dtype=tk.dtype)
+        for g, kj in enumerate(plan.kids):
+            if not g & 255:
+                _cancel.poll()
+            tile_gk[koff[g] : koff[g + 1]] = tk[kj]
+        for part in _vec_batches(idx, fast.grank.size):
+            _cancel.poll()
+            KG = np.stack([cls[i][1] for i in part]).astype(np.int64)
+            TG = tile_gk[koff[:-1][None, :] + KG]  # (ends, groups)
+            del KG
+            T = TG.max(axis=1)
+            early = TG[:, fast.grank] < T[:, None]  # (ends, grouped nodes)
+            del TG
+            if early.any():
+                R = _fast_desc_rows_batch(fast, [cls[i] for i in part])
+                _mark_late(
+                    self._late_marks(),
+                    R[early],
+                    np.broadcast_to(T[:, None], early.shape)[early],
+                )
+                del R
+            del early
+            for i, t in zip(part, T.tolist()):
+                out[i] = int(t)
+        return out
 
     def _slow_prepass(self):
         """Every slow span, now, in the unfused route's order (the row loop's,
         then the column loop's): each slow end's two matvecs, held."""
         R, C = self.R, self.C
+        # `attach` checked every slow end's rows against the product and
+        # found no hit (else it declined), so each lookup below would miss
+        # the product: the memo skips asking it (`ProductMemo.misses_proven`,
+        # momwire#1335) -- the same misses, without a pass over the keys.
+        self.memo.misses_proven = _PREPASS_MISSES_PROVEN
+        try:
+            self._slow_prepass_loops(R, C)
+        finally:
+            self.memo.misses_proven = False
+
+    def _slow_prepass_loops(self, R, C):
         loops = (
             (R["ends"], C, self.row_args, self.row_cls, self.wC, self.wC_tz, "row"),
             (C["ends"], R, self.col_args, self.col_cls, self.wR, self.wR_tz, "col"),
@@ -5554,12 +6203,10 @@ class _FusedEnds:
         which_l = "col" if self.fwd else "row"
         # Vector loop, line ends at this tile: whole vectors, a batch of ends
         # per `_tile_matvecs` (each end's vectors are its own sums).
-        here = [i for i, ti in self.v_tile.items() if ti == t]
+        here = self._v_at.get(t, [])
         for part in _vec_batches(here, M["nodes"].shape[0]):
-            R = np.stack([_fast_desc_rows(fast, vcls[i]) for i in part])
-            vVs = _tile_matvecs(M["Fd_csr"], wv, R, 1, loc, tb, held, hpos)
-            vWs = _tile_matvecs(M["F_csr"], wv_tz, R, 2, loc, tb, held, hpos)
-            del R
+            descs = [vcls[i] for i in part]
+            vVs, vWs = _desc_matvecs(fast, descs, M, wv, wv_tz, loc, tb, held, hpos)
             for e, i in enumerate(part):
                 self._have_vectors(which_v, i, vVs[e], vWs[e])
                 _ROUTES["fused_row_ends"] += 1
@@ -5571,20 +6218,61 @@ class _FusedEnds:
                 _ROUTES["fused_unit_tiles"] += 1
                 MV, needV = _csr_on_cols(_csr_rows(self.MV, J))
                 MW, needW = _csr_on_cols(_csr_rows(self.MW, J))
-                kV, kW = fast.kl_rank[0][needV], fast.kl_rank[0][needW]
                 xV, xW = wv[needV], wv_tz[needW]
                 VV = np.empty((len(self.vg), J.size), dtype=np.complex128)
                 VW = np.empty((len(self.vg), J.size), dtype=np.complex128)
                 n_need = max(needV.size, needW.size)
-                for part in _vec_batches(list(range(len(self.vg))), n_need):
-                    base = np.array(
-                        [fast.off[0] + vcls[self.vg[r]][2] * fast.nk[0] for r in part]
+                gp_all = self.vg_g
+                if _PRODUCT_NEG_CONTROL == "group0":
+                    gp_all = np.zeros_like(gp_all)  # TEST-ONLY: one group's rows
+                if _table_serves(MV, xV, fast, loc, hpos) and _table_serves(
+                    MW, xW, fast, loc, hpos
+                ):
+                    # Every end at once: the rows are formed in the kernel
+                    # (`end_matvecs_table`), never stored.
+                    base = fast.off[gp_all] + self.vg_zl * fast.nk[gp_all]
+                    for VX, Mx, need, x, kk in (
+                        (VV, MV, needV, xV, 1),
+                        (VW, MW, needW, xW, 2),
+                    ):
+                        VX[:] = _accel.acc.end_matvecs_table(
+                            Mx.indptr,
+                            Mx.indices,
+                            Mx.data,
+                            Mx.shape[0],
+                            x,
+                            base,
+                            np.zeros(need.size, dtype=np.int64),
+                            fast.kl_rank,
+                            gp_all,
+                            need,
+                            fast.rowflat,
+                            loc,
+                            _EMPTY_I32_1D if hpos is None else hpos,
+                            tb,
+                            held,
+                            kk,
+                            _near_interface._physical_cpu_count(),
+                        )
+                    _ROUTES["fused_row_ends"] += len(self.vg)
+                    parts = []
+                else:
+                    parts = _vec_batches(list(range(len(self.vg))), n_need)
+                for part in parts:
+                    # Each end's own group g: its z row zl against the
+                    # needed line nodes' local keys in g (one group: g = 0
+                    # for every end, the rows they always were).
+                    gp = gp_all[part[0] : part[-1] + 1]
+                    base = (
+                        fast.off[gp] + self.vg_zl[part[0] : part[-1] + 1] * fast.nk[gp]
                     )
+                    kV = fast.kl_rank[gp[:, None], needV[None, :]]
+                    kW = fast.kl_rank[gp[:, None], needW[None, :]]
                     rows = slice(part[0], part[-1] + 1)
                     VV[rows] = _tile_matvecs(
                         MV,
                         xV,
-                        fast.rowflat[base[:, None] + kV[None, :]],
+                        fast.rowflat[base[:, None] + kV],
                         1,
                         loc,
                         tb,
@@ -5594,7 +6282,7 @@ class _FusedEnds:
                     VW[rows] = _tile_matvecs(
                         MW,
                         xW,
-                        fast.rowflat[base[:, None] + kW[None, :]],
+                        fast.rowflat[base[:, None] + kW],
                         2,
                         loc,
                         tb,
@@ -5608,26 +6296,22 @@ class _FusedEnds:
         # Local loop: line ends at this tile, batched as the vector loop's;
         # grouped ends gather their tables over the tiles and form theirs at
         # the last.
-        here = [
-            i
-            for i, d in enumerate(lcls)
-            if d is not None and d[0] == "line" and self.l_tile[i] == t
-        ]
+        here = self._l_at.get(t, [])
         for part in _vec_batches(here, N["nodes"].shape[0]):
-            R = np.stack([_fast_desc_rows(fast, lcls[i]) for i in part])
-            vVs = _tile_matvecs(N["Fd_csr"], wl, R, 1, loc, tb, held, hpos)
-            vWs = _tile_matvecs(N["F_csr"], wl_tz, R, 2, loc, tb, held, hpos)
-            del R
+            descs = [lcls[i] for i in part]
+            vVs, vWs = _desc_matvecs(fast, descs, N, wl, wl_tz, loc, tb, held, hpos)
             for e, i in enumerate(part):
                 self._have_vectors(which_l, i, vVs[e], vWs[e])
                 _ROUTES["fused_col_te"] += 1
-        sel_t = None
-        for i, d in enumerate(lcls):
-            if d is None or d[0] == "line":
-                continue
-            buf = self.l_te[i]
+        sel_g = {}  # group -> its line nodes whose key is in this tile
+        for i in self._l_grouped:
+            d = lcls[i]
+            buf = self.l_te.get(i)
+            if buf is None:
+                continue  # formed already, at its last tile
+            sel_t = sel_g.get(d[1])
             if sel_t is None:
-                sel_t = np.flatnonzero(self._tile_line == t)
+                sel_t = sel_g[d[1]] = np.flatnonzero(self._tile_line_of(d[1]) == t)
             if sel_t.size:
                 rows = _fast_desc_rows(fast, d)[sel_t]
                 buf[0][sel_t], buf[1][sel_t] = self._vw(rows, loc, tb, held, hpos)
@@ -5700,23 +6384,99 @@ class _FusedEnds:
         for i, (vV, vW) in self.vw.items():
             out[i] = (vV[U], vW[U])
         if self.vg:
-            VV = np.empty((len(self.vg), U.size), dtype=np.complex128)
-            VW = np.empty((len(self.vg), U.size), dtype=np.complex128)
-            ts = self.vg_tile[U]
-            if (ts < 0).any():
-                raise AssertionError("a unit finished before its vector entries")
-            for t in np.unique(ts).tolist():
-                m = ts == t
-                bt = self.vg_batches[t]
-                cols = self.vg_col[U[m]]
-                VV[:, m] = bt[0][:, cols]
-                VW[:, m] = bt[1][:, cols]
-                bt[2] -= int(m.sum())
-                if bt[2] == 0:
-                    del self.vg_batches[t]
+            VV, VW = self._vg_matrices(U)
             for r, i in enumerate(self.vg):
                 out[i] = (VV[r], VW[r])
         return out
+
+    def _vector_terms(self):
+        """The forward block's vector-loop rank-1 terms, fixed for the block
+        (momwire#1335): in loop order (V then W per end, ends with no live
+        row skipped), each term's rows `posLA[nz]`, factor `fv[nz]`, scale
+        (`c1 * sign`, `-c1 * sign`) and the row of the per-batch piece
+        matrix (`_vector_adds`) its vector is. Built once, so a finish batch
+        does no per-end Python."""
+        order = list(range(len(self.vec_loop[0])))
+        if _PRODUCT_NEG_CONTROL == "fused_order":
+            order = order[::-1]  # TEST-ONLY: the ends in the wrong order
+        ends = [i for i in order if self.nz_vec[i].size]
+        m = len(ends)
+        c1 = self.c1
+        rows, a, src, sc = [], [], [], []
+        for j, i in enumerate(ends):
+            nz = self.nz_vec[i]
+            _pt, sign, fv = self.vec_loop[0][i]
+            r, av, k = self.posLA[nz], fv[nz], nz.size
+            rows += [r, r]
+            a += [av, av]
+            src += [np.full(k, j, dtype=np.int64), np.full(k, m + j, dtype=np.int64)]
+            sc += [
+                np.full(k, c1 * sign, dtype=np.complex128),
+                np.full(k, -c1 * sign, dtype=np.complex128),
+            ]
+        j_of = {i: j for j, i in enumerate(ends)}
+        vg_rows = np.array(
+            [r for r, i in enumerate(self.vg) if i in j_of], dtype=np.int64
+        )
+        vg_j = np.array([j_of[self.vg[r]] for r in vg_rows.tolist()], dtype=np.int64)
+        cat = np.concatenate
+        empty_f, empty_i = np.zeros(0), np.zeros(0, dtype=np.int64)
+        return dict(
+            m=m,
+            j_of=j_of,
+            vg_rows=vg_rows,
+            vg_j=vg_j,
+            rows=cat(rows) if rows else empty_i,
+            a=cat(a) if a else empty_f,
+            src=cat(src) if src else empty_i,
+            scale=cat(sc) if sc else np.zeros(0, dtype=np.complex128),
+        )
+
+    def _vector_adds(self, E_r, U):
+        """`_finish_cols`' vector-loop writes for units U: every term's
+        `_rank1_add` (the row `a[r] * vec`, then `*= scale`, then added),
+        as `_rank1_adds` forms them -- each entry by the same operations on
+        the same operands, `np.add.at` in term order -- with the term table
+        built once (`_vector_terms`) and the vectors gathered by row."""
+        vt = self._vterms
+        if vt is None:
+            vt = self._vterms = self._vector_terms()
+        m = vt["m"]
+        if m == 0:
+            return
+        P = np.empty((2 * m, U.size), dtype=np.complex128)
+        for i, (vV, vW) in self.vw.items():
+            j = vt["j_of"].get(i)
+            if j is not None:
+                P[j] = vV[U]
+                P[m + j] = vW[U]
+        if self.vg:
+            VV, VW = self._vg_matrices(U)
+            P[vt["vg_j"]] = VV[vt["vg_rows"]]
+            P[m + vt["vg_j"]] = VW[vt["vg_rows"]]
+        C = np.multiply(vt["a"][:, None], P[vt["src"]])
+        del P
+        C *= vt["scale"][:, None]
+        np.add.at(E_r, vt["rows"], C)
+
+    def _vg_matrices(self, U):
+        """The grouped vector ends' entries at units U, (len(vg), |U|) each
+        for V and W: `_vector_pieces`' gather from the tiles' batches."""
+        VV = np.empty((len(self.vg), U.size), dtype=np.complex128)
+        VW = np.empty((len(self.vg), U.size), dtype=np.complex128)
+        ts = self.vg_tile[U]
+        if (ts < 0).any():
+            raise AssertionError("a unit finished before its vector entries")
+        for t in np.unique(ts).tolist():
+            msk = ts == t
+            bt = self.vg_batches[t]
+            cols = self.vg_col[U[msk]]
+            VV[:, msk] = bt[0][:, cols]
+            VW[:, msk] = bt[1][:, cols]
+            bt[2] -= int(msk.sum())
+            if bt[2] == 0:
+                del self.vg_batches[t]
+        return VV, VW
 
     def _release_local(self, U):
         """Drop a local end's vectors once every unit it writes is done."""
@@ -5739,18 +6499,21 @@ class _FusedEnds:
         kU[U] = np.arange(U.size)
         buf = _Rank1Buffer()
         # The row loop (vector): every end in order, V then W.
-        pieces = self._vector_pieces(U)
-        order = range(len(self.vec_loop[0]))
-        if _PRODUCT_NEG_CONTROL == "fused_order":
-            order = reversed(order)  # TEST-ONLY: the ends in the wrong order
-        for i in order:
-            nz = self.nz_vec[i]
-            if nz.size == 0:
-                continue
-            _pt, sign, fv = self.vec_loop[0][i]
-            vV, vW = pieces[i]
-            _rank1_add(E_r, posLA[nz], fv[nz], vV, c1 * sign, buf)
-            _rank1_add(E_r, posLA[nz], fv[nz], vW, -c1 * sign, buf)
+        if _BATCHED_VECTOR_ADDS:
+            self._vector_adds(E_r, U)
+        else:
+            pieces = self._vector_pieces(U)
+            order = range(len(self.vec_loop[0]))
+            if _PRODUCT_NEG_CONTROL == "fused_order":
+                order = reversed(order)  # TEST-ONLY: the ends in the wrong order
+            for i in order:
+                nz = self.nz_vec[i]
+                if nz.size == 0:
+                    continue
+                _pt, sign, fv = self.vec_loop[0][i]
+                vV, vW = pieces[i]
+                _rank1_add(E_r, posLA[nz], fv[nz], vV, c1 * sign, buf)
+                _rank1_add(E_r, posLA[nz], fv[nz], vW, -c1 * sign, buf)
         # The column loop (local): its ends touching U in order, W then V —
         # `add_cols`' two writes (E_r on the support's columns, E_c on LB's),
         # on the columns finishing here.

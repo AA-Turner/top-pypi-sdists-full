@@ -3,12 +3,14 @@
 from polars.io.arrow_c_stream import scan_arrow_c_stream
 from polars.io.avro import read_avro
 from polars.io.clipboard import read_clipboard
-from polars.io.csv import read_csv, read_csv_batched, scan_csv
+from polars.io.csv import read_csv, scan_csv
 from polars.io.database import read_database, read_database_uri
 from polars.io.delta import read_delta, scan_delta
+from polars.io.external_reader.api import scan_external_reader
 from polars.io.iceberg import scan_iceberg
 from polars.io.ipc import read_ipc, read_ipc_schema, read_ipc_stream, scan_ipc
 from polars.io.json import read_json
+from polars.io.lance import scan_lance
 from polars.io.lines import read_lines, scan_lines
 from polars.io.ndjson import read_ndjson, scan_ndjson
 from polars.io.parquet import (
@@ -33,7 +35,6 @@ __all__ = [
     "read_avro",
     "read_clipboard",
     "read_csv",
-    "read_csv_batched",
     "read_database",
     "read_database_uri",
     "read_delta",
@@ -51,8 +52,10 @@ __all__ = [
     "scan_arrow_c_stream",
     "scan_csv",
     "scan_delta",
+    "scan_external_reader",
     "scan_iceberg",
     "scan_ipc",
+    "scan_lance",
     "scan_lines",
     "scan_ndjson",
     "scan_parquet",

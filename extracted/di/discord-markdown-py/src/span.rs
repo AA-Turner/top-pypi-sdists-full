@@ -4,7 +4,7 @@ use std::{
 	ops::{Deref, DerefMut},
 };
 
-use nom::{error::ParseError, Mode, Parser};
+use nom::{Mode, Parser, error::ParseError};
 
 use crate::unparse::Unparse;
 

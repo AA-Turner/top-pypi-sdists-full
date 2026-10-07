@@ -26,6 +26,7 @@ from schemathesis.engine._validate import validate_response
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.generation import overrides
 from schemathesis.generation.hypothesis import examples
+from schemathesis.generation.hypothesis.reporting import FILTER_CASE_EXHAUSTED_MESSAGE, build_unsatisfiable_error
 
 if TYPE_CHECKING:
     import hypothesis
@@ -99,9 +100,11 @@ def _preflight_operations(
                     operation.as_strategy(generation_mode=mode, **strategy_kwargs_by_label[operation.label])
                 )
                 viable_modes.append(mode)
-            except Unsatisfiable as exc:
+            except Unsatisfiable:
                 # Schema constraints make this mode impossible — try the next mode.
-                last_exc = exc
+                last_exc = build_unsatisfiable_error(
+                    operation, with_tip=False, filter_tracker=operation.filter_case_tracker
+                )
             except Exception as exc:
                 # Real generation errors should exclude the operation entirely.
                 last_exc = exc
@@ -477,9 +480,13 @@ def _run_forever_thread(
             )
         )
     except Unsatisfiable as exc:
+        rejecting_hook = any(
+            operation.filter_case_tracker is not None and operation.filter_case_tracker.rejected > 0
+            for operation in plan.operations
+        )
         event_queue.put(
             events.NonFatalError(
-                error=exc,
+                error=Unsatisfiable(FILTER_CASE_EXHAUSTED_MESSAGE) if rejecting_hook else exc,
                 phase=None,
                 label=FUZZ_TESTS_LABEL,
                 related_to_operation=False,

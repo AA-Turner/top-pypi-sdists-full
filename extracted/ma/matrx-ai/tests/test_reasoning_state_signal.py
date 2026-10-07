@@ -86,6 +86,27 @@ async def test_google_thinking_visible_signals_started_stopped():
 
 
 @pytest.mark.asyncio
+async def test_google_trailing_bare_signature_never_reopens_reasoning():
+    # Live 2026-10-07: Gemini sends the bare thought_signature LAST, after the
+    # answer, so "reasoning started" fired once the answer had already streamed.
+    em = await _run_google([
+        _part(text="The answer is 42."),
+        _part(thought_signature=b"sig"),
+    ])
+    assert em.reasoning == []
+
+
+@pytest.mark.asyncio
+async def test_google_visible_thoughts_then_trailing_signature_signals_once():
+    em = await _run_google([
+        _part(thought=True, text="Let me think..."),
+        _part(text="Final answer."),
+        _part(thought_signature=b"sig"),
+    ])
+    assert em.reasoning == ["started", "stopped"]
+
+
+@pytest.mark.asyncio
 async def test_google_no_thinking_emits_no_signal():
     em = await _run_google([_part(text="Hi.")])
     assert em.reasoning == []

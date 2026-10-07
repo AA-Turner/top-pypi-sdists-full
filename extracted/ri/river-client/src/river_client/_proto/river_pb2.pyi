@@ -197,6 +197,20 @@ class GetServerCapabilitiesResponse(_message.Message):
     features: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, supported_models: _Optional[_Iterable[_Union[SupportedModel, _Mapping]]] = ..., features: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class PrepareLossRequest(_message.Message):
+    __slots__ = ("model_name", "graph", "model_id")
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    GRAPH_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    model_name: str
+    graph: bytes
+    model_id: str
+    def __init__(self, model_name: _Optional[str] = ..., graph: _Optional[bytes] = ..., model_id: _Optional[str] = ...) -> None: ...
+
+class PrepareLossResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class CreateSessionRequest(_message.Message):
     __slots__ = ("tags", "sdk_version", "user_metadata")
     class TagsEntry(_message.Message):

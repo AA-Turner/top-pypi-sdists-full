@@ -3,6 +3,8 @@ Module for managing and validating crawler settings.
 """
 from urllib.parse import quote_plus
 
+from .sqlite_path import default_sqlite_url
+
 
 class Settings:
     """
@@ -19,6 +21,7 @@ class Settings:
     DEFAULT_BATCH_SIZE = 50
     DEFAULT_FLUSH_INTERVAL = 10.0
     DEFAULT_SHOW_SUMMARY = True
+    DEFAULT_SQLITE_FILENAME = "ingest.db"
     _DB_SCHEMES = {
         "postgres": "postgresql",
         "postgresql": "postgresql",
@@ -36,31 +39,53 @@ class Settings:
         "postgresql": "postgres",
         "mysql": "mysql",
         "mariadb": "mysql",
+        "sqlite": "sqlite",
     }
 
     def __init__(self, crawler_settings):
         self.crawler_settings = crawler_settings
 
     @property
+    def ingest_sqlite_enabled(self):
+        """Use local SQLite when no ``DB_URL`` / ``DB_*`` and no ``SEARCH_URL``."""
+        return self.crawler_settings.getbool("INGEST_SQLITE_ENABLED", True)
+
+    @property
+    def ingest_sqlite_path(self):
+        return self.crawler_settings.get(
+            "INGEST_SQLITE_PATH", self.DEFAULT_SQLITE_FILENAME
+        )
+
+    @property
+    def using_default_sqlite(self):
+        return (
+            not self._has_db_config()
+            and not self.ingest_to_search
+            and self.ingest_sqlite_enabled
+        )
+
+    @property
     def db_url(self):
-        """Database URL from DB_URL, or built from discrete DB_* fields."""
+        """Database URL from DB_URL, discrete DB_* fields, or default SQLite."""
         url = self.crawler_settings.get("DB_URL")
         if url:
             return url
 
         host = self.crawler_settings.get("DB_HOST")
-        if not host:
-            return None
+        if host:
+            user = self.crawler_settings.get("DB_USER") or ""
+            password = self.crawler_settings.get("DB_PASSWORD") or ""
+            port = self.crawler_settings.get("DB_PORT", self._default_port())
+            name = self.crawler_settings.get("DB_NAME") or ""
+            scheme = self._DB_SCHEMES.get(self.db_type, self.db_type)
+            return (
+                f"{scheme}://{quote_plus(str(user))}:{quote_plus(str(password))}"
+                f"@{host}:{port}/{name}"
+            )
 
-        user = self.crawler_settings.get("DB_USER") or ""
-        password = self.crawler_settings.get("DB_PASSWORD") or ""
-        port = self.crawler_settings.get("DB_PORT", self._default_port())
-        name = self.crawler_settings.get("DB_NAME") or ""
-        scheme = self._DB_SCHEMES.get(self.db_type, self.db_type)
-        return (
-            f"{scheme}://{quote_plus(str(user))}:{quote_plus(str(password))}"
-            f"@{host}:{port}/{name}"
-        )
+        if self.using_default_sqlite:
+            return default_sqlite_url(self.ingest_sqlite_path)
+        return None
 
     @property
     def db_type(self):
@@ -75,8 +100,8 @@ class Settings:
 
     @property
     def db_dialect(self):
-        """``postgres`` or ``mysql``, from ``DB_URL`` scheme or ``DB_TYPE``."""
-        url = self.crawler_settings.get("DB_URL")
+        """``postgres``, ``mysql``, or ``sqlite``."""
+        url = self.db_url
         if url and "://" in str(url):
             scheme = str(url).split("://", 1)[0].lower().split("+")[0]
             if scheme in self._URL_DIALECTS:
@@ -137,7 +162,11 @@ class Settings:
 
     @property
     def ingest_to_database(self):
-        return self._has_db_config()
+        if self._has_db_config():
+            return True
+        if self.ingest_to_search:
+            return False
+        return self.ingest_sqlite_enabled
 
     @property
     def search_url(self):
@@ -183,11 +212,11 @@ def validate_settings(settings):
 
     if not settings.ingest_to_database and not settings.ingest_to_search:
         raise ConfigurationError(
-            "Configure at least one destination: set DB_URL (or DB_* fields) "
-            "and/or SEARCH_URL"
+            "Configure at least one destination: set DB_URL (or DB_* fields), "
+            "SEARCH_URL, or enable default SQLite (INGEST_SQLITE_ENABLED)"
         )
     if settings.ingest_to_database:
-        url = settings.crawler_settings.get("DB_URL")
+        url = settings.db_url
         if url and "://" in str(url):
             scheme = str(url).split("://", 1)[0].lower().split("+")[0]
             if scheme not in settings._URL_DIALECTS:
@@ -200,7 +229,7 @@ def validate_settings(settings):
             raise ConfigurationError(
                 f"Unsupported DB_TYPE={settings.db_type!r}. Supported: {supported}"
             )
-        if not settings.db_url:
+        if not url:
             raise ConfigurationError(
                 "Database connection is incomplete: set DB_URL or "
                 "DB_HOST / DB_USER / DB_PASSWORD / DB_NAME"

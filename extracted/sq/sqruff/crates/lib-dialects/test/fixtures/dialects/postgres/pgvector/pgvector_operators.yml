@@ -20,7 +20,7 @@ file:
       - expression:
         - column_reference:
           - naked_identifier: embedding
-        - comparison_operator: <->
+        - binary_operator: <->
         - quoted_literal: '''[3,1,2]'''
     - limit_clause:
       - keyword: LIMIT
@@ -47,7 +47,7 @@ file:
       - expression:
         - column_reference:
           - naked_identifier: embedding
-        - comparison_operator: <=>
+        - binary_operator: <=>
         - quoted_literal: '''[3,1,2]'''
     - limit_clause:
       - keyword: LIMIT
@@ -74,7 +74,7 @@ file:
       - expression:
         - column_reference:
           - naked_identifier: embedding
-        - comparison_operator: <+>
+        - binary_operator: <+>
         - quoted_literal: '''[3,1,2]'''
     - limit_clause:
       - keyword: LIMIT
@@ -101,7 +101,7 @@ file:
       - expression:
         - column_reference:
           - naked_identifier: embedding
-        - comparison_operator: <#>
+        - binary_operator: <#>
         - quoted_literal: '''[3,1,2]'''
     - limit_clause:
       - keyword: LIMIT

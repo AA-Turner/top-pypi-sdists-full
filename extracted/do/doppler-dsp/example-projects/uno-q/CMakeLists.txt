@@ -14,7 +14,7 @@ project(doppler_uno_q C)
 # friends for its own arithmetic; doppler's own libm use comes with the
 # imported target.
 # <!-- doc-version:start -->
-find_package(doppler 0.62.0 REQUIRED)
+find_package(doppler 0.63.0 REQUIRED)
 # <!-- doc-version:end -->
 
 add_executable(uno_q_shared main.c scene.c)
@@ -24,6 +24,11 @@ if(TARGET doppler::doppler-static)
     add_executable(uno_q_static main.c scene.c)
     target_link_libraries(uno_q_static PRIVATE doppler::doppler-static m)
 endif()
+
+# The 2-D correlation detector and its parts, timed through the public API
+# only (`make bench`). It is built with everything else so CI compiles it.
+add_executable(uno_q_bench bench.c)
+target_link_libraries(uno_q_bench PRIVATE doppler::doppler m)
 
 # The NATS transport is OPTIONAL: doppler's stream component (doppler::stream,
 # the vendored nats.c folded in) exists only in a POSIX install built with

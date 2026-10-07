@@ -6,7 +6,8 @@ file:
       - select_clause_element:
         - quoted_literal: '''from'''
         - alias_expression:
-          - keyword: AS
+          - alias_operator:
+            - keyword: AS
           - naked_identifier: direction
       - comma: ','
       - select_clause_element:
@@ -81,7 +82,7 @@ file:
             - start_bracket: (
             - expression:
               - psql_variable:
-                - colon: ':'
+                - psql_variable_colon: ':'
                 - parameter: m1
             - end_bracket: )
           - casting_operator: '::'
@@ -106,7 +107,7 @@ file:
                     - start_bracket: (
                     - expression:
                       - psql_variable:
-                        - colon: ':'
+                        - psql_variable_colon: ':'
                         - parameter: a
                     - end_bracket: )
                   - casting_operator: '::'
@@ -127,7 +128,8 @@ file:
       - select_clause_element:
         - quoted_literal: '''from'''
         - alias_expression:
-          - keyword: AS
+          - alias_operator:
+            - keyword: AS
           - naked_identifier: direction
       - comma: ','
       - select_clause_element:
@@ -198,7 +200,7 @@ file:
         - comparison_operator:
           - raw_comparison_operator: =
         - psql_variable:
-          - colon: ':'
+          - psql_variable_colon: ':'
           - quoted_literal: '''m1'''
         - binary_operator: AND
         - column_reference:
@@ -215,7 +217,7 @@ file:
               - start_bracket: (
               - expression:
                 - psql_variable:
-                  - colon: ':'
+                  - psql_variable_colon: ':'
                   - quoted_literal: '''a'''
               - comma: ','
               - expression:

@@ -16,7 +16,7 @@ int Loader::next_io_worker_task_id() {
     return request_id;
 }
 
-Loader::Loader(unique_ptr<SPSCQueue<RPCRequest>> input_queue, unique_ptr<SPSCQueue<RPCResponse>> output_queue) {
+Loader::Loader(unique_ptr<SPSCQueue<RPCRequest>> input_queue, std::shared_ptr<SPSCQueue<RPCResponse>> output_queue) {
     this->input_queue = std::move(input_queue);
     this->output_queue = std::move(output_queue);
     this->use_internal_memory_register = _env_use_internal_memory_register();
@@ -157,15 +157,26 @@ void Loader::init_threads() {
         }
     }
     if(!this->io_thread) {
-        this->io_thread = std::make_unique<IOExecutor>();
+        IOWorkerDriver::PollCompletions poll;
+        if (this->backend == Backend::AIO || this->backend == Backend::AIO_BUFFERED) {
+            poll = [this](auto& completed) { this->poll_aio(completed); };
+        } else if (this->backend == Backend::URING || this->backend == Backend::URING_BUFFERED) {
+            poll = [this](auto& completed) { this->poll_uring(completed); };
+        } else {
+            poll = [this](auto& completed) { this->poll_worker_completions(completed); };
+        }
+        this->io_thread = std::make_unique<IOExecutor>(
+            std::move(poll), [this]() { this->abort_io(); },
+            _env_debug() ? &this->io_stats : nullptr);
     }
     if (this->backend == Backend::AIO || this->backend == Backend::AIO_BUFFERED) {
         if (!this->last_page_reader_thread) {
             this->last_page_reader_thread = std::make_unique<SingleThreadTaskExecutor>(driver_factory);
         }
     }
-    if(!this->cuda_thread) {
-        this->cuda_thread = std::make_unique<SingleThreadTaskExecutor>(driver_factory);
+    if(!this->cuda_executor) {
+        this->cuda_executor = std::make_unique<CUDAExecutor>(
+            this->device_idx, _env_debug() ? &this->cuda_stats : nullptr);
     }
     if(!this->cuda_stream) {
         CUDA_CHECK(cudaStreamCreateWithFlags(&this->cuda_stream, cudaStreamNonBlocking));
@@ -173,50 +184,90 @@ void Loader::init_threads() {
     if(!this->nccl_stream) {
         CUDA_CHECK(cudaStreamCreateWithFlags(&this->nccl_stream, cudaStreamNonBlocking));
     }
-    if(!this->wait_thread) {
-        this->wait_thread = std::make_unique<SingleThreadTaskExecutor>(driver_factory);
-    }
 
     this->cuda_events.resize(this->io_depth);
     for(size_t i = 0; i < this->io_depth; i++) {
         CUDA_CHECK(cudaEventCreateWithFlags(&this->cuda_events[i], cudaEventDisableTiming));
     }
 
-    if(_env_debug()) {
-        this->io_depth_sample_thread = std::thread([=]() {
-            while(!this->stop) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                this->io_depth_sum += this->chunk_reading - this->chunk_read;
-                this->io_depth_sample ++;
-            }
-        });
+}
+
+void Loader::poll_worker_completions(std::vector<IOCompletion> &completed) {
+    if (!this->worker_threads) return;
+    ThreadPoolTaskExecutor::ResultItem result;
+    while (this->worker_threads->try_reap_any(result)) {
+        std::exception_ptr error;
+        if (result.value.type() == typeid(std::exception_ptr)) {
+            error = std::any_cast<std::exception_ptr>(result.value);
+        }
+        completed.push_back({result.request_id, error});
     }
 }
 
-void Loader::destroy_threads() {
+void Loader::abort_io() {
     if (this->worker_threads) {
         this->worker_threads->join();
     }
-    if (this->last_page_reader_thread) {
-        this->last_page_reader_thread->join();
+    if (this->aio_context_initialized) {
+        if (this->last_page_reader_thread) {
+            this->drain_aio_submissions();
+            this->last_page_reader_thread->join();
+        }
+        this->destroy_aio_context();
+        this->aio_last_page_submissions.clear();
+    }
+    if (this->uring_context_initialized) {
+        this->abort_io_uring();
+    }
+}
+
+IOCompletion Loader::complete_native_read(chunk_id_t id, ssize_t result) {
+    Chunk &chunk = this->chunks[id];
+    ChunkIOState &state = chunk.io_state;
+    IOCompletion completion{state.io_request_id, {}};
+    try {
+        if (result == -EAGAIN || result == -EINTR) {
+            completion.retry = true;
+            return completion;
+        }
+        std::string name = backend_to_string(this->backend);
+        if (result < 0) {
+            throw std::runtime_error(name + " read error for chunk id: " +
+                std::to_string(id) + ", error: " + strerror(-result));
+        }
+        size_t read_offset = ROUND_DOWN(state.bytes_completed, this->rank_alignment);
+        size_t covered = read_offset + static_cast<size_t>(result);
+        state.bytes_completed = std::min(state.rank_size,
+            std::max(state.bytes_completed, covered));
+        if (state.bytes_completed >= state.rank_size) {
+            return completion;
+        }
+        completion.retry = true;
+    } catch (...) {
+        completion.error = std::current_exception();
+    }
+    return completion;
+}
+
+void Loader::destroy_threads() {
+    if (this->cuda_executor) {
+        this->cuda_executor->join();
     }
     if (this->io_thread) {
         this->io_thread->join();
     }
-    if (this->cuda_thread) {
-        this->cuda_thread->join();
+    if (this->worker_threads) {
+        this->worker_threads->join();
     }
-    if (this->wait_thread) {
-        this->wait_thread->join();
+    if (this->last_page_reader_thread) {
+        this->drain_aio_submissions();
+        this->last_page_reader_thread->join();
     }
     if (this->cuda_stream) {
         CUDA_CHECK(cudaStreamDestroy(this->cuda_stream));
     }
     if (this->nccl_stream) {
         CUDA_CHECK(cudaStreamDestroy(this->nccl_stream));
-    }
-    if(this->io_depth_sample_thread.joinable()) {
-        this->io_depth_sample_thread.join();
     }
 }
 
@@ -238,6 +289,7 @@ void Loader::compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets) 
     size_t chunk_file_offset = 0; // The chunk offset from the beginning of the file, aligned to rank_alignment (typically == PAGE_SIZE)
     size_t chunk_device_buffer_offset = 0;
     size_t current_chunk_size = 0;
+    size_t current_chunk_payload_size = 0;
 
     // Points to the current tensor
     size_t tensor_id = 0;
@@ -258,27 +310,32 @@ void Loader::compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets) 
     };
 
     auto finish_chunk = [&]() {
-        if(current_chunk_size > 0) {
-            // ROUND_UP/DOWN make real effect only at the right most chunk
-            this->chunks.push_back(Chunk{current_chunk_size, chunk_file_index, chunk_file_offset, chunk_device_buffer_offset, {}, {}});
+        // Between reset_chunk_file() and an immediate reset_chunk_buffer_offset(),
+        // this can run with only a page prefix and no tensor payload.
+        if(current_chunk_payload_size == 0) {
+            return;
+        }
+        // ROUND_UP/DOWN make real effect only at the right most chunk
+        this->chunks.push_back(Chunk{current_chunk_size, chunk_file_index, chunk_file_offset, chunk_device_buffer_offset, {}});
 
-            if(chunk_file_offset % this->rank_alignment != 0) {
-                throw std::runtime_error("Internal error: Chunk alignment error.");
-            }
+        if(chunk_file_offset % this->rank_alignment != 0) {
+            throw std::runtime_error("Internal error: Chunk alignment error.");
+        }
 
-            // may reread the last file page
-            chunk_file_offset += ROUND_DOWN(current_chunk_size, this->rank_alignment);
-            chunk_device_buffer_offset += ROUND_UP(current_chunk_size, this->world_chunk_alignment);
-            // equals to "current_chunk_size -= ROUND_DOWN(current_chunk_size, this->rank_alignment);""
-            current_chunk_size %= this->rank_alignment;
+        // may reread the last file page
+        chunk_file_offset += ROUND_DOWN(current_chunk_size, this->rank_alignment);
+        chunk_device_buffer_offset += ROUND_UP(current_chunk_size, this->world_chunk_alignment);
+        // equals to "current_chunk_size -= ROUND_DOWN(current_chunk_size, this->rank_alignment);""
+        current_chunk_size %= this->rank_alignment;
+        current_chunk_payload_size = 0;
 
 
-            chunk_id_t prev_chunk_id = (chunk_id_t)this->chunks.size() - 2;
-            while(in_buffer_tensor_id < left_most_tensor_id
-                && this->tensors[in_buffer_tensor_id].device_buffer_offset < chunk_device_buffer_offset) {
-                this->tensors[in_buffer_tensor_id].prefetch_chunk_id = prev_chunk_id;
-                in_buffer_tensor_id++;
-            }
+        chunk_id_t prev_chunk_id = (chunk_id_t)this->chunks.size() - 2;
+        while(in_buffer_tensor_id < left_most_tensor_id
+            && (this->tensors[in_buffer_tensor_id].size == 0 ||
+                this->chunks[this->tensors[in_buffer_tensor_id].first_chunk_id].device_buffer_offset < chunk_device_buffer_offset)) {
+            this->tensors[in_buffer_tensor_id].prefetch_chunk_id = prev_chunk_id;
+            in_buffer_tensor_id++;
         }
     };
     auto reset_chunk_buffer_offset = [&](size_t new_left_most_tensor_id) {
@@ -328,17 +385,26 @@ void Loader::compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets) 
             // place the tensor at the beginning of the buffer
             reset_chunk_buffer_offset(tensor_id);
         }
+        // Finish a full chunk before assigning the next tensor's first chunk ID.
+        if (current_chunk_size == this->world_chunk_size) {
+            finish_chunk();
+        }
+        chunk_id_t next_chunk_id = static_cast<chunk_id_t>(this->chunks.size());
+        // Empty tensors anchor to the previous emitted chunk, or -1 if none exists.
+        chunk_id_t first_chunk_id = tensor_size ? next_chunk_id : next_chunk_id - 1;
         size_t _tensor_device_buffer_offset = tensor_device_buffer_offset(tensor_file_offset);
         size_t tensor_size_left = tensor_size;
         while(current_chunk_size + tensor_size_left > this->world_chunk_size) {
             size_t size_add = this->world_chunk_size - current_chunk_size;
             current_chunk_size += size_add;
+            current_chunk_payload_size += size_add;
             tensor_size_left -= size_add;
             finish_chunk();
         }
         current_chunk_size += tensor_size_left;
-        chunk_id_t current_chunk_id = (chunk_id_t)this->chunks.size();
-        this->tensors[tensor_id] = TensorMetadate{tensor_size, file_index, tensor_file_offset, _tensor_device_buffer_offset, current_chunk_id, 0};
+        current_chunk_payload_size += tensor_size_left;
+        chunk_id_t last_chunk_id = tensor_size ? static_cast<chunk_id_t>(this->chunks.size()) : first_chunk_id;
+        this->tensors[tensor_id] = TensorMetadate{tensor_size, file_index, tensor_file_offset, _tensor_device_buffer_offset, first_chunk_id, last_chunk_id, 0};
 
         tensor_id ++;
     }
@@ -454,7 +520,9 @@ void Loader::close(CloseArgs args) {
     std::chrono::duration<double> d4 = t4 - t3;
     if(_env_debug()) {
         debug_log("Close time: threads=%f, buffer=%f, file=%f, comm=%f", d1.count(), d2.count(), d3.count(), d4.count());
-        debug_log("Average io_depth = %.2lf", 1.0 * this->io_depth_sum / this->io_depth_sample);
+        auto counts = this->cuda_stats.average_stage_counts();
+        debug_log("Average queue depth: IO=%.3f, IO_READY=%.3f, CUDA=%.3f",
+            this->io_stats.average_active_tasks(), counts[0], counts[1]);
     }
 }
 
@@ -504,8 +572,10 @@ void Loader::post_read_chunk() {
     // }
 
     FileInfo &f = this->file_info[chunk.file_index];
-    ChunkIOParams params{chunk_id, chunk, f, padded_rank_size,
-                         rank_offset, rank_size, window_idx, window_offset, rank_dst, all_dst, event};
+    chunk.io_state.rank_size = rank_size;
+    chunk.io_state.rank_file_offset = chunk.file_offset + rank_offset;
+    chunk.io_state.window_offset = window_offset;
+    ChunkIOParams params{chunk_id, chunk, f, window_idx, rank_dst, all_dst, event};
 
     IORequest io_request;
     if (this->backend == Backend::MMAP) {
@@ -518,11 +588,12 @@ void Loader::post_read_chunk() {
         io_request = this->post_read_chunk_aio(params);
     }
 
-    auto cuda_func = [=]() {
-        io_request.executor->reap(io_request.wait_handle);
-        if (!io_request.loaded_to_device) {
+    bool loaded_to_device = io_request.loaded_to_device;
+    auto launch = [this, loaded_to_device, rank_dst, window_offset, rank_size,
+                   event, padded_rank_size, all_dst]() {
+        if (!loaded_to_device) {
             CUDA_CHECK(cudaMemcpyAsync(
-                rank_dst, (char*)this->host_buffer + params.window_offset,
+                rank_dst, (char*)this->host_buffer + window_offset,
                 rank_size, cudaMemcpyHostToDevice, this->cuda_stream));
         }
         CUDA_CHECK(cudaEventRecord(event, this->cuda_stream));
@@ -534,25 +605,20 @@ void Loader::post_read_chunk() {
             CUDA_CHECK(cudaEventRecord(event, this->nccl_stream));
         }
     };
-    int cuda_req_id = this->next_loader_task_id();
-    this->cuda_thread->submit(cuda_req_id, std::move(cuda_func));
-
-    auto wait_func = [=]() mutable {
-        this->cuda_thread->reap(cuda_req_id);
-        CUDA_CHECK(cudaEventSynchronize(event));
-    };
     int completion_req_id = this->next_loader_task_id();
-    this->wait_thread->submit(completion_req_id, std::move(wait_func));
-    this->chunks[chunk_id].request = ChunkRequest{
-        this->wait_thread.get(), completion_req_id};
+    this->cuda_executor->submit(completion_req_id, CUDAOperation{
+        io_request, std::move(launch), event});
+    ChunkIOState &state = chunk.io_state;
+    state.cuda_executor = this->cuda_executor.get();
+    state.cuda_request_id = completion_req_id;
 }
 
 void Loader::poll_read_chunk() {
     chunk_id_t next_chunck_id = this->chunk_read.load(std::memory_order_relaxed) + 1;
     while(next_chunck_id <= this->chunk_reading.load(std::memory_order_relaxed)) {
-        ChunkRequest &request = this->chunks[next_chunck_id].request;
+        ChunkIOState &state = this->chunks[next_chunck_id].io_state;
         std::any ignored;
-        if(!request.executor->try_reap(request.wait_handle, ignored)) {
+        if(!state.cuda_executor->try_reap(state.cuda_request_id, ignored)) {
             break;
         }
         next_chunck_id++;
@@ -566,8 +632,8 @@ void Loader::wait_read_chunk(chunk_id_t chunk_id) {
         print_and_throw(std::runtime_error("Internal error: chunk_id out of range."));
     }
     while(next_chunck_id <= chunk_id) {
-        ChunkRequest &request = this->chunks[next_chunck_id].request;
-        request.executor->reap(request.wait_handle);
+        ChunkIOState &state = this->chunks[next_chunck_id].io_state;
+        state.cuda_executor->reap(state.cuda_request_id);
         next_chunck_id++;
     }
     this->chunk_read.store(next_chunck_id - 1, std::memory_order_relaxed);
@@ -690,7 +756,7 @@ void Loader::run() {
     }
 }
 
-void run_loader(unique_ptr<SPSCQueue<RPCRequest>> input_queue, unique_ptr<SPSCQueue<RPCResponse>> output_queue) {
+void run_loader(unique_ptr<SPSCQueue<RPCRequest>> input_queue, std::shared_ptr<SPSCQueue<RPCResponse>> output_queue) {
     try {
         Loader loader(std::move(input_queue), std::move(output_queue));
         loader.run();

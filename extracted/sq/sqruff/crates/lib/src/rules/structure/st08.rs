@@ -81,6 +81,10 @@ SELECT DISTINCT a, b FROM foo
         &[RuleGroups::All, RuleGroups::Core, RuleGroups::Structure]
     }
 
+    fn is_fix_compatible(&self) -> bool {
+        true
+    }
+
     fn eval(&self, context: &RuleContext) -> Vec<LintResult> {
         let mut seq: Option<ReflowSequence> = None;
         let mut anchor: Option<ErasedSegment> = None;
@@ -143,6 +147,18 @@ SELECT DISTINCT a, b FROM foo
             }
 
             let bracketed = &bracketed.children_all()[0];
+            if !bracketed
+                .recursive_crawl(
+                    const { &SyntaxSet::new(&[SyntaxKind::SelectStatement]) },
+                    false,
+                    &SyntaxSet::EMPTY,
+                    true,
+                )
+                .is_empty()
+            {
+                return Vec::new();
+            }
+
             let mut edits = vec![
                 SegmentBuilder::token(
                     context.tables.next_id(),

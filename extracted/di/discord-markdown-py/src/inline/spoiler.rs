@@ -1,9 +1,10 @@
 //! Spoiler parsing.
 
 use enumset::enum_set;
-use nom::{bytes::complete::tag, sequence::delimited, Parser};
+use nom::{Parser, bytes::complete::tag, sequence::delimited};
 
 use crate::{
+	Input,
 	context::Context,
 	error::ParseError,
 	grammar::Grammar,
@@ -12,7 +13,6 @@ use crate::{
 	rule::{Rule, RuleSet},
 	span::Span,
 	unparse::Unparse,
-	Input,
 };
 
 pub const DELIMITER: &str = "||";

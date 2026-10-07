@@ -4,7 +4,7 @@ Seen live (conversation 49b77b18-…): `dataset get` with limit 215 on a 215-row
 answered `"count": 215` and NO PARTIAL note while carrying 163 rows — the 40k budget cut the rest after
 the page had been judged whole. A model trusting `count` reports 215 rows it never saw.
 
-SUT: `_dataset_get` (and `usertable_get_data`) — the page's count, partial flag and note after the cut.
+SUT: `_dataset_get` (and `dataset_get_data`) — the page's count, partial flag and note after the cut.
 Stubbed: the record-store arm (a dependency, answering a whole 215-row page the way the live arm did) and
 the relation-wording pass (identity). Break caught: the count/partial computed before the cut."""
 
@@ -75,7 +75,7 @@ async def test_a_whole_page_that_fits_is_not_called_partial(world) -> None:
 
 async def test_the_table_reader_says_the_cut_too(world) -> None:
     world(_rows(215, 30), 215)
-    res = await dt.usertable_get_data({"table_id": "ccdeb64c-4bf5-4e84-98b1-ee8defdb2bd3", "limit": 215, "offset": 0}, CTX)
+    res = await dt.dataset_get_data({"table_id": "ccdeb64c-4bf5-4e84-98b1-ee8defdb2bd3", "limit": 215, "offset": 0}, CTX)
     out = res.output
     assert out["count"] == len(out["rows"]) < 215 and out["partial"] is True
     assert "of 215" in out["totals_note"]

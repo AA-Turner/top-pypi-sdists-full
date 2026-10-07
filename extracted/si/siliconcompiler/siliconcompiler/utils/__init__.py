@@ -13,8 +13,10 @@ import os.path
 
 from io import StringIO
 from pathlib import Path
+from types import ModuleType
 
-from typing import IO, Dict, Optional, Tuple, Type, Union, Callable, List, cast, TYPE_CHECKING
+from typing import IO, Dict, Optional, Tuple, Type, TypeVar, Union, Callable, List, cast, \
+    TYPE_CHECKING
 
 import importlib.util
 
@@ -39,6 +41,9 @@ from siliconcompiler.utils.paths import builddir
 if TYPE_CHECKING:
     from jinja2 import Template
     from siliconcompiler.project import Project
+    from siliconcompiler.schema import BaseSchema
+
+TSchema = TypeVar("TSchema", bound="BaseSchema")
 
 
 @functools.lru_cache(maxsize=None)
@@ -169,6 +174,23 @@ def tar_extract_kwargs(filter: str = "data") -> Dict[str, Union[str, Callable]]:
     return {"filter": filter}
 
 
+def tarfile_module() -> ModuleType:
+    """Returns the ``tarfile`` module to read archives with.
+
+    That is the standard library's where it has the PEP 706 extraction filters.
+    Python 3.10.0-3.10.11 and 3.11.0-3.11.3 do not, so there it is the copy of
+    3.14's ``tarfile`` that ``backports.zstd`` ships, which filters with ``data``
+    by default; :func:`tar_extract_kwargs` has nothing to add to it.
+
+    The two modules have separate exception classes, so match an archive's errors
+    against the module that opened it.
+    """
+    if hasattr(tarfile, "data_filter"):
+        return tarfile
+    from backports.zstd import tarfile as backport
+    return backport
+
+
 def zstd_available() -> bool:
     """Reports whether this interpreter can read Zstandard streams.
 
@@ -246,12 +268,13 @@ def open_zstd_stream(fileobj: IO[bytes]) -> IO[bytes]:
     with its own ``TarInfo``, its own ``data_filter`` and its own exception
     classes. Extraction here depends on both: :func:`tar_extract_kwargs` may
     substitute a filter that calls stdlib ``tarfile.data_filter``, and the resolver
-    retry logic decides whether a failure is worth retrying by matching stdlib
-    ``tarfile.FilterError``. Feeding either one a backported member would make the
-    substitution a duck-typed guess and leave a refused archive misclassified as a
-    transient failure -- re-downloaded in full, to be refused again. Handing a
-    plain decompressed stream to ``mode="r:"`` keeps one ``tarfile`` on every
-    supported release, and streams rather than materializing the whole archive.
+    retry logic decides whether a failure is worth retrying by matching the
+    ``FilterError`` of :func:`tarfile_module`. Feeding either one a backported
+    member would make the substitution a duck-typed guess and leave a refused
+    archive misclassified as a transient failure -- re-downloaded in full, to be
+    refused again. Handing a plain decompressed stream to ``mode="r:"`` keeps one
+    ``tarfile`` per interpreter, and streams rather than materializing the whole
+    archive.
 
     Args:
         fileobj (IO[bytes]): The compressed stream, positioned at the frame start.
@@ -269,6 +292,33 @@ def open_zstd_stream(fileobj: IO[bytes]) -> IO[bytes]:
     # A ZstdFile is a BufferedIOBase, which is everything tarfile asks of a
     # fileobj, but typeshed does not declare it as an IO[bytes].
     return cast(IO[bytes], _zstd.ZstdFile(fileobj))
+
+
+def file_digest(path: Union[str, Path], algorithm: Union[str, Callable] = "sha256"):
+    '''
+    The hash of the file at ``path``, read in chunks rather than whole.
+
+    ``hashlib.file_digest`` from Python 3.11, and the same read by hand before
+    it, so every supported Python hashes a file one way.
+
+    Args:
+        path (path): the file to hash.
+        algorithm (str or callable): a name ``hashlib.new`` takes, or, as
+            ``hashlib.file_digest`` also takes, a callable returning the hash
+            object to feed. Returning one that already holds data continues it.
+
+    Returns:
+        the ``hashlib`` hash object, as ``hashlib.file_digest`` returns.
+    '''
+    import hashlib
+
+    with open(path, "rb") as f:
+        if hasattr(hashlib, "file_digest"):
+            return hashlib.file_digest(f, algorithm)
+        digest = hashlib.new(algorithm) if isinstance(algorithm, str) else algorithm()
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+        return digest
 
 
 def link_symlink_copy(srcfile, dstfile):
@@ -591,7 +641,6 @@ def get_file_template(path: str,
     return env.get_template(path)
 
 
-#######################################
 def safecompare(value: Union[int, float], op: str, goal: Union[int, float]) -> bool:
     """
     Compares a value against a goal using a string operator.
@@ -625,7 +674,6 @@ def safecompare(value: Union[int, float], op: str, goal: Union[int, float]) -> b
         raise ValueError(f"Illegal comparison operation {op}")
 
 
-###########################################################################
 def grep(logger: logging.Logger, args: str, line: str) -> Union[None, str]:
     """
     Emulates the Unix grep command on a string.
@@ -643,7 +691,7 @@ def grep(logger: logging.Logger, args: str, line: str) -> Union[None, str]:
     if line is None:
         return None
 
-    # --- 1. Initialize Options and Parse Arguments ---
+    # 1. Initialize Options and Parse Arguments
     options = {
         '-v': False,  # Invert the sense of matching
         '-i': False,  # Ignore case distinctions
@@ -693,7 +741,7 @@ def grep(logger: logging.Logger, args: str, line: str) -> Union[None, str]:
     if not pattern:
         return None
 
-    # --- 2. Prepare Regex Flags and Pattern Modifiers ---
+    # 2. Prepare Regex Flags and Pattern Modifiers
 
     regex_flags = 0
     if options['-i']:
@@ -710,7 +758,7 @@ def grep(logger: logging.Logger, args: str, line: str) -> Union[None, str]:
         # Exact line match, using the prepared pattern (which may have \b already)
         pattern_to_search = rf"^{pattern_to_search}$"
 
-    # --- 3. Perform Search ---
+    # 3. Perform Search
     try:
         # re.search is used to find the pattern anywhere in the line
         match = re.search(pattern_to_search, line, regex_flags)
@@ -719,7 +767,7 @@ def grep(logger: logging.Logger, args: str, line: str) -> Union[None, str]:
         logger.error(f"Invalid regex pattern '{pattern}': {e}")
         return None
 
-    # --- 4. Handle Inversion (-v) and Final Return ---
+    # 4. Handle Inversion (-v) and Final Return
 
     # Check if a result should be returned: (Match found) XOR (Invert is on)
     should_return = bool(match) != options["-v"]
@@ -1310,3 +1358,41 @@ class FilterDirectories:
             return files
 
         return hidden_files
+
+
+def find_schemas(schema: "BaseSchema", cls: Type[TSchema]) -> List[TSchema]:
+    '''Every part of ``schema`` that is a ``cls``, ``schema`` and its history
+    included; a part still lazily loaded is loaded to be searched.'''
+    from siliconcompiler.schema import BaseSchema, EditableSchema
+
+    found = [schema] if isinstance(schema, cls) else []
+    editable = EditableSchema(schema)
+    for key in schema.getkeys():
+        child = editable.search(key)
+        if isinstance(child, BaseSchema):
+            found.extend(find_schemas(child, cls))
+    return found
+
+
+def mask_credentials(schema: TSchema) -> TSchema:
+    '''A copy of ``schema`` with every dataroot path masked as
+    `Resolver.safe_source` masks a source, for a manifest handed to someone else.
+
+    A masked dataroot cannot be fetched, so write the copy and never run it. Its
+    collected files are still found, because `Resolver.collection_id` hashes the
+    source masked the same way.'''
+    from siliconcompiler.package import Resolver
+    from siliconcompiler.schema_support.pathschema import PathSchema
+
+    masked = schema.copy()
+    for part in find_schemas(masked, PathSchema):
+        if not part.valid("dataroot"):
+            # A design's package removes the dataroot it would have
+            continue
+        for name in part.getkeys("dataroot"):
+            path = part.get("dataroot", name, "path")
+            if path:
+                safe = Resolver._masked_uri(path, show_userinfo=False)
+                if safe != path:
+                    part.set("dataroot", name, "path", safe)
+    return masked

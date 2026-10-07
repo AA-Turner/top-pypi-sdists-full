@@ -531,7 +531,7 @@ class RiverConnectionError(RiverError):
         )
         metadata = (
             dict(error.trailing_metadata() or ())
-            if isinstance(error, grpc.Call)
+            if isinstance(error, (grpc.Call, grpc.aio.AioRpcError))
             else {}
         )
         result.error_code = metadata.get("river-error-code")

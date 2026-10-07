@@ -47,17 +47,13 @@ class Object(OntologyElement):
         """Returns the attributes of the object as its children."""
         return self.attributes
 
-    def create_instance(self, *, object_id: Optional[int] = None) -> ObjectInstance:
+    def create_instance(self) -> ObjectInstance:
         """Create a :class:`encord.objects.ontology_object_instance.ObjectInstance` to be used with a label row.
-
-        Args:
-            object_id: Optional caller-assigned display number. If omitted, one is assigned on save.
-                To renumber an existing object, set ``instance.object_id`` after creation instead.
 
         Returns:
             ObjectInstance: An instance of the object to be used in labeling.
         """
-        return ObjectInstance(self, object_id=object_id)
+        return ObjectInstance(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> Object:

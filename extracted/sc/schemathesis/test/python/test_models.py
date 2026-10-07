@@ -337,6 +337,33 @@ def test_call_and_validate_for_asgi():
     test()
 
 
+def test_asgi_call_with_and_without_explicit_base_url():
+    app = FastAPI()
+
+    @app.get("/items")
+    def items():
+        return {"ok": True}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+    case = schema["/items"]["GET"].Case()
+    assert case.call().status_code == 200
+    assert case.call(base_url="http://testserver").status_code == 200
+
+
+def test_call_without_base_url_ignores_malformed_swagger_schemes():
+    schema = schemathesis.openapi.from_dict(
+        {
+            "swagger": "2.0",
+            "info": {"title": "Test", "version": "1"},
+            "host": "example.org",
+            "schemes": "http",
+            "paths": {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        }
+    )
+    with pytest.raises(IncorrectUsage, match=r'schema\.config\.update\(base_url="https://api\.example\.com"\)'):
+        schema["/users"]["GET"].Case().call()
+
+
 def test_validate_response(testdir):
     testdir.make_test(
         r"""
@@ -389,6 +416,23 @@ def test_(case):
     )
     result = testdir.runpytest("--tb=long", "-sv")
     result.assert_outcomes(passed=1)
+
+
+def test_validate_response_custom_check_raising_while_handling_error(ctx, response_factory):
+    schema = ctx.openapi.load_schema({"/x": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    case = schema["/x"]["GET"].Case()
+
+    def has_id(ctx, response, case):
+        try:
+            response.json()["id"]
+        except KeyError:
+            raise AssertionError("Missing `id`") from None
+
+    with pytest.raises(FailureGroup) as exc:
+        case.validate_response(response_factory.requests(content=b"{}"), checks=[has_id])
+    assert [(failure.title, failure.message) for failure in exc.value.exceptions] == [
+        ("Custom check failed: `has_id`", "Missing `id`")
+    ]
 
 
 @pytest.mark.parametrize("factory_type", ["httpx", "httpx2", "requests", "wsgi"])
@@ -455,7 +499,7 @@ def test_response_from_requests(ctx, app_runner):
         return response
 
     port = app_runner.run_flask_app(app)
-    response = requests.get(f"http://127.0.0.1:{port}/api/cookies", timeout=1)
+    response = requests.get(f"http://127.0.0.1:{port}/api/cookies", timeout=10)
     serialized = Response.from_requests(response, True)
     assert serialized.content == b""
     assert serialized.status_code == 200
@@ -675,6 +719,12 @@ def test_operation_and_case_never_equal_foreign_objects(ctx):
     ]
     assert operation != "GET /data"
     assert operation.Case() != "GET /data"
+
+
+def test_operation_reference_escapes_path_for_json_pointer(ctx):
+    schema = ctx.openapi.load_schema({"/users/{id}/a~b": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    assert schema["/users/{id}/a~b"]["GET"].operation_reference == "#/paths/~1users~1{id}~1a~0b/get"
 
 
 def test_hypothesis_reports_omit_schema_and_parameter_sets(ctx):

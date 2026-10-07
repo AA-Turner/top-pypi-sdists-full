@@ -416,6 +416,76 @@ class BrowseCursors(BaseModel):
     subprojects: str | None = Field(None, title='Subprojects')
 
 
+class CanvasEndType(StrEnum):
+    project = 'project'
+    experiment = 'experiment'
+
+
+class CanvasLiveRun(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(None, title='Name')
+
+
+class CanvasProject(BaseModel):
+    created_at: AwareDatetime = Field(..., title='Created At')
+    direct_run_count: int | None = Field(0, title='Direct Run Count')
+    id: UUID = Field(..., title='Id')
+    kind: str = Field(..., title='Kind')
+    live_run_count: int | None = Field(0, title='Live Run Count')
+    name: str = Field(..., title='Name')
+    parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    ref: str | None = Field(None, title='Ref')
+    repo: str | None = Field(None, title='Repo')
+    slug: str = Field(..., title='Slug')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class CanvasRef(BaseModel):
+    id: UUID = Field(..., title='Id')
+    type: CanvasEndType
+
+
+class CanvasReference(BaseModel):
+    created_at: AwareDatetime = Field(..., title='Created At')
+    from_project_id: UUID = Field(..., title='From Project Id')
+    to_project_id: UUID = Field(..., title='To Project Id')
+
+
+class CanvasRun(BaseModel):
+    alive: bool = Field(..., title='Alive')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(None, title='Name')
+    parent_relation: str | None = Field(None, title='Parent Relation')
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    slug: str | None = Field(None, title='Slug')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: str = Field(..., title='Status')
+
+
+class CanvasSessionStep(BaseModel):
+    agent: str = Field(..., title='Agent')
+    from_experiment_id: UUID = Field(..., title='From Experiment Id')
+    from_seen_at: AwareDatetime = Field(..., title='From Seen At')
+    session_id: str = Field(..., title='Session Id')
+    to_experiment_id: UUID = Field(..., title='To Experiment Id')
+    to_seen_at: AwareDatetime = Field(..., title='To Seen At')
+
+
+class CanvasTotals(BaseModel):
+    experiments: int = Field(..., title='Experiments')
+    live_runs: int = Field(..., title='Live Runs')
+    project_trees: int = Field(..., title='Project Trees')
+    projects: int = Field(..., title='Projects')
+    runs: int = Field(..., title='Runs')
+
+
+class CanvasWorkspace(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+
+
 class Mode(StrEnum):
     field_100644 = '100644'
     field_100755 = '100755'
@@ -545,6 +615,7 @@ class ChatFunctionCallOut(BaseModel):
 
 
 class ChatPromptTokensDetailsOut(BaseModel):
+    cache_write_tokens: int | None = Field(None, title='Cache Write Tokens')
     cached_tokens: int = Field(..., title='Cached Tokens')
 
 
@@ -559,6 +630,33 @@ class ChatUsageOut(BaseModel):
     prompt_tokens: int = Field(..., title='Prompt Tokens')
     prompt_tokens_details: ChatPromptTokensDetailsOut | None = None
     total_tokens: int = Field(..., title='Total Tokens')
+
+
+class ClassifyIn(BaseModel):
+    digest: str = Field(
+        ...,
+        description='The session so far, as the daemon digests it (no tool output).',
+        max_length=400000,
+        title='Digest',
+    )
+
+
+class ClassifyOut(BaseModel):
+    act: bool = Field(
+        ...,
+        description='May the daemon act on it (pause)? False in shadow, off, or without an answer.',
+        title='Act',
+    )
+    mode: str = Field(
+        ...,
+        description="The gate's mode for this team: off, shadow or on.",
+        title='Mode',
+    )
+    p_ml: float | None = Field(
+        ...,
+        description="Jev's probability that the session is ML work; null: no answer.",
+        title='P Ml',
+    )
 
 
 class AutoUpdate(StrEnum):
@@ -2503,6 +2601,7 @@ class OverviewOut(BaseModel):
     prompt_version: str | None = Field(None, title='Prompt Version')
     queue_ahead: int | None = Field(None, title='Queue Ahead')
     refresh_queued: bool | None = Field(False, title='Refresh Queued')
+    saved_page_readable: bool | None = Field(False, title='Saved Page Readable')
     scheduled_for: AwareDatetime | None = Field(None, title='Scheduled For')
     series: dict[str, Any] | None = Field(None, title='Series')
     skip_reason: str | None = Field(None, title='Skip Reason')
@@ -4860,6 +4959,19 @@ class SessionIngestStateOut(BaseModel):
     session_id: str = Field(..., title='Session Id')
 
 
+class SessionTrajectoryOut(BaseModel):
+    """
+    One page of a captured session's ATIF trajectory.
+    """
+
+    agent: str = Field(..., title='Agent')
+    next_step_from: int | None = Field(None, title='Next Step From')
+    session_id: str = Field(..., title='Session Id')
+    step_from: int = Field(..., ge=1, title='Step From')
+    total_steps: int = Field(..., ge=0, title='Total Steps')
+    trajectory: dict[str, Any] = Field(..., title='Trajectory')
+
+
 class SessionTranscriptOut(BaseModel):
     """
     The complete normalized transcript document for one captured session.
@@ -6342,6 +6454,44 @@ class BackfillStart(BaseModel):
         ..., max_length=200, min_length=1, title='Idempotency Key'
     )
     scope: list[ScopeItem] = Field(..., max_length=500, min_length=1, title='Scope')
+
+
+class CanvasEdge(BaseModel):
+    by: str | None = Field(None, title='By')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    evidence: list[dict[str, Any]] | None = Field(None, title='Evidence')
+    id: UUID = Field(..., title='Id')
+    provenance: str | None = Field(None, title='Provenance')
+    reason: str | None = Field(None, title='Reason')
+    relation: str = Field(..., title='Relation')
+    source: CanvasRef
+    target: CanvasRef
+    via: str | None = Field(None, title='Via')
+
+
+class CanvasExperiment(BaseModel):
+    blurb: str | None = Field(None, title='Blurb')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    id: UUID = Field(..., title='Id')
+    live_runs: list[CanvasLiveRun] | None = Field(
+        [], title='Live Runs', validate_default=True
+    )
+    name: str = Field(..., title='Name')
+    origin_session_id: str | None = Field(None, title='Origin Session Id')
+    project_id: UUID = Field(..., title='Project Id')
+    question: str = Field(..., title='Question')
+    recent_statuses: list[str] | None = Field([], title='Recent Statuses')
+    run_count: int | None = Field(0, title='Run Count')
+    session_ids: list[str] | None = Field([], title='Session Ids')
+    slug: str = Field(..., title='Slug')
+    status_counts: dict[str, int] | None = Field({}, title='Status Counts')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class CanvasExperimentRunsOut(BaseModel):
+    experiment_id: UUID = Field(..., title='Experiment Id')
+    runs: list[CanvasRun] = Field(..., title='Runs')
+    runs_truncated: bool = Field(..., title='Runs Truncated')
 
 
 class CapabilityRegistrationOut(BaseModel):
@@ -8130,6 +8280,19 @@ class WebSearchResponse(BaseModel):
     query: str = Field(..., title='Query')
     results: list[WebResult] | None = Field(None, title='Results')
     state: WebState
+
+
+class WorkspaceCanvasOut(BaseModel):
+    edges: list[CanvasEdge] = Field(..., title='Edges')
+    experiments: list[CanvasExperiment] = Field(..., title='Experiments')
+    experiments_truncated: bool = Field(..., title='Experiments Truncated')
+    generated_at: AwareDatetime = Field(..., title='Generated At')
+    projects: list[CanvasProject] = Field(..., title='Projects')
+    projects_truncated: bool = Field(..., title='Projects Truncated')
+    references: list[CanvasReference] = Field(..., title='References')
+    session_order: list[CanvasSessionStep] = Field(..., title='Session Order')
+    totals: CanvasTotals
+    workspace: CanvasWorkspace
 
 
 class WorkspaceOut(BaseModel):

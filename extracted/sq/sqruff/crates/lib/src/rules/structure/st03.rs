@@ -4,7 +4,7 @@ use hashbrown::HashMap;
 use smol_str::StrExt;
 use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use sqruff_lib_core::helpers::IndexMap;
-use sqruff_lib_core::utils::analysis::query::Query;
+use sqruff_lib_core::utils::analysis::query::{Query, normalize_identifier};
 
 use crate::core::config::Value;
 use crate::core::rules::context::RuleContext;
@@ -77,13 +77,17 @@ FROM cte1
             .map(|it| (it.to_uppercase_smolstr(), it.clone()))
             .collect();
 
-        for reference in context.segment.recursive_crawl(
-            const { &SyntaxSet::new(&[SyntaxKind::TableReference]) },
-            true,
-            const { &SyntaxSet::single(SyntaxKind::WithCompoundStatement) },
-            true,
-        ) {
-            remaining_ctes.shift_remove(&reference.raw().to_uppercase_smolstr());
+        for reference in
+            context.segment.recursive_crawl(
+                const {
+                    &SyntaxSet::new(&[SyntaxKind::TableReference, SyntaxKind::OracleTableReference])
+                },
+                true,
+                const { &SyntaxSet::EMPTY },
+                true,
+            )
+        {
+            remaining_ctes.shift_remove(&normalize_identifier(&reference).to_uppercase_smolstr());
         }
 
         for name in remaining_ctes.values() {

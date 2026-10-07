@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, cast
 from unittest import TestCase
 from unittest.mock import patch
 
+from . import finder as finder_module
 from .discovery import base as base_module
 from .discovery import files as files_module
 from .discovery import transifex as transifex_module
@@ -409,6 +410,65 @@ class DiscoveryBaseTest(DiscoveryTestCase):
     def test_trim_incomplete_unicode_tail_preserves_interior_errors(self) -> None:
         content = b"valid\xffinvalid\xe2"
         self.assertEqual(base_module._trim_incomplete_unicode_tail(content), content)
+
+
+class DiscoveryPathIndexTest(DiscoveryTestCase):
+    def test_generated_paths_avoid_wildcard_rescans(self) -> None:
+        checks = (
+            (JavaDiscovery, ".properties", "key=value\n", 20),
+            (JSONDiscovery, ".json", "[]\n", 0),
+            (QtDiscovery, ".ts", '<TS version="2.1"></TS>\n', 20),
+        )
+        for discovery_class, suffix, content, result_count in checks:
+            with (
+                self.subTest(discovery=discovery_class.__name__),
+                tempfile.TemporaryDirectory() as tmpdir,
+            ):
+                root = Path(tmpdir)
+                for index in range(20):
+                    (root / f"u{index}_cs{suffix}").write_text(content)
+                finder = Finder(root)
+                discovery = discovery_class(finder)
+
+                with patch.object(
+                    finder_module, "fnmatch", wraps=finder_module.fnmatch
+                ) as fnmatch:
+                    results = list(discovery.discover())
+
+                self.assertEqual(len(results), result_count)
+                self.assertEqual(fnmatch.call_count, 20)
+
+    def test_custom_generated_paths_avoid_wildcard_rescans(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for index in range(20):
+                directory = root / f"d{index}" / "en.lproj"
+                directory.mkdir(parents=True)
+                (directory / "messages.strings").write_text("key=value\n")
+            finder = Finder(root)
+            discovery = OSXDiscovery(finder)
+
+            with patch.object(
+                finder_module, "fnmatch", wraps=finder_module.fnmatch
+            ) as fnmatch:
+                results = list(discovery.discover())
+
+            self.assertEqual(len(results), 20)
+            self.assertEqual(fnmatch.call_count, 20)
+
+    def test_generated_paths_are_collected_before_content_detection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "messages_cs.json").write_text("[]\n")
+            (root / "messages_custom.json").write_text('{"key": "value"}\n')
+            discovery = JSONDiscovery(Finder(root))
+
+            results = list(discovery.discover())
+
+        self.assert_discovery(
+            results,
+            [{"filemask": "messages_*.json", "file_format": "json-nested"}],
+        )
 
 
 class EncodingDiscoveryLimitTest(DiscoveryTestCase):
@@ -1227,6 +1287,25 @@ class OSXTest(DiscoveryTestCase):
                     "template": "pappl/strings/base.strings",
                 },
             ],
+        )
+
+    def test_encoding_uses_non_generator_wildcard_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir) / "App" / "Resources"
+            base = root / "Base.lproj"
+            target = root / "fr.lproj"
+            base.mkdir(parents=True)
+            target.mkdir()
+            (base / "Localizable.strings").write_text('"hello" = "world";\n')
+            (target / "Localizable.strings").write_bytes(
+                b"\xff\xfe" + '"hello" = "monde";\n'.encode("utf-16-le")
+            )
+            discovery = OSXDiscovery(Finder(Path(tmpdir)))
+
+            results = list(discovery.discover())
+
+        self.assertEqual(
+            results[0]["file_format_params"], {"strings_encoding": "utf-16"}
         )
 
     def test_base_template_preference(self) -> None:
@@ -2853,6 +2932,12 @@ class CSVHelperTest(DiscoveryTestCase):
             Path("missing.csv"),
         )
         self.assertIsNone(sample)
+        self.assertIsNone(
+            files_module._read_csv_rows(
+                cast("Finder", FailingFinder()),
+                Path("missing.csv"),
+            )
+        )
 
     def test_detect_csv_delimiters(self) -> None:
         for delimiter in files_module.CSV_DELIMITERS:
@@ -3037,23 +3122,169 @@ class FormatSniffLimitTest(DiscoveryTestCase):
                 Path("missing.txt"),
             )
         )
-        self.assertFalse(
-            files_module._is_sniff_content_over_limit(
-                cast("Finder", FailingFinder()),
-                Path("missing.txt"),
-            )
-        )
 
-    def test_sniff_content_over_limit(self) -> None:
+
+class AggregateFormatSniffLimitTest(DiscoveryTestCase):
+    def test_format_sniff_budget_limits_total_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
-            (tmppath / "sample.txt").write_text("abcdef", encoding="utf-8")
+            (tmppath / "first.txt").write_text("abc", encoding="utf-8")
+            (tmppath / "second.txt").write_text("def", encoding="utf-8")
             finder = Finder(tmppath)
-            path = next(finder.mask_matches("sample.txt"))
+            paths = iter(finder.mask_matches("*.txt"))
 
             with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 4):
-                self.assertTrue(files_module._is_sniff_content_over_limit(finder, path))
+                budget = files_module._FormatSniffBudget()
+                self.assertEqual(budget.read(finder, next(paths)), (b"abc", True))
+                self.assertEqual(budget.read(finder, next(paths)), (b"d", False))
 
+        self.assertTrue(budget.exhausted)
+        self.assertEqual(budget.remaining_bytes, 0)
+
+    def test_format_sniff_budget_counts_read_failures(self) -> None:
+        with (
+            patch.object(files_module, "FORMAT_SNIFF_MAX_FILES", 2),
+            patch.object(files_module, "_read_binary_sniff_sample", return_value=None),
+        ):
+            budget = files_module._FormatSniffBudget()
+            self.assertIsNone(budget.read(self.get_finder([]), Path("first.txt")))
+            self.assertIsNone(budget.read(self.get_finder([]), Path("second.txt")))
+
+        self.assertTrue(budget.exhausted)
+
+    def test_csv_format_sniff_limits_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "a.txt").write_text("not csv", encoding="utf-8")
+            (tmppath / "b.txt").write_text(
+                "source,target\nHello,Ahoj\n", encoding="utf-8"
+            )
+            discovery = TXTDiscovery(Finder(tmppath))
+            result: ResultDict = {"filemask": "*.txt", "file_format": "txt"}
+
+            with (
+                patch.object(files_module, "FORMAT_SNIFF_MAX_FILES", 1),
+                patch.object(
+                    files_module,
+                    "_read_binary_sniff_sample",
+                    wraps=files_module._read_binary_sniff_sample,
+                ) as read,
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "txt")
+        self.assertEqual(read.call_count, 1)
+
+    def test_java_format_sniff_limits_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "a.properties").write_text("hello=world\n")
+            (tmppath / "b.properties").write_text("# XWiki\nhello=world\n")
+            discovery = JavaDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.properties",
+                "file_format": "properties",
+            }
+
+            with (
+                patch.object(discovery, "adjust_encoding"),
+                patch.object(files_module, "FORMAT_SNIFF_MAX_FILES", 1),
+                patch.object(
+                    files_module,
+                    "_read_binary_sniff_sample",
+                    wraps=files_module._read_binary_sniff_sample,
+                ) as read,
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "properties")
+        self.assertEqual(read.call_count, 1)
+
+    def test_flat_xml_format_sniff_limits_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "a.xml").write_text("<resources/>")
+            (tmppath / "b.xml").write_text(
+                "<xwikidoc><syntaxId>plain/1.0</syntaxId></xwikidoc>"
+            )
+            discovery = FlatXMLDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.xml",
+                "file_format": "flatxml",
+                "template": "a.xml",
+            }
+
+            with (
+                patch.object(files_module, "FORMAT_SNIFF_MAX_FILES", 1),
+                patch.object(
+                    files_module,
+                    "_read_binary_sniff_sample",
+                    wraps=files_module._read_binary_sniff_sample,
+                ) as read,
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "flatxml")
+        self.assertEqual(read.call_count, 1)
+
+    def test_template_less_json_reads_each_file_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            for name in ("a.json", "b.json"):
+                (tmppath / name).write_text('{"group": {"value": 1}}')
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            with patch.object(
+                files_module,
+                "_read_binary_sniff_sample",
+                wraps=files_module._read_binary_sniff_sample,
+            ) as read:
+                self.assertFalse(
+                    discovery.has_template_less_content({"filemask": "*.json"})
+                )
+
+        self.assertEqual(read.call_count, 2)
+
+    def test_template_less_json_skips_read_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "a.json").write_text("{}")
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            with patch.object(
+                files_module, "_read_binary_sniff_sample", return_value=None
+            ):
+                self.assertFalse(
+                    discovery.has_template_less_content({"filemask": "*.json"})
+                )
+
+    def test_template_less_json_keeps_result_when_file_limit_is_reached(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            for name in ("a.json", "b.json"):
+                (tmppath / name).write_text('{"group": {"value": 1}}')
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_FILES", 1):
+                self.assertTrue(
+                    discovery.has_template_less_content({"filemask": "*.json"})
+                )
+
+    def test_template_less_json_drops_conclusively_inspected_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "a.json").write_text('{"group": {"value": 1}}')
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_FILES", 1):
+                self.assertFalse(
+                    discovery.has_template_less_content({"filemask": "*.json"})
+                )
+
+
+class FormatSniffContentLimitTest(DiscoveryTestCase):
     def test_sample_decode_fallbacks(self) -> None:
         self.assertEqual(files_module._decode_sample_content(b"\xff"), "\u00ff")
         self.assertEqual(

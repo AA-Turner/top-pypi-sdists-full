@@ -386,6 +386,7 @@ _CANCELLABLE_KERNELS = (
     "assemble_Z_bspline",
     "assemble_Z_bspline_windowed",
     "assemble_Z_bspline_weighted_windowed",
+    "assemble_Z_sinusoidal_windowed",
     "bspline_assemble_offedge_block",
     "sinusoidal_field_tensor",
     "sinusoidal_field_tensor_refl",
@@ -459,6 +460,8 @@ _CANCELLABLE_KERNELS = (
     "group_first_ranks",
     "merge_rows_by_z",
     "near_interface_six_columns",
+    # momwire#1335: the plan's key ids (factorize_rows of the same rows).
+    "factorize_line_keys",
 )
 
 # Methods of the extension's classes that take `cancel_flag`, as (class,

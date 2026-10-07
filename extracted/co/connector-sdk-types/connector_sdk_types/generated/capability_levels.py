@@ -17,6 +17,7 @@ CAPABILITY_LEVELS: dict[str, Literal['read', 'write']] = {
     "find_entitlement_associations": "read",
     "find_entitlement_graph": "read",
     "find_resource_graph": "read",
+    "fulfill_arbitrary_endpoint": "read",
     "get_account": "read",
     "get_account_entitlement_associations": "read",
     "get_application": "read",

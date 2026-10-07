@@ -168,8 +168,8 @@ def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> d
 
     budget = Budget(arguments.get("token_budget", 2000))
     request_id = binding("browse", arguments, scope)
-    state = decode(arguments.get("cursor"), request_id)  # harness-literal-ok: the pagination cursor
-    payload = call({**arguments, "cursor": state.get("native")})  # harness-literal-ok: the pagination cursor
+    state = decode(arguments.get("cursor"), request_id)
+    payload = call({**arguments, "cursor": state.get("native")})
     after = payload.pop("_list_after", None)
     end = payload.pop("_list_end", None)
     data = payload.get("data")

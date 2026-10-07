@@ -359,6 +359,94 @@ def test_an_unresolvable_experiment_or_project_end_is_a_usage_error(wired, capsy
     assert wired.sent("POST", "/v1/edges") == []
 
 
+# A run end is named the way `run get` takes it: by id or by petname.
+
+
+def _to_run(ref: str) -> list[str]:
+    return ["edge", "add", "--source", f"run:{RUN_B}", "--relation", "derived_from",
+            "--target", f"run:{ref}", "--reason", "the session names it as the run to beat"]
+
+
+def test_a_run_end_by_petname_is_sent_as_its_id(wired, capsys):
+    """The daemon names runs by petname (it is what the session says); the
+    server's `POST /v1/edges` takes only an id, so a petname used to be refused
+    and the link written again by id."""
+    wired.answers[("GET", "/v1/runs/petite-wallaby-576")] = (200, {"id": RUN_A, "slug": "petite-wallaby-576"})
+    assert cli.main(_to_run("petite-wallaby-576")) == 0, capsys.readouterr().err
+    [body] = wired.sent("POST", "/v1/edges")
+    assert (body["source_type"], body["source_id"]) == ("run", RUN_B)
+    assert (body["target_type"], body["target_id"]) == ("run", RUN_A)
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("ref", [RUN_A, f"id:{RUN_A}"], ids=["bare", "id-prefix"])
+def test_a_run_end_by_id_is_sent_as_the_id_with_no_lookup(wired, capsys, ref):
+    assert cli.main(_to_run(ref)) == 0, capsys.readouterr().err
+    [body] = wired.sent("POST", "/v1/edges")
+    assert body["target_id"] == RUN_A
+    assert [p for m, p, _ in wired.seen if m == "GET" and p.startswith("/v1/runs/")] == []
+    capsys.readouterr()
+
+
+def test_a_name_selector_is_looked_up_even_when_the_name_looks_like_an_id(wired, capsys):
+    """Only a bare or `id:` ref skips the lookup: `name:<uuid>` is a run NAMED
+    that, and sending the text as an id would link whichever run has that id."""
+    wired.answers[("GET", "/v1/runs")] = (200, [{"id": RUN_A, "name": RUN_B}])
+    assert cli.main(_to_run(f"name:{RUN_B}")) == 0, capsys.readouterr().err
+    [body] = wired.sent("POST", "/v1/edges")
+    assert body["target_id"] == RUN_A
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("ref", ["petite-wallaby-576/edges", f"{RUN_A}/../{RUN_B}", ".."])
+def test_a_run_ref_that_is_not_one_path_segment_is_refused_before_any_request(wired, capsys, ref):
+    """The petname goes into `GET /v1/runs/{ref}`: `x/edges` answered a list and
+    crashed, `A/../B` fetched B and linked it while the command named A."""
+    assert cli.main(_to_run(ref)) == 2
+    assert "no run with id or petname" in capsys.readouterr().err
+    assert [p for m, p, _ in wired.seen if p.startswith("/v1/runs")] == []
+    assert wired.sent("POST", "/v1/edges") == []
+
+
+def test_a_run_lookup_that_answers_another_run_is_refused(wired, capsys):
+    wired.answers[("GET", "/v1/runs/petite-wallaby-576")] = (200, {"id": RUN_A, "slug": "someone-else-001"})
+    assert cli.main(_to_run("petite-wallaby-576")) == 2
+    assert "no run with id or petname 'petite-wallaby-576'" in capsys.readouterr().err
+    assert wired.sent("POST", "/v1/edges") == []
+
+
+def test_an_unknown_run_petname_is_a_usage_error_and_nothing_is_sent(wired, capsys):
+    wired.answers[("GET", "/v1/runs/no-such-run")] = (404, {"detail": "run not found"})
+    assert cli.main(_to_run("no-such-run")) == 2
+    assert "no run with id or petname 'no-such-run'" in capsys.readouterr().err
+    assert wired.sent("POST", "/v1/edges") == [] and wired.queued() == []
+
+
+# An experiment's and a project's OWN links: what the duplicate check reads.
+
+
+def test_experiment_and_project_lineage_print_their_own_links(wired, capsys):
+    parent, child = _line_of_work(wired)
+    own = {"edges": [{"id": EXISTING, "relation": "derived_from", "derived": False,
+                      "source_type": "project", "source_id": child["id"],
+                      "target_type": "run", "target_id": RUN_A}], "origin": None, "nodes": []}
+    wired.answers[("GET", f"/v1/projects/{parent['id']}/experiments/{child['id']}/lineage")] = (200, own)
+    assert cli.main(["experiment", "lineage", "bpe-ablation"]) == 0, capsys.readouterr().err
+    assert json.loads(capsys.readouterr().out) == own
+    mine = {"edges": [], "origin": None, "nodes": [{"id": child["id"]}]}
+    wired.answers[("GET", f"/v1/projects/{parent['id']}/lineage")] = (200, mine)
+    assert cli.main(["project", "lineage", "tokenizer-work"]) == 0, capsys.readouterr().err
+    assert json.loads(capsys.readouterr().out) == mine
+
+
+@pytest.mark.parametrize("argv", [["experiment", "lineage", "no-such-experiment"],
+                                  ["project", "lineage", "no-such-project"]])
+def test_lineage_of_an_unknown_slug_is_a_usage_error(wired, capsys, argv):
+    assert cli.main(argv) == 2
+    assert "no-such" in capsys.readouterr().err
+    assert [p for m, p, _ in wired.seen if p.endswith("/lineage")] == []
+
+
 def test_an_end_with_no_ref_names_the_type_ref_shape(wired, capsys):
     assert cli.main(["edge", "add", "--source", "experiment", "--relation", "derived_from",
                      "--target", f"run:{RUN_A}"]) == 2

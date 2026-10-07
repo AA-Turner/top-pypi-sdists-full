@@ -2,7 +2,7 @@ import json
 
 import responses
 
-from social_core.exceptions import AuthMissingParameter
+from social_core.exceptions import AuthConfigurationError
 from social_core.tests.backends.oauth import BaseAuthUrlTestMixin
 from social_core.tests.backends.open_id_connect import OpenIdConnectTest
 
@@ -66,6 +66,9 @@ class Auth0OpenIdConnectTest(OpenIdConnectTest, BaseAuthUrlTestMixin):
         id_token["custom_id"] = "token-only-identifier"
         return id_token
 
+    def test_partial_pipeline(self) -> None:
+        self.do_partial_pipeline()
+
     def test_domain_configuration(self) -> None:
         """Test that domain-based URLs are constructed correctly"""
         self.assertEqual(
@@ -102,12 +105,12 @@ class Auth0OpenIdConnectTest(OpenIdConnectTest, BaseAuthUrlTestMixin):
     def test_api_path_rejects_missing_domain(self) -> None:
         self.strategy.set_settings({"SOCIAL_AUTH_AUTH0_OPENIDCONNECT_DOMAIN": ""})
 
-        with self.assertRaises(AuthMissingParameter):
+        with self.assertRaises(AuthConfigurationError):
             self.backend.api_path()
 
     def test_api_path_rejects_missing_domain_after_normalization(self) -> None:
         self.strategy.set_settings({"SOCIAL_AUTH_AUTH0_OPENIDCONNECT_DOMAIN": "/"})
-        with self.assertRaises(AuthMissingParameter):
+        with self.assertRaises(AuthConfigurationError):
             self.backend.api_path()
 
     def test_oidc_config_uses_correct_discovery_url(self) -> None:

@@ -6,8 +6,8 @@ import ast
 from collections.abc import Iterable
 from contextlib import contextmanager
 import logging
-import symtable
 
+from .anonscopes import plan_anonymous_scopes, scope_key
 from .anutils import (
     ANON_SCOPE_NAMES,
     NAMESPACE_CONSTRUCTORS,
@@ -15,7 +15,6 @@ from .anutils import (
     Scope,
     UnresolvedSuperCallError,
     canonize_exprs,
-    enclosing_namespaces,
     format_alias,
     get_ast_node_name,
     get_module_name,
@@ -250,8 +249,7 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.scope_stack = []  # the Scope objects currently in scope
         self.class_stack = []  # Nodes for class definitions currently in scope
         self.context_stack = []  # for detecting which FunctionDefs are methods
-        self._anon_scope_idx = {}  # (parent_ns, scope_type) → next index
-        self._inlined_comprehension_scopes = set()  # namespaces synthesized for PEP 709
+        self._scope_plans = {}  # filename → `ScopePlan`; see `_scope_plan`
 
     ###########################################################################
     # Graph state — properties read/write through self.graph so existing call
@@ -318,8 +316,19 @@ class CallGraphVisitor(ast.NodeVisitor):
         # before the main visitor passes. This lets cross-module lookups
         # (wildcard desugaring, chiefly) succeed in pass 1 regardless of
         # the order in which filenames were given.
+        #
+        # A file Python would not compile cannot be analyzed, and is left out
+        # rather than costing the whole run. Besides syntax errors, that is a
+        # scoping error such as a `nonlocal` after an assignment, which code
+        # using macros can contain before the macros are expanded.
+        skipped = set()
         for filename in self.filenames:
-            self._prescan_one(filename)
+            try:
+                self._prescan_one(filename)
+            except SyntaxError as err:
+                self.logger.warning(f"{err.filename}:{err.lineno}: {err.msg}; leaving this file out of the analysis")
+                skipped.add(filename)
+        self.filenames = [filename for filename in self.filenames if filename not in skipped]
         for pas in range(2):
             for filename in self.filenames:
                 self.logger.info(f"========== pass {pas + 1}, file '{filename}' ==========")
@@ -386,8 +395,6 @@ class CallGraphVisitor(ast.NodeVisitor):
                 self._import_module_name = self.module_name + ".__init__"
             else:
                 self._import_module_name = self.module_name
-        self._anon_scope_idx = {}  # reset per source unit — must match between analyze_scopes and visitor
-        self._inlined_comprehension_scopes = set()
         self.analyze_scopes(content, self.filename)  # add to the currently known scopes
         self.visit(ast.parse(content, self.filename))
         self.module_name = None
@@ -659,10 +666,9 @@ class CallGraphVisitor(ast.NodeVisitor):
             # scope (like defaults), so visiting them here — inside the function
             # scope — is technically wrong. We do it anyway because attributing
             # annotation uses edges to the function (rather than the module) is
-            # far more useful in the call graph. This works because annotations
-            # rarely contain expressions that trigger scope lookups (lambdas,
-            # comprehensions). If an edge case surfaces, defaults show the
-            # pattern: visit in enclosing scope, bind inside.
+            # far more useful in the call graph. A lambda or comprehension in an
+            # annotation is accordingly named and scoped as part of the function;
+            # `pyan.anonscopes` mirrors this placement.
             self._visit_function_annotations(node)
 
             # ...and let an annotated parameter carry its type into the body, so
@@ -680,10 +686,13 @@ class CallGraphVisitor(ast.NodeVisitor):
 
     def visit_Lambda(self, node):
         self.logger.debug(f"Lambda, {self.filename}:{node.lineno}")
+        # Defaults are evaluated in the enclosing scope, when the lambda is created; same as for a def.
+        default_values = self._visit_function_defaults(node.args)
         numbered_label = self._next_anon_scope_name("lambda", node)
         with ExecuteInInnerScope(self, numbered_label) as scope_ctx:
             self.generate_args_nodes(node.args, scope_ctx.inner_ns)
-            self.analyze_arguments(node.args)
+            self._bind_function_defaults(node.args, default_values)
+            self._record_default_uses_in_function(node.args)
             self.visit(node.body)  # single expr
         return scope_ctx.inner_scope_node
 
@@ -713,27 +722,6 @@ class CallGraphVisitor(ast.NodeVisitor):
             sc.defs[a.arg] = nonsense_node
         if ast_args.kwarg is not None:  # **kwargs if present
             sc.defs[ast_args.kwarg] = nonsense_node
-
-    def analyze_arguments(self, ast_args):
-        """Analyze an arguments node of the AST.
-
-        Record bindings of args to the given default values, if present.
-
-        Used for analyzing FunctionDefs and Lambdas."""
-        # https://greentreesnakes.readthedocs.io/en/latest/nodes.html?highlight=functiondef#arguments
-        if ast_args.defaults:
-            n = len(ast_args.defaults)
-            for tgt, val in zip(ast_args.args[-n:], ast_args.defaults, strict=False):
-                targets = canonize_exprs(tgt)
-                values = canonize_exprs(val)
-                self.analyze_binding(targets, values)
-        if ast_args.kw_defaults:
-            n = len(ast_args.kw_defaults)
-            for tgt, val in zip(ast_args.kwonlyargs, ast_args.kw_defaults, strict=False):
-                if val is not None:
-                    targets = canonize_exprs(tgt)
-                    values = canonize_exprs(val)
-                    self.analyze_binding(targets, values)
 
     def _visit_function_defaults(self, ast_args):
         """Visit default value expressions and return the resolved Nodes.
@@ -791,7 +779,10 @@ class CallGraphVisitor(ast.NodeVisitor):
                     self.add_uses_edge(from_node, to_node)
 
     def _visit_function_annotations(self, node):
-        """Visit type annotations on a FunctionDef in the current (enclosing) scope."""
+        """Visit the type annotations of the FunctionDef *node* in the current scope.
+
+        The caller runs this inside the function's own scope; see the comment there.
+        """
         if node.returns is not None:
             self.visit(node.returns)
         for arg in node.args.args + node.args.posonlyargs + node.args.kwonlyargs:
@@ -1348,44 +1339,19 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.logger.debug(f"GeneratorExp, {self.filename}:{node.lineno}")
         return self.analyze_comprehension(node, "genexpr")
 
-    def is_inside_inlined_comprehension(self, namespace):
-        """Does *namespace* sit anywhere below a comprehension scope we synthesized?
-
-        PEP 709 (Python 3.12+) inlines comprehensions into the enclosing
-        function. Their lexical scope is unchanged — iteration variables still
-        do not leak — but `symtable` no longer reports a table for it, and
-        reports whatever the comprehension contains as a child of the enclosing
-        function instead. So nothing below such a level can be looked up under
-        the namespace the visitor walks, which still models the scope.
-
-        Checks every ancestor rather than the immediate parent: a lambda inside a
-        lambda inside a comprehension is two levels down, and only the outermost
-        of the three is the inlined one.
-        """
-        return any(ns in self._inlined_comprehension_scopes
-                   for ns in enclosing_namespaces(parent_namespace(namespace)))
-
     def _next_anon_scope_name(self, scope_type, ast_node):
-        """Return a numbered scope name like ``listcomp.0``, ``lambda.1``, etc.
+        """Return the numbered scope name of *ast_node*, like ``listcomp.0`` or ``lambda.1``.
 
         Each anonymous scope instance in a parent namespace gets a unique index,
-        so that multiple comprehensions or lambdas don't share bindings.
-
-        The AST node is used for deduplication: if the same node is visited
-        more than once (e.g. a ``for`` loop iter expression visited by both
-        ``visit_For`` and ``analyze_binding``), the same name is returned.
+        so that multiple comprehensions or lambdas don't share bindings. The name
+        is the one `analyze_scopes` registered the scope under, so visiting the
+        same node again returns the same name.
         """
-        parent_ns = self.get_node_of_current_namespace().get_name()
-        # Dedup by AST node identity (line + col is unique per scope instance).
-        dedup_key = (parent_ns, scope_type, ast_node.lineno, ast_node.col_offset)
-        if dedup_key in self._anon_scope_idx:
-            return self._anon_scope_idx[dedup_key]
-        count_key = (parent_ns, scope_type)
-        idx = self._anon_scope_idx.get(count_key, 0)
-        self._anon_scope_idx[count_key] = idx + 1
-        name = f"{scope_type}.{idx}"
-        self._anon_scope_idx[dedup_key] = name
-        return name
+        label = self._scope_plans[self.filename].labels[scope_key(ast_node)]
+        if not label.startswith(f"{scope_type}."):
+            raise ValueError(f"Anonymous scope at {self.filename}:{ast_node.lineno} is labelled '{label}', "
+                             f"expected a {scope_type}")
+        return label
 
     def analyze_comprehension(self, node, label, field1="elt", field2=None):
         """Analyze a comprehension node (listcomp, setcomp, dictcomp, genexpr).
@@ -1422,8 +1388,7 @@ class CallGraphVisitor(ast.NodeVisitor):
 
         # Give each comprehension instance a unique scope name (e.g. listcomp.0,
         # listcomp.1) so that multiple comprehensions in the same function don't
-        # share bindings.  The numbering must match analyze_scopes() (pre-3.12)
-        # since both iterate children/nodes in AST order.
+        # share bindings.
         numbered_label = self._next_anon_scope_name(label, node)
 
         # Ensure comprehension scope exists. On Python 3.12+ (PEP 709),
@@ -1432,15 +1397,11 @@ class CallGraphVisitor(ast.NodeVisitor):
         # variable isolation during analysis.
         parent_ns = self.get_node_of_current_namespace().get_name()
         inner_ns = f"{parent_ns}.{numbered_label}"
-        if inner_ns not in self.scopes:
+        if scope_key(node) in self._scope_plans[self.filename].synthesized and inner_ns not in self.scopes:
             target_names = set()
             for gen in gens:
                 self._collect_target_names(gen.target, target_names)
             self.scopes[inner_ns] = Scope.from_names(numbered_label, target_names)
-            # Remember that this level exists only in our namespace, not in
-            # symtable's — anything nested inside it is reported one level up,
-            # so its scope has to be synthesized too. See ExecuteInInnerScope.
-            self._inlined_comprehension_scopes.add(inner_ns)
 
         with ExecuteInInnerScope(self, numbered_label) as scope_ctx:
             # Bind outermost targets to the iterator value in inner scope.
@@ -1476,6 +1437,23 @@ class CallGraphVisitor(ast.NodeVisitor):
     def visit_Call(self, node):
         self.logger.debug(f"Call {get_ast_node_name(node.func)}, {self.filename}:{node.lineno}")
 
+        # see if we can predict the result
+        try:
+            result_node = self.resolve_builtins(node)
+        except UnresolvedSuperCallError:
+            result_node = None
+        resolved = isinstance(result_node, Node)
+
+        # Visit the callee before the arguments, which is Python's evaluation order and also the
+        # order `symtable` numbers anonymous scopes in. In `x.do(lambda: ...).do(lambda: ...)` the
+        # first lambda lives in `node.func`; visiting the arguments first would number the second
+        # lambda `lambda.0`, and its nested scopes would then miss their `symtable` entries.
+        #
+        # A resolved built-in has a bare name as its callee, which holds no scopes, so skipping
+        # its visit does not disturb the numbering.
+        if not resolved:
+            func_node = self.visit(node.func)
+
         # visit args to detect uses
         for arg in node.args:
             self.visit(arg)
@@ -1489,13 +1467,7 @@ class CallGraphVisitor(ast.NodeVisitor):
         # three name-resolution levels (literal / scope-local / cross-module).
         maybe_register_setattr_call(self, node)
 
-        # see if we can predict the result
-        try:
-            result_node = self.resolve_builtins(node)
-        except UnresolvedSuperCallError:
-            result_node = None
-
-        if isinstance(result_node, Node):  # resolved result
+        if resolved:
             from_node = self.get_node_of_current_namespace()
             to_node = result_node
             self.logger.debug(f"Use from {from_node} to {to_node} (via resolved call to built-ins)")
@@ -1506,8 +1478,6 @@ class CallGraphVisitor(ast.NodeVisitor):
             return result_node
 
         else:  # unresolved call — general case
-            func_node = self.visit(node.func)
-
             # If the call target is a known class (e.g. MyClass()),
             # add a uses edge to MyClass.__init__().
             if func_node in self.class_base_ast_nodes:
@@ -1728,6 +1698,15 @@ class CallGraphVisitor(ast.NodeVisitor):
                 maybe_register_name_literal(self, target, rhs_ast)
                 maybe_register_namespace_object(self, target, rhs_ast)
         elif isinstance(target, ast.Attribute):
+            # `make().attr = v` evaluates `make()` before storing. A dotted name
+            # is covered by the attribute-write fallback below; anything else at
+            # the base of the chain — a call, a subscript — is visited for the
+            # uses it makes.
+            base = target.value
+            while isinstance(base, ast.Attribute):
+                base = base.value
+            if not isinstance(base, ast.Name):
+                self.visit(base)
             try:
                 if self.set_attribute(target, value):
                     self.logger.info(f"setattr {get_ast_node_name(target.value)}.{target.attr} to {value}")
@@ -1748,6 +1727,10 @@ class CallGraphVisitor(ast.NodeVisitor):
                             self.logger.info(f"New edge added for Use from {from_node} to defined ancestor {ancestor} (attribute-write fallback)")
             except UnresolvedSuperCallError:
                 pass
+        elif isinstance(target, ast.Subscript):
+            # `x[i] = v` evaluates `x` and `i` before storing; they are uses like
+            # any others. Nothing is bound: pyan does not track container contents.
+            self.visit(target)
         elif isinstance(target, (ast.Tuple, ast.List)):
             for elt in target.elts:
                 self._bind_target(elt, value)
@@ -2012,6 +1995,17 @@ class CallGraphVisitor(ast.NodeVisitor):
     ###########################################################################
     # Scope analysis
 
+    def _scope_plan(self, code, filename):
+        """Return the `ScopePlan` of the source unit *filename*, whose source is *code*.
+
+        Computed once and shared by every pass, unless the file has changed on
+        disk between them: the plan's names are keyed by source positions.
+        """
+        plan = self._scope_plans.get(filename)
+        if plan is None or plan.source != code:
+            plan = self._scope_plans[filename] = plan_anonymous_scopes(code, filename, self.module_name)
+        return plan
+
     def analyze_scopes(self, code, filename):
         """Gather lexical scope information.
 
@@ -2062,43 +2056,36 @@ class CallGraphVisitor(ast.NodeVisitor):
 
         def register(parent_ns, table):
             """Register *table* under its own namespace, then its children."""
-            sc = Scope(table)
+            sc = Scope(table, plan.marker_prefix)
             ns = f"{parent_ns}.{sc.name}" if len(sc.name) else parent_ns
             scopes[ns] = sc
             register_children(ns, table)
 
         def register_children(ns, table):
-            """Register the child scopes of *table*, which is itself registered as *ns*.
+            """Register the named child scopes of *table*, which is itself registered as *ns*.
 
-            Anonymous scopes are numbered per (namespace, kind). That numbering has
-            to match `_next_anon_scope_name`, since the visitor looks a scope up by
-            the name it generates there, and a miss is a hard error.
+            Anonymous scopes are registered from the plan instead, which names them
+            the way the visitor does. Nothing named sits inside one.
             """
-            anon_counts = {}  # number duplicate anonymous scope children
             for t in table.get_children():
                 child_name = normalize_symtable_scope_name(t.get_name())
                 if child_name in ANON_SCOPE_NAMES:
-                    idx = anon_counts.get(child_name, 0)
-                    anon_counts[child_name] = idx + 1
-                    child_sc = Scope(t)
-                    child_sc.name = f"{child_name}.{idx}"
-                    child_ns = f"{ns}.{child_sc.name}"
-                    scopes[child_ns] = child_sc
-                    # Recurse through here rather than through `register`, so that
-                    # the numbering is applied at every depth: a lambda inside a
-                    # lambda is `lambda.0.lambda.0`, which is what the visitor asks
-                    # for. Going through `register` would name it `lambda.0.lambda`.
-                    register_children(child_ns, t)
-                elif _is_type_params_scope(t):
+                    continue
+                if _is_type_params_scope(t):
                     # PEP 695 (#123): store the type-parameter scope
                     # under a synthetic key and process its children
                     # under the current namespace (see docstring above).
-                    scopes[f"{ns}.<type_params>.{child_name}"] = Scope(t)
+                    scopes[f"{ns}.<type_params>.{child_name}"] = Scope(t, plan.marker_prefix)
                     register_children(ns, t)
                 else:
                     register(ns, t)
 
-        register(self.module_name, symtable.symtable(code, filename, compile_type="exec"))
+        plan = self._scope_plan(code, filename)
+        register(self.module_name, plan.table)
+        for ns, table in plan.anon_tables:
+            sc = Scope(table, plan.marker_prefix)
+            sc.name = split_qualified_name(ns)[1]  # e.g. `lambda.1`
+            scopes[ns] = sc
 
         # add to existing scopes (while not overwriting any existing definitions with None)
         for ns in scopes:

@@ -1034,7 +1034,7 @@ def _session(i: int, agent: str = "claude_code") -> dict:
 
 def test_run_sessions_names_who_made_the_run_as_openable_rows(client, app):
     rid = _run(client, app)
-    app.run_sessions[rid] = [_session(1), _session(2, agent="cursor")]
+    app.run_sessions[rid] = [_session(1), _session(2, agent="not_a_harness")]
     out = _service(client).get_entity(f"run:{rid}", view="sessions")
     first, second = out["data"]["sessions"]
     assert first["uuid"] == "session:claude_code/00000001-0000-0000-0000-000000000000"

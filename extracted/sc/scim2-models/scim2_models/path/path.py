@@ -39,8 +39,11 @@ from .grammar import _parse_path
 from .resolution import AttributeBinding
 from .resolution import _designated_model
 from .resolution import _resolve_attr_path
+from .resolution import _unwrap_annotated
 
 ResourceT = TypeVar("ResourceT", bound="Resource[Any]")
+
+_ITERATED_PATHS = "__scim_iterated_paths__"
 
 
 def _node_attr_path(node: PathNode) -> AttrPath:
@@ -282,21 +285,33 @@ class Path(_BoundToModels, _Expression, Generic[ResourceT]):
                 return designated
         return None
 
-    def resolve(self) -> "AttributeBinding | None":
-        """Bind this path to the attribute it designates on the bound model.
+    def resolve(
+        self, model: type[BaseModel] | None = None
+    ) -> "AttributeBinding | None":
+        """Bind this path to the attribute it designates on a model.
 
-        :returns: The resolved attribute, or :data:`None` when the path is
-            unbound, designates a model rather than an attribute, or names an
-            attribute the model does not declare.
+        >>> from scim2_models import Group, Path, User
+        >>> path = Path[User | Group]("displayName")
+        >>> path.resolve().model is User
+        True
+        >>> path.resolve(Group).model is Group
+        True
+
+        :param model: The model to resolve against. By default, the first bound
+            model declaring the attribute. Pass one to pick a type of a union, or
+            to resolve an unbound path.
+        :returns: The resolved attribute, or :data:`None` when there is no model
+            to resolve against, when the path designates a model rather than an
+            attribute, or when the model does not declare the attribute.
         """
-        model = self._resolving_model()
-        if model is None or self.model is not None:
-            return None
-
-        # A path that designates no attribute has already returned above,
-        # since the model property answers for the resource root.
+        model = model or self._resolving_model()
         designated = self._designated_attr_path()
-        assert designated is not None
+        if (
+            model is None
+            or designated is None
+            or _designated_model(model, str(self)) is not None
+        ):
+            return None
 
         return _resolve_attr_path(model, designated, strict=False)
 
@@ -436,6 +451,7 @@ class Path(_BoundToModels, _Expression, Generic[ResourceT]):
         uniqueness: "list[Uniqueness] | None" = None,
         returned: "list[Returned] | None" = None,
         case_exact: "list[CaseExact] | None" = None,
+        target_type: "list[type] | None" = None,
     ) -> "Iterator[Path[ResourceT]]":
         """Iterate over all paths for the bound model and its extensions.
 
@@ -448,8 +464,64 @@ class Path(_BoundToModels, _Expression, Generic[ResourceT]):
         :param uniqueness: Filter by Uniqueness annotation values (e.g., [Uniqueness.server]).
         :param returned: Filter by Returned annotation values (e.g., [Returned.always]).
         :param case_exact: Filter by CaseExact annotation values (e.g., [CaseExact.true]).
+        :param target_type: Only yield paths whose value is an instance of one of these
+            types (e.g., [Reference]). Unlike the other filters, it does not skip the
+            sub-attributes of a complex attribute: ``members.$ref`` is yielded even
+            though ``members`` is not a :class:`~scim2_models.Reference`.
         :yields: Path instances for each attribute matching the filters.
         """
+        if len(cls.__scim_models__) != 1:
+            raise TypeError(
+                "iter_paths requires a Path bound to one model: Path[Model]"
+            )
+        model = cls.__scim_models__[0]
+
+        filters = (required, mutability, uniqueness, returned, case_exact, target_type)
+        key = (
+            cls,
+            include_subattributes,
+            include_extensions,
+            *(None if values is None else tuple(values) for values in filters),
+        )
+
+        # The cache is held by the model, like the one of _resolve_attr_path,
+        # so that it does not keep alive the models built by from_schema.
+        cache: dict[tuple[Any, ...], tuple[Path[ResourceT], ...]] | None
+        cache = model.__dict__.get(_ITERATED_PATHS)
+        if cache is None:
+            cache = {}
+            setattr(model, _ITERATED_PATHS, cache)
+
+        if key not in cache:
+            cache[key] = tuple(
+                cls._walk_paths(
+                    model,
+                    include_subattributes,
+                    include_extensions,
+                    required,
+                    mutability,
+                    uniqueness,
+                    returned,
+                    case_exact,
+                    target_type,
+                )
+            )
+        yield from cache[key]
+
+    @classmethod
+    def _walk_paths(
+        cls,
+        model: type[BaseModel],
+        include_subattributes: bool,
+        include_extensions: bool,
+        required: "list[Required] | None",
+        mutability: "list[Mutability] | None",
+        uniqueness: "list[Uniqueness] | None",
+        returned: "list[Returned] | None",
+        case_exact: "list[CaseExact] | None",
+        target_type: "list[type] | None",
+    ) -> "Iterator[Path[ResourceT]]":
+        """Walk the attributes of a model and its extensions, as iter_paths does."""
         from ..annotations import CaseExact
         from ..annotations import Mutability
         from ..annotations import Required
@@ -458,12 +530,6 @@ class Path(_BoundToModels, _Expression, Generic[ResourceT]):
         from ..attributes import ComplexAttribute
         from ..resources.resource import Extension
         from ..resources.resource import Resource
-
-        if len(cls.__scim_models__) != 1:
-            raise TypeError(
-                "iter_paths requires a Path bound to one model: Path[Model]"
-            )
-        model = cls.__scim_models__[0]
 
         selected = (
             (required, Required),
@@ -479,6 +545,12 @@ class Path(_BoundToModels, _Expression, Generic[ResourceT]):
                 for values, annotation in selected
                 if values is not None
             )
+
+        def matches_target_type(target_model: type[BaseModel], field_name: str) -> bool:
+            if target_type is None:
+                return True
+            field_type = _unwrap_annotated(target_model.get_field_root_type(field_name))
+            return isclass(field_type) and issubclass(field_type, tuple(target_type))
 
         def iter_model_paths(
             target_model: type[Resource[Any] | Extension],
@@ -502,7 +574,8 @@ class Path(_BoundToModels, _Expression, Generic[ResourceT]):
                 else:
                     urn = target_model._scim_name(field_name)
 
-                yield cls(urn)
+                if matches_target_type(target_model, field_name):
+                    yield cls(urn)
 
                 is_complex = (
                     field_type is not None
@@ -512,6 +585,8 @@ class Path(_BoundToModels, _Expression, Generic[ResourceT]):
                 if include_subattributes and is_complex:
                     for sub_field_name in field_type.model_fields:  # type: ignore[union-attr]
                         if not matches_filters(field_type, sub_field_name):  # type: ignore[arg-type]
+                            continue
+                        if not matches_target_type(field_type, sub_field_name):  # type: ignore[arg-type]
                             continue
                         sub_urn = f"{urn}.{field_type._scim_name(sub_field_name)}"  # type: ignore[union-attr]
                         yield cls(sub_urn)

@@ -32,7 +32,10 @@ from jwt.algorithms import RSAAlgorithm
 from jwt.exceptions import PyJWTError
 
 from social_core.backends.oauth import BaseOAuth2
-from social_core.exceptions import AuthFailed
+from social_core.backends.utils import jwt_error
+from social_core.exceptions import AuthResponseError
+
+_USER_NAME_KEY = "_apple_user_name"
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -40,6 +43,8 @@ if TYPE_CHECKING:
 
 class AppleIdAuth(BaseOAuth2):
     name = "apple-id"
+    title = "Apple"
+    icon = "apple.svg"
 
     JWK_URL = "https://appleid.apple.com/auth/keys"
     AUTHORIZATION_URL = "https://appleid.apple.com/auth/authorize"
@@ -97,8 +102,8 @@ class AppleIdAuth(BaseOAuth2):
 
         return jwt.encode(payload, key=private_key, algorithm="ES256", headers=headers)
 
-    def get_key_and_secret(self):
-        client_id = self.data.get("client_id", self.setting("CLIENT"))
+    def get_key_and_secret(self) -> tuple[str, str]:
+        client_id = cast("str", self.data.get("client_id", self.setting("CLIENT")))
         client_secret = self.generate_client_secret()
         return client_id, client_secret
 
@@ -108,15 +113,30 @@ class AppleIdAuth(BaseOAuth2):
 
         If ``kid`` is not provided, use the first key in the response.
         """
-        keys = self.get_json(url=self.JWK_URL).get("keys")
+        response = self.get_json(url=self.JWK_URL, stage="token_validation")
+        keys = response.get("keys") if isinstance(response, dict) else None
 
-        if not isinstance(keys, list) or not keys:
-            raise AuthFailed(self, "Invalid jwk response")
+        if (
+            not isinstance(keys, list)
+            or not keys
+            or any(not isinstance(key, dict) for key in keys)
+        ):
+            raise AuthResponseError(
+                self,
+                "Invalid jwk response",
+                code="malformed_response",
+                stage="token_validation",
+            )
 
         if kid:
-            key = next((key for key in keys if key["kid"] == kid), None)
+            key = next((key for key in keys if key.get("kid") == kid), None)
             if key is None:
-                raise AuthFailed(self, "Unable to find Apple public key")
+                raise AuthResponseError(
+                    self,
+                    "Unable to find Apple public key",
+                    code="malformed_response",
+                    stage="token_validation",
+                )
             return json.dumps(key)
         return json.dumps(keys[0])
 
@@ -126,7 +146,12 @@ class AppleIdAuth(BaseOAuth2):
         user data.
         """
         if not id_token:
-            raise AuthFailed(self, "Missing id_token parameter")
+            raise AuthResponseError(
+                self,
+                "Missing id_token parameter",
+                code="missing_claim",
+                stage="token_validation",
+            )
 
         try:
             kid = jwt.get_unverified_header(id_token).get("kid")
@@ -142,17 +167,18 @@ class AppleIdAuth(BaseOAuth2):
                 algorithms=["RS256"],
             )
         except PyJWTError as error:
-            raise AuthFailed(self, f"Token validation failed by {error}") from error
+            raise jwt_error(self, error) from error
 
         return decoded
 
     def get_user_details(self, response):
-        name = json.loads(self.data.get("user", "{}")).get("name", {})
-        fullname, first_name, last_name = self.get_user_names(
-            fullname="",
-            first_name=name.get("firstName", ""),
-            last_name=name.get("lastName", ""),
-        )
+        if _USER_NAME_KEY in response:
+            name = response[_USER_NAME_KEY]
+        else:
+            name = json.loads(self.data.get("user", "{}")).get("name", {})
+        fullname = ""
+        first_name = name.get("firstName", "")
+        last_name = name.get("lastName", "")
 
         email = response.get("email", "")
         apple_id = response.get(self.id_key(), "")
@@ -175,7 +201,17 @@ class AppleIdAuth(BaseOAuth2):
         jwt_string = response.get(self.TOKEN_KEY) or access_token
 
         if not jwt_string:
-            raise AuthFailed(self, "Missing id_token parameter")
+            raise AuthResponseError(
+                self,
+                "Missing id_token parameter",
+                code="missing_claim",
+                stage="callback",
+            )
 
-        decoded_data = self.decode_id_token(jwt_string)
+        decoded_data = self.decode_id_token(jwt_string).copy()
+        # Apple sends the name separately from the token. Preserve it before
+        # the pipeline can pause and resume with a different request.
+        decoded_data[_USER_NAME_KEY] = json.loads(self.data.get("user", "{}")).get(
+            "name", {}
+        )
         return super().do_auth(access_token, *args, response=decoded_data, **kwargs)

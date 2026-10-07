@@ -119,3 +119,81 @@
             == []
   always:
     - ansible.builtin.include_tasks: _remove_config.yaml
+
+# Issue #643: state:replaced puts ACEs under wrong ACL context when a new ACL
+# sorts alphabetically before an existing ACL that needs changes.
+- block:
+    - name: "Seed existing-acl for issue #643 test"
+      become: true
+      arista.eos.eos_acls:
+        config:
+          - afi: ipv4
+            acls:
+              - name: existing-acl
+                aces:
+                  - sequence: 10
+                    grant: permit
+                    protocol: ip
+                    source:
+                      subnet_address: 1.2.3.0/24
+                    destination:
+                      any: true
+        state: merged
+
+    - name: "Replace with new ACL (alphabetically first) + modified existing ACL"
+      become: true
+      register: result
+      arista.eos.eos_acls: &replaced_multi
+        config:
+          - afi: ipv4
+            acls:
+              - name: aaa-new-acl
+                aces:
+                  - sequence: 10
+                    grant: permit
+                    protocol: ip
+                    source:
+                      any: true
+                    destination:
+                      any: true
+              - name: existing-acl
+                aces:
+                  - sequence: 10
+                    grant: deny
+                    protocol: ip
+                    source:
+                      any: true
+                    destination:
+                      any: true
+        state: replaced
+
+    - become: true
+      arista.eos.eos_facts:
+        gather_network_resources: acls
+
+    - name: "Assert ACEs land under correct ACL (issue #643)"
+      vars:
+        deny_idx: "{{ result.commands.index('10 deny ip any any') }}"
+        permit_idx: "{{ result.commands.index('10 permit ip any any') }}"
+        existing_hdr_idx: "{{ result.commands.index('ip access-list existing-acl') }}"
+        new_hdr_idx: "{{ result.commands.index('ip access-list aaa-new-acl') }}"
+      ansible.builtin.assert:
+        that:
+          - result.changed == true
+          - result.commands | length > 0
+          - existing_hdr_idx | int < deny_idx | int
+          - deny_idx | int < new_hdr_idx | int
+          - new_hdr_idx | int < permit_idx | int
+      become: true
+
+    - name: "Idempotency check for issue #643"
+      become: true
+      register: result
+      arista.eos.eos_acls: *replaced_multi
+
+    - ansible.builtin.assert:
+        that:
+          - result.changed == false
+          - result.commands | length == 0
+  always:
+    - ansible.builtin.include_tasks: _remove_config.yaml

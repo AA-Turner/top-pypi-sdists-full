@@ -1,14 +1,15 @@
 """Defines the templaters."""
 
+import codecs
 import copy
 import importlib
 import logging
 import os.path
 import pkgutil
+import re
 import sys
 from functools import reduce
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -25,6 +26,7 @@ from typing import (
 
 import jinja2.nodes
 import jinja2.parser
+from charset_normalizer import from_bytes
 from jinja2 import (
     Environment,
     FileSystemLoader,
@@ -35,7 +37,8 @@ from jinja2 import (
 from jinja2.exceptions import TemplateNotFound, UndefinedError
 from jinja2.ext import Extension
 from jinja2.sandbox import SandboxedEnvironment
-from sqruff.templaters.jinja_templater_builtins_dbt import DBT_BUILTINS
+
+from sqruff.templaters.jinja_templater_builtins_dbt import DBT_BUILTINS, DbtMacroWrapper
 from sqruff.templaters.jinja_templater_tracers import JinjaAnalyzer, JinjaTrace
 from sqruff.templaters.python_templater import (
     FluffConfig,
@@ -47,9 +50,6 @@ from sqruff.templaters.python_templater import (
     fluff_config_from_json,
     slice_length,
 )
-
-if TYPE_CHECKING:  # pragma: no cover
-    from jinja2.runtime import Macro
 
 # Instantiate the templater logger
 templater_logger = logging.getLogger("sqlfluff.templater")
@@ -113,7 +113,7 @@ class JinjaTemplater(PythonTemplater):
     @staticmethod
     def _extract_macros_from_template(
         template: str, env: Environment, ctx: Dict[str, Any]
-    ) -> Dict[str, "Macro"]:
+    ) -> Dict[str, DbtMacroWrapper]:
         """Take a template string and extract any macros from it.
 
         Lovingly inspired by http://codyaray.com/2015/05/auto-load-jinja2-macros
@@ -127,7 +127,7 @@ class JinjaTemplater(PythonTemplater):
         from jinja2.runtime import Macro
 
         # Iterate through keys exported from the loaded template string
-        context: Dict[str, Macro] = {}
+        context: Dict[str, DbtMacroWrapper] = {}
         # NOTE: `env.from_string()` will raise TemplateSyntaxError if `template`
         # is invalid.
         macro_template = env.from_string(template, globals=ctx)
@@ -138,7 +138,7 @@ class JinjaTemplater(PythonTemplater):
                 attr = getattr(macro_template.module, k)
                 # Is it a macro? If so install it at the name of the macro
                 if isinstance(attr, Macro):
-                    context[k] = attr
+                    context[k] = DbtMacroWrapper(attr)
         except UndefinedError:
             # This occurs if any file in the macro path references an
             # undefined Jinja variable. It's safe to ignore this. Any
@@ -154,7 +154,8 @@ class JinjaTemplater(PythonTemplater):
         env: Environment,
         ctx: Dict[str, Any],
         exclude_paths: Optional[List[str]] = None,
-    ) -> Dict[str, "Macro"]:
+        config_encoding: str = "autodetect",
+    ) -> Dict[str, DbtMacroWrapper]:
         """Take a path and extract macros from it.
 
         Args:
@@ -162,6 +163,7 @@ class JinjaTemplater(PythonTemplater):
             env (Environment): The environment object.
             ctx (Dict): The context dictionary.
             exclude_paths (Optional[[List][str]]): A list of paths to exclude
+            config_encoding: The configured encoding or autodetect.
 
         Returns:
             dict: A dictionary containing the extracted macros.
@@ -171,7 +173,7 @@ class JinjaTemplater(PythonTemplater):
             SQLTemplaterError: If there is an error in the Jinja macro file.
 
         """
-        macro_ctx: Dict[str, Macro] = {}
+        macro_ctx: Dict[str, DbtMacroWrapper] = {}
         for path_entry in path:
             # Does it exist? It should as this check was done on config load.
             if not os.path.exists(path_entry):
@@ -184,7 +186,25 @@ class JinjaTemplater(PythonTemplater):
                     ):
                         continue
                 # It's a file. Extract macros from it.
-                with open(path_entry) as opened_file:
+                if config_encoding == "autodetect":
+                    with open(path_entry, "rb") as binary_file:
+                        data = binary_file.read()
+                    if data.startswith((codecs.BOM_UTF32_BE, codecs.BOM_UTF32_LE)):
+                        encoding = "utf-32"
+                    elif data.startswith((codecs.BOM_UTF16_BE, codecs.BOM_UTF16_LE)):
+                        encoding = "utf-16"
+                    elif data.startswith(codecs.BOM_UTF8):
+                        encoding = "utf-8-sig"
+                    elif data.isascii():
+                        encoding = "ascii"
+                    else:
+                        detected = from_bytes(data).best()
+                        encoding = (
+                            detected.encoding if detected is not None else "utf-8"
+                        )
+                else:
+                    encoding = config_encoding
+                with open(path_entry, encoding=encoding) as opened_file:
                     template = opened_file.read()
                 # Update the context with macros from the file.
                 try:
@@ -209,8 +229,30 @@ class JinjaTemplater(PythonTemplater):
                                     env=env,
                                     ctx=ctx,
                                     exclude_paths=exclude_paths,
+                                    config_encoding=config_encoding,
                                 )
                             )
+        return macro_ctx
+
+    def _extract_macros(
+        self, config: FluffConfig, env: Environment, ctx: Dict[str, Any]
+    ) -> Dict[str, DbtMacroWrapper]:
+        """Load macros from ``load_macros_from_path``."""
+        macro_ctx: Dict[str, DbtMacroWrapper] = {}
+
+        macros_path = self._get_macros_path(config, "load_macros_from_path")
+        exclude_macros_path = self._get_macros_path(config, "exclude_macros_from_path")
+        if macros_path:
+            macro_ctx.update(
+                self._extract_macros_from_path(
+                    macros_path,
+                    env=env,
+                    ctx=ctx,
+                    exclude_paths=exclude_macros_path,
+                    config_encoding=config.encoding,
+                )
+            )
+
         return macro_ctx
 
     # TODO Potentially reimplement
@@ -438,7 +480,12 @@ class JinjaTemplater(PythonTemplater):
 
         """
         if config:
-            macros_path = config.jinja_templater_paths
+            if key == "load_macros_from_path":
+                macros_path = config.jinja_templater_paths
+            elif key == "exclude_macros_from_path":
+                macros_path = config.jinja_exclude_macros_from_path
+            else:
+                return None
             if macros_path:
                 return macros_path
         return None
@@ -470,7 +517,12 @@ class JinjaTemplater(PythonTemplater):
                 return loader_search_path
         return None
 
-    def _get_jinja_analyzer(self, raw_str: str, env: Environment) -> JinjaAnalyzer:
+    def _get_jinja_analyzer(
+        self,
+        raw_str: str,
+        env: Environment,
+        config: Optional[FluffConfig] = None,
+    ) -> JinjaAnalyzer:
         """Creates a new object derived from JinjaAnalyzer.
 
         Derived classes can provide their own analyzers (e.g. to support custom Jinja
@@ -541,19 +593,28 @@ class JinjaTemplater(PythonTemplater):
 
         # Load macros from path (if applicable)
         if config:
-            macros_path = self._get_macros_path(config, "load_macros_from_path")
-            exclude_macros_path = self._get_macros_path(
-                config, "exclude_macros_from_path"
-            )
-            if macros_path:
-                live_context.update(
-                    self._extract_macros_from_path(
-                        macros_path,
-                        env=env,
-                        ctx=live_context,
-                        exclude_paths=exclude_macros_path,
+            # References to variables are fixed when macros are compiled. Load
+            # macro names first so macros in separate files can call one another.
+            macro_names = self._extract_macros(
+                config=config, env=env, ctx=live_context
+            ).keys()
+            late_binding_macros: Dict[str, Callable[..., Any]] = {}
+            for key in macro_names:
+
+                def late_binding_macro(macro_name: str) -> Callable[..., Any]:
+                    return lambda *args, **kwargs: live_context[macro_name](
+                        *args, **kwargs
                     )
+
+                late_binding_macros[key] = late_binding_macro(key)
+
+            live_context.update(
+                self._extract_macros(
+                    config=config,
+                    env=env,
+                    ctx=live_context | late_binding_macros,
                 )
+            )
 
             # FIXME Potentially implement
             # Load config macros, these will take precedence over macros from the path
@@ -697,6 +758,28 @@ class JinjaTemplater(PythonTemplater):
         #         "object."
         #     )
 
+        # A nonempty file without Jinja markers renders unchanged. Keep macro
+        # and library loading enabled when configured, as either can raise a
+        # user-facing error even for a literal-only file.
+        if (
+            config is not None
+            and in_str
+            and not re.search(r"\{[{%#]", in_str)
+            and not self._get_macros_path(config, "load_macros_from_path")
+            and not config.jinja_library_paths
+        ):
+            full_slice = slice(0, len(in_str))
+            return (
+                TemplatedFile(
+                    source_str=in_str,
+                    templated_str=in_str,
+                    fname=fname,
+                    sliced_file=[TemplatedFileSlice("literal", full_slice, full_slice)],
+                    raw_sliced=[RawFileSlice(in_str, "literal", 0)],
+                ),
+                [],
+            )
+
         env, live_context, render_func = self.construct_render_func(
             fname=fname, config=config, context=context
         )
@@ -745,7 +828,9 @@ class JinjaTemplater(PythonTemplater):
                     in_str, syntax_tree, undefined_variables
                 ),
             )
-        except (TemplateError, TypeError) as err:
+        except (TemplateError, TypeError, ValueError) as err:
+            # Multi-variable loops over an undefined value can fail while
+            # unpacking the single element yielded by UndefinedRecorder.
             templater_logger.info("Unrecoverable Jinja Error: %s", err, exc_info=True)
             raise SQLTemplaterError(
                 (
@@ -787,7 +872,7 @@ class JinjaTemplater(PythonTemplater):
 
         templater_logger.info("Slicing File Template")
         templater_logger.debug("    Raw String: %r", raw_str[:80])
-        analyzer = self._get_jinja_analyzer(raw_str, self._get_jinja_env())
+        analyzer = self._get_jinja_analyzer(raw_str, self._get_jinja_env(), config)
         tracer = analyzer.analyze(render_func)
         trace = tracer.trace(append_to_templated=append_to_templated)
         return trace.raw_sliced, trace.sliced_file, trace.templated_str
@@ -886,6 +971,7 @@ class JinjaTemplater(PythonTemplater):
         render_func: Callable[[str], str],
         uncovered_slices: Set[int],
         append_to_templated: str = "",
+        config: Optional[FluffConfig] = None,
     ) -> Iterator[Tuple[List[RawFileSlice], List[TemplatedFileSlice], str]]:
         """Address uncovered slices by tweaking the template to hit them.
 
@@ -899,9 +985,10 @@ class JinjaTemplater(PythonTemplater):
                 raw source file.
             append_to_templated (:obj:`str`, optional): Optional string to append
                 to the templated file.
+            config (:obj:`FluffConfig`, optional): Optional config object.
 
         """
-        analyzer = self._get_jinja_analyzer(in_str, self._get_jinja_env())
+        analyzer = self._get_jinja_analyzer(in_str, self._get_jinja_env(), config)
         tracer_copy = analyzer.analyze(render_func)
 
         max_variants_generated = 10
@@ -957,7 +1044,7 @@ class JinjaTemplater(PythonTemplater):
             variant_raw_str = "".join(variant_key)
             if variant_raw_str not in variants:
                 analyzer = self._get_jinja_analyzer(
-                    variant_raw_str, self._get_jinja_env()
+                    variant_raw_str, self._get_jinja_env(), config
                 )
                 tracer_trace = analyzer.analyze(render_func)
                 try:
@@ -999,11 +1086,33 @@ class JinjaTemplater(PythonTemplater):
                 trace.templated_str,
             )
 
+    @staticmethod
+    def _is_trim_tag(raw_slice: RawFileSlice) -> bool:
+        return raw_slice.slice_type.startswith("block") and (
+            raw_slice.raw.startswith("{%-") or raw_slice.raw.endswith("-%}")
+        )
+
+    @classmethod
+    def _is_unreached_whitespace_adjacent_to_trim_tag(
+        cls, raw_sliced: List[RawFileSlice], idx: int
+    ) -> bool:
+        raw_slice = raw_sliced[idx]
+        if raw_slice.slice_type != "literal" or not raw_slice.raw.isspace():
+            return False
+
+        previous_slice = raw_sliced[idx - 1] if idx > 0 else None
+        next_slice = raw_sliced[idx + 1] if idx + 1 < len(raw_sliced) else None
+        return bool(
+            (previous_slice and cls._is_trim_tag(previous_slice))
+            or (next_slice and cls._is_trim_tag(next_slice))
+        )
+
     def process_with_variants(
         self,
         *,
         in_str: str,
         fname: str,
+        context: Optional[Dict[str, Any]] = None,
         config: Optional[FluffConfig] = None,
         # formatter: Optional[FormatterInterface] = None,
     ) -> Iterator[Tuple[TemplatedFile, List[SQLTemplaterError]]]:
@@ -1029,6 +1138,7 @@ class JinjaTemplater(PythonTemplater):
         templated_file, violations = self.process(
             in_str=in_str,
             fname=fname,
+            context=context,
             config=config,
         )
         yield templated_file, violations
@@ -1050,17 +1160,25 @@ class JinjaTemplater(PythonTemplater):
             for idx, raw_slice in enumerate(templated_file.raw_sliced)
             if raw_slice.slice_type == "literal"
             and raw_slice.source_idx not in covered_literal_positions
+            and not self._is_unreached_whitespace_adjacent_to_trim_tag(
+                templated_file.raw_sliced, idx
+            )
         }
         templater_logger.debug(
             "Uncovered literals correspond to slices %s", uncovered_literal_idxs
         )
 
+        if not uncovered_literal_idxs:
+            return
+
         # NOTE: No validation required as all validation done in the `.process()`
         # call above.
-        _, _, render_func = self.construct_render_func(fname=fname, config=config)
+        _, _, render_func = self.construct_render_func(
+            fname=fname, config=config, context=context
+        )
 
         for raw_sliced, sliced_file, templated_str in self._handle_unreached_code(
-            in_str, render_func, uncovered_literal_idxs
+            in_str, render_func, uncovered_literal_idxs, config=config
         ):
             yield (
                 TemplatedFile(
@@ -1248,3 +1366,25 @@ def process_from_rust(
     if errors != []:
         raise ValueError
     return output
+
+
+def process_variants_from_rust(
+    string: str,
+    fname: str,
+    config_string: str,
+    live_context: Dict[str, Any],
+) -> List[TemplatedFile]:
+    """Process the call from Rust and return all useful render variants."""
+    templater = JinjaTemplater(override_context=live_context)
+    config = fluff_config_from_json(config_string)
+    outputs: List[TemplatedFile] = []
+    for output, errors in templater.process_with_variants(
+        in_str=string,
+        fname=fname,
+        context=live_context,
+        config=config,
+    ):
+        if errors:
+            raise ValueError
+        outputs.append(output)
+    return outputs

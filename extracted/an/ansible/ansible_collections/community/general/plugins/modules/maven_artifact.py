@@ -145,14 +145,15 @@ options:
   verify_checksum:
     type: str
     description:
-      - If V(never), the MD5/SHA1 checksum is never downloaded and verified.
-      - If V(download), the MD5/SHA1 checksum is downloaded and verified only after artifact download. This is the default.
-      - If V(change), the MD5/SHA1 checksum is downloaded and verified if the destination already exist, to verify if they
+      - If V(never), the checksum is never downloaded and verified.
+      - If V(download), the checksum is downloaded and verified only after artifact download. This is the default.
+      - If V(change), the checksum is downloaded and verified if the destination already exist, to verify if they
         are identical. This was the behaviour before 2.6. Since it downloads the checksum before (maybe) downloading the artifact,
         and since some repository software, when acting as a proxy/cache, return a 404 error if the artifact has not been
         cached yet, it may fail unexpectedly. If you still need it, you should consider using V(always) instead - if you deal
         with a checksum, it is better to use it to verify integrity after download.
       - V(always) combines V(download) and V(change).
+      - The checksum algorithm is selected with O(checksum_alg).
     default: 'download'
     choices: ['never', 'download', 'change', 'always']
   checksum_alg:
@@ -161,8 +162,10 @@ options:
       - If V(md5), checksums use the MD5 algorithm. This is the default.
       - If V(sha1), checksums use the SHA1 algorithm. This can be used on systems configured to use FIPS-compliant algorithms,
         since MD5 is blocked on such systems.
+      - If V(sha256) or V(sha512), checksums use the SHA-256 or SHA-512 algorithm, respectively.
+        These choices were added in community.general 13.5.0.
     default: 'md5'
-    choices: ['md5', 'sha1']
+    choices: ['md5', 'sha1', 'sha256', 'sha512']
     version_added: 3.2.0
   unredirected_headers:
     type: list
@@ -326,11 +329,6 @@ def adjust_recursive_directory_permissions(pre_existing_dir, new_directory_list,
 
 class Artifact:
     def __init__(self, group_id, artifact_id, version, version_by_spec, classifier="", extension="jar"):
-        if not group_id:
-            raise ValueError("group_id must be set")
-        if not artifact_id:
-            raise ValueError("artifact_id must be set")
-
         self.group_id = group_id
         self.artifact_id = artifact_id
         self.version = version
@@ -375,24 +373,6 @@ class Artifact:
         elif self.extension != "jar":
             result = f"{self.group_id}:{self.artifact_id}:{self.extension}:{self.version}"
         return result
-
-    @staticmethod
-    def parse(input):
-        parts = input.split(":")
-        if len(parts) >= 3:
-            g = parts[0]
-            a = parts[1]
-            v = parts[-1]
-            t = None
-            c = None
-            if len(parts) == 4:
-                t = parts[2]
-            if len(parts) == 5:
-                t = parts[2]
-                c = parts[3]
-            return Artifact(g, a, v, c, t)
-        else:
-            return None
 
 
 class MavenDownloader:
@@ -625,7 +605,7 @@ class MavenDownloader:
                 if not remote_checksum:
                     return f"Cannot find {checksum_alg} checksum from {remote_url}"
             try:
-                # Check if remote checksum only contains md5/sha1 or md5/sha1 + filename
+                # Check if remote checksum only contains the digest or the digest + filename
                 _remote_checksum = remote_checksum.split(None, 1)[0]
                 remote_checksum = _remote_checksum
                 # remote_checksum is empty so we continue and keep original checksum string
@@ -646,6 +626,10 @@ class MavenDownloader:
             hash = hashlib.md5()
         elif checksum_alg.lower() == "sha1":
             hash = hashlib.sha1()
+        elif checksum_alg.lower() == "sha256":
+            hash = hashlib.sha256()
+        elif checksum_alg.lower() == "sha512":
+            hash = hashlib.sha512()
         else:
             raise ValueError(f"Unknown checksum_alg {checksum_alg}")
         with open(file, "rb") as f:
@@ -685,7 +669,7 @@ def main():
             keep_name=dict(default=False, type="bool"),
             keep_name_only_when_resolved=dict(default=False, type="bool"),
             verify_checksum=dict(default="download", choices=["never", "download", "change", "always"]),
-            checksum_alg=dict(default="md5", choices=["md5", "sha1"]),
+            checksum_alg=dict(default="md5", choices=["md5", "sha1", "sha256", "sha512"]),
             unredirected_headers=dict(type="list", elements="str", default=["Authorization", "Cookie"]),
             directory_mode=dict(type="str"),
         ),
@@ -736,10 +720,12 @@ def main():
     if not version_by_spec and not version:
         version = "latest"
 
-    try:
-        artifact = Artifact(group_id, artifact_id, version, version_by_spec, classifier, extension)
-    except ValueError as e:
-        module.fail_json(msg=e.args[0])
+    if not group_id:
+        module.fail_json(msg="group_id must be set")
+    if not artifact_id:
+        module.fail_json(msg="artifact_id must be set")
+
+    artifact = Artifact(group_id, artifact_id, version, version_by_spec, classifier, extension)
 
     changed = False
     prev_state = "absent"

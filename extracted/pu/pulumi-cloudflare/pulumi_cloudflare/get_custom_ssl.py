@@ -94,7 +94,7 @@ class GetCustomSslResult:
     @pulumi.getter(name="customCertificateId")
     def custom_certificate_id(self) -> Optional[_builtins.str]:
         """
-        Identifier.
+        Custom certificate identifier tag.
         """
         return pulumi.get(self, "custom_certificate_id")
 
@@ -136,7 +136,7 @@ class GetCustomSslResult:
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        Identifier.
+        Custom certificate identifier tag.
         """
         return pulumi.get(self, "id")
 
@@ -226,7 +226,7 @@ class AwaitableGetCustomSslResult(GetCustomSslResult):
 
 
 def get_custom_ssl(custom_certificate_id: Optional[_builtins.str] = None,
-                   filter: Optional[Union['GetCustomSslFilterArgs', 'GetCustomSslFilterArgsDict']] = None,
+                   filter: Optional[Union['GetCustomSslFilterArgs', 'GetCustomSslFilterArgsDict', 'outputs.GetCustomSslFilterResult']] = None,
                    zone_id: Optional[_builtins.str] = None,
                    opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetCustomSslResult:
     """
@@ -244,11 +244,11 @@ def get_custom_ssl(custom_certificate_id: Optional[_builtins.str] = None,
     import pulumi_cloudflare as cloudflare
 
     example_custom_ssl = cloudflare.get_custom_ssl(zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-        custom_certificate_id="023e105f4ecef8ad9ca31a8372d0c353")
+        custom_certificate_id="2458ce5a-0c35-4c7f-82c7-8e9487d3ff60")
     ```
 
 
-    :param _builtins.str custom_certificate_id: Identifier.
+    :param _builtins.str custom_certificate_id: Custom certificate identifier tag.
     :param _builtins.str zone_id: Identifier.
     """
     __args__ = dict()
@@ -277,7 +277,7 @@ def get_custom_ssl(custom_certificate_id: Optional[_builtins.str] = None,
         uploaded_on=pulumi.get(__ret__, 'uploaded_on'),
         zone_id=pulumi.get(__ret__, 'zone_id'))
 def get_custom_ssl_output(custom_certificate_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                          filter: pulumi.Input[Optional[Optional[Union['GetCustomSslFilterArgs', 'GetCustomSslFilterArgsDict']]]] = None,
+                          filter: pulumi.Input[Optional[Optional[Union['GetCustomSslFilterArgs', 'GetCustomSslFilterArgsDict', 'outputs.GetCustomSslFilterResult']]]] = None,
                           zone_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                           opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetCustomSslResult]:
     """
@@ -295,11 +295,11 @@ def get_custom_ssl_output(custom_certificate_id: pulumi.Input[Optional[Optional[
     import pulumi_cloudflare as cloudflare
 
     example_custom_ssl = cloudflare.get_custom_ssl(zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-        custom_certificate_id="023e105f4ecef8ad9ca31a8372d0c353")
+        custom_certificate_id="2458ce5a-0c35-4c7f-82c7-8e9487d3ff60")
     ```
 
 
-    :param _builtins.str custom_certificate_id: Identifier.
+    :param _builtins.str custom_certificate_id: Custom certificate identifier tag.
     :param _builtins.str zone_id: Identifier.
     """
     __args__ = dict()

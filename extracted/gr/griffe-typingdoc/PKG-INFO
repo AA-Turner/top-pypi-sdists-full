@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: griffe-typingdoc
-Version: 0.3.1
+Version: 0.3.2
 Summary: Griffe extension for PEP 727 – Documentation Metadata in Typing.
-Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <pawamoy@pm.me>
+Author-Email: Timothée Mazzucotelli <pawamoy@pm.me>
 License-Expression: ISC
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -10,11 +10,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Documentation
@@ -28,7 +28,7 @@ Project-URL: Issues, https://github.com/mkdocstrings/griffe-typingdoc/issues
 Project-URL: Discussions, https://github.com/mkdocstrings/griffe-typingdoc/discussions
 Project-URL: Gitter, https://gitter.im/mkdocstrings/griffe-typingdoc
 Project-URL: Funding, https://github.com/sponsors/pawamoy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: griffelib>=2.0
 Requires-Dist: typing-extensions>=4.7
 Description-Content-Type: text/markdown

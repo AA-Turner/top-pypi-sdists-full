@@ -91,18 +91,20 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         }
 
         // Numeric literals.
-        NumericLiteral | IntegerLiteral | DollarNumericLiteral | BitStringLiteral => {
-            Highlight::Number
-        }
+        NumericLiteral | IntegerLiteral | DollarNumericLiteral | BitStringLiteral | ColumnIndex
+        | RawColumnIndex => Highlight::Number,
 
         // String / quoted literals.
         QuotedLiteral
         | RawQuotedLiteral
+        | RawFileLiteral
         | BytesQuotedLiteral
         | SignedQuotedLiteral
         | DateConstructorLiteral
         | FileLiteral
         | DollarLiteral
+        | PasswordLiteral
+        | CatalogSyncNamespaceFlattenDelimeter
         | AtSignLiteral => Highlight::String,
 
         // Comments.
@@ -110,24 +112,34 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
 
         // Operators.
         BinaryOperator
+        | AttributeIndicator
+        | FactorialOperator
+        | Commutator
         | ComparisonOperator
         | RawComparisonOperator
         | AssignmentOperator
         | CastingOperator
+        | TryCastingOperator
         | LikeOperator
+        | GlobOperator
+        | UnpackingOperator
         | WalrusOperator
         | JsonOperator
         | ParameterAssigner
+        | PowerOperator
         | FunctionAssigner
         | SignIndicator
         | Plus
+        | PlusJoinSymbol
         | Minus
         | Divide
         | DoubleDivide
+        | DoubleEquals
         | Star
         | Percent
         | Caret
         | Tilde
+        | Negator
         | Ampersand
         | Pipe
         | VerticalBar
@@ -137,18 +149,19 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | Dash => Highlight::Operator,
 
         // Function / procedure names.
-        FunctionNameIdentifier | ProcedureNameIdentifier | SystemFunctionName => {
-            Highlight::Function
-        }
+        DatatypeMethodNameIdentifier
+        | FunctionNameIdentifier
+        | ProcedureNameIdentifier
+        | SystemFunctionName => Highlight::Function,
 
         // Type names.
-        DataTypeIdentifier | PrimitiveType => Highlight::Type,
+        CharacterSet | DataTypeIdentifier | PrimitiveType => Highlight::Type,
 
         // Parameters.
-        Parameter => Highlight::Parameter,
+        Parameter | PipelineParameter => Highlight::Parameter,
 
         // Variables / placeholders.
-        Variable | TsqlVariable | Placeholder => Highlight::Macro,
+        Variable | TsqlVariable | HiveVariable | Placeholder => Highlight::Macro,
 
         // Property-style identifiers.
         PropertyNameIdentifier | PropertiesNakedIdentifier | WidgetNameIdentifier => {
@@ -165,10 +178,12 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         Unparsable
         | File
         | ColumnReference
+        | DatatypeMethod
         | ObjectReference
         | Expression
         | WildcardIdentifier
         | Function
+        | ChainedFunctionCall
         | FunctionContents
         | HavingClause
         | PathSegment
@@ -179,6 +194,10 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | SetClause
         | FetchClause
         | FunctionDefinition
+        | AlgorithmOption
+        | LockClause
+        | LockOption
+        | WaitOption
         | AlterSequenceOptionsSegment
         | RoleReference
         | TablespaceReference
@@ -187,8 +206,10 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | ColumnDefinition
         | ColumnConstraintSegment
         | CommentClause
+        | CheckOptionClause
         | TableEndClause
         | MergeMatch
+        | MergeWhenNotMatchedBySourceClause
         | MergeWhenNotMatchedClause
         | MergeInsertClause
         | MergeUpdateClause
@@ -245,13 +266,22 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateIndexStatement
         | DropIndexStatement
         | CreateTableStatement
+        | AccessObject
+        | AccessPermission
+        | AccessPermissions
+        | AccessSchemaObject
+        | AccessSchemaPluralObject
         | AccessStatement
+        | AccessTarget
         | InsertStatement
+        | InvalidateMetadataStatement
         | TransactionStatement
         | DropTableStatement
         | DropViewStatement
         | CreateUserStatement
         | DropUserStatement
+        | DropProfileStatement
+        | DropClusterStatement
         | ArrayExpression
         | LocalAlias
         | MergeStatement
@@ -268,9 +298,12 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | EmptyStructLiteral
         | ObjectLiteral
         | ObjectLiteralElement
+        | ObjectType
+        | ObjectTypeSchema
         | TimeZoneGrammar
         | BracketedArguments
         | DataType
+        | IntervalDataType
         | AliasExpression
         | ArrayAccessor
         | ArrayLiteral
@@ -280,6 +313,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | TypedStructLiteral
         | IntervalExpression
         | ArrayType
+        | ArrayTypeSuffix
         | SizedArrayType
         | SelectStatement
         | OverlapsClause
@@ -295,6 +329,11 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | TruncateStatement
         | FromExpression
         | FromExpressionElement
+        | FromInsertClause
+        | FromInsertSourceClause
+        | FromInsertStatement
+        | OracleIndexPhysicalAttributes
+        | OraclePhysicalAttributes
         | SelectClauseModifier
         | NamedWindowExpression
         | SelectClauseElement
@@ -315,13 +354,17 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | SelectApplyClause
         | SelectReplaceClause
         | StructTypeSchema
+        | StorageClause
+        | TableTypeSchema
         | Tuple
         | NamedArgument
         | DeclareSegment
         | SetSegment
+        | UsingIndexClause
         | PartitionBySegment
         | ClusterBySegment
         | OptionsSegment
+        | CreateExternalTableAsSelectStatement
         | CreateExternalTableStatement
         | AlterViewStatement
         | CreateMaterializedViewStatement
@@ -337,6 +380,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | MergeWhenMatchedClause
         | ProcedureName
         | ExportStatement
+        | ExportTableMetadataStatement
         | ProcedureParameterList
         | ProcedureStatements
         | CallStatement
@@ -361,6 +405,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | WktGeometryType
         | IntoClause
         | ForClause
+        | ForPortionOfClause
         | AlterRoleStatement
         | ExplainOption
         | CreateTableAsStatement
@@ -379,6 +424,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | RefreshMaterializedViewStatement
         | WithCheckOption
         | AlterPolicyStatement
+        | AlterDatabaseScopedConfigurationStatement
         | AlterDatabaseStatement
         | VacuumStatement
         | LikeOptionSegment
@@ -404,6 +450,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | ConflictAction
         | ConflictTarget
         | SetStatement
+        | SetDefaultRoleStatement
         | CreatePolicyStatement
         | CreateDomainStatement
         | AlterDomainStatement
@@ -424,6 +471,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | AlterTypeStatement
         | CreateTypeStatement
         | LockTableStatement
+        | LockingClause
         | CopyStatement
         | DiscardStatement
         | AlterSchemaStatement
@@ -464,6 +512,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | SnowflakeKeywordExpression
         | SemiStructuredExpression
         | SelectExcludeClause
+        | SelectIlikeClause
         | SelectRenameClause
         | AlterTableTableColumnAction
         | AlterTableClusteringAction
@@ -484,11 +533,13 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateExternalFunctionStatement
         | WarehouseObjectProperties
         | ConstraintPropertiesSegment
+        | IndexPropertiesSegment
         | CopyOptions
         | SchemaObjectProperties
         | CreateTaskStatement
         | SnowflakeTaskExpressionSegment
         | CreateStatement
+        | DefineStatement
         | CreateFileFormatSegment
         | AlterFileFormatSegment
         | CsvFileFormatTypeParameters
@@ -508,6 +559,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | GcsExternalStageParameters
         | AzureBlobStorageExternalStageParameters
         | CreateStageStatement
+        | DefineStageStatement
         | AlterStageStatement
         | CreateStreamStatement
         | AlterStreamStatement
@@ -564,13 +616,19 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | DescribeDetailStatement
         | GenerateManifestFileStatement
         | ConvertToDeltaStatement
+        | RestoreDatabaseStatement
         | RestoreTableStatement
         | ConstraintStatement
         | ApplyChangesIntoStatement
+        | CdcSpecificationSegment
+        | CreateFlowStatement
+        | FlowReference
         | UsingClause
         | DataSourceFormat
         | IcebergTransformation
         | MsckRepairTableStatement
+        | RowDataType
+        | RowMovementClause
         | RowFormatClause
         | SkewedByClause
         | Bracketed
@@ -586,7 +644,9 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | EmitsSegment
         | Literal
         | Meta
+        | BindColon
         | Colon
+        | PsqlVariableColon
         | TernaryColon
         | StatementTerminator
         | StartSquareBracket
@@ -620,6 +680,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | UnicodeSingleQuote
         | EscapedSingleQuote
         | UnicodeDoubleQuote
+        | UnicodeEscapeValue
         | At
         | FileKeyword
         | SemiStructuredElement
@@ -683,6 +744,8 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateGroup
         | ListaggOverflowClauseSegment
         | UnorderedSelectStatementSegment
+        | MapLiteral
+        | MapLiteralElement
         | MapType
         | MapTypeSchema
         | PrepareStatement
@@ -757,6 +820,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | ColumnTypeReference
         | ColumnsExpression
         | Command
+        | CommandCell
         | CompatibilityLevel
         | CompositeValueExpansion
         | ComputedColumnDefinition
@@ -771,9 +835,13 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateCatalogStatement
         | CreateColumnstoreIndexStatement
         | CreateCortexSearchServiceStatement
+        | CreateCredentialStatement
+        | AlterCredentialStatement
         | CreateDatabaseRoleStatement
         | CreateDatabaseScopedCredentialStatement
         | CreateDatabaseWithOptions
+        | CreateDbtProjectStatement
+        | CreateDcmProjectStatement
         | CreateEventStatement
         | CreateEventTableStatement
         | CreateExternalDataSourceStatement
@@ -783,6 +851,9 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateForeignTableStatement
         | CreateFulltextCatalogStatement
         | CreateFulltextIndexStatement
+        | CreateFulltextStoplistStatement
+        | AlterFulltextIndexStatement
+        | DropFulltextIndexStatement
         | CreateLoginStatement
         | CreateMasterKeyStatement
         | CreateMaterializedViewAsReplicaOfStatement
@@ -797,6 +868,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateSearchIndexStatement
         | CreateSecurityPolicyStatement
         | CreateServerRoleStatement
+        | CreateXmlSchemaCollectionStatement
         | CreateSnapshotTableStatement
         | CreateSqlFunctionStatement
         | CreateStatisticsStatement
@@ -804,6 +876,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateSubscription
         | CreateSynonymStatement
         | CreateTableAsSelectStatement
+        | CreateTableCloneStatement
         | CreateTableFunctionStatement
         | CreateTableGraphStatement
         | CreateTableUsingStatement
@@ -837,6 +910,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | DropCatalogStatement
         | DropCollationStatement
         | DropColumnClause
+        | DropCredentialStatement
         | DropDynamicTableSegment
         | DropEventStatement
         | DropExternalVolumeStatement
@@ -903,7 +977,6 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | FunctionOptionSegment
         | FunctionParameterListWithComments
         | GetDiagnosticsSegment
-        | GlobOperator
         | GoStatement
         | GotoStatement
         | GrantToSegment
@@ -928,11 +1001,13 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | InlinePathOperator
         | InsertRowAlias
         | IntoOutfileClause
+        | IsolationClause
         | IsolationLevelClause
         | IterateStatement
         | JsonPath
         | LabelSegment
         | LambdaArrow
+        | LambdaExpression
         | LambdaFunction
         | LeadingDot
         | LimitClauseComponent
@@ -943,6 +1018,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | LogicalFileName
         | LoginUserSegment
         | MagicCellSegment
+        | BareMagicCell
         | MagicLine
         | MagicSingleLine
         | MagicStart
@@ -954,6 +1030,12 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | MetaCommand
         | MetaCommandQueryBuffer
         | MetaCommandStatement
+        | MetricLevelEquals
+        | PsqlCopyCommand
+        | PsqlCopyMetaCommandStatement
+        | PostgresCopyStdinDataStatement
+        | PsqlSetCommand
+        | PsqlSetMetaCommandStatement
         | MlTableExpression
         | MsckTableStatement
         | NotOperator
@@ -964,6 +1046,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | OnPartitionsClause
         | OpenCursorStatement
         | OpenSymmetricKeyStatement
+        | ContainstableSegment
         | OpenjsonSegment
         | OpenjsonWithClause
         | OpenquerySegment
@@ -989,6 +1072,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | PipeOperatorClause
         | PipeStatement
         | PivotOperator
+        | PositionalSubstitutionVariable
         | PostTableExpression
         | PostgisOperator
         | PrepareSegment
@@ -1025,8 +1109,10 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | SelectVariableAssignment
         | SequenceNextValue
         | SequenceReference
+        | SequenceValueForExpression
         | SerdeMethod
         | ServiceObjective
+        | SetConfigValue
         | SetConstraintStatement
         | SetContextInfoStatement
         | SetLanguageStatement
@@ -1043,14 +1129,17 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | SimplifiedUnpivot
         | SingleQuoteWithN
         | SizeLiteral
+        | SizePrefix
         | SortbyClause
         | SqlcmdCommandSegment
         | SquareQuote
         | StatisticsReference
         | StoringSegment
         | SubscriptionReference
+        | SubstitutionVariable
         | SynonymReference
         | SystemVariable
+        | SystemTimePartition
         | TableClausesSegment
         | TableClusterByClause
         | TableColumnCommentAction
@@ -1060,13 +1149,18 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | TableIndexSegment
         | TableLocationClause
         | TableOptionStatement
+        | TableOptions
         | TableSpecificationSegment
         | TagStatement
         | TemporalQuery
         | TextimageOnOptionStatement
         | ThrowStatement
         | TraceLevelEquals
+        | ExchangeDictionariesStatement
+        | ExchangeTablesStatement
+        | TruncateDatabase
         | TruncateTable
+        | TruncateTables
         | TryCatch
         | TupleTypeSchema
         | UndropSchemaStatement
@@ -1098,12 +1192,14 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | TriggerCorrelationName
         | OracleBindVariable
         | AlterTableProperties
+        | AlterTableOnlineDDLOption
         | AlterTableColumnClauses
         | AlterTableConstraintClauses
         | IndexTypeReference
         | ExecuteFileStatement
         | SlashBufferExecutor
         | OracleBatch
+        | SqlplusSetStatement
         | OracleCommentStatement
         | OracleCreateProcedureStatement
         | OracleDropProcedureStatement
@@ -1121,6 +1217,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | OracleCreateTypeStatement
         | OracleTypeReference
         | OracleCreateTypeBodyStatement
+        | OracleCreatePackageBodyStatement
         | OracleCreatePackageStatement
         | OraclePackageReference
         | OracleAlterPackageStatement
@@ -1138,6 +1235,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | OracleWhenClause
         | OracleElseClause
         | OracleNullStatement
+        | OracleProcedureCallStatement
         | ForLoopStatement
         | WhileLoopStatement
         | OracleLoopStatement
@@ -1159,6 +1257,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | OracleDropSynonymStatement
         | OracleAlterSynonymStatement
         | OracleWithinGroupClause
+        | OracleKeepClause
         | OracleListaggOverflowClause
         | OracleNamedArgument
         | OracleCreateTableStatement
@@ -1184,8 +1283,16 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | OracleOrderByClause
         | EngineType
         | PartitionSegment
+        | DistributedBy
+        | ListPartitionDefinition
+        | RangePartitionDefinition
+        | RangePartitionInterval
+        | RollupSegment
         | DistributionSegment
         | IndexDefinition
+        | LoadDataDesc
+        | LoadLabelProperty
+        | LoadLabelStatement
         | CreateRoutineLoadStatement
         | RoutineLoadProperties
         | RoutineLoadDataSourceProperties
@@ -1195,6 +1302,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | InsertOverwriteStatement
         | AlterConnection
         | AlterConsumerGroupStatement
+        | AlterCortexSearchServiceStatement
         | AlterSystemStatement
         | AlterTableAddColumn
         | AlterTableAlterColumn
@@ -1260,6 +1368,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | PreferringClause
         | PreloadStatement
         | RangeOperator
+        | ReadOnlyClause
         | RecompressReorganizeStatement
         | RejectClause
         | ScriptContent
@@ -1282,9 +1391,12 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | TupleElementAccess
         | MaterializeSize
         | AlterConnectionRotateKeys
+        | AlterOwnerStatement
         | AlterRenameStatement
         | AlterSecretStatement
+        | AlterSetClusterStatement
         | AlterSourceSinkSizeStatement
+        | ComputeStatsStatement
         | CopyToStatement
         | CopyFromStatement
         | CreateClusterStatement
@@ -1295,20 +1407,51 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateSourceKafkaStatement
         | CreateSourceLoadGeneratorStatement
         | CreateSourcePostgresStatement
+        | CreateSourceWebhookStatement
+        | AlterAuthorizationStatement
+        | DenyStatement
+        | GrantStatement
+        | PermissionsSegment
+        | RevokeStatement
+        | SecurableSegment
         | ShowCreateStatement
         | ShowIndexesStatement
         | ShowMaterializedViewsStatement
         | BteqKeyWordSegment
         | BteqStatement
+        | BteqFilePath
         | CollectStatUsingOptionClause
         | CollectStatisticsStatement
         | CreateTableOptionsStatement
+        | DbccStatement
         | DatabaseStatement
         | FromInUpdateClause
         | SetQueryBandStatement
         | TdColumnAttributeConstraint
         | TdPartitioningLevel
-        | TdTableConstraint => return None,
+        | TdTableConstraint
+        | ColumnEncoding
+        | ColumnSetSegment
+        | CopyColumnOptions
+        | CopyOptionsForColumns
+        | CreateProjectionStatement
+        | CreateTableLikeStatement
+        | DiskQuotaSegment
+        | DropProjectionStatement
+        | EncodingType
+        | KsafeSegment
+        | NullCastingOperator
+        | NullEqualsOperator
+        | SchemaPrivilegesSegment
+        | ShareReference
+        | SegmentedbyClause
+        | TimeseriesClauseStatement
+        | TransactionalStatement
+        | UserReference
+        | WhereCurrentOfCursorSegment
+        | WithinGroupClauseStatement
+        | AlterXmlSchemaCollectionStatement
+        | DropXmlSchemaCollectionStatement => return None,
     };
 
     Some(highlight)
@@ -1511,6 +1654,11 @@ mod tests {
                 (0, 22, 1, var),    // t
             ]
         );
+    }
+
+    #[test]
+    fn highlights_character_set_names_as_types() {
+        assert_eq!(classify(SyntaxKind::CharacterSet), Some(Highlight::Type));
     }
 
     #[test]

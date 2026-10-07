@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     num::{NonZeroU16, NonZeroUsize},
     sync::Arc,
 };
@@ -15,21 +14,21 @@ use icechunk::{
         ManifestSplitDim, ManifestSplitDimCondition, ManifestSplittingConfig,
     },
     format::{
-        ByteRange, ChunkIndices, Path, SnapshotId, format_constants::SpecVersionBin,
-        manifest::ChunkPayload, snapshot::ArrayShape,
+        ByteRange, ChunkIndices, Path, SnapshotId, TRANSACTION_LOGS_FILE_PATH,
+        format_constants::SpecVersionBin, manifest::ChunkPayload, snapshot::ArrayShape,
     },
     new_in_memory_storage,
     ops::gc::{ExpiredRefAction, GCConfig, GCSummary, expire, garbage_collect},
     refs::Ref,
     repository::VersionInfo,
     session::get_chunk,
-    storage::{ListInfo, latency::LatencyStorage},
+    storage::{StorageContext, latency::LatencyStorage},
 };
 use icechunk_macros::tokio_test;
 use pretty_assertions::assert_eq;
 
 use crate::common;
-use crate::common::Permission;
+use crate::common::{Permission, cutoff_after_all_listed, listed_snapshots};
 
 #[tokio_test]
 async fn test_gc_in_minio_spec_v1() -> Result<(), Box<dyn std::error::Error>> {
@@ -91,18 +90,16 @@ async fn do_test_gc(
         ..ManifestConfig::default()
     };
 
-    let repo = Repository::create(
-        Some(RepositoryConfig {
-            inline_chunk_threshold_bytes: Some(0),
-            manifest: Some(man_config),
-            ..Default::default()
-        }),
-        Arc::clone(&storage),
-        HashMap::new(),
-        spec_version,
-        true,
-    )
-    .await?;
+    let builder = Repository::create(Arc::clone(&storage)).config(RepositoryConfig {
+        inline_chunk_threshold_bytes: Some(0),
+        manifest: Some(man_config),
+        ..Default::default()
+    });
+    let builder = match spec_version {
+        Some(v) => builder.spec_version(v),
+        None => builder,
+    };
+    let repo = builder.execute().await?;
 
     let mut ds = repo.writable_session("main").await?;
 
@@ -114,7 +111,9 @@ async fn do_test_gc(
     // we write more than 1k chunks to go beyond the chunk size for object listing and delete
     for idx in 0..1100 {
         let bytes = Bytes::copy_from_slice(&42i8.to_be_bytes());
-        let payload = ds.get_chunk_writer()?(bytes.clone()).await?;
+        let payload =
+            ds.get_chunk_writer(&array_path, &ChunkIndices(vec![idx]))?(bytes.clone())
+                .await?;
         ds.set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
             .await?;
     }
@@ -129,7 +128,9 @@ async fn do_test_gc(
     // This will only overwrite one split manifest.
     for idx in 0..10 {
         let bytes = Bytes::copy_from_slice(&0i8.to_be_bytes());
-        let payload = ds.get_chunk_writer()?(bytes.clone()).await?;
+        let payload =
+            ds.get_chunk_writer(&array_path, &ChunkIndices(vec![idx]))?(bytes.clone())
+                .await?;
         ds.set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
             .await?;
     }
@@ -146,7 +147,11 @@ async fn do_test_gc(
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -206,7 +211,9 @@ async fn do_test_gc(
         }
         let mut session = repo.writable_session("main").await?;
         let bytes = Bytes::copy_from_slice(&(100i8 + i as i8).to_be_bytes());
-        let payload = session.get_chunk_writer()?(bytes.clone()).await?;
+        let payload =
+            session.get_chunk_writer(&array_path, &ChunkIndices(vec![0]))?(bytes.clone())
+                .await?;
         session
             .set_chunk_ref(array_path.clone(), ChunkIndices(vec![0]), Some(payload))
             .await?;
@@ -225,7 +232,11 @@ async fn do_test_gc(
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -249,8 +260,7 @@ async fn test_gc_cutoff_inside_listed_second_in_tigris()
 -> Result<(), Box<dyn std::error::Error>> {
     let prefix = format!("test_cutoff_{}", Utc::now().timestamp_millis());
     let storage = common::make_tigris_integration_storage(prefix)?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let mut session = repo.writable_session("main").await?;
     session.add_group(Path::root(), Bytes::new()).await?;
     session.commit("base").execute().await?;
@@ -272,7 +282,11 @@ async fn test_gc_cutoff_inside_listed_second_in_tigris()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -281,22 +295,6 @@ async fn test_gc_cutoff_inside_listed_second_in_tigris()
     repo.readonly_session(&VersionInfo::SnapshotId(dangling)).await?;
 
     Ok(())
-}
-
-/// Cutoff past every listed snapshot, from the store clock.
-/// The extra second covers whole-second listings.
-async fn cutoff_after_all_listed(
-    repo: &Repository,
-) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
-    let listed = listed_snapshots(repo).await?;
-    let newest = listed.iter().map(|s| s.created_at).max().expect("snapshots listed");
-    Ok(newest + TimeDelta::seconds(1))
-}
-
-async fn listed_snapshots(
-    repo: &Repository,
-) -> Result<Vec<ListInfo<SnapshotId>>, Box<dyn std::error::Error>> {
-    Ok(repo.asset_manager().list_snapshots().await?.try_collect().await?)
 }
 
 async fn branch_commit_messages(repo: &Repository, branch: &str) -> Vec<String> {
@@ -457,9 +455,7 @@ async fn do_test_expire_and_garbage_collect(
     storage: Arc<dyn Storage + Send + Sync>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let storage_settings = storage.default_settings().await?;
-    let mut repo =
-        Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-            .await?;
+    let mut repo = Repository::create(Arc::clone(&storage)).execute().await?;
 
     let expire_older_than = make_design_doc_repo(&mut repo).await?;
 
@@ -484,7 +480,7 @@ async fn do_test_expire_and_garbage_collect(
     assert_eq!(result.released_snapshots.len(), 5);
     assert_eq!(result.deleted_refs.len(), 0);
 
-    let repo = Repository::open(None, Arc::clone(&storage), HashMap::new()).await?;
+    let repo = Repository::open(Arc::clone(&storage)).execute().await?;
 
     // this behavior is slightly different than the one documented
     // in the initial design doc. IC 2.0 doesn't remove snapshot "5"
@@ -521,7 +517,11 @@ async fn do_test_expire_and_garbage_collect(
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let asset_manager = Arc::new(AssetManager::new_no_cache(
@@ -573,9 +573,7 @@ async fn test_expire_and_garbage_collect_deleting_expired_refs()
 -> Result<(), Box<dyn std::error::Error>> {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
     let storage_settings = storage.default_settings().await?;
-    let mut repo =
-        Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-            .await?;
+    let mut repo = Repository::create(Arc::clone(&storage)).execute().await?;
 
     let expire_older_than = make_design_doc_repo(&mut repo).await?;
 
@@ -608,7 +606,11 @@ async fn test_expire_and_garbage_collect_deleting_expired_refs()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -634,8 +636,7 @@ async fn test_diff_complete_after_expire_and_gc() -> Result<(), Box<dyn std::err
 {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
     let storage_settings = storage.default_settings().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
 
     // The initial (root) snapshot, which survives expiration and becomes the
     // new parent of the boundary commit.
@@ -689,7 +690,11 @@ async fn test_diff_complete_after_expire_and_gc() -> Result<(), Box<dyn std::err
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -700,7 +705,7 @@ async fn test_diff_complete_after_expire_and_gc() -> Result<(), Box<dyn std::err
     assert_eq!(summary.transaction_logs_deleted, 0);
 
     // Reopen for a fresh view of storage, then diff root -> tip.
-    let repo = Repository::open(None, Arc::clone(&storage), HashMap::new()).await?;
+    let repo = Repository::open(Arc::clone(&storage)).execute().await?;
     let diff = repo
         .diff(
             &VersionInfo::SnapshotId(initial_id),
@@ -735,8 +740,7 @@ async fn test_gc_deletes_only_unreferenced_expired_tx_logs()
 -> Result<(), Box<dyn std::error::Error>> {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
     let storage_settings = storage.default_settings().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
 
     commit_group(&repo, "main", "/").await?;
     let a = commit_group(&repo, "main", "/a").await?;
@@ -779,7 +783,11 @@ async fn test_gc_deletes_only_unreferenced_expired_tx_logs()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -814,8 +822,7 @@ async fn test_gc_retains_snapshot_between_flushed_and_created_at()
     // land in.
     let storage: Arc<dyn Storage + Send + Sync> =
         Arc::new(LatencyStorage::new(inner, 20, 0));
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let a = commit_group(&repo, "main", "/a").await?;
@@ -860,7 +867,11 @@ async fn test_gc_retains_snapshot_between_flushed_and_created_at()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary = garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
@@ -892,8 +903,7 @@ async fn test_gc_deletes_pruned_tx_logs_of_expire_released_snapshot()
     // cutoff can then land between /b's tx log and /c's files.
     let storage: Arc<dyn Storage + Send + Sync> =
         Arc::new(LatencyStorage::new(inner, 20, 0));
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let a = commit_group(&repo, "main", "/a").await?;
@@ -930,7 +940,11 @@ async fn test_gc_deletes_pruned_tx_logs_of_expire_released_snapshot()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary = garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
@@ -981,7 +995,11 @@ async fn test_gc_deletes_pruned_tx_logs_of_expire_released_snapshot()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary = garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
@@ -1010,7 +1028,11 @@ async fn test_gc_deletes_pruned_tx_logs_of_expire_released_snapshot()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary = garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
@@ -1056,7 +1078,11 @@ fn clean_all_now() -> GCConfig {
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     )
 }
@@ -1069,8 +1095,7 @@ fn clean_all_now() -> GCConfig {
 async fn test_repeated_expiration_accumulates_pruned_logs()
 -> Result<(), Box<dyn std::error::Error>> {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     // Run expiration/GC on the repo's own asset manager so its caches stay
     // coherent and we can keep committing without reopening.
     let am = Arc::clone(repo.asset_manager());
@@ -1153,8 +1178,7 @@ async fn test_repeated_expiration_accumulates_pruned_logs()
 async fn test_reparent_accumulates_existing_pruned_logs()
 -> Result<(), Box<dyn std::error::Error>> {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let initial_id = repo
@@ -1178,7 +1202,11 @@ async fn test_reparent_accumulates_existing_pruned_logs()
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
@@ -1229,8 +1257,7 @@ async fn test_reparent_accumulates_existing_pruned_logs()
 #[tokio_test]
 async fn test_amend_preserves_pruned_logs() -> Result<(), Box<dyn std::error::Error>> {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let initial_id = repo
@@ -1300,8 +1327,7 @@ async fn test_rebase_detects_conflict_in_pruned_ancestor()
     use icechunk::session::{SessionError, SessionErrorKind};
 
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let conflict_path: Path = "/conflict".try_into().unwrap();
@@ -1367,13 +1393,11 @@ async fn test_rebase_detects_conflict_in_pruned_ancestor()
 #[tokio_test]
 async fn test_rebase_errors_on_missing_pruned_ancestor_log()
 -> Result<(), Box<dyn std::error::Error>> {
-    use futures::stream;
     use icechunk::conflicts::detector::ConflictDetector;
     use icechunk::session::{SessionError, SessionErrorKind};
 
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let conflict_path: Path = "/conflict".try_into().unwrap();
@@ -1407,7 +1431,13 @@ async fn test_rebase_errors_on_missing_pruned_ancestor_log()
     garbage_collect(Arc::clone(&am), &clean_all_now(), None, 100).await?;
 
     // Simulate an older GC having deleted the pruned ancestor's tx log.
-    am.delete_transaction_logs(stream::once(async { (x.clone(), 0u64) }).boxed()).await?;
+    am.storage()
+        .delete_batch(
+            &StorageContext::unattributed(am.storage_settings()),
+            TRANSACTION_LOGS_FILE_PATH,
+            vec![(x.to_string(), 0u64)],
+        )
+        .await?;
     am.remove_cached_tx_log(&x);
 
     match conflicting.rebase(&ConflictDetector).await {
@@ -1426,11 +1456,8 @@ async fn test_rebase_errors_on_missing_pruned_ancestor_log()
 /// skips that log, producing an incomplete diff rather than failing.
 #[tokio_test]
 async fn test_diff_skips_missing_pruned_log() -> Result<(), Box<dyn std::error::Error>> {
-    use futures::stream;
-
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let initial_id = repo
@@ -1457,7 +1484,13 @@ async fn test_diff_skips_missing_pruned_log() -> Result<(), Box<dyn std::error::
     garbage_collect(Arc::clone(&am), &clean_all_now(), None, 100).await?;
 
     // Delete /a's pruned-ancestor tx log, then diff: it should still succeed.
-    am.delete_transaction_logs(stream::once(async { (a.clone(), 0u64) }).boxed()).await?;
+    am.storage()
+        .delete_batch(
+            &StorageContext::unattributed(am.storage_settings()),
+            TRANSACTION_LOGS_FILE_PATH,
+            vec![(a.to_string(), 0u64)],
+        )
+        .await?;
     am.remove_cached_tx_log(&a);
 
     let diff = repo
@@ -1483,8 +1516,7 @@ async fn test_diff_skips_missing_pruned_log() -> Result<(), Box<dyn std::error::
 async fn test_inspect_shows_synthetic_composite() -> Result<(), Box<dyn std::error::Error>>
 {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
     let am = Arc::clone(repo.asset_manager());
 
     let g0 = commit_group(&repo, "main", "/").await?;
@@ -1533,9 +1565,14 @@ async fn test_inspect_shows_synthetic_composite() -> Result<(), Box<dyn std::err
 
     // GC retains the pruned-ancestor logs (c references them), so the composite
     // stays complete. Now simulate an older GC having deleted one of them.
-    use futures::stream;
     garbage_collect(Arc::clone(&am), &clean_all_now(), None, 100).await?;
-    am.delete_transaction_logs(stream::once(async { (a.clone(), 0u64) }).boxed()).await?;
+    am.storage()
+        .delete_batch(
+            &StorageContext::unattributed(am.storage_settings()),
+            TRANSACTION_LOGS_FILE_PATH,
+            vec![(a.to_string(), 0u64)],
+        )
+        .await?;
     am.remove_cached_tx_log(&a);
 
     // The composite now flags `a` as missing and drops its content (/a), while
@@ -1569,8 +1606,7 @@ async fn test_gc_reset_branch() -> Result<(), Box<dyn std::error::Error>> {
         1,
         DEFAULT_MAX_CONCURRENT_REQUESTS,
     ));
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
 
     let mut session = repo.writable_session("main").await?;
     let array_path: Path = "/array".to_string().try_into().unwrap();
@@ -1614,7 +1650,11 @@ async fn test_gc_reset_branch() -> Result<(), Box<dyn std::error::Error>> {
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -1669,8 +1709,7 @@ async fn test_expire_deletes_branch_sharing_tip_with_main()
 -> Result<(), Box<dyn std::error::Error>> {
     let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
     let storage_settings = storage.default_settings().await?;
-    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
-        .await?;
+    let repo = Repository::create(Arc::clone(&storage)).execute().await?;
 
     let mut session = repo.writable_session("main").await?;
     let user_data = Bytes::new();
@@ -1705,7 +1744,7 @@ async fn test_expire_deletes_branch_sharing_tip_with_main()
 
     assert!(result.deleted_refs.contains(&Ref::Branch("feature".to_string())));
 
-    let repo = Repository::open(None, Arc::clone(&storage), HashMap::new()).await?;
+    let repo = Repository::open(Arc::clone(&storage)).execute().await?;
     let branches = repo.list_branches().await?;
     assert!(branches.contains("main"));
     assert!(!branches.contains("feature"));
@@ -1721,17 +1760,13 @@ async fn test_gc_completes_with_one_decode_slot() -> Result<(), Box<dyn std::err
     // Without read latency every fetch completes at once and the deadlock never forms.
     let storage: Arc<dyn Storage + Send + Sync> =
         Arc::new(LatencyStorage::new(inner, 0, 5));
-    let repo = Repository::create(
-        Some(RepositoryConfig {
+    let repo = Repository::create(Arc::clone(&storage))
+        .config(RepositoryConfig {
             inline_chunk_threshold_bytes: Some(0),
             ..Default::default()
-        }),
-        Arc::clone(&storage),
-        HashMap::new(),
-        None,
-        true,
-    )
-    .await?;
+        })
+        .execute()
+        .await?;
     let arrays: Vec<Path> =
         (0..3).map(|i| format!("/array{i}").try_into().unwrap()).collect();
     let mut session = repo.writable_session("main").await?;
@@ -1750,8 +1785,10 @@ async fn test_gc_completes_with_one_decode_slot() -> Result<(), Box<dyn std::err
     for idx in 0..100u32 {
         let mut session = repo.writable_session("main").await?;
         for path in &arrays {
-            let payload =
-                session.get_chunk_writer()?(Bytes::from(vec![idx as u8; 8])).await?;
+            let payload = session.get_chunk_writer(path, &ChunkIndices(vec![idx]))?(
+                Bytes::from(vec![idx as u8; 8]),
+            )
+            .await?;
             session
                 .set_chunk_ref(path.clone(), ChunkIndices(vec![idx]), Some(payload))
                 .await?;
@@ -1760,19 +1797,24 @@ async fn test_gc_completes_with_one_decode_slot() -> Result<(), Box<dyn std::err
     }
 
     // The writing repository has everything cached; GC must fetch and decode.
-    let repo = Repository::open(
-        Some(RepositoryConfig { max_concurrent_decodes: Some(1), ..Default::default() }),
-        Arc::clone(&storage),
-        HashMap::new(),
-    )
-    .await?;
+    let repo = Repository::open(Arc::clone(&storage))
+        .config(RepositoryConfig {
+            max_concurrent_decodes: Some(1),
+            ..Default::default()
+        })
+        .execute()
+        .await?;
     let config = GCConfig::clean_all(
         Utc::now(),
         Utc::now(),
         None,
         NonZeroU16::new(25).unwrap(),
         NonZeroUsize::new(64 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(8).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         true,
     );
     let summary = tokio::time::timeout(
@@ -1781,5 +1823,104 @@ async fn test_gc_completes_with_one_decode_slot() -> Result<(), Box<dyn std::err
     )
     .await??;
     assert_eq!(summary.snapshots_deleted, 0);
+    Ok(())
+}
+
+/// Forks write a snapshot only to materialize the base session's uncommitted
+/// changes, and that snapshot is never registered in the repo info: it is
+/// unreachable garbage as soon as the fork is merged back. GC doesn't see it
+/// among the repo's snapshots, it finds it by listing the object store and
+/// deletes it once it's older than the cutoff.
+#[tokio_test]
+async fn test_fork_snapshots_are_unregistered() -> Result<(), Box<dyn std::error::Error>>
+{
+    let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+    let repo = Repository::create(Arc::clone(&storage))
+        .spec_version(SpecVersionBin::V2)
+        .execute()
+        .await?;
+    let asset_manager = Arc::clone(repo.asset_manager());
+
+    let array_path: Path = "/array".to_string().try_into().unwrap();
+    let mut session = repo.writable_session("main").await?;
+    session
+        .add_array(
+            array_path.clone(),
+            ArrayShape::new(vec![(4, 4)]).unwrap(),
+            Some(vec!["t".into()]),
+            Bytes::from_static(b"{}"),
+        )
+        .await?;
+    let init = session.commit("initialized").execute().await?;
+
+    // a session with no changes forks onto its own snapshot, writing nothing
+    let mut session = repo.writable_session("main").await?;
+    let listed_before = listed_snapshots(&repo).await?.len();
+    let fork = session.fork().await?;
+    assert_eq!(fork.snapshot_id(), &init);
+    assert_eq!(listed_snapshots(&repo).await?.len(), listed_before);
+
+    // a dirty session forks onto a new snapshot that records its changes
+    session
+        .set_chunk_ref(
+            array_path.clone(),
+            ChunkIndices(vec![0]),
+            Some(ChunkPayload::Inline("base".into())),
+        )
+        .await?;
+    let mut fork = session.fork().await?;
+    let fork_snap = fork.snapshot_id().clone();
+    assert_ne!(fork_snap, init);
+
+    // the fork reads the base session's uncommitted changes from it ...
+    let reader = fork
+        .get_chunk_reader(&array_path, &ChunkIndices(vec![0]), &ByteRange::ALL)
+        .await?;
+    assert_eq!(get_chunk(reader).await?, Some("base".into()));
+    // ... but it's not part of the repo
+    let (repo_info, _) = asset_manager.fetch_repo_info().await?;
+    assert!(repo_info.find_snapshot(&fork_snap).is_err());
+    assert!(repo.ancestry(&VersionInfo::SnapshotId(fork_snap.clone())).await.is_err());
+    assert!(
+        repo.readonly_session(&VersionInfo::SnapshotId(fork_snap.clone())).await.is_err()
+    );
+
+    fork.set_chunk_ref(
+        array_path.clone(),
+        ChunkIndices(vec![1]),
+        Some(ChunkPayload::Inline("worker".into())),
+    )
+    .await?;
+    session.merge(fork).await?;
+    session.commit("merged").execute().await?;
+
+    // GC finds the fork snapshot by listing and deletes it, the repo is untouched
+    let cutoff = cutoff_after_all_listed(&repo).await?;
+    let gc_config = GCConfig::clean_all(
+        cutoff,
+        cutoff,
+        None,
+        NonZeroU16::new(50).unwrap(),
+        NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
+        NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
+        false,
+    );
+    let summary =
+        garbage_collect(Arc::clone(&asset_manager), &gc_config, None, 100).await?;
+    assert_eq!(summary.snapshots_deleted, 1);
+    assert!(listed_snapshots(&repo).await?.iter().all(|s| s.id != fork_snap));
+
+    let session =
+        repo.readonly_session(&VersionInfo::BranchTipRef("main".to_string())).await?;
+    for (idx, expected) in [(0, "base"), (1, "worker")] {
+        let reader = session
+            .get_chunk_reader(&array_path, &ChunkIndices(vec![idx]), &ByteRange::ALL)
+            .await?;
+        assert_eq!(get_chunk(reader).await?, Some(expected.into()));
+    }
     Ok(())
 }

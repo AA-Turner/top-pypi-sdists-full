@@ -38,6 +38,10 @@ check-base-imports:
 # test commands
 
 TEST ?= tests/ ../runtime_inmem/tests/
+# Pin rootdir/config to this package. TEST includes ../runtime_inmem/tests/,
+# and in the monorepo that climbs past api/ to the root pyproject.toml which
+# has no [tool.pytest] — dropping pythonpath (e.g. apply_prerelease_version).
+PYTEST_ROOT_ARGS := --rootdir=. -c pyproject.toml
 PYTEST_WORKERS ?= 0
 AUTH_TEST ?= "tests/integration_tests/test_custom_auth.py"
 LANGGRAPH_HTTP ?= {"disable_mcp": false, "disable_a2a": false}
@@ -105,7 +109,7 @@ REVISION ?= $(shell git rev-parse --short HEAD)
 LANGGRAPH_ENCRYPTION ?=
 
 test-license-oss:
-	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(TEST)
+	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(PYTEST_ROOT_ARGS) $(XDIST_ARGS) $(TEST)
 
 test-watch-oss:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run --no-sync ptw . -- -x -vv --ff --capture=no $(TEST)
@@ -113,13 +117,13 @@ test-watch-oss:
 test: test-license-oss
 test-watch: test-watch-oss
 unit-test:
-	LANGGRAPH_RUNTIME_EDITION="inmem" DATABASE_URI="test" REDIS_URI="test" uv run pytest tests/unit_tests
+	LANGGRAPH_RUNTIME_EDITION="inmem" DATABASE_URI="test" REDIS_URI="test" uv run pytest $(PYTEST_ROOT_ARGS) tests/unit_tests
 
 unit-test-watch:
 	LANGGRAPH_RUNTIME_EDITION="inmem" DATABASE_URI="test" REDIS_URI="test" uv run ptw . -- -x -vv --ff --capture=no tests/unit_tests
 
 test-auth:
-	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:auth"}' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(AUTH_TEST)
+	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:auth"}' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(PYTEST_ROOT_ARGS) $(XDIST_ARGS) $(AUTH_TEST)
 
 test-with-server:
 	@bash -euo pipefail -c '$(MAKE) $(START_TARGET) LANGGRAPH_HTTP='\''$(LANGGRAPH_HTTP)'\'' & \
@@ -146,7 +150,7 @@ define FASTAPI_JWT_AUTH_TEST
 	DATABASE_URI=:memory: \
 	MIGRATIONS_PATH=__inmem__ \
 	LANGGRAPH_HTTP='{"app": "./tests/graphs/fastapi_jwt_middleware_ordering.py:app", "middleware_order": "$(1)", "enable_custom_route_auth": $(2)}' \
-	uv run pytest -v $(AUTH_TEST)
+	uv run pytest -v $(PYTEST_ROOT_ARGS) $(AUTH_TEST)
 endef
 
 test-auth-fastapi-jwt--before-custom-middleware--no-custom-route-auth:
@@ -171,7 +175,7 @@ test-auth-langsmith-api-keys:
 	REDIS_URI=_FAKE \
 	DATABASE_URI=:memory: \
 	MIGRATIONS_PATH=__inmem__ \
-	uv run pytest -v tests/integration_tests/test_langsmith_parallel_auth.py
+	uv run pytest -v $(PYTEST_ROOT_ARGS) tests/integration_tests/test_langsmith_parallel_auth.py
 
 # dev commands
 LANGGRAPH_DISABLE_FILE_PERSISTENCE ?= true

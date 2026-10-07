@@ -132,6 +132,7 @@ split_by_python_version = true
 "2.19" = ["3.8", "3.11", "3.13"]
 "2.20" = ["3.9", "3.12", "3.14"]
 "2.21" = ["3.9", "3.12", "3.14"]
+"2.22" = ["3.10", "3.13", "3.15"]
 
 [sessions.ansible_test_integration]
 session_name_template = "ansible-test-integration-{ansible_core}{dash_docker_short}{dash_remote}{dash_python_version}{dash_target_dashized}"
@@ -147,7 +148,6 @@ retry_on_error = "in-ci"
 "azp/generic/1/" = "generic group 1"
 
 [sessions.ansible_test_integration.nice_docker_names]
-"quay.io/ansible-community/test-image:debian-bullseye" = "Debian 11"
 "quay.io/ansible-community/test-image:debian-bookworm" = "Debian 12"
 "quay.io/ansible-community/test-image:debian-13-trixie" = "Debian 13"
 "quay.io/ansible-community/test-image:archlinux" = "Arch Linux"
@@ -225,7 +225,11 @@ docker = "default"
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "2.20"
 target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
-remote = [ "macos/15.3", "rhel/10.1", "freebsd/14.3" ]
+remote = [
+    "macos/15.3",
+    "rhel/10.1",
+    # "freebsd/14.3",
+]
 
 # Ansible-core 2.21:
 
@@ -256,6 +260,40 @@ remote = [
     # "macos/26.3",
     "rhel/10.1",
     # "rhel/9.7",
+    "freebsd/15.0",
+]
+
+# Ansible-core 2.22:
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-2.22"
+description = "Meta session for running all ansible-test-integration-2.22-* sessions."
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.22"
+target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
+docker = [
+    "fedora44",
+    "ubuntu2604",
+    # "ubuntu2404",
+    # "alpine324",
+]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.22"
+target = [ "azp/generic/1/" ]
+python_version = [ "3.9", "3.13", "3.15" ]
+docker = "default"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.22"
+target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
+remote = [
+    "macos/26.3",
+    "rhel/10.2",
+    # "rhel/9.8",
+    # "freebsd/15.1",
+    # "freebsd/14.5",
 ]
 
 # Ansible-core devel:
@@ -273,12 +311,6 @@ docker = [
     "ubuntu2404",
     "alpine324",
 ]
-
-[[sessions.ansible_test_integration.groups.sessions]]
-ansible_core = "devel"
-target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
-python_version = "3.9"
-docker = "quay.io/ansible-community/test-image:debian-bullseye"
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
@@ -307,7 +339,7 @@ docker = "quay.io/ansible-community/test-image:archlinux"
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/generic/1/" ]
-python_version = [ "3.9", "3.13", "3.15" ]
+python_version = [ "3.10", "3.13", "3.15" ]
 docker = "default"
 
 [[sessions.ansible_test_integration.groups.sessions]]
@@ -327,10 +359,8 @@ remote = [
     "macos/26.3",
     "rhel/10.2",
     "rhel/9.8",
-    # TODO: enable this ASAP!
-    # "freebsd/15.0",
-    # TODO: enable this ASAP!
-    # "freebsd/14.4",
+    "freebsd/15.1",
+    "freebsd/14.5",
 ]
 
 ##################################################################################################

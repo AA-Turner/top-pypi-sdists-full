@@ -136,29 +136,12 @@ def _get_tool_map() -> dict[str, Any]:
         travel_get_location,
         travel_get_restaurants,
         travel_get_weather,
-        userlist_batch_update,
-        # User Lists
-        userlist_create,
-        userlist_create_simple,
-        userlist_get_all,
-        userlist_get_details,
-        userlist_update_item,
-        usertable_add_rows,
-        # User Tables (simple)
-        usertable_create,
-        # User Tables (advanced)
-        usertable_create_advanced,
-        usertable_delete_row,
-        usertable_get_all,
-        usertable_get_data,
-        usertable_get_fields,
-        usertable_get_metadata,
-        usertable_search_data,
-        usertable_update_row,
         web_read,
         # Web
         web_search,
     )
+
+    from matrx_ai.tools.implementations.pick_list_tools import pick_list
 
     return {
         "math_calculate": math_calculate,
@@ -183,12 +166,7 @@ def _get_tool_map() -> dict[str, Any]:
         "fs_mkdir": fs_mkdir,
         "shell_execute": shell_execute,
         "shell_python": shell_python,
-        "userlist_create": userlist_create,
-        "userlist_create_simple": userlist_create_simple,
-        "userlist_get_all": userlist_get_all,
-        "userlist_get_details": userlist_get_details,
-        "userlist_update_item": userlist_update_item,
-        "userlist_batch_update": userlist_batch_update,
+        "pick_list": pick_list,
         "seo_check_meta_titles": seo_check_meta_titles,
         "seo_check_meta_descriptions": seo_check_meta_descriptions,
         "seo_check_meta_tags_batch": seo_check_meta_tags_batch,
@@ -198,16 +176,6 @@ def _get_tool_map() -> dict[str, Any]:
         "code_fetch_tree": code_fetch_tree,
         "code_execute_python": code_execute_python,
         "news_get_headlines": news_get_headlines,
-        "usertable_create": usertable_create,
-        "usertable_create_advanced": usertable_create_advanced,
-        "usertable_get_all": usertable_get_all,
-        "usertable_get_metadata": usertable_get_metadata,
-        "usertable_get_fields": usertable_get_fields,
-        "usertable_get_data": usertable_get_data,
-        "usertable_search_data": usertable_search_data,
-        "usertable_add_rows": usertable_add_rows,
-        "usertable_update_row": usertable_update_row,
-        "usertable_delete_row": usertable_delete_row,
         "interaction_ask": interaction_ask,
         "travel_get_location": travel_get_location,
         "travel_get_weather": travel_get_weather,
@@ -556,23 +524,63 @@ async def test_shell_python():
 # ============================================================================
 
 
-async def test_userlist_create_simple():
+# ============================================================================
+# PICK LISTS (one tool: pick_list, with actions)
+# ============================================================================
+
+
+async def test_pick_list_list():
+    return await run_tool("pick_list", {"action": "list", "page": 1, "page_size": 10})
+
+
+async def test_pick_list_get():
+    lists = await run_tool("pick_list", {"action": "list", "page": 1, "page_size": 1}, print_result=False)
+    out = getattr(lists, "output", None) or {}
+    rows = out.get("lists") or out.get("items") or []
+    if not rows:
+        print("  [skip] No pick lists found — run test_pick_list_create first.")
+        return lists
+    return await run_tool("pick_list", {"action": "get", "pick_list_id": rows[0]["id"]})
+
+
+async def test_pick_list_create():
     return await run_tool(
-        "userlist_create_simple",
+        "pick_list",
         {
-            "list_name": "Test Grocery List",
-            "description": "Weekly groceries",
-            "labels": ["Milk", "Eggs", "Bread", "Butter", "Apples"],
+            "action": "create",
+            "pick_list_name": "Tech Stack Choices",
+            "description": "Backend technology options",
+            "items": [
+                {"label": "FastAPI", "help_text": "Python async web framework", "group_name": "Python"},
+                {"label": "Django", "help_text": "Full-featured Python framework", "group_name": "Python"},
+                {"label": "Express", "help_text": "Node.js web framework", "group_name": "JavaScript"},
+            ],
         },
     )
 
 
-async def test_userlist_get_all():
+async def test_pick_list_update_item():
     return await run_tool(
-        "userlist_get_all",
+        "pick_list",
         {
-            "page": 1,
-            "page_size": 10,
+            "action": "update_item",
+            "item_id": "00000000-0000-0000-0000-000000000000",
+            "label": "Updated Label",
+            "help_text": "Updated via test_pick_list_update_item",
+        },
+    )
+
+
+async def test_pick_list_batch_update():
+    return await run_tool(
+        "pick_list",
+        {
+            "action": "batch_update",
+            "pick_list_id": "00000000-0000-0000-0000-000000000000",
+            "items": [
+                {"id": "00000000-0000-0000-0000-000000000001", "label": "Item A Updated"},
+                {"id": "00000000-0000-0000-0000-000000000002", "label": "Item B Updated"},
+            ],
         },
     )
 
@@ -679,196 +687,9 @@ async def test_news_get_headlines():
 # ============================================================================
 
 
-async def test_usertable_create():
-    return await run_tool(
-        "usertable_create",
-        {
-            "table_name": "Test Comparison Table",
-            "description": "Framework comparison",
-            "data": [
-                {"framework": "FastAPI", "language": "Python", "stars": 70000},
-                {"framework": "Express", "language": "JavaScript", "stars": 62000},
-                {"framework": "Gin", "language": "Go", "stars": 74000},
-            ],
-        },
-    )
-
-
 # ============================================================================
 # PERSONAL TABLES
 # ============================================================================
-
-
-async def test_usertable_create_advanced():
-    return await run_tool(
-        "usertable_create_advanced",
-        {
-            "table_name": "AI Model Benchmarks",
-            "description": "Benchmark scores for popular AI models",
-            "data": [
-                {
-                    "model": "GPT-5",
-                    "provider": "OpenAI",
-                    "mmlu_score": 92.3,
-                    "cost_per_m": 15.0,
-                },
-                {
-                    "model": "Claude Opus 4",
-                    "provider": "Anthropic",
-                    "mmlu_score": 91.8,
-                    "cost_per_m": 18.0,
-                },
-                {
-                    "model": "Gemini Ultra 2",
-                    "provider": "Google",
-                    "mmlu_score": 90.1,
-                    "cost_per_m": 10.0,
-                },
-            ],
-        },
-    )
-
-
-async def test_usertable_get_all():
-    return await run_tool("usertable_get_all", {})
-
-
-async def test_usertable_get_metadata():
-    result = await run_tool("usertable_get_all", {}, print_result=False)
-    content = result.get("content", "{}")
-    import json as _json
-
-    data = _json.loads(content) if isinstance(content, str) else content
-    tables = data.get("tables", [])
-    if not tables:
-        print("  [skip] No user tables found — run test_usertable_create_advanced first.")
-        return {}
-    table_id = tables[0]["table_id"]
-    return await run_tool("usertable_get_metadata", {"table_id": table_id})
-
-
-async def test_usertable_get_fields():
-    result = await run_tool("usertable_get_all", {}, print_result=False)
-    content = result.get("content", "{}")
-    import json as _json
-
-    data = _json.loads(content) if isinstance(content, str) else content
-    tables = data.get("tables", [])
-    if not tables:
-        print("  [skip] No user tables found — run test_usertable_create_advanced first.")
-        return {}
-    table_id = tables[0]["table_id"]
-    return await run_tool("usertable_get_fields", {"table_id": table_id})
-
-
-async def test_usertable_get_data():
-    result = await run_tool("usertable_get_all", {}, print_result=False)
-    content = result.get("content", "{}")
-    import json as _json
-
-    data = _json.loads(content) if isinstance(content, str) else content
-    tables = data.get("tables", [])
-    if not tables:
-        print("  [skip] No user tables found — run test_usertable_create_advanced first.")
-        return {}
-    table_id = tables[0]["table_id"]
-    return await run_tool("usertable_get_data", {"table_id": table_id, "limit": 10})
-
-
-async def test_usertable_search_data():
-    result = await run_tool("usertable_get_all", {}, print_result=False)
-    content = result.get("content", "{}")
-    import json as _json
-
-    data = _json.loads(content) if isinstance(content, str) else content
-    tables = data.get("tables", [])
-    if not tables:
-        print("  [skip] No user tables found — run test_usertable_create_advanced first.")
-        return {}
-    table_id = tables[0]["table_id"]
-    return await run_tool("usertable_search_data", {"table_id": table_id, "search_term": "OpenAI"})
-
-
-async def test_usertable_add_rows():
-    result = await run_tool("usertable_get_all", {}, print_result=False)
-    content = result.get("content", "{}")
-    import json as _json
-
-    data = _json.loads(content) if isinstance(content, str) else content
-    tables = data.get("tables", [])
-    if not tables:
-        print("  [skip] No user tables found — run test_usertable_create_advanced first.")
-        return {}
-    table_id = tables[0]["table_id"]
-    return await run_tool(
-        "usertable_add_rows",
-        {
-            "table_id": table_id,
-            "rows": [
-                {
-                    "model": "Llama 4",
-                    "provider": "Meta",
-                    "mmlu_score": 87.5,
-                    "cost_per_m": 0.5,
-                },
-            ],
-        },
-    )
-
-
-async def test_usertable_update_row():
-    import json as _json
-
-    tables_result = await run_tool("usertable_get_all", {}, print_result=False)
-    tables_data = _json.loads(tables_result.get("content", "{}"))
-    tables = tables_data.get("tables", [])
-    if not tables:
-        print("  [skip] No user tables — run test_usertable_create_advanced first.")
-        return {}
-    table_id = tables[0]["table_id"]
-
-    rows_result = await run_tool(
-        "usertable_get_data", {"table_id": table_id, "limit": 1}, print_result=False
-    )
-    rows_data = _json.loads(rows_result.get("content", "{}"))
-    rows = rows_data.get("rows", [])
-    if not rows:
-        print("  [skip] No rows in table.")
-        return {}
-    row_id = rows[0]["row_id"]
-    existing = rows[0]["data"]
-    updated = {**existing, "mmlu_score": 99.9}
-    return await run_tool(
-        "usertable_update_row",
-        {
-            "row_id": row_id,
-            "table_id": table_id,
-            "data": updated,
-        },
-    )
-
-
-async def test_usertable_delete_row():
-    import json as _json
-
-    tables_result = await run_tool("usertable_get_all", {}, print_result=False)
-    tables_data = _json.loads(tables_result.get("content", "{}"))
-    tables = tables_data.get("tables", [])
-    if not tables:
-        print("  [skip] No user tables.")
-        return {}
-    table_id = tables[0]["table_id"]
-
-    rows_result = await run_tool(
-        "usertable_get_data", {"table_id": table_id, "limit": 1}, print_result=False
-    )
-    rows_data = _json.loads(rows_result.get("content", "{}"))
-    rows = rows_data.get("rows", [])
-    if not rows:
-        print("  [skip] No rows to delete.")
-        return {}
-    row_id = rows[0]["row_id"]
-    return await run_tool("usertable_delete_row", {"row_id": row_id, "table_id": table_id})
 
 
 # ============================================================================
@@ -1101,69 +922,6 @@ async def test_code_execute_python_with_markers():
 # ============================================================================
 
 
-async def test_userlist_create():
-    return await run_tool(
-        "userlist_create",
-        {
-            "list_name": "Tech Stack Choices",
-            "description": "Backend technology options",
-            "items": [
-                {
-                    "label": "FastAPI",
-                    "description": "Python async web framework",
-                    "group_name": "Python",
-                },
-                {
-                    "label": "Django",
-                    "description": "Full-featured Python framework",
-                    "group_name": "Python",
-                },
-                {
-                    "label": "Express",
-                    "description": "Node.js web framework",
-                    "group_name": "JavaScript",
-                },
-            ],
-        },
-    )
-
-
-async def test_userlist_get_details():
-    lists = await run_tool("userlist_get_all", {"page": 1, "page_size": 1})
-    return lists
-
-
-async def test_userlist_update_item():
-    return await run_tool(
-        "userlist_update_item",
-        {
-            "item_id": "00000000-0000-0000-0000-000000000000",
-            "label": "Updated Label",
-            "description": "Updated via test_update_list_item",
-        },
-    )
-
-
-async def test_userlist_batch_update():
-    return await run_tool(
-        "userlist_batch_update",
-        {
-            "list_id": "00000000-0000-0000-0000-000000000000",
-            "items": [
-                {
-                    "id": "00000000-0000-0000-0000-000000000001",
-                    "label": "Item A Updated",
-                },
-                {
-                    "id": "00000000-0000-0000-0000-000000000002",
-                    "label": "Item B Updated",
-                    "group_name": "Group X",
-                },
-            ],
-        },
-    )
-
-
 # ============================================================================
 # ALL AVAILABLE TESTS
 # ============================================================================
@@ -1177,19 +935,13 @@ async def test_userlist_batch_update():
 #               test_memory_update, test_memory_forget
 #   Filesystem: test_fs_write_then_read, test_fs_list, test_fs_search, test_fs_mkdir
 #   Shell:      test_shell_execute, test_shell_python
-#   User Lists: test_userlist_create, test_userlist_create_simple,
-#               test_userlist_get_all, test_userlist_get_details,
-#               test_userlist_update_item, test_userlist_batch_update
+#   Pick Lists: test_pick_list_list, test_pick_list_get, test_pick_list_create,
+#               test_pick_list_update_item, test_pick_list_batch_update
 #   SEO:        test_seo_check_meta_titles, test_seo_check_meta_descriptions,
 #               test_seo_check_meta_tags_batch, test_seo_get_keyword_data
 #   Code:       test_code_store_html, test_code_fetch_code, test_code_fetch_tree,
 #               test_code_execute_python, test_code_execute_python_with_markers
 #   News:       test_news_get_headlines
-#   User Tables:test_usertable_create, test_usertable_create_advanced,
-#               test_usertable_get_all, test_usertable_get_metadata,
-#               test_usertable_get_fields, test_usertable_get_data,
-#               test_usertable_search_data, test_usertable_add_rows,
-#               test_usertable_update_row, test_usertable_delete_row
 #   Interaction:test_interaction_ask
 #   Travel:     test_travel_get_location, test_travel_get_weather,
 #               test_travel_get_restaurants, test_travel_get_activities,
@@ -1224,12 +976,11 @@ ALL_TESTS: list[tuple[str, str, Any]] = [
     # 22-26 were the legacy in-package browser_* tools — deleted; the
     # cloud_browser_* tools live in aidream/services/cloud_browser and are
     # covered by aidream/services/cloud_browser/tests.
-    ("27", "userlist_create            [User Lists]", test_userlist_create),
-    ("28", "userlist_create_simple     [User Lists]", test_userlist_create_simple),
-    ("29", "userlist_get_all           [User Lists]", test_userlist_get_all),
-    ("30", "userlist_get_details       [User Lists]", test_userlist_get_details),
-    ("31", "userlist_update_item       [User Lists]", test_userlist_update_item),
-    ("32", "userlist_batch_update      [User Lists]", test_userlist_batch_update),
+    ("27", "pick_list list            [Pick Lists]", test_pick_list_list),
+    ("27b", "pick_list get            [Pick Lists]", test_pick_list_get),
+    ("27c", "pick_list create         [Pick Lists]", test_pick_list_create),
+    ("27d", "pick_list update_item    [Pick Lists]", test_pick_list_update_item),
+    ("27e", "pick_list batch_update   [Pick Lists]", test_pick_list_batch_update),
     ("33", "seo_check_meta_titles      [SEO]", test_seo_check_meta_titles),
     ("34", "seo_check_meta_descriptions[SEO]", test_seo_check_meta_descriptions),
     ("35", "seo_check_meta_tags_batch  [SEO]", test_seo_check_meta_tags_batch),
@@ -1240,16 +991,6 @@ ALL_TESTS: list[tuple[str, str, Any]] = [
     ("40", "code_execute_python        [Code]", test_code_execute_python),
     ("41", "code_execute_python_markers[Code]", test_code_execute_python_with_markers),
     ("42", "news_get_headlines         [News]", test_news_get_headlines),
-    ("43", "usertable_create           [User Tables]", test_usertable_create),
-    ("44", "usertable_create_advanced  [User Tables]", test_usertable_create_advanced),
-    ("45", "usertable_get_all          [User Tables]", test_usertable_get_all),
-    ("46", "usertable_get_metadata     [User Tables]", test_usertable_get_metadata),
-    ("47", "usertable_get_fields       [User Tables]", test_usertable_get_fields),
-    ("48", "usertable_get_data         [User Tables]", test_usertable_get_data),
-    ("49", "usertable_search_data      [User Tables]", test_usertable_search_data),
-    ("50", "usertable_add_rows         [User Tables]", test_usertable_add_rows),
-    ("51", "usertable_update_row       [User Tables]", test_usertable_update_row),
-    ("52", "usertable_delete_row       [User Tables]", test_usertable_delete_row),
     ("53", "interaction_ask            [Interaction]", test_interaction_ask),
     ("54", "travel_get_location        [Travel]", test_travel_get_location),
     ("55", "travel_get_weather         [Travel]", test_travel_get_weather),

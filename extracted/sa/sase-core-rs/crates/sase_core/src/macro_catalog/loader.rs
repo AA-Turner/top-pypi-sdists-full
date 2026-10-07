@@ -15,20 +15,50 @@ use crate::content_layout::{
 use super::entries::*;
 use super::parsing::*;
 use super::types::*;
+
+fn load_input_type_registry(
+    option_files: &[crate::macro_input_types::PluginInputTypeFileRecord],
+) -> crate::macro_input_types::InputTypeRegistry {
+    let mut files: Vec<crate::macro_input_types::PluginInputTypeFileRecord> =
+        option_files.to_vec();
+    files.extend(plugin_input_type_files_from_env());
+    // Deduplicate by (distribution, path, module) for determinism; the
+    // loader itself dedupes same-file aliases.
+    files.sort_by(|a, b| {
+        (a.distribution.as_str(), a.path.as_str(), a.module.as_str()).cmp(&(
+            b.distribution.as_str(),
+            b.path.as_str(),
+            b.module.as_str(),
+        ))
+    });
+    files.dedup();
+    let (registry, _diagnostics) =
+        crate::macro_input_types::load_plugin_input_type_registry(&files);
+    registry
+}
+
+fn plugin_input_type_files_from_env(
+) -> Vec<crate::macro_input_types::PluginInputTypeFileRecord> {
+    let Ok(raw) = env::var(SASE_MACRO_PLUGIN_INPUT_TYPES_JSON_ENV) else {
+        return Vec::new();
+    };
+    serde_json::from_str::<
+        Vec<crate::macro_input_types::PluginInputTypeFileRecord>,
+    >(&raw)
+    .unwrap_or_default()
+}
 #[derive(Debug, Clone)]
 pub(super) struct CatalogLoader {
     pub(super) root_dir: Option<PathBuf>,
     pub(super) home_dir: Option<PathBuf>,
-    pub(super) package_xprompts_dir: Option<PathBuf>,
     pub(super) package_macros_dir: Option<PathBuf>,
     pub(super) package_skills_dir: Option<PathBuf>,
-    pub(super) default_xprompts_dir: Option<PathBuf>,
     pub(super) default_macros_dir: Option<PathBuf>,
     pub(super) default_config_path: Option<PathBuf>,
-    pub(super) plugin_xprompt_dirs: BTreeMap<String, PathBuf>,
     pub(super) plugin_macro_dirs: BTreeMap<String, PathBuf>,
     pub(super) plugin_skill_dirs: BTreeMap<String, PathBuf>,
     pub(super) plugin_config_paths: BTreeMap<String, PathBuf>,
+    pub(super) input_type_registry: crate::macro_input_types::InputTypeRegistry,
     pub(super) accept_legacy_xprompt_names: bool,
     pub(super) known_workspaces: BTreeMap<String, PathBuf>,
     pub(super) canonical_project_refs: BTreeMap<String, String>,
@@ -36,7 +66,7 @@ pub(super) struct CatalogLoader {
     /// the catalog can name the offending source and its migration
     /// destination instead of silently losing it.
     pub(super) skill_issues: RefCell<Vec<SkillPlacementIssueWire>>,
-    /// Definitions dropped by the xprompt-memory rules: a reserved `memory/`
+    /// Definitions dropped by the macro-memory rules: a reserved `memory/`
     /// reference claimed by an ordinary definition, an unreachable note stem,
     /// or a file in a memory root that is not a valid memory note.
     pub(super) memory_issues: RefCell<Vec<MemoryMacroIssueWire>>,
@@ -47,16 +77,15 @@ impl Default for CatalogLoader {
         Self {
             root_dir: None,
             home_dir: None,
-            package_xprompts_dir: None,
             package_macros_dir: None,
             package_skills_dir: None,
-            default_xprompts_dir: None,
             default_macros_dir: None,
             default_config_path: None,
-            plugin_xprompt_dirs: BTreeMap::new(),
             plugin_macro_dirs: BTreeMap::new(),
             plugin_skill_dirs: BTreeMap::new(),
             plugin_config_paths: BTreeMap::new(),
+            input_type_registry:
+                crate::macro_input_types::InputTypeRegistry::builtin(),
             accept_legacy_xprompt_names: true,
             known_workspaces: BTreeMap::new(),
             canonical_project_refs: BTreeMap::new(),
@@ -81,58 +110,25 @@ impl CatalogLoader {
         let root_dir = options.root_dir.clone();
         let home_dir = env::var_os("HOME").map(PathBuf::from);
         // Explicit resource options retain precedence over inferred
-        // environment/package paths.
-        let xprompt_package_root =
-            env::var_os("SASE_XPROMPT_PACKAGE_DIR").map(PathBuf::from);
-        let macro_package_root = env::var_os(SASE_MACRO_PACKAGE_DIR_ENV)
-            .map(PathBuf::from)
-            .or_else(|| xprompt_package_root.clone());
-        let package_xprompts_dir = options
-            .package_xprompts_dir
-            .clone()
-            .or_else(|| env_path("SASE_XPROMPT_BUILTIN_DIR"))
-            .or_else(|| {
-                xprompt_package_root
-                    // legacy xprompt spelling (retired `xprompts` dir)
-                    .as_ref()
-                    .map(|root| root.join("xprompts"))
-            });
+        // environment/package paths. Only macro keys are accepted; retired
+        // xprompt option spellings were removed in the key-flip.
+        let macro_package_root =
+            env::var_os(SASE_MACRO_PACKAGE_DIR_ENV).map(PathBuf::from);
         let package_macros_dir = options
             .package_macros_dir
             .clone()
             .or_else(|| env_path(SASE_MACRO_BUILTIN_DIR_ENV))
             .or_else(|| {
                 macro_package_root.as_ref().map(|root| root.join("macros"))
-            })
-            .or_else(|| {
-                xprompt_package_root
-                    .as_ref()
-                    .map(|root| root.join("macros"))
             });
         let package_skills_dir = options
             .package_skills_dir
             .clone()
             .or_else(|| env_path("SASE_SKILL_BUILTIN_DIR"))
             .or_else(|| {
-                xprompt_package_root.as_ref().map(|root| {
-                    // legacy xprompt spelling (retired `xprompts/skills`)
-                    root.join("xprompts").join(SKILL_DIRECTORY_SEGMENT)
-                })
-            })
-            .or_else(|| {
                 macro_package_root.as_ref().map(|root| {
                     root.join("macros").join(SKILL_DIRECTORY_SEGMENT)
                 })
-            });
-        let default_xprompts_dir = options
-            .default_xprompts_dir
-            .clone()
-            .or_else(|| env_path("SASE_XPROMPT_DEFAULT_DIR"))
-            .or_else(|| {
-                xprompt_package_root
-                    .as_ref()
-                    // legacy xprompt spelling (retired `default_xprompts`)
-                    .map(|root| root.join("default_xprompts"))
             });
         let default_macros_dir = options
             .default_macros_dir
@@ -140,11 +136,6 @@ impl CatalogLoader {
             .or_else(|| env_path(SASE_MACRO_DEFAULT_DIR_ENV))
             .or_else(|| {
                 macro_package_root
-                    .as_ref()
-                    .map(|root| root.join("default_macros"))
-            })
-            .or_else(|| {
-                xprompt_package_root
                     .as_ref()
                     .map(|root| root.join("default_macros"))
             });
@@ -156,20 +147,10 @@ impl CatalogLoader {
                 macro_package_root
                     .as_ref()
                     .map(|root| root.join("default_config.yml"))
-            })
-            .or_else(|| {
-                xprompt_package_root
-                    .as_ref()
-                    .map(|root| root.join("default_config.yml"))
             });
-        // Explicit plugin maps win over transport variables. Macro and
-        // retired families stay separate so both load with macro winning;
-        // each family resolves its own transport variable.
-        let plugin_xprompt_dirs = if options.plugin_xprompt_dirs.is_empty() {
-            plugin_path_map_from_env(SASE_XPROMPT_PLUGIN_DIRS_JSON_ENV)
-        } else {
-            options.plugin_xprompt_dirs.clone()
-        };
+        // Explicit plugin maps win over transport variables. Only the macro
+        // transport variable is read; retired xprompt plugin dirs load only
+        // through the legacy macro_sources list when the policy allows.
         let plugin_macro_dirs = if options.plugin_macro_dirs.is_empty() {
             plugin_path_map_from_env(SASE_MACRO_PLUGIN_DIRS_JSON_ENV)
         } else {
@@ -189,25 +170,31 @@ impl CatalogLoader {
             options.plugin_config_paths.clone()
         };
         let known_projects = known_projects(home_dir.as_deref());
+        let input_type_registry =
+            load_input_type_registry(&options.plugin_input_type_files);
         Self {
             root_dir,
             home_dir,
-            package_xprompts_dir,
             package_macros_dir,
             package_skills_dir,
-            default_xprompts_dir,
             default_macros_dir,
             default_config_path,
-            plugin_xprompt_dirs,
             plugin_macro_dirs,
             plugin_skill_dirs,
             plugin_config_paths,
+            input_type_registry,
             accept_legacy_xprompt_names: options.accept_legacy_xprompt_names,
             known_workspaces: known_projects.workspaces,
             canonical_project_refs: known_projects.canonical_refs,
             skill_issues: RefCell::new(Vec::new()),
             memory_issues: RefCell::new(Vec::new()),
         }
+    }
+
+    pub(super) fn input_type_registry(
+        &self,
+    ) -> &crate::macro_input_types::InputTypeRegistry {
+        &self.input_type_registry
     }
 
     pub(super) fn canonical_project(
@@ -266,27 +253,27 @@ impl CatalogLoader {
             }
         }
 
-        for (name, xprompt) in self.load_all_macros(effective_project)? {
+        for (name, macro_entry) in self.load_all_macros(effective_project)? {
             if workflow_names.contains(&name) {
                 continue;
             }
-            let source = xprompt.source_path.clone().unwrap_or_default();
+            let source = macro_entry.source_path.clone().unwrap_or_default();
             if !seen.insert((source, name.clone())) {
                 continue;
             }
             let (bucket, source_project) =
-                self.classify_source(xprompt.source_path.as_deref(), None);
-            let workflow = macro_to_workflow(&xprompt);
+                self.classify_source(macro_entry.source_path.as_deref(), None);
+            let workflow = macro_to_workflow(&macro_entry);
             sources.push(StructuredSource {
                 name,
                 workflow,
                 bucket,
                 project: source_project,
-                description: xprompt.description,
-                is_skill: xprompt.is_skill,
-                skill_name: xprompt.skill_name,
-                memory_type: xprompt.memory_type,
-                content: xprompt.content,
+                description: macro_entry.description,
+                is_skill: macro_entry.is_skill,
+                skill_name: macro_entry.skill_name,
+                memory_type: macro_entry.memory_type,
+                content: macro_entry.content,
                 definition_section: DefinitionSection::Macros,
             });
         }
@@ -305,22 +292,23 @@ impl CatalogLoader {
             project_macros.extend(
                 self.load_project_file_macros(project_name, workspace)?,
             );
-            for (name, xprompt) in project_macros {
-                let source = xprompt.source_path.clone().unwrap_or_default();
+            for (name, macro_entry) in project_macros {
+                let source =
+                    macro_entry.source_path.clone().unwrap_or_default();
                 if !seen.insert((source, name.clone())) {
                     continue;
                 }
-                let workflow = macro_to_workflow(&xprompt);
+                let workflow = macro_to_workflow(&macro_entry);
                 sources.push(StructuredSource {
                     name,
                     workflow,
                     bucket: "project".to_string(),
                     project: Some(project_name.clone()),
-                    description: xprompt.description,
-                    is_skill: xprompt.is_skill,
-                    skill_name: xprompt.skill_name,
-                    memory_type: xprompt.memory_type,
-                    content: xprompt.content,
+                    description: macro_entry.description,
+                    is_skill: macro_entry.is_skill,
+                    skill_name: macro_entry.skill_name,
+                    memory_type: macro_entry.memory_type,
+                    content: macro_entry.content,
                     definition_section: DefinitionSection::Macros,
                 });
             }
@@ -356,26 +344,26 @@ impl CatalogLoader {
             );
         }
 
-        self.load_all_macros(None).map(|xprompts| {
-            xprompts
+        self.load_all_macros(None).map(|macros| {
+            macros
                 .into_iter()
-                .filter_map(|(name, xprompt)| {
-                    xprompt.is_skill.then(|| {
+                .filter_map(|(name, macro_entry)| {
+                    macro_entry.is_skill.then(|| {
                         let (bucket, project) = self.classify_source(
-                            xprompt.source_path.as_deref(),
+                            macro_entry.source_path.as_deref(),
                             None,
                         );
-                        let workflow = macro_to_workflow(&xprompt);
+                        let workflow = macro_to_workflow(&macro_entry);
                         StructuredSource {
                             name,
                             workflow,
                             bucket,
                             project,
-                            description: xprompt.description,
-                            is_skill: xprompt.is_skill,
-                            skill_name: xprompt.skill_name,
-                            memory_type: xprompt.memory_type,
-                            content: xprompt.content,
+                            description: macro_entry.description,
+                            is_skill: macro_entry.is_skill,
+                            skill_name: macro_entry.skill_name,
+                            memory_type: macro_entry.memory_type,
+                            content: macro_entry.content,
                             definition_section: DefinitionSection::Macros,
                         }
                     })
@@ -419,16 +407,6 @@ impl CatalogLoader {
         project: Option<&str>,
     ) -> Result<BTreeMap<String, CatalogMacro>, MacroCatalogLoadError> {
         let mut all = BTreeMap::new();
-        // Retired first, canonical last so canonical wins on conflict.
-        // Explicit retired options are skipped when the policy is false.
-        if self.retired_allowed() {
-            if let Some(dir) = &self.package_xprompts_dir {
-                all.extend(self.load_macros_from_dir(dir, None, false)?);
-            }
-            if let Some(dir) = &self.default_xprompts_dir {
-                all.extend(self.load_macros_from_dir(dir, None, false)?);
-            }
-        }
         if let Some(dir) = &self.package_macros_dir {
             all.extend(self.load_macros_from_dir(dir, None, false)?);
         }
@@ -453,7 +431,7 @@ impl CatalogLoader {
         }
 
         // Skills live in their own `skill/` reference namespace, so they can
-        // never shadow (or be shadowed by) an ordinary xprompt of the same
+        // never shadow (or be shadowed by) an ordinary macro of the same
         // bare name. Lowest priority first, so the canonical directory
         // sources win. Skills and memory placement is preserved independent
         // of the legacy policy.
@@ -481,8 +459,8 @@ impl CatalogLoader {
             )?);
         }
 
-        // Xprompt memories own the reserved `memory/` namespace, so they never
-        // collide with an ordinary xprompt or a skill. Home first, so the
+        // Macro memories own the reserved `memory/` namespace, so they never
+        // collide with an ordinary macro or a skill. Home first, so the
         // selected project's note shadows a same-stem home note.
         for source in self.memory_sources(project).into_iter().rev() {
             all.extend(self.load_memory_notes(&source)?);
@@ -496,11 +474,6 @@ impl CatalogLoader {
         project: Option<&str>,
     ) -> Result<BTreeMap<String, CatalogWorkflow>, MacroCatalogLoadError> {
         let mut all = BTreeMap::new();
-        if self.retired_allowed() {
-            if let Some(dir) = &self.package_xprompts_dir {
-                all.extend(self.load_workflows_from_dir(dir, None, false)?);
-            }
-        }
         if let Some(dir) = &self.package_macros_dir {
             all.extend(self.load_workflows_from_dir(dir, None, false)?);
         }
@@ -591,7 +564,7 @@ impl CatalogLoader {
             .collect()
     }
 
-    /// Ordered xprompt-memory sources for the selected project and home.
+    /// Ordered macro-memory sources for the selected project and home.
     ///
     /// The project scope follows the selection rather than the reference name:
     /// an explicitly requested registered project contributes its own
@@ -614,11 +587,11 @@ impl CatalogLoader {
             .collect()
     }
 
-    /// Load one scope's flat memory notes as no-argument xprompt memories.
+    /// Load one scope's flat memory notes as no-argument macro memories.
     ///
     /// Split canonical/legacy memory state stays an error, `README.md` and
     /// nested assets are not catalog entries, and a file that is not a valid
-    /// memory note becomes a diagnostic instead of an ordinary xprompt.
+    /// memory note becomes a diagnostic instead of an ordinary macro.
     fn load_memory_notes(
         &self,
         source: &MemorySourceWire,
@@ -681,7 +654,7 @@ impl CatalogLoader {
 
     /// Canonical skill directory for the scope owning `dir`, used as the
     /// migration destination when a skill declaration turns up in an ordinary
-    /// xprompt directory.
+    /// macro directory.
     pub(super) fn skill_destination_for_macro_dir(
         &self,
         dir: &Path,

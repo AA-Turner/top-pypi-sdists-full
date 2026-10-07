@@ -736,6 +736,9 @@ def _prune_empty_container(params: dict[str, Any], container: str | None) -> dic
 #                                             the family's default table)
 #            thinking_budget -> level         rule.from_number
 #            reasoning_summary -> include     processor_config["summary_to_include"]
+#   both     include_thoughts NOT SET ->      processor_config["default_include_thoughts"]
+#            (cell-declared, with default_include_thoughts_why; explicit false /
+#            reasoning_summary "never" always win)
 # House values (ai_041): "auto" never reaches a table (fragment stays empty, the
 # provider default applies); "none" sends nothing (no level, no budget).
 # Non-native gemini_3 tiers (pro medium -> low, xhigh -> high) are TRANSLATION
@@ -809,6 +812,11 @@ def _google_thinking_legacy_fragment(
 ) -> dict[str, Any]:
     fragment: dict[str, Any] = {}
     include_thoughts = canonical.get("include_thoughts")
+    if include_thoughts is None:
+        # NOT SET: Gemini hides thoughts by default, so a thinking run streams
+        # nothing until the answer. Only a cell-declared default rides
+        # (processor_config.default_include_thoughts), as with together's default_effort.
+        include_thoughts = ctx.config.get("default_include_thoughts")
     if include_thoughts is not None:
         fragment["include_thoughts"] = include_thoughts
 
@@ -867,6 +875,12 @@ def _google_thinking_3_fragment(
 
     if canonical.get("include_thoughts") is not None:
         include_thoughts = canonical["include_thoughts"]
+    if include_thoughts is None:
+        # NOT SET (no include_thoughts, no reasoning_summary that maps to one):
+        # only a cell-declared default rides (processor_config.default_include_thoughts).
+        # Gemini hides thoughts unless asked, so without it a thinking run streams
+        # nothing for up to 70s (live 2026-10-07).
+        include_thoughts = ctx.config.get("default_include_thoughts")
 
     # The family maps above are per-FAMILY; whether THIS model accepts the level
     # they produced is per-MODEL, and only the offering knows it. Gemini 3.5

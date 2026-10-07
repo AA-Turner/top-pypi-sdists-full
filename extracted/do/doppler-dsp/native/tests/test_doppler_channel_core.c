@@ -290,6 +290,235 @@ main (void)
     free (seq);
   }
 
+  /* ---- 8. profile mode: the carrier is the resampler's, so chunking and
+          the closed form both hold ------------------------------------- */
+  {
+    /* More than one internal block (DOPPLER_CHANNEL_MAX_BLOCK) so the
+       reverted first attempt's per-block chord would have been re-cut. */
+    size_t          n   = 3u * DOPPLER_CHANNEL_MAX_BLOCK / 2u;
+    float _Complex *xs  = malloc (n * sizeof *xs);
+    double         *ppm = malloc (n * sizeof *ppm);
+    DP_CHECK (xs && ppm);
+    for (size_t i = 0; i < n; i++)
+      {
+        xs[i]  = 1.0f + 0.0f * I;
+        ppm[i] = 25.0 * cos (3.14159265358979323846 * (double)i / (double)n);
+      }
+
+    dp_doppler_channel_state_t *whole_ch
+        = dp_doppler_channel_create (T_FS, T_FC, 0.0, 0.0);
+    size_t          cap   = 2u * n + 2u;
+    float _Complex *whole = malloc (cap * sizeof *whole);
+    DP_CHECK (whole_ch && whole);
+    size_t nw = dp_doppler_channel_execute_profile (whole_ch, xs, n, ppm, n,
+                                                    whole, cap);
+    DP_CHECK (nw > 0);
+
+    /* 8a. Chunk-independence, bit for bit, at block sizes that do not divide
+       each other. This is the assertion the first attempt failed (2.75e-2). */
+    static const size_t blocks[] = { 1000u, 7777u, 10000u, 50000u };
+    for (size_t b = 0; b < sizeof blocks / sizeof *blocks; b++)
+      {
+        dp_doppler_channel_state_t *ch
+            = dp_doppler_channel_create (T_FS, T_FC, 0.0, 0.0);
+        float _Complex *y = malloc (cap * sizeof *y);
+        DP_CHECK (ch && y);
+        size_t ny = 0;
+        for (size_t off = 0; off < n; off += blocks[b])
+          {
+            size_t m = (n - off < blocks[b]) ? n - off : blocks[b];
+            ny += dp_doppler_channel_execute_profile (
+                ch, xs + off, m, ppm + off, m, y + ny, cap - ny);
+          }
+        DP_CHECK (ny == nw);
+        int same = 1;
+        for (size_t i = 0; i < nw && i < ny; i++)
+          if (crealf (y[i]) != crealf (whole[i])
+              || cimagf (y[i]) != cimagf (whole[i]))
+            same = 0;
+        DP_CHECK (same);
+        free (y);
+        dp_doppler_channel_destroy (ch);
+      }
+
+    /* 8b. A flat profile is the scalar route to the rate quantum: the
+       resampler steps in 2^-32 of an input interval, so the carrier read off
+       it differs from the ideal closed form by at most fc*2^-32 Hz, i.e. a
+       phase of at most 2*pi*fc*2^-32*T. */
+    {
+      size_t          nf   = 200000u;
+      size_t          fcap = 2u * nf + 2u;
+      float _Complex *ones = malloc (nf * sizeof *ones);
+      double         *flat = malloc (nf * sizeof *flat);
+      float _Complex *ya   = malloc (fcap * sizeof *ya);
+      float _Complex *yb   = malloc (fcap * sizeof *yb);
+      DP_CHECK (ones && flat && ya && yb);
+      for (size_t i = 0; i < nf; i++)
+        {
+          ones[i] = 1.0f + 0.0f * I;
+          flat[i] = T_PPM;
+        }
+      dp_doppler_channel_state_t *sc
+          = dp_doppler_channel_create (T_FS, T_FC, T_PPM, 0.0);
+      dp_doppler_channel_state_t *pr
+          = dp_doppler_channel_create (T_FS, T_FC, 0.0, 0.0);
+      DP_CHECK (sc && pr);
+      /* the scalar form takes at most a MAX_BLOCK block per call */
+      size_t na = 0;
+      for (size_t off = 0; off < nf; off += DOPPLER_CHANNEL_MAX_BLOCK)
+        {
+          size_t m = (nf - off < DOPPLER_CHANNEL_MAX_BLOCK)
+                         ? nf - off
+                         : DOPPLER_CHANNEL_MAX_BLOCK;
+          na += dp_doppler_channel_execute (sc, ones + off, m, ya + na,
+                                            fcap - na);
+        }
+      size_t nb = dp_doppler_channel_execute_profile (pr, ones, nf, flat, nf,
+                                                      yb, fcap);
+      DP_CHECK (na == nb);
+      double bound = 2.0 * 3.14159265358979323846 * T_FC
+                     * 2.3283064365386963e-10 * ((double)nb / T_FS);
+      double worst = 0.0;
+      for (size_t i = 200; i < nb && i < na; i++)
+        {
+          double d = cargf (ya[i] * conjf (yb[i]));
+          if (fabs (d) > worst)
+            worst = fabs (d);
+        }
+      printf ("  flat profile vs scalar: worst phase %.4f rad, bound %.4f\n",
+              worst, bound);
+      DP_CHECK (worst <= bound);
+      free (ones);
+      free (flat);
+      free (ya);
+      free (yb);
+      dp_doppler_channel_destroy (sc);
+      dp_doppler_channel_destroy (pr);
+    }
+
+    /* 8c. Invalid calls write nothing: length mismatch, a time-reversing
+       sample LAST (checked before any output), NULL pointers. */
+    {
+      dp_doppler_channel_state_t *ch
+          = dp_doppler_channel_create (T_FS, T_FC, 0.0, 0.0);
+      float _Complex *y = malloc (cap * sizeof *y);
+      DP_CHECK (ch && y);
+      DP_CHECK (
+          dp_doppler_channel_execute_profile (ch, xs, 1000, ppm, 999, y, cap)
+          == 0);
+      double saved = ppm[999];
+      ppm[999]     = -2.0e6;
+      DP_CHECK (
+          dp_doppler_channel_execute_profile (ch, xs, 1000, ppm, 1000, y, cap)
+          == 0);
+      ppm[999] = saved;
+      DP_CHECK (dp_doppler_channel_execute_profile (ch, NULL, 1000, ppm, 1000,
+                                                    y, cap)
+                == 0);
+      DP_CHECK (
+          dp_doppler_channel_execute_profile (ch, xs, 1000, NULL, 1000, y, cap)
+          == 0);
+      DP_CHECK (dp_doppler_channel_get_elapsed_s (ch) == 0.0);
+      free (y);
+      dp_doppler_channel_destroy (ch);
+    }
+
+    /* 8c2. The validation and the sizing are ONE number (PR #1857 review).
+       execute_profile_max_out() holds a 2x expansion, so a scale under 1/2
+       would ask for more outputs than the buffer has and the kernel would
+       stop short -- silently, after advancing the input clock. It is refused
+       instead. Just inside the floor every output is produced and none is
+       lost to the cap; non-finite samples are refused too (+inf passes a
+       "> 0" test and used to yield a single output with no error). The
+       boundary itself is not tested: 1 + (-5e5)*1e-6 is not exactly 0.5. */
+    {
+      const size_t                m = 1000u;
+      dp_doppler_channel_state_t *ch
+          = dp_doppler_channel_create (T_FS, T_FC, 0.0, 0.0);
+      DP_CHECK (ch != NULL);
+      size_t bcap        = dp_doppler_channel_execute_profile_max_out (ch, m);
+      float _Complex *y  = malloc (bcap * sizeof *y);
+      double         *fp = malloc (m * sizeof *fp);
+      DP_CHECK (y && fp);
+      for (size_t i = 0; i < m; i++)
+        fp[i] = -4.9e5; /* scale 0.51: a 1.96x expansion */
+      size_t ni
+          = dp_doppler_channel_execute_profile (ch, xs, m, fp, m, y, bcap);
+      DP_CHECK (ni < bcap); /* the cap was not what ended the call */
+      DP_CHECK (fabs ((double)ni - (double)m / 0.51) <= 2.0);
+
+      dp_doppler_channel_reset (ch);
+      fp[500] = -5.5e5; /* scale 0.45: past the sizing */
+      DP_CHECK (dp_doppler_channel_execute_profile (ch, xs, m, fp, m, y, bcap)
+                == 0);
+      DP_CHECK (dp_doppler_channel_get_elapsed_s (ch) == 0.0);
+
+      const double bad[] = { NAN, INFINITY, -INFINITY };
+      for (size_t b = 0; b < sizeof bad / sizeof bad[0]; b++)
+        {
+          fp[500] = -4.9e5;
+          fp[m - 1u]
+              = bad[b]; /* last, so only a whole-profile check sees it */
+          DP_CHECK (
+              dp_doppler_channel_execute_profile (ch, xs, m, fp, m, y, bcap)
+              == 0);
+          DP_CHECK (dp_doppler_channel_get_elapsed_s (ch) == 0.0);
+        }
+      free (fp);
+      free (y);
+      dp_doppler_channel_destroy (ch);
+    }
+
+    /* 8d. A mid-stream split resumes bit-exact through the blob, and the
+       restored stream still reports the profile's last d. */
+    {
+      size_t                      half = n / 2u;
+      dp_doppler_channel_state_t *a
+          = dp_doppler_channel_create (T_FS, T_FC, 0.0, 0.0);
+      float _Complex *y1 = malloc (cap * sizeof *y1);
+      float _Complex *y2 = malloc (cap * sizeof *y2);
+      DP_CHECK (a && y1 && y2);
+      size_t n1 = dp_doppler_channel_execute_profile (a, xs, half, ppm, half,
+                                                      y1, cap);
+      size_t bytes = dp_doppler_channel_state_bytes (a);
+      void  *blob  = malloc (bytes);
+      DP_CHECK (blob != NULL);
+      dp_doppler_channel_get_state (a, blob);
+      dp_doppler_channel_state_t *b
+          = dp_doppler_channel_create (T_FS, T_FC, 0.0, 0.0);
+      DP_CHECK (b && dp_doppler_channel_set_state (b, blob) == DP_OK);
+      DP_CHECK (dp_doppler_channel_get_offset_hz (b)
+                == dp_doppler_channel_get_offset_hz (a));
+      DP_CHECK (dp_doppler_channel_get_offset_hz (b) != 0.0);
+      size_t n2 = dp_doppler_channel_execute_profile (
+          b, xs + half, n - half, ppm + half, n - half, y2, cap);
+      DP_CHECK (n1 + n2 == nw);
+      int same = 1;
+      for (size_t i = 0; i < n1; i++)
+        if (crealf (y1[i]) != crealf (whole[i])
+            || cimagf (y1[i]) != cimagf (whole[i]))
+          same = 0;
+      for (size_t i = 0; i < n2; i++)
+        if (crealf (y2[i]) != crealf (whole[n1 + i])
+            || cimagf (y2[i]) != cimagf (whole[n1 + i]))
+          same = 0;
+      DP_CHECK (same);
+      /* envelope reject: clobber the magic. */
+      ((unsigned char *)blob)[0] ^= 0xFFu;
+      DP_CHECK (dp_doppler_channel_set_state (b, blob) == DP_ERR_INVALID);
+      free (blob);
+      free (y1);
+      free (y2);
+      dp_doppler_channel_destroy (a);
+      dp_doppler_channel_destroy (b);
+    }
+
+    free (whole);
+    dp_doppler_channel_destroy (whole_ch);
+    free (xs);
+    free (ppm);
+  }
+
   free (x);
   DP_TEST_END ("test_doppler_channel_core");
 }

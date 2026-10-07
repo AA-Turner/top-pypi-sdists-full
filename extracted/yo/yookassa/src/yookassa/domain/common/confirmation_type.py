@@ -25,3 +25,5 @@ class ConfirmationType:
     """Необходимо получить QR-код"""
     MOBILE_APPLICATION = 'mobile_application'
     """Необходимо совершить действия в мобильном приложении"""
+    UNKNOWN = 'unknown'
+    """Неизвестный сценарий подтверждения"""

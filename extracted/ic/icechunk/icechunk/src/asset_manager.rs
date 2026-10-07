@@ -15,9 +15,14 @@ use quick_cache::{Weighter, sync::Cache};
 use serde::{Deserialize, Serialize};
 use std::sync::{LazyLock, RwLock};
 use std::{
+    io::Write as _,
+    num::NonZeroU16,
     ops::Range,
     pin::Pin,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
@@ -28,7 +33,6 @@ static RETRYABLE_ERROR: LazyLock<regex::Regex> = LazyLock::new(|| {
     )
     .unwrap()
 });
-use async_compression::{Level, tokio::bufread::ZstdEncoder};
 use tokio::{
     io::{AsyncBufRead, AsyncReadExt as _},
     sync::Semaphore,
@@ -42,8 +46,8 @@ use crate::{
     config::CachingConfig,
     format::{
         CHUNKS_FILE_PATH, CONFIG_FILE_PATH, ChunkId, ChunkOffset, IcechunkFormatError,
-        IcechunkFormatErrorKind, MANIFESTS_FILE_PATH, ManifestId, OBJECT_ID_FIRST_CHARS,
-        OVERWRITTEN_FILES_PATH, REPO_INFO_FILE_PATH, SNAPSHOTS_FILE_PATH, SnapshotId,
+        IcechunkFormatErrorKind, MANIFESTS_FILE_PATH, ManifestId, OVERWRITTEN_FILES_PATH,
+        Path, REPO_INFO_FILE_PATH, SNAPSHOTS_FILE_PATH, SnapshotId,
         TRANSACTION_LOGS_FILE_PATH,
         format_constants::{
             self, CompressionAlgorithmBin, FileHeader, FileTypeBin, SpecVersionBin,
@@ -61,8 +65,8 @@ use crate::{
     private,
     repository::{RepositoryError, RepositoryErrorKind, RepositoryResult},
     storage::{
-        self, DeleteObjectsResult, ListInfo, StorageErrorKind, VersionInfo,
-        VersionedUpdateResult,
+        self, Attribution, AttributionLabels, ListInfo, RequestAttribution,
+        StorageContext, StorageErrorKind, VersionInfo, VersionedUpdateResult, listing,
     },
 };
 
@@ -107,6 +111,12 @@ pub struct AssetManager {
 
     #[serde(skip)]
     repo_cache: RwLock<Option<(Arc<RepoInfo>, VersionInfo)>>,
+
+    #[serde(default)]
+    attribution: Attribution,
+    /// Rendered from `attribution` at construction.
+    #[serde(skip)]
+    attribution_labels: AttributionLabels,
 }
 
 const fn _default_true() -> bool {
@@ -130,6 +140,8 @@ struct AssetManagerSerializer {
     #[serde(default = "crate::config::default_max_concurrent_decodes")]
     max_concurrent_decodes: u16,
     use_repo_info_cache: bool,
+    #[serde(default)]
+    attribution: Attribution,
 }
 
 impl From<AssetManagerSerializer> for AssetManager {
@@ -148,6 +160,7 @@ impl From<AssetManagerSerializer> for AssetManager {
             value.max_concurrent_decodes,
             value.use_repo_info_cache,
         )
+        .with_attribution(value.attribution)
     }
 }
 
@@ -193,7 +206,23 @@ impl AssetManager {
             decode_semaphore: Arc::new(Semaphore::new(max_concurrent_decodes as usize)),
             repo_cache: RwLock::new(None),
             use_repo_info_cache,
+            attribution: Attribution::default(),
+            attribution_labels: AttributionLabels::default(),
         }
+    }
+
+    pub fn with_attribution(mut self, attribution: Attribution) -> Self {
+        self.attribution_labels = AttributionLabels::from(&attribution);
+        self.attribution = attribution;
+        self
+    }
+
+    pub fn attribution(&self) -> &Attribution {
+        &self.attribution
+    }
+
+    pub fn attribution_labels(&self) -> &AttributionLabels {
+        &self.attribution_labels
     }
 
     pub fn new_no_cache(
@@ -259,6 +288,7 @@ impl AssetManager {
             self.max_concurrent_decodes,
             true,
         )
+        .with_attribution(self.attribution.clone())
     }
 
     pub fn spec_version(&self) -> SpecVersionBin {
@@ -295,7 +325,7 @@ impl AssetManager {
     ) -> RepositoryResult<Option<(RepositoryConfig, VersionInfo)>> {
         match self
             .storage
-            .get_object(&self.storage_settings, CONFIG_FILE_PATH, None)
+            .get_object(&self.storage_context(), CONFIG_FILE_PATH, None)
             .await
         {
             Ok((mut result, version)) => {
@@ -322,7 +352,7 @@ impl AssetManager {
             match self
                 .storage
                 .copy_object(
-                    &self.storage_settings,
+                    &self.storage_context(),
                     CONFIG_FILE_PATH,
                     backup_path.as_str(),
                     content_type,
@@ -338,7 +368,7 @@ impl AssetManager {
         match self
             .storage
             .put_object(
-                &self.storage_settings,
+                &self.storage_context(),
                 CONFIG_FILE_PATH,
                 bytes,
                 content_type,
@@ -354,14 +384,18 @@ impl AssetManager {
     }
 
     #[instrument(skip(self, manifest))]
-    pub async fn write_manifest(&self, manifest: Arc<Manifest>) -> RepositoryResult<u64> {
+    pub async fn write_manifest(
+        &self,
+        array: &str,
+        manifest: Arc<Manifest>,
+    ) -> RepositoryResult<u64> {
         let manifest_c = Arc::clone(&manifest);
         let res = write_new_manifest(
             manifest_c,
             self.spec_version(),
             self.compression_level,
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.node_context(&self.storage_settings, array, None),
             &self.request_semaphore,
         )
         .await?;
@@ -372,6 +406,30 @@ impl AssetManager {
 
     pub async fn fetch_manifest(
         &self,
+        array: &str,
+        manifest_id: &ManifestId,
+        manifest_size: u64,
+    ) -> RepositoryResult<Arc<Manifest>> {
+        self.fetch_manifest_with_context(
+            &self.node_context(&self.storage_settings, array, None),
+            manifest_id,
+            manifest_size,
+        )
+        .await
+    }
+
+    /// For tooling that has a manifest id but no node: carries the labels but
+    /// no array.
+    pub async fn fetch_manifest_without_node(
+        &self,
+        manifest_id: &ManifestId,
+    ) -> RepositoryResult<Arc<Manifest>> {
+        self.fetch_manifest_with_context(&self.storage_context(), manifest_id, 0).await
+    }
+
+    async fn fetch_manifest_with_context(
+        &self,
+        ctx: &StorageContext<'_>,
         manifest_id: &ManifestId,
         manifest_size: u64,
     ) -> RepositoryResult<Arc<Manifest>> {
@@ -382,7 +440,7 @@ impl AssetManager {
                     manifest_id,
                     manifest_size,
                     self.storage.as_ref(),
-                    &self.storage_settings,
+                    ctx,
                     &self.request_semaphore,
                     &self.decode_semaphore,
                 )
@@ -399,13 +457,12 @@ impl AssetManager {
         let capacity = self.num_chunk_refs;
         // TODO: we may need a config to silence this warning
         if manifest_weight as u64 > capacity / 2
-            && !self.manifest_cache_size_warned.load(std::sync::atomic::Ordering::Relaxed)
+            && !self.manifest_cache_size_warned.load(Ordering::Relaxed)
         {
             warn!(
                 "A manifest with {manifest_weight} chunk references is being loaded into the cache that can only keep {capacity} references. Consider increasing the size of the manifest cache using the num_chunk_refs field in CachingConfig"
             );
-            self.manifest_cache_size_warned
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+            self.manifest_cache_size_warned.store(true, Ordering::Relaxed);
         }
     }
 
@@ -414,21 +471,46 @@ impl AssetManager {
         let capacity = self.num_snapshot_nodes;
         // TODO: we may need a config to silence this warning
         if snap_weight as u64 > capacity / 5
-            && !self.snapshot_cache_size_warned.load(std::sync::atomic::Ordering::Relaxed)
+            && !self.snapshot_cache_size_warned.load(Ordering::Relaxed)
         {
             warn!(
                 "A snapshot with {snap_weight} nodes is being loaded into the cache that can only keep {capacity} nodes. Consider increasing the size of the snapshot cache using the num_snapshot_nodes field in CachingConfig"
             );
-            self.snapshot_cache_size_warned
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+            self.snapshot_cache_size_warned.store(true, Ordering::Relaxed);
         }
     }
 
     pub async fn fetch_manifest_unknown_size(
         &self,
+        array: &str,
         manifest_id: &ManifestId,
     ) -> RepositoryResult<Arc<Manifest>> {
-        self.fetch_manifest(manifest_id, 0).await
+        self.fetch_manifest(array, manifest_id, 0).await
+    }
+
+    /// Compressed manifest bytes straight from storage: no cache, no
+    /// request or decode semaphore. For bulk traversals that own their
+    /// own concurrency limits.
+    #[instrument(skip(self))]
+    pub async fn fetch_manifest_bytes(
+        &self,
+        manifest_id: &ManifestId,
+        size_bytes: u64,
+    ) -> RepositoryResult<Vec<u8>> {
+        debug!(%manifest_id, size_bytes, "Downloading manifest");
+        let path = format!("{MANIFESTS_FILE_PATH}/{manifest_id}");
+        let range = 0..size_bytes;
+        let range = if size_bytes > 0 { Some(&range) } else { None };
+        let (read, _) = self
+            .storage
+            .get_object(&self.storage_context(), path.as_str(), range)
+            .await
+            .inject()?;
+        read_all(read, size_bytes).await
+    }
+
+    pub fn max_concurrent_decodes(&self) -> u16 {
+        self.max_concurrent_decodes
     }
 
     #[instrument(skip(self, snapshot))]
@@ -439,7 +521,7 @@ impl AssetManager {
             self.spec_version(),
             self.compression_level,
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             &self.request_semaphore,
         )
         .await?;
@@ -461,7 +543,7 @@ impl AssetManager {
                 let (snapshot, _header) = fetch_snapshot(
                     snapshot_id,
                     self.storage.as_ref(),
-                    &self.storage_settings,
+                    &self.storage_context(),
                     &self.request_semaphore,
                     &self.decode_semaphore,
                 )
@@ -486,7 +568,7 @@ impl AssetManager {
             self.spec_version(),
             self.compression_level,
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             &self.request_semaphore,
         )
         .await?;
@@ -504,7 +586,7 @@ impl AssetManager {
                 let (transaction, _header) = fetch_transaction_log(
                     transaction_id,
                     self.storage.as_ref(),
-                    &self.storage_settings,
+                    &self.storage_context(),
                     &self.request_semaphore,
                     &self.decode_semaphore,
                 )
@@ -539,7 +621,7 @@ impl AssetManager {
 
         match fetch_repo_info_from_path(
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             REPO_INFO_FILE_PATH,
             repo_cache.as_ref().map(|(_, info)| info),
             &self.decode_semaphore,
@@ -607,7 +689,7 @@ impl AssetManager {
     ) -> RepositoryResult<(Arc<RepoInfo>, VersionInfo)> {
         fetch_repo_info_backup(
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             file_name,
             &self.decode_semaphore,
         )
@@ -627,7 +709,7 @@ impl AssetManager {
         let _permit = self.request_semaphore.acquire().await.capture()?;
         let (read, _) = self
             .storage
-            .get_object(&self.storage_settings, path, Some(&range))
+            .get_object(&self.storage_context(), path, Some(&range))
             .await
             .inject()?;
         let bytes = async_reader_to_bytes(read, len).await.capture()?;
@@ -678,7 +760,7 @@ impl AssetManager {
         fetch_snapshot(
             snapshot_id,
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             &self.request_semaphore,
             &self.decode_semaphore,
         )
@@ -699,7 +781,7 @@ impl AssetManager {
             manifest_id,
             manifest_size,
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             &self.request_semaphore,
             &self.decode_semaphore,
         )
@@ -718,7 +800,7 @@ impl AssetManager {
         fetch_transaction_log(
             transaction_id,
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             &self.request_semaphore,
             &self.decode_semaphore,
         )
@@ -736,7 +818,7 @@ impl AssetManager {
         // TODO: widen the cache to store the FileHeader so we can serve from cache
         let fetched = fetch_repo_info_from_path(
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             REPO_INFO_FILE_PATH,
             None,
             &self.decode_semaphore,
@@ -758,7 +840,7 @@ impl AssetManager {
     ) -> RepositoryResult<(Arc<RepoInfo>, VersionInfo, FileHeader)> {
         let fetched = fetch_repo_info_from_path(
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             format!("{OVERWRITTEN_FILES_PATH}/{file_name}").as_str(),
             None,
             &self.decode_semaphore,
@@ -783,7 +865,7 @@ impl AssetManager {
             self.compression_level,
             backup_path,
             self.storage.as_ref(),
-            &self.storage_settings,
+            &self.storage_context(),
             None,
         )
         .await?;
@@ -889,7 +971,7 @@ impl AssetManager {
                 self.compression_level,
                 Some(backup_path.as_str()),
                 self.storage.as_ref(),
-                &self.storage_settings,
+                &self.storage_context(),
                 None,
             )
             .await
@@ -933,6 +1015,8 @@ impl AssetManager {
     #[instrument(skip(self, bytes))]
     pub async fn write_chunk(
         &self,
+        array: &str,
+        chunk: &[u32],
         chunk_id: ChunkId,
         bytes: Bytes,
     ) -> RepositoryResult<()> {
@@ -950,9 +1034,10 @@ impl AssetManager {
             storage_class: self.storage_settings.chunks_storage_class().cloned(),
             ..self.storage_settings.clone()
         };
+        let ctx = self.node_context(&settings, array, Some(chunk));
         // we don't pre-populate the chunk cache, there are too many of them for this to be useful
         self.storage
-            .put_object(&settings, path.as_str(), bytes, None, Default::default(), None)
+            .put_object(&ctx, path.as_str(), bytes, None, Default::default(), None)
             .await
             .inject()?
             .must_write()
@@ -963,6 +1048,8 @@ impl AssetManager {
     #[instrument(skip(self))]
     pub async fn fetch_chunk(
         &self,
+        array: &str,
+        chunk: &[u32],
         chunk_id: &ChunkId,
         range: &Range<ChunkOffset>,
     ) -> RepositoryResult<Bytes> {
@@ -974,9 +1061,11 @@ impl AssetManager {
                 let path = format!("{CHUNKS_FILE_PATH}/{chunk_id}");
                 let retry = (|| async {
                     let permit = self.request_semaphore.acquire().await.capture()?;
+                    let ctx =
+                        self.node_context(&self.storage_settings, array, Some(chunk));
                     let (read, _) = self
                         .storage
-                        .get_object(&self.storage_settings, &path, Some(range))
+                        .get_object(&ctx, &path, Some(range))
                         .await
                         .inject()?;
                     let bytes_result =
@@ -1024,7 +1113,7 @@ impl AssetManager {
         let path = format!("{SNAPSHOTS_FILE_PATH}/{snapshot_id}");
         let _permit = self.request_semaphore.acquire().await.capture()?;
         self.storage
-            .get_object_last_modified(path.as_str(), &self.storage_settings)
+            .get_object_last_modified(&self.storage_context(), path.as_str())
             .await
             .inject()
     }
@@ -1043,105 +1132,78 @@ impl AssetManager {
     pub async fn list_chunks(
         &self,
     ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<ChunkId>>>> {
-        self.list_object_ids(CHUNKS_FILE_PATH).await
+        self.list_chunks_with_concurrency(listing::default_list_concurrency()).await
+    }
+
+    #[instrument(skip(self))]
+    pub async fn list_chunks_with_concurrency(
+        &self,
+        concurrency: NonZeroU16,
+    ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<ChunkId>>>> {
+        self.list_object_ids(CHUNKS_FILE_PATH, concurrency).await
     }
 
     #[instrument(skip(self))]
     pub async fn list_manifests(
         &self,
     ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<ManifestId>>>> {
-        self.list_object_ids(MANIFESTS_FILE_PATH).await
+        self.list_manifests_with_concurrency(listing::default_list_concurrency()).await
+    }
+
+    #[instrument(skip(self))]
+    pub async fn list_manifests_with_concurrency(
+        &self,
+        concurrency: NonZeroU16,
+    ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<ManifestId>>>> {
+        self.list_object_ids(MANIFESTS_FILE_PATH, concurrency).await
     }
 
     #[instrument(skip(self))]
     pub async fn list_snapshots(
         &self,
     ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<SnapshotId>>>> {
-        self.list_object_ids(SNAPSHOTS_FILE_PATH).await
+        self.list_snapshots_with_concurrency(listing::default_list_concurrency()).await
+    }
+
+    #[instrument(skip(self))]
+    pub async fn list_snapshots_with_concurrency(
+        &self,
+        concurrency: NonZeroU16,
+    ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<SnapshotId>>>> {
+        self.list_object_ids(SNAPSHOTS_FILE_PATH, concurrency).await
     }
 
     #[instrument(skip(self))]
     pub async fn list_transaction_logs(
         &self,
     ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<SnapshotId>>>> {
-        self.list_object_ids(TRANSACTION_LOGS_FILE_PATH).await
+        self.list_transaction_logs_with_concurrency(listing::default_list_concurrency())
+            .await
     }
 
-    /// Unordered: storage can list each possible first character of the id concurrently.
+    #[instrument(skip(self))]
+    pub async fn list_transaction_logs_with_concurrency(
+        &self,
+        concurrency: NonZeroU16,
+    ) -> RepositoryResult<BoxStream<'_, RepositoryResult<ListInfo<SnapshotId>>>> {
+        self.list_object_ids(TRANSACTION_LOGS_FILE_PATH, concurrency).await
+    }
+
     async fn list_object_ids<'a, Id>(
         &'a self,
         prefix: &str,
+        concurrency: NonZeroU16,
     ) -> RepositoryResult<BoxStream<'a, RepositoryResult<ListInfo<Id>>>>
     where
-        Id: for<'b> TryFrom<&'b str> + Send + std::fmt::Debug + 'a,
+        Id: for<'b> TryFrom<&'b str> + Send + std::fmt::Debug + 'static,
     {
-        Ok(translate_list_infos(
-            self.storage
-                .list_objects_with_id_first_chars(
-                    &self.storage_settings,
-                    prefix,
-                    &OBJECT_ID_FIRST_CHARS,
-                )
-                .await
-                .inject()?
-                .map(|r| r.inject()),
-        ))
-    }
-
-    pub async fn delete_chunks(
-        &self,
-        chunks: BoxStream<'_, (ChunkId, u64)>,
-    ) -> RepositoryResult<DeleteObjectsResult> {
-        self.storage
-            .delete_objects(
-                &self.storage_settings,
-                CHUNKS_FILE_PATH,
-                chunks.map(|(id, size)| (id.to_string(), size)).boxed(),
-            )
-            .await
-            .inject()
-    }
-
-    pub async fn delete_manifests(
-        &self,
-        manifests: BoxStream<'_, (ManifestId, u64)>,
-    ) -> RepositoryResult<DeleteObjectsResult> {
-        self.storage
-            .delete_objects(
-                &self.storage_settings,
-                MANIFESTS_FILE_PATH,
-                manifests.map(|(id, size)| (id.to_string(), size)).boxed(),
-            )
-            .await
-            .inject()
-    }
-
-    pub async fn delete_snapshots(
-        &self,
-        snapshots: BoxStream<'_, (SnapshotId, u64)>,
-    ) -> RepositoryResult<DeleteObjectsResult> {
-        self.storage
-            .delete_objects(
-                &self.storage_settings,
-                SNAPSHOTS_FILE_PATH,
-                snapshots.map(|(id, size)| (id.to_string(), size)).boxed(),
-            )
-            .await
-            .inject()
-    }
-
-    pub async fn delete_transaction_logs(
-        &self,
-        transaction_logs: BoxStream<'_, (SnapshotId, u64)>,
-    ) -> RepositoryResult<DeleteObjectsResult> {
-        self.storage
-            .delete_objects(
-                &self.storage_settings,
-                TRANSACTION_LOGS_FILE_PATH,
-                transaction_logs.map(|(id, size)| (id.to_string(), size)).boxed(),
-            )
-            .await
-            .inject()
+        listing::list_object_ids(
+            &self.storage,
+            &self.storage_context(),
+            prefix,
+            concurrency,
+        )
+        .await
     }
 
     pub async fn can_write_to_storage(&self) -> RepositoryResult<bool> {
@@ -1153,7 +1215,7 @@ impl AssetManager {
     ) -> RepositoryResult<BoxStream<'_, RepositoryResult<String>>> {
         let stream = self
             .storage
-            .list_objects(&self.storage_settings, OVERWRITTEN_FILES_PATH)
+            .list_objects(&self.storage_context(), OVERWRITTEN_FILES_PATH)
             .await
             .inject()?
             .map_ok(|li| li.id)
@@ -1178,6 +1240,27 @@ impl AssetManager {
         &self.storage_settings
     }
 
+    /// Context for a request about no particular node.
+    pub fn storage_context(&self) -> StorageContext<'_> {
+        StorageContext::without_node(&self.storage_settings, &self.attribution_labels)
+    }
+
+    fn node_context<'a>(
+        &'a self,
+        settings: &'a storage::Settings,
+        array: &'a str,
+        chunk: Option<&'a [u32]>,
+    ) -> StorageContext<'a> {
+        StorageContext::new(
+            settings,
+            RequestAttribution {
+                labels: &self.attribution_labels,
+                array: Some(array),
+                chunk,
+            },
+        )
+    }
+
     #[deprecated(
         since = "2.0.0",
         note = "Shouldn't be necessary after 2.0, only to support Icechunk 1 repos"
@@ -1199,6 +1282,11 @@ impl AssetManager {
         };
         Ok(stream)
     }
+}
+
+/// The `array` attribution of requests about the node at `path`.
+pub(crate) fn array_label(path: &Path) -> &str {
+    path.as_str().trim_start_matches('/')
 }
 
 fn binary_file_header(
@@ -1246,7 +1334,7 @@ async fn write_new_manifest(
     spec_version: SpecVersionBin,
     compression_level: u8,
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     semaphore: &Semaphore,
 ) -> RepositoryResult<u64> {
     if !storage.can_write().await.inject()? {
@@ -1281,20 +1369,20 @@ async fn write_new_manifest(
         spec_version,
         FileTypeBin::Manifest,
         compression_level,
-    )
-    .await?;
+    )?;
 
     let len = buffer.len() as u64;
     debug!(%id, size_bytes=len, "Writing manifest");
     let path = format!("{MANIFESTS_FILE_PATH}/{id}");
     let settings = storage::Settings {
-        storage_class: storage_settings.metadata_storage_class().cloned(),
-        ..storage_settings.clone()
+        storage_class: ctx.settings.metadata_storage_class().cloned(),
+        ..ctx.settings.clone()
     };
+    let ctx = StorageContext::new(&settings, ctx.attribution);
 
     let _permit = semaphore.acquire().await.capture()?;
     storage
-        .put_object(&settings, path.as_str(), buffer.into(), None, metadata, None)
+        .put_object(&ctx, path.as_str(), buffer.into(), None, metadata, None)
         .await
         .inject()?
         .must_write()
@@ -1302,12 +1390,12 @@ async fn write_new_manifest(
     Ok(len)
 }
 
-#[instrument(skip(storage, storage_settings, semaphore, decode_semaphore))]
+#[instrument(skip(storage, ctx, semaphore, decode_semaphore))]
 async fn fetch_manifest(
     manifest_id: &ManifestId,
     manifest_size: u64,
     storage: &(dyn Storage + Send),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     semaphore: &Semaphore,
     decode_semaphore: &Arc<Semaphore>,
 ) -> RepositoryResult<(Arc<Manifest>, FileHeader)> {
@@ -1318,8 +1406,7 @@ async fn fetch_manifest(
     let range = if manifest_size > 0 { Some(&range) } else { None };
     let _permit = semaphore.acquire().await.capture()?;
 
-    let (read, _) =
-        storage.get_object(storage_settings, path.as_str(), range).await.inject()?;
+    let (read, _) = storage.get_object(ctx, path.as_str(), range).await.inject()?;
     fetch_and_decode(
         read,
         manifest_size,
@@ -1330,11 +1417,125 @@ async fn fetch_manifest(
     .await
 }
 
+/// Read a whole object into memory, preallocating `size_hint` bytes.
+async fn read_all(
+    mut read: Pin<Box<dyn AsyncBufRead + Send>>,
+    size_hint: u64,
+) -> RepositoryResult<Vec<u8>> {
+    let mut bytes = Vec::with_capacity(size_hint as usize);
+    read.read_to_end(&mut bytes).await.capture()?;
+    Ok(bytes)
+}
+
+/// Parse the icechunk file header and check that it announces `file_type`
+/// and a compression the decode path knows how to undo (only Zstd).
+fn checked_header(
+    compressed: &[u8],
+    file_type: FileTypeBin,
+) -> RepositoryResult<FileHeader> {
+    let header = parse_file_header(compressed).inject()?;
+    check_file_type(&header, file_type)?;
+    if header.compression != CompressionAlgorithmBin::Zstd {
+        return Err(RepositoryErrorKind::FormatError(
+            IcechunkFormatErrorKind::InvalidCompressionAlgorithm,
+        ))
+        .capture();
+    }
+    Ok(header)
+}
+
+/// Decoded size a zstd frame declares in its header, if the writer recorded one.
+/// Older from do not carry it.
+pub(crate) fn frame_content_size(frame: &[u8]) -> Option<u64> {
+    zstd::zstd_safe::get_frame_content_size(frame).ok().flatten()
+}
+
+/// Largest size we preallocate for: a frame declaring more than this falls
+/// back to the growing decoder, and a caller's hint is capped at it, so
+/// neither a corrupt header nor a wild estimate drives a huge allocation.
+const MAX_PREALLOCATED_DECODE_BYTES: u64 = 16 * 1024 * 1024 * 1024;
+
+/// Buffer capacity to allocate up front for `bytes` decoded bytes, capped at
+/// [`MAX_PREALLOCATED_DECODE_BYTES`]: both the size a frame declares and the
+/// caller's estimate are untrusted.
+fn prealloc_capacity(bytes: u64) -> usize {
+    usize::try_from(bytes.min(MAX_PREALLOCATED_DECODE_BYTES)).unwrap_or(usize::MAX)
+}
+
+/// Decompress one zstd frame. With a declared content size the output is
+/// allocated exactly; otherwise `size_hint` (an estimate from the caller)
+/// sizes the buffer and the decoder grows it only if the estimate was low.
+///
+/// The zstd frame format makes a declared size exact, so a frame that decodes
+/// to a different length is corrupt and is rejected.
+pub(crate) fn decompress_frame(
+    frame: &[u8],
+    size_hint: Option<usize>,
+) -> std::io::Result<Vec<u8>> {
+    let declared = frame_content_size(frame);
+    let out = match declared {
+        Some(size) if size <= MAX_PREALLOCATED_DECODE_BYTES => {
+            zstd::bulk::decompress(frame, prealloc_capacity(size))?
+        }
+        _ => {
+            let mut out =
+                Vec::with_capacity(prealloc_capacity(size_hint.unwrap_or(0) as u64));
+            zstd::stream::copy_decode(frame, &mut out)?;
+            // only trim real waste: a hint that was far too high
+            if out.capacity() > out.len() + out.len() / 4 {
+                out.shrink_to_fit();
+            }
+            out
+        }
+    };
+    match declared {
+        Some(size) if size != out.len() as u64 => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "zstd frame declares {size} decoded bytes but decoded to {}",
+                out.len()
+            ),
+        )),
+        _ => Ok(out),
+    }
+}
+
+/// Decompress the body that follows a [`checked_header`] and deserialize it.
+/// `decoded_size_hint` sizes the buffer when the frame does not declare its
+/// size. CPU bound: the caller runs this on a blocking thread.
+fn decode_body<T, F>(
+    header: &FileHeader,
+    compressed: &[u8],
+    decoded_size_hint: Option<usize>,
+    deserialize: F,
+) -> RepositoryResult<T>
+where
+    F: FnOnce(SpecVersionBin, Vec<u8>) -> Result<T, IcechunkFormatError>,
+{
+    let decompressed = decompress_frame(
+        &compressed[format_constants::ICECHUNK_FILE_HEADER_LEN..],
+        decoded_size_hint,
+    )
+    .capture()?;
+    deserialize(header.spec_version, decompressed).inject()
+}
+
+/// Decode the compressed bytes of a manifest file, as written by
+/// `write_manifest`. The caller runs this on a blocking thread.
+/// `decoded_size_hint` sizes the buffer when the frame does not declare its size.
+pub fn decode_manifest(
+    compressed: &[u8],
+    decoded_size_hint: Option<usize>,
+) -> RepositoryResult<Manifest> {
+    let header = checked_header(compressed, FileTypeBin::Manifest)?;
+    decode_body(&header, compressed, decoded_size_hint, deserialize_manifest)
+}
+
 /// Read compressed bytes (async IO), then decompress+deserialize on a gated blocking thread.
 ///
 /// Returns the deserialized value together with the parsed [`FileHeader`].
 async fn fetch_and_decode<T, F>(
-    mut read: Pin<Box<dyn AsyncBufRead + Send>>,
+    read: Pin<Box<dyn AsyncBufRead + Send>>,
     compressed_size_hint: u64,
     file_type: FileTypeBin,
     #[cfg_attr(feature = "shuttle", expect(unused))] decode_semaphore: Arc<Semaphore>,
@@ -1344,20 +1545,12 @@ where
     T: Send + 'static,
     F: FnOnce(SpecVersionBin, Vec<u8>) -> Result<T, IcechunkFormatError> + Send + 'static,
 {
-    let mut compressed = Vec::with_capacity(compressed_size_hint as usize);
-    read.read_to_end(&mut compressed).await.capture()?;
+    let compressed = read_all(read, compressed_size_hint).await?;
+    // the caller's `#[instrument]` span carries which asset this is
+    debug!(?file_type, size_bytes = compressed.len(), "Downloaded asset");
 
     // on the async task: fail fast (no permit) and keep span ancestry on header errors
-    let header = parse_file_header(&compressed).inject()?;
-    check_file_type(&header, file_type)?;
-    // the decode path below only knows how to undo Zstd
-    if header.compression != CompressionAlgorithmBin::Zstd {
-        return Err(RepositoryErrorKind::FormatError(
-            IcechunkFormatErrorKind::InvalidCompressionAlgorithm,
-        ))
-        .capture();
-    }
-    let spec_version = header.spec_version;
+    let header = checked_header(&compressed, file_type)?;
 
     // keep error span ancestry on the blocking thread
     let span = tracing::Span::current();
@@ -1368,12 +1561,7 @@ where
         #[cfg(not(feature = "shuttle"))]
         let _decode_permit =
             futures::executor::block_on(decode_semaphore.acquire()).capture()?;
-        let mut decompressed =
-            zstd::decode_all(&compressed[format_constants::ICECHUNK_FILE_HEADER_LEN..])
-                .capture()?;
-        // trim decode_all's ≤2x slack before it's cached
-        decompressed.shrink_to_fit();
-        let value = deserialize(spec_version, decompressed).inject()?;
+        let value = decode_body(&header, &compressed, None, deserialize)?;
         Ok((value, header))
     })
     .await
@@ -1395,7 +1583,7 @@ fn verify_before_write(
     Ok(())
 }
 
-async fn compress_with_header(
+fn compress_with_header(
     data: &[u8],
     spec_version: SpecVersionBin,
     file_type: FileTypeBin,
@@ -1405,8 +1593,33 @@ async fn compress_with_header(
     let mut buffer =
         binary_file_header(spec_version, file_type, CompressionAlgorithmBin::Zstd);
     let mut encoder =
-        ZstdEncoder::with_quality(data, Level::Precise(compression_level as i32));
-    encoder.read_to_end(&mut buffer).await.capture()?;
+        zstd::stream::write::Encoder::new(&mut buffer, i32::from(compression_level))
+            .capture()?;
+    // pledging the length records it in the frame header, so readers can size
+    // the decoded buffer exactly; the frame is written straight into `buffer`
+    encoder.set_pledged_src_size(Some(data.len() as u64)).capture()?;
+    encoder.write_all(data).capture()?;
+    encoder.finish().capture()?;
+    Ok(buffer)
+}
+
+/// The same object layout, with a frame that does not declare its decoded
+/// size: what every writer before the frame size was recorded produced.
+/// Test only.
+#[cfg(test)]
+pub(crate) fn compress_without_content_size(
+    data: &[u8],
+    spec_version: SpecVersionBin,
+    file_type: FileTypeBin,
+    compression_level: u8,
+) -> RepositoryResult<Vec<u8>> {
+    let mut buffer =
+        binary_file_header(spec_version, file_type, CompressionAlgorithmBin::Zstd);
+    let mut encoder =
+        zstd::stream::write::Encoder::new(&mut buffer, i32::from(compression_level))
+            .capture()?;
+    encoder.write_all(data).capture()?;
+    encoder.finish().capture()?;
     Ok(buffer)
 }
 
@@ -1415,7 +1628,7 @@ async fn write_new_snapshot(
     spec_version: SpecVersionBin,
     compression_level: u8,
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     semaphore: &Semaphore,
 ) -> RepositoryResult<SnapshotId> {
     if !storage.can_write().await.inject()? {
@@ -1447,18 +1660,18 @@ async fn write_new_snapshot(
         spec_version,
         FileTypeBin::Snapshot,
         compression_level,
-    )
-    .await?;
+    )?;
 
     debug!(%id, size_bytes=buffer.len(), "Writing snapshot");
     let path = format!("{SNAPSHOTS_FILE_PATH}/{id}");
     let settings = storage::Settings {
-        storage_class: storage_settings.metadata_storage_class().cloned(),
-        ..storage_settings.clone()
+        storage_class: ctx.settings.metadata_storage_class().cloned(),
+        ..ctx.settings.clone()
     };
+    let ctx = StorageContext::new(&settings, ctx.attribution);
     let _permit = semaphore.acquire().await.capture()?;
     storage
-        .put_object(&settings, path.as_str(), buffer.into(), None, metadata, None)
+        .put_object(&ctx, path.as_str(), buffer.into(), None, metadata, None)
         .await
         .inject()?
         .must_write()
@@ -1467,11 +1680,11 @@ async fn write_new_snapshot(
     Ok(id)
 }
 
-#[instrument(skip(storage, storage_settings, semaphore, decode_semaphore))]
+#[instrument(skip(storage, ctx, semaphore, decode_semaphore))]
 async fn fetch_snapshot(
     snapshot_id: &SnapshotId,
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     semaphore: &Semaphore,
     decode_semaphore: &Arc<Semaphore>,
 ) -> RepositoryResult<(Arc<Snapshot>, FileHeader)> {
@@ -1479,8 +1692,7 @@ async fn fetch_snapshot(
     let _permit = semaphore.acquire().await.capture()?;
 
     let path = format!("{SNAPSHOTS_FILE_PATH}/{snapshot_id}");
-    let (read, _) =
-        storage.get_object(storage_settings, path.as_str(), None).await.inject()?;
+    let (read, _) = storage.get_object(ctx, path.as_str(), None).await.inject()?;
     fetch_and_decode(
         read,
         DEFAULT_PREALLOC_HINT as u64,
@@ -1497,7 +1709,7 @@ async fn write_new_tx_log(
     spec_version: SpecVersionBin,
     compression_level: u8,
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     semaphore: &Semaphore,
 ) -> RepositoryResult<()> {
     if !storage.can_write().await.inject()? {
@@ -1528,19 +1740,19 @@ async fn write_new_tx_log(
         spec_version,
         FileTypeBin::TransactionLog,
         compression_level,
-    )
-    .await?;
+    )?;
 
     debug!(%transaction_id, size_bytes=buffer.len(), "Writing transaction log");
     let path = format!("{TRANSACTION_LOGS_FILE_PATH}/{transaction_id}");
     let settings = storage::Settings {
-        storage_class: storage_settings.metadata_storage_class().cloned(),
-        ..storage_settings.clone()
+        storage_class: ctx.settings.metadata_storage_class().cloned(),
+        ..ctx.settings.clone()
     };
+    let ctx = StorageContext::new(&settings, ctx.attribution);
 
     let _permit = semaphore.acquire().await.capture()?;
     storage
-        .put_object(&settings, path.as_str(), buffer.into(), None, metadata, None)
+        .put_object(&ctx, path.as_str(), buffer.into(), None, metadata, None)
         .await
         .inject()?
         .must_write()
@@ -1549,19 +1761,18 @@ async fn write_new_tx_log(
     Ok(())
 }
 
-#[instrument(skip(storage, storage_settings, semaphore, decode_semaphore))]
+#[instrument(skip(storage, ctx, semaphore, decode_semaphore))]
 async fn fetch_transaction_log(
     transaction_id: &SnapshotId,
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     semaphore: &Semaphore,
     decode_semaphore: &Arc<Semaphore>,
 ) -> RepositoryResult<(Arc<TransactionLog>, FileHeader)> {
     debug!(%transaction_id, "Downloading transaction log");
     let path = format!("{TRANSACTION_LOGS_FILE_PATH}/{transaction_id}");
     let _permit = semaphore.acquire().await.capture()?;
-    let (read, _) =
-        storage.get_object(storage_settings, path.as_str(), None).await.inject()?;
+    let (read, _) = storage.get_object(ctx, path.as_str(), None).await.inject()?;
     fetch_and_decode(
         read,
         DEFAULT_PREALLOC_HINT as u64,
@@ -1608,8 +1819,7 @@ async fn prepare_repo_info(
         spec_version,
         FileTypeBin::RepoInfo,
         compression_level,
-    )
-    .await?;
+    )?;
 
     Ok((buffer, metadata))
 }
@@ -1622,7 +1832,7 @@ pub async fn write_repo_info(
     compression_level: u8,
     backup_path: Option<&str>,
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     path: Option<&str>,
 ) -> RepositoryResult<VersionInfo> {
     let (buffer, metadata) =
@@ -1634,13 +1844,7 @@ pub async fn write_repo_info(
     if let Some(backup_path) = backup_path {
         let backup_path = format!("{OVERWRITTEN_FILES_PATH}/{backup_path}");
         match storage
-            .copy_object(
-                storage_settings,
-                repo_file_path,
-                backup_path.as_str(),
-                None,
-                version,
-            )
+            .copy_object(ctx, repo_file_path, backup_path.as_str(), None, version)
             .await
             .inject()?
         {
@@ -1654,14 +1858,7 @@ pub async fn write_repo_info(
     }
 
     match storage
-        .put_object(
-            storage_settings,
-            repo_file_path,
-            buffer.into(),
-            None,
-            metadata,
-            Some(version),
-        )
+        .put_object(ctx, repo_file_path, buffer.into(), None, metadata, Some(version))
         .await
         .inject()?
     {
@@ -1684,7 +1881,7 @@ pub async unsafe fn force_write_repo_info(
     spec_version: SpecVersionBin,
     compression_level: u8,
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     path: Option<&str>,
 ) -> RepositoryResult<VersionInfo> {
     let (buffer, metadata) =
@@ -1695,7 +1892,7 @@ pub async unsafe fn force_write_repo_info(
     let repo_file_path = path.unwrap_or(REPO_INFO_FILE_PATH);
 
     match storage
-        .put_object(storage_settings, repo_file_path, buffer.into(), None, metadata, None)
+        .put_object(ctx, repo_file_path, buffer.into(), None, metadata, None)
         .await
         .inject()?
     {
@@ -1709,36 +1906,30 @@ pub async unsafe fn force_write_repo_info(
 #[instrument(skip_all)]
 pub async fn fetch_repo_info(
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     decode_semaphore: &Arc<Semaphore>,
 ) -> RepositoryResult<(Arc<RepoInfo>, VersionInfo)> {
-    fetch_repo_info_from_path(
-        storage,
-        storage_settings,
-        REPO_INFO_FILE_PATH,
-        None,
-        decode_semaphore,
-    )
-    .await
-    .map(|fetched| {
-        // Since we didn't give a previous version, there must be a result here
-        #[expect(clippy::expect_used)]
-        let (info, version, _header) =
-            fetched.expect("Logic bug, must have a repo_info here");
-        (info, version)
-    })
+    fetch_repo_info_from_path(storage, ctx, REPO_INFO_FILE_PATH, None, decode_semaphore)
+        .await
+        .map(|fetched| {
+            // Since we didn't give a previous version, there must be a result here
+            #[expect(clippy::expect_used)]
+            let (info, version, _header) =
+                fetched.expect("Logic bug, must have a repo_info here");
+            (info, version)
+        })
 }
 
 #[instrument(skip_all)]
 async fn fetch_repo_info_backup(
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     file_name: &str,
     decode_semaphore: &Arc<Semaphore>,
 ) -> RepositoryResult<(Arc<RepoInfo>, VersionInfo)> {
     fetch_repo_info_from_path(
         storage,
-        storage_settings,
+        ctx,
         format!("{OVERWRITTEN_FILES_PATH}/{file_name}").as_str(),
         None,
         decode_semaphore,
@@ -1756,13 +1947,13 @@ async fn fetch_repo_info_backup(
 #[instrument(skip_all)]
 pub async fn fetch_repo_info_from_path(
     storage: &(dyn Storage + Send + Sync),
-    storage_settings: &storage::Settings,
+    ctx: &StorageContext<'_>,
     path: &str,
     previous_version: Option<&VersionInfo>,
     decode_semaphore: &Arc<Semaphore>,
 ) -> RepositoryResult<Option<(Arc<RepoInfo>, VersionInfo, FileHeader)>> {
     debug!("Downloading repo info");
-    match storage.get_object_conditional(storage_settings, path, previous_version).await {
+    match storage.get_object_conditional(ctx, path, previous_version).await {
         Ok(GetModifiedResult::Modified { data, new_version }) => {
             let (repo_info, header) = fetch_and_decode(
                 data,
@@ -1811,31 +2002,6 @@ impl Weighter<SnapshotId, Arc<TransactionLog>> for FileWeighter {
     }
 }
 
-fn convert_list_item<Id>(item: &ListInfo<String>) -> Option<ListInfo<Id>>
-where
-    Id: for<'b> TryFrom<&'b str>,
-{
-    let id = Id::try_from(item.id.as_str()).ok()?;
-    let created_at = item.created_at;
-    Some(ListInfo { created_at, id, size_bytes: item.size_bytes })
-}
-
-fn translate_list_infos<'a, Id>(
-    s: impl Stream<Item = RepositoryResult<ListInfo<String>>> + Send + 'a,
-) -> BoxStream<'a, RepositoryResult<ListInfo<Id>>>
-where
-    Id: for<'b> TryFrom<&'b str> + Send + std::fmt::Debug + 'a,
-{
-    s.try_filter_map(|info| async move {
-        let info = convert_list_item(&info);
-        if info.is_none() {
-            tracing::error!(list_info=?info, "Error processing list item metadata");
-        }
-        Ok(info)
-    })
-    .boxed()
-}
-
 pub async fn async_reader_to_bytes(
     mut read: impl AsyncBufRead + Unpin,
     expected_size: usize,
@@ -1871,7 +2037,6 @@ mod test {
         },
         storage::{Storage, logging::LoggingStorage, new_in_memory_storage},
     };
-    use std::collections::HashMap;
 
     /// A buffer no serializer of ours would ever produce.
     fn unreadable_buffer(size: usize) -> Vec<u8> {
@@ -1921,8 +2086,7 @@ mod test {
             SpecVersionBin::current(),
             FileTypeBin::Manifest,
             1,
-        )
-        .await?;
+        )?;
 
         let err = compress_with_header(
             unreadable_buffer(VERIFY_THRESHOLD_BYTES).as_slice(),
@@ -1930,10 +2094,198 @@ mod test {
             FileTypeBin::Manifest,
             1,
         )
-        .await
         .map(|compressed| compressed.len())
         .expect_err("a file at the threshold must be verified before writing");
         assert!(matches!(err.kind, RepositoryErrorKind::FormatError(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn decompress_frame_sizes_the_buffer_exactly_when_the_frame_says_so()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let data: Vec<u8> = (0..3_000_000u32).map(|i| (i % 251) as u8).collect();
+        let with_size = zstd::bulk::compress(&data, 3)?;
+        assert_eq!(frame_content_size(&with_size), Some(data.len() as u64));
+        let out = decompress_frame(&with_size, None)?;
+        assert_eq!(out, data);
+        assert_eq!(out.capacity(), out.len(), "no slack when the size is declared");
+
+        // a streamed frame has no declared size; a hint sizes the buffer instead
+        let without_size = {
+            let mut enc = zstd::stream::write::Encoder::new(Vec::new(), 3)?;
+            std::io::Write::write_all(&mut enc, &data)?;
+            enc.finish()?
+        };
+        assert_eq!(frame_content_size(&without_size), None);
+        let out = decompress_frame(&without_size, Some(data.len()))?;
+        assert_eq!(out, data);
+        assert!(out.capacity() <= data.len() + data.len() / 4, "hint prevented doubling");
+        let out = decompress_frame(&without_size, None)?;
+        assert_eq!(out, data);
+        Ok(())
+    }
+
+    /// Rebuild a streamed frame's header so it declares `declared` decoded
+    /// bytes, keeping its compressed blocks: a frame no honest writer produces.
+    /// Only frames from [`compress_without_content_size`] fit: no declared
+    /// size, not single segment, no dictionary id.
+    fn with_declared_size(frame: &[u8], declared: u64) -> Vec<u8> {
+        let descriptor = frame[4];
+        assert_eq!(descriptor >> 6, 0, "the frame already declares a size");
+        assert_eq!(descriptor & 0x20, 0, "single segment frames carry no window byte");
+        assert_eq!(descriptor & 0x03, 0, "a dictionary id would shift the size field");
+        let mut out = Vec::with_capacity(frame.len() + 8);
+        out.extend_from_slice(&frame[..4]);
+        // top two bits of the descriptor: an 8 byte Frame_Content_Size field
+        out.push(descriptor | 0xC0);
+        out.push(frame[5]);
+        out.extend_from_slice(&declared.to_le_bytes());
+        out.extend_from_slice(&frame[6..]);
+        out
+    }
+
+    fn streamed_frame(data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let header_len = format_constants::ICECHUNK_FILE_HEADER_LEN;
+        let with_header = compress_without_content_size(
+            data,
+            SpecVersionBin::current(),
+            FileTypeBin::Manifest,
+            3,
+        )?;
+        Ok(with_header[header_len..].to_vec())
+    }
+
+    #[test]
+    fn a_frame_that_lies_about_its_decoded_size_is_an_error()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let data: Vec<u8> = (0..300_000u32).map(|i| (i % 251) as u8).collect();
+        let frame = streamed_frame(&data)?;
+        assert_eq!(frame_content_size(&frame), None);
+        let actual = data.len() as u64;
+        // below the preallocation cap the buffer is sized from the header, above
+        // it the decoder grows its own; both must reject the mismatch
+        for declared in [
+            actual + 1,
+            actual - 1,
+            actual * 10,
+            MAX_PREALLOCATED_DECODE_BYTES + 1,
+            u64::MAX / 2,
+        ] {
+            let forged = with_declared_size(&frame, declared);
+            assert_eq!(frame_content_size(&forged), Some(declared));
+            decompress_frame(&forged, None).err().ok_or(format!(
+                "a frame declaring {declared} of {actual} bytes must not decode"
+            ))?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn a_truncated_frame_is_an_error() -> Result<(), Box<dyn std::error::Error>> {
+        let data: Vec<u8> = (0..300_000u32).map(|i| (i % 251) as u8).collect();
+        let declared = zstd::bulk::compress(&data, 3)?;
+        assert!(decompress_frame(&declared[..declared.len() / 2], None).is_err());
+        let streamed = streamed_frame(&data)?;
+        assert!(decompress_frame(&streamed[..streamed.len() / 2], None).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn the_preallocation_is_clamped() {
+        assert_eq!(prealloc_capacity(0), 0);
+        assert_eq!(prealloc_capacity(1024), 1024);
+        let cap = MAX_PREALLOCATED_DECODE_BYTES;
+        assert_eq!(prealloc_capacity(cap), cap as usize);
+        assert_eq!(prealloc_capacity(cap + 1), cap as usize);
+        assert_eq!(prealloc_capacity(u64::MAX), cap as usize);
+    }
+
+    /// A manifest of one inline chunk ref.
+    async fn one_chunk_manifest() -> Result<Manifest, Box<dyn std::error::Error>> {
+        Ok(Manifest::from_iter(
+            &ManifestId::random(),
+            vec![ChunkInfo {
+                node: NodeId::random(),
+                coord: ChunkIndices(vec![0]),
+                payload: ChunkPayload::Inline("hello".into()),
+            }],
+            None,
+        )
+        .await?
+        .ok_or("manifest is empty")?)
+    }
+
+    #[tokio_test]
+    async fn compressed_objects_declare_their_decoded_size_and_still_stream()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let manifest = one_chunk_manifest().await?;
+        let spec_version = SpecVersionBin::current();
+        let bytes = compress_with_header(
+            manifest.bytes(),
+            spec_version,
+            FileTypeBin::Manifest,
+            3,
+        )?;
+        let header_len = format_constants::ICECHUNK_FILE_HEADER_LEN;
+        assert_eq!(
+            &bytes[..header_len],
+            binary_file_header(
+                spec_version,
+                FileTypeBin::Manifest,
+                CompressionAlgorithmBin::Zstd
+            )
+            .as_slice()
+        );
+        let frame = &bytes[header_len..];
+        assert_eq!(frame_content_size(frame), Some(manifest.bytes().len() as u64));
+        // frame header descriptor: no content checksum and no dictionary id,
+        // the same settings a single-shot frame of the same data carries
+        let bulk = zstd::bulk::compress(manifest.bytes(), 3)?;
+        assert_eq!(frame[4] & 0x04, 0, "a content checksum appeared");
+        assert_eq!(frame[4] & 0x04, bulk[4] & 0x04);
+        assert_eq!(frame[4] & 0x03, bulk[4] & 0x03);
+        // the streaming path a reader that ignores the declared size takes
+        let mut streamed = Vec::new();
+        zstd::stream::copy_decode(frame, &mut streamed)?;
+        assert_eq!(streamed.as_slice(), manifest.bytes());
+        let decoded = decode_manifest(&bytes, None)?;
+        assert_eq!(decoded.id(), manifest.id());
+        assert_eq!(decoded.bytes(), manifest.bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn an_empty_frame_is_not_a_manifest() -> Result<(), Box<dyn std::error::Error>> {
+        let mut bytes = binary_file_header(
+            SpecVersionBin::current(),
+            FileTypeBin::Manifest,
+            CompressionAlgorithmBin::Zstd,
+        );
+        bytes.extend_from_slice(&zstd::bulk::compress(b"", 3)?);
+        let frame = &bytes[format_constants::ICECHUNK_FILE_HEADER_LEN..];
+        assert_eq!(frame_content_size(frame), Some(0));
+        assert!(decompress_frame(frame, None)?.is_empty());
+        let err = decode_manifest(&bytes, None)
+            .err()
+            .ok_or("nothing decodes to an empty manifest")?;
+        assert!(matches!(err.kind, RepositoryErrorKind::FormatError(_)), "{err}");
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn written_objects_record_their_decompressed_size()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // a manifest written through the normal path must carry a frame content size
+        let (repo, snap_id) = repo_with_one_manifest().await?;
+        let am = repo.asset_manager();
+        let snapshot = am.fetch_snapshot(&snap_id).await?;
+        let info = snapshot.manifest_files().next().expect("a manifest")?;
+        let bytes = am.fetch_manifest_bytes(&info.id, info.size_bytes).await?;
+        let frame = &bytes[format_constants::ICECHUNK_FILE_HEADER_LEN..];
+        let declared =
+            frame_content_size(frame).ok_or("writer must record the content size")?;
+        let manifest = decode_manifest(&bytes, None)?;
+        assert_eq!(declared as usize, manifest.bytes().len());
         Ok(())
     }
 
@@ -1967,7 +2319,8 @@ mod test {
                 .unwrap();
         let pre_existing_manifest = Arc::new(pre_existing_manifest);
         let pre_existing_id = pre_existing_manifest.id();
-        let pre_size = manager.write_manifest(Arc::clone(&pre_existing_manifest)).await?;
+        let pre_size =
+            manager.write_manifest("a", Arc::clone(&pre_existing_manifest)).await?;
 
         let logging = Arc::new(LoggingStorage::new(Arc::clone(&backend)));
         let logging_c = Arc::clone(&logging);
@@ -1994,9 +2347,9 @@ mod test {
             .unwrap(),
         );
         let id = manifest.id();
-        let size = caching.write_manifest(Arc::clone(&manifest)).await?;
+        let size = caching.write_manifest("a", Arc::clone(&manifest)).await?;
 
-        let fetched = caching.fetch_manifest(&id, size).await?;
+        let fetched = caching.fetch_manifest("a", &id, size).await?;
         assert_eq!(fetched.len(), 1);
         assert_equal(
             fetched.iter(node2.clone()).unwrap().map(|x| x.unwrap()),
@@ -2004,7 +2357,7 @@ mod test {
         );
 
         // fetch again
-        caching.fetch_manifest(&id, size).await?;
+        caching.fetch_manifest("a", &id, size).await?;
         // when we insert we cache, so no fetches
         assert_eq!(
             logging.fetch_operations(),
@@ -2012,7 +2365,7 @@ mod test {
         );
 
         // first time it sees an ID it calls the backend
-        caching.fetch_manifest(&pre_existing_id, pre_size).await?;
+        caching.fetch_manifest("a", &pre_existing_id, pre_size).await?;
         assert_eq!(
             logging.fetch_operations(),
             vec![
@@ -2025,7 +2378,7 @@ mod test {
         );
 
         // only calls backend once
-        caching.fetch_manifest(&pre_existing_id, pre_size).await?;
+        caching.fetch_manifest("a", &pre_existing_id, pre_size).await?;
         assert_eq!(
             logging.fetch_operations(),
             vec![
@@ -2038,7 +2391,7 @@ mod test {
         );
 
         // other values still cached
-        caching.fetch_manifest(&id, size).await?;
+        caching.fetch_manifest("a", &id, size).await?;
         assert_eq!(
             logging.fetch_operations(),
             vec![
@@ -2084,7 +2437,7 @@ mod test {
                 .unwrap(),
         );
         let id1 = manifest1.id();
-        let size1 = manager.write_manifest(Arc::clone(&manifest1)).await?;
+        let size1 = manager.write_manifest("a", Arc::clone(&manifest1)).await?;
         let compression2: LocationCompressionConfig =
             (&ManifestVirtualChunkLocationCompressionConfig::default()).into();
         let manifest2 = Arc::new(
@@ -2097,14 +2450,14 @@ mod test {
             .unwrap(),
         );
         let id2 = manifest2.id();
-        let size2 = manager.write_manifest(Arc::clone(&manifest2)).await?;
+        let size2 = manager.write_manifest("a", Arc::clone(&manifest2)).await?;
         let manifest3 = Arc::new(
             Manifest::from_iter(&ManifestId::random(), vec![ci7, ci8, ci9], None)
                 .await?
                 .unwrap(),
         );
         let id3 = manifest3.id();
-        let size3 = manager.write_manifest(Arc::clone(&manifest3)).await?;
+        let size3 = manager.write_manifest("a", Arc::clone(&manifest3)).await?;
 
         let logging = Arc::new(LoggingStorage::new(Arc::clone(&backend)));
         let logging_c = Arc::clone(&logging);
@@ -2128,9 +2481,9 @@ mod test {
 
         // we keep asking for all 3 items, but the cache can only fit 2
         for _ in 0..20 {
-            caching.fetch_manifest(&id1, size1).await?;
-            caching.fetch_manifest(&id2, size2).await?;
-            caching.fetch_manifest(&id3, size3).await?;
+            caching.fetch_manifest("a", &id1, size1).await?;
+            caching.fetch_manifest("a", &id2, size2).await?;
+            caching.fetch_manifest("a", &id3, size3).await?;
         }
         // after the initial warming requests, we only request the file that doesn't fit in the cache
         assert_eq!(logging.fetch_operations()[10..].iter().unique().count(), 1);
@@ -2166,7 +2519,7 @@ mod test {
         .unwrap()
         .unwrap();
         let manifest_id = manifest.id().clone();
-        let size = manager.write_manifest(Arc::new(manifest)).await?;
+        let size = manager.write_manifest("a", Arc::new(manifest)).await?;
 
         let logging = Arc::new(LoggingStorage::new(Arc::clone(&storage)));
         let logging_c = Arc::clone(&logging);
@@ -2186,10 +2539,10 @@ mod test {
         let manifest_id_c = manifest_id.clone();
 
         let res1 = tokio::task::spawn(async move {
-            manager_c.fetch_manifest(&manifest_id_c, size).await
+            manager_c.fetch_manifest("a", &manifest_id_c, size).await
         });
         let res2 = tokio::task::spawn(async move {
-            manager_cc.fetch_manifest(&manifest_id, size).await
+            manager_cc.fetch_manifest("a", &manifest_id, size).await
         });
 
         assert!(res1.await?.is_ok());
@@ -2289,20 +2642,17 @@ mod test {
     #[tokio_test]
     async fn test_header_methods() -> Result<(), Box<dyn std::error::Error>> {
         let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
-        let repo = Repository::create(
-            Some(RepositoryConfig {
+        let repo = Repository::create(Arc::clone(&storage))
+            .config(RepositoryConfig {
                 // force a non-inline chunk so a manifest file is written
                 inline_chunk_threshold_bytes: Some(0),
                 // tiny batch size so a couple commits leave a repo-info backup chain
                 num_updates_per_repo_info_file: Some(1),
                 ..Default::default()
-            }),
-            Arc::clone(&storage),
-            HashMap::new(),
-            Some(SpecVersionBin::current()),
-            true,
-        )
-        .await?;
+            })
+            .spec_version(SpecVersionBin::current())
+            .execute()
+            .await?;
 
         // First commit: group + array + a chunk, producing a manifest.
         let mut session = repo.writable_session("main").await?;
@@ -2317,9 +2667,10 @@ mod test {
                 Bytes::from_static(br#"{"this":"array"}"#),
             )
             .await?;
-        let payload =
-            session.get_chunk_writer()?(Bytes::copy_from_slice(&42i8.to_be_bytes()))
-                .await?;
+        let payload = session.get_chunk_writer(&array_path, &ChunkIndices(vec![0]))?(
+            Bytes::copy_from_slice(&42i8.to_be_bytes()),
+        )
+        .await?;
         session
             .set_chunk_ref(array_path.clone(), ChunkIndices(vec![0]), Some(payload))
             .await?;
@@ -2384,6 +2735,62 @@ mod test {
             am.fetch_repo_info_backup_with_header(backup_name).await?;
         assert_eq!(with_header, header);
 
+        Ok(())
+    }
+
+    /// A repo whose single commit wrote one manifest of 4 chunk refs.
+    async fn repo_with_one_manifest()
+    -> Result<(Repository, SnapshotId), Box<dyn std::error::Error>> {
+        let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let repo = Repository::create(storage)
+            .config(RepositoryConfig {
+                // force non-inline chunks so a manifest file is written
+                inline_chunk_threshold_bytes: Some(0),
+                ..Default::default()
+            })
+            .execute()
+            .await?;
+        let mut session = repo.writable_session("main").await?;
+        session.add_group(Path::root(), Bytes::new()).await?;
+        let array_path: Path = "/a".to_string().try_into()?;
+        session
+            .add_array(
+                array_path.clone(),
+                ArrayShape::new(vec![(4, 4)]).unwrap(),
+                None,
+                Bytes::from_static(br#"{"zarr_format":3}"#),
+            )
+            .await?;
+        for i in 0..4u32 {
+            let payload = session
+                .get_chunk_writer(&array_path, &ChunkIndices(vec![i]))?(
+                Bytes::from(vec![i as u8; 100]),
+            )
+            .await?;
+            session
+                .set_chunk_ref(array_path.clone(), ChunkIndices(vec![i]), Some(payload))
+                .await?;
+        }
+        let snap_id = session.commit("c").max_concurrent_nodes(8).execute().await?;
+        Ok((repo, snap_id))
+    }
+
+    #[tokio_test]
+    async fn raw_manifest_bytes_decode_to_the_cached_manifest()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let (repo, snap_id) = repo_with_one_manifest().await?;
+        let am = repo.asset_manager();
+        let snapshot = am.fetch_snapshot(&snap_id).await?;
+        let info = snapshot.manifest_files().next().expect("a manifest")?;
+
+        let bytes = am.fetch_manifest_bytes(&info.id, info.size_bytes).await?;
+        assert_eq!(bytes.len() as u64, info.size_bytes);
+        let decoded = decode_manifest(&bytes, None)?;
+        let cached = am.fetch_manifest("a", &info.id, info.size_bytes).await?;
+        assert_eq!(decoded.id(), cached.id());
+        assert_eq!(decoded.len(), cached.len());
+        assert_eq!(decoded.len(), 4);
+        assert!(am.max_concurrent_decodes() >= 1);
         Ok(())
     }
 }

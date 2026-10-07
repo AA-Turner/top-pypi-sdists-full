@@ -12,8 +12,24 @@ class DbWriter:
         self.db = db
         self.settings = settings
 
+    def _dialect(self):
+        return getattr(self.settings, "db_dialect", "postgres")
+
     def _is_mysql(self):
-        return getattr(self.settings, "db_dialect", "postgres") == "mysql"
+        return self._dialect() == "mysql"
+
+    def _is_sqlite(self):
+        return self._dialect() == "sqlite"
+
+    def _failed_requests_filter(self):
+        if self._is_sqlite():
+            return "AND success = 0"
+        return "AND success IS FALSE"
+
+    def _success_requests_filter(self):
+        if self._is_sqlite():
+            return "AND success = 1"
+        return "AND success IS TRUE"
 
     def write(self, data, job_id):
         try:
@@ -50,15 +66,16 @@ class DbWriter:
                 items_per_min = 0,
                 stats = NULL
             """
+        ref = "excluded" if self._is_sqlite() else "EXCLUDED"
         return f"""
         INSERT INTO {table}
         (job_id, spider_name, status, started_at, items_count, requests_count,
          success_requests, failed_requests, errors_count, logs_count)
         VALUES (%s, %s, %s, %s, 0, 0, 0, 0, 0, 0)
         ON CONFLICT (job_id) DO UPDATE SET
-            spider_name = EXCLUDED.spider_name,
-            status = EXCLUDED.status,
-            started_at = EXCLUDED.started_at,
+            spider_name = {ref}.spider_name,
+            status = {ref}.status,
+            started_at = {ref}.started_at,
             finished_at = NULL,
             finish_reason = NULL,
             items_count = 0,
@@ -94,8 +111,12 @@ class DbWriter:
     def _job_counts(self, job_id):
         items = self._count(self.settings.db_items_table, job_id)
         requests = self._count(self.settings.db_requests_table, job_id)
-        success = self._count(self.settings.db_requests_table, job_id, "AND success IS TRUE")
-        failed = self._count(self.settings.db_requests_table, job_id, "AND success IS FALSE")
+        success = self._count(
+            self.settings.db_requests_table, job_id, self._success_requests_filter()
+        )
+        failed = self._count(
+            self.settings.db_requests_table, job_id, self._failed_requests_filter()
+        )
         logs = self._count(self.settings.db_logs_table, job_id)
         standalone_log_errors = self._count(
             self.settings.db_logs_table, job_id, sql_standalone_log_errors_clause()
@@ -113,6 +134,13 @@ class DbWriter:
     def _naive(dt):
         if dt is None:
             return None
+        if isinstance(dt, str):
+            from datetime import datetime
+
+            try:
+                dt = datetime.fromisoformat(dt)
+            except ValueError:
+                return None
         if getattr(dt, "tzinfo", None) is not None:
             return dt.replace(tzinfo=None)
         return dt
@@ -225,7 +253,9 @@ class DbWriter:
                 req.get("fingerprint"),
                 req.get("parent_url"),
                 req.get("error"),
-                req.get("success"),
+                1 if req.get("success") is True else (0 if req.get("success") is False else None)
+                if self._is_sqlite()
+                else req.get("success"),
                 created_at,
             )
             for req in requests
@@ -235,7 +265,7 @@ class DbWriter:
 
     def _link_parent_sql(self, table):
         """Resolve parent_id from parent_url. MySQL cannot UPDATE the same table it reads."""
-        if self._is_mysql():
+        if self._is_mysql() and not self._is_sqlite():
             return f"""
             UPDATE {table} AS child
             INNER JOIN (

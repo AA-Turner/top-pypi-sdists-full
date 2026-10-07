@@ -2,6 +2,9 @@
 import re  # noqa: F401
 
 from yookassa.domain.common import ResponseObject
+from yookassa.domain.models import SelfEmployedStatus
+from yookassa.domain.models.self_employed_data.confirmation_class_map import SelfEmployedConfirmationClassMap
+from yookassa.domain.models.self_employed_data.confirmation import SelfEmployedConfirmationType
 from yookassa.domain.models.self_employed_data.confirmation_factory import SelfEmployedConfirmationFactory
 
 
@@ -75,7 +78,10 @@ class SelfEmployedResponse(ResponseObject):
         :param value: status модели SelfEmployedResponse.
         :type value: str
         """
-        self.__status = str(value)
+        value = str(value)
+        if value not in {getattr(SelfEmployedStatus, _n) for _n in dir(SelfEmployedStatus) if not _n.startswith('_')}:
+            value = SelfEmployedStatus.UNKNOWN
+        self.__status = value
 
     @property
     def created_at(self):
@@ -155,6 +161,8 @@ class SelfEmployedResponse(ResponseObject):
         :param value: confirmation модели SelfEmployedResponse.
         :type value: SelfEmployedConfirmation
         """
+        if isinstance(value, dict) and 'type' in value and value['type'] not in SelfEmployedConfirmationClassMap().response:
+            value['type'] = SelfEmployedConfirmationType.UNKNOWN
         self.__confirmation = SelfEmployedConfirmationFactory().create(value, self.context())
 
     @property

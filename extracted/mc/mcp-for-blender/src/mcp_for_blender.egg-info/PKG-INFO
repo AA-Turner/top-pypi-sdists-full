@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-for-blender
-Version: 2.1.8
+Version: 2.1.9
 Summary: Open source Blender integration through the Model Context Protocol (not affiliated with Blender Foundation)
 Author-email: Siddharth Ahuja <ahujasid@gmail.com>
 License-Expression: MIT

@@ -2,6 +2,7 @@ pub mod anyof;
 pub mod conditional;
 pub mod delimited;
 pub mod noncode;
+pub mod preceded_by;
 pub mod sequence;
 
 use hashbrown::HashSet;
@@ -160,11 +161,11 @@ impl MatchableTrait for Ref {
                         .inspect_err(|e| log::error!("Parser error: {e:?}"))
                         .is_ok_and(|match_result| match_result.has_match())
                     {
-                        return Some(MatchResult::empty_at(idx));
+                        return Ok(Some(MatchResult::empty_at(idx)));
                     }
 
-                    None
-                });
+                    Ok(None)
+                })?;
 
             if let Some(ctx) = ctx {
                 return Ok(ctx);
@@ -185,6 +186,7 @@ impl MatchableTrait for Ref {
 pub struct Anything {
     cache_key: MatchableCacheKey,
     terminators: Vec<Matchable>,
+    reset_terminators: bool,
 }
 
 impl PartialEq for Anything {
@@ -205,11 +207,17 @@ impl Anything {
         Self {
             cache_key: next_matchable_cache_key(),
             terminators: Vec::new(),
+            reset_terminators: false,
         }
     }
 
     pub fn terminators(mut self, terminators: Vec<Matchable>) -> Self {
         self.terminators = terminators;
+        self
+    }
+
+    pub fn reset_terminators(mut self) -> Self {
+        self.reset_terminators = true;
         self
     }
 }
@@ -234,7 +242,9 @@ impl MatchableTrait for Anything {
         }
 
         let mut terminators = self.terminators.clone();
-        terminators.extend_from_slice(&parse_context.terminators);
+        if !self.reset_terminators {
+            terminators.extend_from_slice(&parse_context.terminators);
+        }
 
         greedy_match(segments, idx, parse_context, &terminators, false, true)
     }

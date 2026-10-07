@@ -117,6 +117,48 @@ async def _capture_unrunnable_tool_configuration(
     )
 
 
+#: Stream ``warning`` code the CALLER receives when a tool it named cannot reach
+#: the model (no implementation anywhere, or not a known tool at all).
+TOOLS_NOT_AVAILABLE_WARNING_CODE = "tools_not_available"
+
+
+def _tell_caller_tools_not_available(
+    ctx: AppContext, *, unrunnable: Sequence[str], unknown: Sequence[str]
+) -> None:
+    """A tool the caller named that the run cannot use is announced on the stream.
+
+    The server log and the system_error row are for us; the person (or agent)
+    who asked for the tool must hear it too, or the run silently proceeds
+    without it (feedback 119846df). Fire-and-forget: telling never breaks the run.
+    """
+    if not unrunnable and not unknown:
+        return
+    emitter = getattr(ctx, "emitter", None)
+    if emitter is None:
+        return
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    from matrx_connect.context.events import WarningPayload
+
+    parts: list[str] = []
+    if unrunnable:
+        parts.append(f"no implementation for: {', '.join(sorted(unrunnable))}")
+    if unknown:
+        parts.append(f"not a known tool: {', '.join(sorted(unknown))}")
+    names = sorted({*unrunnable, *unknown})
+    payload = WarningPayload(
+        code=TOOLS_NOT_AVAILABLE_WARNING_CODE,
+        system_message="Requested tool(s) removed from this run — " + "; ".join(parts) + ".",
+        user_message=f"Not available in this run: {', '.join(names)}.",
+        level="medium",
+        recoverable=True,
+        metadata={"unrunnable": sorted(unrunnable), "unknown": sorted(unknown)},
+    )
+    detached_task(emitter.send_warning(payload), name="warn_tools_not_available")
+
+
 def _schedule_unrunnable_tool_configuration_capture(
     *,
     ctx: AppContext,
@@ -829,6 +871,14 @@ def merge_request_tools(
     # dynamic discovery mutation can add them back.
     hard_excluded = hard_excluded_tool_names(ctx)
     excluded_set = {n for n in excluded if n} | set(hard_excluded)
+    # Names THIS request asked for — a drop of one of these is told to the caller.
+    requested_registered_names: set[str] = set()
+    for _spec in specs:
+        if isinstance(_spec, RegisteredToolSpec):
+            requested_registered_names.add(_spec.name)
+            _rid = _spec.resolved_tool_id()
+            if _rid:
+                requested_registered_names.add(_rid)
     if not specs and not excluded_set and not config.tools and not config.custom_tools:
         # Genuinely nothing to route — no specs, no exclusions, no pre-loaded
         # tools. Only THEN is it safe to short-circuit.
@@ -1233,8 +1283,13 @@ def merge_request_tools(
         kept_tools: list[str] = []
         dropped_unrunnable: list[str] = []
         dropped_gated: list[str] = []
+        unknown_named: list[str] = []
         for _name in config.tools:
             _td = registry.get(_name)
+            if _td is None and isinstance(_name, str) and _name in requested_registered_names:
+                # Named by THIS request but not a known tool: it can never be
+                # called. Keep the prior pass-through behaviour, but tell the caller.
+                unknown_named.append(_name)
             if (
                 _td is not None
                 and _td.tool_type == ToolType.LOCAL
@@ -1305,6 +1360,15 @@ def merge_request_tools(
                 f"handler, or activate the client surface that delegates it.",
                 color="yellow",
             )
+        _tell_caller_tools_not_available(
+            ctx,
+            unrunnable=[
+                getattr(registry.get(n), "name", None) or n
+                for n in dropped_unrunnable
+                if n in requested_registered_names
+            ],
+            unknown=unknown_named,
+        )
 
     return ctx
 

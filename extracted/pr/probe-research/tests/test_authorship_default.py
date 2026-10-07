@@ -30,6 +30,7 @@ from probe.sdk.agent_session import (
     AUTHORSHIP_AGENT,
     AUTHORSHIP_HUMAN,
     default_authorship,
+    resolve_agent_session,
 )
 from tests.conftest import _owns_field
 
@@ -55,11 +56,14 @@ class TestTheDefaultReadsTheEnvironmentAndNothingElse:
         no_agent.setenv(var, "1")
         assert default_authorship() == AUTHORSHIP_AGENT
 
-    def test_an_uncaptured_agent_still_counts(self, no_agent):
-        """Cursor is detectable and its transcripts are NOT captured, so
-        `resolve_agent_session` rejects it. Authorship asks a different
+    def test_an_unattributed_agent_still_counts(self, no_agent, tmp_path):
+        """An unpaired Codex is detectable but its transcripts cannot reach us,
+        so `resolve_agent_session` rejects it. Authorship asks a different
         question: a program is composing the name either way."""
-        no_agent.setenv("CURSOR_TRACE_ID", "abc")
+        no_agent.delenv("PRBE_CODEX_TAP_TOKEN", raising=False)
+        no_agent.setenv("PRBE_CODEX_TAP_PLUGIN_DIR", str(tmp_path / "unpaired"))  # no .token
+        no_agent.setenv("CODEX_THREAD_ID", "th_9911223344")
+        assert resolve_agent_session() is None
         assert default_authorship() == AUTHORSHIP_AGENT
 
     def test_a_bare_terminal_declares_nothing(self, no_agent):

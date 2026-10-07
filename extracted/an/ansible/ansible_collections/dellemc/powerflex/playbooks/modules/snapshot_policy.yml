@@ -4,16 +4,33 @@
   connection: local
   gather_facts: false
   vars:
-    hostname: 'x.x.x.x'
-    username: 'admin'
-    password: 'Password'
+    hostname: "{{ lookup('env', 'POWERFLEX_HOST') | default('x.x.x.x', true) }}"
+    username: "{{ lookup('env', 'POWERFLEX_USER') | default('admin', true) }}"
+    password: "{{ lookup('env', 'POWERFLEX_PASS') | default('CHANGE_ME', true) }}"
     validate_certs: false
-    snapshot_policy_name: "Ansible_snap_policy_1"
-    source_volume_name1: "Ansible_volume_4"
-    source_volume_name2: "Ansible_volume_5"
-    snapshot_policy_name_new: "Ansible_snap_policy_1_new"
+    snapshot_policy_name: "ansible_snap_pol_test"
+    source_volume_name1: "ansible_sp_vol1_test"
+    source_volume_name2: "ansible_sp_vol2_test"
+    snapshot_policy_name_new: "ansible_snap_pol_new_test"
+    storage_pool_name: "destiny-SP1"
+    protection_domain_name: "destiny-PD"
 
   tasks:
+    - name: Create source volumes for snapshot policy
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ item }}"
+        storage_pool_name: "{{ storage_pool_name }}"
+        size: 8
+        cap_unit: "GB"
+        state: "present"
+      loop:
+        - "{{ source_volume_name1 }}"
+        - "{{ source_volume_name2 }}"
+
     - name: Create a snapshot policy in check mode
       dellemc.powerflex.snapshot_policy:
         hostname: "{{ hostname }}"
@@ -21,7 +38,7 @@
         password: "{{ password }}"
         validate_certs: "{{ validate_certs }}"
         snapshot_policy_name: "{{ snapshot_policy_name }}"
-        access_mode: "READ_WRITE"
+        access_mode: "READ_ONLY"
         secure_snapshots: false
         auto_snapshot_creation_cadence:
           time: 1
@@ -39,7 +56,7 @@
         password: "{{ password }}"
         validate_certs: "{{ validate_certs }}"
         snapshot_policy_name: "{{ snapshot_policy_name }}"
-        access_mode: "READ_WRITE"
+        access_mode: "READ_ONLY"
         secure_snapshots: false
         auto_snapshot_creation_cadence:
           time: 1
@@ -213,3 +230,15 @@
         validate_certs: "{{ validate_certs }}"
         snapshot_policy_name: "{{ snapshot_policy_name_new }}"
         state: "absent"
+
+    - name: Delete source volumes
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ item }}"
+        state: "absent"
+      loop:
+        - "{{ source_volume_name1 }}"
+        - "{{ source_volume_name2 }}"

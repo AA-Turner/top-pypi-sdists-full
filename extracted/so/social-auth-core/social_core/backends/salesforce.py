@@ -1,6 +1,8 @@
 from typing import Any
 from urllib.parse import urlencode
 
+from social_core.exceptions import SocialAuthBaseException
+
 from .oauth import BaseOAuth2
 
 
@@ -8,6 +10,8 @@ class SalesforceOAuth2(BaseOAuth2):
     """Salesforce OAuth2 authentication backend"""
 
     name = "salesforce-oauth2"
+    title = "Salesforce"
+    icon = "salesforce.svg"
     AUTHORIZATION_URL = "https://login.salesforce.com/services/oauth2/authorize"
     ACCESS_TOKEN_URL = "https://login.salesforce.com/services/oauth2/token"
     REVOKE_TOKEN_URL = "https://login.salesforce.com/services/oauth2/revoke"
@@ -37,6 +41,8 @@ class SalesforceOAuth2(BaseOAuth2):
         url = f"{user_id_url}?{urlencode({'access_token': access_token})}"
         try:
             return self.get_json(url)
+        except SocialAuthBaseException:
+            raise
         except ValueError:
             return None
 
@@ -45,6 +51,7 @@ class SalesforceOAuth2Sandbox(SalesforceOAuth2):
     """Salesforce OAuth2 authentication testing backend"""
 
     name = "salesforce-oauth2-sandbox"
+    title = "Salesforce (Sandbox)"
     AUTHORIZATION_URL = "https://test.salesforce.com/services/oauth2/authorize"
     ACCESS_TOKEN_URL = "https://test.salesforce.com/services/oauth2/token"
     REVOKE_TOKEN_URL = "https://test.salesforce.com/services/oauth2/revoke"

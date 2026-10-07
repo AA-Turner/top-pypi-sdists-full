@@ -9,7 +9,7 @@ import sqlite3
 import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import nullcontext
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from uuid import uuid4
 
@@ -24,6 +24,7 @@ MAX_PART_BYTES = 4 * 1024 * 1024
 MAX_PART_TASKS = 256
 MAX_REQUEST_BYTES = 128 * 1024
 MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024 * 1024
+MAX_RUNTIME_CONTEXT_FILES = 4096
 BENCHMARK_NAME_MIN_LENGTH = 3
 BENCHMARK_NAME_MAX_LENGTH = 1024
 
@@ -40,6 +41,7 @@ class SubmissionUpload:
     self.part: list[bytes] = []
     self.part_bytes = 2
     self.part_count = 0
+    self.runtime_dockerfiles: set[str | None] = set()
 
   def close(self) -> None:
     self.database.close()
@@ -56,6 +58,10 @@ class SubmissionUpload:
         raise ValueError(f"Task {task['name']!r} exceeds the 4 MiB task-part limit")
       payload.extend(encoded)
     self.database.execute("INSERT INTO tasks VALUES (?)", (task["name"],))
+    runtime = task.get("runtime")
+    self.runtime_dockerfiles.add(
+      None if runtime is None else (runtime.get("source") or {}).get("dockerfile_path") or ""
+    )
     separator = int(bool(self.part))
     if (
       len(self.part) == MAX_PART_TASKS
@@ -142,6 +148,7 @@ class SubmissionUpload:
     self._flush_part()
     if not self.part_count:
       raise ValueError("Submission must contain tasks")
+    self._validate_runtime_contexts(metadata)
     digest = hashlib.sha256()
     for (declaration,) in self.database.execute("SELECT declaration FROM files ORDER BY path"):
       digest.update(declaration.encode() + b"\n")
@@ -203,6 +210,41 @@ class SubmissionUpload:
       operation_id, object_count=total_files, part_count=self.part_count
     )
     return BenchmarkOperation(client, operation_id, status)
+
+  def _validate_runtime_contexts(self, metadata: dict[str, Any]) -> None:
+    checked: set[str] = set()
+    for dockerfile in self.runtime_dockerfiles:
+      if dockerfile is None:
+        runtime = metadata.get("runtime") or {}
+        dockerfile = (runtime.get("source") or {}).get("dockerfile_path")
+      if not dockerfile:
+        continue
+      parent = PurePosixPath(dockerfile).parent.as_posix()
+      prefix = parent + "/" if parent != "." else ""
+      if prefix in checked:
+        continue
+      checked.add(prefix)
+      query = "SELECT COUNT(*), COALESCE(SUM(size), 0) FROM files WHERE path NOT GLOB 'parts/*'"
+      parameters: tuple[str, ...] = ()
+      if prefix:
+        # '/' sorts immediately before '0', so the range includes every child name.
+        query += " AND path >= ? AND path < ?"
+        parameters = (prefix, prefix[:-1] + "0")
+      count, size = self.database.execute(query, parameters).fetchone()
+      problems = []
+      if count > MAX_RUNTIME_CONTEXT_FILES:
+        problems.append(
+          f"{count:,} files exceeds the {MAX_RUNTIME_CONTEXT_FILES:,}-file limit. "
+          "Keep only this runtime's required files in its Dockerfile directory; "
+          "archive them if the context still has too many files"
+        )
+      if size > MAX_FILE_SIZE_BYTES:
+        problems.append(
+          f"{size:,} bytes exceeds the {MAX_FILE_SIZE_BYTES:,}-byte context limit. "
+          "Compress the required files or give each runtime a smaller build context"
+        )
+      if problems:
+        raise ValueError(f"Runtime context for {dockerfile!r}: " + ". ".join(problems))
 
   @staticmethod
   def _declared_file(source: str, declaration: dict[str, Any]) -> UploadFile:

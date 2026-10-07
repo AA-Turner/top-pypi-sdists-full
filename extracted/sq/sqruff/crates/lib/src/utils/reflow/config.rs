@@ -6,7 +6,7 @@ use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use crate::core::config::{FluffConfig, Value};
 use crate::utils::reflow::depth_map::{DepthInfo, StackPositionType};
 use crate::utils::reflow::rebreak::LinePosition;
-use crate::utils::reflow::reindent::{IndentUnit, TrailingComments};
+use crate::utils::reflow::reindent::{ImplicitIndents, IndentUnit, TrailingComments};
 
 type ConfigDictType = HashMap<SyntaxKind, LayoutTypeConfig>;
 
@@ -24,11 +24,18 @@ struct LayoutTypeConfig {
 pub struct LinePositionConfig {
     position: LinePosition,
     strict: bool,
+    align_following: bool,
+    attached: bool,
 }
 
 impl LinePositionConfig {
     pub const fn new(position: LinePosition, strict: bool) -> Self {
-        Self { position, strict }
+        Self {
+            position,
+            strict,
+            align_following: false,
+            attached: false,
+        }
     }
 
     pub const fn position(self) -> LinePosition {
@@ -37,6 +44,14 @@ impl LinePositionConfig {
 
     pub const fn is_strict(self) -> bool {
         self.strict
+    }
+
+    pub const fn aligns_following(self) -> bool {
+        self.align_following
+    }
+
+    pub const fn is_attached(self) -> bool {
+        self.attached
     }
 }
 
@@ -50,21 +65,28 @@ impl FromStr for LinePositionConfig {
             .ok_or_else(|| "line_position cannot be empty".to_string())?
             .parse::<LinePosition>()
             .map_err(|_| format!("Unexpected line_position value: {s}"))?;
-        let strict = match parts.next() {
-            Some("strict") => true,
-            Some(other) => {
-                return Err(format!(
-                    "Unexpected line_position modifier '{other}' in '{s}'"
-                ));
+        let mut strict = false;
+        let mut align_following = false;
+        let mut attached = false;
+        for modifier in parts {
+            match modifier {
+                "strict" => strict = true,
+                "align-following" => align_following = true,
+                "attached" => attached = true,
+                other => {
+                    return Err(format!(
+                        "Unexpected line_position modifier '{other}' in '{s}'"
+                    ));
+                }
             }
-            None => false,
-        };
-
-        if parts.next().is_some() {
-            return Err(format!("Unexpected line_position value: {s}"));
         }
 
-        Ok(Self::new(position, strict))
+        Ok(Self {
+            position,
+            strict,
+            align_following,
+            attached,
+        })
     }
 }
 
@@ -154,7 +176,7 @@ fn parse_syntax_kind_alias(seg_type: &str) -> Option<SyntaxKind> {
 /// This acts as the primary translation engine between configuration
 /// held either in dicts for testing, or in the FluffConfig in live
 /// usage, and the configuration used during reflow operations.
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ReflowConfig {
     configs: ConfigDictType,
     config_types: SyntaxSet,
@@ -162,10 +184,32 @@ pub struct ReflowConfig {
     /// use `.from_fluff_config`, but the defaults are here to aid in
     /// testing.
     pub(crate) indent_unit: IndentUnit,
+    pub(crate) tab_space_size: usize,
     pub(crate) max_line_length: usize,
     pub(crate) hanging_indents: bool,
-    pub(crate) allow_implicit_indents: bool,
+    pub(crate) skip_indentation_in: SyntaxSet,
+    pub(crate) skip_implicit_indents_in: SyntaxSet,
+    pub(crate) implicit_indents: ImplicitIndents,
     pub(crate) trailing_comments: TrailingComments,
+    pub(crate) ignore_comment_lines: bool,
+}
+
+impl Default for ReflowConfig {
+    fn default() -> Self {
+        Self {
+            configs: Default::default(),
+            config_types: Default::default(),
+            indent_unit: Default::default(),
+            tab_space_size: 4,
+            max_line_length: 0,
+            hanging_indents: false,
+            skip_indentation_in: SyntaxSet::EMPTY,
+            skip_implicit_indents_in: SyntaxSet::EMPTY,
+            implicit_indents: Default::default(),
+            trailing_comments: Default::default(),
+            ignore_comment_lines: false,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -179,7 +223,26 @@ pub enum Spacing {
         seg_type: SyntaxKind,
         within: Option<SyntaxKind>,
         scope: Option<SyntaxKind>,
+        coordinate_space: Option<AlignmentCoordinateSpace>,
     },
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum AlignmentCoordinateSpace {
+    Source,
+    Templated,
+}
+
+impl FromStr for AlignmentCoordinateSpace {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "source" => Ok(Self::Source),
+            "templated" => Ok(Self::Templated),
+            _ => Err(()),
+        }
+    }
 }
 
 impl FromStr for Spacing {
@@ -200,11 +263,13 @@ impl FromStr for Spacing {
                     let seg_type = args.next().map(|it| it.parse().unwrap()).unwrap();
                     let within = args.next().map(|it| it.parse().unwrap());
                     let scope = args.next().map(|it| it.parse().unwrap());
+                    let coordinate_space = args.next().map(|it| it.parse().unwrap());
 
                     Spacing::Align {
                         seg_type,
                         within,
                         scope,
+                        coordinate_space,
                     }
                 } else {
                     unimplemented!("{s}")
@@ -226,7 +291,13 @@ impl ReflowConfig {
         block_class_types: &SyntaxSet,
         depth_info: Option<&DepthInfo>,
     ) -> BlockConfig {
-        let configured_types = block_class_types.clone().intersection(&self.config_types);
+        let mut block_class_types = block_class_types.clone();
+        // Oracle uses a dedicated syntax kind for :=, but shares layout policy
+        // with other dialects' assignment operators.
+        if block_class_types.contains(SyntaxKind::OracleAssignmentOperator) {
+            block_class_types.insert(SyntaxKind::AssignmentOperator);
+        }
+        let configured_types = block_class_types.intersection(&self.config_types);
 
         let mut block_config = BlockConfig::new();
 
@@ -301,6 +372,11 @@ impl ReflowConfig {
             .unwrap();
         let trailing_comments = TrailingComments::from_str(trailing_comments).unwrap();
 
+        let implicit_indents = config.raw["indentation"]["implicit_indents"]
+            .as_string()
+            .unwrap();
+        let implicit_indents = ImplicitIndents::from_str(implicit_indents).unwrap();
+
         let tab_space_size = config.raw["indentation"]["tab_space_size"]
             .as_int()
             .unwrap() as usize;
@@ -308,19 +384,31 @@ impl ReflowConfig {
             .as_string()
             .unwrap();
         let indent_unit = IndentUnit::from_type_and_size(indent_unit, tab_space_size);
+        let skip_indentation_in = config.raw["indentation"]["skip_indentation_in"]
+            .as_string()
+            .map(parse_configured_syntax_set)
+            .unwrap_or(SyntaxSet::EMPTY);
+        let skip_implicit_indents_in = config.raw["indentation"]["skip_implicit_indents_in"]
+            .as_string()
+            .map(parse_configured_syntax_set)
+            .unwrap_or(SyntaxSet::EMPTY);
 
         ReflowConfig {
             configs: convert_to_config_dict(configs),
             config_types,
             indent_unit,
+            tab_space_size,
             max_line_length: config.raw["core"]["max_line_length"].as_int().unwrap() as usize,
             hanging_indents: config.raw["indentation"]["hanging_indents"]
                 .as_bool()
                 .unwrap_or_default(),
-            allow_implicit_indents: config.raw["indentation"]["allow_implicit_indents"]
+            skip_indentation_in,
+            skip_implicit_indents_in,
+            implicit_indents,
+            trailing_comments,
+            ignore_comment_lines: config.raw["indentation"]["ignore_comment_lines"]
                 .as_bool()
                 .unwrap(),
-            trailing_comments,
         }
     }
 }
@@ -394,6 +482,12 @@ fn spacing_from_map(
                 .transpose()
                 .unwrap()
                 .map(|it| it.parse().unwrap()),
+            coordinate_space: map_value
+                .get("alignment_coordinate_space")
+                .map(string_value)
+                .transpose()
+                .unwrap()
+                .map(|it| it.parse().unwrap()),
         })
     } else {
         Some(spacing.parse().unwrap())
@@ -416,6 +510,20 @@ mod tests {
 
         assert_eq!(config.position(), LinePosition::Alone);
         assert!(config.is_strict());
+        assert!(!config.aligns_following());
+        assert!(!config.is_attached());
+
+        let config: LinePositionConfig = "leading:align-following".parse().unwrap();
+
+        assert_eq!(config.position(), LinePosition::Leading);
+        assert!(!config.is_strict());
+        assert!(config.aligns_following());
+        assert!(!config.is_attached());
+
+        let config: LinePositionConfig = "trailing:attached".parse().unwrap();
+        assert_eq!(config.position(), LinePosition::Trailing);
+        assert!(!config.is_strict());
+        assert!(config.is_attached());
     }
 
     #[test]
@@ -424,6 +532,10 @@ mod tests {
         layout.insert("spacing_before".into(), Value::String("align".into()));
         layout.insert("align_within".into(), Value::String("select_clause".into()));
         layout.insert("align_scope".into(), Value::String("statement".into()));
+        layout.insert(
+            "alignment_coordinate_space".into(),
+            Value::String("source".into()),
+        );
 
         let config = LayoutTypeConfig::from_value_map(SyntaxKind::AliasExpression, layout);
 
@@ -433,7 +545,34 @@ mod tests {
                 seg_type: SyntaxKind::AliasExpression,
                 within: Some(SyntaxKind::SelectClause),
                 scope: Some(SyntaxKind::Statement),
+                coordinate_space: Some(AlignmentCoordinateSpace::Source),
             })
+        );
+    }
+
+    #[test]
+    fn parses_align_coordinate_space_suffix() {
+        assert_eq!(
+            "align:alias_expression:select_clause:bracketed:templated".parse(),
+            Ok(Spacing::Align {
+                seg_type: SyntaxKind::AliasExpression,
+                within: Some(SyntaxKind::SelectClause),
+                scope: Some(SyntaxKind::Bracketed),
+                coordinate_space: Some(AlignmentCoordinateSpace::Templated),
+            })
+        );
+    }
+
+    #[test]
+    fn trims_skip_indentation_in_entries() {
+        let config = FluffConfig::from_source(
+            "[sqruff:indentation]\nskip_indentation_in = script_content, statement\n",
+            None,
+        );
+
+        assert_eq!(
+            config.reflow().skip_indentation_in,
+            SyntaxSet::new(&[SyntaxKind::ScriptContent, SyntaxKind::Statement])
         );
     }
 }

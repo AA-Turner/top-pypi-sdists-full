@@ -8,8 +8,9 @@ class V1CSINode:
     kind: typing.Optional[str]
     metadata: typing.Optional[kubernetes.client.V1ObjectMeta]
     spec: kubernetes.client.V1CSINodeSpec
+    status: typing.Optional[kubernetes.client.V1CSINodeStatus]
     
-    def __init__(self, *, api_version: typing.Optional[str] = ..., kind: typing.Optional[str] = ..., metadata: typing.Optional[kubernetes.client.V1ObjectMeta] = ..., spec: kubernetes.client.V1CSINodeSpec) -> None:
+    def __init__(self, *, api_version: typing.Optional[str] = ..., kind: typing.Optional[str] = ..., metadata: typing.Optional[kubernetes.client.V1ObjectMeta] = ..., spec: kubernetes.client.V1CSINodeSpec, status: typing.Optional[kubernetes.client.V1CSINodeStatus] = ...) -> None:
         ...
     def to_dict(self) -> V1CSINodeDict:
         ...
@@ -18,3 +19,4 @@ class V1CSINodeDict(typing.TypedDict, total=False):
     kind: typing.Optional[str]
     metadata: typing.Optional[kubernetes.client.V1ObjectMetaDict]
     spec: kubernetes.client.V1CSINodeSpecDict
+    status: typing.Optional[kubernetes.client.V1CSINodeStatusDict]

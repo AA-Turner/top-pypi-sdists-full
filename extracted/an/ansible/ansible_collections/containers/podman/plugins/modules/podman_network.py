@@ -80,10 +80,14 @@ options:
       - none
   ipv6:
     description:
-      - Enable IPv6 (Dual Stack) networking. You must pass a IPv6 subnet.
-        The subnet option must be used with the ipv6 option.
-        Idempotency is not supported because it generates subnets randomly.
+      - Enable IPv6 (Dual Stack) networking.
+      - Podman allocates an IPv4 and an IPv6 subnet, unless those are provided.
+      - Only idempotent when either no subnets are given or both subnet types are defined in C(net_config).
     type: bool
+  label:
+    description:
+      - Add metadata labels to the network.
+    type: dict
   route:
     description:
       - A static route in the format <destination in CIDR notation>,<gateway>,<route metric (optional)>.
@@ -147,8 +151,11 @@ options:
       isolate:
         description:
           - This option isolates networks by blocking traffic between those
-            that have this option enabled.
-        type: bool
+            that have this option enabled. On Podman v6+ with Netavark 2,
+            accepts 'strict' (default, blocks all inter-bridge traffic),
+            'true' (blocks between isolated networks only), or 'false'
+            (no isolation).
+        type: str
         required: false
       metric:
         description:
@@ -311,13 +318,13 @@ try:
     from ansible.module_utils.common.text.converters import to_native, to_bytes  # noqa: F402
 except ImportError:
     from ansible.module_utils.common.text import to_native, to_bytes  # noqa: F402
-from ansible_collections.containers.podman.plugins.module_utils.podman.common import (
+from ..module_utils.podman.common import (
     LooseVersion,
 )
-from ansible_collections.containers.podman.plugins.module_utils.podman.common import (
+from ..module_utils.podman.common import (
     lower_keys,
 )
-from ansible_collections.containers.podman.plugins.module_utils.podman.quadlet import (
+from ..module_utils.podman.quadlet import (
     create_quadlet_state,
 )
 
@@ -398,6 +405,11 @@ class PodmanNetworkModuleParams:
     def addparam_ipv6(self, c):
         return c + ["--ipv6=%s" % self.params["ipv6"]]
 
+    def addparam_label(self, c):
+        for k, v in self.params["label"].items():
+            c += ["--label", "%s=%s" % (k, v)]
+        return c
+
     def addparam_macvlan(self, c):
         return c + ["--macvlan", self.params["macvlan"]]
 
@@ -417,13 +429,15 @@ class PodmanNetworkModuleParams:
     def addparam_opt(self, c):
         for opt in self.params["opt"].items():
             if opt[1] is not None:
-                if opt[0] == "bridge_name":
-                    opt = ("com.docker.network.bridge.name", opt[1])
-                if opt[0] == "driver_mtu":
-                    opt = ("com.docker.network.driver.mtu", opt[1])
+                key, val = opt[0], opt[1]
+                if key == "bridge_name":
+                    key = "com.docker.network.bridge.name"
+                if key == "driver_mtu":
+                    key = "com.docker.network.driver.mtu"
+                val = str(val).lower() if str(val).lower() in ("true", "false") else str(val)
                 c += [
                     "--opt",
-                    b"=".join([to_bytes(k, errors="surrogate_or_strict") for k in opt]),
+                    b"=".join([to_bytes(k, errors="surrogate_or_strict") for k in (key, val)]),
                 ]
         return c
 
@@ -483,7 +497,9 @@ class PodmanNetworkDiff:
     @staticmethod
     def _lease_range_to_str(lease_range):
         """Convert lease_range dict to normalized start-end string."""
-        return f'{lease_range["start_ip"]}-{lease_range["end_ip"]}'
+        start = PodmanNetworkDiff._normalize_ip(lease_range["start_ip"])
+        end = PodmanNetworkDiff._normalize_ip(lease_range["end_ip"])
+        return f"{start}-{end}"
 
     @staticmethod
     def _ip_range_to_str(ip_range_cidr):
@@ -496,6 +512,26 @@ class PodmanNetworkDiff:
         start = net.network_address + 1
         end = net.broadcast_address
         return f"{start}-{end}"
+
+    @staticmethod
+    def _normalize_ip(addr):
+        """Normalize an IP address string to its compressed canonical form."""
+        if not HAS_IP_ADDRESS_MODULE:
+            return addr
+        try:
+            return str(ipaddress.ip_address(addr))
+        except (ValueError, TypeError):
+            return addr
+
+    @staticmethod
+    def _normalize_subnet(subnet):
+        """Normalize a subnet string to its compressed canonical form."""
+        if not HAS_IP_ADDRESS_MODULE:
+            return subnet
+        try:
+            return str(ipaddress.ip_network(subnet, strict=False))
+        except (ValueError, TypeError):
+            return subnet
 
     def diffparam_disable_dns(self):
         # For v3 it's impossible to find out DNS settings.
@@ -534,6 +570,10 @@ class PodmanNetworkDiff:
             after = before
             if self.params["gateway"] is not None:
                 after = self.params["gateway"]
+            if before:
+                before = self._normalize_ip(before)
+            if after:
+                after = self._normalize_ip(after)
             return self._diff_update_and_compare("gateway", before, after)
         else:
             before_subs = self.info.get("subnets")
@@ -542,12 +582,17 @@ class PodmanNetworkDiff:
                 before = None
             if before_subs:
                 if len(before_subs) > 1 and after:
-                    return self._diff_update_and_compare(
-                        "gateway", ",".join([i["gateway"] for i in before_subs]), after
+                    before_gws = ",".join(
+                        [self._normalize_ip(i.get("gateway")) for i in before_subs if i.get("gateway")]
                     )
+                    return self._diff_update_and_compare("gateway", before_gws, self._normalize_ip(after))
                 before = [i.get("gateway") for i in before_subs][0]
             if not after:
                 after = before
+            if before:
+                before = self._normalize_ip(before)
+            if after:
+                after = self._normalize_ip(after)
             return self._diff_update_and_compare("gateway", before, after)
 
     def diffparam_internal(self):
@@ -564,9 +609,7 @@ class PodmanNetworkDiff:
 
     def diffparam_ip_range(self):
         if not HAS_IP_ADDRESS_MODULE:
-            self.module.warn(
-                "Python 'ipaddress' module is not available. "
-                "Skipping ip_range idempotency check.")
+            self.module.warn("Python 'ipaddress' module is not available. Skipping ip_range idempotency check.")
             return False
         before = ""
         after = self.params["ip_range"] or ""
@@ -594,7 +637,9 @@ class PodmanNetworkDiff:
         if before_subs:
             before_parts = []
             for i in before_subs:
-                parts = [i["subnet"], i.get("gateway") or ""]
+                subnet = self._normalize_subnet(i["subnet"])
+                gateway = self._normalize_ip(i["gateway"]) if i.get("gateway") else ""
+                parts = [subnet, gateway]
                 lr = i.get("lease_range")
                 if lr:
                     parts.append(self._lease_range_to_str(lr))
@@ -604,14 +649,17 @@ class PodmanNetworkDiff:
             before = ""
         after_parts = []
         for i in after:
-            parts = [i["subnet"], i.get("gateway") or ""]
+            subnet = self._normalize_subnet(i["subnet"])
+            gateway = self._normalize_ip(i["gateway"]) if i.get("gateway") else ""
+            parts = [subnet, gateway]
             if i.get("ip_range"):
                 if HAS_IP_ADDRESS_MODULE:
                     parts.append(self._ip_range_to_str(i["ip_range"]))
                 else:
                     self.module.warn(
                         "Python 'ipaddress' module is not available. "
-                        "Skipping ip_range idempotency check in net_config.")
+                        "Skipping ip_range idempotency check in net_config."
+                    )
             after_parts.append(",".join(parts))
         after = ":".join(sorted(after_parts))
         return self._diff_update_and_compare("net_config", before, after)
@@ -619,10 +667,25 @@ class PodmanNetworkDiff:
     def diffparam_route(self):
         routes = self.info.get("routes", [])
         if routes:
-            before = [",".join([r["destination"], r["gateway"], str(r.get("metric", ""))]).rstrip(",") for r in routes]
+            before = [
+                ",".join(
+                    [
+                        self._normalize_subnet(r["destination"]),
+                        self._normalize_ip(r["gateway"]),
+                        str(r.get("metric", "")),
+                    ]
+                ).rstrip(",")
+                for r in routes
+            ]
         else:
             before = []
-        after = self.params["route"] or []
+        after = []
+        for r in self.params["route"] or []:
+            parts = r.split(",")
+            if len(parts) >= 2:
+                parts[0] = self._normalize_subnet(parts[0])
+                parts[1] = self._normalize_ip(parts[1])
+            after.append(",".join(parts))
         return self._diff_update_and_compare("route", sorted(before), sorted(after))
 
     def diffparam_subnet(self):
@@ -635,8 +698,10 @@ class PodmanNetworkDiff:
             after = before
             if self.params["subnet"] is not None:
                 after = self.params["subnet"]
-                if HAS_IP_ADDRESS_MODULE:
-                    after = ipaddress.ip_network(after).compressed
+            if before:
+                before = self._normalize_subnet(before)
+            if after:
+                after = self._normalize_subnet(after)
             return self._diff_update_and_compare("subnet", before, after)
         else:
             if self.params["ipv6"] is not None:
@@ -649,8 +714,13 @@ class PodmanNetworkDiff:
             before = self.info.get("subnets")
             if before:
                 if len(before) > 1 and after:
-                    return self._diff_update_and_compare("subnet", ",".join([i["subnet"] for i in before]), after)
+                    before_subs = ",".join([self._normalize_subnet(i["subnet"]) for i in before])
+                    return self._diff_update_and_compare("subnet", before_subs, self._normalize_subnet(after))
                 before = [i["subnet"] for i in before][0]
+            if before:
+                before = self._normalize_subnet(before)
+            if after:
+                after = self._normalize_subnet(after)
             return self._diff_update_and_compare("subnet", before, after)
 
     def diffparam_macvlan(self):
@@ -658,29 +728,26 @@ class PodmanNetworkDiff:
         return self._diff_update_and_compare("macvlan", before, after)
 
     def diffparam_opt(self):
-        if LooseVersion(self.version) >= LooseVersion("4.0.0"):
-            vlan_before = self.info.get("options", {}).get("vlan")
-        else:
-            try:
-                vlan_before = self.info["plugins"][0].get("vlan")
-            except (IndexError, KeyError):
-                vlan_before = None
-        vlan_after = self.params["opt"].get("vlan") if self.params["opt"] else None
-        if vlan_before or vlan_after:
-            before, after = {"vlan": str(vlan_before)}, {"vlan": str(vlan_after)}
-        else:
-            before, after = {}, {}
-        if LooseVersion(self.version) >= LooseVersion("4.0.0"):
-            mtu_before = self.info.get("options", {}).get("mtu")
-        else:
-            try:
-                mtu_before = self.info["plugins"][0].get("mtu")
-            except (IndexError, KeyError):
-                mtu_before = None
-        mtu_after = self.params["opt"].get("mtu") if self.params["opt"] else None
-        if mtu_before or mtu_after:
-            before.update({"mtu": str(mtu_before)})
-            after.update({"mtu": str(mtu_after)})
+        if LooseVersion(self.version) < LooseVersion("4.0.0"):
+            return False
+        before = {}
+        after = {}
+        opts_info = self.info.get("options", {})
+        opt_params = self.params.get("opt") or {}
+        key_map = {
+            "bridge_name": "com.docker.network.bridge.name",
+            "driver_mtu": "com.docker.network.driver.mtu",
+        }
+        for key, value in opt_params.items():
+            if value is not None:
+                info_key = key_map.get(key, key)
+                before_val = opts_info.get(info_key)
+                after_val = str(value).lower()
+                if before_val is not None:
+                    before_val = str(before_val).lower()
+                if before_val != after_val:
+                    before[key] = before_val
+                    after[key] = after_val
         return self._diff_update_and_compare("opt", before, after)
 
     def is_different(self):
@@ -859,7 +926,7 @@ class PodmanNetworkManager:
         }
         process_action = states_map[self.state]
         process_action()
-        self.module.fail_json(msg="Unexpected logic error happened, " "please contact maintainers ASAP!")
+        self.module.fail_json(msg="Unexpected logic error happened, please contact maintainers ASAP!")
 
     def make_present(self):
         """Run actions if desired state is 'started'."""
@@ -906,13 +973,14 @@ def main():
             ip_range=dict(type="str", required=False),
             ipam_driver=dict(type="str", required=False, choices=["host-local", "dhcp", "none"]),
             ipv6=dict(type="bool", required=False),
+            label=dict(type="dict", required=False),
             subnet=dict(type="str", required=False),
             macvlan=dict(type="str", required=False),
             opt=dict(
                 type="dict",
                 required=False,
                 options=dict(
-                    isolate=dict(type="bool", required=False),
+                    isolate=dict(type="str", required=False),
                     mtu=dict(type="int", required=False),
                     metric=dict(type="int", required=False),
                     mode=dict(type="str", required=False),

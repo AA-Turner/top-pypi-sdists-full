@@ -11,6 +11,7 @@ readme = "README.md"
 
 [dependencies]
 serde = { workspace = true, optional = true }
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 
 polars-error = { workspace = true }
 

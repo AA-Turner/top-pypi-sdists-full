@@ -1,8 +1,9 @@
 use crate::core::config::{FluffConfig, Value};
 use crate::templaters::TemplaterKind;
 use hashbrown::HashMap;
+use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyList};
 use pyo3::{Bound, Python};
 use serde::{Deserialize, Serialize};
 use sqruff_lib_core::errors::SQLFluffUserError;
@@ -10,9 +11,12 @@ use sqruff_lib_core::errors::SQLFluffUserError;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PythonFluffConfig {
     templater_unwrap_wrapped_queries: bool,
+    ignore_templating: bool,
+    encoding: String,
 
     jinja_templater_paths: Vec<String>,
-    jinja_loader_search_path: Option<String>,
+    jinja_exclude_macros_from_path: Vec<String>,
+    jinja_loader_search_path: Vec<String>,
     jinja_apply_dbt_builtins: bool,
     jinja_ignore_templating: Option<bool>,
     jinja_library_paths: Vec<String>,
@@ -23,6 +27,12 @@ pub struct PythonFluffConfig {
     dbt_target_path: Option<String>,
     dbt_context: Option<String>,
     dbt_project_dir: Option<String>,
+    dbt_threads: Option<i32>,
+    dbt_skip_compilation_error: bool,
+    sqlmesh_project_dir: Option<String>,
+    sqlmesh_config: Option<String>,
+    sqlmesh_gateway: Option<String>,
+    sqlmesh_dialect: Option<String>,
 }
 
 impl PythonFluffConfig {
@@ -38,8 +48,30 @@ impl From<&FluffConfig> for PythonFluffConfig {
                 .templater_root_value("unwrap_wrapped_queries")
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
+            ignore_templating: value
+                .get("ignore", "core")
+                .as_array()
+                .unwrap_or_default()
+                .iter()
+                .any(|value| value.as_string() == Some("templating")),
+            encoding: value
+                .get("encoding", "core")
+                .as_string()
+                .unwrap_or("autodetect")
+                .to_string(),
             jinja_templater_paths: value
-                .templater_value(TemplaterKind::Jinja, "templater_paths")
+                .templater_value(TemplaterKind::Jinja, "load_macros_from_path")
+                .map(|value| {
+                    value
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|v| v.as_string().unwrap().to_string())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default(),
+            jinja_exclude_macros_from_path: value
+                .templater_value(TemplaterKind::Jinja, "exclude_macros_from_path")
                 .map(|value| {
                     value
                         .as_array()
@@ -51,8 +83,15 @@ impl From<&FluffConfig> for PythonFluffConfig {
                 .unwrap_or_default(),
             jinja_loader_search_path: value
                 .templater_value(TemplaterKind::Jinja, "loader_search_path")
-                .and_then(|value| value.as_string())
-                .map(ToString::to_string),
+                .map(|value| {
+                    value
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|value| value.as_string().unwrap().to_string())
+                        .collect()
+                })
+                .unwrap_or_default(),
             jinja_apply_dbt_builtins: value
                 .templater_value(TemplaterKind::Jinja, "apply_dbt_builtins")
                 .and_then(|value| value.as_bool())
@@ -95,12 +134,41 @@ impl From<&FluffConfig> for PythonFluffConfig {
                 .templater_value(TemplaterKind::Dbt, "profiles_dir")
                 .and_then(|value| value.as_string())
                 .map(ToString::to_string),
-            dbt_target: None,
-            dbt_target_path: None,
+            dbt_target: value
+                .templater_value(TemplaterKind::Dbt, "target")
+                .and_then(|value| value.as_string())
+                .map(ToString::to_string),
+            dbt_target_path: value
+                .templater_value(TemplaterKind::Dbt, "target_path")
+                .and_then(|value| value.as_string())
+                .map(ToString::to_string),
             dbt_context: None,
             dbt_project_dir: value
                 .templater_value(TemplaterKind::Dbt, "project_dir")
                 .and_then(|value| value.as_string())
+                .map(ToString::to_string),
+            dbt_threads: value
+                .templater_value(TemplaterKind::Dbt, "threads")
+                .and_then(|value| value.as_int()),
+            dbt_skip_compilation_error: value
+                .templater_value(TemplaterKind::Dbt, "dbt_skip_compilation_error")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(true),
+            sqlmesh_project_dir: value
+                .templater_value(TemplaterKind::Sqlmesh, "project_dir")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            sqlmesh_config: value
+                .templater_value(TemplaterKind::Sqlmesh, "config")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            sqlmesh_gateway: value
+                .templater_value(TemplaterKind::Sqlmesh, "gateway")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            sqlmesh_dialect: value
+                .get("dialect", "core")
+                .as_string()
                 .map(ToString::to_string),
         }
     }
@@ -119,31 +187,63 @@ impl<'py> FluffConfig {
         templater: TemplaterKind,
     ) -> Result<Bound<'py, PyDict>, SQLFluffUserError> {
         let empty = HashMap::default();
-        let hashmap = self
-            .templater_context(templater)
-            .unwrap_or(&empty)
-            .iter()
-            .map(|(k, v)| {
-                let value = v.as_string().ok_or(SQLFluffUserError::new(
-                    "Python templater context values must be strings".to_string(),
-                ))?;
-                Ok((k.to_string(), value.to_string()))
-            })
-            .collect::<Result<HashMap<String, String>, SQLFluffUserError>>()?;
-        // pass object with Rust tuple of positional arguments
+        let context = self.templater_context(templater).unwrap_or(&empty);
         let py_dict = PyDict::new(py);
-        for (k, v) in hashmap {
+        for (key, value) in context {
+            let value = config_value_to_python(py, value).map_err(|error| {
+                SQLFluffUserError::new(format!("Python templater error: {error:?}"))
+            })?;
             py_dict
-                .set_item(k, v)
+                .set_item(key, value)
                 .map_err(|e| SQLFluffUserError::new(format!("Python templater error: {e:?}")))?;
         }
         Ok(py_dict)
     }
 }
 
+fn config_value_to_python(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
+    match value {
+        Value::Int(value) => value.into_py_any(py),
+        Value::Bool(value) => value.into_py_any(py),
+        Value::Float(value) => value.into_py_any(py),
+        Value::String(value) => value.as_ref().into_py_any(py),
+        Value::Map(values) => {
+            let dict = PyDict::new(py);
+            for (key, value) in values {
+                dict.set_item(key, config_value_to_python(py, value)?)?;
+            }
+            Ok(dict.into_any().unbind())
+        }
+        Value::Array(values) => {
+            let list = PyList::empty(py);
+            for value in values {
+                list.append(config_value_to_python(py, value)?)?;
+            }
+            Ok(list.into_any().unbind())
+        }
+        Value::None => Ok(py.None()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_config_dir(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "sqruff-python-config-{name}-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
 
     #[test]
     fn test_fluff_base_config() {
@@ -152,13 +252,36 @@ mod tests {
         let python_fluff_config = PythonFluffConfig::from(config);
 
         assert!(python_fluff_config.templater_unwrap_wrapped_queries);
+        assert!(!python_fluff_config.ignore_templating);
         assert_eq!(
             python_fluff_config.jinja_templater_paths,
             Vec::<String>::new()
         );
-        assert_eq!(python_fluff_config.jinja_loader_search_path, None);
+        assert!(
+            python_fluff_config
+                .jinja_exclude_macros_from_path
+                .is_empty()
+        );
+        assert!(python_fluff_config.jinja_loader_search_path.is_empty());
         assert!(python_fluff_config.jinja_apply_dbt_builtins);
         assert_eq!(python_fluff_config.jinja_ignore_templating, None);
+        assert_eq!(python_fluff_config.dbt_threads, None);
+        assert!(python_fluff_config.dbt_skip_compilation_error);
+    }
+
+    #[test]
+    fn test_ignore_templating_from_core_config() {
+        let config = FluffConfig::from_source(
+            r#"
+[sqruff]
+ignore = parsing, templating
+"#,
+            None,
+        );
+
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert!(python_fluff_config.ignore_templating);
     }
 
     #[test]
@@ -176,6 +299,169 @@ library_paths = ./my_library
             python_fluff_config.jinja_library_paths,
             vec!["./my_library".to_string()]
         );
+    }
+
+    #[test]
+    fn test_jinja_loader_search_paths_are_serialized_as_a_list() {
+        let root = temp_config_dir("loader-search-path");
+        fs::create_dir_all(root.join("search_a")).unwrap();
+        fs::create_dir_all(root.join("search_b/subdir")).unwrap();
+        let config_path = root.join(".sqruff");
+        let source = r#"
+[sqruff]
+templater = jinja
+[sqruff:templater:jinja]
+loader_search_path = search_a, search_b/subdir
+"#;
+        let config = FluffConfig::from_source(source, Some(&config_path));
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert_eq!(
+            python_fluff_config.jinja_loader_search_path,
+            vec![
+                config_path
+                    .parent()
+                    .unwrap()
+                    .join("search_a")
+                    .to_string_lossy()
+                    .to_string(),
+                config_path
+                    .parent()
+                    .unwrap()
+                    .join("search_b/subdir")
+                    .to_string_lossy()
+                    .to_string(),
+            ]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_jinja_macro_paths_are_serialized_separately() {
+        let root = temp_config_dir("macro-paths");
+        fs::create_dir_all(root.join("macros/excluded")).unwrap();
+        fs::create_dir_all(root.join("shared")).unwrap();
+        fs::write(root.join("shared/macros.sql"), "").unwrap();
+        let config_path = root.join(".sqruff");
+        let source = r#"
+[sqruff]
+templater = jinja
+[sqruff:templater:jinja]
+load_macros_from_path = macros, shared/macros.sql
+exclude_macros_from_path = macros/excluded
+"#;
+        let config = FluffConfig::from_source(source, Some(&config_path));
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert_eq!(
+            python_fluff_config.jinja_templater_paths,
+            vec![
+                config_path
+                    .parent()
+                    .unwrap()
+                    .join("macros")
+                    .to_string_lossy()
+                    .to_string(),
+                config_path
+                    .parent()
+                    .unwrap()
+                    .join("shared/macros.sql")
+                    .to_string_lossy()
+                    .to_string(),
+            ]
+        );
+        assert_eq!(
+            python_fluff_config.jinja_exclude_macros_from_path,
+            vec![
+                config_path
+                    .parent()
+                    .unwrap()
+                    .join("macros/excluded")
+                    .to_string_lossy()
+                    .to_string()
+            ]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_jinja_encoding_is_serialized() {
+        let source = "[sqruff]\ntemplater = jinja\nencoding = utf-16\n";
+        let config = FluffConfig::from_source(source, None);
+        let python_fluff_config = PythonFluffConfig::from(config);
+        assert_eq!(python_fluff_config.encoding, "utf-16");
+    }
+
+    #[test]
+    fn test_dbt_target_is_serialized() {
+        let source = r"
+[sqruff]
+templater = dbt
+[sqruff:templater:dbt]
+target = production
+";
+        let config = FluffConfig::from_source(source, None);
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert_eq!(
+            python_fluff_config.dbt_target.as_deref(),
+            Some("production")
+        );
+    }
+
+    #[test]
+    fn test_dbt_target_path_is_serialized() {
+        let config_path = std::env::temp_dir()
+            .join("sqruff-dbt-target-path")
+            .join(".sqruff");
+        let source = r"
+[sqruff]
+templater = dbt
+[sqruff:templater:dbt]
+target_path = custom_target
+";
+        let config = FluffConfig::from_source(source, Some(&config_path));
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert_eq!(
+            python_fluff_config.dbt_target_path,
+            Some(
+                config_path
+                    .parent()
+                    .unwrap()
+                    .join("custom_target")
+                    .to_string_lossy()
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn test_dbt_skip_compilation_error_is_serialized() {
+        let source = r"
+[sqruff]
+templater = dbt
+[sqruff:templater:dbt]
+dbt_skip_compilation_error = false
+";
+        let config = FluffConfig::from_source(source, None);
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert!(!python_fluff_config.dbt_skip_compilation_error);
+    }
+
+    #[test]
+    fn test_dbt_threads_is_serialized() {
+        let source = r"
+[sqruff]
+templater = dbt
+[sqruff:templater:dbt]
+threads = 4
+";
+        let config = FluffConfig::from_source(source, None);
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert_eq!(python_fluff_config.dbt_threads, Some(4));
     }
 
     #[test]

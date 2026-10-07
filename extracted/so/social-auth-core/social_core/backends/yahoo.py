@@ -21,6 +21,7 @@ class YahooOAuth2(BaseOAuth2):
     """Yahoo OAuth2 authentication backend"""
 
     name = "yahoo-oauth2"
+    title = "Yahoo"
     ID_KEY = "sub"
     AUTHORIZATION_URL = "https://api.login.yahoo.com/oauth2/request_auth"
     ACCESS_TOKEN_URL = "https://api.login.yahoo.com/oauth2/get_token"
@@ -38,9 +39,9 @@ class YahooOAuth2(BaseOAuth2):
         To Get user email you need the profile private read permission.
         """
 
-        fullname, first_name, last_name = self.get_user_names(
-            first_name=response.get("given_name"), last_name=response.get("family_name")
-        )
+        fullname = ""
+        first_name = response.get("given_name")
+        last_name = response.get("family_name")
 
         email = response.get("email")
         return {
@@ -71,9 +72,8 @@ class YahooOAuth2(BaseOAuth2):
             headers=self.auth_headers(),
             method=self.ACCESS_TOKEN_METHOD,
         )
-        self.process_error(response)
         return self.do_auth(
-            response["access_token"], *args, response=response, **kwargs
+            self.get_access_token(response), *args, response=response, **kwargs
         )
 
     def refresh_token_params(self, token, *args, **kwargs):

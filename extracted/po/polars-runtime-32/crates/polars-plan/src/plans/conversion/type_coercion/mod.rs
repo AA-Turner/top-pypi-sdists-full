@@ -5,8 +5,8 @@ mod binary;
 ))]
 mod datetime;
 mod functions;
-#[cfg(feature = "is_in")]
-mod is_in;
+#[cfg(any(feature = "is_in", feature = "dtype-map"))]
+mod membership;
 
 use binary::process_binary;
 #[cfg(all(
@@ -16,10 +16,16 @@ use binary::process_binary;
 use datetime::coerce_temporal_dt;
 #[cfg(all(feature = "range", feature = "dtype-datetime"))]
 use datetime::{ensure_datetime, ensure_int, temporal_range_output_type};
+#[cfg(any(feature = "is_in", feature = "dtype-map"))]
+use membership::MembershipForm;
 use polars_core::chunked_array::cast::CastOptions;
-#[cfg(all(
-    feature = "range",
-    any(feature = "dtype-date", feature = "dtype-datetime")
+#[cfg(any(
+    all(
+        feature = "range",
+        any(feature = "dtype-date", feature = "dtype-datetime")
+    ),
+    feature = "is_in",
+    feature = "dtype-map"
 ))]
 use polars_core::utils::try_get_supertype;
 use polars_core::utils::{
@@ -441,106 +447,62 @@ impl OptimizationRule for TypeCoercionRule {
 
                 Some(out)
             },
-            #[cfg(feature = "is_in")]
+            // Map lookup must work without the `is_in` feature.
+            #[cfg(feature = "dtype-map")]
             AExpr::Function {
-                ref function,
-                ref input,
-                options,
-            } if {
-                let mut matches = matches!(
-                    function,
-                    IRFunctionExpr::Boolean(IRBooleanFunction::IsIn { .. })
-                        | IRFunctionExpr::ListExpr(IRListFunction::Contains { .. })
-                );
-                #[cfg(feature = "dtype-array")]
-                {
-                    matches |= matches!(
+                function:
+                    IRFunctionExpr::MapExpr(
+                        ref func @ (IRMapFunction::Get { .. } | IRMapFunction::ContainsKey { .. }),
+                    ),
+                ..
+            } => {
+                let op = match func {
+                    IRMapFunction::Get { .. } => "map.get",
+                    _ => "map.contains_key",
+                };
+                membership::coerce_is_in(
+                    expr_node,
+                    expr_arena,
+                    schema,
+                    MembershipForm::Contains,
+                    |input, arena| membership::resolve_map_key(input, arena, schema, op),
+                )?
+            },
+            #[cfg(feature = "is_in")]
+            AExpr::Function { ref function, .. }
+                if {
+                    let mut matches = matches!(
                         function,
-                        IRFunctionExpr::ArrayExpr(IRArrayFunction::Contains { .. })
+                        IRFunctionExpr::Boolean(IRBooleanFunction::IsIn { .. })
+                            | IRFunctionExpr::ListExpr(IRListFunction::Contains { .. })
                     );
-                }
-                matches
-            } =>
+                    #[cfg(feature = "dtype-array")]
+                    {
+                        matches |= matches!(
+                            function,
+                            IRFunctionExpr::ArrayExpr(IRArrayFunction::Contains { .. })
+                        );
+                    }
+                    matches
+                } =>
             {
-                let (op, flat, nested, is_contains) = match function {
+                let (op, form) = match function {
                     IRFunctionExpr::Boolean(IRBooleanFunction::IsIn { .. }) => {
-                        ("is_in", 0, 1, false)
+                        ("is_in", MembershipForm::IsIn)
                     },
                     IRFunctionExpr::ListExpr(IRListFunction::Contains { .. }) => {
-                        ("list.contains", 1, 0, true)
+                        ("list.contains", MembershipForm::Contains)
                     },
                     #[cfg(feature = "dtype-array")]
                     IRFunctionExpr::ArrayExpr(IRArrayFunction::Contains { .. }) => {
-                        ("arr.contains", 1, 0, true)
+                        ("arr.contains", MembershipForm::Contains)
                     },
                     _ => unreachable!(),
                 };
 
-                let Some(result) =
-                    is_in::resolve_is_in(input, expr_arena, schema, is_contains, op, flat, nested)?
-                else {
-                    return Ok(None);
-                };
-
-                let function = function.clone();
-                let mut input = input.to_vec();
-                use self::is_in::IsInTypeCoercionResult;
-                match result {
-                    IsInTypeCoercionResult::SuperType(flat_type, nested_type) => {
-                        let (_, type_left) =
-                            unpack!(get_aexpr_and_type(expr_arena, input[flat].node(), schema));
-                        let (_, type_other) =
-                            unpack!(get_aexpr_and_type(expr_arena, input[nested].node(), schema));
-                        cast_expr_ir(
-                            &mut input[flat],
-                            &type_left,
-                            &flat_type,
-                            expr_arena,
-                            CastOptions::NonStrict,
-                        )?;
-                        cast_expr_ir(
-                            &mut input[nested],
-                            &type_other,
-                            &nested_type,
-                            expr_arena,
-                            CastOptions::NonStrict,
-                        )?;
-                    },
-                    IsInTypeCoercionResult::SelfCast { dtype, strict } => {
-                        let (_, type_self) =
-                            unpack!(get_aexpr_and_type(expr_arena, input[flat].node(), schema));
-                        let options = if strict {
-                            CastOptions::Strict
-                        } else {
-                            CastOptions::NonStrict
-                        };
-                        cast_expr_ir(&mut input[flat], &type_self, &dtype, expr_arena, options)?;
-                    },
-                    IsInTypeCoercionResult::OtherCast { dtype, strict } => {
-                        let (_, type_other) =
-                            unpack!(get_aexpr_and_type(expr_arena, input[nested].node(), schema));
-                        let options = if strict {
-                            CastOptions::Strict
-                        } else {
-                            CastOptions::NonStrict
-                        };
-                        cast_expr_ir(&mut input[nested], &type_other, &dtype, expr_arena, options)?;
-                    },
-                    IsInTypeCoercionResult::Implode => {
-                        assert!(!is_contains);
-                        let other_input = expr_arena.add(AExpr::Agg(IRAggExpr::Implode {
-                            input: input[1].node(),
-                            maintain_order: true,
-                        }));
-                        input[1].set_node(other_input);
-                    },
-                }
-
-                Some(AExpr::Function {
-                    function,
-                    input,
-                    options,
-                })
+                membership::coerce_is_in(expr_node, expr_arena, schema, form, |input, arena| {
+                    membership::resolve_is_in(input, arena, schema, form, op)
+                })?
             },
             AExpr::Function {
                 ref function,
@@ -775,8 +737,15 @@ impl OptimizationRule for TypeCoercionRule {
                         _ => {},
                     }
 
+                    // A decimal supertype may not hold every value, raise instead of
+                    // producing nulls.
+                    let literal_options = if super_type.leaf_dtype().is_decimal() {
+                        CastOptions::Strict
+                    } else {
+                        CastOptions::NonStrict
+                    };
                     for (e, dtype) in input.iter_mut().zip(dtypes) {
-                        cast_expr_ir(e, &dtype, &super_type, expr_arena, CastOptions::NonStrict)?;
+                        cast_expr_ir(e, &dtype, &super_type, expr_arena, literal_options)?;
                     }
                 }
 
@@ -858,9 +827,9 @@ impl OptimizationRule for TypeCoercionRule {
             },
             #[cfg(feature = "list_gather")]
             AExpr::Function {
-                function: ref function @ IRFunctionExpr::ListExpr(IRListFunction::Gather(_)),
+                function: IRFunctionExpr::ListExpr(IRListFunction::Gather(_)),
                 ref input,
-                options,
+                ..
             } => {
                 let (_, type_left) =
                     unpack!(get_aexpr_and_type(expr_arena, input[0].node(), schema));
@@ -868,31 +837,7 @@ impl OptimizationRule for TypeCoercionRule {
                     unpack!(get_aexpr_and_type(expr_arena, input[1].node(), schema));
 
                 let DataType::List(inner_dtype) = &type_other else {
-                    // @HACK. This needs to happen until 2.0 because we support
-                    // `pl.col.a.list.gather(0)` and `pl.col.a.list.gather(pl.col.b)` where `b` is
-                    // an integer.
-                    let function = function.clone();
-                    let mut input = input.clone();
-
-                    polars_warn!(
-                        Deprecation,
-                        "`list.gather` with a flat datatype is deprecated.
-Please use `implode` to return to previous behavior.
-
-See https://github.com/pola-rs/polars/issues/22149 for more information."
-                    );
-
-                    let other_input = expr_arena.add(AExpr::Agg(IRAggExpr::Implode {
-                        input: input[1].node(),
-                        maintain_order: true,
-                    }));
-                    input[1].set_node(other_input);
-
-                    return Ok(Some(AExpr::Function {
-                        function,
-                        input,
-                        options,
-                    }));
+                    polars_bail!(InvalidOperation: "`list.gather` indices must be a list of integers, not a flat {type_other}. Use `implode` to wrap the flat value into a list.");
                 };
 
                 polars_ensure!(
@@ -912,7 +857,7 @@ See https://github.com/pola-rs/polars/issues/22149 for more information."
                         | IRStringFunction::ExtractMany { .. },
                     ),
                 ref input,
-                options,
+                ..
             } => {
                 let (_, type_left) =
                     unpack!(get_aexpr_and_type(expr_arena, input[0].node(), schema));
@@ -920,29 +865,7 @@ See https://github.com/pola-rs/polars/issues/22149 for more information."
                     unpack!(get_aexpr_and_type(expr_arena, input[1].node(), schema));
 
                 let DataType::List(inner_dtype) = &type_other else {
-                    // @HACK. This needs to happen until 2.0 because we support
-                    // `pl.col.a.str.contains_any(pl.col.b)` where `b` is a string.
-                    let function = function.clone();
-                    let mut input = input.clone();
-
-                    polars_warn!(
-                        Deprecation,
-                        "`{function}` with a flat string datatype is deprecated.
-Please use `implode` to return to previous behavior.
-See https://github.com/pola-rs/polars/issues/22149 for more information."
-                    );
-
-                    let other_input = expr_arena.add(AExpr::Agg(IRAggExpr::Implode {
-                        input: input[1].node(),
-                        maintain_order: true,
-                    }));
-                    input[1].set_node(other_input);
-
-                    return Ok(Some(AExpr::Function {
-                        function,
-                        input,
-                        options,
-                    }));
+                    polars_bail!(InvalidOperation: "`{function}` with a flat string datatype is invalid. Use `implode` to wrap the string value into a list.");
                 };
 
                 polars_ensure!(
@@ -984,10 +907,9 @@ See https://github.com/pola-rs/polars/issues/22149 for more information."
             )?,
             #[cfg(all(feature = "strings", feature = "find_many"))]
             AExpr::Function {
-                function:
-                    ref function @ IRFunctionExpr::StringExpr(IRStringFunction::ReplaceMany { .. }),
+                function: IRFunctionExpr::StringExpr(IRStringFunction::ReplaceMany { .. }),
                 ref input,
-                options,
+                ..
             } => {
                 let (_, type_left) =
                     unpack!(get_aexpr_and_type(expr_arena, input[0].node(), schema));
@@ -996,43 +918,11 @@ See https://github.com/pola-rs/polars/issues/22149 for more information."
                 let (_, type_replace_with) =
                     unpack!(get_aexpr_and_type(expr_arena, input[2].node(), schema));
 
-                let (
-                    DataType::List(type_patterns_inner_dtype),
-                    DataType::List(type_replace_with_inner_dtype),
-                ) = (&type_patterns, &type_replace_with)
-                else {
-                    // @HACK. This needs to happen until 2.0 because we support
-                    // `pl.col.a.str.replace_with(pl.col.b, ..)` where `b` is a string.
-                    let function = function.clone();
-                    let mut input = input.clone();
-
-                    polars_warn!(
-                        Deprecation,
-                        "`str.replace_many` with a flat string datatype is deprecated.
-please use `implode` to return to previous behavior.
-See https://github.com/pola-rs/polars/issues/22149 for more information."
-                    );
-
-                    if !type_patterns.is_list() {
-                        let other_input = expr_arena.add(AExpr::Agg(IRAggExpr::Implode {
-                            input: input[1].node(),
-                            maintain_order: true,
-                        }));
-                        input[1].set_node(other_input);
-                    }
-                    if !type_replace_with.is_list() {
-                        let other_input = expr_arena.add(AExpr::Agg(IRAggExpr::Implode {
-                            input: input[2].node(),
-                            maintain_order: true,
-                        }));
-                        input[2].set_node(other_input);
-                    }
-
-                    return Ok(Some(AExpr::Function {
-                        function,
-                        input,
-                        options,
-                    }));
+                let DataType::List(type_patterns_inner_dtype) = &type_patterns else {
+                    polars_bail!(InvalidOperation: "`str.replace_many` with a flat {type_patterns} datatype as pattern is invalid. Use `implode` to wrap the string value into a list.");
+                };
+                let DataType::List(type_replace_with_inner_dtype) = &type_replace_with else {
+                    polars_bail!(InvalidOperation: "`str.replace_many` with a flat {type_replace_with} datatype as replacement is invalid. Use `implode` to wrap the string value into a list.");
                 };
 
                 polars_ensure!(
@@ -1150,6 +1040,25 @@ See https://github.com/pola-rs/polars/issues/22149 for more information."
                         InvalidOperation: "`{name}` must be numeric for `int_ranges`, got {dtype}"
                     );
                     Ok(Some(DataType::Int64))
+                },
+            )?,
+            // The estimate casts the quantile to `Float64`, so give a dynamic literal
+            // that dtype rather than leaving it unknown in the plan.
+            #[cfg(feature = "approx_quantile")]
+            AExpr::Function {
+                function: IRFunctionExpr::ApproxQuantileEstimate { .. },
+                ..
+            } => coerce_function_inputs(
+                expr_node,
+                expr_arena,
+                schema,
+                CastOptions::Strict,
+                |i, dtype| {
+                    let is_dyn_number = matches!(
+                        dtype,
+                        DataType::Unknown(UnknownKind::Int(_) | UnknownKind::Float)
+                    );
+                    Ok((i == 1 && is_dyn_number).then_some(DataType::Float64))
                 },
             )?,
             #[cfg(feature = "moment")]
@@ -1467,6 +1376,7 @@ fn try_inline_literal_cast(
     Ok(Some(lv))
 }
 
+/// Cast `e` to `to_dtype`. `options` applies to folding a literal; inserted casts are strict.
 fn cast_expr_ir(
     e: &mut ExprIR,
     from_dtype: &DataType,

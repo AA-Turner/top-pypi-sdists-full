@@ -1,0 +1,50 @@
+name: Publish to PyPI
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # tag + GitHub release
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+
+      # Merges that don't bump the version (docs, CI tweaks) are no-ops.
+      - name: Check version
+        id: meta
+        run: |
+          VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if curl -fsS "https://pypi.org/pypi/supermemory/$VERSION/json" >/dev/null 2>&1; then
+            echo "supermemory $VERSION is already on PyPI — skipping."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.meta.outputs.publish == 'true'
+        run: uv run --group dev pytest -q
+
+      - if: steps.meta.outputs.publish == 'true'
+        run: uv build
+
+      - name: Publish ${{ steps.meta.outputs.version }}
+        if: steps.meta.outputs.publish == 'true'
+        run: uv publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.SUPERMEMORY_PYPI_TOKEN || secrets.PYPI_TOKEN }}
+
+      - name: Tag and release
+        if: steps.meta.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          flags=(--target "$GITHUB_SHA" --generate-notes)
+          [[ "$VERSION" =~ (a|b|rc|dev)[0-9]+$ ]] && flags+=(--prerelease)
+          gh release create "v$VERSION" dist/* "${flags[@]}"

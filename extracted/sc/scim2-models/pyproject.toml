@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "scim2-models"
-version = "0.10.3"
+version = "0.12.0"
 description = "SCIM2 models serialization and validation with pydantic"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -217,6 +217,7 @@ dev = [
     "starlette>=1.2.0",
     "sqlalchemy>=2.0",
     "tox-uv>=1.16.0",
+    "precis-i18n>=1.1.2",
 ]
 doc = [
     "shibuya>=2024.5.15",
@@ -224,4 +225,5 @@ doc = [
     "sphinx-reredirects>=0.1.6",
     "sphinx>=7.3.7",
     "sphinx-issues >= 5.0.0",
+    "precis-i18n>=1.1.2",
 ]

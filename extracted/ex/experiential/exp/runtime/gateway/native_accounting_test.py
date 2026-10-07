@@ -191,6 +191,7 @@ class _RecordingLedger:
         self.tool_search_requests: list[int | None] = []
         self.rate_limit_settlements: list[JsonObject] = []
         self.finished_requests: list[GatewayFailure] = []
+        self.request_search_meters: list[int] = []
         self.budget_rejections: dict[str, BudgetScopeKind] = {}
         self.fail_finishes = 0
         self.fail_request_finishes = 0
@@ -312,12 +313,14 @@ class _RecordingLedger:
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
         certify_no_effects: bool = False,
+        web_search_requests: int = 0,
     ) -> bool:
         """Record terminalization and report the fake's exact prior-attempt history."""
         if self.fail_request_finishes:
             self.fail_request_finishes -= 1
             raise RuntimeError("scripted request terminal-write failure")
         self.finished_requests.append(failure)
+        self.request_search_meters.append(web_search_requests)
         return certify_no_effects and authorization.request_id not in self.started_request_ids
 
 
@@ -1139,6 +1142,40 @@ def test_abandon_without_an_active_attempt_finalizes_the_request_row() -> None:
     assert registry.entry("request-one") is None
 
 
+@pytest.mark.parametrize("swept", [False, True])
+@pytest.mark.parametrize("opened", [False, True])
+def test_replayed_cancellation_preserves_successful_open_health(opened: bool, swept: bool) -> None:
+    """A successful provider open clears prior failures after either durable delivery path."""
+    registry, ledger, entry = _registry()
+    started = _start(registry, ordinal=0)
+    key = deployment_health_key(entry.authorization, entry.route.deployment)
+    transport = GatewayFailure(
+        failure_class=GatewayFailureClass.TRANSPORT, safe_message="fixture transport failure"
+    )
+    registry.health.failed(key, transport)
+    assert not registry.health.suppressed(key)
+    data: JsonObject = {
+        "request_id": entry.authorization.request_id,
+        "attempt_id": started["attempt_id"],
+        "outcome": "failed",
+        "failure": {"failure_class": "cancelled", "safe_message": "Input approval withheld."},
+        "opened": opened,
+        "finalize": True,
+    }
+    if swept:
+        ledger.fail_finishes = 1
+        with pytest.raises(NativeBridgeError):
+            registry.settle(json.dumps(data))
+        assert entry.pending_settlement == data
+        registry.sweep_expired()
+    else:
+        registry.settle(json.dumps(data))
+    assert len(ledger.finished) == 1
+    assert registry.entry(entry.authorization.request_id) is None
+    registry.health.failed(key, transport)
+    assert registry.health.suppressed(key) is (not opened)
+
+
 def test_sweep_cancels_the_active_attempt_after_the_deadline() -> None:
     """The deadline sweep closes an unsettled reservation as cancelled."""
     registry, ledger, entry = _registry()
@@ -1411,7 +1448,11 @@ class TestLaneSaturation:
         failure = cast("JsonObject", refused["failure"])
         assert failure["failure_class"] == "throttled"
         assert failure["retry_after_seconds"] == 5
-        assert "at capacity right now" in str(failure["safe_message"])
+        # A free caller (the fixture's level 0) hears about Pro priority.
+        assert failure["safe_message"] == (
+            "This model is at capacity right now. Please retry in a few seconds. "
+            "Pro subscribers get priority access when models are busy."
+        )
         assert len(ledger.started) == 1
         assert registry.rung_admission_counters() == (1, 0, 1)
         # The refused request is finished, so the slot it never took frees nothing
@@ -4171,6 +4212,7 @@ def test_abandon_during_committed_reservation_retains_and_closes_late_attempt(
         request_id="late-reservation",
         failover_mode="maximize_availability",
     )
+    entry.web_search_requests = 1
     original = ledger.start_attempt
     committed, release = threading.Event(), threading.Event()
     results: list[JsonObject] = []
@@ -4241,6 +4283,8 @@ def test_abandon_during_committed_reservation_retains_and_closes_late_attempt(
     assert ledger.finished[0]["failure_class"] == "cancelled"
     assert ledger.terminal_events[-1] is not None
     assert ledger.terminal_events[-1].usage is None
+    assert ledger.web_search_requests == ([1, 1] if failed_cleanup else [1])
+    assert ledger.request_search_meters == []
     assert accounting.entry("late-reservation") is None
     accounting.sweep_expired()
     assert len(ledger.finished) == 1

@@ -43,7 +43,7 @@ classifiers = [
 dependencies = [
     "jinja2",
 ]
-version = "2.8.1"
+version = "2.9.0"
 
 [project.readme]
 file = "README.md"
@@ -71,6 +71,7 @@ dev = [
     "sphinx",
     "docutils",
     "ruff>=0.14.0",
+    "pycodestyle>=2.14.0",
     "flake8",
     "autopep8",
     "jedi>=0.19.2",
@@ -149,6 +150,7 @@ exclude = [
     "site-packages",
     "venv",
     "tests/test_code_312",
+    "scripts/lint_canary_fixture.py",
     "tests/test_code_315",
 ]
 

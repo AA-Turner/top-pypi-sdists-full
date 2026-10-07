@@ -44,6 +44,7 @@ from ..providers.response import (
     Reasoning,
     ProviderInfo,
     JsonConversation,
+    RawResponse,
 )
 from ..providers.types import ProviderType
 from ..providers.retry_provider import IterListProvider, RotatedProvider
@@ -300,6 +301,9 @@ def _select_native_provider(inner_provider):
     filtered down to their native-tool providers, mirroring the routing in
     ``DefaultProvider``. Returns None when no native provider is available.
     """
+    if inner_provider is AgentTools or getattr(inner_provider, "__name__", "") == "AgentTools":
+        return None
+
     providers = getattr(inner_provider, "providers", None)
     if providers:
         from ..Provider import ProviderLoader
@@ -311,14 +315,14 @@ def _select_native_provider(inner_provider):
                     p = ProviderLoader.from_name(p)
                 except ImportError:
                     continue
-            if getattr(p, "supports_native_tools", False):
+            if p is not AgentTools and getattr(p, "__name__", "") != "AgentTools" and getattr(p, "supports_native_tools", False):
                 native.append(p)
         if not native:
             return None
         if isinstance(inner_provider, IterListProvider):
             return IterListProvider(native, shuffle=getattr(inner_provider, "shuffle", True))
         return RotatedProvider(native)
-    if getattr(inner_provider, "supports_native_tools", False):
+    if inner_provider is not AgentTools and getattr(inner_provider, "__name__", "") != "AgentTools" and getattr(inner_provider, "supports_native_tools", False):
         return inner_provider
     return None
 
@@ -392,7 +396,7 @@ def _make_session(key, server, inner_provider, inner_model, loop_messages, kwarg
         "key": key,
         "server": server,
         "inner_provider": inner_provider,
-        "inner_model": inner_model,
+        "inner_model": getattr(inner_model, "name", "") or ("auto" if "Model(" in str(inner_model) else str(inner_model)),
         "messages": loop_messages,
         "kwargs": kwargs,
         "media": media,
@@ -427,13 +431,9 @@ def _make_session(key, server, inner_provider, inner_model, loop_messages, kwarg
         "last_activity": time.time(),
     }
 
-def _format_tool_calls_fence(calls: list) -> str:
-    """Render tool calls as a highlighted markdown code fence for the client."""
-    try:
-        body = json.dumps({"tool_calls": calls}, indent=2, ensure_ascii=False, default=str)
-    except (TypeError, ValueError):
-        body = str(calls)
-    return Reasoning(f"\n```json\n{body}\n```\n")
+def _format_tool_calls_fence(calls: list) -> ToolCalls:
+    """Render tool calls as a structured ToolCalls object for the client."""
+    return ToolCalls(calls)
 
 def _append_step_messages(session: dict, calls: list, tool_results: list, content: str) -> None:
     """Append the assistant tool-call message and the tool results."""
@@ -666,7 +666,7 @@ async def _run_background_session(session: dict) -> None:
             content = "".join(content_chunks)
             session["partial"] = content
             parsed_calls = native_calls or None
-            if parsed_calls is None and not session["use_native"] and content and session["tool_names"]:
+            if parsed_calls is None and content and session["tool_names"]:
                 parsed_calls = parse_tool_calls_from_text(content, session["tool_names"])
             openai_calls = normalize_tool_calls(parsed_calls) if parsed_calls else []
             openai_calls = [
@@ -859,9 +859,70 @@ class AgentTools(AsyncGeneratorProvider):
 
         api_key = api_key or os.getenv("G4F_AGENT_API_KEY")
 
-        # Resolve the inner model / provider ("agent-tools:<model>" supported).
-        model = model or cls.default_model
-        model, inner_provider = get_model_and_provider(model, provider, stream, logging=False)
+        # Resolve the inner model / provider ("agent-tools:<model>" or "agent-tools:<provider>:<model>" supported).
+        raw_model = model or cls.default_model
+        if hasattr(raw_model, "name"):
+            raw_model_str = raw_model.name
+        elif hasattr(raw_model, "long_name") and raw_model.long_name == "Agent Tools (MCP)":
+            raw_model_str = "agent-tools"
+        else:
+            raw_model_str = str(raw_model)
+
+        if provider is cls or provider == "AgentTools" or provider == "agent-tools":
+            provider = None
+
+        if isinstance(provider, str):
+            from ..Provider import ProviderUtils
+            if provider in ProviderUtils.convert:
+                provider = ProviderUtils.convert[provider]
+
+        if ":" in raw_model_str and (raw_model_str.startswith("agent-tools:") or raw_model_str.startswith("agent:")):
+            inner_model_name = raw_model_str.split(":", 1)[1]
+        elif raw_model_str in ("agent-tools", "agent", "Agent Tools (MCP)", "auto") or raw_model_str.startswith("agent"):
+            inner_model_name = os.getenv("G4F_AGENT_MODEL", "auto")
+        else:
+            inner_model_name = raw_model_str
+
+        # If inner_model_name itself contains Provider:Model (e.g. Pollinations:qwen-coder)
+        if ":" in inner_model_name and not inner_model_name.startswith("agent"):
+            prov_part, mod_part = inner_model_name.split(":", 1)
+            from ..Provider import ProviderUtils
+            if prov_part in ProviderUtils.convert:
+                provider = ProviderUtils.convert[prov_part]
+                inner_model_name = mod_part if mod_part else "auto"
+
+        # If inner_model_name is itself a Provider name
+        from ..Provider import ProviderUtils
+        if inner_model_name in ProviderUtils.convert and provider is None:
+            provider = ProviderUtils.convert[inner_model_name]
+            inner_model_name = getattr(provider, "default_model", "auto") or "auto"
+
+        from ..models import default
+        if inner_model_name in ("auto", "agent-tools", "agent", "Agent Tools (MCP)", ""):
+            if provider is not None:
+                inner_provider = provider
+                inner_model = getattr(provider, "default_model", "auto") or "auto"
+            else:
+                inner_model = default
+                inner_provider = default.best_provider
+        else:
+            try:
+                inner_model, inner_provider = get_model_and_provider(inner_model_name, provider, stream, logging=False)
+            except Exception:
+                if provider is not None:
+                    inner_provider = provider
+                    inner_model = inner_model_name
+                else:
+                    inner_model = default
+                    inner_provider = default.best_provider
+
+        if inner_provider is cls or getattr(inner_provider, "__name__", "") == "AgentTools":
+            inner_model = default
+            inner_provider = default.best_provider
+
+        model = getattr(inner_model, "name", "") or str(inner_model)
+        if not model or model == "Agent Tools (MCP)" or "Model(" in str(model):
+            model = "auto"
 
         # The agent manages tool calling itself; only strip unrelated client
         # tool kwargs. ``tools`` / ``tool_choice`` are forwarded natively.
@@ -1052,7 +1113,7 @@ class AgentTools(AsyncGeneratorProvider):
 
             # Determine the tool calls for this step.
             parsed_calls = native_calls or None
-            if parsed_calls is None and not use_native and content and tool_names:
+            if parsed_calls is None and content and tool_names:
                 # Emulation fallback: parse the JSON tool-call text format.
                 parsed_calls = parse_tool_calls_from_text(content, tool_names)
 
@@ -1138,6 +1199,14 @@ class AgentTools(AsyncGeneratorProvider):
                 "tool_calls": openai_calls,
             })
             for call, name, result in tool_results:
+                is_err = isinstance(result, dict) and "error" in result
+                yield RawResponse(
+                    type="tool_result",
+                    name=name,
+                    args=call.get("function", {}).get("arguments"),
+                    result=result if not is_err else None,
+                    error=result.get("error") if is_err else None,
+                )
                 loop_messages.append({
                     "role": "tool",
                     "tool_call_id": call.get("id", ""),
@@ -1164,7 +1233,7 @@ class AgentTools(AsyncGeneratorProvider):
                 if session_key:
                     _store_done_session(
                         session_key, server, inner_provider, model, loop_messages,
-                        kwargs, media, tool_defs, tool_choice, use_native, tool_names,
+                        kwargs, media, api_key, tool_defs, tool_choice, use_native, tool_names,
                         completion_tokens, usage, result=content or None, finish_reason="stop",
                         provider_info=inner_info,
                     )
@@ -1199,7 +1268,7 @@ class AgentTools(AsyncGeneratorProvider):
         if session_key:
             _store_done_session(
                 session_key, server, inner_provider, model, loop_messages,
-                kwargs, media, tool_defs, tool_choice, use_native, tool_names,
+                kwargs, media, api_key, tool_defs, tool_choice, use_native, tool_names,
                 completion_tokens, usage, result=content or None, finish_reason="stop",
                 provider_info=inner_info,
             )

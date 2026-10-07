@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, get_args
 
 from polars._dependencies import json
-from polars._utils.deprecation import deprecated
+from polars._typing import EngineType
+from polars._utils.expired import getattr_fallback, raise_for_removed_attributes
 from polars._utils.monitoring import (
     MONITORING_ENV_VAR,
     MONITORING_ORGANIZATION_ENV_VAR,
@@ -38,10 +39,6 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self, Unpack
 
-    if sys.version_info >= (3, 13):
-        from warnings import deprecated
-    else:
-        from typing_extensions import deprecated  # noqa: TC004
 
 __all__ = ["Config"]
 
@@ -84,7 +81,7 @@ _POLARS_CFG_ENV_VARS: Final[set[str]] = {
     "POLARS_FMT_TABLE_HIDE_DATAFRAME_SHAPE_INFORMATION",
     "POLARS_FMT_TABLE_INLINE_COLUMN_DATA_TYPE",
     "POLARS_FMT_TABLE_ROUNDED_CORNERS",
-    "POLARS_STREAMING_CHUNK_SIZE",
+    "POLARS_IDEAL_MORSEL_SIZE",
     "POLARS_TABLE_WIDTH",
     "POLARS_VERBOSE",
     "POLARS_MAX_EXPR_DEPTH",
@@ -154,7 +151,6 @@ class ConfigParameters(TypedDict, total=False):
     """Parameters supported by the polars Config."""
 
     ascii_tables: bool | None
-    auto_structify: bool | None
     decimal_separator: str | None
     thousands_separator: str | bool | None
     float_precision: int | None
@@ -182,7 +178,6 @@ class ConfigParameters(TypedDict, total=False):
     enable_monitoring: bool | None
 
     set_ascii_tables: bool | None
-    set_auto_structify: bool | None
     set_decimal_separator: str | None
     set_thousands_separator: str | bool | None
     set_float_precision: int | None
@@ -208,7 +203,20 @@ class ConfigParameters(TypedDict, total=False):
     set_engine_affinity: EngineType | None
 
 
-class Config(contextlib.ContextDecorator):
+class _Meta(type):
+    if not TYPE_CHECKING:
+
+        def __getattr__(cls, name: str) -> Any:
+            raise_for_removed_attributes(
+                cls,
+                name,
+                {"set_auto_structify": None},
+                version="2.0",
+            )
+            return getattr_fallback(cls, super(), name, meta=True)
+
+
+class Config(contextlib.ContextDecorator, metaclass=_Meta):
     """
     Configure polars; offers options for table formatting and more.
 
@@ -603,39 +611,6 @@ class Config(contextlib.ContextDecorator):
         return cls
 
     @classmethod
-    @deprecated("deprecated since version 1.32.0")
-    def set_auto_structify(cls, active: bool | None = False) -> type[Config]:
-        """
-        Allow multi-output expressions to be automatically turned into Structs.
-
-        .. note::
-            Deprecated since 1.32.0.
-
-        Examples
-        --------
-        >>> df = pl.DataFrame({"v": [1, 2, 3], "v2": [4, 5, 6]})
-        >>> with pl.Config(set_auto_structify=True):  # doctest: +SKIP
-        ...     out = df.select(pl.all())
-        >>> out  # doctest: +SKIP
-        shape: (3, 1)
-        ┌───────────┐
-        │ v         │
-        │ ---       │
-        │ struct[2] │
-        ╞═══════════╡
-        │ {1,4}     │
-        │ {2,5}     │
-        │ {3,6}     │
-        └───────────┘
-        """
-        if active is None:
-            os.environ.pop("POLARS_AUTO_STRUCTIFY", None)
-        else:
-            os.environ["POLARS_AUTO_STRUCTIFY"] = str(int(active))
-        plr.config_reload_env_var("POLARS_AUTO_STRUCTIFY")
-        return cls
-
-    @classmethod
     def set_decimal_separator(cls, separator: str | None = None) -> type[Config]:
         """
         Set the decimal separator character.
@@ -978,14 +953,14 @@ class Config(contextlib.ContextDecorator):
             of this size.
         """
         if size is None:
-            os.environ.pop("POLARS_STREAMING_CHUNK_SIZE", None)
+            os.environ.pop("POLARS_IDEAL_MORSEL_SIZE", None)
         else:
             if size < 1:
                 msg = "number of rows per chunk must be >= 1"
                 raise ValueError(msg)
 
-            os.environ["POLARS_STREAMING_CHUNK_SIZE"] = str(size)
-        plr.config_reload_env_var("POLARS_STREAMING_CHUNK_SIZE")
+            os.environ["POLARS_IDEAL_MORSEL_SIZE"] = str(size)
+        plr.config_reload_env_var("POLARS_IDEAL_MORSEL_SIZE")
         return cls
 
     @classmethod
@@ -1540,8 +1515,8 @@ class Config(contextlib.ContextDecorator):
         Examples
         --------
         >>> pl.Config.warn_unstable(True)  # doctest: +SKIP
-        >>> pl.col("a").qcut(5)  # doctest: +SKIP
-        UnstableWarning: `qcut` is considered unstable. It may be changed at any point without it being considered a breaking change.
+        >>> pl.col("a").bin_quantiles(5, labels=False)  # doctest: +SKIP
+        UnstableWarning: `bin_quantiles` is considered unstable. It may be changed at any point without it being considered a breaking change.
         """  # noqa: W505
         if active is None:
             os.environ.pop("POLARS_WARN_UNSTABLE", None)

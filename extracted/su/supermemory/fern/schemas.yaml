@@ -1,0 +1,109 @@
+# Names for the types the SDK exposes.
+#
+# The v5 spec inlines most schemas, so without this a connector is
+# GetConnectorsResponse, ListConnectorsResponseConnectorsItem, … depending on
+# where it appears. scripts/name_schemas.py turns each schema below into a named
+# component and replaces every structurally identical schema in the spec with a
+# $ref to it — new endpoints returning the same shape pick the name up for free.
+# A location that no longer resolves prints a warning and is skipped.
+#
+# Location: "<METHOD> <path> <where><selector>" or a JSON pointer ("#/...")
+#   where:    a status code (response body), "body" (request body), "param:<name>"
+#   selector: .field   [] array items   ? non-null anyOf branch   {} map values
+#             (field=value) the oneOf/anyOf branch whose `field` is that literal
+# Top-level request bodies are only named when listed here (e.g. unions); other
+# bodies stay inline because their fields become keyword arguments.
+
+# --- enums
+TaskType: POST /ns/{namespace}/document body.taskType
+DreamingMode: POST /ns/{namespace}/document body.dreaming
+FileType: POST /ns/{namespace}/document/file body.fileType
+SearchMode: POST /ns/{namespace}/search body.searchMode
+ListType: POST /ns/{namespace}/list/{type} param:type
+ListSort: POST /ns/{namespace}/list/{type} param:sort
+SortOrder: POST /ns/{namespace}/list/{type} param:order
+MemoryRelation: POST /ns/{namespace}/search 200.results[].included.related.parents[].relation
+ConnectorProvider: GET /connectors param:provider
+ConnectorSyncTrigger: GET /ns/{namespace}/connectors/{id} 200.syncs[].trigger
+
+# --- filters
+FilterAnd: "#/components/schemas/FilterExpression/anyOf/1"
+FilterOr: "#/components/schemas/FilterExpression/anyOf/2"
+FilterStringEquals: "#/components/schemas/FilterPredicate/anyOf/0"
+FilterValueEquals: "#/components/schemas/FilterPredicate/anyOf/1"
+FilterNumberCompare: "#/components/schemas/FilterPredicate/anyOf/2"
+FilterStringContains: "#/components/schemas/FilterPredicate/anyOf/3"
+FilterArrayContains: "#/components/schemas/FilterPredicate/anyOf/4"
+
+# --- documents
+MetadataValue: POST /ns/{namespace}/document body.metadata{}
+DocumentInput: POST /ns/{namespace}/document/batch body.documents[]
+DocumentRef: POST /ns/{namespace}/document 200
+BatchAddResult: POST /ns/{namespace}/document/batch 200
+BatchAddItemResult: POST /ns/{namespace}/document/batch 200.results[]
+DeleteDocumentsResult: DELETE /ns/{namespace}/document 200
+DeleteDocumentError: DELETE /ns/{namespace}/document 200.errors[]
+DocumentInclude: GET /ns/{namespace}/document/{id} param:include[]
+SearchInclude: POST /ns/{namespace}/search body.include
+MemoryInclude: GET /ns/{namespace}/memories/{id} param:include[]
+ConnectorInclude: GET /ns/{namespace}/connectors/{id} param:include[]
+Document: GET /ns/{namespace}/document/{id} 200
+DocumentSystem: GET /ns/{namespace}/document/{id} 200.system
+Chunk: GET /ns/{namespace}/document/{id} 200.chunks[]
+ChunkSystem: GET /ns/{namespace}/document/{id} 200.chunks[].system
+Memory: GET /ns/{namespace}/document/{id} 200.memories[]
+MemoryIncluded: GET /ns/{namespace}/memories/{id} 200.included
+MemoryDetails: GET /ns/{namespace}/memories/{id} 200
+MemorySystem: GET /ns/{namespace}/document/{id} 200.memories[].system
+
+# --- list
+DocumentListItem: POST /ns/{namespace}/list/{type} 200.documents[]
+ChunkListItem: POST /ns/{namespace}/list/{type} 200.chunks[]
+Pagination: POST /ns/{namespace}/list/{type} 200.pagination
+
+# --- search
+SearchResult: POST /ns/{namespace}/search 200.results[]
+SearchResultIncluded: POST /ns/{namespace}/search 200.results[].included
+RelatedMemories: POST /ns/{namespace}/search 200.results[].included.related
+RelatedMemory: POST /ns/{namespace}/search 200.results[].included.related.parents[]
+
+# --- profiles
+Profile: POST /ns/{namespace}/profile 200.profile
+ProfileFact: POST /ns/{namespace}/profile 200.profile.static[]
+ProfileBuckets: GET /ns/{namespace}/profile/buckets 200
+
+# --- memories
+ForgetResult: DELETE /ns/{namespace}/memories 200
+ForgetError: DELETE /ns/{namespace}/memories 200.errors[]
+ForgetMatch: DELETE /ns/{namespace}/memories 200.matches[]
+
+# --- connectors
+ConnectorStatus: GET /ns/{namespace}/connectors/{id} 200.system.status
+ConnectorRunStatus: GET /ns/{namespace}/connectors/{id} 200.latestRun?.system.status
+ConnectorErrorCode: GET /ns/{namespace}/connectors/{id} 200.latestRun?.errorCode?
+ConnectorRun: GET /ns/{namespace}/connectors/{id} 200.latestRun?
+ConnectorSystem: GET /ns/{namespace}/connectors/{id} 200.system
+Connector: GET /ns/{namespace}/connectors/{id} 200
+ConnectorList: GET /connectors 200
+ConnectorCapabilities: GET /ns/{namespace}/connectors/{id} 200.capabilities
+ConnectorLink: GET /ns/{namespace}/connectors/{id} 200.picker?  # same {url, expiresAt} shape as authorization
+ConnectorSelectionItem: GET /ns/{namespace}/connectors/{id} 200.selection?{}[]
+ConnectorSync: GET /ns/{namespace}/connectors/{id} 200.syncs[]
+ConnectorSyncFailure: GET /ns/{namespace}/connectors/{id} 200.syncs[].failures[]
+ConnectorSelection: PATCH /ns/{namespace}/connectors/{id} body.selection
+ConnectorSetup: POST /ns/{namespace}/connectors body
+GoogleDriveConfig: POST /ns/{namespace}/connectors body(provider=google-drive).config
+S3Config: POST /ns/{namespace}/connectors body(provider=s3).config
+WebCrawlerConfig: POST /ns/{namespace}/connectors body(provider=web-crawler).config
+GranolaConfig: POST /ns/{namespace}/connectors body(provider=granola).config
+ConnectorSetupResult: POST /ns/{namespace}/connectors 201
+ConnectorSyncStarted: POST /ns/{namespace}/connectors/{id}/sync 202
+ConnectorDeleted: DELETE /ns/{namespace}/connectors/{id} 200
+
+# --- namespaces and organization
+NamespaceList: GET /ns 200
+Namespace: GET /ns 200.namespaces[]
+NamespaceSystem: GET /ns 200.namespaces[].system
+NamespaceDetails: GET /ns/{namespace} 200
+NamespaceDeleted: DELETE /ns/{namespace} 200
+Organization: GET /organization 200

@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [[test]]
 name = "dialects"
-harness = false
+harness = true
 
 [features]
 default = [
@@ -23,10 +23,14 @@ default = [
     "clickhouse",
     "databricks",
     "db2",
+    "doris",
+    "flink",
     "duckdb",
     "exasol",
     "greenplum",
     "hive",
+    "impala",
+    "mariadb",
     "mysql",
     "materialize",
     "oracle",
@@ -39,16 +43,21 @@ default = [
     "teradata",
     "trino",
     "tsql",
+    "vertica",
 ]
 athena = []
 bigquery = []
 clickhouse = []
 databricks = ["sparksql"]
 db2 = []
+doris = ["mysql"]
+flink = []
 duckdb = ["postgres"]
 exasol = []
 greenplum = ["postgres"]
 hive = []
+impala = ["hive"]
+mariadb = ["mysql"]
 mysql = []
 materialize = ["postgres"]
 oracle = []
@@ -61,6 +70,7 @@ starrocks = ["mysql"]
 teradata = []
 trino = []
 tsql = []
+vertica = []
 
 [dependencies]
 sqruff-lib-core.workspace = true

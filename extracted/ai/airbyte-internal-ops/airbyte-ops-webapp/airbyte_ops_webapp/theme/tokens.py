@@ -337,6 +337,7 @@ body {
   font-weight: 600;
 }
 .airbyte-code-block {
+  display: block;
   background: var(--background) !important;
   border: 1px solid var(--border) !important;
   border-radius: 0.375rem;

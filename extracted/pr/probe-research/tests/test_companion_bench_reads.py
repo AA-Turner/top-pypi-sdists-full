@@ -856,9 +856,12 @@ def test_the_fake_forwards_only_model_calls(monkeypatch):
         traces = client.post("/v1/companion/traces", content=b'{"lines": []}', headers=auth)
         other = client.post("/v1/companion/anything", content=b"{}", headers=auth)
         model = client.post("/v1/companion/chat/completions", content=b"{}", headers=auth)
+        classify = client.post("/v1/companion/classify", json={"digest": "x"}, headers=auth)
     assert (traces.status_code, traces.json()) == (202, {"dark": True})
     assert other.status_code == 501
     assert model.status_code == 200
+    # The ML gate's question is answered here, MAPPED: "no answer", so the daemon records.
+    assert (classify.status_code, classify.json()) == (200, {"p_ml": None, "act": False, "mode": "off"})
     assert sent == ["https://real.invalid/v1/companion/chat/completions"]
     assert [u["path"] for u in fake.unmapped] == ["/v1/companion/traces", "/v1/companion/anything"]
 

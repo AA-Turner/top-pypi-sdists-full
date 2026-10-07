@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.38.9
+Version: 0.38.10
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License-Expression: Apache-2.0
@@ -31,7 +31,7 @@ Requires-Dist: packaging<27,>=21.3
 Requires-Dist: requests<3.0.0,>=2.33.0
 Requires-Dist: Pillow<13.0.0,>=12.2.0
 Requires-Dist: PyYAML<7.0.0,>=6.0.0
-Requires-Dist: GitPython<3.2,>=3.1.44
+Requires-Dist: GitPython<3.3,>=3.1.44
 Requires-Dist: PyGithub<2.11.0,>=2.8.0
 Requires-Dist: urllib3>=1.26.0
 Requires-Dist: lambdapdk>=0.2.22
@@ -52,7 +52,7 @@ Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: responses==0.26.3; extra == "test"
 Requires-Dist: PyVirtualDisplay==3.0; extra == "test"
 Provides-Extra: lint
-Requires-Dist: flake8==7.3.0; extra == "lint"
+Requires-Dist: flake8==7.4.1; extra == "lint"
 Requires-Dist: tclint==0.9.0; extra == "lint"
 Requires-Dist: codespell==2.4.3; extra == "lint"
 Provides-Extra: docs
@@ -67,6 +67,8 @@ Requires-Dist: cocotb<2.2.0,>=2.1.0; extra == "cocotb"
 Provides-Extra: server
 Requires-Dist: aiohttp<3.15.0,>=3.10.11; extra == "server"
 Requires-Dist: fastjsonschema<2.23.0,>=2.20.0; extra == "server"
+Provides-Extra: s3
+Requires-Dist: boto3>=1.28.0; extra == "s3"
 Provides-Extra: dashboard
 Requires-Dist: pandas>=1.1.5; extra == "dashboard"
 Requires-Dist: streamlit==1.64.0; extra == "dashboard"

@@ -10,13 +10,13 @@ name = "pip-tools"
 description = "pip-tools keeps your pinned dependencies fresh."
 readme = "README.md"
 authors = [{ "name" = "Vincent Driessen", "email" = "me@nvie.com" }]
-license = { text = "BSD" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Intended Audience :: System Administrators",
-  "License :: OSI Approved :: BSD License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3",
@@ -106,6 +106,7 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
+pythonpath = "tests/_plugins/_coverage"
 addopts = [
   # `pytest-xdist`:
   "--numprocesses=auto",
@@ -117,7 +118,7 @@ addopts = [
   # Show 20 slowest invocations:
   "--durations=20",
 ]
-norecursedirs = ".* build dist venv test_data piptools/_compat/*"
+norecursedirs = ".* build dist venv test_data piptools/_compat/* tests/_plugins"
 testpaths = "tests piptools"
 filterwarnings = ["always"]
 markers = ["network: mark tests that require internet access"]

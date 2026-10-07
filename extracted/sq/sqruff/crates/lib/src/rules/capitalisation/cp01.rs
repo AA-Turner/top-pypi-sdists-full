@@ -213,11 +213,13 @@ pub fn handle_segment(
             first_letter_is_lowercase = Some(ch).into_iter().ne(ch.to_uppercase());
             break;
         }
-        first_letter_is_lowercase = false;
     }
 
+    // Camel, Pascal, and snake case are too ambiguous or destructive to infer.
+    // They must be selected explicitly.
+    refuted_cases.extend(["camel", "pascal", "snake"]);
     if first_letter_is_lowercase {
-        refuted_cases.extend(["upper", "capitalise", "pascal"]);
+        refuted_cases.extend(["upper", "capitalise"]);
         if seg.raw().as_str() != seg.raw().to_lowercase() {
             refuted_cases.insert("lower");
         }
@@ -239,9 +241,6 @@ pub fn handle_segment(
         {
             refuted_cases.insert("capitalise");
         }
-        if !segment_raw.chars().all(|c| c.is_alphanumeric()) {
-            refuted_cases.insert("pascal");
-        }
     }
 
     context.set(RefutedCases(refuted_cases.clone()));
@@ -250,7 +249,7 @@ pub fn handle_segment(
         let cap_policy_opts = match cap_policy_name {
             "capitalisation_policy" => ["upper", "lower", "capitalise"].as_slice(),
             "extended_capitalisation_policy" => {
-                ["upper", "lower", "pascal", "capitalise"].as_slice()
+                ["upper", "lower", "pascal", "capitalise", "snake", "camel"].as_slice()
             }
             _ => unimplemented!("Unknown capitalisation policy name: {cap_policy_name}"),
         };
@@ -291,6 +290,34 @@ pub fn handle_segment(
             })
             .into()
         }
+        "camel" => {
+            let re = lazy_regex::regex!(r"([^a-zA-Z0-9]+|^)([a-zA-Z0-9])([a-zA-Z0-9]*)");
+            re.replace_all(&fixed_raw, |caps: &regex::Captures| {
+                let mut replacement_string = String::from(&caps[1]);
+                replacement_string.push_str(&caps[2].to_lowercase());
+                replacement_string.push_str(&caps[3]);
+                replacement_string
+            })
+            .into()
+        }
+        "snake" => {
+            let chars = fixed_raw.chars().collect_vec();
+            let mut snake = String::with_capacity(fixed_raw.len());
+            for (index, ch) in chars.iter().copied().enumerate() {
+                if index > 0 {
+                    let previous = chars[index - 1];
+                    let lower_or_digit_to_upper =
+                        (previous.is_lowercase() || previous.is_ascii_digit()) && ch.is_uppercase();
+                    let letter_to_digit = previous.is_alphabetic() && ch.is_ascii_digit();
+                    let digit_to_letter = previous.is_ascii_digit() && ch.is_alphabetic();
+                    if lower_or_digit_to_upper || letter_to_digit || digit_to_letter {
+                        snake.push('_');
+                    }
+                }
+                snake.extend(ch.to_lowercase());
+            }
+            snake
+        }
         _ => fixed_raw,
     };
 
@@ -303,9 +330,10 @@ pub fn handle_segment(
             ""
         };
         let policy = match concrete_policy {
-            concrete_policy @ ("upper" | "lower") => format!("{concrete_policy} case."),
+            concrete_policy @ ("upper" | "lower" | "pascal" | "camel" | "snake") => {
+                format!("{concrete_policy} case.")
+            }
             "capitalise" => "capitalised.".to_string(),
-            "pascal" => "pascal case.".to_string(),
             _ => "".to_string(),
         };
 

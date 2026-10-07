@@ -366,7 +366,7 @@ where
 
 #[cfg(test)]
 mod test {
-	use super::{flatten, Node, SpannedNode, SpannedNodes};
+	use super::{Node, SpannedNode, SpannedNodes, flatten};
 	use crate::span::{Span, Spanned, TrackedSpan};
 	use crate::{bold, italic, link, spanned_vec, spoiler, text, underline};
 

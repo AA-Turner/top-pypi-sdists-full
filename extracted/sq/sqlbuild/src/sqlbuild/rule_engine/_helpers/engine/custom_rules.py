@@ -15,6 +15,7 @@ import orjson
 
 from sqlbuild.compiler.compile.models import CompiledProject
 from sqlbuild.compiler.fact_cache.main.code_identity import compiled_code_identity
+from sqlbuild.compiler.scopes.models import ScopeIndex
 from sqlbuild.rule_engine._helpers.engine.custom_rule_evidence import (
     custom_rule_implementation_fingerprint,
     custom_rule_import_closure,
@@ -25,6 +26,7 @@ from sqlbuild.rule_engine._helpers.host.custom_host_pool import (
     finding_payload,
     run_custom_hosts,
 )
+from sqlbuild.rule_engine._helpers.run.cache_paths import rules_bulk_cache_path
 from sqlbuild.rule_engine.classes.fact_digests import FactDigests
 from sqlbuild.rule_engine.classes.rule_context import RuleFactViews, build_rule_fact_views
 from sqlbuild.rule_engine.constants import (
@@ -81,9 +83,10 @@ def evaluate_custom_rules_cached(
     custom: tuple[Rule, ...] = tuple(sorted(rules, key=lambda rule: rule.code))
     if not custom:
         return CustomRulesOutcome(findings=(), cache_hits=0, cache_misses=0, custom_ms=0)
+    facts_project: CompiledProject = host_project(project)
     if not config.cache.enabled:
         uncached: CustomHostRun = run_custom_hosts(
-            project=_host_project(project),
+            project=facts_project,
             config=config,
             project_dir=project_dir,
             dialect=dialect,
@@ -104,7 +107,7 @@ def evaluate_custom_rules_cached(
             custom_ms=_elapsed_ms(started),
         )
     digests: FactDigests = FactDigests(
-        views=_views_factory(project=project, project_dir=project_dir, dialect=dialect)
+        views=_views_factory(project=facts_project, project_dir=project_dir, dialect=dialect)
     )
     subjects: dict[str, tuple[_Subject, ...]] = _subjects(project=project, rules=custom)
     identities: dict[str, str] = {
@@ -117,7 +120,9 @@ def evaluate_custom_rules_cached(
         )
         for rule in custom
     }
-    cache_path: Path = project_dir / CUSTOM_RULES_CACHE_FILE
+    cache_path: Path = rules_bulk_cache_path(
+        project_dir=project_dir, file_name=CUSTOM_RULES_CACHE_FILE
+    )
     stored: dict[str, _RuleCache] = _read_cache(cache_path)
     results: dict[tuple[str, str], tuple[dict[str, object], ...]] = {}
     plan: dict[str, list[str] | None] = {}
@@ -150,7 +155,7 @@ def evaluate_custom_rules_cached(
     )
     if plan:
         run: CustomHostRun = run_custom_hosts(
-            project=_host_project(project),
+            project=facts_project,
             config=config,
             project_dir=project_dir,
             dialect=dialect,
@@ -187,9 +192,7 @@ def _views_factory(
     *, project: CompiledProject, project_dir: Path, dialect: str
 ) -> Callable[[], RuleFactViews]:
     def build() -> RuleFactViews:
-        return build_rule_fact_views(
-            project=_host_project(project), project_dir=project_dir, dialect=dialect
-        )
+        return build_rule_fact_views(project=project, project_dir=project_dir, dialect=dialect)
 
     return build
 
@@ -268,7 +271,9 @@ def _readset_digest(
     return memo[index]
 
 
-def _host_project(project: CompiledProject) -> CompiledProject:
+def host_project(project: CompiledProject) -> CompiledProject:
+    """Drop project state no Rule fact reads, before digests and host payloads use it."""
+
     return replace(
         project,
         binding_catalog=None,
@@ -278,6 +283,11 @@ def _host_project(project: CompiledProject) -> CompiledProject:
         hook_functions=(),
         materialization_files=(),
         external_sql_reference_resolver=None,
+        sql_scenarios=(),
+        sql_hook_files=(),
+        diagnostics=(),
+        unmatched_literal_sql_relations=(),
+        scope_index=ScopeIndex(),
     )
 
 

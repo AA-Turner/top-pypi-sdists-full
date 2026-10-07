@@ -82,15 +82,17 @@ class TestValidateTTL(unittest.TestCase):
             )
         )
 
-    def test_invalid_unwrapped_datetime64(self):
-        err = chquery.validate_ttl(
-            ttl="event_time + toIntervalDay(7)",
-            columns=[{"name": "event_time", "type": "DateTime64(3)"}],
-            sorting_key="event_time",
-            primary_key="event_time",
-        )
-        self.assertIsNotNone(err)
-        self.assertIn("TTL expression result column should have DateTime or Date type", err)
+    def test_invalid_unwrapped_datetime64_and_date32(self):
+        for type_name in ("DateTime64(3)", "Date32"):
+            with self.subTest(type_name=type_name):
+                err = chquery.validate_ttl(
+                    ttl="event_time + toIntervalDay(7)",
+                    columns=[{"name": "event_time", "type": type_name}],
+                    sorting_key="event_time",
+                    primary_key="event_time",
+                )
+                self.assertIsNotNone(err)
+                self.assertIn("TTL expression result column should have DateTime or Date type", err)
 
     def test_invalid_unknown_column(self):
         err = chquery.validate_ttl(

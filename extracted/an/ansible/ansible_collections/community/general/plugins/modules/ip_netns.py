@@ -68,7 +68,7 @@ class Namespace:
         rc, out, err = self.module.run_command(["ip", "netns", "list"])
         if rc != 0:
             self.module.fail_json(msg=f"{err}")
-        return self.name in out
+        return any(line.split()[0] == self.name for line in out.splitlines() if line.strip())
 
     def add(self):
         """Create network namespace"""
@@ -87,10 +87,7 @@ class Namespace:
         """Run check mode"""
         changed = False
 
-        if self.state == "present" and self.exists():
-            changed = True
-
-        elif self.state == "absent" and self.exists():
+        if self.state == "absent" and self.exists():
             changed = True
         elif self.state == "present" and not self.exists():
             changed = True

@@ -2693,6 +2693,7 @@ function resolvePuppeteerModule() {
     try {
       const packageEntry = require.resolve(moduleName, { paths: searchPaths });
       const packageRequire = Module.createRequire(packageEntry);
+      packageRequire("puppeteer-core/internal/node-env-setup.js");
       const { Puppeteer } = packageRequire(
         "puppeteer-core/internal/common/Puppeteer.js"
       );
@@ -2703,7 +2704,7 @@ function resolvePuppeteerModule() {
       const { ScreenRecorder } = packageRequire(
         "puppeteer-core/internal/node/ScreenRecorder.js"
       );
-      environment.value = { fs, path, ScreenRecorder };
+      environment.value.ScreenRecorder = ScreenRecorder;
       return puppeteer;
     } catch (e) {}
   }
@@ -2861,18 +2862,20 @@ async function setBrowserDownloadBehavior(options = {}) {
  * Browser.downloadProgress is the completion boundary; the destination file
  * may exist at zero bytes while Chrome is still writing it.
  */
-function waitForBrowserDownload(session, expectedFilename, timeoutMs) {
+function waitForBrowserDownload(session, expectedFilename, timeoutMs, signal) {
   return new Promise((resolve, reject) => {
     let downloadGuid = null;
     const cleanup = () => {
       clearTimeout(timer);
       session.off("Browser.downloadWillBegin", onDownloadWillBegin);
       session.off("Browser.downloadProgress", onDownloadProgress);
+      signal?.removeEventListener("abort", onAbort);
     };
     const fail = (error) => {
       cleanup();
       reject(error);
     };
+    const onAbort = () => fail(signal.reason);
     const onDownloadWillBegin = (event) => {
       if (event.suggestedFilename === expectedFilename) {
         downloadGuid = event.guid;
@@ -2880,8 +2883,8 @@ function waitForBrowserDownload(session, expectedFilename, timeoutMs) {
     };
     const onDownloadProgress = (event) => {
       if (!downloadGuid || event.guid !== downloadGuid) return;
-      if (event.state === "interrupted") {
-        fail(new Error(`Download ${expectedFilename} was interrupted`));
+      if (["canceled", "interrupted"].includes(event.state)) {
+        fail(new Error(`Download ${expectedFilename} was ${event.state}`));
       } else if (event.state === "completed") {
         cleanup();
         resolve(event);
@@ -2894,6 +2897,8 @@ function waitForBrowserDownload(session, expectedFilename, timeoutMs) {
 
     session.on("Browser.downloadWillBegin", onDownloadWillBegin);
     session.on("Browser.downloadProgress", onDownloadProgress);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) onAbort();
   });
 }
 

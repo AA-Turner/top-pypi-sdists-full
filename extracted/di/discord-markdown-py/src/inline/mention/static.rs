@@ -1,15 +1,15 @@
 use std::fmt::Display;
 
 use nom::{
+	Parser,
 	branch::alt,
 	bytes::complete::tag,
 	character::complete::{char, u64},
 	combinator::{map, opt, value},
 	sequence::{delimited, preceded},
-	Parser,
 };
 
-use crate::{error::ParseError, unparse::Unparse, Input};
+use crate::{Input, error::ParseError, unparse::Unparse};
 
 pub const PREFIX: &str = "<id:";
 pub const SUFFIX: char = '>';
@@ -82,7 +82,7 @@ mod test {
 
 	use crate::test_utils::handle_nom_err;
 
-	use super::{parser, Static};
+	use super::{Static, parser};
 
 	#[test]
 	fn basic() {

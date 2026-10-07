@@ -114,9 +114,15 @@ class RegisterConfig:
         pass
 
 
+class ObjectStoreConfigCustomerS3:
+    def __init__(self, *args, **kwargs):
+        pass
+
+
 __all__ = [
     "__version__",
     "RegisterConfig",
+    "ObjectStoreConfigCustomerS3",
     "init_session",
     "register",
     "init",

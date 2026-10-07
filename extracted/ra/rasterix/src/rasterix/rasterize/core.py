@@ -180,7 +180,7 @@ def rasterize(
     all_touched : bool
         If True, all pixels touched by geometries will be burned in.
         If False, only pixels whose center is within the geometry are burned.
-        Note: Not supported by rusterize or exactextract engines.
+        Note: Not supported by the exactextract engine.
     merge_alg : str
         Merge algorithm when geometries overlap.
         - "replace": later geometries overwrite earlier ones
@@ -211,6 +211,7 @@ def rasterize(
       Requires GDAL.
 
     - **rusterize**: A Rust-based rasterization engine. Does not require GDAL.
+      Same ``all_touched`` logic as rasterio.
 
     - **exactextract**: Uses the exactextract library for precise sub-pixel
       coverage computation. Any pixel with non-zero coverage is burned, which
@@ -233,6 +234,20 @@ def rasterize(
         obj = clip_to_bbox(obj, geometries, xdim=xdim, ydim=ydim)
 
     affine = _get_affine(obj, x_dim=xdim, y_dim=ydim)
+    if affine.e > 0:
+        # Engines assume north-up; rasterize the flipped grid and flip back.
+        flip = {ydim: slice(None, None, -1)}
+        return rasterize(
+            obj.isel(flip),
+            geometries,
+            engine=engine,
+            xdim=xdim,
+            ydim=ydim,
+            all_touched=all_touched,
+            merge_alg=merge_alg,
+            geoms_rechunk_size=geoms_rechunk_size,
+            **engine_kwargs,
+        ).isel(flip)
     engine_merge_alg = _normalize_merge_alg(merge_alg, resolved_engine)
 
     rasterize_geometries, dask_rasterize_wrapper = _get_rasterize_funcs(resolved_engine)
@@ -381,6 +396,20 @@ def geometry_mask(
         obj = clip_to_bbox(obj, geometries, xdim=xdim, ydim=ydim)
 
     affine = _get_affine(obj, x_dim=xdim, y_dim=ydim)
+    if affine.e > 0:
+        # Engines assume north-up; mask the flipped grid and flip back.
+        flip = {ydim: slice(None, None, -1)}
+        return geometry_mask(
+            obj.isel(flip),
+            geometries,
+            engine=engine,
+            xdim=xdim,
+            ydim=ydim,
+            all_touched=all_touched,
+            invert=invert,
+            geoms_rechunk_size=geoms_rechunk_size,
+            **engine_kwargs,
+        ).isel(flip)
 
     np_geometry_mask, dask_mask_wrapper = _get_mask_funcs(resolved_engine)
 

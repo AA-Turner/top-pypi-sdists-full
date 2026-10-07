@@ -290,15 +290,35 @@ class Acls(ConfigBase):
                                 list(itertools.chain(*cmds)),
                             )
 
-        if remove_cmds:
-            remove_cmds = list(itertools.chain(*remove_cmds))
-            commands.append(remove_cmds)
-        if config_cmds:
-            config_cmds = list(itertools.chain(*config_cmds))
-            commands.append(config_cmds)
-        commands = list(itertools.chain(*commands))
-        commandset = []
-        [commandset.append(cmd) for cmd in commands if cmd not in commandset]
+        acl_cmds = {}
+        acl_order = []
+        for cmd_group in remove_cmds:
+            current_header = None
+            for cmd in cmd_group:
+                if re.match(r"(ip|ipv6)\s+access-list\s+", cmd):
+                    current_header = cmd
+                    if current_header not in acl_cmds:
+                        acl_cmds[current_header] = {"remove": [], "config": []}
+                        acl_order.append(current_header)
+                elif current_header and cmd not in acl_cmds[current_header]["remove"]:
+                    acl_cmds[current_header]["remove"].append(cmd)
+        for cmd_group in config_cmds:
+            current_header = None
+            for cmd in cmd_group:
+                if re.match(r"(ip|ipv6)\s+access-list\s+", cmd):
+                    current_header = cmd
+                    if current_header not in acl_cmds:
+                        acl_cmds[current_header] = {"remove": [], "config": []}
+                        acl_order.append(current_header)
+                elif current_header and cmd not in acl_cmds[current_header]["config"]:
+                    acl_cmds[current_header]["config"].append(cmd)
+        commandset = list(itertools.chain(*commands))
+        for header in acl_order:
+            entry = acl_cmds[header]
+            if entry["remove"] or entry["config"]:
+                commandset.append(header)
+                commandset.extend(entry["remove"])
+                commandset.extend(entry["config"])
         return commandset
 
     def _state_overridden(self, want, have):

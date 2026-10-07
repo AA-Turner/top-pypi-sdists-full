@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import secrets
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from .backends.utils import get_backend
-from .exceptions import (
-    SocialAuthImproperlyConfiguredError,
-    StrategyMissingBackendError,
-    StrategyMissingFeatureError,
-)
+from .exceptions import AuthConfigurationError, ErrorStage
+from .groups import validate_group_mapping
 from .pipeline import DEFAULT_AUTH_PIPELINE, DEFAULT_DISCONNECT_PIPELINE
-from .pipeline.utils import partial_load
+from .pipeline.utils import partial_load, to_plain_dict
 from .store import OpenIdSessionWrapper, OpenIdStore
 from .utils import (
     PARTIAL_TOKEN_PENDING_CONFIRMATION_SESSION_NAME,
@@ -22,6 +21,8 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
+
     from .backends.base import BaseAuth
     from .storage import BaseStorage, CodeMixin, PartialMixin, UserProtocol
 
@@ -66,13 +67,29 @@ class BaseStrategy:
         tpl: type[BaseTemplateStrategy] | None = None,
     ) -> None:
         self._storage = storage
+        self._pipeline_request_data: ContextVar[dict[str, Any] | None] = ContextVar(
+            "pipeline_request_data", default=None
+        )
         self.tpl = (tpl or self.DEFAULT_TEMPLATE_STRATEGY)(self)
 
     @property
     def storage(self) -> type[BaseStorage]:
         if self._storage is None:
-            raise StrategyMissingBackendError
+            raise AuthConfigurationError(code="missing_setting", parameter="storage")
         return self._storage
+
+    def get_storage(self, *, stage: ErrorStage) -> type[BaseStorage]:
+        """Resolve storage while reporting failures at the calling operation."""
+        try:
+            storage = self.storage
+        except AuthConfigurationError as error:
+            error.stage = stage
+            raise
+        if storage is None:
+            raise AuthConfigurationError(
+                code="missing_setting", parameter="storage", stage=stage
+            )
+        return storage
 
     def setting(self, name: str, default=None, backend: BaseAuth | None = None):
         names = [setting_name(name), name]
@@ -91,6 +108,20 @@ class BaseStrategy:
     def get_user(self, *args, **kwargs):
         return self.storage.user.get_user(*args, **kwargs)
 
+    def sync_user_groups(
+        self, user, groups: list[str] | None, *, backend: BaseAuth, response, **kwargs
+    ) -> None:
+        """Override to apply configured external memberships to local groups."""
+        if validate_group_mapping(
+            backend, backend.get_group_setting("GROUPS_MAP", response, {})
+        ):
+            raise AuthConfigurationError(
+                backend,
+                code="unsupported_feature",
+                parameter="GROUPS_MAP",
+                stage="pipeline",
+            )
+
     def session_setdefault(self, name: str, value):
         self.session_set(name, value)
         return self.session_get(name)
@@ -107,7 +138,13 @@ class BaseStrategy:
 
         This is only called if get_session_id returns a value.
         """
-        raise StrategyMissingFeatureError(self.__class__.__name__, "session restore")
+        raise AuthConfigurationError(
+            None,
+            self.__class__.__name__,
+            "session restore",
+            code="unsupported_feature",
+            stage="callback",
+        )
 
     def openid_session_dict(self, name: str) -> OpenIdSessionWrapper:
         # Many frameworks are switching the session serialization from Pickle
@@ -192,8 +229,11 @@ class BaseStrategy:
     ) -> CodeMixin:
         email_validation = self.setting("EMAIL_VALIDATION_FUNCTION")
         if not email_validation:
-            raise SocialAuthImproperlyConfiguredError(
-                "EMAIL_VALIDATION_FUNCTION missing"
+            raise AuthConfigurationError(
+                None,
+                parameter="EMAIL_VALIDATION_FUNCTION",
+                code="missing_setting",
+                stage="pipeline",
             )
         send_email = module_member(email_validation)
         code = self.storage.code.make_code(email)
@@ -207,6 +247,9 @@ class BaseStrategy:
         if verification_code.email != email:
             return False
         if verification_code.verified:
+            return False
+        expiry = self.setting("EMAIL_VALIDATION_EXPIRED_THRESHOLD", 7 * 24 * 60 * 60)
+        if expiry and verification_code.is_expired(expiry):
             return False
         verification_code.verify()
         return True
@@ -266,8 +309,31 @@ class BaseStrategy:
         """Return HTTP response with given content"""
         raise NotImplementedError("Implement in subclass")
 
-    def request_data(self, merge: bool = True):
-        """Return current request data (POST or GET)"""
+    def request_data(self, merge: bool = True) -> dict[str, Any]:
+        """Return effective pipeline data, or data from the current request.
+
+        During a partial resume, merge does not change the replayed mapping.
+        Use get_request_data(), request_get(), or request_post() to read the
+        current framework request without replayed data.
+        """
+        data = self._pipeline_request_data.get()
+        if data is not None:
+            return data
+        return self.get_request_data(merge=merge)
+
+    @contextmanager
+    def pipeline_request_data(self, data: Mapping[str, Any] | None) -> Iterator[None]:
+        """Scope effective request data to one pipeline execution."""
+        token = self._pipeline_request_data.set(
+            to_plain_dict(data) if data is not None else None
+        )
+        try:
+            yield
+        finally:
+            self._pipeline_request_data.reset(token)
+
+    def get_request_data(self, merge: bool = True) -> dict[str, Any]:
+        """Return data from the current framework request (POST or GET)."""
         raise NotImplementedError("Implement in subclass")
 
     def request_host(self) -> str:

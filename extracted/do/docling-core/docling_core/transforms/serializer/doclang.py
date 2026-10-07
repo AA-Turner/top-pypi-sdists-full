@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from enum import Enum
 from itertools import groupby
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Annotated, Any, Optional, Union, cast
 
 from defusedxml.ElementTree import fromstring
@@ -66,6 +66,7 @@ from docling_core.transforms.serializer.common import (
     _PageBreakNode,
     _PageBreakSerResult,
     create_ser_result,
+    hyperlink_uri,
 )
 from docling_core.types.doc import (
     BaseMeta,
@@ -285,7 +286,7 @@ class DocLangParams(CommonParams):
 
 def _create_layer_token(
     *,
-    item: DocItem,
+    item: NodeItem,
     params: DocLangParams,
 ) -> str:
     """Create `<layer value="..."/>` in element head."""
@@ -328,7 +329,7 @@ def _create_href_token(*, uri: str) -> str:
 
 def _text_item_hyperlink_uri(item: DocItem) -> str | None:
     if isinstance(item, TextItem) and item.hyperlink is not None:
-        return str(item.hyperlink)
+        return hyperlink_uri(item.hyperlink)
     return None
 
 
@@ -347,6 +348,7 @@ def _element_head_prefix(
     caption_text: str | None = None,
     custom_text: str | None = None,
     include_href: bool = True,
+    include_layer: bool = True,
     include_item_meta_head: bool = True,
     thread_id: str | None = None,
 ) -> str:
@@ -358,7 +360,7 @@ def _element_head_prefix(
         parts.append(DocLangVocabulary._create_threading_token(thread_id=thread_id))
     if include_href and (href_uri := _text_item_hyperlink_uri(item)):
         parts.append(_create_href_token(uri=href_uri))
-    if layer_token := _create_layer_token(item=item, params=params):
+    if include_layer and (layer_token := _create_layer_token(item=item, params=params)):
         parts.append(layer_token)
     if params.add_location:
         if loc := _create_location_tokens_for_item(item=item, doc=doc, xres=params.xsize, yres=params.ysize):
@@ -432,12 +434,42 @@ def _serialize_satellite(
     content_type: ContentType,
     doc: DoclingDocument,
     params: DocLangParams,
+    doc_serializer: BaseDocSerializer,
+    **kwargs: Any,
 ) -> str:
-    """Serialize a caption or footnote of a floating item as a standalone element."""
+    """Serialize a caption or footnote of a floating item as a standalone element.
+
+    The element holds the item's head, its own text and its nested content (e.g. a field
+    region), the latter serialized like any other child.
+    """
     head = _element_head_prefix(item=item, doc=doc, params=params)
     content = _escape_text(item.text, params) if item.text and content_type in params.content_types else ""
-    text = f"{head}{content}"
+    nested = ""
+    if item.children and content_type in params.content_types:
+        excluded = doc_serializer.get_excluded_refs(**kwargs)
+        nested = ""
+        for child_ref in item.children:
+            child = child_ref.resolve(doc)
+            # field containers are never in the label filter, and are exempt from the exclusion
+            if child.self_ref in excluded and not isinstance(child, FieldRegionItem | FieldItem):
+                continue
+            nested += doc_serializer.serialize(item=child, **kwargs).text
+    text = f"{head}{content}{nested}"
     return _wrap(text=text, wrap_tag=tag.value) if text else ""
+
+
+def _first_leaf_prov(node: NodeItem, doc: DoclingDocument) -> ProvenanceItem | None:
+    """The provenance of the first leaf item (one without children) below the node.
+
+    Container items (e.g. field regions and items) are skipped, as they carry no location of
+    their own in DocLang.
+    """
+    if not node.children:
+        return node.prov[0] if isinstance(node, DocItem) and node.prov else None
+    for child_ref in node.children:
+        if (prov := _first_leaf_prov(child_ref.resolve(doc), doc)) is not None:
+            return prov
+    return None
 
 
 def _top_left_bbox(prov: ProvenanceItem, doc: DoclingDocument) -> BoundingBox | None:
@@ -462,11 +494,11 @@ def _satellite_placement(
     host, or (when overlapping it vertically) entirely to its right; if it overlaps
     the host in both directions, if its bbox center is lower. Returns this decision
     together with the satellite's reading-order sort key, or ``None`` if the position
-    cannot be determined.
+    cannot be determined. A satellite without provenance is placed by its first nested leaf item.
     """
-    if not sat.prov or not host.prov:
+    sat_prov = sat.prov[0] if sat.prov else _first_leaf_prov(sat, doc)
+    if sat_prov is None or not host.prov:
         return None
-    sat_prov = sat.prov[0]
     if (sat_bbox := _top_left_bbox(sat_prov, doc)) is None:
         return None
     key = (sat_prov.page_no, sat_bbox.t, sat_bbox.l)
@@ -517,14 +549,26 @@ def _serialize_floating_satellites(
         captions = _resolve_satellites(refs=item.captions, doc_serializer=doc_serializer, doc=doc, **kwargs)
         for cap in captions[1:]:
             text = _serialize_satellite(
-                item=cap, tag=DocLangToken.TEXT, content_type=ContentType.REF_CAPTION, doc=doc, params=params
+                item=cap,
+                tag=DocLangToken.TEXT,
+                content_type=ContentType.REF_CAPTION,
+                doc=doc,
+                params=params,
+                doc_serializer=doc_serializer,
+                **kwargs,
             )
             sats.append((cap, text, False))
     if params.add_referenced_footnote:
         footnotes = _resolve_satellites(refs=item.footnotes, doc_serializer=doc_serializer, doc=doc, **kwargs)
         for ftn in footnotes:
             text = _serialize_satellite(
-                item=ftn, tag=DocLangToken.FOOTNOTE, content_type=ContentType.REF_FOOTNOTE, doc=doc, params=params
+                item=ftn,
+                tag=DocLangToken.FOOTNOTE,
+                content_type=ContentType.REF_FOOTNOTE,
+                doc=doc,
+                params=params,
+                doc_serializer=doc_serializer,
+                **kwargs,
             )
             sats.append((ftn, text, True))
 
@@ -1102,6 +1146,8 @@ class DocLangTextSerializer(BaseModel, BaseTextSerializer):
                     caption_text=caption_head or None,
                     custom_text=custom_head or None,
                     include_href=include_href,
+                    # An inline run inherits its host's layer; a head token here is invalid mid-content.
+                    include_layer=not is_inline_scope,
                     thread_id=thread_id,
                 )
             )
@@ -1775,6 +1821,18 @@ class DocLangInlineSerializer(BaseInlineSerializer):
         my_visited = visited if visited is not None else set()
         params = DocLangParams(**kwargs)
         parts: list[SerializationResult] = []
+        parent_item = item.parent.resolve(doc) if item.parent else None
+        if parent_item is None:
+            should_wrap = True
+        elif isinstance(parent_item, ListItem):
+            should_wrap = not params.use_virtual_text or _list_item_has_segment_siblings(item=parent_item, doc=doc)
+        elif isinstance(parent_item, TextItem):
+            should_wrap = False
+        else:
+            should_wrap = True
+        # The runs emit no layer of their own, so the <text> wrapper carries the group's.
+        if should_wrap and (layer_token := _create_layer_token(item=item, params=params)):
+            parts.append(create_ser_result(text=layer_token))
         if params.add_location:
             # Check if parent is ListItem with provenance - use that instead of children
             parent_item = item.parent.resolve(doc) if item.parent else None
@@ -1830,15 +1888,6 @@ class DocLangInlineSerializer(BaseInlineSerializer):
         if text_res:
             text_res = f"{text_res}{delim}"
 
-        parent_item = item.parent.resolve(doc) if item.parent else None
-        if parent_item is None:
-            should_wrap = True
-        elif isinstance(parent_item, ListItem):
-            should_wrap = not params.use_virtual_text or _list_item_has_segment_siblings(item=parent_item, doc=doc)
-        elif isinstance(parent_item, TextItem):
-            should_wrap = False
-        else:
-            should_wrap = True
         if should_wrap:
             # if "unwrapped", wrap in <text>...</text>
             if text_res or not params.suppress_empty_elements:
@@ -1951,6 +2000,44 @@ class DocLangDocSerializer(DocSerializer):
     _suppressed_page_breaks: set[tuple[int, int]] = PrivateAttr(default_factory=set)
     _next_thread_id: int = PrivateAttr(default=1)
     _thread_id_by_ref: dict[str, str] = PrivateAttr(default_factory=dict)
+    _satellite_refs_cache: tuple[set[str], set[str]] | None = PrivateAttr(default=None)
+
+    def _satellite_refs(self) -> tuple[set[str], set[str]]:
+        """The refs of the satellites serialized by their floating item, and those nested in them.
+
+        Satellites are the footnotes and the extra captions (the first caption goes in the host's head).
+        """
+        if self._satellite_refs_cache is None:
+            satellites: set[str] = set()
+            nested: set[str] = set()
+            for host, _ in self.doc.iterate_items(
+                with_groups=True, traverse_pictures=True, included_content_layers=set(ContentLayer)
+            ):
+                if not isinstance(host, FloatingItem):
+                    continue
+                for ref in [*host.captions[1:], *host.footnotes]:
+                    if isinstance(sat := ref.resolve(self.doc), TextItem):
+                        satellites.add(sat.self_ref)
+                        nested.update(
+                            n.self_ref
+                            for n, _ in self.doc.iterate_items(
+                                root=sat,
+                                with_groups=True,
+                                traverse_pictures=True,
+                                included_content_layers=set(ContentLayer),
+                            )
+                            if n.self_ref != sat.self_ref
+                        )
+            self._satellite_refs_cache = (satellites, nested)
+        return self._satellite_refs_cache
+
+    @override
+    def _skip_in_walk(self, *, node: NodeItem, root: NodeItem | None) -> bool:
+        """Skip the content nested in a satellite unless walking from within it: its floating item emits it."""
+        satellites, nested = self._satellite_refs()
+        if node.self_ref not in nested:
+            return False
+        return root is None or (root.self_ref not in nested and root.self_ref not in satellites)
 
     def allocate_thread_id(self, node: NodeItem) -> str:
         """Return a spec-unique positive ``thread_id`` for a fragmented component."""
@@ -1989,7 +2076,7 @@ class DocLangDocSerializer(DocSerializer):
     def serialize_hyperlink(
         self,
         text: str,
-        hyperlink: AnyUrl | Path,
+        hyperlink: AnyUrl | PurePath,
         **kwargs: Any,
     ) -> str:
         r"""Hyperlinks are emitted as ``<href uri=\"...\"/>`` in element head, not inline."""
@@ -2055,6 +2142,8 @@ class DocLangDocSerializer(DocSerializer):
                 content_type=ContentType.REF_FOOTNOTE,
                 doc=self.doc,
                 params=params,
+                doc_serializer=self,
+                **kwargs,
             )
             if text_res:
                 results.append(create_ser_result(text=text_res))
@@ -2324,7 +2413,7 @@ class DocLangDocSerializer(DocSerializer):
         text: str,
         *,
         formatting: Formatting | None = None,
-        hyperlink: AnyUrl | Path | None = None,
+        hyperlink: AnyUrl | PurePath | None = None,
         **kwargs: Any,
     ) -> str:
         """Apply DocLang text post-processing including RTL direction."""

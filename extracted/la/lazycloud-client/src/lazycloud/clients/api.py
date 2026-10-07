@@ -26,6 +26,7 @@ from lazycloud.contracts.api import (
     Deployment,
     DeploymentPlan,
     DeploymentPlanRequest,
+    DeploymentRefusal,
     DeploymentRequest,
     DeviceLogin,
     DeviceLoginRequest,
@@ -96,10 +97,19 @@ TASK_HEADER = "LazyCloud-Task"
 class ApiError(SdkError):
     """The API answered with a typed error."""
 
-    def __init__(self, *, status_code: int, code: ErrorCode | None, message: str) -> None:
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        code: ErrorCode | None,
+        message: str,
+        refusals: list[DeploymentRefusal] | None = None,
+    ) -> None:
         self.status_code = status_code
         self.code = code
         self.message = message
+        # Every reason a refused deploy failed.
+        self.refusals = refusals or []
         label = code.value if code is not None else f"HTTP {status_code}"
         super().__init__(f"{label}: {message}")
 
@@ -600,6 +610,14 @@ class ApiClient:
             params={"force": "true"} if force else None,
         )
 
+    def prepare_image(self, workspace: str, image_id: str) -> ImageResolution:
+        """Start or join the build that makes an image ready, unless it is."""
+        return self._send(
+            ImageResolution,
+            "POST",
+            _path("v1", "workspaces", workspace, "images", image_id, "prepare"),
+        )
+
     def get_image(self, workspace: str, image_id: str) -> Image:
         return self._send(Image, "GET", _path("v1", "workspaces", workspace, "images", image_id))
 
@@ -847,7 +865,12 @@ def _api_error(response: httpx.Response) -> ApiError:
     except ValidationError:
         text = response.text.strip()[:500] or response.reason_phrase
         return ApiError(status_code=response.status_code, code=None, message=text)
-    return ApiError(status_code=response.status_code, code=error.code, message=error.message)
+    return ApiError(
+        status_code=response.status_code,
+        code=error.code,
+        message=error.message,
+        refusals=error.refusals,
+    )
 
 
 def _query(**values: str | int | None) -> dict[str, str | int]:

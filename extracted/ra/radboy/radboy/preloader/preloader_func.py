@@ -23193,7 +23193,9 @@ def experimentName_Text(name='trip-text',fields=None,header="Experiment",footer=
     
     return x
 
-experimentName_power_useage2_fields={
+
+def experimentName_power_useage2():
+    experimentName_power_useage2_fields={
     'Recipe/Operation':{
         'type':'string',
         'default':'cooking mac and cheese (Kraft)',
@@ -23232,7 +23234,15 @@ experimentName_power_useage2_fields={
     },  
     }
 
-experimentName_shift_text_fields={
+
+
+    return experimentName_Text(name='experimentName_power_useage2',fields=experimentName_power_useage2_fields)
+
+
+
+
+def experimentName_shift_text():
+    experimentName_shift_text_fields={
     'Employer/Location':{
         'type':'string',
         'default':None,
@@ -23274,7 +23284,154 @@ experimentName_shift_text_fields={
         'default':None,
         'help':"how long is your pay-period in days?",
         'ptext':'Pay-Period-Length',
+    },
+    'PayDay DTOE':{
+        'type':'datetime',
+        'default':None,
+        'help':"PayDay DTOE",
+        'ptext':'End DTOE',
+    },
+
     }
-    }
-experimentName_power_useage2=lambda experimentName_power_useage2_fields=experimentName_power_useage2_fields: experimentName_Text(name='experimentName_power_useage2',fields=experimentName_power_useage2_fields)
-experimentName_shift_text=lambda experimentName_power_useage2_fields=experimentName_shift_text_fields: experimentName_Text(name='experimentName_shift_text',fields=experimentName_shift_text_fields)
+
+    return experimentName_Text(name='experimentName_shift_text',fields=experimentName_shift_text_fields)
+
+def legalage():
+    try:
+
+        fields={
+            'years':{
+                'type':'integer',
+                'default':21,
+                'help':'Legal age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':'Legal Years for Restricted Products'
+            },
+
+        }
+        fieldKeys='years, months, weeks, days, hours, minutes, seconds, microseconds,weekday, year, month, day, hour, minute, second, microsecond, leapdays, weekday, yearday, nlyearday'.replace(" ",'').split(",")
+        for i in fieldKeys:
+            if i == 'years':
+                continue
+            fields[i]={
+                'type':'integer',
+                'default':None,
+                'help':f'Legal {i} age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':f'Legal {i} Years for Restricted Products'
+            }
+        data=FormBuilder(data=fields,passThruText="Legal Age")
+        if data in BooleanAnswers.NONE:
+            return
+        args={}
+        for i in data:
+            if data[i] != None:
+                args[i]=data[i]
+        return datetime.now()-relativedelta(**args)
+    except Exception as e:
+        print(e)
+
+def legalage_dtplus():
+    try:
+        fromDTOE=Control(ptext="Start DTOE",helpText="dtoe to start from",data="datetime")
+        if fromDTOE in BooleanAnswers.NONE:
+            return
+        if fromDTOE in ['d','']:
+            fromDTOE=datetime.now()
+        fields={
+            'years':{
+                'type':'integer',
+                'default':21,
+                'help':'Legal age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':'Legal Years for Restricted Products'
+            },
+
+        }
+        fieldKeys='years, months, weeks, days, hours, minutes, seconds, microseconds,weekday, year, month, day, hour, minute, second, microsecond, leapdays, weekday, yearday, nlyearday'.replace(" ",'').split(",")
+        for i in fieldKeys:
+            if i == 'years':
+                continue
+            fields[i]={
+                'type':'integer',
+                'default':None,
+                'help':f'Legal {i} age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':f'Legal {i} Years for Restricted Products'
+            }
+        data=FormBuilder(data=fields,passThruText="Legal Age")
+        if data in BooleanAnswers.NONE:
+            return
+        args={}
+        for i in data:
+            if data[i] != None:
+                args[i]=data[i]
+        return fromDTOE+relativedelta(**args)
+    except Exception as e:
+        print(e)
+
+def fromDTOE_legalage():
+    try:
+        fromDTOE=Control(ptext="Start DTOE",helpText="dtoe to start from",data="datetime")
+        if fromDTOE in BooleanAnswers.NONE:
+            return
+        if fromDTOE in ['d','']:
+            fromDTOE=datetime.now()
+        fields={
+            'years':{
+                'type':'integer',
+                'default':21,
+                'help':'Legal age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':'Legal Years for Restricted Products'
+            },
+
+        }
+        fieldKeys='years, months, weeks, days, hours, minutes, seconds, microseconds,weekday, year, month, day, hour, minute, second, microsecond, leapdays, weekday, yearday, nlyearday'.replace(" ",'').split(",")
+        for i in fieldKeys:
+            if i == 'years':
+                continue
+            fields[i]={
+                'type':'integer',
+                'default':None,
+                'help':f'Legal {i} age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':f'Legal {i} Years for Restricted Products'
+            }
+        data=FormBuilder(data=fields,passThruText="Legal Age")
+        if data in BooleanAnswers.NONE:
+            return
+        args={}
+        for i in data:
+            if data[i] != None:
+                args[i]=data[i]
+        return fromDTOE-relativedelta(**args)
+    except Exception as e:
+        print(e)
+
+def fromDTOE_legalage_dtplus():
+    try:
+
+        fields={
+            'years':{
+                'type':'integer',
+                'default':21,
+                'help':'Legal age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':'Legal Years for Restricted Products'
+            },
+
+        }
+        fieldKeys='years, months, weeks, days, hours, minutes, seconds, microseconds,weekday, year, month, day, hour, minute, second, microsecond, leapdays, weekday, yearday, nlyearday'.replace(" ",'').split(",")
+        for i in fieldKeys:
+            if i == 'years':
+                continue
+            fields[i]={
+                'type':'integer',
+                'default':None,
+                'help':f'Legal {i} age for Alcohol, Vapes, Tobacco, etc...',
+                'ptext':f'Legal {i} Years for Restricted Products'
+            }
+        data=FormBuilder(data=fields,passThruText="Legal Age")
+        if data in BooleanAnswers.NONE:
+            return
+        args={}
+        for i in data:
+            if data[i] != None:
+                args[i]=data[i]
+        return datetime.now()+relativedelta(**args)
+    except Exception as e:
+        print(e)

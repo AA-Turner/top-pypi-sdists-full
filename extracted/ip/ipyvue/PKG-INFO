@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipyvue
-Version: 3.1.0
+Version: 3.1.1
 Summary: Jupyter widgets base for Vue libraries
 Home-page: https://github.com/widgetti/ipyvue
 Author: Mario Buikhuizen, Maarten Breddels
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: ipywidgets>=7.0.0
 Provides-Extra: test
@@ -33,6 +34,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 Jupyter widgets base for Vue libraries

@@ -109,11 +109,11 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
                         Ref::keyword("UTF16").to_matchable(),
                         Ref::keyword("UTF32").to_matchable(),
                     ])
-                    .config(|config| {
-                        config.optional();
-                    })
                     .to_matchable(),
                 ])
+                .config(|config| {
+                    config.optional();
+                })
                 .to_matchable(),
             ])
             .to_matchable()
@@ -166,6 +166,7 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
             one_of(vec![
                 Ref::keyword("WHERE").to_matchable(),
                 Ref::keyword("LIMIT").to_matchable(),
+                Ref::keyword("OFFSET").to_matchable(),
                 Sequence::new(vec![
                     Ref::keyword("GROUP").to_matchable(),
                     Ref::keyword("BY").to_matchable(),
@@ -190,6 +191,7 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
             "OrderByClauseTerminators".into(),
             one_of(vec![
                 Ref::keyword("LIMIT").to_matchable(),
+                Ref::keyword("OFFSET").to_matchable(),
                 Ref::keyword("HAVING").to_matchable(),
                 Ref::keyword("WINDOW").to_matchable(),
                 Ref::new("FrameClauseUnitGrammar").to_matchable(),
@@ -201,7 +203,9 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
         (
             "SelectClauseTerminatorGrammar".into(),
             one_of(vec![
-                Ref::keyword("FROM").to_matchable(),
+                Ref::keyword("FROM")
+                    .exclude(super::ansi::is_distinct_from_lookbehind())
+                    .to_matchable(),
                 Ref::keyword("WHERE").to_matchable(),
                 Sequence::new(vec![
                     Ref::keyword("ORDER").to_matchable(),
@@ -219,6 +223,7 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
             "WhereClauseTerminatorGrammar".into(),
             one_of(vec![
                 Ref::keyword("LIMIT").to_matchable(),
+                Ref::keyword("OFFSET").to_matchable(),
                 Sequence::new(vec![
                     Ref::keyword("GROUP").to_matchable(),
                     Ref::keyword("BY").to_matchable(),
@@ -245,6 +250,7 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
                 ])
                 .to_matchable(),
                 Ref::keyword("LIMIT").to_matchable(),
+                Ref::keyword("OFFSET").to_matchable(),
                 Ref::keyword("WINDOW").to_matchable(),
                 Ref::keyword("FETCH").to_matchable(),
             ])
@@ -260,6 +266,7 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
                 ])
                 .to_matchable(),
                 Ref::keyword("LIMIT").to_matchable(),
+                Ref::keyword("OFFSET").to_matchable(),
                 Ref::keyword("HAVING").to_matchable(),
                 Ref::keyword("WINDOW").to_matchable(),
                 Ref::keyword("FETCH").to_matchable(),
@@ -386,32 +393,64 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
                     .to_matchable(),
                 ])
                 .to_matchable(),
+                // For JSON_OBJECT function: key : value [, ...].
+                // https://trino.io/docs/current/functions/json.html#json-object
+                Sequence::new(vec![
+                    Delimited::new(vec![
+                        Sequence::new(vec![
+                            Ref::new("ExpressionSegment").to_matchable(),
+                            Ref::new("ColonDelimiterSegment").to_matchable(),
+                            Ref::new("ExpressionSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        one_of(vec![
+                            Ref::keyword("NULL").to_matchable(),
+                            Ref::keyword("ABSENT").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Ref::keyword("ON").to_matchable(),
+                        Ref::keyword("NULL").to_matchable(),
+                    ])
+                    .config(|config| config.optional())
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("RETURNING").to_matchable(),
+                        Ref::new("DatatypeSegment").to_matchable(),
+                        Ref::new("FormatJsonEncodingGrammar")
+                            .optional()
+                            .to_matchable(),
+                    ])
+                    .config(|config| config.optional())
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                // For JSON_ARRAY / JSON_OBJECT functions: { NULL | ABSENT } ON NULL.
+                Sequence::new(vec![
+                    one_of(vec![
+                        Ref::keyword("NULL").to_matchable(),
+                        Ref::keyword("ABSENT").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Ref::keyword("ON").to_matchable(),
+                    Ref::keyword("NULL").to_matchable(),
+                ])
+                .to_matchable(),
+                // For JSON functions: RETURNING type [FORMAT JSON [ENCODING ...]].
+                Sequence::new(vec![
+                    Ref::keyword("RETURNING").to_matchable(),
+                    Ref::new("DatatypeSegment").to_matchable(),
+                    Ref::new("FormatJsonEncodingGrammar")
+                        .optional()
+                        .to_matchable(),
+                ])
+                .to_matchable(),
                 Ref::new("IgnoreRespectNullsGrammar").to_matchable(),
                 Ref::new("IndexColumnDefinitionSegment").to_matchable(),
                 Ref::new("EmptyStructLiteralSegment").to_matchable(),
                 Ref::new("ListaggOverflowClauseSegment").to_matchable(),
-            ])
-            .to_matchable()
-            .into(),
-        ),
-        (
-            "FormatJsonEncodingGrammar".into(),
-            Sequence::new(vec![
-                Ref::keyword("FORMAT").to_matchable(),
-                Ref::keyword("JSON").to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("ENCODING").to_matchable(),
-                    one_of(vec![
-                        Ref::keyword("UTF8").to_matchable(),
-                        Ref::keyword("UTF16").to_matchable(),
-                        Ref::keyword("UTF32").to_matchable(),
-                    ])
-                    .config(|config| {
-                        config.optional();
-                    })
-                    .to_matchable(),
-                ])
-                .to_matchable(),
             ])
             .to_matchable()
             .into(),
@@ -421,7 +460,6 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
         "UnorderedSelectStatementSegment",
         Sequence::new(vec![
             Ref::new("SelectClauseSegment").to_matchable(),
-            MetaSegment::dedent().to_matchable(),
             Ref::new("FromClauseSegment").optional().to_matchable(),
             Ref::new("WhereClauseSegment").optional().to_matchable(),
             Ref::new("GroupByClauseSegment").optional().to_matchable(),
@@ -429,6 +467,56 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
             Ref::new("NamedWindowSegment").optional().to_matchable(),
         ])
         .to_matchable(),
+    );
+
+    trino_dialect.replace_grammar(
+        "OffsetClauseSegment",
+        Sequence::new(vec![
+            Ref::keyword("OFFSET").to_matchable(),
+            MetaSegment::indent().to_matchable(),
+            one_of(vec![
+                Ref::new("NumericLiteralSegment").to_matchable(),
+                Ref::new("ExpressionSegment")
+                    .exclude(Ref::keyword("ROW"))
+                    .to_matchable(),
+            ])
+            .to_matchable(),
+            one_of(vec![
+                Ref::keyword("ROW").to_matchable(),
+                Ref::keyword("ROWS").to_matchable(),
+            ])
+            .config(|config| {
+                config.optional();
+            })
+            .to_matchable(),
+            MetaSegment::dedent().to_matchable(),
+        ])
+        .to_matchable(),
+    );
+
+    trino_dialect.replace_grammar(
+        "SelectStatementSegment",
+        trino_dialect
+            .grammar("UnorderedSelectStatementSegment")
+            .match_grammar(&trino_dialect)
+            .unwrap()
+            .copy(
+                Some(vec![
+                    Ref::new("OrderByClauseSegment").optional().to_matchable(),
+                    Ref::new("OffsetClauseSegment").optional().to_matchable(),
+                    Ref::new("LimitClauseSegment").optional().to_matchable(),
+                    Ref::new("FetchClauseSegment").optional().to_matchable(),
+                ]),
+                None,
+                None,
+                None,
+                vec![
+                    Ref::new("SetOperatorSegment").to_matchable(),
+                    Ref::new("WithNoSchemaBindingClauseSegment").to_matchable(),
+                    Ref::new("WithDataClauseSegment").to_matchable(),
+                ],
+                true,
+            ),
     );
 
     trino_dialect.replace_grammar(
@@ -442,19 +530,22 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
 
     trino_dialect.add([(
         "ArrayTypeSchemaSegment".into(),
-        one_of(vec![
-            Bracketed::new(vec![Ref::new("DatatypeSegment").to_matchable()])
-                .config(|config| {
-                    config.bracket_pairs_set = "angle_bracket_pairs";
-                    config.bracket_type = "angle";
-                })
-                .to_matchable(),
-            Bracketed::new(vec![Ref::new("DatatypeSegment").to_matchable()])
-                .config(|config| {
-                    config.bracket_type = "round";
-                })
-                .to_matchable(),
-        ])
+        NodeMatcher::new(SyntaxKind::ArrayTypeSchema, |_| {
+            one_of(vec![
+                Bracketed::new(vec![Ref::new("DatatypeSegment").to_matchable()])
+                    .config(|config| {
+                        config.bracket_pairs_set = "angle_bracket_pairs";
+                        config.bracket_type = "angle";
+                    })
+                    .to_matchable(),
+                Bracketed::new(vec![Ref::new("DatatypeSegment").to_matchable()])
+                    .config(|config| {
+                        config.bracket_type = "round";
+                    })
+                    .to_matchable(),
+            ])
+            .to_matchable()
+        })
         .to_matchable()
         .into(),
     )]);
@@ -503,8 +594,8 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
             .into(),
         ),
         (
-            "DatatypeSegment".into(),
-            NodeMatcher::new(SyntaxKind::DataType, |_| {
+            "PrimitiveTypeSegment".into(),
+            NodeMatcher::new(SyntaxKind::PrimitiveType, |_| {
                 one_of(vec![
                     Ref::keyword("BOOLEAN").to_matchable(),
                     Ref::keyword("TINYINT").to_matchable(),
@@ -531,39 +622,62 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
                     Ref::keyword("VARBINARY").to_matchable(),
                     Ref::keyword("JSON").to_matchable(),
                     Ref::keyword("DATE").to_matchable(),
-                    Sequence::new(vec![
-                        one_of(vec![
-                            Ref::keyword("TIME").to_matchable(),
-                            Ref::keyword("TIMESTAMP").to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Bracketed::new(vec![Ref::new("NumericLiteralSegment").to_matchable()])
-                            .config(|config| {
-                                config.optional();
-                            })
-                            .to_matchable(),
-                        Sequence::new(vec![
-                            one_of(vec![
-                                Ref::keyword("WITH").to_matchable(),
-                                Ref::keyword("WITHOUT").to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Ref::keyword("TIME").to_matchable(),
-                            Ref::keyword("ZONE").to_matchable(),
-                        ])
-                        .config(|config| {
-                            config.optional();
-                        })
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
-                    // Structural
-                    Ref::new("ArrayTypeSegment").to_matchable(),
-                    Ref::keyword("MAP").to_matchable(),
-                    Ref::new("RowTypeSegment").to_matchable(),
+                    Ref::new("TimeWithTZGrammar").to_matchable(),
                     // Others
                     Ref::keyword("IPADDRESS").to_matchable(),
                     Ref::keyword("UUID").to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "DatatypeSegment".into(),
+            NodeMatcher::new(SyntaxKind::DataType, |_| {
+                one_of(vec![
+                    Ref::new("PrimitiveTypeSegment").to_matchable(),
+                    Ref::new("ArrayTypeSegment").to_matchable(),
+                    Ref::new("MapTypeSegment").to_matchable(),
+                    Ref::new("RowTypeSegment").to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "MapTypeSegment".into(),
+            NodeMatcher::new(SyntaxKind::MapType, |_| {
+                Sequence::new(vec![
+                    Ref::keyword("MAP").to_matchable(),
+                    Ref::new("MapTypeSchemaSegment").optional().to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "MapTypeSchemaSegment".into(),
+            NodeMatcher::new(SyntaxKind::MapTypeSchema, |_| {
+                one_of(vec![
+                    Bracketed::new(vec![
+                        Ref::new("PrimitiveTypeSegment").to_matchable(),
+                        Ref::new("CommaSegment").to_matchable(),
+                        Ref::new("DatatypeSegment").to_matchable(),
+                    ])
+                    .config(|config| {
+                        config.bracket_pairs_set = "angle_bracket_pairs";
+                        config.bracket_type = "angle";
+                    })
+                    .to_matchable(),
+                    Bracketed::new(vec![
+                        Ref::new("PrimitiveTypeSegment").to_matchable(),
+                        Ref::new("CommaSegment").to_matchable(),
+                        Ref::new("DatatypeSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
                 ])
                 .to_matchable()
             })
@@ -1152,9 +1266,7 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
                     Ref::keyword("ERROR").to_matchable(),
                     Sequence::new(vec![
                         Ref::keyword("TRUNCATE").to_matchable(),
-                        Ref::new("SingleQuotedIdentifierSegment")
-                            .optional()
-                            .to_matchable(),
+                        Ref::new("QuotedLiteralSegment").optional().to_matchable(),
                         one_of(vec![
                             Ref::keyword("WITH").to_matchable(),
                             Ref::keyword("WITHOUT").to_matchable(),
@@ -1350,19 +1462,22 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
         ),
         (
             "LambdaExpressionSegment".into(),
-            Sequence::new(vec![
-                one_of(vec![
-                    Ref::new("ParameterNameSegment").to_matchable(),
-                    Bracketed::new(vec![
-                        Delimited::new(vec![Ref::new("ParameterNameSegment").to_matchable()])
-                            .to_matchable(),
+            NodeMatcher::new(SyntaxKind::LambdaFunction, |_| {
+                Sequence::new(vec![
+                    one_of(vec![
+                        Ref::new("ParameterNameSegment").to_matchable(),
+                        Bracketed::new(vec![
+                            Delimited::new(vec![Ref::new("ParameterNameSegment").to_matchable()])
+                                .to_matchable(),
+                        ])
+                        .to_matchable(),
                     ])
                     .to_matchable(),
+                    Ref::new("LambdaArrowSegment").to_matchable(),
+                    Ref::new("ExpressionSegment").to_matchable(),
                 ])
-                .to_matchable(),
-                Ref::new("LambdaArrowSegment").to_matchable(),
-                Ref::new("ExpressionSegment").to_matchable(),
-            ])
+                .to_matchable()
+            })
             .to_matchable()
             .into(),
         ),

@@ -31,6 +31,9 @@
 //!
 //! See the `examples/` directory for complete working examples.
 
+#[cfg(feature = "avro")]
+use std::sync::Arc;
+
 pub mod databricks {
     pub mod zerobus {
         include!(concat!(env!("OUT_DIR"), "/databricks.zerobus.rs"));
@@ -47,6 +50,8 @@ mod headers_provider;
 mod landing_zone;
 mod multiplexed_stream;
 mod offset_generator;
+#[cfg(feature = "eos")]
+mod persistent_stream;
 mod proxy;
 mod record_types;
 pub mod schema;
@@ -61,6 +66,8 @@ mod token_cache;
 
 #[cfg(feature = "avro")]
 pub use apache_avro::types::Value as AvroValue;
+#[cfg(feature = "eos")]
+pub use builder::PersistentStreamBuilder;
 pub use builder::{MultiplexedStreamBuilder, StreamBuilder, ZerobusSdkBuilder};
 pub use callbacks::AckCallback;
 pub use default_token_factory::DefaultTokenFactory;
@@ -71,9 +78,14 @@ pub use dynamic_proto::{
 pub use errors::{SchemaValidationCause, ZerobusError};
 #[cfg(feature = "testing")]
 pub use headers_provider::NoAuthHeadersProvider;
-pub use headers_provider::{HeadersProvider, OAuthHeadersProvider};
+pub use headers_provider::{
+    FederatedTokenProvider, HeadersProvider, IdpTokenCallback, IdpTokenSupplier,
+    OAuthHeadersProvider,
+};
 pub use multiplexed_stream::{MessageId, MultiplexedStream};
 pub use offset_generator::{OffsetId, OffsetIdGenerator};
+#[cfg(feature = "eos")]
+pub use persistent_stream::PersistentStream;
 pub use proxy::{ConnectorFactory, ProxyConnector};
 #[doc(hidden)]
 pub use record_types::PreparedInput;
@@ -109,14 +121,16 @@ pub mod zeroparser;
 pub mod internal;
 
 /// The type of the stream connection created with the server.
-/// Currently we only support ephemeral streams on the server side, so we support only that in the SDK as well.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum StreamType {
     /// Ephemeral streams exist only for the duration of the connection.
     /// They are not persisted and are not recoverable.
     Ephemeral,
-    /// UNSUPPORTED: Persistent streams are durable and recoverable.
+    /// Persistent (Eos) streams are durable and recoverable: the server records
+    /// the stream identity and its committed offset, so a client can reconnect
+    /// after a crash and resume with exactly-once delivery into Delta. Created
+    /// via `ZerobusSdk::persistent_stream_builder` behind the `eos` feature.
     Persistent,
 }
 
@@ -124,7 +138,7 @@ pub enum StreamType {
 /// on stream creation, and the parsed schema used to encode records at ingest. Held
 /// together so the two always coexist.
 #[cfg(feature = "avro")]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct AvroSchema {
     pub(crate) json: String,
     pub(crate) parsed: apache_avro::Schema,
@@ -145,7 +159,7 @@ pub(crate) struct TableProperties {
     pub(crate) descriptor_proto: Option<prost_types::DescriptorProto>,
     pub(crate) message_descriptor: Option<MessageDescriptor>,
     #[cfg(feature = "avro")]
-    pub(crate) avro_schema: Option<AvroSchema>,
+    pub(crate) avro_schema: Option<Arc<AvroSchema>>,
 }
 
 pub type ZerobusResult<T> = Result<T, ZerobusError>;

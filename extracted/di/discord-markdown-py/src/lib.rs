@@ -5,8 +5,8 @@
 use std::fmt::{Debug, Display};
 
 use context::Context;
-pub use context::{Options, DEFAULT_FUEL};
-use nom::{combinator::all_consuming, Finish, Parser};
+pub use context::{DEFAULT_FUEL, Options};
+use nom::{Finish, Parser, combinator::all_consuming};
 
 use node::SpannedNodes;
 

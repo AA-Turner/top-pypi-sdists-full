@@ -1,6 +1,8 @@
 from typing import Any, cast
 from urllib.parse import urlencode
 
+from social_core.exceptions import SocialAuthBaseException
+
 from .oauth import BaseOAuth2
 
 
@@ -14,6 +16,7 @@ class UffdOAuth2(BaseOAuth2):
     """
 
     name = "uffd"
+    title = "uffd"
     REFRESH_TOKEN_METHOD = "POST"
     SCOPE_SEPARATOR = " "
     STATE_PARAMETER = True
@@ -24,9 +27,9 @@ class UffdOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from a Uffd account"""
-        fullname, first_name, last_name = self.get_user_names(
-            fullname=response.get("name")
-        )
+        fullname = response.get("name")
+        first_name = ""
+        last_name = ""
         return {
             "username": response.get("nickname"),
             "email": response.get("email") or "",
@@ -40,6 +43,8 @@ class UffdOAuth2(BaseOAuth2):
         url = f"{self.userinfo_url()}?{urlencode({'access_token': access_token})}"
         try:
             user_data: dict[str, Any] = self.get_json(url)
+        except SocialAuthBaseException:
+            raise
         except ValueError:
             return None
         return user_data

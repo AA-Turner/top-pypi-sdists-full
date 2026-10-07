@@ -8,7 +8,7 @@ __metaclass__ = type
 import os
 import shlex
 
-from ansible_collections.containers.podman.plugins.module_utils.podman.common import (
+from .common import (
     compare_systemd_file_content,
 )
 
@@ -295,6 +295,8 @@ class ContainerQuadlet(Quadlet):
         if params["cgroup_conf"]:
             for k, v in params["cgroup_conf"].items():
                 params["podman_args"].append(f"--cgroup-conf {k}={v}")
+        if params["cert_dir"]:
+            params["podman_args"].append(f"--cert-dir {params['cert_dir']}")
         if params["cgroup_parent"]:
             params["podman_args"].append(f"--cgroup-parent {params['cgroup_parent']}")
         if params["chrootdirs"]:
@@ -319,6 +321,8 @@ class ContainerQuadlet(Quadlet):
             params["podman_args"].append(f"--cpu-rt-runtime {params['cpu_rt_runtime']}")
         if params["cpu_shares"]:
             params["podman_args"].append(f"--cpu-shares {params['cpu_shares']}")
+        if params["creds"]:
+            params["podman_args"].append(f"--creds {params['creds']}")
         if params["decryption_key"]:
             params["podman_args"].append(f"--decryption-key {params['decryption_key']}")
         if params["device_cgroup_rule"]:
@@ -342,8 +346,16 @@ class ContainerQuadlet(Quadlet):
                 params["podman_args"].append(f"--env {k}={v}")
         if params["gpus"]:
             params["podman_args"].append(f"--gpus {params['gpus']}")
+        if params["health_log_destination"]:
+            params["podman_args"].append(f"--health-log-destination {params['health_log_destination']}")
+        if params["health_max_log_count"]:
+            params["podman_args"].append(f"--health-max-log-count {params['health_max_log_count']}")
+        if params["health_max_log_size"]:
+            params["podman_args"].append(f"--health-max-log-size {params['health_max_log_size']}")
         if params["group_entry"]:
             params["podman_args"].append(f"--group-entry {params['group_entry']}")
+        if params["hosts_file"]:
+            params["podman_args"].append(f"--hosts-file {params['hosts_file']}")
         if params["hostuser"]:
             params["podman_args"].append(f"--hostuser {params['hostuser']}")
         if params["hooks_dir"]:
@@ -365,6 +377,8 @@ class ContainerQuadlet(Quadlet):
             params["podman_args"].append(f"--kernel-memory {params['kernel_memory']}")
         if params["label_file"]:
             params["podman_args"].append(f"--label-file {params['label_file']}")
+        if params["link_local_ip"]:
+            params["podman_args"].append(f"--link-local-ip {params['link_local_ip']}")
         if params["log_opt"]:
             params["log_opt"] = [
                 "%s=%s" % (k.replace("max_size", "max-size"), v) for k, v in params["log_opt"].items() if v is not None
@@ -381,6 +395,8 @@ class ContainerQuadlet(Quadlet):
             params["podman_args"].append(f"--memory-swappiness {params['memory_swappiness']}")
         if params["no_healthcheck"]:
             params["podman_args"].append("--no-healthcheck")
+        if params["no_hostname"] is not None:
+            params["podman_args"].append(f"--no-hostname={params['no_hostname']}")
         if params["no_hosts"] is not None:
             params["podman_args"].append(f"--no-hosts={params['no_hosts']}")
         if params["oom_kill_disable"]:
@@ -479,9 +495,10 @@ class NetworkQuadlet(Quadlet):
         "ContainersConfModule": "ContainersConfModule",
         "dns": "DNS",
         "ipam_driver": "IPAMDriver",
-        "Label": "Label",
+        "label": "Label",
         "global_args": "GlobalArgs",
         "podman_args": "PodmanArgs",
+        "interface_name": "InterfaceName",
     }
 
     def __init__(self, params: dict):
@@ -494,11 +511,14 @@ class NetworkQuadlet(Quadlet):
         # Work on params in params_map and convert them to a right form
         if params["debug"]:
             params["global_args"].append("--log-level debug")
+        if params["label"]:
+            params["label"] = ["%s=%s" % (k, v) for k, v in params["label"].items()]
         if params["opt"]:
             new_opt = []
             for k, v in params["opt"].items():
                 if v is not None:
-                    new_opt.append(f"{k}={v}")
+                    sv = str(v).lower() if str(v).lower() in ("true", "false") else str(v)
+                    new_opt.append(f"{k}={sv}")
             params["opt"] = new_opt
         return params
 
@@ -574,6 +594,8 @@ class PodQuadlet(Quadlet):
             params["podman_args"].append(f"--gpus {params['gpus']}")
         if params["hostname"]:
             params["podman_args"].append(f"--hostname {params['hostname']}")
+        if params["hosts_file"]:
+            params["podman_args"].append(f"--hosts-file {params['hosts_file']}")
         if params["infra"]:
             params["podman_args"].append(f"--infra {params['infra']}")
         if params["infra_command"]:
@@ -599,6 +621,8 @@ class PodQuadlet(Quadlet):
             params["podman_args"].append(f"--memory {params['memory']}")
         if params["memory_swap"]:
             params["podman_args"].append(f"--memory-swap {params['memory_swap']}")
+        if params["no_hostname"] is not None:
+            params["podman_args"].append(f"--no-hostname={params['no_hostname']}")
         if params["no_hosts"]:
             params["podman_args"].append(f"--no-hosts {params['no_hosts']}")
         if params["pid"]:

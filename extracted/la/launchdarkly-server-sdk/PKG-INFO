@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: launchdarkly-server-sdk
-Version: 9.18.0
+Version: 9.18.1
 Summary: LaunchDarkly SDK for Python
 Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
 Project-URL: Repository, https://github.com/launchdarkly/python-server-sdk

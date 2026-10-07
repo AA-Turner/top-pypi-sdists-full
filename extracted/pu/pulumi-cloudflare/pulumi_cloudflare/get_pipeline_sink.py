@@ -139,7 +139,7 @@ class GetPipelineSinkResult:
     def type(self) -> _builtins.str:
         """
         Specifies the type of sink.
-        Available values: "r2", "r2*data*catalog".
+        Available values: "r2", "r2*data*catalog", "basin_catalog".
         """
         return pulumi.get(self, "type")
 
@@ -164,7 +164,7 @@ class AwaitableGetPipelineSinkResult(GetPipelineSinkResult):
 
 
 def get_pipeline_sink(account_id: Optional[_builtins.str] = None,
-                      filter: Optional[Union['GetPipelineSinkFilterArgs', 'GetPipelineSinkFilterArgsDict']] = None,
+                      filter: Optional[Union['GetPipelineSinkFilterArgs', 'GetPipelineSinkFilterArgsDict', 'outputs.GetPipelineSinkFilterResult']] = None,
                       sink_id: Optional[_builtins.str] = None,
                       opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetPipelineSinkResult:
     """
@@ -207,7 +207,7 @@ def get_pipeline_sink(account_id: Optional[_builtins.str] = None,
         sink_id=pulumi.get(__ret__, 'sink_id'),
         type=pulumi.get(__ret__, 'type'))
 def get_pipeline_sink_output(account_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                             filter: pulumi.Input[Optional[Optional[Union['GetPipelineSinkFilterArgs', 'GetPipelineSinkFilterArgsDict']]]] = None,
+                             filter: pulumi.Input[Optional[Optional[Union['GetPipelineSinkFilterArgs', 'GetPipelineSinkFilterArgsDict', 'outputs.GetPipelineSinkFilterResult']]]] = None,
                              sink_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                              opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetPipelineSinkResult]:
     """

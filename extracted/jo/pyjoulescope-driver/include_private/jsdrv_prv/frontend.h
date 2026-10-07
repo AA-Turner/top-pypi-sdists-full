@@ -1,5 +1,6 @@
 /*
-* Copyright 2014-2022 Jetperch LLC
+* SPDX-FileCopyrightText: Copyright 2014-2022 Jetperch LLC
+* SPDX-License-Identifier: Apache-2.0
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -130,7 +131,16 @@ struct jsdrvp_msg_s {
     // do not place any fields after payload!
 };
 
-// Define parameter metadata.
+/**
+ * @brief Define parameter metadata.
+ *
+ * Declare tables as NULL-terminated "const struct jsdrvp_param_s name[]"
+ * in a dedicated *_params.c file, using a topic string literal and a
+ * meta JSON string literal (adjacent literals and comments allowed).
+ * Tools parse these files to document topics offline, so keep to this
+ * format.  Topics may contain "{buf}" and "{sig}" placeholders for
+ * instance ids expanded at runtime.
+ */
 struct jsdrvp_param_s {
     const char * topic;
     const char * meta;

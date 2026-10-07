@@ -1,6 +1,6 @@
 [project]
 name = "ty"
-version = "0.0.84"
+version = "0.0.85"
 requires-python = ">=3.8"
 dependencies = []
 description = "An extremely fast Python type checker, written in Rust."
@@ -41,7 +41,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [dependency-groups]
-dev = ["prek==0.4.14"]
+dev = ["prek==0.5.0"]
 release = ["rooster"]
 docs = [
     "mdformat>=0.7.17",
@@ -52,6 +52,9 @@ docs = [
     "mkdocs-llmstxt>=0.2.0",
     "mkdocs-material>=9.7.0",
     "mkdocs-redirects>=1.2.2",
+]
+docker = [
+    "cargo-zigbuild>=0.23.4",
 ]
 
 [tool.uv]
@@ -69,6 +72,7 @@ cache-keys = [
 dev = {requires-python = ">=3.12"}
 release = {requires-python = ">=3.12"}
 docs = {requires-python = ">=3.12"}
+docker = {requires-python = ">=3.12"}
 
 [tool.ruff]
 extend-exclude = ["ruff"]

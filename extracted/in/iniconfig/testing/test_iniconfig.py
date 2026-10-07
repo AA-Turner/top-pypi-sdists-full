@@ -11,36 +11,46 @@ from iniconfig._parse import ParsedLine as PL
 
 check_tokens: dict[str, tuple[str, list[PL]]] = {
     "section": ("[section]", [PL(0, "section", None, None)]),
-    "value": ("value = 1", [PL(0, None, "value", "1")]),
+    "value": ("value = 1", [PL(0, None, "value", ["1"])]),
     "value in section": (
         "[section]\nvalue=1",
-        [PL(0, "section", None, None), PL(1, "section", "value", "1")],
+        [PL(0, "section", None, None), PL(1, "section", "value", ["1"])],
     ),
+    "empty value": ("value =", [PL(0, None, "value", [])]),
     "value with continuation": (
         "names =\n Alice\n Bob",
-        [PL(0, None, "names", "Alice\nBob")],
+        [PL(0, None, "names", ["Alice", "Bob"])],
     ),
     "value with aligned continuation": (
         "names = Alice\n        Bob",
-        [PL(0, None, "names", "Alice\nBob")],
+        [PL(0, None, "names", ["Alice", "Bob"])],
+    ),
+    "continuations on several values": (
+        "a = 1\n 2\n\n 3\n[s]\nb =\n x\n y\nc = z",
+        [
+            PL(0, None, "a", ["1", "2", "3"]),
+            PL(4, "s", None, None),
+            PL(5, "s", "b", ["x", "y"]),
+            PL(8, "s", "c", ["z"]),
+        ],
     ),
     "blank line": (
         "[section]\n\nvalue=1",
-        [PL(0, "section", None, None), PL(2, "section", "value", "1")],
+        [PL(0, "section", None, None), PL(2, "section", "value", ["1"])],
     ),
     "comment": ("# comment", []),
-    "comment on value": ("value = 1", [PL(0, None, "value", "1")]),
+    "comment on value": ("value = 1", [PL(0, None, "value", ["1"])]),
     "comment on section": ("[section] #comment", [PL(0, "section", None, None)]),
     "comment2": ("; comment", []),
     "comment2 on section": ("[section] ;comment", [PL(0, "section", None, None)]),
     "pseudo section syntax in value": (
         "name = value []",
-        [PL(0, None, "name", "value []")],
+        [PL(0, None, "name", ["value []"])],
     ),
-    "assignment in value": ("value = x = 3", [PL(0, None, "value", "x = 3")]),
-    "use of colon for name-values": ("name: y", [PL(0, None, "name", "y")]),
-    "use of colon without space": ("value:y=5", [PL(0, None, "value", "y=5")]),
-    "equality gets precedence": ("value=xyz:5", [PL(0, None, "value", "xyz:5")]),
+    "assignment in value": ("value = x = 3", [PL(0, None, "value", ["x = 3"])]),
+    "use of colon for name-values": ("name: y", [PL(0, None, "name", ["y"])]),
+    "use of colon without space": ("value:y=5", [PL(0, None, "value", ["y=5"])]),
+    "equality gets precedence": ("value=xyz:5", [PL(0, None, "value", ["xyz:5"])]),
 }
 
 
@@ -290,7 +300,7 @@ def test_example_pypirc() -> None:
 
 
 def test_api_import() -> None:
-    assert ALL == ["IniConfig", "ParseError", "COMMENTCHARS", "iscommentline"]
+    assert ALL == ["COMMENTCHARS", "IniConfig", "ParseError", "iscommentline"]
 
 
 @pytest.mark.parametrize(
@@ -411,4 +421,24 @@ def test_unicode_whitespace_in_key_names() -> None:
         data="[section]\n" + "key\u00a0 = value\n",  # NO-BREAK SPACE after key
     )
     assert "key" in config["section"]
+    assert config["section"]["key"] == "value"
+
+
+def test_utf8_bom_file(tmp_path: Path) -> None:
+    """Files saved with a UTF-8 BOM (common on Windows editors) must parse."""
+    path = tmp_path / "bom.ini"
+    path.write_bytes(b"\xef\xbb\xbf[section]\nkey = value\n")
+    config = IniConfig(path)
+    assert config["section"]["key"] == "value"
+
+
+def test_utf8_bom_in_data_string() -> None:
+    config = IniConfig("x.ini", data="\ufeff[section]\nkey = value\n")
+    assert config["section"]["key"] == "value"
+
+
+def test_parse_utf8_bom_file(tmp_path: Path) -> None:
+    path = tmp_path / "bom.ini"
+    path.write_bytes(b"\xef\xbb\xbf[section]\nkey = value\n")
+    config = IniConfig.parse(path)
     assert config["section"]["key"] == "value"

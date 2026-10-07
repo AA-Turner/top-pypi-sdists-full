@@ -158,7 +158,7 @@ class DynamicClient:
 
         return self.request('patch', path, body=body, force_conflicts=force_conflicts, **kwargs)
 
-    def watch(self, resource, namespace=None, name=None, label_selector=None, field_selector=None, resource_version=None, timeout=None, watcher=None, allow_watch_bookmarks=None):
+    def watch(self, resource, namespace=None, name=None, label_selector=None, field_selector=None, resource_version=None, timeout=None, watcher=None, allow_watch_bookmarks=None, send_initial_events=None, resource_version_match=None):
         """
         Stream events for a resource from the Kubernetes API
 
@@ -172,6 +172,10 @@ class DynamicClient:
         :param timeout: The amount of time in seconds to wait before terminating the stream
         :param watcher: The Watcher object that will be used to stream the resource
         :param allow_watch_bookmarks: Ask the API server to send BOOKMARK events
+        :param send_initial_events: Ask the API server to begin the stream with synthetic events
+                                    for the current state, followed by a BOOKMARK event
+        :param resource_version_match: How resource_version is matched, e.g. "NotOlderThan".
+                                       Required by the API server when send_initial_events is set
 
         :return: Event object with these keys:
                    'type': The type of event such as "ADDED", "DELETED", etc.
@@ -204,6 +208,8 @@ class DynamicClient:
             serialize=False,
             timeout_seconds=timeout,
             allow_watch_bookmarks=allow_watch_bookmarks,
+            send_initial_events=send_initial_events,
+            resource_version_match=resource_version_match,
         ):
             event['object'] = ResourceInstance(resource, event['object'])
             yield event
@@ -229,6 +235,8 @@ class DynamicClient:
             query_params.append(('limit', params['limit']))
         if params.get('resource_version') is not None:
             query_params.append(('resourceVersion', params['resource_version']))
+        if params.get('resource_version_match') is not None:
+            query_params.append(('resourceVersionMatch', params['resource_version_match']))
         if params.get('timeout_seconds') is not None:
             query_params.append(('timeoutSeconds', params['timeout_seconds']))
         if params.get('watch') is not None:
@@ -247,6 +255,8 @@ class DynamicClient:
             query_params.append(('force', params['force_conflicts']))
         if params.get('allow_watch_bookmarks') is not None:
             query_params.append(('allowWatchBookmarks', params['allow_watch_bookmarks']))
+        if params.get('send_initial_events') is not None:
+            query_params.append(('sendInitialEvents', params['send_initial_events']))
 
         header_params = params.get('header_params', {})
         form_params = []
@@ -264,30 +274,38 @@ class DynamicClient:
         if params.get('content_type'):
             header_params['Content-Type'] = params['content_type']
         else:
-            header_params['Content-Type'] = self.client.select_header_content_type(['*/*'])
+            # Discovery routes require JSON and reject a literal */* with 415:
+            # https://github.com/kubernetes/kubernetes/blob/8ba6370120c1371ab70428be16341c3cf6ba8584/staging/src/k8s.io/apiserver/pkg/server/routes/version.go#L40-L49
+            header_params['Content-Type'] = 'application/json'
 
         # Authentication setting
         auth_settings = ['BearerToken']
 
-        api_response = self.client.call_api(
-            path,
+        # DynamicClient immediately called .get() on the old transport's
+        # async_req future, so the flag never changed the returned contract.
+        # The modern generated transport is synchronous and already returns
+        # that resolved response.
+        params.pop('async_req', None)
+
+        request = self.client.param_serialize(
             method.upper(),
-            path_params,
-            query_params,
-            header_params,
+            path,
+            path_params=path_params,
+            query_params=query_params,
+            header_params=header_params,
             body=body,
             post_params=form_params,
-            async_req=params.get('async_req'),
             files=local_var_files,
             auth_settings=auth_settings,
-            _preload_content=False,
-            _return_http_data_only=params.get('_return_http_data_only', True),
-            _request_timeout=params.get('_request_timeout')
         )
-        if params.get('async_req'):
-            return api_response.get()
-        else:
-            return api_response
+        api_response = self.client.call_api(
+            *request,
+            _request_timeout=params.get('_request_timeout'),
+        )
+        if not 200 <= api_response.status <= 299:
+            api_response.read()
+            self.client.response_deserialize(api_response, {})
+        return api_response.response
 
     def validate(self, definition, version=None, strict=False):
         """validate checks a kubernetes resource definition

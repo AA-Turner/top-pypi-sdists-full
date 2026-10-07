@@ -28,7 +28,9 @@ use crate::callbacks::AckCallback;
 use crate::databricks::zerobus::RecordType;
 #[cfg(feature = "testing")]
 use crate::headers_provider::NoAuthHeadersProvider;
-use crate::headers_provider::{HeadersProvider, OAuthHeadersProvider};
+use crate::headers_provider::{
+    FederatedTokenProvider, HeadersProvider, IdpTokenSupplier, OAuthHeadersProvider,
+};
 use crate::stream_configuration::StreamConfigurationOptions;
 #[cfg(feature = "avro")]
 use crate::AvroSchema;
@@ -54,6 +56,17 @@ enum AuthConfig {
         client_id: String,
         client_secret: String,
     },
+    /// External-IdP federation via RFC 8693 token exchange. `client_id` is
+    /// `Some` for workload identity federation and `None` for account-level
+    /// federation. The shared token cache is partitioned by the identity the
+    /// caller already holds — the service principal `client_id` for workload,
+    /// or the `idp_token_supplier`'s own stable identity (not a reusable pointer)
+    /// for account-level — so distinct identities never collide, without the
+    /// caller passing a partition key.
+    FederatedAuth {
+        idp_token_supplier: IdpTokenSupplier,
+        client_id: Option<String>,
+    },
     HeadersProvider(Arc<dyn HeadersProvider>),
     #[cfg(feature = "testing")]
     NoAuth,
@@ -70,29 +83,51 @@ enum FormatConfig {
     Avro(String),
 }
 
-type GrpcFormat = (
-    RecordType,
-    Option<prost_types::DescriptorProto>,
-    Option<MessageDescriptor>,
-);
+struct GrpcFormat {
+    record_type: RecordType,
+    descriptor_proto: Option<prost_types::DescriptorProto>,
+    message_descriptor: Option<MessageDescriptor>,
+    #[cfg(feature = "avro")]
+    avro_schema: Option<Arc<AvroSchema>>,
+}
 
 impl FormatConfig {
     fn into_grpc(self) -> ZerobusResult<GrpcFormat> {
-        match self {
-            Self::Json => Ok((RecordType::Json, None, None)),
-            Self::CompiledProto(descriptor) => Ok((RecordType::Proto, Some(*descriptor), None)),
-            Self::DynamicProto(descriptor) => Ok((
+        let (record_type, descriptor_proto, message_descriptor) = match self {
+            Self::Json => (RecordType::Json, None, None),
+            Self::CompiledProto(descriptor) => (RecordType::Proto, Some(*descriptor), None),
+            Self::DynamicProto(descriptor) => (
                 RecordType::Proto,
                 Some(descriptor.descriptor_proto().clone()),
                 Some(descriptor),
-            )),
+            ),
             #[cfg(feature = "arrow-flight")]
-            Self::Arrow(_) => Err(ZerobusError::InvalidArgument(
-                "Arrow format requires .build_arrow() instead of .build()".into(),
-            )),
+            Self::Arrow(_) => {
+                return Err(ZerobusError::InvalidArgument(
+                    "Arrow format requires .build_arrow() instead of .build()".into(),
+                ));
+            }
             #[cfg(feature = "avro")]
-            Self::Avro(_) => Ok((RecordType::Avro, None, None)),
-        }
+            Self::Avro(json) => {
+                let parsed = apache_avro::Schema::parse_str(&json).map_err(|e| {
+                    ZerobusError::AvroSchemaParseError(format!("Failed to parse Avro schema: {e}"))
+                })?;
+                return Ok(GrpcFormat {
+                    record_type: RecordType::Avro,
+                    descriptor_proto: None,
+                    message_descriptor: None,
+                    avro_schema: Some(Arc::new(AvroSchema { json, parsed })),
+                });
+            }
+        };
+
+        Ok(GrpcFormat {
+            record_type,
+            descriptor_proto,
+            message_descriptor,
+            #[cfg(feature = "avro")]
+            avro_schema: None,
+        })
     }
 }
 
@@ -152,6 +187,7 @@ impl fmt::Debug for StreamBuilder<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let auth_kind = match &self.auth {
             Some(AuthConfig::OAuth { .. }) => "OAuth",
+            Some(AuthConfig::FederatedAuth { .. }) => "FederatedAuth",
             Some(AuthConfig::HeadersProvider(_)) => "HeadersProvider",
             #[cfg(feature = "testing")]
             Some(AuthConfig::NoAuth) => "NoAuth",
@@ -183,11 +219,11 @@ impl fmt::Debug for StreamBuilder<'_> {
 const fn missing_auth_error() -> &'static str {
     #[cfg(feature = "testing")]
     {
-        "authentication is required: call .oauth(), .headers_provider(), or .no_auth()"
+        "authentication is required: call .oauth(), .federated_auth(), .headers_provider(), or .no_auth()"
     }
     #[cfg(not(feature = "testing"))]
     {
-        "authentication is required: call .oauth() or .headers_provider()"
+        "authentication is required: call .oauth(), .federated_auth(), or .headers_provider()"
     }
 }
 
@@ -219,6 +255,29 @@ impl<'a> StreamBuilder<'a> {
         self.auth = Some(AuthConfig::OAuth {
             client_id: client_id.into(),
             client_secret: client_secret.into(),
+        });
+        self
+    }
+
+    /// Authenticate with external-IdP federation (RFC 8693).
+    ///
+    /// `client_id`: `None` for account-level federation; a Databricks service
+    /// principal id for workload identity federation (accepts `None`, a
+    /// `String`, or `Some(..)`).
+    ///
+    /// The shared token cache is partitioned automatically so distinct
+    /// identities used from one SDK instance never serve each other's token:
+    /// workload keys by `client_id`, and account-level keys by the
+    /// `idp_token_supplier`'s stable identity. Clone one supplier across streams
+    /// to share its cached token; pass a distinct supplier to isolate.
+    pub fn federated_auth(
+        mut self,
+        idp_token_supplier: IdpTokenSupplier,
+        client_id: impl Into<Option<String>>,
+    ) -> Self {
+        self.auth = Some(AuthConfig::FederatedAuth {
+            idp_token_supplier,
+            client_id: client_id.into(),
         });
         self
     }
@@ -481,8 +540,9 @@ impl<'a> StreamBuilder<'a> {
     ///
     /// `stream_count` must be in `1..=64` and cannot exceed the configured
     /// `max_inflight_requests`. The mux-wide in-flight budget is divided evenly
-    /// across sub-streams using integer division. JSON, compiled protobuf, and
-    /// dynamic protobuf are supported; Arrow Flight and Avro are not.
+    /// across sub-streams using integer division. JSON, compiled protobuf,
+    /// dynamic protobuf, and (with the `avro` feature) Avro are supported;
+    /// Arrow Flight is not.
     pub fn multiplexed(self, stream_count: usize) -> MultiplexedStreamBuilder<'a> {
         MultiplexedStreamBuilder::new(self, stream_count)
     }
@@ -566,6 +626,25 @@ impl<'a> StreamBuilder<'a> {
                     Some(refresh_timeout),
                 )))
             }
+            Some(AuthConfig::FederatedAuth {
+                idp_token_supplier,
+                client_id,
+            }) => {
+                // Federation mirrors OAuth's proactive-refresh bound so a stalled
+                // token exchange falls back to the cached token before the setup
+                // deadline, keeping client-credentials and token-exchange at parity.
+                let refresh_timeout =
+                    std::time::Duration::from_millis(self.grpc_config.recovery_timeout_ms) / 2;
+                Ok(Arc::new(FederatedTokenProvider::with_cache(
+                    client_id.clone(),
+                    idp_token_supplier.clone(),
+                    self.table_name.clone(),
+                    self.sdk.workspace_id.clone(),
+                    self.sdk.unity_catalog_url.clone(),
+                    Arc::clone(&self.sdk.token_cache),
+                    Some(refresh_timeout),
+                )))
+            }
             Some(AuthConfig::HeadersProvider(p)) => Ok(Arc::clone(p)),
             #[cfg(feature = "testing")]
             Some(AuthConfig::NoAuth) => Ok(Arc::new(NoAuthHeadersProvider)),
@@ -577,54 +656,56 @@ impl<'a> StreamBuilder<'a> {
     ///
     /// Returns an error if table name, authentication, or format has not been set,
     /// or if an Arrow format was selected (use `build_arrow()` instead).
-    pub async fn build(mut self) -> ZerobusResult<ZerobusStream> {
+    pub async fn build(self) -> ZerobusResult<ZerobusStream> {
+        let (channel, table_properties, headers_provider, config) = self.prepare_grpc().await?;
+        let stream =
+            ZerobusStream::new_stream(channel, table_properties, headers_provider, config).await?;
+        crate::client_warnings::record_stream_creation(stream.table_properties.table_name.as_str());
+        Ok(stream)
+    }
+
+    /// Validates the builder and resolves the pieces shared by the gRPC
+    /// terminals (`build`, and the persistent builder's `build` / `resume`):
+    /// the channel, table properties, headers provider, and finalized config
+    /// with the record type set. Rejects the Arrow format (which needs
+    /// `build_arrow()`).
+    pub(crate) async fn prepare_grpc(
+        mut self,
+    ) -> ZerobusResult<(
+        crate::databricks::zerobus::zerobus_client::ZerobusClient<tonic::transport::Channel>,
+        TableProperties,
+        Arc<dyn HeadersProvider>,
+        StreamConfigurationOptions,
+    )> {
         // `validate()` already rejects `stats_exporter` on a non-Arrow format, and the
         // format match below rejects an Arrow format outright.
         self.validate()?;
 
-        // Parse the writer schema once, before any connection, so malformed JSON fails at
-        // build(). Keep the raw JSON (sent to the server on stream creation) and the parsed
-        // schema (used to encode records) together in TableProperties for reuse on ingest.
-        #[cfg(feature = "avro")]
-        let avro_schema = match &self.format {
-            Some(FormatConfig::Avro(json)) => {
-                let parsed = apache_avro::Schema::parse_str(json).map_err(|e| {
-                    ZerobusError::AvroSchemaParseError(format!("Failed to parse Avro schema: {e}"))
-                })?;
-                Some(AvroSchema {
-                    json: json.clone(),
-                    parsed,
-                })
-            }
-            _ => None,
-        };
-
-        let (record_type, descriptor_proto, message_descriptor) = self
+        // Avro schemas are parsed here, before any connection is opened. The raw JSON and
+        // parsed schema remain together in TableProperties for stream creation and ingest.
+        let format = self
             .format
             .take()
             .expect("format was validated")
             .into_grpc()?;
         let headers_provider = self.resolve_headers_provider()?;
 
-        self.grpc_config.record_type = record_type;
+        self.grpc_config.record_type = format.record_type;
         let table_properties = TableProperties {
             table_name: self.table_name,
-            descriptor_proto,
-            message_descriptor,
+            descriptor_proto: format.descriptor_proto,
+            message_descriptor: format.message_descriptor,
             #[cfg(feature = "avro")]
-            avro_schema,
+            avro_schema: format.avro_schema,
         };
 
         let channel = self.sdk.get_or_create_channel_zerobus_client().await?;
-        let stream = ZerobusStream::new_stream(
+        Ok((
             channel,
             table_properties,
             headers_provider,
             self.grpc_config,
-        )
-        .await?;
-        crate::client_warnings::record_stream_creation(stream.table_properties.table_name.as_str());
-        Ok(stream)
+        ))
     }
 
     /// Build and open an Arrow Flight ingestion stream.

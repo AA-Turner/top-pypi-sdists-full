@@ -480,7 +480,16 @@ def test_saturation_warning_logged_when_a_call_waits(
                 waiter = asyncio.create_task(
                     c.post("/mcp", json=_tool_call("browse", {}, 2), headers=_HEADERS)
                 )
-                await asyncio.sleep(0.2)  # waiter is now past _QUEUE_WARN_S in the queue
+                # Wait until the second call is QUEUED on admission, then stay
+                # past _QUEUE_WARN_S. A fixed sleep alone raced a busy 2-core CI
+                # runner: the request had not reached the limiter when the first
+                # call was released, so it never waited and nothing was logged.
+                admission, _thread_permit = server_mod._limiters()
+                deadline = time.monotonic() + 10
+                while admission.statistics().tasks_waiting < 1:
+                    assert time.monotonic() < deadline, "the second call never queued"
+                    await asyncio.sleep(0.01)
+                await asyncio.sleep(0.2)
                 svc.release.set()
                 await slow
                 return await waiter

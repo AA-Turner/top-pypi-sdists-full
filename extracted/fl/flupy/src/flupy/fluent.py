@@ -24,6 +24,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeGuard,
     TypeVar,
     Union,
     cast,
@@ -45,8 +46,8 @@ P = ParamSpec("P")
 CollectionT = TypeVar("CollectionT", bound=Collection[Any])
 
 
-class SupportsGetItem(Protocol[T_co]):
-    def __getitem__(self, __k: Hashable) -> T_co:
+class SupportsGetItem(Protocol[T_contra, T_co]):
+    def __getitem__(self, __k: T_contra) -> T_co:
         pass
 
 
@@ -61,6 +62,7 @@ class SupportsLessThan(Protocol):
 
 
 SupportsLessThanT = TypeVar("SupportsLessThanT", bound="SupportsLessThan")
+SupportsIterationT = TypeVar("SupportsIterationT", bound="SupportsIteration[Any]")
 
 
 class Empty:
@@ -366,7 +368,7 @@ class Fluent(Generic[T]):
                 other_lookup[other_key(entry_other)].append(entry_other)
 
             for entry in self:
-                matches: List[_T1] = other_lookup[key(entry)]
+                matches: List[_T1] = other_lookup.get(key(entry), [])
 
                 for match in matches:
                     yield (entry, match)
@@ -383,6 +385,9 @@ class Fluent(Generic[T]):
 
         Returns all entries from both iterables. When no matching entry is found, entries are paired with None
 
+        Left-hand entries retain their input order, with matches in right-hand
+        input order. Unmatched right-hand entries follow in their original order.
+
         Note: join_full loads both *self* and *other* into memory
 
         >>> flu(range(4)).join_full(range(2, 6)).to_list()
@@ -393,12 +398,12 @@ class Fluent(Generic[T]):
 
             # Build lookup for other
             other_lookup: Dict[Hashable, List[_T1]] = defaultdict(list)
-            other_keys_seen: Set[Hashable] = set()
+            other_entries: List[Tuple[Hashable, _T1]] = []
 
             for entry_other in other:
                 other_key_val = other_key(entry_other)
                 other_lookup[other_key_val].append(entry_other)
-                other_keys_seen.add(other_key_val)
+                other_entries.append((other_key_val, entry_other))
 
             # Track which keys from other have been matched
             matched_other_keys: Set[Hashable] = set()
@@ -416,9 +421,8 @@ class Fluent(Generic[T]):
                     yield (entry, None)
 
             # Yield unmatched entries from other
-            unmatched_keys = other_keys_seen - matched_other_keys
-            for unmatched_key in unmatched_keys:
-                for entry_other in other_lookup[unmatched_key]:
+            for other_key_val, entry_other in other_entries:
+                if other_key_val not in matched_other_keys:
                     yield (None, entry_other)
 
         return Fluent(_impl())
@@ -564,7 +568,7 @@ class Fluent(Generic[T]):
 
         return Fluent(_impl())
 
-    def map_item(self: "Fluent[SupportsGetItem[T]]", item: Hashable) -> "Fluent[T]":
+    def map_item(self: Iterable[SupportsGetItem[_T1, _T2]], item: _T1) -> "Fluent[_T2]":
         """Extracts *item* from every element of the iterable
 
         >>> flu([(2, 4), (2, 5)]).map_item(1).to_list()
@@ -574,7 +578,7 @@ class Fluent(Generic[T]):
         [8, 5]
         """
 
-        def _impl() -> Generator[T, None, None]:
+        def _impl() -> Generator[_T2, None, None]:
             for x in self:
                 yield x[item]
 
@@ -590,8 +594,16 @@ class Fluent(Generic[T]):
         """
         return self.map(lambda x: getattr(x, attr))
 
-    def filter(self, func: Callable[Concatenate[T, P], object], *args: P.args, **kwargs: P.kwargs) -> "Fluent[T]":
+    @overload
+    def filter(self, func: Callable[[T], TypeGuard[_T1]]) -> "Fluent[_T1]": ...
+
+    @overload
+    def filter(self, func: Callable[Concatenate[T, P], object], *args: P.args, **kwargs: P.kwargs) -> "Fluent[T]": ...
+
+    def filter(self, func: Callable[Concatenate[T, P], object], *args: P.args, **kwargs: P.kwargs) -> "Fluent[Any]":
         """Yield elements of iterable where *func* returns truthy
+
+        If *func* is a TypeGuard, the returned Fluent is narrowed to the guarded type.
 
         >>> flu(range(10)).filter(lambda x: x % 2 == 0).to_list()
         [0, 2, 4, 6, 8]
@@ -663,7 +675,7 @@ class Fluent(Generic[T]):
         tup_iter = zip(iter(self), *iterable)
         return Fluent(tup_iter)
 
-    def zip_longest(self, *iterable: Iterable[Any], fill_value: Any = None) -> "Fluent[Tuple[Any, ...]]":
+    def zip_longest(self, *iterable: Iterable[Any], fill_value: Any = None) -> "Fluent[Tuple[T, ...]]":
         """Yields tuples containing the i-th element from the i-th
         argument in the instance, and the iterable
         Iteration continues until the longest iterable is exhaused.
@@ -784,7 +796,7 @@ class Fluent(Generic[T]):
 
         return Fluent(walk(self, level=0))
 
-    def denormalize(self: "Fluent[SupportsIteration[Any]]", iterate_strings: bool = False) -> "Fluent[Tuple[Any, ...]]":
+    def denormalize(self: "Fluent[SupportsIterationT]", iterate_strings: bool = False) -> "Fluent[Tuple[Any, ...]]":
         """Denormalize iterable components of each record
 
         >>> flu([("abc", [1, 2, 3])]).denormalize().to_list()
@@ -823,7 +835,7 @@ class Fluent(Generic[T]):
 
         return Fluent(_impl())
 
-    def window(self, n: int, step: int = 1, fill_value: Any = None) -> "Fluent[Tuple[Any, ...]]":
+    def window(self, n: int, step: int = 1, fill_value: Any = None) -> "Fluent[Tuple[T, ...]]":
         """Yield a sliding window of width *n* over the given iterable.
 
         Each window will advance in increments of *step*:
@@ -844,7 +856,7 @@ class Fluent(Generic[T]):
         [(0, 1, 2, 3), (3, 4, 5, 6), (6, 7, 8, -1)]
         """
 
-        def _impl() -> Generator[Tuple[Any, ...], None, None]:
+        def _impl() -> Generator[Tuple[T, ...], None, None]:
             if n < 0:
                 raise ValueError("n must be >= 0")
             elif n == 0:

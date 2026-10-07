@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-annotations
-Version: 3.2.0
+Version: 3.3.0
 Summary: Flake8 Type Annotation Checks
 Author: sco1
 Author-email: sco1 <sco1.git@gmail.com>
@@ -13,26 +13,26 @@ Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 6 - Mature
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
 Requires-Dist: flake8>=5.0
-Requires-Python: >=3.10
-Project-URL: Changelog, https://github.com/sco1/flake8-annotations/blob/main/CHANGELOG.md
-Project-URL: Documentation, https://github.com/sco1/flake8-annotations/blob/main/README.md
+Requires-Python: >=3.11
 Project-URL: Homepage, https://github.com/sco1/
-Project-URL: Issues, https://github.com/sco1/flake8-annotations/issues
+Project-URL: Documentation, https://github.com/sco1/flake8-annotations/blob/main/README.md
 Project-URL: Repository, https://github.com/sco1/flake8-annotations
+Project-URL: Issues, https://github.com/sco1/flake8-annotations/issues
+Project-URL: Changelog, https://github.com/sco1/flake8-annotations/blob/main/CHANGELOG.md
 Description-Content-Type: text/markdown
 
 # flake8-annotations
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flake8-annotations/3.2.0?logo=python&logoColor=FFD43B)](https://pypi.org/project/flake8-annotations/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flake8-annotations/3.3.0?logo=python&logoColor=FFD43B)](https://pypi.org/project/flake8-annotations/)
 [![PyPI](https://img.shields.io/pypi/v/flake8-annotations?logo=Python&logoColor=FFD43B)](https://pypi.org/project/flake8-annotations/)
 [![PyPI - License](https://img.shields.io/pypi/l/flake8-annotations?color=magenta)](https://github.com/sco1/flake8-annotations/blob/main/LICENSE)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sco1/flake8-annotations/main.svg)](https://results.pre-commit.ci/latest/github/sco1/flake8-annotations/main)
@@ -56,7 +56,7 @@ You can verify it's being picked up by invoking the following in your shell:
 <!-- [[[cog
 import cog
 from subprocess import PIPE, run
-out = run(["flake8", "--version"], stdout=PIPE, encoding="ascii")
+out = run(["flake8", "--version"], stdout=PIPE, encoding="ascii", env={"TYPER_USE_RICH": "0"})
 ver_str = out.stdout.replace("\n", "")
 cog.out(
     f"```bash\n$ flake8 --version\n{ver_str}\n```"
@@ -64,7 +64,7 @@ cog.out(
 ]]] -->
 ```bash
 $ flake8 --version
-7.3.0 (flake8-annotations: 3.2.0, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.14.0 on Darwin
+7.4.1 (flake8-annotations: 3.3.0, mccabe: 0.7.0, pycodestyle: 2.15.0, pyflakes: 4.0.2) CPython 3.14.8 on Windows
 ```
 <!-- [[[end]]] -->
 

@@ -13,7 +13,7 @@ from siliconcompiler.schema.utils import trim
 from siliconcompiler import NodeStatus
 
 if TYPE_CHECKING:
-    from siliconcompiler import Task
+    from siliconcompiler import Project, Task
     from siliconcompiler.schema_support.record import RecordSchema
 
 
@@ -76,12 +76,12 @@ class Flowgraph(NamedSchema, DocsSchema):
             step (str): The step name to validate.
 
         Raises:
-            ValueError: If ``step`` is a reserved name or contains a '/'.
+            ValueError: If ``step`` is a reserved name or is not a single
+                path segment.
         '''
+        Flowgraph.__assert_valid_node_name(step, "step")
         if step in (Parameter.GLOBAL_KEY, 'default') or step.startswith("sc_"):
             raise ValueError(f"{step} is a reserved name")
-        if '/' in step:
-            raise ValueError(f"{step} is not a valid step, it cannot contain '/'")
 
     @staticmethod
     def _assert_valid_index(index: str) -> None:
@@ -92,14 +92,42 @@ class Flowgraph(NamedSchema, DocsSchema):
             index (str): The index name to validate.
 
         Raises:
-            ValueError: If ``index`` is a reserved name or contains a '/'.
+            ValueError: If ``index`` is a reserved name or is not a single
+                path segment.
         '''
+        Flowgraph.__assert_valid_node_name(index, "index")
         if index in (Parameter.GLOBAL_KEY, 'default'):
             raise ValueError(f"{index} is a reserved name")
-        if '/' in index:
-            raise ValueError(f"{index} is not a valid index, it cannot contain '/'")
 
-    def node(self, step: str, task: "Task", index: Optional[Union[str, int]] = 0) -> None:
+    @staticmethod
+    def check_node_name(step: str, index: Union[str, int]) -> None:
+        '''
+        Validates that ``step`` and ``index`` form a node name, by the rule
+        :meth:`node` applies. A node name becomes two directories of the build,
+        so a name read from outside a flowgraph, such as from a manifest, is
+        held to the same rule.
+
+        Args:
+            step (str): The step name to validate.
+            index (str or int): The index to validate.
+
+        Raises:
+            ValueError: If either is reserved or not a single path segment.
+        '''
+        Flowgraph._assert_valid_step(step)
+        Flowgraph._assert_valid_index(str(index))
+
+    @staticmethod
+    def __assert_valid_node_name(name: str, what: str) -> None:
+        # A step and an index are directories of the build: one segment each.
+        if not isinstance(name, str) or name in ("", ".", ".."):
+            raise ValueError(f"{name!r} is not a valid {what}")
+        for bad in ("/", "\\", "\0"):
+            if bad in name:
+                raise ValueError(f"{name} is not a valid {what}, it cannot contain {bad!r}")
+
+    def node(self, step: str, task: Union[str, "Task"],
+             index: Optional[Union[str, int]] = 0) -> None:
         '''
         Creates or updates a flowgraph node.
 
@@ -118,16 +146,17 @@ class Flowgraph(NamedSchema, DocsSchema):
         * `['<step>', '<index>', 'taskmodule']`
 
         Args:
-            step (str): Step name for the node. Must not contain '/'.
+            step (str): Step name for the node. Must be a single path segment.
             task (Task or str or Type[Task]): The task to associate with this
                 node. Can be a task instance, a string in the format
                 '<module_path>/<ClassName>', or a Task class type.
             index (int or str, optional): Index for the step. Defaults to 0.
-                Must not contain '/'.
+                Must be a single path segment.
 
         Raises:
             ValueError: If 'step' or 'index' are reserved names (like
-                'default' or '*') or contain invalid characters ('/').
+                'default' or '*') or are not a single path segment: empty,
+                ``.``, ``..``, or containing ``/``, ``\\`` or a NUL.
             ValueError: If 'task' is not a valid Task object, string, or class.
 
         Examples:
@@ -373,8 +402,8 @@ class Flowgraph(NamedSchema, DocsSchema):
 
         Raises:
             ValueError: If ``step`` does not exist, if ``new_step`` is a
-                reserved name or contains a '/', or if ``new_step`` is
-                already defined in the flowgraph.
+                reserved name or is not a single path segment, or if
+                ``new_step`` is already defined in the flowgraph.
 
         Examples:
             >>> flow.node('synmin', minimum.MinimumTask())
@@ -415,7 +444,6 @@ class Flowgraph(NamedSchema, DocsSchema):
 
         self.__clear_cache()
 
-    ###########################################################################
     def graph(self, subflow: "Flowgraph", name: Optional[str] = None) -> None:
         '''
         Instantiates a sub-flowgraph within the current flowgraph.
@@ -1314,6 +1342,28 @@ class RuntimeFlowgraph:
 
         self.__compute_graph()
 
+    @classmethod
+    def from_project(cls, project: "Project") -> "RuntimeFlowgraph":
+        '''
+        Creates the runtime flowgraph of the run a project is configured for:
+        its selected flow, narrowed by :keypath:`option,from`,
+        :keypath:`option,to` and :keypath:`option,prune`.
+
+        Args:
+            project (Project): The project to read the flow and options from.
+
+        Returns:
+            RuntimeFlowgraph: The view of the nodes the run executes.
+
+        Raises:
+            KeyError: If the project has no flow selected, or the selected
+                flow is not loaded.
+        '''
+        return cls(project.get_flow(),
+                   from_steps=project.option.get_from(),
+                   to_steps=project.option.get_to(),
+                   prune_nodes=project.option.get_prune())
+
     def __walk_graph(self, node: Tuple[str, str],
                      path: Optional[List[Tuple[str, str]]] = None,
                      reverse: Optional[bool] = True) -> Set[Tuple[Tuple[str, str], ...]]:
@@ -1794,9 +1844,6 @@ class FlowgraphNodeSchema(BaseSchema):
         return bool(self.get_input())
 
 
-###############################################################################
-# Flow Configuration
-###############################################################################
 def schema_flowgraph(schema: FlowgraphNodeSchema):
     '''
     Defines the schema parameters for a flowgraph node.

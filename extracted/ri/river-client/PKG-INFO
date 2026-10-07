@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.12.0
+Version: 0.13.0
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -24,10 +24,16 @@ Requires-Dist: referencing>=0.37.0
 Requires-Dist: tiktoken>=0.7.0
 Requires-Dist: transformers>=5.3.0
 Requires-Dist: xxhash>=3.0.0
+Provides-Extra: custom-loss
+Requires-Dist: sympy; extra == 'custom-loss'
+Requires-Dist: torch<2.12,>=2.4; extra == 'custom-loss'
 Provides-Extra: examples
 Requires-Dist: datasets>=2.14.0; extra == 'examples'
 Requires-Dist: pydantic<3,>=2.12; extra == 'examples'
 Requires-Dist: wandb>=0.28.0; extra == 'examples'
+Provides-Extra: hf-export
+Requires-Dist: safetensors>=0.5; extra == 'hf-export'
+Requires-Dist: torch>=2.6; extra == 'hf-export'
 Description-Content-Type: text/markdown
 
 # river-client
@@ -158,7 +164,7 @@ deployments.
 checkpoint and returns a base URL that the standard OpenAI client streams
 from unchanged; `list_deployments`, `get_deployment_usage`, `scale_on_target`
 and `delete_deployment` manage it from there. See the
-[deployment walkthrough](https://docs.river.ai/#dedicated-streaming-deployments)
+[deployment walkthrough](https://docs.river.ai/guides/deployments/)
 for a complete example. The bundled agent skill below
 carries the full workflow: replica roles, scale-to-zero and resume, streaming
 error handling, and usage accounting.
@@ -184,3 +190,60 @@ different location (e.g. a project's `.claude/skills/`). Run without
 ## License
 
 Apache-2.0. See [`LICENSE`](LICENSE).
+
+## Export downloaded checkpoints to Hugging Face
+
+In Console, open an inference checkpoint and choose **Download HF export script**.
+Install the script's dependencies and run it with your API key:
+
+```bash
+pip install -U "river-client[hf-export]" requests
+RIVER_API_KEY=... python download.py
+```
+
+The script downloads to a temporary directory and writes an HF/PEFT LoRA adapter
+under the checkpoint ID. Load that directory with PEFT and the corresponding
+base model. Conversion reads the base model's safetensors headers from Hugging
+Face; it does not download base weights. Set `HF_TOKEN` for gated base models.
+
+For a checkpoint already on disk:
+
+```bash
+python -m river_client.hf_export ./river-checkpoint ./hf-adapter
+# Optional: --base-model /path/to/local/base --revision <base-commit>
+```
+
+The converter checks every target name and tensor shape against the base model.
+It restores text-model prefixes, splits Qwen's fused QKVZ adapters into QKV and
+Z, preserves rank/alpha scaling, and combines indexed adapter shards into PEFT's
+single safetensors file. It runs on CPU with memory proportional to adapter size.
+The source is preserved, and an existing output directory is never overwritten.
+Unsupported layouts fail before an output directory is published. This exports
+LoRA adapters, not merged base weights or training/optimizer state.
+
+### Loading a Qwen3.8 FP8 export with HF/PEFT
+
+The verified HF path dequantizes the FP8 base weights while loading:
+
+```python
+import torch
+from peft import PeftModel
+from transformers import AutoModelForImageTextToText, FineGrainedFP8Config
+
+base = AutoModelForImageTextToText.from_pretrained(
+    "Qwen/Qwen3.8-27B-FP8",
+    quantization_config=FineGrainedFP8Config(dequantize=True),
+    dtype=torch.bfloat16,
+    device_map="auto",
+)
+model = PeftModel.from_pretrained(base, "./hf-adapter")
+```
+
+Install `peft` to run this example. This loads the same quantized base checkpoint
+into BF16 storage and therefore requires more GPU memory than native FP8.
+
+With Transformers 5.8.1 and PEFT 0.18.1, loading directly onto native FP8 layers
+casts BF16 adapter tensors to FP8 and changes their values. Dequantizing the base
+avoids that problem. A real step-29 checkpoint passed exact adapter-weight and
+logit comparisons through the dequantized path; native HF FP8 inference was not
+qualified by that test.

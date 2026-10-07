@@ -41,7 +41,32 @@ KEEPALIVE_IDLE_S = 60
 KEEPALIVE_INTERVAL_S = 30
 KEEPALIVE_COUNT = 5
 
+#: The refusal fallback (2026-10-06). When the configured model's safety
+#: classifier refuses a call, the server re-sends it to its fallback model and
+#: names that model in SERVED_MODEL_HEADER. The refused content stays in the
+#: session, so this process (one worker per session) sends the name back in
+#: PREFER_MODEL_HEADER on every later call: the server then skips the refusing
+#: model instead of paying a refused attempt first. A server without the
+#: fallback never sets the header; one that does not know PREFER_MODEL_HEADER
+#: ignores it.
+SERVED_MODEL_HEADER = "x-probe-served-model"
+PREFER_MODEL_HEADER = "X-Probe-Prefer-Model"
+_CHAT_PATH = "/chat/completions"
+
 _HTTP_CLIENT = None
+_PREFERRED_MODEL: str | None = None
+
+
+async def _prefer_served_model(request) -> None:
+    if _PREFERRED_MODEL and request.url.path.endswith(_CHAT_PATH):
+        request.headers[PREFER_MODEL_HEADER] = _PREFERRED_MODEL
+
+
+async def _remember_served_model(response) -> None:
+    global _PREFERRED_MODEL
+    served = response.headers.get(SERVED_MODEL_HEADER)
+    if served and response.request.url.path.endswith(_CHAT_PATH):
+        _PREFERRED_MODEL = served
 
 
 def keepalive_socket_options() -> list[tuple[int, int, int]]:
@@ -60,7 +85,8 @@ def keepalive_socket_options() -> list[tuple[int, int, int]]:
 
 
 def _http_client():
-    """One HTTP client per process (both lanes, every turn), with keepalive."""
+    """One HTTP client per process (both lanes, every turn), with keepalive, that
+    keeps asking for the refusal fallback once the server has served it."""
     global _HTTP_CLIENT
     if _HTTP_CLIENT is None:
         import httpx
@@ -73,7 +99,8 @@ def _http_client():
         _HTTP_CLIENT = httpx.AsyncClient(
             verify=trust,
             transport=httpx.AsyncHTTPTransport(verify=trust, socket_options=keepalive_socket_options()),
-            timeout=httpx.Timeout(DEFAULT_TIMEOUT_S), follow_redirects=True)
+            timeout=httpx.Timeout(DEFAULT_TIMEOUT_S), follow_redirects=True,
+            event_hooks={"request": [_prefer_served_model], "response": [_remember_served_model]})
     return _HTTP_CLIENT
 
 

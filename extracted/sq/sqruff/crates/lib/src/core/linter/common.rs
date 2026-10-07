@@ -2,6 +2,8 @@ use sqruff_lib_core::errors::{SQLBaseError, SQLTemplaterError};
 use sqruff_lib_core::parser::segments::ErasedSegment;
 use sqruff_lib_core::templaters::TemplatedFile;
 
+use crate::core::config::FluffConfig;
+
 /// An object to store the result of a templated file/string.
 ///
 /// This is notable as it's the intermediate state between what happens
@@ -9,9 +11,17 @@ use sqruff_lib_core::templaters::TemplatedFile;
 #[derive(Debug, Clone)]
 pub struct RenderedFile {
     pub templated_file: TemplatedFile,
+    pub alternate_templated_files: Vec<TemplatedFile>,
     pub templater_violations: Vec<SQLTemplaterError>,
     pub(crate) filename: String,
     pub source_str: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParsedVariant {
+    pub tree: Option<ErasedSegment>,
+    pub violations: Vec<SQLBaseError>,
+    pub templated_file: TemplatedFile,
 }
 
 /// Result of batch rendering: either a rendered file or a skipped file.
@@ -28,4 +38,6 @@ pub struct ParsedString {
     pub templated_file: TemplatedFile,
     pub filename: String,
     pub source_str: String,
+    pub config: FluffConfig,
+    pub alternate_variants: Vec<ParsedVariant>,
 }

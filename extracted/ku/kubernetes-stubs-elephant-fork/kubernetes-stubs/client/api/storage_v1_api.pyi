@@ -170,6 +170,39 @@ class StorageV1Api:
         ] = ...
     ) -> kubernetes.client.V1CSINode:
         ...
+    def read_csi_node_status(self, name: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1CSINode:
+        ...
+    def replace_csi_node_status(self, name: str, body: kubernetes.client.V1CSINode, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1CSINode:
+        ...
+    def patch_csi_node_status(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1CSINode:
+        ...
     def list_csi_storage_capacity_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
@@ -245,7 +278,7 @@ class StorageV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_csi_storage_capacity(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[

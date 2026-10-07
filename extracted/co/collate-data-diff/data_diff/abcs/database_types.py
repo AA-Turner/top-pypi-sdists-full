@@ -205,6 +205,8 @@ class Decimal(FractionalType, IKey):  # Snowflake may use Decimal as a key
 class StringType(ColType):
     python_type = str
     collation: Optional[Collation] = attrs.field(default=None, kw_only=True)
+    # A fixed-width column (CHAR) the database pads with trailing spaces
+    padded: bool = attrs.field(default=False, kw_only=True)
 
 
 @attrs.define(frozen=True)

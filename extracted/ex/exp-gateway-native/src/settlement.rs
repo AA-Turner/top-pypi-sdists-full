@@ -210,6 +210,7 @@ async fn deliver(bridge: &Bridge, method: &'static str, argument: String) -> boo
 /// accepted request when no attempt is active.
 pub struct AttemptGuard {
     pub bridge: Arc<Bridge>,
+    pub(crate) input_gate: Option<Arc<crate::guardrails::input::InputGate>>,
     request_id: String,
     attempt_id: Option<String>,
     pending: Arc<AtomicUsize>,
@@ -284,6 +285,7 @@ impl AttemptGuard {
         METRICS.enter_request();
         Self {
             bridge,
+            input_gate: None,
             request_id,
             attempt_id: None,
             pending,
@@ -424,6 +426,22 @@ impl AttemptGuard {
         if !self.armed {
             return true;
         }
+        let input_failure = match self.input_gate.clone() {
+            Some(gate) => gate
+                .wait(&self.bridge)
+                .await
+                .and_then(|d| d.require_allow())
+                .err()
+                .map(|failure| failure.failure),
+            None => None,
+        };
+        let outcome = if input_failure.is_some() {
+            "failed"
+        } else {
+            outcome
+        };
+        let finalize = finalize || input_failure.is_some();
+        let failure = input_failure.as_ref().or(failure);
         let Some(attempt_id) = self.attempt_id.clone() else {
             // No active attempt: nothing durable to close here. The abandon
             // path owns request-only terminalization.
@@ -432,19 +450,36 @@ impl AttemptGuard {
         let observed = self.observation.snapshot();
         let usage = observed.usage.as_ref().or(usage);
         self.record_first_token(observed.first_token_at);
-        // An opened attempt's headers live on the guard; an attempt that
-        // failed at open carries them on its failure instead.
+        // A failed input gate cancels provider work. Preserve the existing
+        // disconnected-meter contract; the host's frozen input decision supplies
+        // the public/durable failure and waives the customer charge separately.
+        let input_cancellation = input_failure.as_ref().map(|_| {
+            Failure::new(
+                FailureClass::Cancelled,
+                "Generation cancelled before input approval.",
+            )
+        });
+        let observed_failure = match observed.terminal.as_ref() {
+            Some(Event::Failed(failure)) => Some(failure.clone().boundary()),
+            _ => None,
+        };
+        let meter_failure = if input_failure.is_some() {
+            observed_failure.as_ref().or(input_cancellation.as_ref())
+        } else {
+            failure
+        };
+        // A known provider failure still owns health and meter evidence after input denial.
         let rate_limit_headers = self
             .rate_limit_headers
             .as_ref()
-            .or_else(|| failure.and_then(|failure| failure.rate_limit_headers.as_deref()));
+            .or_else(|| meter_failure.and_then(|failure| failure.rate_limit_headers.as_deref()));
         let argument = settle_argument(
             &self.request_id,
             &attempt_id,
             outcome,
             usage,
             tool_names,
-            failure,
+            meter_failure,
             finalize,
             self.opened,
             self.first_token_at,
@@ -459,7 +494,8 @@ impl AttemptGuard {
             self.dispatched,
             self.dispatched
                 && observed.terminal.is_none()
-                && failure.is_some_and(|failure| failure.failure_class == FailureClass::Cancelled),
+                && meter_failure
+                    .is_some_and(|failure| failure.failure_class == FailureClass::Cancelled),
             &observed.streamed_output,
         );
         if finalize {
@@ -485,6 +521,15 @@ impl AttemptGuard {
         // cancellation, and the caller treats the failure as fatal so no
         // successor is ever dispatched over an unsettled attempt.
         delivered
+    }
+
+    /// Fail unreleased work without replacing a retained meter after delivery failure.
+    pub(crate) async fn fail_before_release(&mut self, failure: &Failure) {
+        if self.attempt_id.is_some() {
+            self.settle("failed", None, &[], Some(failure), true).await;
+        } else {
+            self.abandon(failure).await;
+        }
     }
 
     /// Settle the active attempt as cancelled and finalize the request.
@@ -630,7 +675,11 @@ impl Drop for AttemptGuard {
                             true,
                             self.opened,
                             self.first_token_at.or(observed.first_token_at),
-                            self.rate_limit_headers.as_ref(),
+                            self.rate_limit_headers.as_ref().or_else(|| {
+                                failure
+                                    .as_ref()
+                                    .and_then(|failure| failure.rate_limit_headers.as_deref())
+                            }),
                             self.upstream_provider.as_deref(),
                             self.web_search_requests,
                             self.tool_search_requests,

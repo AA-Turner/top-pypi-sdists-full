@@ -1,6 +1,6 @@
 [package]
 name = "icechunk"
-version = "2.2.2"
+version = "2.3.0"
 description = "Transactional storage engine for Zarr designed for use on cloud object storage"
 readme = "README.md"
 repository = "https://github.com/earth-mover/icechunk"
@@ -22,7 +22,6 @@ icechunk-storage.workspace = true
 icechunk-types.workspace = true
 icechunk-s3 = { workspace = true, optional = true }
 
-async-compression.workspace = true
 async-recursion.workspace = true
 async-stream.workspace = true
 async-trait.workspace = true
@@ -81,6 +80,9 @@ tokio = { workspace = true, features = [
   "io-util",
 ] }
 
+[target.'cfg(unix)'.dependencies]
+rlimit.workspace = true
+
 [dev-dependencies]
 icechunk-macros.workspace = true
 # test-util exposes write-id injection for the lost-response regression tests.
@@ -105,6 +107,7 @@ tracing-chrome.workspace = true
 tracing-samply.workspace = true
 uuid.workspace = true
 warp.workspace = true
+wiremock.workspace = true
 shuttle.workspace = true
 
 [lints]
@@ -143,6 +146,12 @@ shuttle = ["dep:shuttle-tokio", "shuttle-tokio/shuttle"]
 name = "icechunk"
 path = "src/bin/icechunk/main.rs"
 required-features = ["cli"]
+
+# the report layer needs tracing_subscriber, which only `logs` pulls in
+[[example]]
+name = "gc_bench"
+path = "examples/gc_bench/main.rs"
+required-features = ["logs"]
 
 [[test]]
 name = "main"

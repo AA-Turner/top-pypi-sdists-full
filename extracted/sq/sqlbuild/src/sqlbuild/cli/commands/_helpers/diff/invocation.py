@@ -11,6 +11,7 @@ from sqlbuild.compiler.discovery.main.discover_configuration import (
     discover_project_configuration,
 )
 from sqlbuild.compiler.discovery.models import DiscoveredProjectInputs
+from sqlbuild.compiler.pipeline.main.reject_unit_test_selectors import reject_unit_test_selectors
 
 
 def resolve_diff_invocation(*, request: DiffCommandRequest) -> DiffInvocation:
@@ -34,6 +35,9 @@ def resolve_diff_invocation(*, request: DiffCommandRequest) -> DiffInvocation:
         if is_query_diff_request(request=request)
         else discover_project_inputs(project_dir=effective_project_dir)
     )
+    reject_unit_test_selectors(
+        select=request.select, exclude=request.exclude, discovered_inputs=discovered_inputs
+    )
     if not request.select and not is_query_diff_request(request=request):
         raise CliUserError("diff requires --select in v1", code="C204")
     return DiffInvocation(
@@ -47,9 +51,9 @@ def _validate_diff_request(*, request: DiffCommandRequest) -> None:
     selected_modes: int = (
         int(request.full) + int(request.schema_only) + int(request.bounded is not None)
     )
-    if selected_modes != 1 and not (query_mode and selected_modes == 0):
+    if selected_modes > 1:
         raise CliUserError(
-            "diff requires exactly one of --full, --schema-only, or --bounded",
+            "diff accepts at most one of --full, --schema-only, or --bounded",
             code="C201",
         )
     if request.max_column_examples is not None and request.max_column_examples <= 0:
@@ -152,8 +156,8 @@ def _validate_query_diff_request(*, request: DiffCommandRequest) -> None:
 
 
 def _validate_model_diff_request(*, request: DiffCommandRequest) -> None:
-    if request.from_name is None or request.to_name is None:
-        raise CliUserError("model diff requires FROM:TO", code="C224")
+    if request.from_name is None:
+        raise CliUserError("model diff requires FROM or FROM:TO", code="C224")
     if request.selected_target is not None:
         raise CliUserError("model diff does not accept --target", code="C225")
     if request.left_label is not None or request.right_label is not None:

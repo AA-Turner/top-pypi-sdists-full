@@ -53,6 +53,7 @@ from sqlbuild.compiler.planner._helpers.planning.full_refresh import (
 )
 from sqlbuild.compiler.planner._helpers.resolve.cursor import (
     compute_cursor_bounds,
+    cursor_inputs_without_rows,
     normalize_cursor_snapshot_grain,
     resolve_effective_timestamp_grain,
     without_destination_cursor,
@@ -106,6 +107,7 @@ from sqlbuild.compiler.planner.models import (
     CursorOverrides,
     DeferralInputs,
     Duration,
+    EmptyCursorInputDecision,
     MaximumStartPolicyInputs,
     ModelCursorSnapshot,
     ModelPlanContext,
@@ -125,6 +127,7 @@ from sqlbuild.compiler.planner.types import (
     ContractPolicy,
     CursorGrain,
     CursorType,
+    GraphResourceKind,
     IncrementalMode,
     IncrementalStrategy,
     MaterializationType,
@@ -805,6 +808,16 @@ def plan_model_from_change(
         invocation_time=context.invocation_time,
     )
 
+    empty_cursor_inputs: tuple[str, ...]
+    waiting_on_empty_inputs: bool
+    empty_cursor_inputs, waiting_on_empty_inputs = _resolve_empty_cursor_inputs(
+        model=model,
+        snapshot=snapshot,
+        full_refresh=full_refresh,
+        runtime_owned_cursor_bounds=runtime_owned_cursor_bounds,
+        cursor_overrides=cursor_overrides,
+    )
+
     cursor_type_warning: PlanWarning | None = check_cursor_type_consistency(
         model_name=model.name,
         cursor_column=cursor_column,
@@ -907,6 +920,8 @@ def plan_model_from_change(
             else get_config_str(values=model.config.values, key="lookback")
         ),
         cursor_bounds=cursor_bounds,
+        empty_cursor_inputs=empty_cursor_inputs,
+        waiting_on_empty_inputs=waiting_on_empty_inputs,
         cursor_input_relations=cursor_input_relations,
         batch_size=plan_config.batch_size,
         batch_concurrency=get_config_int(values=model.config.values, key="batch_concurrency") or 1,
@@ -1380,6 +1395,37 @@ def _compute_plan_cursor_bounds(
     )
 
 
+def _resolve_empty_cursor_inputs(
+    *,
+    model: CompiledModel,
+    snapshot: WarehouseSnapshot,
+    full_refresh: bool,
+    runtime_owned_cursor_bounds: bool,
+    cursor_overrides: CursorOverridePair,
+) -> tuple[tuple[str, ...], bool]:
+    """Return empty inputs that leave a planner-owned window empty, and whether others have rows."""
+
+    if (
+        full_refresh
+        or runtime_owned_cursor_bounds
+        or get_config_str(values=model.config.values, key="materialized")
+        != MaterializationType.INCREMENTAL
+        or get_config_str(values=model.config.values, key="cursor") is None
+        or get_config_str(values=model.config.values, key="microbatch_strategy")
+        == MicrobatchStrategy.ROLLING_WINDOW
+        or (
+            cursor_overrides.start_cursor_override is not None
+            and cursor_overrides.end_cursor_override is not None
+        )
+    ):
+        return (), False
+    cursor_snapshot: ModelCursorSnapshot | None = snapshot.cursor_snapshots.get(model.name)
+    if cursor_snapshot is None:
+        return (), False
+    decision: EmptyCursorInputDecision = cursor_inputs_without_rows(cursor_snapshot=cursor_snapshot)
+    return decision.input_names, decision.waiting_on_empty_inputs
+
+
 def _apply_future_safety(
     *,
     bounds: CursorBounds | None,
@@ -1582,6 +1628,8 @@ def _build_cursor_input_relations(
                         ref.ref_kind == SqlReferenceKind.REF and ref.ref_name in model_locations
                     ),
                     is_runtime_produced=ref.ref_name in runtime_cursor_producer_names,
+                    input_name=ref.ref_name,
+                    input_kind=_cursor_input_kind(ref=ref, model_locations=model_locations),
                     terminal_cursor_start=(
                         parse(
                             raw=get_config_cursor_bound(
@@ -1761,6 +1809,22 @@ def _resolve_cursor_input_relation(
         if source is None:
             return None
         return render_source_relation(entry=source, adapter=adapter)
+    return None
+
+
+def _cursor_input_kind(
+    *, ref: CompileSqlReference, model_locations: dict[str, CompiledRelationLocation]
+) -> GraphResourceKind | None:
+    """Return the resource kind a resolved cursor input reference reads."""
+
+    if ref.ref_kind == SqlReferenceKind.REF:
+        return (
+            GraphResourceKind.MODEL if ref.ref_name in model_locations else GraphResourceKind.SEED
+        )
+    if ref.ref_kind == SqlReferenceKind.SEED:
+        return GraphResourceKind.SEED
+    if ref.ref_kind == SqlReferenceKind.SOURCE:
+        return GraphResourceKind.SOURCE
     return None
 
 

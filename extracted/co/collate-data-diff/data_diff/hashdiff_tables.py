@@ -1,15 +1,18 @@
 import os
+import time
+from datetime import timedelta
 from numbers import Number
 import logging
+import threading
 from collections import defaultdict
-from typing import Any, Collection, Dict, Iterator, List, Sequence, Set, Tuple
+from typing import Any, Collection, Dict, Iterator, List, Optional, Sequence, Set, Tuple
 
 import attrs
 from typing_extensions import Literal
 
 from data_diff.abcs.database_types import ColType_UUID, NumericType, PrecisionType, StringType, Boolean, JSON
 from data_diff.info_tree import InfoTree
-from data_diff.utils import safezip, diffs_are_equiv_jsons
+from data_diff.utils import safezip, diffs_are_equiv_jsons, _jsons_equiv
 from data_diff.thread_utils import ThreadedYielder
 from data_diff.table_segment import TableSegment
 from data_diff.diff_tables import TableDiffer
@@ -18,8 +21,11 @@ BENCHMARK = os.environ.get("BENCHMARK", False)
 
 DEFAULT_BISECTION_THRESHOLD = 1024 * 16
 DEFAULT_BISECTION_FACTOR = 32
+PROGRESS_LOG_INTERVAL = 60  # Seconds between a diff's progress lines
 
 logger = logging.getLogger("hashdiff_tables")
+# Progress has a logger of its own, so it can be shown without data-diff's other INFO logs
+progress_logger = logging.getLogger("data_diff.progress")
 
 # Just for local readability: TODO: later switch to real type declarations of these.
 _Op = Literal["+", "-"]
@@ -38,6 +44,7 @@ def diff_sets(
     key_columns2: Sequence[str],
     ignored_columns1: Collection[str],
     ignored_columns2: Collection[str],
+    diff_counts: dict = None,
 ) -> Iterator:
     # Group full rows by PKs on each side. The first items are the PK: TableSegment.relevant_columns
     rows_by_pks1: Dict[_PK, List[_Row]] = defaultdict(list)
@@ -68,6 +75,14 @@ def diff_sets(
             for row2 in rows_by_pks2[pk]:
                 diffs_by_pks[pk].append(("+", row2))
 
+    # For diff_counts: how many reported keys differ in each compared column (not a key, not ignored), by table1's names
+    counted_columns = [
+        (i, col1)
+        for i, (col1, col2) in enumerate(zip(columns1, columns2))
+        if i >= len(key_columns1) and col1 not in ignored_columns1 and col2 not in ignored_columns2
+    ]
+    json_col_names = set(json_cols.values()) if json_cols else set()
+
     warned_diff_cols = set()
     for diffs in (diffs_by_pks[pk] for pk in sorted(diffs_by_pks)):
         if json_cols:
@@ -81,7 +96,42 @@ def diff_sets(
                     )
                     warned_diff_cols.add(w)
                 continue
+        # Only a key with one row on each side ("-" then "+") has a pair to compare, not a duplicated or exclusive one
+        if diff_counts is not None and len(diffs) == 2 and diffs[0][0] != diffs[1][0]:
+            (_, row1), (_, row2) = diffs
+            for i, col in counted_columns:
+                # Like whole rows, values of a JSON column that parse the same aren't a difference
+                if row1[i] != row2[i] and not (col in json_col_names and _jsons_equiv(row1[i], row2[i])):
+                    diff_counts[col] = diff_counts.get(col, 0) + 1
         yield from diffs
+
+
+class _DiffProgress:
+    """Counts the rows a diff has compared and the differing rows it has found, and logs them"""
+
+    def __init__(self, table1: TableSegment, table2: TableSegment) -> None:
+        self.tables = f"{'.'.join(table1.table_path)} <> {'.'.join(table2.table_path)}"
+        self.rows_compared = 0
+        self.differing_rows = 0
+        self.started = self.logged = time.monotonic()
+        self.lock = threading.Lock()
+
+    def update(self, rows_compared: int, differing_rows: int = 0) -> None:
+        "Adds a finished segment. Segments are diffed on a thread pool."
+        with self.lock:
+            self.rows_compared += rows_compared
+            self.differing_rows += differing_rows
+            now = time.monotonic()
+            if now - self.logged >= PROGRESS_LOG_INTERVAL:
+                self.logged = now
+                self._log("Diffing %s: %s rows compared in %s, %s differing so far")
+
+    def log_done(self) -> None:
+        self._log("Diffed %s: %s rows compared in %s, %s differing")
+
+    def _log(self, message: str) -> None:
+        elapsed = timedelta(seconds=round(time.monotonic() - self.started))
+        progress_logger.info(message, self.tables, f"{self.rows_compared:,}", elapsed, f"{self.differing_rows:,}")
 
 
 @attrs.define(frozen=False)
@@ -107,6 +157,7 @@ class HashDiffer(TableDiffer):
     bisection_disabled: bool = False  # i.e. always download the rows (used in tests)
 
     stats: dict = attrs.field(factory=dict)
+    _progress: Optional[_DiffProgress] = attrs.field(default=None, init=False)
 
     def __attrs_post_init__(self) -> None:
         # Validate options
@@ -114,6 +165,12 @@ class HashDiffer(TableDiffer):
             raise ValueError("Incorrect param values (bisection factor must be lower than threshold)")
         if self.bisection_factor < 2:
             raise ValueError("Must have at least two segments per iteration (i.e. bisection_factor >= 2)")
+
+    def _diff_tables_root(self, table1: TableSegment, table2: TableSegment, info_tree: InfoTree) -> Iterator:
+        self._progress = _DiffProgress(table1, table2)
+        yield from super()._diff_tables_root(table1, table2, info_tree)
+        # Only once the diff completes: not when it fails or is closed early
+        self._progress.log_done()
 
     def _validate_and_adjust_columns(self, table1: TableSegment, table2: TableSegment, *, strict: bool = True) -> None:
         for c1, c2 in safezip(table1.relevant_columns, table2.relevant_columns):
@@ -209,6 +266,7 @@ class HashDiffer(TableDiffer):
 
         if checksum1 == checksum2:
             info_tree.info.is_diff = False
+            self._progress.update(max(count1, count2))
             return
 
         info_tree.info.is_diff = True
@@ -240,6 +298,7 @@ class HashDiffer(TableDiffer):
                 for i, colname in enumerate(table1.extra_columns)
                 if isinstance(table1._schema[colname], JSON)
             }
+            diff_counts = {}
             diff = list(
                 diff_sets(
                     rows1,
@@ -251,8 +310,10 @@ class HashDiffer(TableDiffer):
                     key_columns2=table2.key_columns,
                     ignored_columns1=self.ignored_columns1,
                     ignored_columns2=self.ignored_columns2,
+                    diff_counts=diff_counts,
                 )
             )
+            self._add_diff_counts(diff_counts)
 
             # Record only how many rows differ. The rows are yielded to the caller; keeping them on the
             # info tree as well would hold every differing row in memory until the whole diff completes.
@@ -262,6 +323,8 @@ class HashDiffer(TableDiffer):
 
             logger.info(". " * level + f"Diff found {len(diff)} different rows.")
             self.stats["rows_downloaded"] = self.stats.get("rows_downloaded", 0) + max(len(rows1), len(rows2))
+            differing_keys = {row[: len(table1.key_columns)] for _sign, row in diff}
+            self._progress.update(max(len(rows1), len(rows2)), len(differing_keys))
             return diff
 
         return super()._bisect_and_diff_segments(ti, table1, table2, info_tree, level, max_rows)

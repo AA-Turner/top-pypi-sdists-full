@@ -6,9 +6,12 @@ Github OAuth2 backend, docs at:
 from typing import Any
 from urllib.parse import urljoin
 
-from requests import HTTPError
-
-from social_core.exceptions import AuthFailed
+from social_core.exceptions import (
+    AuthPolicyError,
+    AuthProviderError,
+    AuthResponseError,
+    SocialAuthBaseException,
+)
 
 from .oauth import BaseOAuth2
 
@@ -17,6 +20,8 @@ class GithubOAuth2(BaseOAuth2):
     """Github OAuth authentication backend"""
 
     name = "github"
+    title = "GitHub"
+    icon = "github.svg"
     API_URL = "https://api.github.com/"
     AUTHORIZATION_URL = "https://github.com/login/oauth/authorize"
     ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -35,7 +40,9 @@ class GithubOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from Github account"""
-        fullname, first_name, last_name = self.get_user_names(response.get("name"))
+        fullname = response.get("name")
+        first_name = ""
+        last_name = ""
         return {
             "username": response.get("login"),
             "email": response.get("email") or "",
@@ -50,7 +57,11 @@ class GithubOAuth2(BaseOAuth2):
         if not data.get("email") or "user:email" in self.get_scope():
             try:
                 emails = self._user_data(access_token, "/emails")
-            except (HTTPError, ValueError, TypeError):
+            except (AuthProviderError, AuthResponseError):
+                emails = []
+            except SocialAuthBaseException:
+                raise
+            except (ValueError, TypeError):
                 emails = []
             else:
                 data["emails"] = emails
@@ -79,13 +90,17 @@ class GithubMemberOAuth2(GithubOAuth2):
         headers = {"Authorization": f"token {access_token}"}
         try:
             self.request(self.member_url(user_data), headers=headers)
-        except HTTPError as err:
+        except AuthProviderError as err:
             # if the user is a member of the organization, response code
             # will be 204, see http://bit.ly/ZS6vFl
-            if err.response.status_code != 204:
-                raise AuthFailed(
-                    self, "User doesn't belong to the organization"
+            if err.status_code == 404:
+                raise AuthPolicyError(
+                    self,
+                    "User doesn't belong to the organization",
+                    code="membership_required",
+                    stage="user_info",
                 ) from err
+            raise
         return user_data
 
     def member_url(self, user_data):
@@ -96,6 +111,8 @@ class GithubOrganizationOAuth2(GithubMemberOAuth2):
     """Github OAuth2 authentication backend for organizations"""
 
     name = "github-org"
+    title = "GitHub Organization"
+    icon = "github.svg"
     no_member_string = "User doesn't belong to the organization"
 
     def member_url(self, user_data):
@@ -109,6 +126,8 @@ class GithubTeamOAuth2(GithubMemberOAuth2):
     """Github OAuth2 authentication backend for teams"""
 
     name = "github-team"
+    title = "GitHub Team"
+    icon = "github.svg"
     no_member_string = "User doesn't belong to the team"
 
     def member_url(self, user_data):
@@ -127,6 +146,8 @@ class GithubAppAuth(GithubOAuth2):
     """
 
     name = "github-app"
+    title = "GitHub App"
+    icon = "github.svg"
 
     def auth_complete(self, *args, **kwargs):
         if not self.get_request_state() and all(

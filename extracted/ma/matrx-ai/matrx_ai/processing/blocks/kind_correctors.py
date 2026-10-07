@@ -38,6 +38,23 @@ KindCorrector = Callable[[dict[str, Any]], tuple[dict[str, Any], list[str]]]
 
 _correctors: dict[str, KindCorrector] = {}
 
+#: (answer text, the kind's CORRECTED value) -> (text with its prose agreeing, notes).
+#: A kind whose value states a number the model may ALSO state in prose (a critique's
+#: "6/10" beside a scorecard saying 7) registers one: the value is the authority, and
+#: the prose's disagreeing number is rewritten and flagged. Must touch only prose.
+KindProseCorrector = Callable[[str, dict[str, Any]], tuple[str, list[str]]]
+
+_prose_correctors: dict[str, KindProseCorrector] = {}
+
+
+def register_kind_prose_corrector(slug: str, corrector: KindProseCorrector) -> None:
+    """Register (or replace) the prose corrector for one kind slug. Idempotent."""
+    _prose_correctors[slug] = corrector
+
+
+def unregister_kind_prose_corrector(slug: str) -> None:
+    _prose_correctors.pop(slug, None)
+
 
 def register_kind_corrector(slug: str, corrector: KindCorrector) -> None:
     """Register (or replace) the corrector for one kind slug. Idempotent."""
@@ -80,7 +97,7 @@ _FENCED = re.compile(r"(```json[^\n]*\n)(.*?)(\n?```)", re.DOTALL | re.IGNORECAS
 _ARTIFACT = re.compile(r"(<artifact\b[^>]*>)(.*?)(</artifact>)", re.DOTALL | re.IGNORECASE)
 
 
-def _correct_json_region(body: str, notes: list[str]) -> str:
+def _correct_json_region(body: str, notes: list[str], seen: list[dict[str, Any]] | None = None) -> str:
     stripped = body.strip()
     if not stripped.startswith("{"):
         return body
@@ -89,6 +106,8 @@ def _correct_json_region(body: str, notes: list[str]) -> str:
     except (ValueError, TypeError):
         return body
     corrected, changes = correct_kind_value(value)
+    if seen is not None and isinstance(corrected, dict):
+        seen.append(corrected)
     if not changes or corrected is value:
         return body
     notes.extend(changes)
@@ -109,16 +128,29 @@ def correct_kind_regions_in_text(text: str) -> tuple[str, list[str]]:
     written (an artifact's source view, a copy of the raw answer, any consumer that
     re-parses it). So the same correction is applied to the durable text before it is
     written: fenced ```json blocks, ``<artifact>`` bodies, and a bare-JSON answer.
+    Then the PROSE: for every kind value found (corrected or already consistent) whose
+    kind registered a prose corrector, the text around the blocks is made to agree with
+    the value — the value is the authority (``register_kind_prose_corrector``).
     Returns ``(text, [])`` when nothing changed. Never raises.
     """
     if not isinstance(text, str) or "__kind" not in text or not _correctors:
         return text, []
     notes: list[str] = []
+    seen: list[dict[str, Any]] = []
     try:
-        out = _FENCED.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes) + m.group(3), text)
-        out = _ARTIFACT.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes) + m.group(3), out)
+        out = _FENCED.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes, seen) + m.group(3), text)
+        out = _ARTIFACT.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes, seen) + m.group(3), out)
         if out.strip().startswith("{"):
-            out = _correct_json_region(out, notes)
+            out = _correct_json_region(out, notes, seen)
+        for value in seen:
+            slug = value.get("__kind")
+            prose = _prose_correctors.get(slug) if isinstance(slug, str) else None
+            if prose is None:
+                continue
+            aligned, prose_notes = prose(out, value)
+            if prose_notes and isinstance(aligned, str):
+                out = aligned
+                notes.extend(prose_notes)
     except Exception as exc:  # noqa: BLE001 — never block a write over a correction
         logger.error("kind text correction failed: %s — text left as written", exc)
         return text, []
@@ -129,8 +161,11 @@ __all__ = [
     "KIND_CORRECTIONS_KEY",
     "correct_kind_regions_in_text",
     "KindCorrector",
+    "KindProseCorrector",
     "correct_kind_value",
     "has_kind_corrector",
     "register_kind_corrector",
+    "register_kind_prose_corrector",
     "unregister_kind_corrector",
+    "unregister_kind_prose_corrector",
 ]

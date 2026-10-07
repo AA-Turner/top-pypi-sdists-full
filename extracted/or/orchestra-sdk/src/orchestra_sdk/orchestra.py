@@ -8,6 +8,11 @@ from typing import Any
 from orchestra_sdk.check_environment import validate_environment
 from orchestra_sdk.enum import TaskRunStatus, WebhookEventType
 from orchestra_sdk.http import HTTPClient
+from orchestra_sdk.linked_connections import (
+    LinkedConnection,
+    get_linked_connection,
+    list_linked_connections,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +163,35 @@ class OrchestraSDK:
             event (dict[str, Any]): The JSON payload from the AWS Lambda event.
         """
         self.task_run_id = uuid.UUID(event.get("orchestra_task_run_id"))
-        self.log_file = f"/tmp/{self.task_run_id}_{random.randint(0,10000)}.log"
+        self.log_file = f"/tmp/{self.task_run_id}_{random.randint(0, 10000)}.log"
         self.webhook_url = event.get("orchestra_webhook_url")
         self._http_client = None
+
+    def list_linked_connections(self) -> list[LinkedConnection]:
+        """
+        List the connections linked to this Task whose credentials were loaded.
+
+        Returns:
+            list[LinkedConnection]: Each connection's integration, connection ID and fields.
+        """
+        return list_linked_connections()
+
+    def get_linked_connection(
+        self, integration: str, connection_id: str | None = None
+    ) -> LinkedConnection:
+        """
+        Get the credentials of a connection linked to this Task.
+
+        Args:
+            integration (str): The integration, e.g. "SNOWFLAKE". Case insensitive.
+            connection_id (str | None): The connection ID. Can be omitted when only one connection
+                of this integration is linked.
+
+        Returns:
+            LinkedConnection: The connection, whose fields can be read with `connection["field"]`.
+
+        Raises:
+            LinkedConnectionNotFoundError: If no matching connection is linked or its credentials
+                could not be loaded, or if connection_id is omitted and several match.
+        """
+        return get_linked_connection(integration, connection_id)

@@ -36,7 +36,7 @@ test_pass_object_referenced_3:
     SELECT * FROM db.sc.tbl2
     WHERE a NOT IN (SELECT tbl2.a FROM db.sc.tbl1)
 
-test_pass_object_referenced_4:
+test_pass_object_referenced_4a:
   # Test ambiguous column reference caused by use of BigQuery structure fields.
   # Here, 'et2' could either be a schema name or a table name.
   # https://github.com/sqlfluff/sqlfluff/issues/1079
@@ -49,6 +49,17 @@ test_pass_object_referenced_4:
     rules:
       references.from:
         force_enable: true
+
+test_pass_object_referenced_4b:
+  # DuckDB allows dot-access to its MAP objects, which requires special handling
+  # to ensure `ex.x` is not interpreted as `{table}.{field}` instead of
+  # `{schema}.{table}`. The following returns `'there'` if executed.
+  pass_str: |
+    SELECT ex.x.hi
+    FROM (SELECT { 'hi': 'there' } AS x) AS ex
+  configs:
+    core:
+      dialect: duckdb
 
 test_pass_object_referenced_5a:
   # Test ambiguous column reference caused by use of BigQuery structure fields.
@@ -191,6 +202,30 @@ test_pass_exasol_select_into:
     core:
       dialect: exasol
 
+test_pass_oracle_sequence_nextval:
+  # Oracle sequence pseudocolumns should not be interpreted as table references.
+  pass_str: |
+    SELECT emloye_seq.NEXTVAL, name, a, b FROM Employee;
+  configs:
+    core:
+      dialect: oracle
+
+test_pass_oracle_schema_sequence_currval:
+  # Oracle also supports [schema.]sequence.CURRVAL access.
+  pass_str: |
+    SELECT hr.emloye_seq.CURRVAL FROM dual;
+  configs:
+    core:
+      dialect: oracle
+
+test_pass_oracle_sequence_currval:
+  # Oracle also supports sequence.CURRVAL access without schema qualifier.
+  pass_str: |
+    SELECT emloye_seq.CURRVAL FROM dual;
+  configs:
+    core:
+      dialect: oracle
+
 test_pass_simple_delete:
   pass_str: |
     delete from table1 where 1 = 1
@@ -259,6 +294,19 @@ test_parenthesized_join_clauses_do_not_flag:
         I LEFT OUTER JOIN P
             ON I.Pcd = P.Iid
     ) ON BA.Iid = I.Bcd
+  configs:
+    core:
+      dialect: tsql
+
+test_pass_tsql_nested_join_alias:
+  pass_str: |
+    SELECT
+        tst1.Name, tst2.OtherName
+    FROM dbo.Test1 AS tst1
+        LEFT OUTER JOIN (dbo.Test2       AS tst2
+                              INNER JOIN dbo.FilterTable AS fltr1
+                                  ON tst2.Id = fltr1.Id)
+            ON tst1.id = tst2.id
   configs:
     core:
       dialect: tsql
@@ -381,3 +429,527 @@ test_pass_postgres_parenthesized_join:
   configs:
     core:
       dialect: postgres
+
+test_pass_trino_lambda_expression:
+  pass_str: |
+    SELECT
+        a_column,
+        TRANSFORM(array_col, x -> x.example) AS array_col_example
+    FROM example_table;
+  configs:
+    core:
+      dialect: trino
+
+test_pass_vertica_lambda_expression:
+  pass_str: |
+    select
+        hit_code,
+        array_find(
+            hit_categories_array,
+            e -> e not in (
+                'Apple', 'Banana', 'Cherry', 'Durian', 'Elderberry', 'Fig'
+            )
+        ) > -1 as is_unknown_category_flg
+    from hits
+  configs:
+    core:
+      dialect: vertica
+
+test_athena_ignore_rule_if_single_table:
+  pass_str: |
+    select
+        a.complex.key,
+        a.complex.structure.val
+    from sch.t1
+  configs:
+    core:
+      dialect: athena
+
+test_athena_apply_rule_if_single_table_and_force_enable:
+  fail_str: |
+    select
+        a.complex.key,
+        a.complex.structure.val
+    from sch.t1
+  configs:
+    core:
+      dialect: athena
+    rules:
+      references.from:
+        force_enable: true
+
+test_athena_apply_rule_if_multiple_tables:
+  fail_str: |
+    select
+        a.complex.key,
+        a.complex.structure.val
+    from sch.table1 as t1
+    left join sch.table2 as t2
+    on t1.id = t2.id
+  configs:
+    core:
+      dialect: athena
+
+test_athena_apply_rule_if_one_aliased_table:
+  fail_str: |
+    select
+        a.complex.key,
+        a.complex.structure.val
+    from sch.table1 as t1
+  configs:
+    core:
+      dialect: athena
+
+test_sqlite_create_trigger_after_insert_reference:
+  # https://github.com/sqlfluff/sqlfluff/issues/6402
+  # https://www.sqlite.org/lang_createtrigger.html
+  pass_str: |
+    CREATE TRIGGER x
+    AFTER INSERT
+    ON y
+    BEGIN
+    SELECT 1 WHERE new.xyz = 3;
+    END
+  configs:
+    core:
+      dialect: sqlite
+
+test_sqlite_create_trigger_after_delete_reference:
+  # https://github.com/sqlfluff/sqlfluff/issues/6402
+  # https://www.sqlite.org/lang_createtrigger.html
+  pass_str: |
+    CREATE TRIGGER x
+    AFTER DELETE
+    ON y
+    BEGIN
+    SELECT 1 WHERE old.xyz = 3;
+    END
+  configs:
+    core:
+      dialect: sqlite
+
+test_sqlite_create_trigger_after_update_reference:
+  # https://github.com/sqlfluff/sqlfluff/issues/6402
+  # https://www.sqlite.org/lang_createtrigger.html
+  pass_str: |
+    CREATE TRIGGER x
+    AFTER UPDATE
+    ON y
+    BEGIN
+    SELECT 1 WHERE old.xyz != new.xyz;
+    END;
+  configs:
+    core:
+      dialect: sqlite
+
+test_sqlite_outside_of_trigger:
+  # https://github.com/sqlfluff/sqlfluff/issues/6402
+  # https://www.sqlite.org/lang_createtrigger.html
+  fail_str: |
+    SELECT foo FROM bar WHERE old.xyz != new.xyz;
+  configs:
+    core:
+      dialect: sqlite
+
+test_mysql_identifier_with_backticks_should_not_except:
+  pass_str: |
+    SELECT `f`.`bar` FROM `foo` AS `f`;
+  configs:
+    core:
+      dialect: mysql
+
+test_snowflake_pass_dot_inside_quotes:
+  pass_str: |
+    WITH CTE_DUMMY AS (
+        SELECT
+            1 AS "DUMMY.ALIAS"
+            , 2 AS "DUMMY_ALIAS"
+        FROM DUAL
+    )
+
+    SELECT
+        C1."DUMMY.ALIAS"
+        , C1."DUMMY_ALIAS"
+    FROM CTE_DUMMY AS C1
+  configs:
+    core:
+      dialect: snowflake
+
+test_postgres_pass_dot_inside_quotes:
+  pass_str: |
+    SELECT "a.b"
+    FROM table
+  configs:
+    core:
+      dialect: postgres
+
+test_tsql_bracketed_identifiers_pass:
+  pass_str: |
+    select
+        [t1].[field1],
+        [t2].[field2],
+        t1.field3,
+        "t1".field4,
+        [t3].field5,
+        "t3".field6,
+        t3.field7
+    from [table1] as [t1]
+    inner join [table2] as [t2]
+        on [t2].[pk] = [t1].[pk]
+    inner join [table3] as t3
+        on t3.pk = t1.pk
+  configs:
+    core:
+      dialect: tsql
+
+test_bigquery_unnest_with_offset_pass:
+  pass_str: |
+    select
+        ix,
+        v
+    from t
+    left join
+        unnest(t.value_list) as v
+        with offset as ix
+  configs:
+    core:
+      dialect: bigquery
+
+test_pass_tsql_pivot_table_alias:
+  pass_str: |
+    select
+        pvt.cl1
+        , pvt.cl2
+        , pvt.cl3
+        , [1] as lvl_1
+        , [2] as lvl_2
+        , [3] as lvl_3
+    from
+        levels as lvl
+    pivot
+    (max(value) for rn in([1], [2], [3]) ) as pvt
+  configs:
+    core:
+      dialect: tsql
+
+test_pass_tsql_quoted_pivot_table_alias:
+  pass_str: |
+    select pvt.cl1, "pvt".cl2, [pvt].cl3
+    from levels as lvl
+    pivot (max(value) for rn in ([1], [2], [3])) as [pvt]
+  configs:
+    core:
+      dialect: tsql
+
+test_fail_tsql_unknown_quoted_alias:
+  fail_str: |
+    select [missing].field1
+    from [table1] as [t1]
+  configs:
+    core:
+      dialect: tsql
+
+test_pass_postgres_create_policy_using_target_table:
+  pass_str: |
+    CREATE POLICY policy_1 ON table_1
+    FOR SELECT TO PUBLIC
+    USING (
+      EXISTS (
+        SELECT 1
+        FROM table_2
+        WHERE
+          table_2.col_1 = table_1.id
+          AND table_2.col_2 = current_user
+      )
+    )
+  configs:
+    core:
+      dialect: postgres
+
+test_pass_postgres_create_policy_with_check_target_table:
+  pass_str: |
+    CREATE POLICY policy_1 ON table_1
+    FOR UPDATE TO PUBLIC
+    USING (table_1.id = current_user)
+    WITH CHECK (table_1.id = current_user AND table_1.col_1 IS NOT NULL)
+  configs:
+    core:
+      dialect: postgres
+
+test_pass_postgres_alter_policy_target_table:
+  pass_str: |
+    ALTER POLICY policy_1 ON table_1
+    WITH CHECK (table_1.col_1 = current_user AND table_1.col_2 > 0)
+  configs:
+    core:
+      dialect: postgres
+
+test_fail_postgres_create_policy_unreferenced_table:
+  fail_str: |
+    CREATE POLICY policy_1 ON table_1
+    FOR SELECT TO PUBLIC
+    USING (
+      EXISTS (
+        SELECT 1
+        FROM table_2
+        WHERE
+          table_2.col_1 = table_3.id
+          AND table_2.col_2 = current_user
+      )
+    )
+  configs:
+    core:
+      dialect: postgres
+
+test_pass_postgres_create_policy_no_table_reference:
+  pass_str: |
+    CREATE POLICY policy_1 ON table_1
+    FOR SELECT TO PUBLIC
+    USING (true)
+  configs:
+    core:
+      dialect: postgres
+
+test_pass_redshift_object_unpivot:
+  # Redshift SUPER type object unpivoting introduces standalone aliases.
+  # See: https://github.com/sqlfluff/sqlfluff/issues/6765
+  pass_str: |
+    SELECT
+        x.json,
+        key1,
+        value2.field2
+    FROM table1 AS x,
+        UNPIVOT x.json AS value1 AT key1,
+        value1.field1 AS value2 AT key2
+  configs:
+    core:
+      dialect: redshift
+
+test_pass_redshift_from_unpivot_output_aliases:
+  # Redshift UNPIVOT introduces standalone output aliases.
+  # Unqualified references to the generated output columns should be allowed.
+  pass_str: |
+    SELECT
+        color,
+        cnt
+    FROM count_by_color UNPIVOT (
+        cnt FOR color IN (red, green, blue)
+    )
+  configs:
+    core:
+      dialect: redshift
+
+test_pass_snowflake_from_unpivot_output_aliases:
+  # Snowflake UNPIVOT introduces standalone output aliases.
+  pass_str: |
+    SELECT
+        col_name,
+        val
+    FROM my_tbl
+    UNPIVOT (val FOR col_name IN (a, b))
+  configs:
+    core:
+      dialect: snowflake
+
+test_pass_bigquery_single_column_unpivot_output_aliases:
+  # BigQuery single-column UNPIVOT introduces standalone output aliases.
+  pass_str: |
+    SELECT
+        quarter,
+        sales
+    FROM Produce
+    UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+  configs:
+    core:
+      dialect: bigquery
+    rules:
+      references.from:
+        force_enable: true
+
+test_pass_duckdb_single_key_unpivot_output_aliases:
+  # DuckDB single-key UNPIVOT introduces standalone output aliases.
+  pass_str: |
+    SELECT
+        month,
+        sales
+    FROM monthly_sales UNPIVOT (
+        sales
+        FOR month IN (jan, feb, mar, apr, may, jun)
+    )
+  configs:
+    core:
+      dialect: duckdb
+    rules:
+      references.from:
+        force_enable: true
+
+test_pass_redshift_array_unnest:
+  # Redshift SUPER type array unnesting introduces standalone aliases.
+  pass_str: |
+    SELECT
+        ed.shop_id,
+        key,
+        value
+    FROM example_data AS ed,
+        ed.inventory AS value AT key
+  configs:
+    core:
+      dialect: redshift
+
+test_pass_snowflake_sequence_nextval:
+  # Snowflake sequence pseudocolumns should not be interpreted as table
+  # references.  https://github.com/sqlfluff/sqlfluff/issues/7036
+  pass_str: |
+    SELECT
+        XYZ.SCHEMA.SEQ_1.NEXTVAL AS COL_1,
+        COL_2
+    FROM XYZ.SCHEMA.TAB_1
+  configs:
+    core:
+      dialect: snowflake
+
+test_pass_snowflake_sequence_currval:
+  # Snowflake also supports CURRVAL on sequences.
+  pass_str: |
+    SELECT SEQ_1.CURRVAL FROM XYZ.SCHEMA.TAB_1
+  configs:
+    core:
+      dialect: snowflake
+
+test_pass_snowflake_schema_sequence_nextval:
+  # Snowflake two-part sequence reference with schema qualifier.
+  pass_str: |
+    SELECT MY_SCHEMA.SEQ_1.NEXTVAL FROM MY_SCHEMA.TAB_1
+  configs:
+    core:
+      dialect: snowflake
+
+test_pass_databricks_metadata_file_path:
+  # Databricks _metadata virtual column should not trigger RF01.
+  # https://github.com/sqlfluff/sqlfluff/issues/7587
+  # https://docs.databricks.com/en/ingestion/file-metadata-column.html
+  pass_str: |
+    SELECT _metadata.file_path
+    FROM read_files('path/to/data')
+  configs:
+    core:
+      dialect: databricks
+
+test_pass_databricks_metadata_multiple_fields:
+  # Multiple _metadata subfields should all be allowed.
+  pass_str: |
+    SELECT
+        _metadata.file_path,
+        _metadata.file_name,
+        _metadata.file_size,
+        _metadata.file_modification_time
+    FROM my_table
+  configs:
+    core:
+      dialect: databricks
+
+test_pass_databricks_metadata_in_where:
+  # _metadata should be recognized in WHERE clauses too.
+  pass_str: |
+    SELECT *
+    FROM my_table
+    WHERE _metadata.file_path LIKE '%test%'
+  configs:
+    core:
+      dialect: databricks
+
+test_pass_sparksql_metadata_file_path:
+  # SparkSQL also supports the _metadata virtual column.
+  pass_str: |
+    SELECT _metadata.file_path
+    FROM my_table
+  configs:
+    core:
+      dialect: sparksql
+
+test_fail_databricks_non_metadata_reference:
+  # Non-_metadata references should still be flagged in Databricks
+  # when force_enable is true.
+  fail_str: |
+    SELECT unknown_table.column
+    FROM read_files('path/to/data')
+  configs:
+    core:
+      dialect: databricks
+    rules:
+      references.from:
+        force_enable: true
+
+test_pass_tsql_containstable_arguments:
+  # CONTAINSTABLE() arguments are function inputs, not FROM-clause references.
+  pass_str: |
+    SELECT
+        [author_id],
+        [rank]
+    FROM CONTAINSTABLE (
+        [dbo].[author_search_documents],
+        [search_text],
+        @contains_query,
+        @candidate_cap
+    );
+  configs:
+    core:
+      dialect: tsql
+
+test_pass_tsql_containstable_join_arguments:
+  # Joined CONTAINSTABLE() calls should also ignore their internal table input.
+  pass_str: |
+    SELECT FT_TBL.Name,
+           KEY_TBL.RANK
+    FROM Production.Product AS FT_TBL
+         INNER JOIN CONTAINSTABLE(
+             Production.Product,
+             (Name, ProductNumber),
+             'ISABOUT (frame WEIGHT (.8), wheel WEIGHT (.4), tire WEIGHT (.2))',
+             LANGUAGE N'English',
+             5
+         ) AS KEY_TBL
+             ON FT_TBL.ProductID = KEY_TBL.[KEY];
+  configs:
+    core:
+      dialect: tsql
+
+test_pass_mysql_update_alias_correlated_subquery:
+  # The UPDATE target alias is nested inside a from_expression_element.
+  pass_str: |
+    UPDATE llx_product AS p
+    SET p.stock = (
+        SELECT SUM(ps.reel)
+        FROM llx_product_stock AS ps
+        WHERE ps.fk_product = p.rowid
+    );
+  configs:
+    core:
+      dialect: mysql
+
+test_pass_mysql_multi_table_update_alias_correlated_subquery:
+  # Joined UPDATE target aliases must resolve in correlated subqueries.
+  pass_str: |
+    UPDATE t1 AS a
+    INNER JOIN t2 AS b ON a.id = b.id
+    SET a.x = (
+        SELECT SUM(c.v)
+        FROM t3 AS c
+        WHERE c.k = b.id
+    );
+  configs:
+    core:
+      dialect: mysql
+
+test_pass_mysql_comma_multi_table_update_alias_correlated_subquery:
+  # Comma-style UPDATE targets are sibling from_expressions.
+  pass_str: |
+    UPDATE t1 AS a, t2 AS b
+    SET a.x = (
+        SELECT SUM(c.v)
+        FROM t3 AS c
+        WHERE c.k = b.id
+    );
+  configs:
+    core:
+      dialect: mysql

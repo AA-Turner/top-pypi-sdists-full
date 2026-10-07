@@ -1,0 +1,39 @@
+name: Bench comparison
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  bench_compare:
+    runs-on: ubuntu-latest
+
+    steps:
+      # The checked-out ref is the PR merged into main, so its first parent is the main it is
+      # being compared against.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+      # Installs Valgrind and the gungraun-runner matching the gungraun version in Cargo.toml.
+      - name: Setup gungraun
+        uses: gungraun/setup-gungraun@v1
+      # Instruction counts are deterministic, so both sides can run on the same runner one after
+      # the other without the noise a wall-clock comparison would pick up.
+      - name: Bench main
+        run: |
+          git checkout --detach HEAD^1
+          cargo bench -- --save-baseline=main
+          git checkout -
+      - name: Bench PR
+        run: cargo bench -- --baseline=main --save-summary=pretty-json | tee bench-comparison.txt
+        env:
+          GUNGRAUN_COLOR: never
+      - name: Upload comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-comparison
+          path: |
+            bench-comparison.txt
+            target/gungraun/**/summary.json

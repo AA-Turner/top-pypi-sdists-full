@@ -1,5 +1,7 @@
 from typing import Any
 
+from social_core.exceptions import SocialAuthBaseException
+
 from .oauth import BaseOAuth2
 
 
@@ -11,6 +13,7 @@ class CleverOAuth2(BaseOAuth2):
     """
 
     name = "clever"
+    title = "Clever"
     AUTHORIZATION_URL = "https://clever.com/oauth/authorize"
     ACCESS_TOKEN_URL = "https://clever.com/oauth/tokens"
     REDIRECT_STATE = False
@@ -26,10 +29,9 @@ class CleverOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from Classlink account"""
-        fullname, first_name, last_name = self.get_user_names(
-            first_name=response.get("data", {}).get("name", {}).get("first", None),
-            last_name=response.get("data", {}).get("name", {}).get("last", None),
-        )
+        fullname = ""
+        first_name = response.get("data", {}).get("name", {}).get("first", None)
+        last_name = response.get("data", {}).get("name", {}).get("last", None)
         email = response.get("data", {}).get("email")
         username = (
             response.get("data", {})
@@ -56,5 +58,7 @@ class CleverOAuth2(BaseOAuth2):
             user_id = response.get("data", {}).get("id")
             user_details_url = f"https://api.clever.com/v3.0/users/{user_id}"
             return self.get_json(user_details_url, headers=auth_header)
+        except SocialAuthBaseException:
+            raise
         except ValueError:
             return None

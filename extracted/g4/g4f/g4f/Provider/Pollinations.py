@@ -29,7 +29,7 @@ from ..providers.response import (
 )
 from ..tools.media import render_messages
 from ..tools.auth import AuthManager
-from ..cookies import get_cookies_dir
+from ..config import get_cache_dir
 from ..files import secure_filename
 from ..config import AppConfig
 from .template.OpenaiTemplate import OpenaiTemplate, read_response
@@ -64,11 +64,20 @@ class Pollinations(AsyncGeneratorProvider, ProviderModelMixin):
     audio_models = {}
     vision_models = []
     model_aliases = {
+        "gpt-4o": "openai-fast",
+        "gpt-4o-mini": "openai-fast",
+        "gpt-4": "openai-fast",
+        "gpt-3.5-turbo": "openai-fast",
+        "qwen-coder": "qwen/qwen3-coder-30b-a3b-instruct",
+        "qwen-3-coder": "qwen/qwen3-coder-30b-a3b-instruct",
+        "qwen-2.5-coder-32b": "qwen/qwen3-coder-30b-a3b-instruct",
+        "claude-3.5-sonnet": "claude",
+        "claude-3-5-sonnet": "claude",
+        "claude-3-sonnet": "claude",
         "gpt-4.1-nano": "openai-fast",
         "llama-4-scout": "llamascout",
         "deepseek-r1": "deepseek-reasoning",
         "mistral-small-3.1-24b": "mistral-small",
-        "qwen-2.5-coder-32b": "qwen-3-coder",
         "sdxl-turbo": "turbo",
         "gpt-image": "gptimage",
         "flux-dev": "flux",
@@ -114,7 +123,7 @@ class Pollinations(AsyncGeneratorProvider, ProviderModelMixin):
 
         if cls.current_models_endpoint != models_url:
             path = (
-                Path(get_cookies_dir())
+                Path(get_cache_dir())
                 / ".models"
                 / datetime.today().strftime("%Y-%m-%d")
                 / f"{secure_filename(models_url)}.json"
@@ -124,7 +133,11 @@ class Pollinations(AsyncGeneratorProvider, ProviderModelMixin):
                     data = path.read_text()
                     models_data = json.loads(data)
                     for key, value in models_data.items():
-                        setattr(cls, key, value)
+                        if key == "model_aliases" and isinstance(value, dict):
+                            cls.model_aliases.update(value)
+                        else:
+                            setattr(cls, key, value)
+                    cls.swap_model_aliases = {v: k for k, v in cls.model_aliases.items()}
                     return cls.models
                 except Exception as e:
                     debug.error(f"Failed to load cached models from {path}: {e}")

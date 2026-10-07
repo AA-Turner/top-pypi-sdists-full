@@ -1,22 +1,28 @@
 //! Inline code parsing.
 
 use nom::{
+	Parser,
+	branch::alt,
 	bytes::complete::{tag, take_until1},
 	error::ParseError,
 	sequence::delimited,
-	Parser,
 };
 
 use crate::Input;
 
-pub const DELIMITER: &str = "`";
+pub const SINGLE_DELIMITER: &str = "`";
+pub const DOUBLE_DELIMITER: &str = "``";
 
 /// Unparse inline code back to markdown.
 ///
 /// # Errors
 /// If formatting fails
 pub fn unparse(code: &str, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	write!(f, "{DELIMITER}{code}{DELIMITER}")
+	if code.contains('`') {
+		write!(f, "{DOUBLE_DELIMITER}{code}{DOUBLE_DELIMITER}")
+	} else {
+		write!(f, "{SINGLE_DELIMITER}{code}{SINGLE_DELIMITER}")
+	}
 }
 
 /// Parse inline code.
@@ -28,8 +34,18 @@ pub fn code<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Erro
 where
 	E: ParseError<Input<'data>>,
 {
-	// TODO: allow escaping code
-	delimited(tag(DELIMITER), take_until1(DELIMITER), tag(DELIMITER))
+	alt((
+		delimited(
+			tag(SINGLE_DELIMITER),
+			take_until1(SINGLE_DELIMITER),
+			tag(SINGLE_DELIMITER),
+		),
+		delimited(
+			tag(DOUBLE_DELIMITER),
+			take_until1(DOUBLE_DELIMITER),
+			tag(DOUBLE_DELIMITER),
+		),
+	))
 }
 
 #[cfg(test)]
@@ -96,5 +112,17 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, "foo\\nbar");
+	}
+
+	#[test]
+	fn double_delimiter_contains_single_delimiter() {
+		let s = r"``foo`bar``";
+		let (rem, res) = code()
+			.parse_complete(s.into())
+			.finish()
+			.map_err(handle_nom_err(s))
+			.expect("unable to parse");
+		assert_eq!(rem, "");
+		assert_eq!(res, "foo`bar");
 	}
 }

@@ -9,7 +9,7 @@ import importlib
 import importlib.util
 from typing import TYPE_CHECKING
 
-__version__ = "3.0.11"
+__version__ = "3.0.14"
 
 # Common utilities are internal - not exported as public API
 # Use agenticstar_platform.common for internal SDK development only
@@ -36,6 +36,8 @@ _SYMBOL_MODULES = {
     "AzureADConfig": ".db",
     "DataAccess": ".db",
     "ConfigAccess": ".db",
+    # サイクル型の完遂報告（指示書 37）
+    "report_completion": ".db",
     # RAG
     "EmbeddingGenerator": ".rag",
     "EmbeddingConfig": ".rag",
@@ -126,6 +128,7 @@ _SYMBOL_MODULES = {
     "run_marketplace_agent": ".runner",
     "arun_marketplace_agent": ".runner",
     "MarketplaceRunnerConfigError": ".runner",
+    "MarketplaceRunnerFenceTaken": ".runner",
 }
 
 # 実装モジュール → 必要な extra 名（未掲載のモジュールは core 依存のみで動く）
@@ -210,6 +213,7 @@ if TYPE_CHECKING:  # 静的解析 / IDE 補完用（実行時には評価され�
         DataAccess,
         PostgreSQLConfig,
         PostgreSQLManager,
+        report_completion,
     )
     from .events import (
         CompositeEventHandler,
@@ -237,6 +241,7 @@ if TYPE_CHECKING:  # 静的解析 / IDE 補完用（実行時には評価され�
     from .rag import EmbeddingConfig, EmbeddingGenerator, QdrantConfig, QdrantManager
     from .runner import (
         MarketplaceRunnerConfigError,
+        MarketplaceRunnerFenceTaken,
         arun_marketplace_agent,
         run_marketplace_agent,
     )
@@ -404,10 +409,13 @@ __all__ = [
     "StoragePaths",
     # Runtime
     "wait_for_egress",
+    # サイクル型の完遂報告
+    "report_completion",
     # Marketplace runner
     "run_marketplace_agent",
     "arun_marketplace_agent",
     "MarketplaceRunnerConfigError",
+    "MarketplaceRunnerFenceTaken",
     # Security
     "SecurityProvider",
     "ContentCategory",

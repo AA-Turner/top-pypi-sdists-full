@@ -3,22 +3,31 @@ Facebook OAuth2, and Canvas Application  backends, docs at:
     https://python-social-auth.readthedocs.io/en/latest/backends/facebook.html
 """
 
+from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
 import json
 import time
-from typing import Any, Literal, cast
+from math import isfinite
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+from requests import HTTPError
 
 from social_core.exceptions import (
     AuthCanceled,
-    AuthException,
-    AuthMissingParameter,
-    AuthUnknownError,
+    AuthInputError,
+    AuthProviderError,
+    AuthResponseError,
+    ErrorStage,
 )
 from social_core.utils import constant_time_compare, handle_http_errors, parse_qs
 
 from .oauth import BaseOAuth2
+
+if TYPE_CHECKING:
+    from requests import Response
 
 API_VERSION = 24.0
 
@@ -27,6 +36,8 @@ class FacebookOAuth2(BaseOAuth2):
     """Facebook OAuth2 authentication backend"""
 
     name = "facebook"
+    title = "Facebook"
+    icon = "facebook.svg"
     REDIRECT_STATE = False
     RESPONSE_TYPE = None
     SCOPE_SEPARATOR = ","
@@ -43,6 +54,30 @@ class FacebookOAuth2(BaseOAuth2):
         ("denied_scopes", "denied_scopes"),
     ]
 
+    def request(self, *args, **kwargs) -> Response:
+        try:
+            return super().request(*args, **kwargs)
+        except AuthProviderError as error:
+            # https://developers.facebook.com/docs/graph-api/overview/rate-limiting/
+            if isinstance(error.__cause__, HTTPError) and error.provider_code in {
+                4,
+                17,
+                32,
+                613,
+            }:
+                raise AuthProviderError(
+                    self,
+                    error.detail,
+                    code="rate_limited",
+                    source=error.source,
+                    stage=error.stage,
+                    provider_code=error.provider_code,
+                    status_code=error.status_code,
+                    retry_after=error.retry_after,
+                    context=error.context,
+                ) from error.__cause__
+            raise
+
     def auth_params(self, state=None):
         params = super().auth_params(state)
         params["return_scopes"] = "true"
@@ -56,11 +91,9 @@ class FacebookOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from Facebook account"""
-        fullname, first_name, last_name = self.get_user_names(
-            response.get("name", ""),
-            response.get("first_name", ""),
-            response.get("last_name", ""),
-        )
+        fullname = response.get("name", "")
+        first_name = response.get("first_name", "")
+        last_name = response.get("last_name", "")
         return {
             "username": response.get("username", response.get("name")),
             "email": response.get("email", ""),
@@ -85,11 +118,15 @@ class FacebookOAuth2(BaseOAuth2):
         version = self.setting("API_VERSION", API_VERSION)
         return self.get_json(self.USER_DATA_URL.format(version=version), params=params)
 
-    def process_error(self, data) -> None:
-        super().process_error(data)
+    def process_error(self, data, *, stage: ErrorStage = "callback") -> None:
+        super().process_error(data, stage=stage)
         if data.get("error_code"):
-            raise AuthCanceled(
-                self, data.get("error_message") or data.get("error_code")
+            provider_code = data["error_code"]
+            raise AuthProviderError(
+                self,
+                data.get("error_message"),
+                provider_code=provider_code,
+                stage=stage,
             )
 
     @handle_http_errors
@@ -97,7 +134,9 @@ class FacebookOAuth2(BaseOAuth2):
         """Completes login process, must return user instance"""
         self.process_error(self.data)
         if not self.data.get("code"):
-            raise AuthMissingParameter(self, "code")
+            raise AuthInputError(
+                self, parameter="code", code="missing_parameter", stage="callback"
+            )
         state = self.validate_state()
         key, secret = self.get_key_and_secret()
         response = self.request(
@@ -109,6 +148,7 @@ class FacebookOAuth2(BaseOAuth2):
                 "code": self.data["code"],
             },
             method=self.ACCESS_TOKEN_METHOD,
+            stage="token_exchange",
         )
         # API v2.3 returns a JSON, according to the documents linked at issue
         # #592, but it seems that this needs to be enabled(?), otherwise the
@@ -117,7 +157,12 @@ class FacebookOAuth2(BaseOAuth2):
             response = response.json()
         except ValueError:
             response = parse_qs(response.text)
-        access_token = response["access_token"]
+        if not isinstance(response, dict):
+            raise AuthResponseError(
+                self, code="malformed_response", stage="token_exchange"
+            )
+        self._process_error(response, stage="token_exchange")
+        access_token = self.get_access_token(response)
         return self.do_auth(access_token, response, *args, **kwargs)
 
     def process_refresh_token_response(self, response, *args, **kwargs):
@@ -125,6 +170,11 @@ class FacebookOAuth2(BaseOAuth2):
             return response.json()
         except ValueError:
             return parse_qs(response.content)
+
+    def get_refresh_token(self, extra_data: dict[str, Any]) -> str | None:
+        """Facebook renews by exchanging the stored access token."""
+        token = extra_data.get("access_token")
+        return token if isinstance(token, str) and token else None
 
     def refresh_token_params(self, token, *args, **kwargs):
         client_id, client_secret = self.get_key_and_secret()
@@ -147,8 +197,11 @@ class FacebookOAuth2(BaseOAuth2):
             # data is needed (it contains the user ID used to identify the
             # account on further logins), this app cannot allow it to
             # continue with the auth process.
-            raise AuthUnknownError(
-                self, "An error occurred while retrieving users Facebook data"
+            raise AuthResponseError(
+                self,
+                "An error occurred while retrieving users Facebook data",
+                code="malformed_response",
+                stage="user_info",
             )
 
         data["access_token"] = access_token
@@ -182,6 +235,8 @@ class FacebookAppOAuth2(FacebookOAuth2):
     """Facebook Application Authentication support"""
 
     name = "facebook-app"
+    title = "Facebook"
+    icon = "facebook.svg"
     REDIRECT_STATE = True
 
     def uses_redirect(self) -> bool:
@@ -195,7 +250,13 @@ class FacebookAppOAuth2(FacebookOAuth2):
             _key, _secret = self.get_key_and_secret()
             response = self.load_signed_request(self.data["signed_request"])
             if "user_id" not in response and "oauth_token" not in response:
-                raise AuthException(self, "Missing user_id or oauth_token")
+                raise AuthResponseError(
+                    self,
+                    "Missing user_id or oauth_token",
+                    code="missing_claim",
+                    claim="user_id",
+                    stage="callback",
+                )
 
             if response is not None:
                 access_token = (
@@ -207,8 +268,12 @@ class FacebookAppOAuth2(FacebookOAuth2):
         if access_token is None:
             access_error = self.data.get("error")
             if access_error == "access_denied":
-                raise AuthCanceled(self)
-            raise AuthException(self, access_error)
+                raise AuthCanceled(
+                    self, code="authorization_declined", stage="callback"
+                )
+            raise AuthResponseError(
+                self, access_error, code="malformed_response", stage="callback"
+            )
         self.validate_state()
         return self.do_auth(access_token, response, *args, **kwargs)
 
@@ -235,22 +300,53 @@ class FacebookAppOAuth2(FacebookOAuth2):
             return base64.urlsafe_b64decode(data)
 
         _key, secret = self.get_key_and_secret()
+        if not isinstance(signed_request, str):
+            raise AuthResponseError(self, code="malformed_response", stage="callback")
         try:
             sig, payload = signed_request.split(".", 1)
         except ValueError as error:
             # ignore if can't split on dot
-            raise AuthException(self, "Invalid signed request") from error
-        sig = base64_url_decode(sig)
-        payload_json_bytes = base64_url_decode(payload)
-        data = json.loads(payload_json_bytes.decode("utf-8", "replace"))
+            raise AuthResponseError(
+                self,
+                "Invalid signed request",
+                code="invalid_signature",
+                stage="callback",
+            ) from error
+        try:
+            sig = base64_url_decode(sig)
+            payload_json_bytes = base64_url_decode(payload)
+            data = json.loads(payload_json_bytes.decode("utf-8"))
+        except ValueError as error:
+            raise AuthResponseError(
+                self, code="malformed_response", stage="callback"
+            ) from error
+        if not isinstance(data, dict):
+            raise AuthResponseError(self, code="malformed_response", stage="callback")
         expected_sig = hmac.new(
             secret.encode("ascii"),
             msg=payload.encode("ascii"),
             digestmod=hashlib.sha256,
         ).digest()
-        # allow the signed_request to function for upto 1 day
-        if constant_time_compare(sig, expected_sig) and data["issued_at"] > (
-            time.time() - 86400
+        if not constant_time_compare(sig, expected_sig):
+            raise AuthResponseError(
+                self, "Invalid signature", code="invalid_signature", stage="callback"
+            )
+        issued_at = data.get("issued_at")
+        if issued_at is None:
+            raise AuthResponseError(
+                self, claim="issued_at", code="missing_claim", stage="callback"
+            )
+        if (
+            isinstance(issued_at, bool)
+            or not isinstance(issued_at, (int, float))
+            or (isinstance(issued_at, float) and not isfinite(issued_at))
         ):
+            raise AuthResponseError(
+                self, claim="issued_at", code="invalid_claim", stage="callback"
+            )
+        # allow the signed_request to function for upto 1 day
+        if issued_at > time.time() - 86400:
             return data
-        raise AuthException(self, "Invalid signature")
+        raise AuthResponseError(
+            self, "Invalid signature", code="invalid_signature", stage="callback"
+        )

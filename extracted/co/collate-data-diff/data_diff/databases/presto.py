@@ -8,6 +8,7 @@ from data_diff.schema import RawColumnInfo
 from data_diff.utils import match_regexps
 
 from data_diff.abcs.database_types import (
+    Date,
     Timestamp,
     TimestampTZ,
     Integer,
@@ -60,6 +61,7 @@ class Dialect(BaseDialect):
         "timestamp with time zone": TimestampTZ,
         "timestamp without time zone": Timestamp,
         "timestamp": Timestamp,
+        "date": Date,
         # Numbers
         "integer": Integer,
         "bigint": Integer,
@@ -134,6 +136,9 @@ class Dialect(BaseDialect):
         return f"TRIM(CAST({value} AS VARCHAR))"
 
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
+        if isinstance(coltype, Date):
+            return f"CAST({value} AS VARCHAR)"  # yyyy-mm-dd, as the other dialects render dates
+
         # PrestoDB has no parameterized TIMESTAMP(p) type, only plain TIMESTAMP
         # which is fixed at millisecond precision. Casting to TIMESTAMP(6) here
         # fails with "Unknown type: timestamp(6)" on real PrestoDB even though

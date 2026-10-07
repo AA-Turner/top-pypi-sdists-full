@@ -1,4 +1,4 @@
-use nom_language::error::{convert_error, VerboseError};
+use nom_language::error::{VerboseError, convert_error};
 
 use crate::Input;
 

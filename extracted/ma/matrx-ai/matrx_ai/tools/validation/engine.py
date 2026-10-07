@@ -244,6 +244,21 @@ def validate(
     report.external_count = sum(1 for d in db_by_name.values() if not is_owned(d, owner_executors))
     report.code_count = len(code)
 
+    # A tool being renamed answers to its aliases too: the DB row may carry either name.
+    alias_of = {
+        alias: name for name, ct in code.items() for alias in getattr(ct, "aliases", ())
+    }
+
+    def _db_row_for(code_name: str):
+        row = db_by_name.get(code_name)
+        if row is not None:
+            return row
+        for alias in getattr(code[code_name], "aliases", ()):
+            row = db_by_name.get(alias)
+            if row is not None:
+                return row
+        return None
+
     # ── Direction 1: every code tool must have a matching, correct DB row ──
     for name, ct in code.items():
         # R1 — CAN THIS EXECUTOR RUN IT AT ALL. Asked FIRST, and asked of every
@@ -253,11 +268,11 @@ def validate(
         # filter, so the one guard that would notice is disabled by the same flag. It is
         # therefore checked before — and independently of — `validate` and
         # `validation_exempt`, which exempt the argument contract and nothing else.
-        _check_binding_active(name, ct, db_by_name.get(name), owner_executors, report)
+        _check_binding_active(name, ct, _db_row_for(name), owner_executors, report)
 
         if not ct.validate or ct.deprecated:
             report.exempt.append(name)
-            db = db_by_name.get(name)
+            db = _db_row_for(name)
             if ct.deprecated and db is not None and db.is_active:
                 report.findings.append(
                     Finding(
@@ -276,7 +291,7 @@ def validate(
             continue
 
         report.checked.append(name)
-        db = db_by_name.get(name)
+        db = _db_row_for(name)
         if db is None:
             report.findings.append(
                 Finding(
@@ -340,8 +355,8 @@ def validate(
             if db.validation_exempt:
                 report.exempt.append(name)
             continue
-        if name in code:
-            continue  # already checked in Direction 1
+        if name in code or name in alias_of:
+            continue  # already checked in Direction 1 (directly or through its alias)
 
         # A generic family (e.g. ``bundle:list_*``) backs this row with ONE shared
         # implementation — there is no per-member @tool declaration by design.

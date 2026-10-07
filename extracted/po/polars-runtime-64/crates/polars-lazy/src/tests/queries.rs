@@ -1,5 +1,8 @@
 #[cfg(feature = "diff")]
 use polars_core::series::ops::NullBehavior;
+#[cfg(feature = "rank")]
+use polars_defs::expr::{RankMethod, RankOptions};
+use polars_defs::join::{JoinArgs, JoinType, MaintainOrderJoin};
 
 use super::*;
 
@@ -280,7 +283,7 @@ fn test_lazy_query_4() -> PolarsResult<()> {
 
     let out = base_df
         .clone()
-        .group_by([col("uid")])
+        .group_by_stable([col("uid")])
         .agg([
             col("day").alias("day"),
             col("cumcases")
@@ -298,7 +301,7 @@ fn test_lazy_query_4() -> PolarsResult<()> {
             base_df,
             [col("uid"), col("day")],
             [col("uid"), col("day")],
-            JoinType::Inner.into(),
+            JoinArgs::new(JoinType::Inner).with_maintain_order(MaintainOrderJoin::LeftRight),
         )?
         .collect()
         .unwrap();
@@ -979,7 +982,12 @@ fn test_group_by_projection_pd_same_column() -> PolarsResult<()> {
     };
 
     let out = a()
-        .left_join(a(), col("foo"), col("foo"))
+        .join(
+            a(),
+            [col("foo")],
+            [col("foo")],
+            JoinArgs::new(JoinType::Left).with_maintain_order(MaintainOrderJoin::LeftRight),
+        )?
         .select([col("bar")])
         .collect()?;
 
@@ -1535,7 +1543,7 @@ fn test_round_after_agg() -> PolarsResult<()> {
         .agg([col("A")
             .cast(DataType::Float32)
             .mean()
-            .round(2, polars_ops::series::RoundMode::default())
+            .round(2, polars_defs::expr::RoundMode::default())
             .alias("foo")])
         .collect()?;
 
@@ -1569,7 +1577,7 @@ fn test_round_after_agg() -> PolarsResult<()> {
         .lazy()
         .group_by_stable([col("groups")])
         .agg([((col("b") * col("c")).sum() / col("b").sum())
-            .round(2, polars_ops::series::RoundMode::default())
+            .round(2, polars_defs::expr::RoundMode::default())
             .alias("foo")])
         .collect()?;
 
@@ -1883,15 +1891,10 @@ fn test_partitioned_gb_mean() -> PolarsResult<()> {
     .lazy()
     .with_columns([lit("a").alias("str"), lit(1).alias("int")])
     .group_by([col("key")])
-    .agg([
-        col("str").mean().alias("mean_str"),
-        col("int").mean().alias("mean_int"),
-    ])
+    .agg([col("int").mean().alias("mean_int")])
     .collect()?;
 
-    assert_eq!(out.shape(), (1, 3));
-    let str_col = out.column("mean_str")?;
-    assert_eq!(str_col.get(0)?, AnyValue::Null);
+    assert_eq!(out.shape(), (1, 2));
     let int_col = out.column("mean_int")?;
     assert_eq!(int_col.get(0)?, AnyValue::Float64(1.0));
 
@@ -2053,8 +2056,7 @@ fn test_join_where_left_maintain_order() -> PolarsResult<()> {
     // `maintain_order` is not reachable from `join_where` in Python. A non-`None`
     // `maintain_order` also forces the nested-loop algorithm rather than IEJoin, so this
     // is the only way to cover null-extended rows keeping their left-input position.
-    use polars_ops::frame::MaintainOrderJoin;
-
+    use polars_defs::join::MaintainOrderJoin;
     let a: Vec<i32> = (0..2000).collect();
     let left = df!["a" => a]?.lazy();
     let right = df!["b" => [0, 1]]?.lazy();
@@ -2075,5 +2077,25 @@ fn test_join_where_left_maintain_order() -> PolarsResult<()> {
     );
     // 998 left rows match both right rows, `a == 1` matches one, and 1001 are unmatched.
     assert_eq!(a.len(), 998 * 2 + 1 + 1001);
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "iejoin")]
+fn test_join_where_left_pushed_condition_keeps_validation() -> PolarsResult<()> {
+    // `validate` is not reachable from `join_where` in Python.
+    use polars_defs::join::JoinValidation;
+    let left = df!["a" => [1, 2]]?.lazy();
+    let right = df!["b" => [1, 2]]?.lazy();
+
+    let query = left
+        .join_builder()
+        .with(right)
+        .how(JoinType::Left)
+        .validate(JoinValidation::OneToOne)
+        .join_where(vec![col("b").gt(lit(0))])
+        .filter(col("b").is_not_null());
+
+    assert!(query.collect().is_err());
     Ok(())
 }

@@ -4,20 +4,27 @@ import copy
 import datetime
 import json
 from typing import Protocol, cast
+from unittest.mock import patch
 
 import jwt
 import responses
 
 from social_core.backends.open_id_connect import OpenIdConnectAuth
 from social_core.exceptions import (
-    AuthInvalidParameter,
-    AuthReauthenticationRequired,
-    AuthTokenError,
+    AuthConfigurationError,
+    AuthCredentialError,
+    AuthResponseError,
 )
+from social_core.tests.exception_helpers import assert_auth_error
 from social_core.utils import get_querystring, parse_qs
 
 from .oauth import BaseAuthUrlTestMixin
-from .open_id_connect import STORED_ID_TOKEN_CONTEXT_KEY, OpenIdConnectTest
+from .open_id_connect import (
+    PARTIAL_ID_TOKEN_KEY,
+    STORED_ID_TOKEN_CONTEXT_KEY,
+    OpenIdConnectTest,
+)
+from .open_id_connect_nonce import OpenIdConnectNonceAssertionsMixin
 
 
 def decode_id_token_context(id_token: str) -> dict:
@@ -91,7 +98,10 @@ class OpenIdConnectPkceAssertionsMixin:
 
 
 class BaseOpenIdConnectTest(
-    OpenIdConnectTest, BaseAuthUrlTestMixin, OpenIdConnectPkceAssertionsMixin
+    OpenIdConnectTest,
+    BaseAuthUrlTestMixin,
+    OpenIdConnectPkceAssertionsMixin,
+    OpenIdConnectNonceAssertionsMixin,
 ):
     backend_path = "social_core.backends.open_id_connect.OpenIdConnectAuth"
     issuer = "https://example.com"
@@ -127,8 +137,91 @@ class BaseOpenIdConnectTest(
             content_type="text/json",
         )
 
-    def test_everything_works(self) -> None:
-        self.do_login()
+    def test_partial_pipeline(self) -> None:
+        self.do_partial_pipeline()
+
+    def test_partial_pipeline_before_details_and_uid(self) -> None:
+        self.pipeline_settings()
+        pipeline = list(self.strategy.get_pipeline(self.backend))
+        pipeline.remove("social_core.tests.pipeline.ask_for_password")
+        pipeline.insert(0, "social_core.tests.pipeline.ask_for_password")
+        self.strategy.set_settings(
+            {"SOCIAL_AUTH_PIPELINE": pipeline, "SOCIAL_AUTH_OIDC_ID_KEY": "custom_id"}
+        )
+        get_id_token = self.get_id_token
+
+        def token_with_profile(*args, **kwargs):
+            return {
+                **get_id_token(*args, **kwargs),
+                "custom_id": "token-only-id",
+                "email": "token@example.com",
+            }
+
+        with (
+            patch.object(self, "pipeline_settings"),
+            patch.object(self, "get_id_token", side_effect=token_with_profile),
+        ):
+            user = self.do_partial_pipeline()
+
+        self.assertEqual(user.email, "token@example.com")
+        self.assertEqual(user.social[0].uid, "token-only-id")
+
+    def test_partial_pipeline_after_token_expires(self) -> None:
+        resume = self.resume_partial_pipeline
+
+        def resume_after_expiration(partial):
+            claims = partial.kwargs[PARTIAL_ID_TOKEN_KEY]
+            expired_time = datetime.datetime.fromtimestamp(
+                claims["exp"] + self.backend.ID_TOKEN_MAX_AGE + 1,
+                datetime.timezone.utc,
+            )
+            with (
+                patch("jwt.api_jwt.datetime") as jwt_datetime,
+                patch("social_core.backends.open_id_connect.datetime") as oidc_datetime,
+            ):
+                jwt_datetime.now.return_value = expired_time
+                oidc_datetime.datetime.now.return_value = expired_time
+                return resume(partial)
+
+        with patch.object(
+            self, "resume_partial_pipeline", side_effect=resume_after_expiration
+        ):
+            self.do_partial_pipeline()
+
+    def test_partial_pipeline_without_saved_claims_rejects_token(self) -> None:
+        resume = self.resume_partial_pipeline
+
+        def resume_without_claims(partial):
+            if "password" in partial.kwargs:
+                partial.kwargs.pop(PARTIAL_ID_TOKEN_KEY, None)
+            return resume(partial)
+
+        with (
+            patch.object(
+                self, "resume_partial_pipeline", side_effect=resume_without_claims
+            ),
+            assert_auth_error(self, AuthResponseError, "invalid_claim"),
+        ):
+            self.do_partial_pipeline()
+
+    def test_pipeline_does_not_trust_caller_supplied_claims(self) -> None:
+        user = self.do_login()
+        social = user.social[0]
+        claims = self.backend.id_token
+        self.backend.id_token = None
+
+        with assert_auth_error(self, AuthResponseError, "invalid_claim") as error:
+            self.backend.pipeline(
+                ["social_core.pipeline.social_auth.load_extra_data"],
+                user=user,
+                uid=social.uid,
+                social=social,
+                details={},
+                response={"id_token": social.extra_data["id_token"]},
+                **{PARTIAL_ID_TOKEN_KEY: claims},
+            )
+        self.assertEqual(error.exception.stage, "pipeline")
+        self.assertEqual(error.exception.public_metadata()["error_stage"], "pipeline")
 
     def test_pkce_disabled_by_default(self) -> None:
         self.do_login()
@@ -146,19 +239,21 @@ class BaseOpenIdConnectTest(
 
         self.assert_pkce_enabled()
 
-    def assert_refresh_rejected(self, body: str, message: str) -> None:
+    def assert_refresh_rejected(self, body: str, code: str) -> None:
         social = self.login_for_refresh()
         original_extra_data = copy.deepcopy(social.extra_data)
 
-        with self.assertRaisesRegex(AuthTokenError, message):
+        with assert_auth_error(self, AuthResponseError, code) as error:
             self.refresh_social(social, body)
 
+        self.assertEqual(error.exception.stage, "refresh")
+        self.assertEqual(error.exception.public_metadata()["error_stage"], "refresh")
         self.assertEqual(social.extra_data, original_extra_data)
 
     def assert_refresh_requires_reauthentication(self, social) -> None:
         original_extra_data = copy.deepcopy(social.extra_data)
 
-        with self.assertRaises(AuthReauthenticationRequired):
+        with self.assertRaises(AuthCredentialError):
             self.refresh_social(social, self.refresh_response())
 
         self.assertEqual(social.extra_data, original_extra_data)
@@ -234,13 +329,43 @@ class BaseOpenIdConnectTest(
         )
         self.assert_refresh_rejected(
             body,
-            "Missing access_token in OpenID Connect refresh response",
+            "missing_claim",
         )
+
+    def test_refresh_rejects_non_object_json_without_updating_credentials(self) -> None:
+        self.assert_refresh_rejected("[]", "malformed_response")
+
+    def test_refresh_does_not_persist_unvalidated_id_token(self) -> None:
+        social = self.login_for_refresh()
+        original_extra_data = copy.deepcopy(social.extra_data)
+
+        with (
+            patch.object(
+                type(self.backend),
+                "validate_and_return_refresh_id_token",
+                return_value=None,
+            ),
+            assert_auth_error(self, AuthResponseError, "invalid_claim") as error,
+        ):
+            self.refresh_social(social, self.refresh_response())
+
+        self.assertEqual(error.exception.stage, "refresh")
+        self.assertEqual(error.exception.public_metadata()["error_stage"], "refresh")
+        self.assertEqual(social.extra_data, original_extra_data)
 
     def test_refresh_rejects_invalid_signature(self) -> None:
         self.assert_refresh_rejected(
             self.refresh_response(tamper_message=True),
-            "Signature verification failed",
+            "invalid_signature",
+        )
+
+    def test_refresh_rejects_expired_id_token(self) -> None:
+        expiration_datetime = datetime.datetime.now(
+            datetime.timezone.utc
+        ) - datetime.timedelta(days=1)
+        self.assert_refresh_rejected(
+            self.refresh_response(expiration_datetime=expiration_datetime),
+            "response_expired",
         )
 
     def test_refresh_rejects_stale_issue_time(self) -> None:
@@ -251,19 +376,19 @@ class BaseOpenIdConnectTest(
         )
         self.assert_refresh_rejected(
             self.refresh_response(issue_datetime=issue_datetime),
-            "Incorrect id_token: iat",
+            "response_expired",
         )
 
     def test_refresh_rejects_missing_expiration(self) -> None:
         self.assert_refresh_rejected(
             self.refresh_response(exclude_claims=("exp",)),
-            "Incorrect id_token: exp",
+            "missing_claim",
         )
 
     def test_refresh_rejects_changed_audience_set(self) -> None:
         self.assert_refresh_rejected(
             self.refresh_response(client_key=[self.client_key, "another-audience"]),
-            "Incorrect refreshed id_token: aud",
+            "invalid_claim",
         )
 
     def test_refresh_accepts_reordered_audience_set(self) -> None:
@@ -287,13 +412,13 @@ class BaseOpenIdConnectTest(
                 client_key=[self.client_key, "another-audience"],
                 include_azp=False,
             ),
-            "Incorrect id_token: azp",
+            "invalid_claim",
         )
 
     def test_refresh_rejects_invalid_azp(self) -> None:
         self.assert_refresh_rejected(
             self.refresh_response(authorized_party="another-audience"),
-            "Incorrect id_token: azp",
+            "invalid_claim",
         )
 
     def test_refresh_accepts_added_azp(self) -> None:
@@ -316,17 +441,14 @@ class BaseOpenIdConnectTest(
     def test_refresh_rejects_changed_subject(self) -> None:
         self.assert_refresh_rejected(
             self.refresh_response(subject="different-subject"),
-            "Incorrect refreshed id_token: sub",
+            "invalid_claim",
         )
 
     def test_refresh_rejects_changed_auth_time(self) -> None:
         social = self.login_for_refresh(auth_time=1_700_000_000)
         original_extra_data = copy.deepcopy(social.extra_data)
 
-        with self.assertRaisesRegex(
-            AuthTokenError,
-            "Incorrect refreshed id_token: auth_time",
-        ):
+        with assert_auth_error(self, AuthResponseError, "invalid_claim"):
             self.refresh_social(
                 social,
                 self.refresh_response(auth_time=1_700_000_001),
@@ -340,7 +462,7 @@ class BaseOpenIdConnectTest(
                 access_token="refreshed-access-token",  # noqa: S106
                 nonce="different-nonce",
             ),
-            "Incorrect refreshed id_token: nonce",
+            "invalid_claim",
         )
 
     def test_refresh_without_context_establishes_new_baseline(self) -> None:
@@ -358,10 +480,7 @@ class BaseOpenIdConnectTest(
         )
         migrated_extra_data = copy.deepcopy(social.extra_data)
 
-        with self.assertRaisesRegex(
-            AuthTokenError,
-            "Incorrect refreshed id_token: sub",
-        ):
+        with assert_auth_error(self, AuthResponseError, "invalid_claim"):
             self.refresh_social(
                 social,
                 self.refresh_response(subject="another-subject"),
@@ -422,7 +541,7 @@ class ExampleOpenIdConnectTest(OpenIdConnectTest):
         self.do_login()
 
     def test_malformed_id_token_raises_auth_token_error(self) -> None:
-        with self.assertRaises(AuthTokenError) as context:
+        with self.assertRaises(AuthResponseError) as context:
             self.backend.validate_and_return_id_token("malformed", "access-token")
 
         self.assertIsInstance(context.exception.__cause__, jwt.PyJWTError)
@@ -434,15 +553,24 @@ class ExampleOpenIdConnectTest(OpenIdConnectTest):
 
     def test_missing_id_token_subject_raises_error(self) -> None:
         self.authtoken_raised(
-            "Incorrect id_token: sub",
+            "missing_claim",
             exclude_claims=("sub",),
         )
 
     def test_missing_id_token_expiration_raises_error(self) -> None:
         self.authtoken_raised(
-            "Incorrect id_token: exp",
+            "missing_claim",
             exclude_claims=("exp",),
         )
+
+    def test_missing_id_token_issue_time_raises_error(self) -> None:
+        self.access_token_kwargs = {"exclude_claims": ("iat",)}
+        with self.assertRaises(AuthResponseError) as caught:
+            self.do_login()
+        self.assertEqual(caught.exception.code, "missing_claim")
+        self.assertEqual(caught.exception.claim, "iat")
+        self.assertEqual(caught.exception.stage, "token_validation")
+        self.assertEqual(caught.exception.recovery, "contact_administrator")
 
     def test_matching_userinfo_sub_succeeds(self) -> None:
         self.userinfo_response["sub"] = "1234"
@@ -454,14 +582,12 @@ class ExampleOpenIdConnectTest(OpenIdConnectTest):
     def test_mismatched_userinfo_sub_raises_error(self) -> None:
         self.userinfo_response["sub"] = "not-validated-subject"
 
-        with self.assertRaisesRegex(
-            AuthTokenError, "Token error: Invalid UserInfo sub"
-        ):
+        with assert_auth_error(self, AuthResponseError, "invalid_claim"):
             self.do_login()
 
     def test_missing_access_token_response_raises_token_error(self) -> None:
         self.authtoken_raised(
-            "Token error: Missing access_token in OpenID Connect token response",
+            "missing_claim",
             access_token=None,
         )
 
@@ -634,7 +760,7 @@ class ExampleOpenIdConnectCustomAtHashTest(OpenIdConnectTest):
             self.access_token_kwargs = {"at_hash": at_hash}
             self.do_login()
         else:
-            self.authtoken_raised("Token error: Invalid access token", at_hash=at_hash)
+            self.authtoken_raised("invalid_claim", at_hash=at_hash)
 
     def test_invalid_custom_at_hash_algo(self) -> None:
         with self.assertRaisesRegex(
@@ -829,7 +955,7 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
     expected_username = "cartman"
 
     def test_empty_acr_values_raises_error(self) -> None:
-        with self.assertRaises(AuthInvalidParameter):
+        with self.assertRaises(AuthConfigurationError):
             self.strategy.set_settings(
                 {
                     **self.extra_settings(),
@@ -839,7 +965,7 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
             self.backend.auth_params(state="test-state")
 
     def test_empty_login_hint_raises_error(self) -> None:
-        with self.assertRaises(AuthInvalidParameter):
+        with self.assertRaises(AuthConfigurationError):
             self.strategy.set_settings(
                 {
                     **self.extra_settings(),
@@ -849,7 +975,7 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
             self.backend.auth_params(state="test-state")
 
     def test_empty_id_token_hint_raises_error(self) -> None:
-        with self.assertRaises(AuthInvalidParameter):
+        with self.assertRaises(AuthConfigurationError):
             self.strategy.set_settings(
                 {
                     **self.extra_settings(),
@@ -859,7 +985,7 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
             self.backend.auth_params(state="test-state")
 
     def test_empty_ui_locales_raises_error(self) -> None:
-        with self.assertRaises(AuthInvalidParameter):
+        with self.assertRaises(AuthConfigurationError):
             self.strategy.set_settings(
                 {
                     **self.extra_settings(),

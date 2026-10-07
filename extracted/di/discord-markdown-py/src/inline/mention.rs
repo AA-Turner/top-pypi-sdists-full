@@ -3,15 +3,15 @@
 use std::fmt::Display;
 
 use nom::{
+	Parser,
 	branch::alt,
 	bytes::complete::tag,
 	character::complete::{char, u64},
 	combinator::{map, opt, value},
 	sequence::delimited,
-	Parser,
 };
 
-use crate::{error::ParseError, inline::mention::command::Command, unparse::Unparse, Input};
+use crate::{Input, error::ParseError, inline::mention::command::Command, unparse::Unparse};
 
 pub mod command;
 pub mod r#static;
@@ -199,7 +199,7 @@ mod test {
 
 	use super::{channel, game, role, user};
 	use crate::{
-		inline::mention::{mention, Mention},
+		inline::mention::{Mention, mention},
 		test_utils::handle_nom_err,
 	};
 

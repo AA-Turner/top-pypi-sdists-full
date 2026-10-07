@@ -44,6 +44,7 @@ from .protocol import (
     JsonRpcNotification,
     JsonRpcResponse,
     build_cli_invoke_payload,
+    build_structured_read_input,
     build_operation_argv,
     encode_jsonrpc_request,
     map_jsonrpc_error,
@@ -349,6 +350,16 @@ class SyncHostTransport:
                 user=self._user,
             )
             payload = build_cli_invoke_payload(argv, stdin_bytes, normalized_collaboration_auth)
+            structured = (
+                build_structured_read_input(
+                    operation, params, stdin_bytes, normalized_collaboration_auth, encoded_argv=argv,
+                )
+                if 'cli.invoke.structuredReads' in self._host_features else None
+            )
+            if structured is not None:
+                payload = {'operationId': operation_id, 'input': structured}
+                if timeout_ms is not None:
+                    payload['timeoutMs'] = timeout_ms
             result = self._send_request('cli.invoke', payload, watchdog)
 
             if not isinstance(result, dict):
@@ -819,6 +830,16 @@ class AsyncHostTransport:
             user=self._user,
         )
         payload = build_cli_invoke_payload(argv, stdin_bytes, normalized_collaboration_auth)
+        structured = (
+            build_structured_read_input(
+                operation, params, stdin_bytes, normalized_collaboration_auth, encoded_argv=argv,
+            )
+            if 'cli.invoke.structuredReads' in self._host_features else None
+        )
+        if structured is not None:
+            payload = {'operationId': operation_id, 'input': structured}
+            if timeout_ms is not None:
+                payload['timeoutMs'] = timeout_ms
         result = await self._send_request('cli.invoke', payload, watchdog)
 
         if not isinstance(result, dict):

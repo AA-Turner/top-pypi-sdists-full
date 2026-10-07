@@ -180,8 +180,8 @@ def test_qualified_ref_names_the_agent_directly(client, app):
 
 
 def test_unknown_agent_in_ref_is_rejected_by_name(client, app):
-    with pytest.raises(errors.ValidationError, match="cursor|claude_code") as excinfo:
-        _service(client).get_entity(f"session:cursor/{_SID}")
+    with pytest.raises(errors.ValidationError, match="nobody|claude_code") as excinfo:
+        _service(client).get_entity(f"session:nobody/{_SID}")
     assert "claude_code" in str(excinfo.value)  # names the real vocabulary
 
 

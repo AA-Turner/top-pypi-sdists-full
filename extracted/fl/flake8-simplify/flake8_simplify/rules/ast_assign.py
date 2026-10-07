@@ -1,9 +1,18 @@
 import ast
+from collections.abc import Iterator
 
-from flake8_simplify.utils import Assign, expression_uses_variable, to_source
+from flake8_simplify.registry import Violation, rule
+from flake8_simplify.utils import (
+    expression_uses_variable,
+    get_next_sibling,
+    get_parent,
+    in_same_block,
+    to_source,
+)
 
 
-def get_sim904(node: ast.Assign) -> list[tuple[int, int, str]]:
+@rule("SIM904", ast.Assign)
+def get_sim904(node: ast.Assign) -> Iterator[Violation]:
     """
     Assign values to dictionary directly at initialization.
 
@@ -36,9 +45,8 @@ def get_sim904(node: ast.Assign) -> list[tuple[int, int, str]]:
             ),
         ]
     """
-    RULE = "SIM904 Initialize dictionary '{dict_name}' directly"
-    errors: list[tuple[int, int, str]] = []
-    n2 = node.next_sibling  # type: ignore
+    RULE = "Initialize dictionary '{dict_name}' directly"
+    n2 = get_next_sibling(node)
     if not (
         isinstance(node.value, ast.Dict)
         and isinstance(n2, ast.Assign)
@@ -48,25 +56,20 @@ def get_sim904(node: ast.Assign) -> list[tuple[int, int, str]]:
         and isinstance(n2.targets[0].value, ast.Name)
         and isinstance(node.targets[0], ast.Name)
         and n2.targets[0].value.id == node.targets[0].id
+        and in_same_block(node, n2)
     ):
-        return errors
+        return
 
     dict_name = to_source(node.targets[0])
     # Capture cases where the assigned value uses another dictionary value
     if expression_uses_variable(n2.value, dict_name):
-        return errors
+        return
 
-    errors.append(
-        (
-            node.lineno,
-            node.col_offset,
-            RULE.format(dict_name=dict_name),
-        )
-    )
-    return errors
+    yield Violation(node, RULE.format(dict_name=dict_name))
 
 
-def get_sim909(node: Assign) -> list[tuple[int, int, str]]:
+@rule("SIM909", ast.Assign)
+def get_sim909(node: ast.Assign) -> Iterator[Violation]:
     """
     Avoid reflexive assignments
 
@@ -86,8 +89,7 @@ def get_sim909(node: Assign) -> list[tuple[int, int, str]]:
             ),
         ]
     """
-    RULE = "SIM909 Remove reflexive assignment '{code}'"
-    errors: list[tuple[int, int, str]] = []
+    RULE = "Remove reflexive assignment '{code}'"
 
     names = []
     if isinstance(node.value, (ast.Name, ast.Subscript, ast.Tuple)):
@@ -96,18 +98,11 @@ def get_sim909(node: Assign) -> list[tuple[int, int, str]]:
         names.append(to_source(target))
 
     if len(names) == len(set(names)):
-        return errors
+        return
 
-    if isinstance(node.parent, ast.ClassDef):
-        return errors
+    if isinstance(get_parent(node), ast.ClassDef):
+        return
 
-    code = to_source(node.orig)
+    code = to_source(node)
 
-    errors.append(
-        (
-            node.lineno,
-            node.col_offset,
-            RULE.format(code=code),
-        )
-    )
-    return errors
+    yield Violation(node, RULE.format(code=code))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cyclopts
-Version: 5.1.1
+Version: 5.2.0
 Summary: Intuitive, easy CLIs based on type hints.
 Project-URL: Homepage, https://github.com/BrianPugh/cyclopts
 Project-URL: Repository, https://github.com/BrianPugh/cyclopts
@@ -43,7 +43,7 @@ Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.25.2; extra == 'docs'
 Requires-Dist: sphinx-copybutton<1.0,>=0.5; extra == 'docs'
 Requires-Dist: sphinx-rtd-dark-mode<2.0.0,>=1.3.0; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<4.0.0,>=3.0.0; extra == 'docs'
-Requires-Dist: sphinx<8.2.0,>=7.4.7; extra == 'docs'
+Requires-Dist: sphinx<10.0.0,>=7.4.7; extra == 'docs'
 Provides-Extra: mkdocs
 Requires-Dist: markdown>=3.3; extra == 'mkdocs'
 Requires-Dist: mkdocs>=1.4.0; extra == 'mkdocs'

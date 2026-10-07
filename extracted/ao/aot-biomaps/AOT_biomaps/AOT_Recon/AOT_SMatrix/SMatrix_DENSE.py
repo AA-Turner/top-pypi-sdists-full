@@ -3,7 +3,7 @@ from tqdm import trange
 from typing import Optional, Union
 import contextlib
 from AOT_biomaps.AOT_Recon.AOT_SMatrix._mainSMatrix import SMatrix
-from AOT_biomaps.AOT_Recon.ReconEnums import SMatrixType
+from AOT_biomaps.AOT_Recon.ReconEnums import SMatrixType, SMATRIX_FORMAT_TAG, SMATRIX_FORMAT_TAGS
 from AOT_biomaps.AOT_Recon.ReconTools import check_gpu_available
 
 # Check for CuPy availability
@@ -19,6 +19,7 @@ class SMatrix_DENSE(SMatrix):
     Construction of a DENSE matrix from a `experiment` object.
     Supports both REAL and COMPLEX fields via `isComplexSMatrix`.
     """
+    _FORMAT_TAG = SMATRIX_FORMAT_TAG[SMatrixType.DENSE]
 
     def __init__(self, **kwargs):
         """
@@ -45,18 +46,19 @@ class SMatrix_DENSE(SMatrix):
             # Prepare host buffer for field data (1D array)
             field_host = np.empty((self.T * self.Z * self.X), dtype=dtype)
 
+            # Sorted keys for consistent ordering with CPU allocation
+            sorted_keys = sorted(list(self.experiment.AcousticFields_demodulated.keys())) if self.isComplexSMatrix else None
+
             # Fill dense matrix using CUDA kernel
             fill_kernel_name = "fill_kernel__DENSE__COMPLEX" if self.isComplexSMatrix else "fill_kernel__DENSE__REAL"
             fill_kernel = self.sparse_mod.get_function(fill_kernel_name)
 
             for n in trange(self.N, desc=f'[AOT-biomaps] Filling DENSE ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: {self.device.upper()}'):
                 if self.isComplexSMatrix:
-                    # For complex: use demodulated_fields
-                    key = list(self.experiment.AcousticFields_demodulated.keys())[n]
+                    key = sorted_keys[n]
                     for t in range(self.T):
                         field_host[t * (self.Z * self.X) : (t + 1) * (self.Z * self.X)] = self.experiment.AcousticFields_demodulated[key][t].flatten()
                 else:
-                    # For real: use AcousticFields
                     for t in range(self.T):
                         field_host[t * (self.Z * self.X) : (t + 1) * (self.Z * self.X)] = self.experiment.AcousticFields[n].field[t].flatten().astype(dtype)
 
@@ -98,7 +100,7 @@ class SMatrix_DENSE(SMatrix):
         for n in trange(0, self.N, br, desc=f'[AOT-biomaps] Filling DENSE ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
             current_n = min(br, self.N - n)
             for t in range(self.T):
-                # Chargement par bloc de dimensions (current_n, num_cols)
+                # Load a block of shape (current_n, num_cols)
                 block = np.empty((current_n, num_cols), dtype=dtype)
                 for i in range(current_n):
                     ni = n + i
@@ -107,12 +109,15 @@ class SMatrix_DENSE(SMatrix):
                         block[i] = self.experiment.AcousticFields_demodulated[key][t].flatten()
                     else:
                         block[i] = self.experiment.AcousticFields[ni].field[t].flatten()
-                
-                # Réinjection directe et vectorisée dans le tenseur 4D
+
+                # Direct vectorized re-injection into the 4D tensor
                 self.dense_matrix[t, n:n+current_n] = block.reshape((current_n, self.Z, self.X))
 
     def _save_sparse_matrix(self, filePath):
         """Saves the complete DENSE matrix to an uncompressed .npz file."""
+        if self._is_virtual_truncated():
+            raise RuntimeError("[AOT-biomaps] Call untruncate() before save_sparse_matrix().")
+
         if check_gpu_available(self) and self.dense_matrix_gpu is not None:
             dense = cp.asnumpy(self.dense_matrix_gpu)
             with cp.cuda.Device(self.gpu_index):
@@ -134,38 +139,57 @@ class SMatrix_DENSE(SMatrix):
         else:
             spatial_meta = np.zeros(7)
 
-        metadata = np.concatenate([
-            np.array([self.N, self.T, self.Z, self.X, int(self.isComplexSMatrix)]),
-            spatial_meta
-        ])
-
+        # Format tag (last field, checked at load time)
+        metadata = np.concatenate([np.array([self.N, self.T, self.Z, self.X, int(self.isComplexSMatrix)]), spatial_meta, np.array([self._FORMAT_TAG])])
+        
         np.savez(
             filePath,
             dense_matrix=dense,
-            norm_factor_inv=getattr(self, 'norm_factor_inv', np.array([])),
-            metadata=metadata
+            norm_factor_inv=self.norm_factor_inv if self.norm_factor_inv is not None else np.array([]),
+            metadata=metadata,
+            normalization_factor=np.float64(getattr(self, 'normalization_factor', 1.0))
         )
         print(f"[AOT-biomaps] DENSE SMatrix successfully saved to: {filePath}")
+
+    def _check_format_tag(self, meta):
+        """Ensure the npz was saved as a REAL/COMPLEX DENSE matrix (format tag + complex flag)."""
+        # 1. Identify the file's format first (useful message before any length check)
+        tag = int(meta[-1]) if len(meta) >= 1 else -1
+        if tag != self._FORMAT_TAG and tag in SMATRIX_FORMAT_TAGS:
+            raise ValueError(f"[AOT-biomaps] Wrong matrix format: file is {SMATRIX_FORMAT_TAGS[tag]} (tag {tag}), but this object is DENSE (tag {self._FORMAT_TAG}). Load it with the matching smatrixType or regenerate the SMatrix.")
+
+        # 2. Unknown / legacy file
+        if len(meta) < 13:
+            raise ValueError(f"[AOT-biomaps] Incompatible npz: metadata too short ({len(meta)} fields, expected >= 13). Not a DENSE file from this AOT-biomaps version — regenerate the SMatrix.")
+
+        # 3. REAL vs COMPLEX mismatch (isComplexSMatrix is meta[4] for DENSE)
+        file_is_complex = bool(int(meta[4]))
+        if file_is_complex != self.isComplexSMatrix:
+            kind_file = "COMPLEX" if file_is_complex else "REAL"
+            kind_self = "COMPLEX" if self.isComplexSMatrix else "REAL"
+            raise ValueError(f"[AOT-biomaps] SMatrix type mismatch: file was saved as {kind_file} but this object is configured as {kind_self}. Recreate AlgebraicRecon with the matching isComplexRecon setting or regenerate the SMatrix.")
 
     def _load_sparse_matrix_cpu(self, filePath):
         """Loads the DENSE matrix from the .npz file into CPU RAM."""
         print(f"[AOT-biomaps] Loading DENSE SMatrix from {filePath} into CPU RAM...")
         data = np.load(filePath)
-
+        if 'normalization_factor' in data:
+            self.normalization_factor = float(data['normalization_factor'])
+        else:
+            raise ValueError("[AOT-biomaps] npz has no 'normalization_factor': the matrix scale is unknown (saved by an older version?). Regenerate and re-save the SMatrix with this version.")
+        
         meta = data['metadata']
+        self._check_format_tag(meta)
         self.N, self.T, self.Z, self.X = map(int, meta[:4])
         self.isComplexSMatrix = bool(meta[4])
 
         # Restore the physical spatial crop info if present
         self._phys_box = None
-        if len(meta) >= 12 and int(meta[5]) == 1:
-            self._phys_box = {'z': (int(meta[6]), int(meta[7])),
-                            'x': (int(meta[8]), int(meta[9])),
-                            'Zf': int(meta[10]), 'Xf': int(meta[11])}
-        elif len(meta) >= 12 and int(meta[5]) == 2:
-            self._phys_box = {'dec': {"Z": int(meta[6]), "X": int(meta[7])},
-                            'Zf': int(meta[10]), 'Xf': int(meta[11])}
-
+        if int(meta[5]) == 1:
+            self._phys_box = {'z': (int(meta[6]), int(meta[7])), 'x': (int(meta[8]), int(meta[9])), 'Zf': int(meta[10]), 'Xf': int(meta[11])}
+        elif int(meta[5]) == 2:
+            self._phys_box = {'dec': {"Z": int(meta[6]), "X": int(meta[7])}, 'Zf': int(meta[10]), 'Xf': int(meta[11])}
+        
         self.dense_matrix = data['dense_matrix']
         self.dense_matrix_gpu = None
 
@@ -181,20 +205,22 @@ class SMatrix_DENSE(SMatrix):
         print(f"[AOT-biomaps] Direct-to-GPU loading of DENSE SMatrix from {filePath}...")
         self.load_module()
         data = np.load(filePath)
-
+        if 'normalization_factor' in data:
+            self.normalization_factor = float(data['normalization_factor'])
+        else:
+            raise ValueError("[AOT-biomaps] npz has no 'normalization_factor': the matrix scale is unknown (saved by an older version?). Regenerate and re-save the SMatrix with this version.")
+        
         meta = data['metadata']
+        self._check_format_tag(meta)
         self.N, self.T, self.Z, self.X = map(int, meta[:4])
         self.isComplexSMatrix = bool(meta[4])
 
         # Restore the physical spatial crop info if present
         self._phys_box = None
-        if len(meta) >= 12 and int(meta[5]) == 1:
-            self._phys_box = {'z': (int(meta[6]), int(meta[7])),
-                            'x': (int(meta[8]), int(meta[9])),
-                            'Zf': int(meta[10]), 'Xf': int(meta[11])}
-        elif len(meta) >= 12 and int(meta[5]) == 2:
-            self._phys_box = {'dec': {"Z": int(meta[6]), "X": int(meta[7])},
-                            'Zf': int(meta[10]), 'Xf': int(meta[11])}
+        if int(meta[5]) == 1:
+            self._phys_box = {'z': (int(meta[6]), int(meta[7])), 'x': (int(meta[8]), int(meta[9])), 'Zf': int(meta[10]), 'Xf': int(meta[11])}
+        elif int(meta[5]) == 2:
+            self._phys_box = {'dec': {"Z": int(meta[6]), "X": int(meta[7])}, 'Zf': int(meta[10]), 'Xf': int(meta[11])}
 
         cp_dtype = self._get_cp_dtype()
 
@@ -329,30 +355,40 @@ class SMatrix_DENSE(SMatrix):
                 e_tmp[self._vt_active_rows] = e_cpu
                 e_cpu = e_tmp
                 dense_2d = dense.transpose(1, 0, 2, 3).reshape(full_NT, full_ZX)
-                c = dense_2d.T @ e_cpu
+                c = dense_2d.conj().T @ e_cpu
                 if self._vs_active_cols is not None:
                     return c[self._vs_active_cols]
                 return c
 
             dense_2d = dense.transpose(1, 0, 2, 3).reshape(int(self.N * self.T), int(self.Z * self.X))
-            return dense_2d.T @ e_cpu
+            return dense_2d.conj().T @ e_cpu
     
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
         raise NotImplementedError("Apodization not implemented for DENSE matrix.")
 
     def get_matrix_size(self):
         """Get matrix size information."""
-        if self.dense_matrix is not None:
+        if self.dense_matrix_gpu is not None:
+            size_bytes = self.dense_matrix_gpu.nbytes
+            return {
+                'total_bytes': size_bytes,
+                'total_gb': size_bytes / (1024 ** 3),
+                'shape': tuple(self.dense_matrix_gpu.shape),
+                'dtype': str(self.dense_matrix_gpu.dtype),
+                'device': self.device
+            }
+        elif self.dense_matrix is not None:
             size_bytes = self.dense_matrix.nbytes
             return {
                 'total_bytes': size_bytes,
                 'total_gb': size_bytes / (1024 ** 3),
                 'shape': self.dense_matrix.shape,
-                'dtype': str(self.dense_matrix.dtype)
+                'dtype': str(self.dense_matrix.dtype),
+                'device': self.device
             }
         else:
             return {'error': '[AOT-biomaps] Matrix not allocated'}
-
+    
     def _free_specific(self):
         """Free all GPU memory allocated by DENSE."""
         if check_gpu_available(self):
@@ -374,14 +410,21 @@ class SMatrix_DENSE(SMatrix):
                     cp.cuda.Stream.null.synchronize()
     
     def compute_hessian_diagonal(self):
-        """
-        Compute diag(A^H A).
-        """
-        if check_gpu_available(self):
+        """diag(A_eff^H A_eff) at effective size (supports virtual truncation)."""
+        virt = self._is_virtual_truncated()
+
+        if check_gpu_available(self) and self.dense_matrix_gpu is not None:
             with cp.cuda.Device(self.gpu_index):
-                return cp.sum(cp.abs(self.dense_matrix_gpu) ** 2, axis=(0,1)).ravel().astype(cp.float32)
+                diag = cp.sum(cp.abs(self.dense_matrix_gpu) ** 2, axis=(0, 1)).ravel().astype(cp.float32)
+                # gather: full -> effective (phi_s)
+                if virt and self._vs_active_cols_gpu is not None:
+                    diag = diag[self._vs_active_cols_gpu]
+                return diag
         else:
-            return np.sum(np.abs(self.dense_matrix) ** 2, axis=(0,1)).ravel().astype(np.float32)
+            diag = np.sum(np.abs(self.dense_matrix) ** 2, axis=(0, 1)).ravel().astype(np.float32)
+            if virt and self._vs_active_cols is not None:
+                diag = diag[self._vs_active_cols]
+            return diag
         
     def normalize_matrix(self):
         """
@@ -413,33 +456,53 @@ class SMatrix_DENSE(SMatrix):
     
     def compute_absolute_row_col_sums(self):
         """
-        Computes row and column sums of absolute values (|A| * 1 and |A|^T * 1) 
+        Computes row and column sums of absolute values (|A| * 1 and |A|^T * 1)
         without phase cancellation for complex matrices in DENSE format.
+        Supports virtual truncation.
         """
+        virt = self._is_virtual_truncated()
+        if virt:
+            full_NT = self._full_N * self._full_T
+            full_ZX = self._full_Z * self._full_X
+        else:
+            full_NT = self.N * self.T
+            full_ZX = self.Z * self.X
+
         is_gpu = check_gpu_available(self) and self.dense_matrix_gpu is not None
-        
+
         if is_gpu:
             with cp.cuda.Device(self.gpu_index):
                 abs_dense = cp.abs(self.dense_matrix_gpu)
-                # Layout shape is (T, N, Z, X). Reshape to (N * T, Z * X)
-                abs_2d = abs_dense.transpose(1, 0, 2, 3).reshape(int(self.N * self.T), int(self.Z * self.X))
-                
+                # Layout shape is (T, N, Z, X). Reshape to (N * T, Z * X) at FULL size
+                abs_2d = abs_dense.transpose(1, 0, 2, 3).reshape(full_NT, full_ZX)
+
                 row_sums = cp.sum(abs_2d, axis=1)
                 col_sums = cp.sum(abs_2d, axis=0)
-                
+
+                # gather: full -> effective (phi_t on rows, phi_s on cols)
+                if virt:
+                    row_sums = row_sums[self._vt_active_rows_gpu]
+                    if self._vs_active_cols_gpu is not None:
+                        col_sums = col_sums[self._vs_active_cols_gpu]
+
                 return row_sums, col_sums
         else:
             if self.dense_matrix is None:
                 raise RuntimeError("[AOT-biomaps] DENSE matrix not allocated on CPU.")
-            
+
             abs_dense = np.abs(self.dense_matrix)
-            abs_2d = abs_dense.transpose(1, 0, 2, 3).reshape(int(self.N * self.T), int(self.Z * self.X))
-            
+            abs_2d = abs_dense.transpose(1, 0, 2, 3).reshape(full_NT, full_ZX)
+
             row_sums = np.sum(abs_2d, axis=1).astype(np.float32)
             col_sums = np.sum(abs_2d, axis=0).astype(np.float32)
-            
+
+            if virt:
+                row_sums = row_sums[self._vt_active_rows]
+                if self._vs_active_cols is not None:
+                    col_sums = col_sums[self._vs_active_cols]
+
             return row_sums, col_sums
-    
+        
     def physical_truncate(self, time_range=None, time_decimate=1, space_range=None, space_decimate=None, recompute_norm=True, verbose=True):
         """
         Physically truncates the DENSE matrix in time (T) and space (X, Z).
@@ -464,7 +527,7 @@ class SMatrix_DENSE(SMatrix):
         elif space_decimate:
             self._phys_box = {'dec': dict(space_decimate), 'Zf': self.Z, 'Xf': self.X}
 
-        on_gpu = (self.dense_matrix_gpu is not None) and CUPY_AVAILABLE
+        on_gpu = (self.dense_matrix_gpu is not None) and CUPY_AVAILABLE and check_gpu_available(self)
         xp = cp if on_gpu else np
 
         device_ctx = cp.cuda.Device(self.gpu_index) if on_gpu else contextlib.nullcontext()
@@ -522,7 +585,7 @@ class SMatrix_DENSE(SMatrix):
         if verbose:
             print(f"[AOT-biomaps] DENSE physical truncation: T {old_T}->{self.T}, "
                 f"Z {old_Z}->{self.Z}, X {old_X}->{self.X}")
-
+                
     def virtual_truncate(self, time_range=None, time_decimate=1, space_range=None, verbose=True):
         """
         Virtual truncation: A stays untouched in memory, only active indices are stored.
@@ -588,8 +651,39 @@ class SMatrix_DENSE(SMatrix):
         if hasattr(self, "_full_T"):
             self.N, self.T = self._full_N, self._full_T
             self.Z, self.X = self._full_Z, self._full_X
+            for a in ("_full_N", "_full_T", "_full_Z", "_full_X"):  
+                delattr(self, a) 
         if verbose:
             print("[AOT-biomaps] Virtual truncation removed. Full matrix active.")
 
     def _is_virtual_truncated(self):
         return getattr(self, "_vt_time_mask", None) is not None
+    
+    def to_gpu(self, gpu_index=0):
+        """
+        Transfer the DENSE matrix from CPU RAM to GPU VRAM (reversible with to_cpu).
+        Refuses if the matrix currently lives on another GPU: call to_cpu() first (explicit two-step, avoids silent multi-GPU residency bugs).
+        """
+        if self.dense_matrix_gpu is not None:
+            if self.gpu_index == gpu_index:
+                return  # already on the requested GPU
+            raise RuntimeError(f"[AOT-biomaps] Matrix currently lives on gpu:{self.gpu_index}. Call to_cpu() first, then to_gpu({gpu_index}) to move it explicitly.")
+
+        if self.dense_matrix is None:
+            raise RuntimeError("[AOT-biomaps] DENSE matrix not allocated on CPU, cannot transfer to GPU.")
+        self.gpu_index = gpu_index
+        self.device = f'gpu:{self.gpu_index}'
+        self.load_module()
+        with cp.cuda.Device(self.gpu_index):
+            self.dense_matrix_gpu = cp.asarray(self.dense_matrix).astype(self._get_cp_dtype())
+            if self.norm_factor_inv is not None:
+                self.norm_factor_inv_gpu = cp.asarray(self.norm_factor_inv)
+            self._release_pool()
+        
+    def to_cpu(self):
+        """Transfer the DENSE matrix from GPU VRAM to CPU RAM (reversible with to_gpu)."""
+        if self.dense_matrix_gpu is None:
+            return  # already on CPU
+        self.dense_matrix = cp.asnumpy(self.dense_matrix_gpu)
+        self._free_specific()
+        self.device = 'cpu'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonpath-ng
-Version: 1.9.0
+Version: 1.9.1
 Summary: A final implementation of JSONPath for Python that aims to be standard compliant, including arithmetic and binary comparison operators and providing clear AST for metaprogramming.
 Author-email: Tomas Aparicio <tomas@aparicio.me>
 License-Expression: Apache-2.0
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: license-file

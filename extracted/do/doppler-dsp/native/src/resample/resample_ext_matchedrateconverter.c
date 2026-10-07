@@ -1,9 +1,11 @@
+/* jm:generated resample_ext_matchedrateconverter.c */
 /*
  * resample_ext_matchedrateconverter.c — MatchedRateConverter type for the
  * resample module.
  *
  * Included by resample_ext.c (the module aggregator).
- * Hand-patches to this file are preserved across jm commands.
+ * jm regenerates this file on every apply; do not edit it.
+ * Hand-written code belongs in resample_ext_matchedrateconverter_extra.c.
  * Do NOT compile this file directly — only resample_ext.c is compiled.
  */
 /* ======================================================== */
@@ -29,6 +31,9 @@ static PyObject *
 MatchedRateConverterObj_new (PyTypeObject *type, PyObject *args,
                              PyObject *kwds)
 {
+  /* tp_new allocates only; __init__ reads the arguments. */
+  (void)args;
+  (void)kwds;
   MatchedRateConverterObject *self
       = (MatchedRateConverterObject *)type->tp_alloc (type, 0);
   if (self)
@@ -122,8 +127,7 @@ MatchedRateConverterObj_execute (MatchedRateConverterObject *self,
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &x_obj,
                                     &out_obj))
     return NULL;
-  x_arr = (PyArrayObject *)PyArray_FROM_OTF (x_obj, NPY_COMPLEX64,
-                                             NPY_ARRAY_C_CONTIGUOUS);
+  x_arr = jm_array_arg (x_obj, NPY_COMPLEX64, NPY_ARRAY_C_CONTIGUOUS, "x");
   if (!x_arr)
     return NULL;
   if (out_obj && out_obj != Py_None)
@@ -141,9 +145,9 @@ MatchedRateConverterObj_execute (MatchedRateConverterObject *self,
           Py_DECREF (x_arr);
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_COMPLEX64,
-          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_COMPLEX64,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           Py_DECREF (x_arr);
@@ -167,6 +171,15 @@ MatchedRateConverterObj_execute (MatchedRateConverterObject *self,
           (size_t)PyArray_SIZE (x_arr),
           (float _Complex *)PyArray_DATA (out_arr), _cap);
       Py_DECREF (x_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "MatchedRateConverter.execute: wrote %zu elements "
+                        "into a buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
                                                     PyArray_DATA (out_arr));
@@ -175,14 +188,30 @@ MatchedRateConverterObj_execute (MatchedRateConverterObject *self,
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)PyArray_SIZE (x_arr);
   size_t _cap  = dp_RateConverter_execute_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (x_arr);
+      PyErr_Format (
+          PyExc_OverflowError,
+          "MatchedRateConverter.execute: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -194,6 +223,15 @@ MatchedRateConverterObj_execute (MatchedRateConverterObject *self,
       self->handle, (const float _Complex *)PyArray_DATA (x_arr),
       (size_t)PyArray_SIZE (x_arr), _d0, _cap);
   Py_DECREF (x_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (PyExc_RuntimeError,
+                    "MatchedRateConverter.execute: wrote %zu elements into a "
+                    "buffer of %zu",
+                    (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -211,6 +249,19 @@ MatchedRateConverterObj_execute (MatchedRateConverterObject *self,
 }
 
 static PyObject *
+MatchedRateConverterObj_execute_ctrl_max_out (MatchedRateConverterObject *self,
+                                              PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (
+      dp_RateConverter_execute_ctrl_max_out (self->handle));
+}
+
+static PyObject *
 MatchedRateConverterObj_execute_ctrl (MatchedRateConverterObject *self,
                                       PyObject *args, PyObject *kwds)
 {
@@ -219,21 +270,99 @@ MatchedRateConverterObj_execute_ctrl (MatchedRateConverterObject *self,
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char   *_kwlist[] = { "x", "ctrl", NULL };
+  static char   *_kwlist[] = { "x", "ctrl", "out", NULL };
   PyObject      *x_obj     = NULL;
   PyArrayObject *x_arr     = NULL;
   double         ctrl      = 0;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Od", _kwlist, &x_obj, &ctrl))
+  PyObject      *out_obj   = NULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Od|O", _kwlist, &x_obj, &ctrl,
+                                    &out_obj))
     return NULL;
-  x_arr = (PyArrayObject *)PyArray_FROM_OTF (x_obj, NPY_COMPLEX64,
-                                             NPY_ARRAY_C_CONTIGUOUS);
+  x_arr = jm_array_arg (x_obj, NPY_COMPLEX64, NPY_ARRAY_C_CONTIGUOUS, "x");
   if (!x_arr)
     return NULL;
+  if (out_obj && out_obj != Py_None)
+    {
+      /* Require the exact dtype AND C-contiguity — either mismatch makes
+       * the marshal write into a temp copy, not the caller's buffer. */
+      if (!PyArray_Check (out_obj)
+          || PyArray_TYPE ((PyArrayObject *)out_obj) != NPY_COMPLEX64
+          || !PyArray_IS_C_CONTIGUOUS ((PyArrayObject *)out_obj)
+          || !PyArray_ISWRITEABLE ((PyArrayObject *)out_obj))
+        {
+          PyErr_SetString (PyExc_TypeError,
+                           "out must be a writable, C-contiguous"
+                           " ndarray of the output dtype");
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_COMPLEX64,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
+      if (!out_arr)
+        {
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
+      size_t _omax    = dp_RateConverter_execute_ctrl_max_out (self->handle);
+      size_t _min_cap = _omax > (size_t)PyArray_SIZE (x_arr)
+                            ? _omax
+                            : ((size_t)PyArray_SIZE (x_arr));
+      if (_cap < _min_cap)
+        {
+          PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
+                        _cap, _min_cap);
+          Py_DECREF (out_arr);
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      size_t n_out = dp_RateConverter_execute_ctrl (
+          self->handle, (const float _Complex *)PyArray_DATA (x_arr),
+          (size_t)PyArray_SIZE (x_arr), ctrl,
+          (float _Complex *)PyArray_DATA (out_arr), _cap);
+      Py_DECREF (x_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "MatchedRateConverter.execute_ctrl: wrote %zu "
+                        "elements into a buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
+      npy_intp  _odim  = (npy_intp)n_out;
+      PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
+                                                    PyArray_DATA (out_arr));
+      if (!_oview)
+        {
+          Py_DECREF (out_arr);
+          return NULL;
+        }
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
+      return _oview;
+    }
   size_t _need = (size_t)PyArray_SIZE (x_arr);
   size_t _cap  = dp_RateConverter_execute_ctrl_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (x_arr);
+      PyErr_Format (PyExc_OverflowError,
+                    "MatchedRateConverter.execute_ctrl: output of %zu "
+                    "elements is too large",
+                    _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -245,6 +374,15 @@ MatchedRateConverterObj_execute_ctrl (MatchedRateConverterObject *self,
       self->handle, (const float _Complex *)PyArray_DATA (x_arr),
       (size_t)PyArray_SIZE (x_arr), ctrl, _d0, _cap);
   Py_DECREF (x_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (PyExc_RuntimeError,
+                    "MatchedRateConverter.execute_ctrl: wrote %zu elements "
+                    "into a buffer of %zu",
+                    (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -305,9 +443,9 @@ MatchedRateConverterObj_execute_ctrl_push (MatchedRateConverterObject *self,
                            " ndarray of the output dtype");
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_COMPLEX64,
-          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_COMPLEX64,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           return NULL;
@@ -328,6 +466,15 @@ MatchedRateConverterObj_execute_ctrl_push (MatchedRateConverterObject *self,
       size_t n_out = dp_RateConverter_execute_ctrl_push (
           self->handle, x, ctrl, (float _Complex *)PyArray_DATA (out_arr),
           _cap);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "MatchedRateConverter.execute_ctrl_push: wrote %zu "
+                        "elements into a buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
                                                     PyArray_DATA (out_arr));
@@ -336,14 +483,29 @@ MatchedRateConverterObj_execute_ctrl_push (MatchedRateConverterObject *self,
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = dp_RateConverter_execute_ctrl_push_max_out (self->handle);
   size_t _cap  = dp_RateConverter_execute_ctrl_push_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "MatchedRateConverter.execute_ctrl_push: output of %zu "
+                    "elements is too large",
+                    _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -352,6 +514,15 @@ MatchedRateConverterObj_execute_ctrl_push (MatchedRateConverterObject *self,
   float _Complex *_d0 = (float _Complex *)PyArray_DATA ((PyArrayObject *)arr0);
   size_t          n_out
       = dp_RateConverter_execute_ctrl_push (self->handle, x, ctrl, _d0, _cap);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (PyExc_RuntimeError,
+                    "MatchedRateConverter.execute_ctrl_push: wrote %zu "
+                    "elements into a buffer of %zu",
+                    (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -591,7 +762,7 @@ static PyGetSetDef MatchedRateConverter_getset[] = {
     "per arm at 4 samples/symbol and at 256, where filtering at the input "
     "rate would need 4225.\n",
     NULL },
-  { NULL }
+  { NULL, NULL, NULL, NULL, NULL }
 };
 
 static PyObject *
@@ -673,7 +844,7 @@ static PyMethodDef MatchedRateConverterObj_methods[] = {
     "    Output.\n" },
   { "execute_ctrl", (PyCFunction)(void *)MatchedRateConverterObj_execute_ctrl,
     METH_VARARGS | METH_KEYWORDS,
-    "execute_ctrl(x, ctrl) -> ndarray\n"
+    "execute_ctrl(x, ctrl, out) -> ndarray\n"
     "\n"
     "Convert a block, steering the cascade's fractional stage by ctrl.\n"
     "\n"
@@ -699,6 +870,8 @@ static PyMethodDef MatchedRateConverterObj_methods[] = {
     "    CF32 input block.\n"
     "ctrl : float\n"
     "    Rate deviation added to the terminal Resampler stage's rate.\n"
+    "out : npt.NDArray[np.complex64] | None\n"
+    "    Output buffer; must hold at least max_out samples.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -716,6 +889,16 @@ static PyMethodDef MatchedRateConverterObj_methods[] = {
     ">>> rc2 = RateConverter(rate=0.8, compensate=0)\n"
     ">>> rc2.execute_ctrl(x, 0.05).shape[0]  # +ctrl speeds the tail up\n"
     "851\n" },
+  { "execute_ctrl_max_out",
+    (PyCFunction)MatchedRateConverterObj_execute_ctrl_max_out, METH_NOARGS,
+    "execute_ctrl_max_out() -> int\n"
+    "\n"
+    "As dp_RateConverter_execute_max_out(), for the block control form.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Output.\n" },
   { "execute_ctrl_push",
     (PyCFunction)(void *)MatchedRateConverterObj_execute_ctrl_push,
     METH_VARARGS | METH_KEYWORDS,
@@ -875,11 +1058,12 @@ static PyMethodDef MatchedRateConverterObj_methods[] = {
     "    Exception instance, or None. Ignored.\n"
     "tb : object | None\n"
     "    Traceback object, or None. Ignored.\n" },
-  { NULL }
+  { NULL, NULL, 0, NULL }
 };
 
 static PyTypeObject MatchedRateConverterObjType = {
-  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "resample.MatchedRateConverter",
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name
+  = "doppler.resample.MatchedRateConverter",
   .tp_basicsize = sizeof (MatchedRateConverterObject),
   .tp_dealloc   = (destructor)MatchedRateConverterObj_dealloc,
   .tp_flags     = Py_TPFLAGS_DEFAULT,

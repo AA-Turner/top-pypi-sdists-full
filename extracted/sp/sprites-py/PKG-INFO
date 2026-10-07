@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sprites-py
-Version: 0.7.1
+Version: 0.7.2
 Summary: Python SDK for Fly.io Sprites: computers for agents. Sprite management, remote command execution, filesystems, checkpoints, services, and network policy from Python.
 Author: Sprites Team
 License-Expression: MIT

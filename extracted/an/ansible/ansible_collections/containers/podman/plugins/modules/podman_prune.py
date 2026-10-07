@@ -75,6 +75,12 @@ options:
             - Whether to prune all unused images, not only dangling images.
         type: bool
         default: false
+    system_build:
+        description:
+            - Whether to remove build containers created during builds that
+              were not removed due to unexpected termination.
+        type: bool
+        default: false
     system_volumes:
         description:
             - Whether to prune volumes currently unused by any container.
@@ -162,6 +168,7 @@ system:
 
 
 from ansible.module_utils.basic import AnsibleModule
+from ..module_utils.podman.common import LooseVersion, get_podman_version  # noqa: E402
 
 
 def filtersPrepare(target, filters):
@@ -197,10 +204,14 @@ def filtersPrepare(target, filters):
 
 def podmanExec(module, target, filters, executable):
     command = [executable, target, "prune", "--force"]
+    if target == "volume":
+        ver = get_podman_version(module, fail=False)
+        if ver and LooseVersion(ver) >= LooseVersion("6.0.0"):
+            command.append("--all")
     if filters is not None:
         command.extend(filtersPrepare(target, filters))
     rc, out, err = module.run_command(command)
-    changed = bool(out) and ': 0B' not in out
+    changed = bool(out) and ": 0B" not in out
 
     if rc != 0:
         module.fail_json(msg="Error executing prune on {target}: {err}".format(target=target, err=err))
@@ -225,6 +236,7 @@ def main():
         volume_filters=dict(type="dict"),
         system=dict(type="bool", default=False),
         system_all=dict(type="bool", default=False),
+        system_build=dict(type="bool", default=False),
         system_volumes=dict(type="bool", default=False),
         executable=dict(type="str", default="podman"),
     )
@@ -247,6 +259,8 @@ def main():
         system_filters = {}
         if module.params["system_all"]:
             system_filters["system_all"] = "--all"
+        if module.params["system_build"]:
+            system_filters["system_build"] = "--build"
         if module.params["system_volumes"]:
             system_filters["system_volumes"] = "--volumes"
         results[target] = podmanExec(module, target, system_filters, executable)

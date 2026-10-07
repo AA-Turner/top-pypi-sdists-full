@@ -76,6 +76,7 @@ options:
   bucket_versioning_enabled:
     description:
     - Enable versioning on the bucket.
+    - Only enabled or suspended could be state of versioning to set after enabling it.
     - This API requires StorageGRID 11.6 or greater.
     type: bool
     version_added: '21.11.0'
@@ -252,8 +253,6 @@ class SgOrgContainer(object):
         # Checking for the parameters passed and create new parameters list.
 
         self.data_versioning = {}
-        self.data_versioning["versioningSuspended"] = True
-
         self.consistency_setting = {}
         self.bucket_policy = {}
         self.quota_object_bytes = {}
@@ -272,9 +271,6 @@ class SgOrgContainer(object):
 
         if self.parameters.get("bucket_versioning_enabled") is not None:
             self.rest_api.fail_if_not_sg_minimum_version("Bucket versioning configuration", 11, 6)
-            self.data_versioning["versioningEnabled"] = self.parameters["bucket_versioning_enabled"]
-            if self.data_versioning["versioningEnabled"]:
-                self.data_versioning["versioningSuspended"] = False
 
         if self.parameters.get("consistency") is not None:
             self.rest_api.fail_if_not_sg_minimum_version("consistency setting", 11, 6)
@@ -286,7 +282,10 @@ class SgOrgContainer(object):
 
         if self.parameters.get("policy") is not None:
             self.rest_api.fail_if_not_sg_minimum_version("bucket policy", 11, 9)
-            self.bucket_policy = {"policy": self.parameters.get("policy")}
+            policy_value = self.parameters.get("policy")
+            if policy_value == {}:
+                policy_value = None
+            self.bucket_policy = {"policy": policy_value}
 
     def get_org_container(self):
         ''' Get org container details '''
@@ -426,7 +425,7 @@ class SgOrgContainer(object):
             versioning_config = self.get_org_container_versioning()
         if org_container and self.parameters.get("consistency") is not None:
             consistency_setting = self.get_org_container_consistency()
-        if org_container:
+        if org_container and self.parameters.get("policy") is not None:
             get_policy = self.get_org_container_policy()
 
         cd_action = self.na_helper.get_cd_action(org_container, self.parameters)
@@ -445,12 +444,24 @@ class SgOrgContainer(object):
                 update_quota_object_bytes = True
                 self.na_helper.changed = True
 
-            if (
-                versioning_config
-                and versioning_config["versioningEnabled"] != self.data_versioning["versioningEnabled"]
-            ):
-                update_versioning = True
-                self.na_helper.changed = True
+            if versioning_config is not None and self.parameters.get("bucket_versioning_enabled") is not None:
+                desired_enabled = self.parameters["bucket_versioning_enabled"]
+                current_enabled = versioning_config.get("versioningEnabled", False)
+
+                if desired_enabled and not current_enabled:
+                    self.data_versioning = {
+                        "versioningEnabled": True,
+                        "versioningSuspended": False,
+                    }
+                    update_versioning = True
+                    self.na_helper.changed = True
+                elif not desired_enabled and current_enabled:
+                    self.data_versioning = {
+                        "versioningEnabled": False,
+                        "versioningSuspended": True,
+                    }
+                    update_versioning = True
+                    self.na_helper.changed = True
 
             if (
                 consistency_setting
@@ -459,18 +470,19 @@ class SgOrgContainer(object):
                 update_consistency = True
                 self.na_helper.changed = True
 
-            desired_policy = self.bucket_policy.get("policy") if self.bucket_policy else None
-            current_policy = get_policy.get("policy") if get_policy else None
+            # Only update policy if it was explicitly provided
+            if self.parameters.get("policy") is not None:
+                desired_policy = self.bucket_policy.get("policy")
+                current_policy = get_policy.get("policy") if get_policy else None
 
-            # Treating None and {} as equivalent for comparison
-            if not desired_policy:
-                desired_policy = {}
-            if not current_policy:
-                current_policy = {}
+                if desired_policy == {} or desired_policy is None:
+                    desired_policy = None
+                if current_policy == {} or current_policy is None:
+                    current_policy = None
 
-            if desired_policy != current_policy:
-                update_policy = True
-                self.na_helper.changed = True
+                if desired_policy != current_policy:
+                    update_policy = True
+                    self.na_helper.changed = True
 
         result_message = ""
         resp_data = org_container
@@ -489,8 +501,13 @@ class SgOrgContainer(object):
 
                     resp_data = self.create_org_container()
 
-                    if self.parameters.get("bucket_versioning_enabled") is not None:
+                    if self.parameters.get("bucket_versioning_enabled"):
+                        self.data_versioning = {
+                            "versioningEnabled": True,
+                            "versioningSuspended": False,
+                        }
                         self.update_org_container_versioning()
+
                     if self.parameters.get("consistency") is not None:
                         self.update_org_container_consistency()
 
@@ -502,15 +519,15 @@ class SgOrgContainer(object):
 
                 else:
                     if update_compliance:
-                        resp_data = self.update_org_container_compliance()
+                        resp_data.update(self.update_org_container_compliance())
                     if update_versioning:
-                        self.update_org_container_versioning()
+                        resp_data.update(self.update_org_container_versioning())
                     if update_consistency:
-                        self.update_org_container_consistency()
+                        resp_data.update(self.update_org_container_consistency())
                     if update_quota_object_bytes:
-                        resp_data = self.update_org_container_quota_object_bytes()
+                        resp_data.update(self.update_org_container_quota_object_bytes())
                     if update_policy:
-                        resp_data = self.update_org_container_policy()
+                        resp_data.update(self.update_org_container_policy())
                     result_message = "Org Container updated"
 
         self.module.exit_json(changed=self.na_helper.changed, msg=result_message, resp=resp_data)

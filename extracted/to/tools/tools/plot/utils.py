@@ -13,6 +13,7 @@ __all__ = [
 'multisave',
 'plot_values',
 'plot_trainval',
+'subplots',
 'squaresubplots',
 ]
 
@@ -69,6 +70,15 @@ def plot_trainval(valuetracker_list, ax=None):
         ax.plot(valuetracker.x, valuetracker.y, color=color, alpha=0.4, label=label)
         ax.plot(valuetracker.x, y_smooth, line, color=color, label=label+'_smooth')
     return ax
+
+def subplots(ncols=1, nrows=1, axsize=None, **kwargs):
+    """same with plt.subplots, but axsize=(w, h) sets per-axes size; figsize = (w*ncols, h*nrows)."""
+    if axsize is not None:
+        if 'figsize' in kwargs and kwargs['figsize'] is not None:
+            warnings.warn('axsize is provided, figsize will be ignored.')
+        kwargs['figsize'] = (axsize[0]*ncols, axsize[1]*nrows)
+
+    return plt.subplots(nrows=nrows, ncols=ncols, **kwargs)
 
 def squaresubplots(n_axes, figsize=None, axsize=None):
     """

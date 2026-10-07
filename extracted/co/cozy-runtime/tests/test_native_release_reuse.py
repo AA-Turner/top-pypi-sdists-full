@@ -7,7 +7,6 @@ import csv
 import hashlib
 import io
 import json
-import os
 import re
 import subprocess
 import tarfile
@@ -113,6 +112,12 @@ def test_public_native_reuse_preserves_record_tags_version_and_provenance(
     assert wheel.name == f"cozy_runtime-{version}-{TAG}.whl"
     assert hashlib.sha256(wheel.read_bytes()).hexdigest() == receipt["sha256"]
     with zipfile.ZipFile(wheel) as archive, zipfile.ZipFile(donor) as original:
+        assert not any(
+            name.startswith(
+                ("cozy/worker/", "cozy_runtime/protocol/", "cozy_runtime/internal/worker/")
+            )
+            for name in archive.namelist()
+        )
         prefix = f"cozy_runtime-{version}.dist-info/"
         metadata = BytesParser().parsebytes(archive.read(prefix + "METADATA"))
         assert metadata["Name"] == "cozy-runtime" and metadata["Version"] == version
@@ -156,7 +161,7 @@ def test_public_native_reuse_preserves_record_tags_version_and_provenance(
     [
         "native",
         "backend",
-        "hatch_wheel",
+        "wheel_abi",
         "hatch_shared",
         "dirty",
         "commit",
@@ -172,17 +177,15 @@ def test_only_changed_native_inputs_authorize_a_full_build(
 ) -> None:
     repo, donor, commit = release_copy
     sha256 = None
-    if change in {"native", "backend", "hatch_wheel", "hatch_shared", "local_version"}:
+    if change in {"native", "backend", "wheel_abi", "hatch_shared", "local_version"}:
         path = repo / ("CMakeLists.txt" if change == "native" else "pyproject.toml")
         source = path.read_text()
         if change == "native":
             source += "\n# changed native input\n"
         elif change == "backend":
             source = source.replace('cmake.build-type = "Release"', 'cmake.build-type = "Debug"')
-        elif change == "hatch_wheel":
-            source = source.replace(
-                'packages = ["src/cozy_runtime", "src/cozy"]', 'packages = ["src/cozy_runtime"]', 1
-            )
+        elif change == "wheel_abi":
+            source = source.replace('wheel.py-api = "cp312"', 'wheel.py-api = "cp313"', 1)
         elif change == "hatch_shared":
             source += '\n[tool.hatch.build]\nexclude = ["/research"]\n'
         else:
@@ -208,18 +211,18 @@ def test_only_changed_native_inputs_authorize_a_full_build(
         donor = corrupt
     result = build(repo, donor, commit, tmp_path / "dist", sha256=sha256)
     assert result.returncode == (
-        3 if change in {"native", "backend", "hatch_wheel", "hatch_shared"} else 1
+        3 if change in {"native", "backend", "wheel_abi", "hatch_shared"} else 1
     ), result.stderr
     assert not list((tmp_path / "dist").glob("*.whl"))
 
 
-def test_source_archive_publishes_agent_without_requiring_go(
+def test_source_archive_and_portable_wheel_build_without_private_files(
     release_copy: tuple[Path, Path, str], tmp_path: Path
 ) -> None:
     repo, _, _ = release_copy
     private = [
         ".env",
-        "machine-agent/.env.local",
+        "src/.env.local",
         ".task/source-proof.md",
         "outputs/source-proof.bin",
     ]
@@ -227,41 +230,21 @@ def test_source_archive_publishes_agent_without_requiring_go(
         path = repo / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("local-only canary\n")
-    tools = tmp_path / "tools"
-    tools.mkdir()
-    go = tools / "go"
-    go.write_text("#!/bin/sh\necho 'default Python builds must not invoke Go' >&2\nexit 97\n")
-    go.chmod(0o755)
     out = tmp_path / "dist"
     result = subprocess.run(
         ["uv", "build", "--sdist", "--wheel", "--out-dir", str(out)],
         cwd=repo,
-        env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, result.stderr
     (sdist,) = out.glob("*.tar.gz")
-    tracked = run("git", "ls-files", "machine-agent", cwd=repo).stdout.splitlines()
-    required = set(tracked)
-    assert {
-        "machine-agent/go.mod",
-        "machine-agent/go.sum",
-        "machine-agent/main.go",
-        "machine-agent/internal/host/public_read.py",
-    } <= required
     with tarfile.open(sdist) as archive:
-        files = {member.name.split("/", 1)[1]: member for member in archive if member.isfile()}
-        assert required <= files.keys()
-        assert not set(private) & files.keys()
-        for name in required:
-            source = archive.extractfile(files[name])
-            assert source is not None and source.read() == (repo / name).read_bytes()
+        files = {member.name.split("/", 1)[1] for member in archive if member.isfile()}
+        assert "pyproject.toml" in files
+        assert not set(private) & files
     (wheel,) = out.glob("*.whl")
     assert wheel.name.endswith("-py3-none-any.whl")
     with zipfile.ZipFile(wheel) as archive:
-        assert not any(
-            name.startswith("machine-agent/") or ".data/scripts/cozy-machine" in name
-            for name in archive.namelist()
-        )
+        assert not any(".data/scripts/cozy-machine" in name for name in archive.namelist())

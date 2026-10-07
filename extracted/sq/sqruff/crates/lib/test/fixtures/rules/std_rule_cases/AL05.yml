@@ -55,6 +55,40 @@ test_ignore_postgres_value_table_functions_generate_series:
     core:
       dialect: postgres
 
+test_postgres_row_reference_in_function:
+  # A table alias passed as a whole-row value is used (SQLFluff #7039).
+  pass_str: |
+    SELECT each(hstore(t)) AS x FROM member_plan AS t
+  configs:
+    core:
+      dialect: postgres
+
+test_postgres_whole_row_reference:
+  pass_str: |
+    SELECT t FROM foo AS t
+  configs:
+    core:
+      dialect: postgres
+
+test_postgres_row_reference_in_subquery:
+  pass_str: |
+    SELECT
+        (x).key
+    FROM (
+        SELECT EACH(HSTORE(t)) AS x
+        FROM member_plan AS t
+    ) AS q
+  configs:
+    core:
+      dialect: postgres
+
+test_redshift_whole_row_reference:
+  pass_str: |
+    SELECT t FROM foo AS t
+  configs:
+    core:
+      dialect: redshift
+
 test_fail_table_alias_not_referenced_2:
   # Similar to test_1, but with implicit alias.
   fail_str: SELECT * FROM my_tbl foo
@@ -240,6 +274,39 @@ test_pass_snowflake_values:
   configs:
     core:
       dialect: snowflake
+
+test_pass_tsql_openrowset_bulk_requires_correlation_name_1:
+  pass_str: |
+    SELECT jsoncontent
+    FROM
+        OPENROWSET (
+            BULK (
+                '/lake-raw/activity*.json'
+                ,'/lake-raw/this_file_doesnt_exist.json'
+            ),
+            DATA_SOURCE = 'datasource_lake'
+        )
+        WITH (
+            jsoncontent varchar(MAX)
+        ) AS result
+  configs:
+    core:
+      dialect: tsql
+
+test_pass_tsql_openrowset_bulk_requires_correlation_name_2:
+  pass_str: |
+    SELECT jsoncontent
+    FROM
+        OPENROWSET (
+            BULK (
+                '/lake-raw/activity*.json'
+                ,'/lake-raw/this_file_doesnt_exist.json'
+            )
+            ,DATA_SOURCE = 'datasource_lake'
+        ) AS name
+  configs:
+    core:
+      dialect: tsql
 
 test_pass_tsql_values_clause_in_parentheses:
   # Tests a fix for issue 3522. In tsql, the parentheses surrouding "values" are
@@ -574,3 +641,20 @@ test_pass_postgres_json_arrow_operator_alias_reference_reproducer:
   configs:
     core:
       dialect: postgres
+
+test_pass_tsql_nodes_method_requires_alias:
+  # SQLFluff #6733: .nodes() is table-valued and requires a correlation name.
+  pass_str: |
+    SELECT Col.value('.', 'NVARCHAR(MAX)') AS V
+    FROM @Xml.nodes('/a') AS Tbl(Col);
+  configs:
+    core:
+      dialect: tsql
+
+test_pass_tsql_nodes_method_requires_alias_unreferenced:
+  # The alias is required even when neither it nor its column is referenced.
+  pass_str: |
+    SELECT 1 FROM @Xml.nodes('a') AS Tbl(Col);
+  configs:
+    core:
+      dialect: tsql

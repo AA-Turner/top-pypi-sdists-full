@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.44.1
+Version: 1.45.0
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -27,7 +27,7 @@ Requires-Dist: numpy >= 1.25.0; python_version < '3.12'
 Requires-Dist: numpy >= 1.26.0; python_version >= '3.12'
 Requires-Dist: openai >= 2.0.0
 Requires-Dist: openapi_core >= 0.18,<0.20
-Requires-Dist: websockets >= 13, < 16
+Requires-Dist: websockets >= 13, < 17
 Requires-Dist: aiortc>=1.9.0
 Requires-Dist: opentelemetry-api ~= 1.24
 Requires-Dist: opentelemetry-sdk ~= 1.24
@@ -36,7 +36,7 @@ Requires-Dist: pybars4 ~= 0.9
 Requires-Dist: jinja2 ~= 3.1
 Requires-Dist: nest-asyncio ~= 1.6
 Requires-Dist: scipy>=1.15.1
-Requires-Dist: websockets >= 13, < 16
+Requires-Dist: websockets >= 13, < 17
 Requires-Dist: aiortc>=1.9.0
 Requires-Dist: typing-extensions>=4.13
 Requires-Dist: mcp>=1.26.0,<2.0
@@ -52,14 +52,14 @@ Requires-Dist: microsoft-agents-copilotstudio-client >= 0.3.1 ; extra == "copilo
 Requires-Dist: microsoft-agents-activity >= 0.3.1 ; extra == "copilotstudio"
 Requires-Dist: faiss-cpu>=1.10.0 ; extra == "faiss"
 Requires-Dist: google-cloud-aiplatform>=1.114,<1.134 ; extra == "google"
-Requires-Dist: google-genai >= 1.51,< 1.75 ; extra == "google"
-Requires-Dist: transformers[torch] >= 4.28,< 6.0 ; extra == "hugging-face"
+Requires-Dist: google-genai >= 1.51,< 2.23 ; extra == "google"
+Requires-Dist: transformers[torch] >= 5.5.0,< 6.0 ; extra == "hugging-face"
 Requires-Dist: sentence-transformers >= 2.2,< 6.0 ; extra == "hugging-face"
 Requires-Dist: torch==2.13.0 ; extra == "hugging-face"
 Requires-Dist: mcp>=1.8,<2.0 ; extra == "mcp"
 Requires-Dist: pymilvus >= 2.3,< 2.7 ; extra == "milvus"
 Requires-Dist: milvus >= 2.3,<2.3.8 ; extra == "milvus" and ( platform_system != 'Windows')
-Requires-Dist: mistralai >= 1.2,< 2.7.3 ; extra == "mistralai"
+Requires-Dist: mistralai >= 1.2,< 2.0 ; extra == "mistralai"
 Requires-Dist: pymongo >= 4.8.0, < 4.17 ; extra == "mongo"
 Requires-Dist: motor >= 3.3.2,< 3.8.0 ; extra == "mongo"
 Requires-Dist: ipykernel >= 6.29,< 8.0 ; extra == "notebooks"
@@ -67,21 +67,21 @@ Requires-Dist: ollama ~= 0.4 ; extra == "ollama"
 Requires-Dist: onnxruntime==1.22.1 ; extra == "onnx" and ( python_version == '3.10')
 Requires-Dist: onnxruntime>=1.26.0 ; extra == "onnx" and ( python_version > '3.10')
 Requires-Dist: onnxruntime-genai==0.9.0 ; extra == "onnx" and ( python_version == '3.10')
-Requires-Dist: onnxruntime-genai==0.14.1 ; extra == "onnx" and ( python_version > '3.10')
+Requires-Dist: onnxruntime-genai==0.15.2 ; extra == "onnx" and ( python_version > '3.10')
 Requires-Dist: oracledb >= 3.4.1 ; extra == "oracledb"
 Requires-Dist: pandas ~= 2.2 ; extra == "pandas"
 Requires-Dist: pinecone[asyncio, grpc] ~= 7.0 ; extra == "pinecone" and ( sys_platform == 'darwin' or sys_platform == 'linux')
 Requires-Dist: pinecone[asyncio, grpc] ~= 7.3 ; extra == "pinecone" and ( sys_platform == 'win32')
 Requires-Dist: psycopg[binary, pool] ~= 3.2 ; extra == "postgres"
 Requires-Dist: qdrant-client ~= 1.9 ; extra == "qdrant"
-Requires-Dist: websockets >= 13, < 16 ; extra == "realtime"
+Requires-Dist: websockets >= 13, < 17 ; extra == "realtime"
 Requires-Dist: aiortc>=1.9.0 ; extra == "realtime"
 Requires-Dist: redis[hiredis] >= 6,< 8 ; extra == "redis"
 Requires-Dist: types-redis ~= 4.6.0.20240425 ; extra == "redis"
 Requires-Dist: redisvl ~= 0.4 ; extra == "redis"
 Requires-Dist: pyodbc >= 5.2 ; extra == "sql"
 Requires-Dist: usearch >= 2.16,< 2.25 ; extra == "usearch"
-Requires-Dist: pyarrow>=12.0,<24.0 ; extra == "usearch"
+Requires-Dist: pyarrow>=12.0,<26.0 ; extra == "usearch"
 Requires-Dist: weaviate-client>=4.17.0,<5.0 ; extra == "weaviate"
 Project-URL: homepage, https://learn.microsoft.com/en-us/semantic-kernel/overview/
 Project-URL: issues, https://github.com/microsoft/semantic-kernel/issues

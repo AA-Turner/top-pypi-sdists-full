@@ -629,11 +629,17 @@ def _validate_pem_certificate(cert_content):
     cert_content = re.sub(r'[ \t]+$', '', cert_content, flags=re.M)
     cert_content = re.sub(r'\n+', '\n', cert_content)
 
-    if not re.match(r"^-----BEGIN CERTIFICATE-----.+-----END CERTIFICATE-----$", cert_content, re.DOTALL):
+    cert_blocks = re.findall(
+        r"-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----",
+        cert_content
+    )
+
+    if not cert_blocks:
         raise AnsibleError("Invalid Certificate format.")
 
     try:
-        load_pem_x509_certificate(cert_content.encode(), default_backend())
+        for cert_block in cert_blocks:
+            load_pem_x509_certificate(cert_block.encode(), default_backend())
         return cert_content
     except ValueError as err:
         raise AnsibleError(
@@ -653,6 +659,14 @@ def _validate_pem_certificate(cert_content):
 
 
 def _get_valid_certificate(cert_content, cert_file):
+    # If neither cert is provided, return None so that the system CA trust store is used for SSL verification.
+    if not cert_content and not cert_file:
+        display.vvv(
+            "No Conjur certificate provided. SSL verification will rely on "
+            "the system CA trust store."
+        )
+        return None
+
     if cert_content:
         try:
             display.vvv("Validating provided certificate content")
@@ -673,7 +687,7 @@ def _get_valid_certificate(cert_content, cert_file):
         except Exception as err:
             raise AnsibleError(f"Failed to load or validate certificate file `{cert_file}`: {str(err)}") from err
 
-    # If both cert_content and cert_file are missing or invalid, raise an error
+    # cert_content was provided but is invalid, and no cert_file was given.
     raise AnsibleError("Both certificate content and certificate file are invalid or missing. Please provide a valid certificate.")
 
 
@@ -870,7 +884,8 @@ def _fetch_conjur_jwt_token(
 
     # Prepare headers
     headers = {
-        'x-cybr-telemetry': encoded_telemetry
+        'x-cybr-telemetry': encoded_telemetry,
+        'Content-Type': 'application/x-www-form-urlencoded',
     }
 
     try:
@@ -902,6 +917,9 @@ def _fetch_conjur_jwt_token(
         if response.getcode() != 200:
             raise AnsibleError(f"Error authenticating with Conjur: HTTP {str(response.getcode())}")
         return response.read()
+
+    except urllib_error.HTTPError as error:
+        raise AnsibleError(f"Error fetching identity token: HTTP {error.code} {error.reason}") from error
 
     except urllib_error.URLError as error:
         raise AnsibleError(f"Error fetching identity token: URL error occurred - {str(error)}") from error

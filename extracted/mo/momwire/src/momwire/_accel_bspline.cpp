@@ -454,7 +454,13 @@ static PairOrderLadder ladder_from_arrays(
 #define MW_OFFEDGE_LANES_1290 0
 #endif
 
-template<int D, bool COMPLEX_K>
+// EK (momwire#1362): the extended-kernel twin is this kernel with NEC Eq 89's
+// coaxial factor applied to G on the pairs whose group labels match
+// (`grp_i[i] == grp_j[j] >= 0`), between stage 1 and stage 2; see
+// `seg_seg_full_moments_bspline_kernel_ek` below for the contract. With EK
+// false every EK statement is a constant-false branch, so the reduced
+// instantiations compile to what they did.
+template<int D, bool COMPLEX_K, bool EK = false>
 static py::array_t<std::complex<double>>
 seg_seg_full_moments_bspline_kernel_impl(
     py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_i,
@@ -467,10 +473,19 @@ seg_seg_full_moments_bspline_kernel_impl(
     const PairOrderLadder& ladder,
     // momwire#1290: true walks every pair alone even where the lane path is
     // compiled -- the reference that path is gated against to the bit.
-    bool reference = false
+    bool reference = false,
+    // EK only: the per-segment group labels (N_i,) / (N_j,) and the plain
+    // (unsquared) EK radius.
+    const int64_t *grp_i = nullptr,
+    const int64_t *grp_j = nullptr,
+    double a_ek = 0.0
 ) {
+    static_assert(!(EK && COMPLEX_K),
+                  "the extended kernel is served for a real k only");
     static constexpr int NM = D + 1;          // moments per axis
     static constexpr int NMM = NM * NM;       // total moments
+    const double a2_ek = a_ek * a_ek;
+    const double a4_ek = a2_ek * a2_ek;
 
     auto sli = seg_l_i.unchecked<2>();
     auto sri = seg_r_i.unchecked<2>();
@@ -718,6 +733,38 @@ seg_seg_full_moments_bspline_kernel_impl(
                 }
             }
 
+            // EK: eligibility is a property of the (i, j) SEGMENT pair, not
+            // of the quadrature sub-pair (numpy's `mask[:, None, :, None]`
+            // broadcast), so one branch serves every point of the chunk. The
+            // loop is the pre-#1362 EK kernel's, verbatim: `_ek_factor`'s
+            // spelling term by term, T1, T2, C1, C2, fac = T1*C2 - T2*C1 + 1,
+            // then G *= fac (complex).
+            if (EK && grp_i[i] == grp_j[j] && grp_i[i] >= 0) {
+                MW_OMP_SIMD()
+                for (size_t t = 0; t < m; t++) {
+                    double Rq = R[t];
+                    double r2 = Rq * Rq;
+                    double r4 = r2 * r2;
+                    double kr = k * Rq;
+                    double kr2 = kr * kr;
+                    double t1 = 0.25 * a4_ek / r4;
+                    double t2 = 0.5 * a2_ek / r2;
+                    double c1r = 1.0;
+                    double c1i = kr;
+                    double c2r = 3.0 * c1r - kr2;
+                    double c2i = 3.0 * c1i;
+                    double facr = t1 * c2r;
+                    double faci = t1 * c2i;
+                    facr = facr - t2 * c1r;
+                    faci = faci - t2 * c1i;
+                    facr = facr + 1.0;
+                    double gre = G_re[t];
+                    double gim = G_im[t];
+                    G_re[t] = gre * facr - gim * faci;
+                    G_im[t] = gre * faci + gim * facr;
+                }
+            }
+
             // Stage 2: the NMM moment sums, carried in acc_* across
             // chunks. Each accumulator adds its terms in ascending t, one
             // rounded multiply and one rounded add per term -- the order
@@ -954,6 +1001,53 @@ seg_seg_full_moments_bspline_kernel_impl(
                         inv_R_4pi[t] = inv_4pi / R[t];
                         G_re[t] = cos_phases[t] * inv_R_4pi[t];
                         G_im[t] = sin_phases[t] * inv_R_4pi[t];
+                    }
+                }
+
+                // EK (momwire#1362): the walk's coaxial factor, per lane.
+                // Eligibility is per PAIR, so the four lanes of a group can
+                // disagree (a group straddling a wire's end); every lane
+                // computes G*fac and an ineligible lane keeps its G by a
+                // blend, which moves no bits. The arithmetic is the walk's
+                // loop operation for operation: its `t2 * c1r` and
+                // `3.0 * c1r` multiply by c1r = 1.0, which is exact, so they
+                // are spelled here as t2 and 3.0.
+                if (EK && grp_i[i] >= 0) {
+                    const int64_t gi = grp_i[i];
+                    const bool e0 = grp_j[j0 + 0] == gi, e1 = grp_j[j0 + 1] == gi;
+                    const bool e2 = grp_j[j0 + 2] == gi, e3 = grp_j[j0 + 3] == gi;
+                    if (e0 || e1 || e2 || e3) {
+                        const __m256d emask = _mm256_castsi256_pd(_mm256_set_epi64x(
+                            e3 ? -1 : 0, e2 ? -1 : 0, e1 ? -1 : 0, e0 ? -1 : 0));
+                        const __m256d v_k = _mm256_set1_pd(k);
+                        const __m256d v_t1n = _mm256_set1_pd(0.25 * a4_ek);
+                        const __m256d v_t2n = _mm256_set1_pd(0.5 * a2_ek);
+                        const __m256d v_one = _mm256_set1_pd(1.0);
+                        const __m256d v_three = _mm256_set1_pd(3.0);
+                        for (size_t t = 0; t < m; t++) {
+                            const __m256d Rq = _mm256_load_pd(R + t * LN);
+                            const __m256d r2 = _mm256_mul_pd(Rq, Rq);
+                            const __m256d r4 = _mm256_mul_pd(r2, r2);
+                            const __m256d kr = _mm256_mul_pd(v_k, Rq);
+                            const __m256d kr2 = _mm256_mul_pd(kr, kr);
+                            const __m256d t1 = _mm256_div_pd(v_t1n, r4);
+                            const __m256d t2 = _mm256_div_pd(v_t2n, r2);
+                            const __m256d c2r = _mm256_sub_pd(v_three, kr2);
+                            const __m256d c2i = _mm256_mul_pd(v_three, kr);
+                            __m256d facr = _mm256_mul_pd(t1, c2r);
+                            __m256d faci = _mm256_mul_pd(t1, c2i);
+                            facr = _mm256_sub_pd(facr, t2);
+                            faci = _mm256_sub_pd(faci, _mm256_mul_pd(t2, kr));
+                            facr = _mm256_add_pd(facr, v_one);
+                            const __m256d gre = _mm256_load_pd(G_re + t * LN);
+                            const __m256d gim = _mm256_load_pd(G_im + t * LN);
+                            const __m256d nre = _mm256_sub_pd(_mm256_mul_pd(gre, facr),
+                                                              _mm256_mul_pd(gim, faci));
+                            const __m256d nim = _mm256_add_pd(_mm256_mul_pd(gre, faci),
+                                                              _mm256_mul_pd(gim, facr));
+                            _mm256_store_pd(G_re + t * LN, _mm256_blendv_pd(gre, nre, emask));
+                            _mm256_store_pd(G_im + t * LN, _mm256_blendv_pd(gim, nim, emask));
+                        }
                     }
                 }
 
@@ -1302,11 +1396,11 @@ seg_seg_full_moments_bspline_swept_kernel(
 // C++ mirrors `_ek_radius(ek, a)` on the Python side rather than assuming
 // it (unit 1's same rationale for `D_ek_dispatch`/`seg_seg_reg_..._ek`).
 //
-// Written as its own function rather than folded into
-// `seg_seg_full_moments_bspline_kernel<D>` via a `template<bool EK>` (the
-// same-edge kernels' choice): the reduced off-edge kernel's entry point and
-// arithmetic stay completely untouched — zero lines of the frozen path
-// change — at the cost of the geometry precompute being written twice.
+// Unit 2 wrote this as its own function so the reduced kernel's lines stayed
+// untouched. momwire#1362 folded it into `seg_seg_full_moments_bspline_
+// kernel_impl` as `EK = true` once the reduced kernel had grown the t-outer
+// stage 2 and the AVX2 lanes the twin lacked (EK on cost bs2 2-3x on free
+// and above decks); the reduced instantiations' Z is gated unchanged.
 template<int D>
 static py::array_t<std::complex<double>>
 seg_seg_full_moments_bspline_kernel_ek(
@@ -1316,223 +1410,34 @@ seg_seg_full_moments_bspline_kernel_ek(
     py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_j,
     double a_squared,
     double k,
-    py::array_t<double, py::array::c_style | py::array::forcecast> gl_t,
-    py::array_t<double, py::array::c_style | py::array::forcecast> gl_w,
+    const PairOrderLadder& ladder,
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_i,
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_j,
-    double a_ek
+    double a_ek,
+    bool reference = false
 ) {
-    static constexpr int NM = D + 1;
-    static constexpr int NMM = NM * NM;
-
-    auto sli = seg_l_i.unchecked<2>();
-    auto sri = seg_r_i.unchecked<2>();
-    auto slj = seg_l_j.unchecked<2>();
-    auto srj = seg_r_j.unchecked<2>();
-    auto glt = gl_t.unchecked<1>();
-    auto glw = gl_w.unchecked<1>();
-    auto gi_v = group_i.unchecked<1>();
-    auto gj_v = group_j.unchecked<1>();
-
-    if (sli.shape(1) != 3 || sri.shape(1) != 3 ||
-        slj.shape(1) != 3 || srj.shape(1) != 3) {
-        throw std::runtime_error("segment endpoint arrays must have shape (N, 3)");
-    }
-    if (sli.shape(0) != sri.shape(0) || slj.shape(0) != srj.shape(0)) {
-        throw std::runtime_error("seg_l and seg_r must have matching N");
-    }
-    if (glt.shape(0) != glw.shape(0)) {
-        throw std::runtime_error("gl_t and gl_w must have matching length");
-    }
-    size_t n_qp_in = glt.shape(0);
-
-    size_t N_i = sli.shape(0);
-    size_t N_j = slj.shape(0);
-    size_t n_qp = n_qp_in;
-    if ((size_t)group_i.shape(0) != N_i || (size_t)group_j.shape(0) != N_j) {
+    if (group_i.ndim() != 1 || group_j.ndim() != 1 ||
+        (seg_l_i.ndim() == 2 && group_i.shape(0) != seg_l_i.shape(0)) ||
+        (seg_l_j.ndim() == 2 && group_j.shape(0) != seg_l_j.shape(0))) {
         throw std::runtime_error("group_i/group_j must match N_i/N_j");
     }
-
-    py::array_t<std::complex<double>> J({(size_t)NM, (size_t)NM, N_i, N_j});
-    auto j_view = J.mutable_unchecked<4>();
-
-    // Phase 0: release the GIL for the heavy compute region below.
-    py::gil_scoped_release release;
-
-    const double inv_4pi = 1.0 / (4.0 * M_PI);
-    const double a2_ek = a_ek * a_ek;
-    const double a4_ek = a2_ek * a2_ek;
-
-    std::vector<double> pos_i(N_i * n_qp * 3);
-    std::vector<double> pos_j(N_j * n_qp * 3);
-    std::vector<double> len_i(N_i);
-    std::vector<double> len_j(N_j);
-    for (size_t i = 0; i < N_i; i++) {
-        double dx = sri(i,0) - sli(i,0);
-        double dy = sri(i,1) - sli(i,1);
-        double dz = sri(i,2) - sli(i,2);
-        len_i[i] = std::sqrt(dx*dx + dy*dy + dz*dz);
-        for (size_t q = 0; q < n_qp; q++) {
-            double t = glt(q);
-            pos_i[(i*n_qp + q)*3 + 0] = (1.0 - t) * sli(i,0) + t * sri(i,0);
-            pos_i[(i*n_qp + q)*3 + 1] = (1.0 - t) * sli(i,1) + t * sri(i,1);
-            pos_i[(i*n_qp + q)*3 + 2] = (1.0 - t) * sli(i,2) + t * sri(i,2);
-        }
-    }
-    for (size_t j = 0; j < N_j; j++) {
-        double dx = srj(j,0) - slj(j,0);
-        double dy = srj(j,1) - slj(j,1);
-        double dz = srj(j,2) - slj(j,2);
-        len_j[j] = std::sqrt(dx*dx + dy*dy + dz*dz);
-        for (size_t r = 0; r < n_qp; r++) {
-            double t = glt(r);
-            pos_j[(j*n_qp + r)*3 + 0] = (1.0 - t) * slj(j,0) + t * srj(j,0);
-            pos_j[(j*n_qp + r)*3 + 1] = (1.0 - t) * slj(j,1) + t * srj(j,1);
-            pos_j[(j*n_qp + r)*3 + 2] = (1.0 - t) * slj(j,2) + t * srj(j,2);
-        }
-    }
-
-    // TILED OVER qr (momwire#762) — kernel 1's transformation, with the EK
-    // factor stage inside the chunk. Eligibility is a property of the (i, j)
-    // SEGMENT pair, not of the quadrature sub-pair, so it is decided once
-    // outside the chunk loop and every chunk sees the same branch. One chunk
-    // at n_qp <= 8, so the output is bit-identical.
-    MW_OMP_PARALLEL_FOR_COLLAPSE2
-    for (size_t i = 0; i < N_i; i++) {
-        for (size_t j = 0; j < N_j; j++) {
-            alignas(32) double R[BSPLINE_QR_TILE];
-            alignas(32) double inv_R_4pi[BSPLINE_QR_TILE];
-            alignas(32) double phases[BSPLINE_QR_TILE];
-            alignas(32) double cos_phases[BSPLINE_QR_TILE];
-            alignas(32) double sin_phases[BSPLINE_QR_TILE];
-            alignas(32) double G_re[BSPLINE_QR_TILE], G_im[BSPLINE_QR_TILE];
-            alignas(32) double wuwu[NMM * BSPLINE_QR_TILE];
-
-            double acc_re[NMM], acc_im[NMM];
-            for (int pP = 0; pP < NMM; pP++) { acc_re[pP] = 0.0; acc_im[pP] = 0.0; }
-
-            const double *pi = &pos_i[i * n_qp * 3];
-            const double *pj = &pos_j[j * n_qp * 3];
-            const double Li = len_i[i];
-            const double Lj = len_j[j];
-            const size_t n_pairs = n_qp * n_qp;
-            const bool eligible = (gi_v(i) == gj_v(j)) && (gi_v(i) >= 0);
-
-            for (size_t base = 0; base < n_pairs; base += BSPLINE_QR_TILE) {
-                const size_t m = (n_pairs - base < BSPLINE_QR_TILE)
-                                     ? (n_pairs - base) : BSPLINE_QR_TILE;
-
-                size_t q = base / n_qp;
-                size_t r = base % n_qp;
-                for (size_t t = 0; t < m; t++) {
-                    const double dx = pi[q*3 + 0] - pj[r*3 + 0];
-                    const double dy = pi[q*3 + 1] - pj[r*3 + 1];
-                    const double dz = pi[q*3 + 2] - pj[r*3 + 2];
-                    R[t] = std::sqrt(dx*dx + dy*dy + dz*dz + a_squared);
-
-                    const double wi = glw(q) * Li;
-                    const double ui = glt(q) * Li;
-                    const double wj = glw(r) * Lj;
-                    const double uj = glt(r) * Lj;
-                    double ui_pow[NM], uj_pow[NM];
-                    ui_pow[0] = 1.0;
-                    uj_pow[0] = 1.0;
-                    for (int e = 1; e < NM; e++) {
-                        ui_pow[e] = ui_pow[e-1] * ui;
-                        uj_pow[e] = uj_pow[e-1] * uj;
-                    }
-                    const double wij = wi * wj;
-                    for (int pp = 0; pp < NM; pp++) {
-                        for (int PP = 0; PP < NM; PP++) {
-                            wuwu[(pp * NM + PP) * m + t] = wij * ui_pow[pp] * uj_pow[PP];
-                        }
-                    }
-
-                    if (++r == n_qp) { r = 0; ++q; }
-                }
-
-                MW_OMP_SIMD()
-                for (size_t t = 0; t < m; t++) {
-                    phases[t] = -k * R[t];
-                }
-                MW_OMP_SIMD()
-                for (size_t t = 0; t < m; t++) {
-                    cos_phases[t] = std::cos(phases[t]);
-                }
-                MW_OMP_SIMD()
-                for (size_t t = 0; t < m; t++) {
-                    sin_phases[t] = std::sin(phases[t]);
-                }
-                MW_OMP_SIMD()
-                for (size_t t = 0; t < m; t++) {
-                    inv_R_4pi[t] = inv_4pi / R[t];
-                    G_re[t] = cos_phases[t] * inv_R_4pi[t];
-                    G_im[t] = sin_phases[t] * inv_R_4pi[t];
-                }
-
-                // Eligibility is a property of the (i, j) SEGMENT pair, not of
-                // the quadrature sub-pair (numpy's `mask[:, None, :, None]`
-                // broadcast) — one branch here serves every (q, r) below.
-                bool eligible = (gi_v(i) == gj_v(j)) && (gi_v(i) >= 0);
-                if (eligible) {
-                    // `_ek_factor`'s spelling, term by term: T1, T2, C1, C2,
-                    // fac = T1*C2 - T2*C1 + 1, then G *= fac (complex).
-                    MW_OMP_SIMD()
-                    for (size_t t = 0; t < m; t++) {
-                        double Rq = R[t];
-                        double r2 = Rq * Rq;
-                        double r4 = r2 * r2;
-                        double kr = k * Rq;
-                        double kr2 = kr * kr;
-                        double t1 = 0.25 * a4_ek / r4;
-                        double t2 = 0.5 * a2_ek / r2;
-                        double c1r = 1.0;
-                        double c1i = kr;
-                        double c2r = 3.0 * c1r - kr2;
-                        double c2i = 3.0 * c1i;
-                        double facr = t1 * c2r;
-                        double faci = t1 * c2i;
-                        facr = facr - t2 * c1r;
-                        faci = faci - t2 * c1i;
-                        facr = facr + 1.0;
-                        double gre = G_re[t];
-                        double gim = G_im[t];
-                        G_re[t] = gre * facr - gim * faci;
-                        G_im[t] = gre * faci + gim * facr;
-                    }
-                }
-
-                for (int pP = 0; pP < NMM; pP++) {
-                    double sr = acc_re[pP], si = acc_im[pP];
-                    const double *w_row = &wuwu[pP * m];
-                    // No `omp simd reduction` here (momwire#781): the clause LICENSES
-                    // reassociation, so the reduction tree follows whatever
-                    // vectorization factor the compiler picks per FUNCTION -- and the
-                    // reduced and EK kernels differ in register pressure. That made
-                    // their all-ineligible outputs disagree by 1 ulp on arm64 while
-                    // matching on x86-64, breaking the exact-reduction gates that
-                    // momwire#270 U2 relies on. Measured single-threaded (pinned,
-                    // passive wait, min of 5, 3 alternating rounds), the clause is
-                    // worth -0.2%/+0.4% on the bspline fills -- i.e. nothing. It IS
-                    // worth ~4.6% in _accel_razor.cpp, which keeps its clause and has
-                    // no cross-kernel equality gate to protect.
-                    for (size_t t = 0; t < m; t++) {
-                        sr += w_row[t] * G_re[t];
-                        si += w_row[t] * G_im[t];
-                    }
-                    acc_re[pP] = sr;
-                    acc_im[pP] = si;
-                }
-            }
-
-            for (int pP = 0; pP < NMM; pP++) {
-                j_view(pP / NM, pP % NM, i, j) =
-                    std::complex<double>(acc_re[pP], acc_im[pP]);
-            }
-        }
-    }
-
-    return J;
+    // momwire#1362: the reduced kernel's own walk and AVX2 lanes, with the
+    // coaxial factor applied between stage 1 and stage 2 on eligible pairs.
+    // Each pair's arithmetic at a given order is the pre-#1362 EK kernel's,
+    // which this replaced: the same R, the same G, the same factor loop, and
+    // each moment the same ascending-t chain of one rounded multiply and one
+    // rounded add -- with t outermost (8c311afb) and four column pairs per
+    // vector lane (momwire#1290) only reordering work ACROSS chains. Gated to
+    // the bit against the walk (`reference=True`).
+    //
+    // The ladder is the reduced kernel's (momwire#906): a pair's order is
+    // chosen by the same selector, and the factor is applied at whatever
+    // order the pair runs. A one-tier ladder is the single-rule entry bit for
+    // bit; the tiered entry's movement against it is gated in
+    // `tests/test_ek_pair_order_ladder_1362.py`.
+    return seg_seg_full_moments_bspline_kernel_impl<D, false, true>(
+        seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, 0.0,
+        ladder, reference, group_i.data(), group_j.data(), a_ek);
 }
 
 // Swept-k (batched) variant of seg_seg_full_moments_bspline_kernel_ek.
@@ -4345,6 +4250,764 @@ seg_seg_full_moments_bspline_cplx_tiered(
 }
 
 
+// ===========================================================================
+// The B-spline pair machinery with the SINUSOIDAL shape hook (momwire#1354).
+//
+// `seg_seg_full_moments_bspline_kernel_impl` above evaluates the monomial
+// shapes u^p at each Gauss node and contracts them against G over the pair's
+// (q, r) nodes; its ladder picks the order per pair by distance. The
+// sinusoidal Galerkin fill is the same reaction integral on NEC's three-term
+// basis, whose shapes on a segment of length L are the folded set
+//
+//     S_0 = 1,   S_1 = sin(k xi),   S_2 = cos(k xi) - 1 = -2 sin^2(k xi / 2),
+//
+// xi = u - L/2 the arc from the segment centre (`_sinusoidal_mp.py`). The
+// kernel below is that contraction with those shapes: ladder, tier selection,
+// positions and the exp(-jkR)/(4 pi R) factorisation are the B-spline kernel's
+// (the monomial lane kernel is left untouched, bit for bit, since the shapes
+// here are complex in the medium and a shared template would have to widen
+// its real wuwu tables). The shape values are evaluated once per (tier,
+// segment, node) and reused across every pair the segment takes part in.
+//
+// In the medium k is complex and so are the shapes; at a real k the shape
+// tables are real and the contraction is a real x complex multiply, which is
+// why COMPLEX_K is a template parameter rather than a widened argument.
+// ===========================================================================
+
+template<bool COMPLEX_K>
+struct SinShapeValue {
+    using type = std::complex<double>;
+};
+template<>
+struct SinShapeValue<false> {
+    using type = double;
+};
+
+template<bool COMPLEX_K, bool EK = false>
+static py::array_t<std::complex<double>>
+seg_seg_full_moments_sinusoidal_kernel(
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_j,
+    double a_squared,
+    double k_re,
+    double k_im,
+    const PairOrderLadder& ladder,
+    // EK only (momwire#1362): per-segment coaxial group labels (N_i,) /
+    // (N_j,) and the plain EK radius; a pair is extended iff its labels match.
+    const int64_t *grp_i = nullptr,
+    const int64_t *grp_j = nullptr,
+    double a_ek = 0.0
+) {
+    static_assert(!(EK && COMPLEX_K),
+                  "the extended kernel is served at a real k only");
+    using shape_t = typename SinShapeValue<COMPLEX_K>::type;
+    const double a2_ek = a_ek * a_ek;
+    static constexpr int NM = 3;
+    static constexpr int NMM = NM * NM;
+
+    auto sli = seg_l_i.unchecked<2>();
+    auto sri = seg_r_i.unchecked<2>();
+    auto slj = seg_l_j.unchecked<2>();
+    auto srj = seg_r_j.unchecked<2>();
+    if (sli.shape(1) != 3 || sri.shape(1) != 3 ||
+        slj.shape(1) != 3 || srj.shape(1) != 3) {
+        throw std::runtime_error("segment endpoint arrays must have shape (N, 3)");
+    }
+    if (sli.shape(0) != sri.shape(0) || slj.shape(0) != srj.shape(0)) {
+        throw std::runtime_error("seg_l and seg_r must have matching N");
+    }
+    const size_t N_i = sli.shape(0);
+    const size_t N_j = slj.shape(0);
+    const size_t n_tiers = ladder.n_tiers();
+    const std::complex<double> k(k_re, k_im);
+
+    py::array_t<std::complex<double>> J({(size_t)NM, (size_t)NM, N_i, N_j});
+    auto j_view = J.mutable_unchecked<4>();
+
+    py::gil_scoped_release release;
+
+    const double inv_4pi = 1.0 / (4.0 * M_PI);
+
+    std::vector<double> len_i(N_i), len_j(N_j);
+    std::vector<double> c_i(N_i * 3), c_j(N_j * 3);
+    for (size_t i = 0; i < N_i; i++) {
+        const double dx = sri(i,0) - sli(i,0);
+        const double dy = sri(i,1) - sli(i,1);
+        const double dz = sri(i,2) - sli(i,2);
+        len_i[i] = std::sqrt(dx*dx + dy*dy + dz*dz);
+        for (int d = 0; d < 3; d++) c_i[i*3 + d] = 0.5 * (sli(i,d) + sri(i,d));
+    }
+    for (size_t j = 0; j < N_j; j++) {
+        const double dx = srj(j,0) - slj(j,0);
+        const double dy = srj(j,1) - slj(j,1);
+        const double dz = srj(j,2) - slj(j,2);
+        len_j[j] = std::sqrt(dx*dx + dy*dy + dz*dz);
+        for (int d = 0; d < 3; d++) c_j[j*3 + d] = 0.5 * (slj(j,d) + srj(j,d));
+    }
+    // Per tier: node positions, and the WEIGHTED shape values w_q L S_p(xi_q)
+    // per (segment, node, shape). The weight and length ride in the shape
+    // table so the pair loop multiplies nothing but G.
+    std::vector<std::vector<double>> pos_i(n_tiers), pos_j(n_tiers);
+    std::vector<std::vector<shape_t>> ws_i(n_tiers), ws_j(n_tiers);
+    auto fill_tables = [&](size_t tier, size_t N, const double *len,
+                           const py::detail::unchecked_reference<double, 2> &sl,
+                           const py::detail::unchecked_reference<double, 2> &sr,
+                           std::vector<double> &pos, std::vector<shape_t> &ws) {
+        const size_t n_qp = ladder.n_qp(tier);
+        const double *gt = ladder.t_at(tier);
+        const double *gw = ladder.w_at(tier);
+        pos.resize(N * n_qp * 3);
+        ws.resize(N * n_qp * NM);
+        for (size_t s = 0; s < N; s++) {
+            for (size_t q = 0; q < n_qp; q++) {
+                const double t = gt[q];
+                pos[(s*n_qp + q)*3 + 0] = (1.0 - t) * sl(s,0) + t * sr(s,0);
+                pos[(s*n_qp + q)*3 + 1] = (1.0 - t) * sl(s,1) + t * sr(s,1);
+                pos[(s*n_qp + q)*3 + 2] = (1.0 - t) * sl(s,2) + t * sr(s,2);
+                const double w = gw[q] * len[s];
+                const double xi = (t - 0.5) * len[s];
+                shape_t *o = &ws[(s*n_qp + q) * NM];
+                if constexpr (COMPLEX_K) {
+                    const std::complex<double> arg = k * xi;
+                    const std::complex<double> half = std::sin(0.5 * arg);
+                    o[0] = shape_t(w);
+                    o[1] = shape_t(w * std::sin(arg));
+                    o[2] = shape_t(w * (-2.0 * half * half));
+                } else {
+                    const double arg = k_re * xi;
+                    const double half = std::sin(0.5 * arg);
+                    o[0] = shape_t(w);
+                    o[1] = shape_t(w * std::sin(arg));
+                    o[2] = shape_t(w * (-2.0 * half * half));
+                }
+            }
+        }
+    };
+    for (size_t tier = 0; tier < n_tiers; tier++) {
+        fill_tables(tier, N_i, len_i.data(), sli, sri, pos_i[tier], ws_i[tier]);
+        fill_tables(tier, N_j, len_j.data(), slj, srj, pos_j[tier], ws_j[tier]);
+    }
+
+    // The ladder's selector, as the B-spline kernel computes it: centre
+    // distance over the longer segment, highest tier whose threshold the
+    // ratio reaches.
+    auto pair_tier = [&](size_t i, size_t j) -> size_t {
+        size_t tier = 0;
+        if (n_tiers > 1) {
+            const double dx = c_i[i*3 + 0] - c_j[j*3 + 0];
+            const double dy = c_i[i*3 + 1] - c_j[j*3 + 1];
+            const double dz = c_i[i*3 + 2] - c_j[j*3 + 2];
+            const double ratio = std::sqrt(dx*dx + dy*dy + dz*dz)
+                                 / std::max(len_i[i], len_j[j]);
+            for (size_t t = 1; t < n_tiers; t++) {
+                if (ratio >= ladder.ratio[t]) tier = t; else break;
+            }
+        }
+        return tier;
+    };
+
+    // Shape tables split into (re, im) planes so the contraction below is
+    // explicit real arithmetic: std::complex's operator* carries the C99
+    // NaN/Inf fixup (`__muldc3`) under this build's strict FP flags, which
+    // is most of a scalar complex multiply's cost.
+    std::vector<std::vector<double>> wsi_re(n_tiers), wsi_im(n_tiers), wsj_re(n_tiers), wsj_im(n_tiers);
+    for (size_t tier = 0; tier < n_tiers; tier++) {
+        auto split = [](const std::vector<shape_t> &src, std::vector<double> &re, std::vector<double> &im) {
+            re.resize(src.size());
+            im.resize(src.size());
+            for (size_t x = 0; x < src.size(); x++) {
+                if constexpr (COMPLEX_K) { re[x] = src[x].real(); im[x] = src[x].imag(); }
+                else { re[x] = src[x]; im[x] = 0.0; }
+            }
+        };
+        split(ws_i[tier], wsi_re[tier], wsi_im[tier]);
+        split(ws_j[tier], wsj_re[tier], wsj_im[tier]);
+    }
+
+    MW_OMP_PARALLEL_FOR_COLLAPSE2
+    for (size_t i = 0; i < N_i; i++) {
+        for (size_t j = 0; j < N_j; j++) {
+            const size_t tier = pair_tier(i, j);
+            const size_t n_qp = ladder.n_qp(tier);
+            const double *pi = &pos_i[tier][i * n_qp * 3];
+            const double *pj = &pos_j[tier][j * n_qp * 3];
+            const double *si_re = &wsi_re[tier][i * n_qp * NM];
+            const double *si_im = &wsi_im[tier][i * n_qp * NM];
+            const double *sj_re = &wsj_re[tier][j * n_qp * NM];
+            const double *sj_im = &wsj_im[tier][j * n_qp * NM];
+            double acc_re[NMM], acc_im[NMM];
+            for (int pP = 0; pP < NMM; pP++) { acc_re[pP] = 0.0; acc_im[pP] = 0.0; }
+            const size_t n_pairs = n_qp * n_qp;
+            alignas(32) double R[BSPLINE_QR_TILE];
+            alignas(32) double ph[BSPLINE_QR_TILE];
+            alignas(32) double G_re[BSPLINE_QR_TILE], G_im[BSPLINE_QR_TILE];
+            for (size_t base = 0; base < n_pairs; base += BSPLINE_QR_TILE) {
+                const size_t m = std::min(n_pairs - base, (size_t)BSPLINE_QR_TILE);
+                for (size_t t = 0; t < m; t++) {
+                    const size_t q = (base + t) / n_qp, r = (base + t) % n_qp;
+                    const double dx = pi[q*3 + 0] - pj[r*3 + 0];
+                    const double dy = pi[q*3 + 1] - pj[r*3 + 1];
+                    const double dz = pi[q*3 + 2] - pj[r*3 + 2];
+                    R[t] = std::sqrt(dx*dx + dy*dy + dz*dz + a_squared);
+                }
+                MW_OMP_SIMD()
+                for (size_t t = 0; t < m; t++) ph[t] = -k_re * R[t];
+                MW_OMP_SIMD()
+                for (size_t t = 0; t < m; t++) G_re[t] = std::cos(ph[t]);
+                MW_OMP_SIMD()
+                for (size_t t = 0; t < m; t++) G_im[t] = std::sin(ph[t]);
+                if constexpr (COMPLEX_K) {
+                    MW_OMP_SIMD()
+                    for (size_t t = 0; t < m; t++) ph[t] = std::exp(k_im * R[t]);
+                    MW_OMP_SIMD()
+                    for (size_t t = 0; t < m; t++) {
+                        const double sc = ph[t] * inv_4pi / R[t];
+                        G_re[t] *= sc;
+                        G_im[t] *= sc;
+                    }
+                } else {
+                    MW_OMP_SIMD()
+                    for (size_t t = 0; t < m; t++) {
+                        const double sc = inv_4pi / R[t];
+                        G_re[t] *= sc;
+                        G_im[t] *= sc;
+                    }
+                }
+                if (EK && grp_i[i] == grp_j[j] && grp_i[i] >= 0) {
+                    // NEC Eq 89's coaxial factor on G (`_bspline_kernels.
+                    // _ek_factor`): fac = 1 + T1 C2 - T2 C1, C1 = 1 + jkR,
+                    // C2 = 3 C1 - (kR)^2, T1 = a^4 / 4R^4, T2 = a^2 / 2R^2,
+                    // in that order of operations.
+                    for (size_t t = 0; t < m; t++) {
+                        const double r2 = R[t] * R[t];
+                        const double r4 = r2 * r2;
+                        const double kr = k_re * R[t];
+                        const double kr2 = kr * kr;
+                        const double t1 = 0.25 * (a2_ek * a2_ek) / r4;
+                        const double t2 = 0.5 * a2_ek / r2;
+                        double fr = t1 * (3.0 - kr2);
+                        double fi = t1 * (3.0 * kr);
+                        fr = fr - t2;
+                        fi = fi - t2 * kr;
+                        fr = fr + 1.0;
+                        const double gr = G_re[t], gi = G_im[t];
+                        G_re[t] = gr * fr - gi * fi;
+                        G_im[t] = gr * fi + gi * fr;
+                    }
+                }
+                // Source-side contraction per test node q: gq[P] = sum_r G sj[r][P];
+                // then the 3x3 outer product with the test shapes once per q.
+                size_t t = 0;
+                while (t < m) {
+                    const size_t q = (base + t) / n_qp;
+                    size_t r = (base + t) % n_qp;
+                    double gq_re[NM] = {0.0, 0.0, 0.0}, gq_im[NM] = {0.0, 0.0, 0.0};
+                    for (; r < n_qp && t < m; r++, t++) {
+                        const double gr = G_re[t], gi = G_im[t];
+                        for (int P = 0; P < NM; P++) {
+                            const double sr = sj_re[r*NM + P], sim = sj_im[r*NM + P];
+                            gq_re[P] += gr * sr - gi * sim;
+                            gq_im[P] += gr * sim + gi * sr;
+                        }
+                    }
+                    for (int p = 0; p < NM; p++) {
+                        const double ar = si_re[q*NM + p], ai = si_im[q*NM + p];
+                        for (int P = 0; P < NM; P++) {
+                            acc_re[p*NM + P] += ar * gq_re[P] - ai * gq_im[P];
+                            acc_im[p*NM + P] += ar * gq_im[P] + ai * gq_re[P];
+                        }
+                    }
+                }
+            }
+            for (int pP = 0; pP < NMM; pP++)
+                j_view(pP / NM, pP % NM, i, j) = std::complex<double>(acc_re[pP], acc_im[pP]);
+        }
+    }
+    return J;
+}
+
+static py::array_t<std::complex<double>>
+seg_seg_full_moments_sinusoidal_tiered(
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_j,
+    double a_squared,
+    std::complex<double> k,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_t,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_w,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> tier_n_qp,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_ratio
+) {
+    if (k.imag() > 0.0) {
+        throw std::runtime_error(
+            "seg_seg_full_moments_sinusoidal_tiered: Im k > 0 is the growing "
+            "exponential branch; e^{+jwt} requires Im k <= 0 so e^{-jkR} decays");
+    }
+    PairOrderLadder ladder = ladder_from_arrays(tier_t, tier_w, tier_n_qp, tier_ratio);
+    if (k.imag() == 0.0) {
+        return seg_seg_full_moments_sinusoidal_kernel<false>(
+            seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k.real(), 0.0, ladder);
+    }
+    return seg_seg_full_moments_sinusoidal_kernel<true>(
+        seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k.real(), k.imag(), ladder);
+}
+
+// The extended-kernel twin of `seg_seg_full_moments_sinusoidal_tiered`
+// (momwire#1362): the same contraction with NEC Eq 89's coaxial factor on G
+// for the pairs whose group labels match (`_bspline_kernels._ek_axis_groups`,
+// the eligibility rule bspline's EK fill uses). A real k only: the extended
+// kernel is refused in the medium.
+static py::array_t<std::complex<double>>
+seg_seg_full_moments_sinusoidal_tiered_ek(
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_j,
+    double a_squared,
+    double k,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_t,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_w,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> tier_n_qp,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_ratio,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_i,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_j,
+    double a_ek
+) {
+    if ((size_t)group_i.size() != (size_t)seg_l_i.shape(0) ||
+        (size_t)group_j.size() != (size_t)seg_l_j.shape(0)) {
+        throw std::runtime_error(
+            "seg_seg_full_moments_sinusoidal_tiered_ek: one group label per segment");
+    }
+    PairOrderLadder ladder = ladder_from_arrays(tier_t, tier_w, tier_n_qp, tier_ratio);
+    return seg_seg_full_moments_sinusoidal_kernel<false, true>(
+        seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, 0.0, ladder,
+        group_i.data(), group_j.data(), a_ek);
+}
+
+// The sinusoidal fill's windowed assembler (momwire#1354): the B-spline
+// `assemble_Z_bspline_windowed` with the basis handed in as CSR-by-segment
+// coefficient tables on the folded shape set and its derivative coefficients
+// ALREADY ROTATED (`_sinusoidal_mp.dshape_coefs`), rather than as fixed-width
+// support wings of monomial polynomials. One window of pair moments
+// J (3, 3, n_rows, n_cols) over the segments `rows_seg` x `cols_seg`
+// accumulates
+//
+//   Z[i, j] += c_a . w_a[m, n] . (t_m . t_n) . coef_e^T J[:, :, m, n] coef_e'
+//            + c_phi . w_phi[m, n] . dcoef_e^T J[:, :, m, n] dcoef_e'
+//
+// over the CSR entries e of segment rows_seg[m] (basis i = jbasis[e]) and e'
+// of cols_seg[n]; `c_a` = jk eta and `c_phi` = eta / (jk) carry the block's
+// (k, eta) and any global scale, `tangents_*` are the window's own tangents
+// (an image window hands the mirrored source tangents) and `w_a` / `w_phi`
+// are optional per-pair complex tables (Fresnel or C2), 1 when absent.
+//
+// Threads own distinct BASIS rows of Z: the window's entries are grouped by
+// basis first, so two segments carrying the same basis never race on its
+// row, and no atomic is needed on a complex accumulate.
+static void
+assemble_Z_sinusoidal_windowed(
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> J,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> rows_seg,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> cols_seg,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> starts,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> jbasis,
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> coef,
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> dcoef,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tangents_rows,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tangents_cols,
+    std::complex<double> c_a,
+    std::complex<double> c_phi,
+    py::object w_a_obj,
+    py::object w_phi_obj,
+    py::array_t<std::complex<double>> Z,
+    uintptr_t cancel_flag = 0
+) {
+    static constexpr int NM = 3;
+    auto jv = J.unchecked<4>();
+    auto rs = rows_seg.unchecked<1>();
+    auto cs = cols_seg.unchecked<1>();
+    auto st = starts.unchecked<1>();
+    auto jb = jbasis.unchecked<1>();
+    auto cf = coef.unchecked<2>();
+    auto dcf = dcoef.unchecked<2>();
+    auto tr = tangents_rows.unchecked<2>();
+    auto tc = tangents_cols.unchecked<2>();
+    const size_t n_rows = (size_t)rs.shape(0);
+    const size_t n_cols = (size_t)cs.shape(0);
+    if (jv.shape(0) != NM || jv.shape(1) != NM ||
+        (size_t)jv.shape(2) != n_rows || (size_t)jv.shape(3) != n_cols) {
+        throw std::runtime_error("J must be (3, 3, n_rows, n_cols)");
+    }
+    if ((size_t)tr.shape(0) != n_rows || tr.shape(1) != 3 ||
+        (size_t)tc.shape(0) != n_cols || tc.shape(1) != 3) {
+        throw std::runtime_error("tangents must be (n_rows, 3) and (n_cols, 3)");
+    }
+    const int64_t nnz = jb.shape(0);
+    if (cf.shape(0) != nnz || cf.shape(1) != NM || dcf.shape(0) != nnz || dcf.shape(1) != NM) {
+        throw std::runtime_error("coef / dcoef must be (nnz, 3)");
+    }
+    const bool has_wa = !w_a_obj.is_none();
+    const bool has_wp = !w_phi_obj.is_none();
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> w_a_arr, w_phi_arr;
+    if (has_wa) w_a_arr = w_a_obj.cast<decltype(w_a_arr)>();
+    if (has_wp) w_phi_arr = w_phi_obj.cast<decltype(w_phi_arr)>();
+    if (has_wa && ((size_t)w_a_arr.shape(0) != n_rows || (size_t)w_a_arr.shape(1) != n_cols)) {
+        throw std::runtime_error("w_a must be (n_rows, n_cols)");
+    }
+    if (has_wp && ((size_t)w_phi_arr.shape(0) != n_rows || (size_t)w_phi_arr.shape(1) != n_cols)) {
+        throw std::runtime_error("w_phi must be (n_rows, n_cols)");
+    }
+    const std::complex<double> *wa = has_wa ? w_a_arr.data() : nullptr;
+    const std::complex<double> *wp = has_wp ? w_phi_arr.data() : nullptr;
+    auto zv = Z.mutable_unchecked<2>();
+    const int64_t n_basis = zv.shape(0);
+    if (zv.shape(1) != n_basis) throw std::runtime_error("Z must be square");
+    for (size_t m = 0; m < n_rows; m++) {
+        const int64_t s = rs(m);
+        if (s < 0 || s + 1 >= st.shape(0)) throw std::runtime_error("rows_seg out of range");
+    }
+    for (size_t n = 0; n < n_cols; n++) {
+        const int64_t s = cs(n);
+        if (s < 0 || s + 1 >= st.shape(0)) throw std::runtime_error("cols_seg out of range");
+    }
+    for (int64_t e = 0; e < nnz; e++) {
+        if (jb(e) < 0 || jb(e) >= n_basis) throw std::runtime_error("jbasis out of range");
+    }
+
+    py::gil_scoped_release release;
+
+    // Window entries grouped by basis: (basis, m, e) sorted by basis, with
+    // group offsets. Built once per window, O(entries).
+    struct Entry { int64_t basis; size_t m; int64_t e; };
+    std::vector<Entry> ents;
+    for (size_t m = 0; m < n_rows; m++) {
+        const int64_t s = rs(m);
+        for (int64_t e = st(s); e < st(s + 1); e++) ents.push_back(Entry{jb(e), m, e});
+    }
+    std::sort(ents.begin(), ents.end(),
+              [](const Entry &a, const Entry &b) { return a.basis < b.basis; });
+    std::vector<size_t> grp;
+    for (size_t x = 0; x < ents.size(); x++) {
+        if (x == 0 || ents[x].basis != ents[x - 1].basis) grp.push_back(x);
+    }
+    grp.push_back(ents.size());
+    const size_t n_grp = grp.size() - 1;
+    // Column entries, flattened: per column n the run of (e', basis').
+    std::vector<size_t> col_off(n_cols + 1, 0);
+    for (size_t n = 0; n < n_cols; n++) {
+        const int64_t s = cs(n);
+        col_off[n + 1] = col_off[n] + (size_t)(st(s + 1) - st(s));
+    }
+    std::vector<int64_t> col_e(col_off[n_cols]);
+    for (size_t n = 0; n < n_cols; n++) {
+        const int64_t s = cs(n);
+        size_t o = col_off[n];
+        for (int64_t e = st(s); e < st(s + 1); e++) col_e[o++] = e;
+    }
+    // The distinct basis columns this window touches: each group's row is
+    // accumulated in a contiguous buffer and added to Z's (strided, column-
+    // major) row once per touched column, not once per entry.
+    std::vector<int64_t> col_bases;
+    {
+        std::vector<char> seen((size_t)n_basis, 0);
+        for (size_t o = 0; o < col_e.size(); o++) {
+            const int64_t j = jb(col_e[o]);
+            if (!seen[(size_t)j]) { seen[(size_t)j] = 1; col_bases.push_back(j); }
+        }
+        std::sort(col_bases.begin(), col_bases.end());
+    }
+    const size_t plane = n_rows * n_cols;
+    const double *Jd_d = reinterpret_cast<const double *>(J.data());
+
+    MW_CANCEL_SETUP(cancel_flag);
+    #pragma omp parallel
+    {
+        std::vector<std::complex<double>> rowbuf((size_t)n_basis, std::complex<double>(0.0, 0.0));
+        #pragma omp for schedule(dynamic, 8)
+        for (size_t g = 0; g < n_grp; g++) {
+            MW_CANCEL_POLL();
+            const int64_t i = ents[grp[g]].basis;
+            for (size_t x = grp[g]; x < grp[g + 1]; x++) {
+                const size_t m = ents[x].m;
+                const int64_t e = ents[x].e;
+                // Explicit (re, im) arithmetic throughout: see the moment
+                // kernel above for why std::complex's operator* is avoided.
+                double ce_re[NM], ce_im[NM], de_re[NM], de_im[NM];
+                for (int p = 0; p < NM; p++) {
+                    const std::complex<double> a = c_a * cf(e, p), b = c_phi * dcf(e, p);
+                    ce_re[p] = a.real(); ce_im[p] = a.imag();
+                    de_re[p] = b.real(); de_im[p] = b.imag();
+                }
+                const double tmx = tr(m, 0), tmy = tr(m, 1), tmz = tr(m, 2);
+                const double *Jm = Jd_d + 2 * (m * n_cols);
+                for (size_t n = 0; n < n_cols; n++) {
+                    const double td = tmx * tc(n, 0) + tmy * tc(n, 1) + tmz * tc(n, 2);
+                    double fa_re = td, fa_im = 0.0, fp_re = 1.0, fp_im = 0.0;
+                    if (has_wa) { fa_re = wa[m * n_cols + n].real() * td; fa_im = wa[m * n_cols + n].imag() * td; }
+                    if (has_wp) { fp_re = wp[m * n_cols + n].real(); fp_im = wp[m * n_cols + n].imag(); }
+                    // ta[q] = fa sum_p ce[p] J[p][q]; tp[q] = fp sum_p de[p] J[p][q].
+                    double ta_re[NM], ta_im[NM], tp_re[NM], tp_im[NM];
+                    for (int q = 0; q < NM; q++) {
+                        double sa_re = 0.0, sa_im = 0.0, sp_re = 0.0, sp_im = 0.0;
+                        for (int p = 0; p < NM; p++) {
+                            const size_t off = 2 * ((size_t)(p * NM + q) * plane + n);
+                            const double jr = Jm[off], ji = Jm[off + 1];
+                            sa_re += ce_re[p] * jr - ce_im[p] * ji;
+                            sa_im += ce_re[p] * ji + ce_im[p] * jr;
+                            sp_re += de_re[p] * jr - de_im[p] * ji;
+                            sp_im += de_re[p] * ji + de_im[p] * jr;
+                        }
+                        ta_re[q] = fa_re * sa_re - fa_im * sa_im;
+                        ta_im[q] = fa_re * sa_im + fa_im * sa_re;
+                        tp_re[q] = fp_re * sp_re - fp_im * sp_im;
+                        tp_im[q] = fp_re * sp_im + fp_im * sp_re;
+                    }
+                    for (size_t o = col_off[n]; o < col_off[n + 1]; o++) {
+                        const int64_t ep = col_e[o];
+                        double v_re = 0.0, v_im = 0.0;
+                        for (int q = 0; q < NM; q++) {
+                            const double cr = cf(ep, q).real(), ci = cf(ep, q).imag();
+                            const double dr = dcf(ep, q).real(), di = dcf(ep, q).imag();
+                            v_re += ta_re[q] * cr - ta_im[q] * ci + tp_re[q] * dr - tp_im[q] * di;
+                            v_im += ta_re[q] * ci + ta_im[q] * cr + tp_re[q] * di + tp_im[q] * dr;
+                        }
+                        rowbuf[(size_t)jb(ep)] += std::complex<double>(v_re, v_im);
+                    }
+                }
+            }
+            for (size_t c = 0; c < col_bases.size(); c++) {
+                const int64_t j = col_bases[c];
+                zv(i, j) += rowbuf[(size_t)j];
+                rowbuf[(size_t)j] = std::complex<double>(0.0, 0.0);
+            }
+        }
+    }
+    MW_THROW_IF_ABORTED();
+}
+
+// Field-form pair moments from a projected field table (momwire#1354): the
+// sinusoidal fill's remainder blocks need `Jf[p, P, i, j] = sum_{q, r}
+// W_obs[p, i, q] . F[i q, j r] . W_src[P, j, r]` with COMPLEX shape weights
+// (the shapes are complex in the medium), which `assemble_field_galerkin`'s
+// real tables cannot carry. This is that double sum alone, (3, 3, n_obs,
+// n_src); the basis assembly is `assemble_Z_sinusoidal_windowed`'s with the
+// tangent dot already inside F.
+static py::array_t<std::complex<double>>
+field_pair_moments_sinusoidal(
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> F,
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> W_obs,
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> W_src
+) {
+    static constexpr int NM = 3;
+    auto Fv = F.unchecked<2>();
+    auto Wo = W_obs.unchecked<3>();
+    auto Ws = W_src.unchecked<3>();
+    if (Wo.shape(0) != NM || Ws.shape(0) != NM) throw std::runtime_error("W must be (3, n, q)");
+    const size_t n_obs = (size_t)Wo.shape(1), n_src = (size_t)Ws.shape(1), q = (size_t)Wo.shape(2);
+    if ((size_t)Ws.shape(2) != q) throw std::runtime_error("W_obs and W_src must share q");
+    if ((size_t)Fv.shape(0) != n_obs * q || (size_t)Fv.shape(1) != n_src * q)
+        throw std::runtime_error("F must be (n_obs q, n_src q)");
+    py::array_t<std::complex<double>> J({(size_t)NM, (size_t)NM, n_obs, n_src});
+    auto jv = J.mutable_unchecked<4>();
+    // Split tables: explicit (re, im) arithmetic, see the moment kernel.
+    std::vector<double> wo_re(n_obs * q * NM), wo_im(n_obs * q * NM), ws_re(n_src * q * NM), ws_im(n_src * q * NM);
+    for (size_t i = 0; i < n_obs; i++)
+        for (size_t a = 0; a < q; a++)
+            for (int p = 0; p < NM; p++) {
+                wo_re[(i * q + a) * NM + p] = Wo(p, i, a).real();
+                wo_im[(i * q + a) * NM + p] = Wo(p, i, a).imag();
+            }
+    for (size_t j = 0; j < n_src; j++)
+        for (size_t b = 0; b < q; b++)
+            for (int P = 0; P < NM; P++) {
+                ws_re[(j * q + b) * NM + P] = Ws(P, j, b).real();
+                ws_im[(j * q + b) * NM + P] = Ws(P, j, b).imag();
+            }
+    const double *Fd = reinterpret_cast<const double *>(F.data());
+    const size_t ld = 2 * n_src * q;
+    py::gil_scoped_release release;
+    MW_OMP_PARALLEL_FOR_COLLAPSE2
+    for (size_t i = 0; i < n_obs; i++) {
+        for (size_t j = 0; j < n_src; j++) {
+            double acc_re[NM * NM], acc_im[NM * NM];
+            for (int x = 0; x < NM * NM; x++) { acc_re[x] = 0.0; acc_im[x] = 0.0; }
+            for (size_t a = 0; a < q; a++) {
+                double g_re[NM] = {0.0, 0.0, 0.0}, g_im[NM] = {0.0, 0.0, 0.0};
+                const double *row = Fd + (i * q + a) * ld + 2 * (j * q);
+                for (size_t b = 0; b < q; b++) {
+                    const double fr = row[2 * b], fi = row[2 * b + 1];
+                    const double *sr = &ws_re[(j * q + b) * NM], *si = &ws_im[(j * q + b) * NM];
+                    for (int P = 0; P < NM; P++) {
+                        g_re[P] += fr * sr[P] - fi * si[P];
+                        g_im[P] += fr * si[P] + fi * sr[P];
+                    }
+                }
+                const double *orr = &wo_re[(i * q + a) * NM], *oi = &wo_im[(i * q + a) * NM];
+                for (int p = 0; p < NM; p++)
+                    for (int P = 0; P < NM; P++) {
+                        acc_re[p * NM + P] += orr[p] * g_re[P] - oi[p] * g_im[P];
+                        acc_im[p * NM + P] += orr[p] * g_im[P] + oi[p] * g_re[P];
+                    }
+            }
+            for (int x = 0; x < NM * NM; x++) jv(x / NM, x % NM, i, j) = std::complex<double>(acc_re[x], acc_im[x]);
+        }
+    }
+    return J;
+}
+
+// The parallel-pair reduction of the sinusoidal fill (momwire#1354,
+// `_sinusoidal_mp.parallel_pair_moments`): for a pair of PARALLEL segments the
+// kernel depends on the separation delta along the common line alone,
+// J[p, q] = int G(delta) Lambda_pq(delta) d delta, Lambda the shapes'
+// correlation over the overlap. Each of the three pieces of Lambda (its
+// breakpoints are the four corner separations) is integrated in t with
+// delta = rho sinh t, which removes the 1/R exactly, Gauss-Legendre in t on
+// the outside and in xi on the inside. Same arithmetic as the numpy reference,
+// one pair per thread. Complex k serves the medium.
+static py::array_t<std::complex<double>>
+parallel_pair_moments_sinusoidal(
+    py::array_t<double, py::array::c_style | py::array::forcecast> c_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> t_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> h_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> c_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> t_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> h_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> a2,
+    std::complex<double> k,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gt,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gw,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gx,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gwx,
+    py::object a_ek_obj
+) {
+    static constexpr int NM = 3;
+    // momwire#1362: `a_ek` (n,) is each pair's extended-kernel radius, 0 for a
+    // pair the extended kernel does not reach (None: no pair). An extended
+    // pair takes NEC Eq 89's coaxial factor on G inside the t integral, where
+    // it is smooth: R = rho cosh t with rho >= a.
+    const bool has_ek = !a_ek_obj.is_none();
+    py::array_t<double, py::array::c_style | py::array::forcecast> a_ek_arr;
+    if (has_ek) a_ek_arr = a_ek_obj.cast<py::array_t<double, py::array::c_style | py::array::forcecast>>();
+    const double *a_ekp = has_ek ? a_ek_arr.data() : nullptr;
+    auto ci = c_i.unchecked<2>(); auto ti = t_i.unchecked<2>(); auto hi_ = h_i.unchecked<1>();
+    auto cj = c_j.unchecked<2>(); auto tj = t_j.unchecked<2>(); auto hj_ = h_j.unchecked<1>();
+    auto a2v = a2.unchecked<1>();
+    auto gtv = gt.unchecked<1>(); auto gwv = gw.unchecked<1>();
+    auto gxv = gx.unchecked<1>(); auto gwxv = gwx.unchecked<1>();
+    const size_t n = (size_t)ci.shape(0);
+    if ((size_t)cj.shape(0) != n || (size_t)a2v.shape(0) != n || (size_t)hi_.shape(0) != n ||
+        (size_t)hj_.shape(0) != n || ci.shape(1) != 3 || cj.shape(1) != 3 ||
+        ti.shape(1) != 3 || tj.shape(1) != 3)
+        throw std::runtime_error("parallel_pair_moments_sinusoidal: n pairs of (3,) rows expected");
+    const size_t n_t = (size_t)gtv.shape(0), n_xi = (size_t)gxv.shape(0);
+    if ((size_t)gwv.shape(0) != n_t || (size_t)gwxv.shape(0) != n_xi)
+        throw std::runtime_error("rules must be (nodes, weights) pairs of one length");
+    if (has_ek && (size_t)a_ek_arr.size() != n)
+        throw std::runtime_error("parallel_pair_moments_sinusoidal: a_ek must be (n,)");
+    py::array_t<std::complex<double>> J({(size_t)NM, (size_t)NM, n});
+    auto jv = J.mutable_unchecked<3>();
+    const double kr = k.real(), kim = k.imag();
+    const bool cplx = kim != 0.0;
+    if (has_ek && cplx)
+        throw std::runtime_error("parallel_pair_moments_sinusoidal: the extended kernel needs a real k");
+    py::gil_scoped_release release;
+    const double inv_4pi = 1.0 / (4.0 * M_PI);
+    #pragma omp parallel for schedule(dynamic, 64)
+    for (size_t p = 0; p < n; p++) {
+        double dot = 0.0, dpar = 0.0, dd = 0.0;
+        for (int d = 0; d < 3; d++) {
+            dot += ti(p, d) * tj(p, d);
+            const double dc = ci(p, d) - cj(p, d);
+            dpar += dc * tj(p, d);
+            dd += dc * dc;
+        }
+        const double s = dot > 0.0 ? 1.0 : (dot < 0.0 ? -1.0 : 0.0);
+        const double dperp2 = std::max(dd - dpar * dpar, 0.0);
+        const double rho = std::sqrt(dperp2 + a2v(p));
+        const double hI = hi_(p), hJ = hj_(p);
+        double br[4] = {dpar - 0.5 * (hI + hJ), dpar - 0.5 * (hI - hJ),
+                        dpar + 0.5 * (hI - hJ), dpar + 0.5 * (hI + hJ)};
+        std::sort(br, br + 4);
+        double acc_re[NM * NM], acc_im[NM * NM];
+        for (int x = 0; x < NM * NM; x++) { acc_re[x] = 0.0; acc_im[x] = 0.0; }
+        for (int piece = 0; piece < 3; piece++) {
+            const double lo_t = std::asinh(br[piece] / rho), hi_t = std::asinh(br[piece + 1] / rho);
+            const double mid = 0.5 * (hi_t + lo_t), half = 0.5 * (hi_t - lo_t);
+            for (size_t a = 0; a < n_t; a++) {
+                const double t = mid + half * gtv(a);
+                const double w_t = half * gwv(a);
+                const double delta = rho * std::sinh(t), R = rho * std::cosh(t);
+                // G d delta = exp(-jkR) / (4 pi) dt
+                double sc = inv_4pi * w_t;
+                if (cplx) sc *= std::exp(kim * R);
+                const double ph = -kr * R;
+                double g_re = std::cos(ph) * sc, g_im = std::sin(ph) * sc;
+                if (has_ek && a_ekp[p] > 0.0) {
+                    const double a2e = a_ekp[p] * a_ekp[p];
+                    const double r2 = R * R, r4 = r2 * r2;
+                    const double kR = kr * R, kR2 = kR * kR;
+                    const double t1 = 0.25 * (a2e * a2e) / r4;
+                    const double t2 = 0.5 * a2e / r2;
+                    double fr = t1 * (3.0 - kR2);
+                    double fi = t1 * (3.0 * kR);
+                    fr = fr - t2;
+                    fi = fi - t2 * kR;
+                    fr = fr + 1.0;
+                    const double gr = g_re, gi = g_im;
+                    g_re = gr * fr - gi * fi;
+                    g_im = gr * fi + gi * fr;
+                }
+                const double beta = dpar - delta;
+                double lo, hi;
+                if (s > 0.0) { lo = std::max(-0.5 * hI, -beta - 0.5 * hJ); hi = std::min(0.5 * hI, -beta + 0.5 * hJ); }
+                else { lo = std::max(-0.5 * hI, beta - 0.5 * hJ); hi = std::min(0.5 * hI, beta + 0.5 * hJ); }
+                const double width = std::max(hi - lo, 0.0);
+                const double xm = 0.5 * (hi + lo), xh = 0.5 * width;
+                double lam_re[NM * NM], lam_im[NM * NM];
+                for (int x = 0; x < NM * NM; x++) { lam_re[x] = 0.0; lam_im[x] = 0.0; }
+                for (size_t b = 0; b < n_xi; b++) {
+                    const double xi = xm + xh * gxv(b);
+                    const double w_xi = xh * gwxv(b);
+                    const double xi_src = s * xi + beta;
+                    // shapes {1, sin k xi, -2 sin^2(k xi / 2)} at xi and xi_src
+                    double si_re[NM], si_im[NM], sj_re[NM], sj_im[NM];
+                    auto shapes = [&](double x, double *re, double *im) {
+                        re[0] = 1.0; im[0] = 0.0;
+                        if (cplx) {
+                            const std::complex<double> arg = k * x;
+                            const std::complex<double> sn = std::sin(arg);
+                            const std::complex<double> hf = std::sin(0.5 * arg);
+                            const std::complex<double> c2 = -2.0 * hf * hf;
+                            re[1] = sn.real(); im[1] = sn.imag(); re[2] = c2.real(); im[2] = c2.imag();
+                        } else {
+                            const double arg = kr * x, hf = std::sin(0.5 * arg);
+                            re[1] = std::sin(arg); im[1] = 0.0; re[2] = -2.0 * hf * hf; im[2] = 0.0;
+                        }
+                    };
+                    shapes(xi, si_re, si_im);
+                    shapes(xi_src, sj_re, sj_im);
+                    for (int pp = 0; pp < NM; pp++)
+                        for (int q = 0; q < NM; q++) {
+                            const double pr = si_re[pp] * sj_re[q] - si_im[pp] * sj_im[q];
+                            const double pi_ = si_re[pp] * sj_im[q] + si_im[pp] * sj_re[q];
+                            lam_re[pp * NM + q] += w_xi * pr;
+                            lam_im[pp * NM + q] += w_xi * pi_;
+                        }
+                }
+                for (int x = 0; x < NM * NM; x++) {
+                    acc_re[x] += lam_re[x] * g_re - lam_im[x] * g_im;
+                    acc_im[x] += lam_re[x] * g_im + lam_im[x] * g_re;
+                }
+            }
+        }
+        for (int x = 0; x < NM * NM; x++) jv(x / NM, x % NM, p) = std::complex<double>(acc_re[x], acc_im[x]);
+    }
+    return J;
+}
+
 // Runtime dispatch wrapper for the batched (swept-k) off-edge kernel.
 static py::array_t<std::complex<double>>
 seg_seg_full_moments_bspline_swept(
@@ -4391,24 +5054,71 @@ seg_seg_full_moments_bspline_ek(
     py::array_t<double, py::array::c_style | py::array::forcecast> gl_w,
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_i,
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_j,
-    double a_ek
+    double a_ek,
+    bool reference
 ) {
+    const PairOrderLadder ladder = ladder_from_rule(gl_t, gl_w);
     switch (max_d) {
         case 1:
             return seg_seg_full_moments_bspline_kernel_ek<1>(
-                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, gl_t, gl_w,
-                group_i, group_j, a_ek);
+                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, ladder,
+                group_i, group_j, a_ek, reference);
         case 2:
             return seg_seg_full_moments_bspline_kernel_ek<2>(
-                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, gl_t, gl_w,
-                group_i, group_j, a_ek);
+                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, ladder,
+                group_i, group_j, a_ek, reference);
         case 3:
             return seg_seg_full_moments_bspline_kernel_ek<3>(
-                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, gl_t, gl_w,
-                group_i, group_j, a_ek);
+                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, ladder,
+                group_i, group_j, a_ek, reference);
         default:
             throw std::runtime_error(
                 "seg_seg_full_moments_bspline_ek: max_d must be 1, 2 or 3 "
+                "(add an explicit template instantiation in _accelerators.cpp)");
+    }
+}
+
+
+// The distance-adaptive (ladder) twin of the entry above (momwire#1362): the
+// extended kernel on the pair-order ladder of momwire#906, with the
+// `seg_seg_full_moments_bspline_tiered` ladder contract and this entry's EK
+// arguments. Real k only, like every EK off-edge entry.
+static py::array_t<std::complex<double>>
+seg_seg_full_moments_bspline_ek_tiered(
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_j,
+    double a_squared,
+    double k,
+    int max_d,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_t,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_w,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> tier_n_qp,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_ratio,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_i,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> group_j,
+    double a_ek,
+    bool reference
+) {
+    const PairOrderLadder ladder =
+        ladder_from_arrays(tier_t, tier_w, tier_n_qp, tier_ratio);
+    switch (max_d) {
+        case 1:
+            return seg_seg_full_moments_bspline_kernel_ek<1>(
+                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, ladder,
+                group_i, group_j, a_ek, reference);
+        case 2:
+            return seg_seg_full_moments_bspline_kernel_ek<2>(
+                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, ladder,
+                group_i, group_j, a_ek, reference);
+        case 3:
+            return seg_seg_full_moments_bspline_kernel_ek<3>(
+                seg_l_i, seg_r_i, seg_l_j, seg_r_j, a_squared, k, ladder,
+                group_i, group_j, a_ek, reference);
+        default:
+            throw std::runtime_error(
+                "seg_seg_full_moments_bspline_ek_tiered: max_d must be 1, 2 or 3 "
                 "(add an explicit template instantiation in _accelerators.cpp)");
     }
 }
@@ -5481,6 +6191,52 @@ void register_bspline(py::module_ &m) {
           py::arg("tier_t"), py::arg("tier_w"),
           py::arg("tier_n_qp"), py::arg("tier_ratio"),
           py::arg("reference") = false);
+    m.def("seg_seg_full_moments_sinusoidal_tiered",
+          &seg_seg_full_moments_sinusoidal_tiered,
+          "The tiered pair moments on the sinusoidal Galerkin basis's folded "
+          "shape set {1, sin k xi, cos k xi - 1} (momwire#1354): the B-spline "
+          "ladder contract with the shapes evaluated at the nodes in place of "
+          "the monomials, (3, 3, N_i, N_j). k complex, Im k <= 0; a real k "
+          "takes the real-shape instantiation.",
+          py::arg("seg_l_i"), py::arg("seg_r_i"),
+          py::arg("seg_l_j"), py::arg("seg_r_j"),
+          py::arg("a_squared"), py::arg("k"),
+          py::arg("tier_t"), py::arg("tier_w"),
+          py::arg("tier_n_qp"), py::arg("tier_ratio"));
+    m.def("seg_seg_full_moments_sinusoidal_tiered_ek",
+          &seg_seg_full_moments_sinusoidal_tiered_ek,
+          "The extended-kernel twin of seg_seg_full_moments_sinusoidal_tiered "
+          "(momwire#1362): NEC Eq 89's coaxial factor on G for the pairs whose "
+          "group labels match. Real k only.",
+          py::arg("seg_l_i"), py::arg("seg_r_i"),
+          py::arg("seg_l_j"), py::arg("seg_r_j"),
+          py::arg("a_squared"), py::arg("k"),
+          py::arg("tier_t"), py::arg("tier_w"),
+          py::arg("tier_n_qp"), py::arg("tier_ratio"),
+          py::arg("group_i"), py::arg("group_j"), py::arg("a_ek"));
+    m.def("assemble_Z_sinusoidal_windowed", &assemble_Z_sinusoidal_windowed,
+          "Accumulate one window of sinusoidal pair moments into Z "
+          "(momwire#1354): the windowed B-spline assembler with the basis as "
+          "CSR-by-segment coefficient tables (coef, dcoef) on the folded "
+          "shape set, per-pair complex weights optional. Threads own basis "
+          "rows.",
+          py::arg("J"), py::arg("rows_seg"), py::arg("cols_seg"),
+          py::arg("starts"), py::arg("jbasis"), py::arg("coef"), py::arg("dcoef"),
+          py::arg("tangents_rows"), py::arg("tangents_cols"),
+          py::arg("c_a"), py::arg("c_phi"),
+          py::arg("w_a") = py::none(), py::arg("w_phi") = py::none(),
+          py::arg("Z"), py::arg("cancel_flag") = 0);
+    m.def("field_pair_moments_sinusoidal", &field_pair_moments_sinusoidal,
+          "Field-form pair moments sum_{q,r} W_obs[p,i,q] F[iq,jr] W_src[P,j,r] "
+          "with complex shape weights, (3, 3, n_obs, n_src) (momwire#1354).",
+          py::arg("F"), py::arg("W_obs"), py::arg("W_src"));
+    m.def("parallel_pair_moments_sinusoidal", &parallel_pair_moments_sinusoidal,
+          "The sinusoidal fill's parallel-pair reduction (momwire#1354): "
+          "(3, 3, n) moments of n parallel segment pairs by the sinh-substituted "
+          "separation integral, a pair per thread.",
+          py::arg("c_i"), py::arg("t_i"), py::arg("h_i"), py::arg("c_j"), py::arg("t_j"),
+          py::arg("h_j"), py::arg("a2"), py::arg("k"), py::arg("gt"), py::arg("gw"),
+          py::arg("gx"), py::arg("gwx"), py::arg("a_ek") = py::none());
     m.def("seg_seg_full_moments_bspline_swept",
           &seg_seg_full_moments_bspline_swept,
           "Batched (swept-k) off-edge full-kernel polynomial moments for the "
@@ -5505,13 +6261,33 @@ void register_bspline(py::module_ &m) {
           "coaxial factor fac = 1 + T1*C2 - T2*C1 on eligible pairs and left "
           "alone otherwise — a literal transcription of "
           "_bspline_kernels._seg_seg_full_moments_offedge's `ek is not "
-          "None` branch, evaluated eagerly instead of via np.where.",
+          "None` branch, evaluated eagerly instead of via np.where. "
+          "reference=True walks every pair alone where the AVX2 lane path "
+          "is compiled (momwire#1362), the gate that path is held to.",
           py::arg("seg_l_i"), py::arg("seg_r_i"),
           py::arg("seg_l_j"), py::arg("seg_r_j"),
           py::arg("a_squared"), py::arg("k"),
           py::arg("max_d"),
           py::arg("gl_t"), py::arg("gl_w"),
-          py::arg("group_i"), py::arg("group_j"), py::arg("a_ek"));
+          py::arg("group_i"), py::arg("group_j"), py::arg("a_ek"),
+          py::arg("reference") = false);
+    m.def("seg_seg_full_moments_bspline_ek_tiered",
+          &seg_seg_full_moments_bspline_ek_tiered,
+          "Distance-adaptive twin of seg_seg_full_moments_bspline_ek "
+          "(momwire#1362): the pair-order ladder contract of "
+          "seg_seg_full_moments_bspline_tiered (tier 0 the base order, tier "
+          "t >= 1 for pairs at centre distance over the longer segment >= "
+          "tier_ratio[t]) with the EK group labels and radius. The coaxial "
+          "factor is applied at whatever order a pair runs; one tier "
+          "reproduces seg_seg_full_moments_bspline_ek bit for bit.",
+          py::arg("seg_l_i"), py::arg("seg_r_i"),
+          py::arg("seg_l_j"), py::arg("seg_r_j"),
+          py::arg("a_squared"), py::arg("k"),
+          py::arg("max_d"),
+          py::arg("tier_t"), py::arg("tier_w"),
+          py::arg("tier_n_qp"), py::arg("tier_ratio"),
+          py::arg("group_i"), py::arg("group_j"), py::arg("a_ek"),
+          py::arg("reference") = false);
     m.def("seg_seg_full_moments_bspline_swept_ek",
           &seg_seg_full_moments_bspline_swept_ek,
           "Batched (swept-k) twin of seg_seg_full_moments_bspline_ek "

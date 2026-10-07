@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: istari-digital-client
-Version: 13.2.0
+Version: 13.2.1
 Summary: Python client for the Istari Digital platform
 License: MIT License
          
@@ -32,8 +32,8 @@ Requires-Dist: boto3 (>=1.26.0) ; extra == "s3" or extra == "s3-crt"
 Requires-Dist: cryptography (>=49.0.0)
 Requires-Dist: deprecation (>=2.1.0,<3.0.0)
 Requires-Dist: inflection (>=0.5.1,<0.6.0)
-Requires-Dist: istari-digital-core (==7.3.2)
-Requires-Dist: istari-digital-core-fips (==7.3.2) ; extra == "fips"
+Requires-Dist: istari-digital-core (==7.4.0)
+Requires-Dist: istari-digital-core-fips (==7.4.0) ; extra == "fips"
 Requires-Dist: pydantic (>=2.9.0,<3.0.0)
 Requires-Dist: pyjwt (>=2.15.1,<3.0.0)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)

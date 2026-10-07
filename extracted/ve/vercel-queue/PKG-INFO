@@ -1,21 +1,21 @@
 Metadata-Version: 2.5
 Name: vercel-queue
-Version: 0.9.0
+Version: 0.9.1
 Summary: Vercel Queue client for Python
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
-Requires-Dist: anyio>=4.0.0
+Requires-Dist: anyio<5,>=4.11.0
 Requires-Dist: httpx2[http2]>=2
 Requires-Dist: python-multipart>=0.0.20
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: vercel-headers>=0.7.2
-Requires-Dist: vercel-internal-core<0.3.0,>=0.2.0
-Requires-Dist: vercel-oidc>=0.9.0
+Requires-Dist: vercel-internal-core<0.3.0,>=0.2.1
+Requires-Dist: vercel-oidc>=0.10.0
 Provides-Extra: devserver
 Requires-Dist: uvicorn; extra == 'devserver'
 Provides-Extra: trio
-Requires-Dist: anyio[trio]>=4.0.0; extra == 'trio'
+Requires-Dist: anyio[trio]<5,>=4.11.0; extra == 'trio'
 Provides-Extra: typed
 Requires-Dist: pydantic>=2.7.0; extra == 'typed'
 Description-Content-Type: text/markdown

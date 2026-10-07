@@ -15,10 +15,11 @@ from trajectory._utils import maybe_transform
 from trajectory.resources.training.checkpoints import Checkpoints, CheckpointsWithRawResponse
 from trajectory.resources.training.rewards import Rewards, RewardsWithRawResponse
 from trajectory.resources.training.runs import Runs, RunsWithRawResponse
-from trajectory.types.create_run_params import CreateRunParams, RunOptionsParam
 from trajectory.types.create_training_run_response import CreateTrainingRunResponse
 from trajectory.types.list_supported_models_response import ListSupportedModelsResponse
+from trajectory.types.run_options_param import RunOptionsParam
 from trajectory.types.run_options_response import RunOptionsResponse
+from trajectory.types.training.training_create_params import TrainingCreateParams
 
 
 class Training(APIResource):
@@ -120,7 +121,7 @@ class Training(APIResource):
           "parent_checkpoint_id": parent_checkpoint_id,
           "display_name": display_name,
         },
-        CreateRunParams,
+        TrainingCreateParams,
       ),
       options=make_request_options(
         headers={

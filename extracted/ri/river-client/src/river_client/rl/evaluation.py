@@ -16,9 +16,22 @@ from .engine import call
 
 
 class CheckpointSampler:
-    """A sampling-only view pinned to saved weights on an evaluation session."""
+    """Sample from a saved checkpoint on a separate evaluation session.
+
+    Attributes:
+        step: Training step recorded by the checkpoint.
+        submit_sampling_batch: Batch submission bound to this checkpoint.
+    """
 
     def __init__(self, session, *, base_model, checkpoint: Checkpoint, tokenizer):
+        """Bind evaluation sampling to a specific saved policy.
+
+        Args:
+            session: Session allocated for evaluation.
+            base_model: Model used to create the checkpoint.
+            checkpoint: Saved weights and training step to evaluate.
+            tokenizer: Tokenizer used to decode evaluation samples.
+        """
         if not isinstance(checkpoint, Checkpoint):
             raise TypeError(
                 "evaluation requires a saved Checkpoint with a recorded step"
@@ -64,6 +77,16 @@ class CheckpointSampler:
 
 @dataclass
 class Evaluation:
+    """Metrics and trajectories from evaluating one checkpoint variant.
+
+    Attributes:
+        step: Training step represented by the checkpoint.
+        variant: Name of the evaluation configuration.
+        checkpoint: Saved weights sampled by this evaluation.
+        metrics: Aggregate evaluation measurements.
+        trajectories: Individual evaluation rollouts.
+    """
+
     step: int
     variant: str
     checkpoint: Checkpoint
@@ -72,10 +95,16 @@ class Evaluation:
 
 
 class Evaluator:
-    """engine_factory(checkpoint, variant) returns an independent rollout engine.
+    """Run a holdout evaluation against saved model checkpoints.
 
-    Its model must be CheckpointSampler, so live moving weights cannot accidentally
-    be evaluated. Provision the factory's session on separate evaluation capacity.
+    Each variant uses a separate rollout engine built from a
+    ``CheckpointSampler``. Evaluation can continue while the training model
+    advances; allocate its session on evaluation capacity.
+
+    Attributes:
+        holdout: Dataset rows reserved for evaluation.
+        variants: Names of evaluation configurations.
+        results: Completed evaluation results.
     """
 
     def __init__(
@@ -89,6 +118,19 @@ class Evaluator:
         variants=("default",),
         sink=None,
     ):
+        """Configure the holdout, cadence, and evaluation variants.
+
+        Args:
+            holdout: Rows reserved for evaluation and excluded from training.
+            engine_factory: Callable ``(checkpoint, variant)`` returning an
+                evaluation rollout engine.
+            every: Training batches between periodic evaluations; zero
+                disables periodic evaluation.
+            group_size: Samples per holdout row in periodic evaluations.
+            final_group_size: Samples per row in the final evaluation.
+            variants: Named evaluation configurations to run per checkpoint.
+            sink: Optional callback receiving each ``Evaluation`` result.
+        """
         if min(every, final_group_size) < 0 or group_size < 1 or not variants:
             raise ValueError(
                 "evaluation cadences must be nonnegative, group_size positive, and variants nonempty"
@@ -201,9 +243,19 @@ class Evaluator:
 
 
 class WandbSink:
-    """Log late-arriving evals against eval/step, not wandb's arrival step."""
+    """Log evaluation metrics and sampled trajectories to a W&B run.
+
+    Metrics use the evaluated checkpoint's step, even if an evaluation
+    finishes after newer training batches.
+    """
 
     def __init__(self, run, *, table_samples=8):
+        """Configure the W&B run and number of trajectories shown per result.
+
+        Args:
+            run: Active W&B run.
+            table_samples: Maximum trajectories to include in the sample table.
+        """
         self.run, self.table_samples = run, table_samples
         run.define_metric("eval/step")
         run.define_metric("eval/*", step_metric="eval/step")

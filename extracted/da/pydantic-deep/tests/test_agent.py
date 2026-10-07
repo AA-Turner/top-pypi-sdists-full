@@ -83,7 +83,8 @@ class TestCreateDeepAgent:
             edit_format=None,
             context_files=None,
             context_discovery=False,
-            memory_dir=None,
+            memory_store=None,
+            memory_namespace="",
             web_search=False,
             web_fetch=False,
             eviction_token_limit=20_000,
@@ -213,45 +214,21 @@ class TestCreateDeepAgent:
             assert "agent_factory" not in cfg
             assert cfg["toolsets"] == []
 
-    def test_subagent_factory_single_memory_toolset(self):
-        """Regression for #155: the default subagent factory must not register a
-        second AgentMemoryToolset.
-
-        `_inject_subagent_memory_toolset` adds one memory toolset under the
-        subagent's own name; the factory previously also passed
-        `include_memory=True`, so `create_deep_agent` added a second 'deep-memory'
-        toolset (under the wrong "main" name), causing a `read_memory` collision.
-        """
-        from pydantic_deep.agent import _inject_subagent_memory_toolset
-        from pydantic_deep.features.memory import AgentMemoryToolset
+    def test_subagent_factory_gives_one_memory_named_after_the_subagent(self):
+        """Regression for #155: a subagent has one memory, its own, never the
+        parent's "main" notebook beside it."""
+        from pydantic_ai_harness import Memory
 
         cfg: SubAgentConfig = SubAgentConfig(
-            name="researcher", description="explores", instructions="explore", toolsets=[]
+            name="researcher", description="explores", instructions="explore"
         )
-        _inject_subagent_memory_toolset(cfg, None)
 
-        sub_agent = self._default_factory()(cfg)
+        from pydantic_ai_harness.memory import FileStore
 
-        seen: set[int] = set()
-        found: list[Any] = []
+        sub_agent = self._default_factory(memory_store=FileStore(".deep/memory"))(cfg)
 
-        def _walk(toolsets: Any) -> None:
-            for ts in toolsets:
-                if id(ts) in seen:
-                    continue
-                seen.add(id(ts))
-                found.append(ts)
-                for attr in ("toolsets", "_toolsets", "wrapped"):
-                    inner = getattr(ts, attr, None)
-                    if isinstance(inner, (list, tuple)):
-                        _walk(inner)
-                    elif inner is not None and inner is not ts:
-                        _walk([inner])
-
-        _walk(list(getattr(sub_agent, "toolsets", []) or []))
-        memory_toolsets = [t for t in found if isinstance(t, AgentMemoryToolset)]
-        assert len(memory_toolsets) == 1
-        assert memory_toolsets[0]._agent_name == "researcher"
+        memories = [c for c in sub_agent._root_capability.capabilities if isinstance(c, Memory)]
+        assert [m.agent_name for m in memories] == ["researcher"]
 
     def test_create_with_interrupt_on(self):
         """Test creating an agent with interrupt_on config."""
@@ -349,10 +326,10 @@ class TestBasePrompt:
 class TestSubmodelInheritance:
     """Submodels inherit the primary model when not explicitly configured."""
 
-    def _capture_summarization(self, monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> str | None:
+    def _capture_summarization(self, monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> Any:
         from pydantic_ai_summarization import ContextManagerCapability
 
-        seen: dict[str, str | None] = {}
+        seen: dict[str, Any] = {}
         orig = ContextManagerCapability.__init__
 
         def spy(self: Any, *a: Any, **k: Any) -> Any:
@@ -369,6 +346,21 @@ class TestSubmodelInheritance:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
         sm = self._capture_summarization(monkeypatch, model="anthropic:claude-sonnet-4-6")
         assert sm == "anthropic:claude-sonnet-4-6"
+
+    def test_summarization_inherits_a_primary_model_instance(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An OpenAI-compatible gateway is a `Model`, not a string: compaction
+        fell back to a default on another provider the deployment cannot reach."""
+        from pydantic_ai.models.openai import OpenAIChatModel
+        from pydantic_ai.providers.openai import OpenAIProvider
+
+        gateway = OpenAIChatModel(
+            "qwen2.5",
+            provider=OpenAIProvider(base_url="http://localhost:8080/v1", api_key="local"),
+        )
+        sm = self._capture_summarization(monkeypatch, model=gateway)
+        assert sm is gateway
 
     def test_explicit_summarization_model_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
@@ -683,7 +675,9 @@ class TestRunWithFiles:
     @pytest.mark.anyio
     async def test_run_with_files_uploads_files(self):
         """Test that run_with_files uploads files before running agent."""
-        agent = create_deep_agent(model=TEST_MODEL, web_search=False, web_fetch=False)
+        agent = create_deep_agent(
+            model=TEST_MODEL, web_search=False, web_fetch=False, include_memory=False
+        )
         deps = DeepAgentDeps()
 
         files = [
@@ -705,7 +699,9 @@ class TestRunWithFiles:
     @pytest.mark.anyio
     async def test_run_with_files_custom_upload_dir(self):
         """Test run_with_files with custom upload directory."""
-        agent = create_deep_agent(model=TEST_MODEL, web_search=False, web_fetch=False)
+        agent = create_deep_agent(
+            model=TEST_MODEL, web_search=False, web_fetch=False, include_memory=False
+        )
         deps = DeepAgentDeps()
 
         files = [("test.txt", b"content")]
@@ -723,7 +719,9 @@ class TestRunWithFiles:
     @pytest.mark.anyio
     async def test_run_with_files_no_files(self):
         """Test run_with_files with no files."""
-        agent = create_deep_agent(model=TEST_MODEL, web_search=False, web_fetch=False)
+        agent = create_deep_agent(
+            model=TEST_MODEL, web_search=False, web_fetch=False, include_memory=False
+        )
         deps1 = DeepAgentDeps()
         deps2 = DeepAgentDeps()
 

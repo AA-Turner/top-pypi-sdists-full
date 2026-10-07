@@ -8,6 +8,7 @@ import shutil
 import time
 import tarfile
 import tempfile
+import warnings
 
 import os.path
 import urllib.parse
@@ -15,7 +16,6 @@ import urllib.parse
 from siliconcompiler import utils
 from siliconcompiler import NodeStatus as SCNodeStatus
 
-from siliconcompiler._metadata import default_server
 from siliconcompiler.flowgraph import RuntimeFlowgraph
 from siliconcompiler.scheduler import Scheduler
 from siliconcompiler.scheduler.error import SCRuntimeError
@@ -24,7 +24,7 @@ from siliconcompiler.package import PythonPathResolver, FileResolver, KeyPathRes
 
 from siliconcompiler.utils.logging import get_console_formatter
 from siliconcompiler.utils.multiprocessing import forking
-from siliconcompiler.utils.curation import collect
+from siliconcompiler.utils.curation import collect, filter_collection_keys
 from siliconcompiler.utils.paths import collectiondir, jobdir, workdir
 
 from siliconcompiler.remote import JobStatus, NodeStatus
@@ -63,15 +63,7 @@ class Client():
         # Client / server timeout
         self.__timeout = 10
         self.__max_timeouts = 10
-        self.__tos_url = 'https://www.siliconcompiler.com/terms'
-        self.__tos_str = f'''Please review the SiliconCompiler cloud's terms of service:
 
-{self.__tos_url}
-
-In particular, please ensure that you have the right to distribute any IP
-which is contained in designs that you upload to the service. This public
-service, provided by SiliconCompiler, is not intended to process proprietary IP.
-'''
         # Runtime
         self.__download_pool = None
         self.__check_interval = None
@@ -115,13 +107,9 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
                 remote_cfg = json.loads(cfgf.read())
         else:
             if getattr(self, '_print_server_warning', True):
-                if default_server:
-                    self.__logger.warning('Could not find remote server configuration: '
-                                          f'defaulting to {default_server}')
-                else:
-                    self.__logger.warning('Could not find remote server configuration')
+                self.__logger.warning('Could not find remote server configuration')
             remote_cfg = {
-                "address": default_server,
+                "address": None,
                 "directory_whitelist": []
             }
         if 'address' not in remote_cfg:
@@ -195,7 +183,6 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
 
         return post_params
 
-    ###################################
     def __post(self, action, post_action, success_action, error_action=None):
         '''
         Helper function to handle the post request
@@ -267,7 +254,6 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
         return self.__post('/cancel_job/', post_action, success_action,
                            error_action=error_action)
 
-    ###################################
     def delete_job(self):
         '''
         Helper method to delete a job from shared remote storage.
@@ -656,6 +642,8 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
         Helper method to run a local import stage for remote jobs.
         '''
 
+        collect_keys = []
+
         # Ensure dataroots with python sources are copied
         for key in self.__project.allkeys():
             if key[0] == "history":
@@ -670,10 +658,10 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
                 for value, step, index in param.getvalues():
                     if not value:
                         continue
+                    force_copy = False
                     dataroots = param.get(field='dataroot', step=step, index=index)
                     if not isinstance(dataroots, list):
                         dataroots = [dataroots]
-                    force_copy = False
                     for dataroot in dataroots:
                         if not dataroot:
                             continue
@@ -681,12 +669,15 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
                         if isinstance(dataroot_resolver,
                                       (PythonPathResolver, FileResolver, KeyPathResolver)):
                             force_copy = True
-                    if force_copy:
-                        self.__project.set(*key, True, field='copy', step=step, index=index)
+                    if force_copy or param.get(field='copy'):
+                        collect_keys.append((key, step, index))
 
         # Collect inputs into a collection directory only for remote runs, since
         # we need to send inputs up to the server.
-        collect(self.__project, whitelist=self.__config.setdefault('directory_whitelist', []))
+        collect(
+            self.__project,
+            keys=filter_collection_keys(collect_keys),
+            whitelist=self.__config.setdefault('directory_whitelist', []))
 
     def _run_loop(self):
         # Wrapper to allow for capturing of Ctrl+C
@@ -923,9 +914,9 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
             # Archive contents: server-side build directory. Format:
             # [job_hash]/[design]/[job_name]/[step]/[index]/...
             try:
-                with tarfile.open(results_path, 'r:gz') as tar:
+                with utils.tarfile_module().open(results_path, 'r:gz') as tar:
                     tar.extractall(path=tmpdir, **utils.tar_extract_kwargs())
-            except tarfile.TarError as e:
+            except utils.tarfile_module().TarError as e:
                 self.__logger.error(f'Failed to extract data from {results_path}: {e}')
                 return
 
@@ -937,17 +928,18 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
                 return
 
     def configure_server(self, server=None, username=None, password=None,
-                         accept_terms=False, clobber=False):
+                         accept_terms=None, clobber=False):
         """
         Writes the remote configuration file.
 
-        Any answer this method needs and was not given is prompted for. Supply every
-        argument the call needs to run without a prompt: a scripted setup passes
-        ``server``, ``accept_terms`` for the public server, and ``clobber`` when a
-        configuration file is already in place. When a prompt cannot be answered
-        because there is no input to read, an answer that would commit the caller to
-        something raises a ValueError naming the argument to pass, and an answer whose
-        blank form is meaningful takes that blank.
+        There is no server address to fall back on, so one has to be given: either
+        as ``server`` or in answer to the prompt. Any other answer this method needs
+        and was not given is prompted for. Supply every argument the call needs to
+        run without a prompt: a scripted setup passes ``server``, and ``clobber``
+        when a configuration file is already in place. When a prompt cannot be
+        answered because there is no input to read, an answer that would commit the
+        caller to something raises a ValueError naming the argument to pass, and an
+        answer whose blank form is meaningful takes that blank.
 
         Args:
             server (str, optional): Address of the server to configure. Prompted for
@@ -957,15 +949,19 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
                 configures no authentication.
             password (str, optional): Password for the server, handled like
                 `username`.
-            accept_terms (bool): Accepts the public server's terms of service without
-                showing them. Required to configure the public server without a
-                prompt, and ignored for every other server.
+            accept_terms (bool): Deprecated and ignored. It accepted the terms of
+                service of the public server, which no longer exists.
             clobber (bool): Overwrites an existing configuration file without asking.
 
         Raises:
             ValueError: If an answer is needed, was not supplied, and the prompt for
-                it cannot be answered.
+                it cannot be answered, or if no server address was given.
         """
+
+        if accept_terms is not None:
+            warnings.warn("accept_terms is deprecated and ignored, there is no "
+                          "public server to accept the terms of service of",
+                          DeprecationWarning, stacklevel=2)
 
         def ask(prompt):
             """Reads an answer, returning None when there is nothing to read from.
@@ -996,11 +992,6 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
                 elif (oin == 'y') or (oin == 'Y'):
                     return True
 
-        if default_server is not None:
-            default_server_name = urllib.parse.urlparse(default_server).hostname
-        else:
-            default_server_name = None
-
         # Find the config file/directory path.
         cfg_file = self.__get_remote_config_file()
         cfg_dir = os.path.dirname(cfg_file)
@@ -1018,26 +1009,21 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
 
         self.__config = {}
 
-        # If a command-line argument is passed in, use that as a public server address.
+        # If a command-line argument is passed in, use that as the server address.
         if server:
             srv_addr = server
             self.__logger.info(f'Creating remote configuration file for server: {srv_addr}')
         else:
             # If no arguments were passed in, interactively request credentials from the user.
-            # A blank answer selects the public server, which is too large a choice to
-            # make on the caller's behalf, so an unanswerable prompt is an error here
-            # rather than a default.
-            srv_addr = ask('Remote server address (leave blank to use default server):\n')
+            # There is no address to fall back on, so neither an unanswerable prompt nor a
+            # blank answer can be taken as a choice of server.
+            srv_addr = ask('Remote server address:\n')
             if srv_addr is None:
                 raise unanswerable('choose a server address', 'server=<address>')
 
         if not srv_addr:
-            if default_server:
-                srv_addr = default_server
-                self.__logger.info(f'Using {srv_addr} as server')
-            else:
-                self.__logger.error('No default server is configured, and no server was provided.')
-                return
+            raise ValueError('a remote server address is required: '
+                             'pass server=<address> or answer the prompt with one')
 
         server = urllib.parse.urlparse(srv_addr)
         has_scheme = True
@@ -1053,37 +1039,26 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
         else:
             self.__config['address'] = server.hostname
 
-        public_server = default_server is not None and default_server_name in srv_addr
-        if public_server:
-            if accept_terms:
-                self.__logger.info('Terms of service accepted by the caller: '
-                                   f'{self.__tos_url}')
-            elif not confirm_dialog(self.__tos_str,
-                                    'accept the terms of service',
-                                    'accept_terms=True'):
-                return
-
         if server.port is not None:
             self.__config['port'] = server.port
 
-        if not public_server:
-            # A blank answer to either prompt means no authentication, so a prompt
-            # that cannot be answered becomes that same blank rather than an error.
+        # A blank answer to either prompt means no authentication, so a prompt
+        # that cannot be answered becomes that same blank rather than an error.
+        if username is None:
+            username = server.username
             if username is None:
-                username = server.username
-                if username is None:
-                    username = ask('Remote username (leave blank for no username):\n')
+                username = ask('Remote username (leave blank for no username):\n')
+        if password is None:
+            password = server.password
             if password is None:
-                password = server.password
-                if password is None:
-                    password = ask('Remote password (leave blank for no password):\n')
+                password = ask('Remote password (leave blank for no password):\n')
 
-            if username:
-                self.__config['username'] = username
-            if password:
-                self.__config['password'] = password
-            if not username and not password:
-                self.__logger.info('Configuring without authentication')
+        if username:
+            self.__config['username'] = username
+        if password:
+            self.__config['password'] = password
+        if not username and not password:
+            self.__logger.info('Configuring without authentication')
 
         self.__config['directory_whitelist'] = []
 
@@ -1120,7 +1095,6 @@ service, provided by SiliconCompiler, is not intended to process proprietary IP.
         # Save the values to the target config file in JSON format.
         self.__write_remote_config_file(cfg_file)
 
-    #######################################
     def __getstate__(self):
         # Called when generating a serial stream of the object
         attributes = self.__dict__.copy()

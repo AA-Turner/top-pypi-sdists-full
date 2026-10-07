@@ -23,12 +23,12 @@ from siliconcompiler.scheduler.schedulernode import SchedulerFlowReset, Schedule
 from siliconcompiler.tool import TaskExecutableNotFound, TaskExecutableNotReceived
 
 from siliconcompiler import utils
-from siliconcompiler.utils.logging import SCLoggerFormatter
+from siliconcompiler.utils.logging import SCLoggerFormatter, report_schema_warnings
 from siliconcompiler.utils.multiprocessing import MPManager, get_process_context, forking
 from siliconcompiler.scheduler import send_messages, SCRuntimeError
 from siliconcompiler.package.cleanup import auto_cleanup
 from siliconcompiler.utils.paths import collectiondir, jobdir, workdir
-from siliconcompiler.utils.curation import collect
+from siliconcompiler.utils.curation import collect, filter_collection_keys
 
 if TYPE_CHECKING:
     from siliconcompiler.project import Project
@@ -87,11 +87,7 @@ class Scheduler:
                 logger=self.__logger):
             raise SCRuntimeError(f"{self.__flow.name} flowgraph contains errors and cannot be run.")
 
-        self.__flow_runtime = RuntimeFlowgraph(
-            self.__flow,
-            from_steps=from_steps,
-            to_steps=to_steps,
-            prune_nodes=prune_nodes)
+        self.__flow_runtime = RuntimeFlowgraph.from_project(self.__project)
         if not self.__flow_runtime.get_nodes():
             raise SCRuntimeError(f"{self.__flow.name} flowgraph contains no nodes to run.")
 
@@ -340,9 +336,14 @@ class Scheduler:
             if not self.__check_flowgraph_io():
                 raise SCRuntimeError("Flowgraph file IO constrains errors")
 
-            # Collect files for remote runs
-            if self.__check_collect_files():
-                collect(self.project)
+            # Collect what the nodes that run elsewhere cannot reach
+            keys = set().union(*(task.collect_keys() for task in self.__tasks.values()))
+            if keys:
+                collect_keys = [(key, step, index)
+                                for key in sorted(keys)
+                                for _, step, index in self.project.get(
+                                    *key, field=None).getvalues(return_values=False)]
+                collect(self.project, keys=filter_collection_keys(collect_keys))
 
             try:
                 self.run_core()
@@ -615,11 +616,7 @@ class Scheduler:
             entries = set(self.__project.option.get_from())
             entries.update(step for step, _ in rebuild)
             self.__project.option.add_from(self.__leading_entries(entries), clobber=True)
-            self.__flow_runtime = RuntimeFlowgraph(
-                self.__flow,
-                from_steps=self.__project.option.get_from(),
-                to_steps=self.__project.option.get_to(),
-                prune_nodes=self.__project.option.get_prune())
+            self.__flow_runtime = RuntimeFlowgraph.from_project(self.__project)
 
             for step, index in rebuild:
                 # Now inside the window, so this also marks everything downstream.
@@ -723,7 +720,10 @@ class Scheduler:
             self.__project.option.set_jobname(curret_job)
             copy_to = collectiondir(self.__project)
             if os.path.exists(copy_from):
+                # A collection's links are relative and stay inside it, so they are
+                # kept, where following one would copy its target again
                 shutil.copytree(copy_from, copy_to,
+                                symlinks=True,
                                 dirs_exist_ok=True,
                                 copy_function=utils.link_copy)
 
@@ -859,9 +859,10 @@ class Scheduler:
 
         from siliconcompiler import Project
         try:
-            previous = Project.from_manifest(filepath=self.manifest)
-            previous_name = previous.option.get_flow()
-            previous_flow = previous.get_flow(previous_name)
+            with report_schema_warnings(self.__logger, f"Reading {self.manifest}"):
+                previous = Project.from_manifest(filepath=self.manifest)
+                previous_name = previous.option.get_flow()
+                previous_flow = previous.get_flow(previous_name)
         except Exception as e:
             self.__logger.debug(f"Unable to read {self.manifest} to compare flows: {e}")
             return None
@@ -916,22 +917,23 @@ class Scheduler:
             load_nodes = load_runtime.get_nodes()
 
         # Collect previous run information
-        for step, index in self.__flow.get_nodes():
-            if (step, index) not in load_nodes:
-                # Node not marked for loading
-                continue
-            if (step, index) in from_nodes:
-                # Node will be run so no need to load
-                continue
+        with report_schema_warnings(self.__logger, "Reading previous run"):
+            for step, index in self.__flow.get_nodes():
+                if (step, index) not in load_nodes:
+                    # Node not marked for loading
+                    continue
+                if (step, index) in from_nodes:
+                    # Node will be run so no need to load
+                    continue
 
-            manifest = self.__tasks[(step, index)].get_manifest()
-            if os.path.exists(manifest):
-                # ensure we setup these nodes again
-                try:
-                    extra_setup_nodes[(step, index)] = Project.from_manifest(filepath=manifest)
-                except Exception as e:
-                    self.__logger.debug(f"Reading {manifest} caused: {e}")
-                    pass
+                manifest = self.__tasks[(step, index)].get_manifest()
+                if os.path.exists(manifest):
+                    # ensure we setup these nodes again
+                    try:
+                        extra_setup_nodes[(step, index)] = Project.from_manifest(filepath=manifest)
+                    except Exception as e:
+                        self.__logger.debug(f"Reading {manifest} caused: {e}")
+                        pass
 
         self.__print_status("End - collect")
 
@@ -995,12 +997,30 @@ class Scheduler:
             -> Optional[Union[SchedulerFlowReset, SchedulerNodeReset]]:
         """
         Helper method to run requires_run() with threads.
+
+        Anything this check raises is a statement about the *previous* run, not
+        this one: the comparison could not be made, so the node has to be redone.
+        requires_run() reports the failures it can name itself, but not every one
+        reaches it -- a manifest is loaded lazily, so a manifest this schema
+        cannot parse (one a newer schema wrote, say) raises where it is first
+        read, past the guard around the load. Returning a reset keeps that a
+        rerun rather than the end of the run: this runs in a process pool, and an
+        exception raised here comes back out of pool.map and takes the job with
+        it.
         """
-        with task.runtime():
-            try:
+        try:
+            with task.runtime(), \
+                    report_schema_warnings(task.logger,
+                                           f"Checking {task.step}/{task.index}",
+                                           level=logging.DEBUG):
                 task.requires_run()
-            except (SchedulerFlowReset, SchedulerNodeReset) as e:
-                return e
+        except (SchedulerFlowReset, SchedulerNodeReset) as e:
+            return e
+        except Exception as e:
+            return SchedulerNodeReset(
+                f"Unable to determine if {task.step}/{task.index} changed since the "
+                f"previous run "
+                f"({e.__class__.__name__}: {e}), rerunning node")
         return None
 
     def __configure_check_run_required(self) -> List[Tuple[str, str]]:
@@ -1305,21 +1325,6 @@ class Scheduler:
                         self.__logger.error(f"Unable to process version for {step}/{index}")
 
         return not error
-
-    def __check_collect_files(self) -> bool:
-        """
-        Iterates through all tasks in the scheduler, and checks if the there
-        are files or directories that need to be collected
-
-        Returns:
-            bool: True if there is something to be collected, False otherwise.
-        """
-        do_collect = False
-        for task in self.__tasks.values():
-            if task.mark_copy():
-                do_collect = True
-
-        return do_collect
 
     def __init_schedulers(self) -> None:
         """

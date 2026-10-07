@@ -630,7 +630,9 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # said `inference` (the server bridges the old word; the CLI still takes it).
     # 38 / ade24764057a: POINTER_BODY unchanged; DAEMON_POINTER_BODY (versioned
     # by the same stamp) gained the `probe session inline` line.
-    assert (agent_rules.POINTER_VERSION, digest) == (38, "ade24764057a"), (
+    # 39 / ade24764057a: POINTER_BODY unchanged; DAEMON_POINTER_BODY lost that
+    # line again (the researcher types `/probe inline`; Richard 2026-10-06).
+    assert (agent_rules.POINTER_VERSION, digest) == (39, "ade24764057a"), (
         "POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

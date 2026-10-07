@@ -1,11 +1,14 @@
 use hashbrown::HashMap;
 use itertools::{Itertools as _, enumerate, multiunzip};
+use smallvec::SmallVec;
 use smol_str::StrExt;
 
 use super::context::ParseContext;
 use super::match_result::{MatchResult, Matched, Span};
-use super::matchable::{Matchable, MatchableTrait};
+use super::matchable::{Matchable, MatchableTrait, MatchableTraitImpl};
 use super::segments::ErasedSegment;
+use super::types::ParseMode;
+use crate::dialects::Dialect;
 use crate::dialects::syntax::{SyntaxKind, SyntaxSet};
 use crate::errors::SQLParseError;
 
@@ -51,7 +54,7 @@ pub fn first_trimmed_raw(seg: &ErasedSegment) -> String {
 pub fn first_non_whitespace(
     segments: &[ErasedSegment],
     start_idx: u32,
-) -> Option<(String, &SyntaxSet)> {
+) -> Option<(&str, &SyntaxSet)> {
     for segment in segments.iter().skip(start_idx as usize) {
         if let Some(raw) = segment.first_non_whitespace_segment_raw_upper() {
             return Some((raw, segment.class_types()));
@@ -66,12 +69,12 @@ pub fn prune_options(
     segments: &[ErasedSegment],
     parse_context: &mut ParseContext,
     start_idx: u32,
-) -> Vec<Matchable> {
-    let mut available_options = vec![];
+) -> SmallVec<[Matchable; 8]> {
+    let mut available_options = SmallVec::new();
 
     // Find the first code element to match against.
     let Some((first_raw, first_types)) = first_non_whitespace(segments, start_idx) else {
-        return options.to_vec();
+        return options.iter().cloned().collect();
     };
 
     for opt in options {
@@ -92,7 +95,7 @@ pub fn prune_options(
         // simple _type_ matching.
 
         // Match Raws
-        if simple_raws.contains(&first_raw) {
+        if simple_raws.contains(first_raw) {
             // If we get here, it's matched the FIRST element of the string buffer.
             available_options.push(opt.clone());
             matched = true;
@@ -142,13 +145,21 @@ pub fn longest_match(
 
     'matcher: for (matcher_idx, matcher) in enumerate(available_options) {
         let matcher_key = matcher.cache_key();
-        let res_match = parse_context.check_parse_cache(loc_key, matcher_key);
+        // The cache key includes the input slice, but not inherited terminators.
+        // Greedy-family matchers (and transparent references to them) may trim
+        // differently at this same location in another parse context.
+        let cacheable = !is_terminator_sensitive_for_cache(&matcher, parse_context.dialect());
+        let res_match = cacheable
+            .then(|| parse_context.check_parse_cache(loc_key, matcher_key))
+            .flatten();
 
         let res_match = match res_match {
             Some(res_match) => res_match,
             None => {
                 let res_match = matcher.match_segments(segments, idx, parse_context)?;
-                parse_context.put_parse_cache(loc_key, matcher_key, res_match.clone());
+                if cacheable {
+                    parse_context.put_parse_cache(loc_key, matcher_key, res_match.clone());
+                }
                 res_match
             }
         };
@@ -187,6 +198,81 @@ pub fn longest_match(
     }
 
     Ok((best_match, best_matcher))
+}
+
+/// Follow transparent dialect wrappers to the grammar whose match depends on
+/// inherited terminators. Cycles are conservatively treated as uncacheable.
+fn is_terminator_sensitive_for_cache(matcher: &Matchable, dialect: &Dialect) -> bool {
+    let mut current = matcher.clone();
+    let mut seen = SmallVec::<[usize; 4]>::new();
+    loop {
+        if seen.contains(&current.identity()) {
+            return true;
+        }
+        seen.push(current.identity());
+        match &*current {
+            MatchableTraitImpl::Sequence(sequence) => {
+                return sequence.parse_mode != ParseMode::Strict;
+            }
+            MatchableTraitImpl::AnyNumberOf(any) => {
+                return any.parse_mode != ParseMode::Strict;
+            }
+            MatchableTraitImpl::Bracketed(bracketed) => {
+                return bracketed.parse_mode != ParseMode::Strict;
+            }
+            MatchableTraitImpl::Delimited(_) | MatchableTraitImpl::Anything(_) => return true,
+            MatchableTraitImpl::Ref(reference) => current = dialect.r#ref(reference.reference()),
+            MatchableTraitImpl::NodeMatcher(node) => current = node.match_grammar(dialect),
+            _ => return false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::longest_match;
+    use crate::dialects::Dialect;
+    use crate::dialects::syntax::SyntaxKind;
+    use crate::helpers::{Config, ToMatchable};
+    use crate::parser::IndentationConfig;
+    use crate::parser::context::ParseContext;
+    use crate::parser::grammar::Ref;
+    use crate::parser::grammar::sequence::Sequence;
+    use crate::parser::parsers::StringParser;
+    use crate::parser::segments::test_functions::generate_test_segments_func;
+    use crate::parser::types::ParseMode;
+
+    #[test]
+    fn greedy_match_is_not_reused_with_different_inherited_terminators() {
+        let segments = generate_test_segments_func(vec!["SELECT", " ", "FROM", " ", "items"]);
+        let from = StringParser::new("FROM", SyntaxKind::Keyword).to_matchable();
+
+        for mode in [ParseMode::Greedy, ParseMode::GreedyOnceStarted] {
+            let greedy = Sequence::new(vec![
+                StringParser::new("SELECT", SyntaxKind::Keyword).to_matchable(),
+            ])
+            .config(|this| this.parse_mode = mode)
+            .to_matchable();
+            let mut dialect = Dialect::new();
+            dialect.add([("GreedyGrammar".into(), greedy.clone().into())]);
+
+            for matcher in [greedy, Ref::new("GreedyGrammar").to_matchable()] {
+                let mut context = ParseContext::new(&dialect, IndentationConfig::default());
+                let without_terminator =
+                    longest_match(&segments, std::slice::from_ref(&matcher), 0, &mut context)
+                        .unwrap()
+                        .0;
+                assert_eq!(without_terminator.span.end, segments.len() as u32);
+
+                context.terminators.push(from.clone());
+                let with_terminator =
+                    longest_match(&segments, std::slice::from_ref(&matcher), 0, &mut context)
+                        .unwrap()
+                        .0;
+                assert_eq!(with_terminator.span.end, 1);
+            }
+        }
+    }
 }
 
 fn next_match(
@@ -318,16 +404,18 @@ pub fn resolve_bracket(
             });
         }
 
-        let inner_match = resolve_bracket(
-            segments,
-            match_result,
-            matcher,
-            start_brackets,
-            end_brackets,
-            bracket_persists,
-            parse_context,
-            false,
-        )?;
+        let inner_match = parse_context.deeper_match(false, &[], |ctx| {
+            resolve_bracket(
+                segments,
+                match_result,
+                matcher,
+                start_brackets,
+                end_brackets,
+                bracket_persists,
+                ctx,
+                false,
+            )
+        })?;
 
         matched_idx = inner_match.span.end;
         if nested_match {

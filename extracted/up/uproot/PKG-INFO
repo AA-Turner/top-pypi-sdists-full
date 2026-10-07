@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uproot
-Version: 5.7.6
+Version: 5.7.7
 Summary: ROOT I/O in pure Python and NumPy.
 Project-URL: Download, https://github.com/scikit-hep/uproot5/releases
 Project-URL: Homepage, https://github.com/scikit-hep/uproot5
@@ -60,7 +60,6 @@ Description-Content-Type: text/markdown
 [![Scikit-HEP](https://scikit-hep.org/assets/images/Scikit--HEP-Project-blue.svg)](https://scikit-hep.org/)
 [![DOI 10.5281/zenodo.4340632](https://zenodo.org/badge/DOI/10.5281/zenodo.4340632.svg)](https://doi.org/10.5281/zenodo.4340632)
 [![Documentation](https://img.shields.io/badge/docs-online-success)](https://uproot.readthedocs.io/)
-[![Gitter](https://img.shields.io/badge/chat-online-success)](https://gitter.im/Scikit-HEP/uproot)
 
 [![NSF-1836650](https://img.shields.io/badge/NSF-1836650-blue.svg)](https://nsf.gov/awardsearch/showAward?AWD_ID=1836650)
 [![NSF-2121686](https://img.shields.io/badge/NSF-2121686-blue.svg)](https://nsf.gov/awardsearch/showAward?AWD_ID=2121686)
@@ -100,7 +99,6 @@ conda update --all
    * Report bugs, request features, and ask for additional documentation on [GitHub Issues](https://github.com/scikit-hep/uproot5/issues).
    * If you have a "How do I...?" question, start a [GitHub Discussion](https://github.com/scikit-hep/uproot5/discussions) with category "Q&A".
    * Alternatively, ask about it on [StackOverflow with the [uproot] tag](https://stackoverflow.com/questions/tagged/uproot). Be sure to include tags for any other libraries that you use, such as Pandas or PyTorch.
-   * To ask questions in real time, try the Gitter [Scikit-HEP/uproot](https://gitter.im/Scikit-HEP/uproot) chat room.
 
 ## Installation for developers
 
@@ -251,6 +249,9 @@ Thanks especially to the gracious help of Uproot contributors (including the [or
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/nickwp"><img src="https://avatars.githubusercontent.com/u/9571544?v=4?s=100" width="100px;" alt="Nick Prouse"/><br /><sub><b>Nick Prouse</b></sub></a><br /><a href="https://github.com/scikit-hep/uproot5/commits?author=nickwp" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Yokubas"><img src="https://avatars.githubusercontent.com/u/183698357?v=4?s=100" width="100px;" alt="Yokubas"/><br /><sub><b>Yokubas</b></sub></a><br /><a href="https://github.com/scikit-hep/uproot5/commits?author=Yokubas" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://tomeichlersmith.codeberg.page/"><img src="https://avatars.githubusercontent.com/u/31970302?v=4?s=100" width="100px;" alt="Tom Eichlersmith"/><br /><sub><b>Tom Eichlersmith</b></sub></a><br /><a href="https://github.com/scikit-hep/uproot5/commits?author=tomeichlersmith" title="Documentation">📖</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sapunyangkut"><img src="https://avatars.githubusercontent.com/u/302607731?v=4?s=100" width="100px;" alt="sapunyangkut"/><br /><sub><b>sapunyangkut</b></sub></a><br /><a href="https://github.com/scikit-hep/uproot5/commits?author=sapunyangkut" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>

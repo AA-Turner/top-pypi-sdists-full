@@ -581,8 +581,8 @@ class Store:
                             after_seq: int = 0) -> list[tuple[float, int]]:
         """Mark every uncovered event after `after_seq` stamped inside one of
         `intervals` (`(since, until)` epoch seconds, `until` None while still open)
-        as never to be recorded: the agent held Probe then (`probe session
-        inline`). Returns `(since, turn)` for each event marked, `since` naming its
+        as never to be recorded: the researcher had Probe inline then (`/probe
+        inline`, the agent's to record). Returns `(since, turn)` for each event marked, `since` naming its
         interval. An event with no readable stamp stays the writer's. One
         transaction, opened only when there is something to mark."""
         rows = self.db.execute("SELECT seq, ts, turn FROM events WHERE bite IS NULL AND seq > ?",
@@ -641,6 +641,24 @@ class Store:
             rows = self.db.execute(f"SELECT * FROM events WHERE seq BETWEEN ? AND ?{only} ORDER BY seq",
                                    (first_seq, last_seq))
         return [StoredEvent.from_row(r) for r in rows]
+
+    def gate_rows(self, after_seq: int, *, limit: int = 2000) -> list[sqlite3.Row]:
+        """What the ML gate reads (`gate.py`): every event after `after_seq`,
+        recorded or not, with its tool arguments (the code a call wrote)."""
+        return self.db.execute(
+            "SELECT seq, stream, kind, turn, text, tool, command, tool_input FROM events "
+            "WHERE seq > ? ORDER BY seq LIMIT ?", (after_seq, int(limit))).fetchall()
+
+    def digest_rows(self) -> list[sqlite3.Row]:
+        """The ML gate's digest (`gate.digest`): the researcher's prompts and the
+        agent's tool calls, oldest first -- never a tool's output."""
+        return self.db.execute(
+            "SELECT seq, stream, kind, text, tool, command, tool_input FROM events "
+            "WHERE kind IN ('prompt', 'tool_call') ORDER BY seq").fetchall()
+
+    def first_seq_of_turn(self, turn: int) -> int | None:
+        row = self.db.execute("SELECT min(seq) AS s FROM events WHERE turn = ?", (turn,)).fetchone()
+        return int(row["s"]) if row is not None and row["s"] is not None else None
 
     def shown_turn_sizes(self) -> list[tuple[int, int, int]]:
         """`[(turn, first_seq, characters as the model sees the turn)]`: outputs are a

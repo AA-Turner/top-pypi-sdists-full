@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-deep
-Version: 0.3.47
+Version: 0.3.50
 Summary: Batteries-included agent harness for Python — tool-calling, sandboxed execution, multi-agent teams, and unlimited context on Pydantic AI
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-deepagents
 Project-URL: Documentation, https://vstorm-co.github.io/pydantic-deepagents/
@@ -25,6 +25,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: chardet>=5.0.0
 Requires-Dist: pydantic-ai-backend[console,workspaces]>=0.2.33
+Requires-Dist: pydantic-ai-harness>=0.52.0
 Requires-Dist: pydantic-ai-shields>=0.3.4
 Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]>=2.52.0
 Requires-Dist: pydantic-ai-todo>=0.2.7

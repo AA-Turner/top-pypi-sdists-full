@@ -442,6 +442,8 @@ class CompletedRequest:
         #     assistant turn, resumable by client/user action, possibly weeks later)
         #   - "cancelled"                 → "cancelled" (explicit user/server
         #     cancellation at a safe boundary)
+        #   - "completed_with_warning"    → "completed", structured error kept
+        #     (a provider stop after a delivered answer that stands)
         #   - anything else / unset      → "completed"
         # Previously the suspend / guard outcomes were coerced to "completed", which
         # made a run WAITING ON THE CLIENT indistinguishable from a done one — the
@@ -462,6 +464,15 @@ class CompletedRequest:
                 user_request["error"] = err
         elif status == "cancelled":
             user_request["status"] = "cancelled"
+        elif status == "completed_with_warning":
+            # The provider stopped early, but the answer the person already
+            # received stands (e.g. Gemini RECITATION after a complete reply —
+            # config/finish_reason.py: provider_stop). Completed, never failed;
+            # the structured warning is kept so it is never silent.
+            user_request["status"] = "completed"
+            err = self._structured_error()
+            if err is not None:
+                user_request["error"] = err
         else:
             user_request["status"] = "completed"
 

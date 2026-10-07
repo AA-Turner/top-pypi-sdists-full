@@ -173,7 +173,7 @@ def _split_io_lines(buffer: str) -> Tuple[List[str], str]:
             start = i
         elif c == '\r':
             if i + 1 >= n:
-                # Trailing \r — defer in case next read starts with \n.
+                # Trailing \r -- defer in case next read starts with \n.
                 break
             lines.append(buffer[start:i])
             if buffer[i + 1] == '\n':
@@ -219,7 +219,7 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
     if pty is None:
         raise RuntimeError("pty module is not available on this platform")
 
-    # POSIX-only modules — kept inside the function since this is the only
+    # POSIX-only modules -- kept inside the function since this is the only
     # place they're used and they're not importable on Windows.
     import select
     import signal
@@ -235,7 +235,7 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
     # ``/dev/null`` fd (see CPython multiprocessing/process.py and
     # multiprocessing/util.py). Crucially, ``sys.stdin.close()`` does NOT
     # close the underlying fd 0 because the Python stdio wrappers are
-    # built with ``closefd=False`` — so fd 0 stays attached to the user's
+    # built with ``closefd=False`` -- so fd 0 stays attached to the user's
     # real terminal, but ``sys.stdin.fileno()`` now returns the /dev/null
     # fd (typically 3). Reading from that path gives instant EOF and
     # silently breaks Enter/Tab/arrow forwarding. This is also why the
@@ -280,11 +280,11 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
             return -1
 
     # Fallback chain when /dev/tty is unavailable:
-    #   1. fd 0 / fd 1 directly — matches what ``pty.spawn`` did and works
+    #   1. fd 0 / fd 1 directly -- matches what ``pty.spawn`` did and works
     #      around the multiprocessing-worker case where ``sys.stdin`` has
     #      been reassigned to wrap a /dev/null fd while fd 0 itself still
     #      points at the real terminal.
-    #   2. ``sys.stdin.fileno()`` / ``sys.stdout.fileno()`` — covers
+    #   2. ``sys.stdin.fileno()`` / ``sys.stdout.fileno()`` -- covers
     #      embedded environments that genuinely reassign fd 0/1.
     if tty_fd >= 0:
         parent_in = parent_out = tty_fd
@@ -295,12 +295,12 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
     # parent's stdin is a real terminal: querying its window size and
     # listening for SIGWINCH. The TIOCGWINSZ ioctl fails with ENOTTY on a
     # pipe or regular file, and SIGWINCH is delivered by the kernel only
-    # when a terminal actually resizes — so attempting either against a
+    # when a terminal actually resizes -- so attempting either against a
     # non-TTY would just produce errors with no upside.
     #
     # NOTE: this flag does NOT gate stdin forwarding or raw-mode setup.
     # Those run whenever we have any stdin fd at all, with the calls
-    # wrapped in try/except — see below for why that matters for tab
+    # wrapped in try/except -- see below for why that matters for tab
     # completion and arrow keys.
     parent_is_tty = parent_in >= 0 and os.isatty(parent_in)
 
@@ -331,7 +331,7 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
 
     # Apply raw mode opportunistically whenever we have an stdin fd. Without
     # raw mode the parent terminal stays line-disciplined, which means the
-    # user has to press Enter before any keystroke reaches the child — fatal
+    # user has to press Enter before any keystroke reaches the child -- fatal
     # for tab completion, arrow-key history, and tclreadline-style editing.
     # ``setraw`` on a non-TTY fd raises termios.error and is silently
     # ignored, mirroring ``pty.spawn``'s behaviour.
@@ -344,7 +344,7 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
             old_attrs = None
 
     # Always forward parent stdin when we have a valid fd. ``pty.spawn``
-    # does the same — gating this on ``isatty`` would silently break
+    # does the same -- gating this on ``isatty`` would silently break
     # interactive sessions whose stdin is a real TTY but reports otherwise
     # (e.g. inherited through a multiprocessing worker on some setups).
     readable = [master_fd]
@@ -367,7 +367,7 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
             except OSError:
                 return False
             if chunk == 0:
-                # No progress — treat as failure rather than spin.
+                # No progress -- treat as failure rather than spin.
                 return False
             written += chunk
         return True
@@ -379,7 +379,7 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
     # open would leave the user's terminal stuck in raw mode.
     #
     # The outer try/finally guarantees ``os.waitpid`` runs even if the
-    # log open/close raises — the child of pty.fork() must always be
+    # log open/close raises -- the child of pty.fork() must always be
     # reaped, otherwise it lingers as a zombie.
     log_writer = None
     status = None
@@ -418,7 +418,7 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
                         readable.remove(parent_in)
                         continue
                     if not _write_all(master_fd, data):
-                        # Child PTY closed / errored — exit the loop and
+                        # Child PTY closed / errored -- exit the loop and
                         # let the cleanup + waitpid path run.
                         break
         finally:
@@ -621,11 +621,7 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             # Used by IO validation to distinguish running upstreams (whose
             # outputs come from declared task outputs) from non-running ones
             # (whose outputs must already exist on disk).
-            self.__io_runtime_flow = RuntimeFlowgraph(
-                self.__schema_flow,
-                from_steps=self.__schema_full.option.get_from(),
-                to_steps=self.__schema_full.option.get_to(),
-                prune_nodes=self.__schema_full.option.get_prune())
+            self.__io_runtime_flow = RuntimeFlowgraph.from_project(self.__schema_full)
 
     @property
     def design_name(self) -> str:
@@ -731,12 +727,58 @@ class Task(NamedSchema, PathSchema, DocsSchema):
     def _io_runtime_flow(self) -> RuntimeFlowgraph:
         """
         Runtime view of the flow that honors the project's ``from`` / ``to``
-        / ``prune`` options — i.e. the nodes that will actually run this
+        / ``prune`` options -- i.e. the nodes that will actually run this
         invocation. Distinct from ``schema_flowruntime`` (which is the full
         graph minus pruned nodes), used by IO validation so that nodes
         outside the active run are treated as on-disk dependencies.
         """
         return self.__io_runtime_flow
+
+    @property
+    def _remote_toolname(self) -> Optional[str]:
+        """
+        Names the tool that must be installed where this task runs remotely.
+
+        A remote run uses this to choose an environment for the node, such as a
+        container image that holds the tool. The leading underscore does not
+        make it internal: overriding it is how a driver declares what it needs.
+
+        The default, :meth:`tool`, is right for most tasks. That includes a task
+        with no executable that drives its tool's Python package in
+        SiliconCompiler's own process, as the slang tasks do.
+
+        Return ``None`` when the task needs nothing beyond SiliconCompiler
+        itself, as the builtin tasks do.
+
+        This is read from a task that has not been set up and has no project,
+        so return a constant rather than a value computed from the schema.
+
+        Returns:
+            Optional[str]: the tool the node needs, or ``None`` when it needs
+            only SiliconCompiler.
+        """
+        return self.tool()
+
+    @property
+    def _remote_inherits_env(self) -> bool:
+        """
+        Says whether this task runs remotely wherever its input node ran.
+
+        Return ``True`` for a task that runs what an earlier node produced,
+        because the environment that built it is the one most likely to be able
+        to run it. ``exec_input`` does this. Where the node has more than one
+        input, the first is followed. Pair it with :attr:`_remote_toolname`
+        returning ``None``, so the node requires no tool of its own.
+
+        Like :attr:`_remote_toolname`, this is part of the driver contract
+        despite the underscore, and is read from a task that has not been set
+        up and has no project.
+
+        Returns:
+            bool: ``True`` to run where the input node ran. The default,
+            ``False``, places the node by :attr:`_remote_toolname` alone.
+        """
+        return False
 
     def get_logpath(self, log: str) -> str:
         """
@@ -1235,10 +1277,11 @@ class Task(NamedSchema, PathSchema, DocsSchema):
     def __abspath_schema(self) -> "Project":
         """
         Private helper to create a copy of the schema with all file/dir paths
-        converted to absolute paths.
+        converted to absolute paths, and its dataroot paths masked: no tool
+        reads one once every path is resolved, and build directories get shared.
         """
         root = self.project
-        schema = root.copy()
+        schema = utils.mask_credentials(root)
 
         for keypath in root.allkeys():
             if keypath[0] == "history":
@@ -1586,7 +1629,7 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
             if breakpoint and sys.platform in ('darwin', 'linux'):
                 # Interactive PTY session. NOTE: this path is intentionally
-                # supervised by the user, not by SC — the timeout, memory
+                # supervised by the user, not by SC -- the timeout, memory
                 # limit, and nice settings applied to the standard subprocess
                 # path below are NOT enforced here. See _run_breakpoint for
                 # details on winsize/SIGWINCH/raw-mode handling.
@@ -1949,9 +1992,6 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         EditableSchema(self).insert("var", name, param)
         return param
 
-    ###############################################################
-    # Task settings
-    ###############################################################
     def add_required_key(self, obj: Union[BaseSchema, str], *key: str,
                          step: Optional[str] = None, index: Optional[Union[str, int]] = None):
         '''
@@ -2471,9 +2511,6 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         else:
             return self.add("warningoff", type, step=step, index=index)
 
-    ###############################################################
-    # Tool settings
-    ###############################################################
     def set_exe(self, exe: Optional[str] = None, vswitch: Optional[Union[str, List[str]]] = None,
                 format: Optional[str] = None,
                 step: Optional[str] = None, index: Optional[Union[str, int]] = None,
@@ -2683,9 +2720,6 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                 keys.append((obj, key))
         return keys
 
-    ###############################################################
-    # Schema
-    ###############################################################
     def get(self, *keypath: str, field: Optional[str] = 'value',
             step: Optional[str] = None, index: Optional[Union[str, int]] = None):
         if step is None:
@@ -2908,9 +2942,6 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
         return docs
 
-    ###############################################################
-    # Task methods
-    ###############################################################
     @classmethod
     def make_docs(cls):
         from siliconcompiler import Flowgraph, Design, Project
@@ -3386,7 +3417,7 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         schema.insert(
             'require',
             Parameter(
-                '[str]',
+                '{str}',
                 scope=Scope.JOB,
                 pernode=PerNode.OPTIONAL,
                 shorthelp="Task: parameter requirements",
@@ -3542,7 +3573,8 @@ class OpenTask(Task):
     interactive session that keeps running after the file is loaded.
 
     Subclasses should implement `get_supported_task_extentions` to declare
-    which file extensions they can handle.
+    which file extensions they can handle, best view of a design first --
+    see :meth:`get_extension_map` for what that order is used for.
     """
     def __init__(self):
         """Initialize an OpenTask, adding the parameters shared by open tasks."""
@@ -3581,6 +3613,14 @@ class OpenTask(Task):
         """
         Returns a list of file extensions supported by this task.
         This method must be implemented by subclasses.
+
+        **Order is meaningful**: list them best view of a design first. A task
+        that reads several formats is the only thing that knows how they rank
+        against each other -- openroad reading ``["odb", "def", "vg"]`` is
+        stating that an odb beats the def beside it, which beats the netlist --
+        and :meth:`get_extension_map` builds the search order
+        :meth:`Project.show <siliconcompiler.Project.show>` uses out of those
+        statements. A task supporting one extension says nothing either way.
         """
         if hasattr(self, "get_supported_show_extentions"):
             import warnings
@@ -3979,10 +4019,27 @@ class OpenTask(Task):
         "which tool handles extension X" and is shared by ``sc-show -list``
         and :meth:`Project.show` to keep their behavior consistent.
 
-        Key insertion order is deterministic: extensions appear in the order
-        they are first encountered while iterating registered tasks in
-        registration order (within a task, the order returned by
-        :meth:`get_supported_task_extentions`).
+        Key insertion order is deterministic, and is the order
+        :meth:`Project.show <siliconcompiler.Project.show>` searches a build
+        directory in when it has no filename to work from -- richest view of a
+        node first, so an ``odb`` is found ahead of the ``def`` beside it.
+
+        Nothing here holds a list of extensions. The order is derived from what
+        the tasks declare: each ranks the formats it reads best-first in
+        :meth:`get_supported_task_extentions`, and an extension takes the worst
+        rank any task gives it, ties going to the higher-priority tool (see the
+        implementation for why the worst rather than the best). So an extension
+        only ever moves because the tool that reads it said something about it.
+
+        Two extensions that never appear in the same build cannot affect each
+        other, whatever order they land in: the search simply misses on every
+        node and moves on. Only formats a single flow emits together -- an
+        ``odb``, ``def``, ``vg`` and ``lef`` in one node -- are really being
+        ordered here, and those are all ranked by a task that reads them all.
+
+        This is independent of which *tool* wins an extension, which
+        :meth:`get_task` resolves from the same registration order and which
+        shows up here only in the values.
 
         Args:
             tool (str, optional): Restrict the map to one tool/task, in
@@ -4001,16 +4058,29 @@ class OpenTask(Task):
         if not tasks:
             return {}
 
-        ordered_exts: List[str] = []
-        seen: Set[str] = set()
-        for task_cls in tasks:
+        # An extension is ranked by the *worst* position any task that reads it
+        # puts it in. A task reading one format has no opinion to offer -- its
+        # favorite is just its only option -- while one reading several has
+        # ranked them against each other, so taking the maximum lets the
+        # informed opinion decide: openroad lists vg last of its three and that
+        # demotes vg globally, even though opensta reads nothing else. It also
+        # means a new single-format viewer can only ever demote an extension,
+        # never promote one, so adding a tool cannot reshuffle the head of the
+        # list out from under an existing flow.
+        rank: Dict[str, int] = {}
+        origin: Dict[str, Tuple[int, int]] = {}
+        # reversed(): same walk as get_task(), so "which tool wins an
+        # extension" and "which extension leads a tie" answer to one order.
+        for tool_rank, task_cls in enumerate(reversed(tasks)):
             try:
-                for ext in task_cls().get_supported_task_extentions():
-                    if ext not in seen:
-                        seen.add(ext)
-                        ordered_exts.append(ext)
+                exts = task_cls().get_supported_task_extentions()
             except NotImplementedError:
                 continue
+            for pos, ext in enumerate(exts):
+                rank[ext] = max(rank.get(ext, 0), pos)
+                origin.setdefault(ext, (tool_rank, pos))
+
+        ordered_exts = sorted(rank, key=lambda ext: (rank[ext], origin[ext]))
 
         ext_map: Dict[str, TOpenTask] = {}
         for ext in ordered_exts:

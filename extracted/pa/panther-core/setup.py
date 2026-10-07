@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.16.2"
+VERSION = "0.16.3"
 
 install_requires = [
     'jsonpath-ng',

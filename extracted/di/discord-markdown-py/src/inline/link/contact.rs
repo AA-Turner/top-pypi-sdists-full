@@ -1,6 +1,7 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use nom::{
+	AsChar, Mode, Parser,
 	branch::alt,
 	character::{
 		complete::{char, digit1, one_of},
@@ -10,22 +11,21 @@ use nom::{
 	error::ErrorKind,
 	multi::{many0_count, many1_count},
 	sequence::delimited,
-	AsChar, Mode, Parser,
 };
 use tracing::Level;
 use url::Url;
 
 use crate::{
+	Input,
 	context::Context,
 	error::ParseError,
 	grammar::{ByteHint, Grammar},
 	node::Node,
 	rule::RuleSet,
 	span::{Span, Spanned, TraceOk, TraceParse, WithSpan},
-	Input,
 };
 
-use super::{parse_and_validate_url, Link};
+use super::{Link, parse_and_validate_url};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedContact<'data> {

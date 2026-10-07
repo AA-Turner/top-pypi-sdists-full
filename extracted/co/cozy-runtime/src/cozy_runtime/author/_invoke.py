@@ -147,13 +147,12 @@ class Invocation:
     publish_to: str = ""
     """The repository the owner granted this root: each Model it returns is uploaded there."""
     publish: Callable[[Publish], Published] | None = None
-    """`Outputs.publish`'s exchange with the worker, which journals the run's output log."""
+    """`Outputs.publish`'s exchange with the machine, which journals the run's output log."""
 
 
 @dataclass(frozen=True, slots=True)
 class InvocationResult:
-    """What the wire carries (worker-protocol/01). cr-003 pins the serialized shape; the
-    facts this kernel is authoritative for are these."""
+    """The invocation result facts supplied by the author executor."""
 
     result: Any
     outputs: tuple[Mapping[str, Any], ...]
@@ -193,6 +192,8 @@ class PreparedRequest:
     facts: object
     facts_digest: str | None
     asset_bounds: Mapping[str, AssetBound | None] = field(default_factory=dict)
+    #: how this request's LoRAs are served (`LORA_MODE`): baked unless it asks per step
+    lora: str = "bake"
 
     def digests(self) -> dict[str, str]:
         """What a worker can hold, record and price against — never the payload."""
@@ -214,6 +215,7 @@ def prepare(
 ) -> PreparedRequest:
     """The pre-admission half. Raises typed refusals; hydrates nothing; enters nothing."""
     surface = surface_of(registration)
+    wire, lora = lora_mode(surface.payload_type, wire)
     overlay = resolve(
         surface.payload_type,
         wire,
@@ -230,7 +232,23 @@ def prepare(
         facts=facts,
         facts_digest=facts_digest,
         asset_bounds=asset_bounds,
+        lora=lora,
     )
+
+
+#: The one request field every function takes beside its own payload: `"per_step"` computes
+#: each LoRA's update every forward instead of baking it into the weights (owner, 2026-10-04).
+#: A payload that declares a field of this name keeps it; any other value is an ignored field.
+LORA_MODE = "lora_mode"
+
+
+def lora_mode(payload_type: object, wire: Mapping[str, object]) -> tuple[Mapping[str, object], str]:
+    """The request without its `lora_mode` field, and how its LoRAs are served."""
+    declared = getattr(payload_type, "__struct_fields__", ())
+    if wire.get(LORA_MODE) not in ("per_step", "bake") or LORA_MODE in declared:
+        return wire, "bake"
+    rest = dict(wire)
+    return rest, str(rest.pop(LORA_MODE))
 
 
 def _bind_tensorfs(
@@ -332,6 +350,10 @@ def invoke(prepared: PreparedRequest, inv: Invocation, record: Attempt) -> Invoc
     handles = ExitStack()
     _bind_tensorfs(ctx, record, inv, surface, handles)
     kwargs = _inject(surface, attempt, ctx, overlay, prepared.facts, inv)
+    for model in inv.models.values():
+        serve = getattr(model._cozy_residency, "serve_lora", None)
+        if serve is not None:
+            serve(prepared.lora)
 
     attempt.entered = True
     if inv.calls is not None:
@@ -642,7 +664,7 @@ def asset_inputs(payload: object) -> list[AssetInput]:
     """Every input asset with its identity, order, and concrete typed-field bound.
 
     `input_id` is the payload FIELD PATH with the list index included, which is
-    worker-protocol/01's rule stated in code: inputs are identified, ORDERED subjects and
+    inputs are identified, ordered subjects and
     never a digest-sorted anonymous list. `order` is the position within the containing
     list — 0 for a scalar field — because for H3's mixed reference sets the ORDER IS MODEL
     INPUT, not a presentation fact, and two assets with equal bytes are two subjects.

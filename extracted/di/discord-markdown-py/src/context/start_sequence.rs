@@ -4,11 +4,11 @@ use nom::{OutputMode, PResult, Parser};
 use tracing::Level;
 
 use crate::{
+	Input,
 	error::ParseError,
 	grammar::{Grammar, GrammarSet},
 	span::{TraceOk, TraceParse},
 	util::iter_alt,
-	Input,
 };
 
 pub struct StartSequence<E>(pub GrammarSet, pub PhantomData<E>);

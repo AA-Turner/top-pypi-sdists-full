@@ -3,7 +3,8 @@ from __future__ import annotations
 import datetime
 import json
 from calendar import timegm
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from unittest.mock import patch
 from urllib.parse import urlparse
 
 import jwt
@@ -11,10 +12,14 @@ import responses
 from jwt.utils import base64url_encode
 
 from social_core.backends.open_id_connect import OpenIdConnectAuth
-from social_core.exceptions import AuthTokenError
+from social_core.exceptions import AuthResponseError
+from social_core.tests.exception_helpers import assert_auth_error
 from social_core.utils import parse_qs
 
 from .oauth import BaseAuthUrlTestMixin, OAuth2Test
+
+if TYPE_CHECKING:
+    from social_core.storage import PartialMixin
 
 JWK_KEY = {
     "kty": "RSA",
@@ -38,6 +43,7 @@ JWK_KEY = {
 
 JWK_PUBLIC_KEY = {key: value for key, value in JWK_KEY.items() if key != "d"}
 STORED_ID_TOKEN_CONTEXT_KEY = "_oidc_id_token_context"
+PARTIAL_ID_TOKEN_KEY = "_oidc_validated_id_token"
 OpenIdConnectAuthT = TypeVar("OpenIdConnectAuthT", bound=OpenIdConnectAuth)
 
 
@@ -212,6 +218,35 @@ class OpenIdConnectTest(
         user = self.do_login()
         return user.social[0]
 
+    def resume_partial_pipeline(self, partial: PartialMixin):
+        # Model database serialization and a new backend on every request.
+        partial.data = json.loads(json.dumps(partial.data))
+        backend = type(self.backend)(
+            self.strategy, redirect_uri=self.backend.redirect_uri
+        )
+        self.assertIsNone(backend.id_token)
+        claims = self.backend.id_token
+        result = backend.continue_pipeline(partial)
+        self.assertEqual(backend.id_token, claims)
+        return result
+
+    def do_partial_pipeline(self):
+        with patch.object(
+            self.backend, "continue_pipeline", side_effect=self.resume_partial_pipeline
+        ):
+            user = super().do_partial_pipeline()
+        claims = self.backend.id_token
+        assert claims is not None
+        self.assertEqual(
+            user.social[0].extra_data[STORED_ID_TOKEN_CONTEXT_KEY],
+            {
+                claim: claims[claim]
+                for claim in ("iss", "sub", "aud", "auth_time", "nonce")
+                if claim in claims
+            },
+        )
+        return user
+
     def refresh_response(self, **id_token_kwargs) -> str:
         return self.prepare_access_token_body(
             access_token="refreshed-access-token",  # noqa: S106
@@ -229,13 +264,13 @@ class OpenIdConnectTest(
         )
         social.refresh_token(strategy=self.strategy)
 
-    def authtoken_raised(self, expected_message, **access_token_kwargs) -> None:
+    def authtoken_raised(self, expected_code, **access_token_kwargs) -> None:
         self.access_token_kwargs = access_token_kwargs
-        with self.assertRaisesRegex(AuthTokenError, expected_message):
+        with assert_auth_error(self, AuthResponseError, expected_code):
             self.do_login()
 
     def pre_complete_callback(self, start_url) -> None:
-        nonce = parse_qs(urlparse(start_url).query)["nonce"]
+        nonce = parse_qs(urlparse(start_url).query).get("nonce")
 
         self.access_token_kwargs.setdefault("nonce", nonce)
         self.access_token_body = self.prepare_access_token_body(
@@ -244,46 +279,38 @@ class OpenIdConnectTest(
         super().pre_complete_callback(start_url)
 
     def test_invalid_signature(self) -> None:
-        self.authtoken_raised(
-            "Token error: Signature verification failed", tamper_message=True
-        )
+        self.authtoken_raised("invalid_signature", tamper_message=True)
 
     def test_expired_signature(self) -> None:
         expiration_datetime = datetime.datetime.now(
             datetime.timezone.utc
         ) - datetime.timedelta(seconds=30)
         self.authtoken_raised(
-            "Token error: Signature has expired",
+            "response_expired",
             expiration_datetime=expiration_datetime,
         )
 
     def test_invalid_issuer(self) -> None:
-        self.authtoken_raised("Token error: Invalid issuer", issuer="someone-else")
+        self.authtoken_raised("invalid_claim", issuer="someone-else")
 
     def test_invalid_audience(self) -> None:
-        self.authtoken_raised(
-            "Token error: Invalid audience", client_key="someone-else"
-        )
+        self.authtoken_raised("invalid_claim", client_key="someone-else")
 
     def test_invalid_issue_time(self) -> None:
         expiration_datetime = datetime.datetime.now(
             datetime.timezone.utc
         ) - datetime.timedelta(seconds=self.backend.ID_TOKEN_MAX_AGE * 2)
-        self.authtoken_raised(
-            "Token error: Incorrect id_token: iat", issue_datetime=expiration_datetime
-        )
+        self.authtoken_raised("response_expired", issue_datetime=expiration_datetime)
 
     def test_invalid_nonce(self) -> None:
         self.authtoken_raised(
-            "Token error: Incorrect id_token: nonce",
+            "nonce_mismatch",
             nonce="something-wrong",
             kid="testkey",
         )
 
     def test_invalid_kid(self) -> None:
-        self.authtoken_raised(
-            "Token error: Signature verification failed", kid="doesnotexist"
-        )
+        self.authtoken_raised("invalid_signature", kid="doesnotexist")
 
     def test_invalid_at_hash(self) -> None:
         if self.skip_invalid_at_hash:
@@ -292,4 +319,4 @@ class OpenIdConnectTest(
             self.access_token_kwargs = {"at_hash": "foo"}
             self.do_login()
         else:
-            self.authtoken_raised("Token error: Invalid access token", at_hash="foo")
+            self.authtoken_raised("invalid_claim", at_hash="foo")

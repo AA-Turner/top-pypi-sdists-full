@@ -17,6 +17,9 @@ use crate::parser::segments::file::FileSegment;
 use context::ParseContext;
 use segments::{ErasedSegment, Tables};
 
+pub const DEFAULT_MAX_PARSE_DEPTH: usize = 600;
+pub const DEFAULT_MAX_PARSE_NODES: usize = 100_000;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct IndentationConfig {
     flags: u16,
@@ -78,6 +81,8 @@ impl IndentationConfig {
 pub struct Parser<'a> {
     dialect: &'a Dialect,
     pub(crate) indentation_config: IndentationConfig,
+    max_parse_depth: usize,
+    max_parse_nodes: usize,
 }
 
 impl<'a> From<&'a Dialect> for Parser<'a> {
@@ -85,15 +90,46 @@ impl<'a> From<&'a Dialect> for Parser<'a> {
         Self {
             dialect: value,
             indentation_config: IndentationConfig::default(),
+            max_parse_depth: DEFAULT_MAX_PARSE_DEPTH,
+            max_parse_nodes: DEFAULT_MAX_PARSE_NODES,
         }
     }
 }
 
 impl<'a> Parser<'a> {
     pub fn new(dialect: &'a Dialect, indentation_config: IndentationConfig) -> Self {
+        Self::new_with_limits(
+            dialect,
+            indentation_config,
+            DEFAULT_MAX_PARSE_DEPTH,
+            DEFAULT_MAX_PARSE_NODES,
+        )
+    }
+
+    pub fn new_with_max_parse_depth(
+        dialect: &'a Dialect,
+        indentation_config: IndentationConfig,
+        max_parse_depth: usize,
+    ) -> Self {
+        Self::new_with_limits(
+            dialect,
+            indentation_config,
+            max_parse_depth,
+            DEFAULT_MAX_PARSE_NODES,
+        )
+    }
+
+    pub fn new_with_limits(
+        dialect: &'a Dialect,
+        indentation_config: IndentationConfig,
+        max_parse_depth: usize,
+        max_parse_nodes: usize,
+    ) -> Self {
         Self {
             dialect,
             indentation_config,
+            max_parse_depth,
+            max_parse_nodes,
         }
     }
 
@@ -103,6 +139,14 @@ impl<'a> Parser<'a> {
 
     pub fn indentation_config(&self) -> IndentationConfig {
         self.indentation_config
+    }
+
+    pub fn max_parse_depth(&self) -> usize {
+        self.max_parse_depth
+    }
+
+    pub fn max_parse_nodes(&self) -> usize {
+        self.max_parse_nodes
     }
 
     pub fn parse(
@@ -115,6 +159,16 @@ impl<'a> Parser<'a> {
             // be an end_of_file segment. It would probably only happen in
             // api use cases.
             return Ok(None);
+        }
+
+        if self.max_parse_nodes > 0 && segments.len() > self.max_parse_nodes {
+            return Err(SQLParseError {
+                description: format!(
+                    "Maximum parse node count exceeded (limit {}). This may indicate unusually large SQL or a malicious input.",
+                    self.max_parse_nodes
+                ),
+                segment: segments.iter().find(|segment| segment.is_code()).cloned(),
+            });
         }
 
         // NOTE: This is the only time we use the parse context not in the

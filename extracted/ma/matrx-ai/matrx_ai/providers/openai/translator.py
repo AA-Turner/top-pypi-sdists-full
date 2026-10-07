@@ -420,7 +420,19 @@ class OpenAITranslator(BaseTranslator):
         if response.status == "completed":
             finish_reason = FinishReason.STOP
         elif response.status == "incomplete":
-            finish_reason = FinishReason.MAX_TOKENS
+            # ``incomplete`` has two causes (incomplete_details.reason):
+            # ``max_output_tokens`` and ``content_filter``. Calling a content
+            # filter a token-limit cut told the person "ask me to continue"
+            # over an answer the filter will block again.
+            details = getattr(response, "incomplete_details", None)
+            reason = getattr(details, "reason", None)
+            if reason is None and isinstance(details, dict):
+                reason = details.get("reason")
+            finish_reason = (
+                FinishReason.CONTENT_FILTER
+                if reason == "content_filter"
+                else FinishReason.MAX_TOKENS
+            )
         elif response.status == "failed":
             finish_reason = FinishReason.ERROR
 

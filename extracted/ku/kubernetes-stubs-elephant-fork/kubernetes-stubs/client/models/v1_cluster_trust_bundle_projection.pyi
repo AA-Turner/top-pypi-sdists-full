@@ -9,8 +9,9 @@ class V1ClusterTrustBundleProjection:
     optional: typing.Optional[bool]
     path: str
     signer_name: typing.Optional[str]
+    user: typing.Optional[int]
     
-    def __init__(self, *, label_selector: typing.Optional[kubernetes.client.V1LabelSelector] = ..., name: typing.Optional[str] = ..., optional: typing.Optional[bool] = ..., path: str, signer_name: typing.Optional[str] = ...) -> None:
+    def __init__(self, *, label_selector: typing.Optional[kubernetes.client.V1LabelSelector] = ..., name: typing.Optional[str] = ..., optional: typing.Optional[bool] = ..., path: str, signer_name: typing.Optional[str] = ..., user: typing.Optional[int] = ...) -> None:
         ...
     def to_dict(self) -> V1ClusterTrustBundleProjectionDict:
         ...
@@ -20,3 +21,4 @@ class V1ClusterTrustBundleProjectionDict(typing.TypedDict, total=False):
     optional: typing.Optional[bool]
     path: str
     signerName: typing.Optional[str]
+    user: typing.Optional[int]

@@ -1,0 +1,294 @@
+file:
+- oracle_batch:
+  - statement:
+    - oracle_create_package_statement:
+      - keyword: CREATE
+      - keyword: PACKAGE
+      - keyword: IF
+      - keyword: NOT
+      - keyword: EXISTS
+      - object_reference:
+        - naked_identifier: emp_mgmt
+      - keyword: AS
+      - oracle_declare_segment:
+        - oracle_create_function_statement:
+          - keyword: FUNCTION
+          - oracle_function_name:
+            - function_name_identifier: hire
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: last_name
+              - data_type:
+                - data_type_identifier: VARCHAR2
+              - comma: ','
+              - parameter: job_id
+              - data_type:
+                - data_type_identifier: VARCHAR2
+              - comma: ','
+              - parameter: manager_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - comma: ','
+              - parameter: salary
+              - data_type:
+                - data_type_identifier: NUMBER
+              - comma: ','
+              - parameter: commission_pct
+              - data_type:
+                - data_type_identifier: NUMBER
+              - comma: ','
+              - parameter: department_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - end_bracket: )
+          - keyword: RETURN
+          - data_type:
+            - data_type_identifier: NUMBER
+          - statement_terminator: ;
+        - oracle_create_function_statement:
+          - keyword: FUNCTION
+          - oracle_function_name:
+            - function_name_identifier: create_dept
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: department_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - comma: ','
+              - parameter: location_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - end_bracket: )
+          - keyword: RETURN
+          - data_type:
+            - data_type_identifier: NUMBER
+          - statement_terminator: ;
+        - oracle_create_procedure_statement:
+          - keyword: PROCEDURE
+          - oracle_function_name:
+            - function_name_identifier: remove_emp
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: employee_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - end_bracket: )
+          - statement_terminator: ;
+        - oracle_create_procedure_statement:
+          - keyword: PROCEDURE
+          - oracle_function_name:
+            - function_name_identifier: remove_dept
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: department_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - end_bracket: )
+          - statement_terminator: ;
+        - oracle_create_procedure_statement:
+          - keyword: PROCEDURE
+          - oracle_function_name:
+            - function_name_identifier: increase_sal
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: employee_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - comma: ','
+              - parameter: salary_incr
+              - data_type:
+                - data_type_identifier: NUMBER
+              - end_bracket: )
+          - statement_terminator: ;
+        - oracle_create_procedure_statement:
+          - keyword: PROCEDURE
+          - oracle_function_name:
+            - function_name_identifier: increase_comm
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: employee_id
+              - data_type:
+                - data_type_identifier: NUMBER
+              - comma: ','
+              - parameter: comm_incr
+              - data_type:
+                - data_type_identifier: NUMBER
+              - end_bracket: )
+          - statement_terminator: ;
+        - naked_identifier: no_comm
+        - data_type:
+          - data_type_identifier: EXCEPTION
+        - statement_terminator: ;
+        - naked_identifier: no_sal
+        - data_type:
+          - data_type_identifier: EXCEPTION
+        - statement_terminator: ;
+      - keyword: END
+      - object_reference:
+        - naked_identifier: emp_mgmt
+  - statement_terminator: ;
+  - slash_buffer_executor:
+    - slash: /
+- oracle_batch:
+  - statement:
+    - oracle_create_package_statement:
+      - keyword: CREATE
+      - keyword: OR
+      - keyword: REPLACE
+      - keyword: PACKAGE
+      - object_reference:
+        - naked_identifier: test_package
+      - keyword: IS
+      - oracle_declare_segment:
+        - oracle_create_function_statement:
+          - keyword: FUNCTION
+          - oracle_function_name:
+            - function_name_identifier: any_function_with_result_cache
+          - keyword: RETURN
+          - data_type:
+            - data_type_identifier: VARCHAR2
+          - keyword: RESULT_CACHE
+          - statement_terminator: ;
+      - keyword: END
+      - object_reference:
+        - naked_identifier: test_package
+  - statement_terminator: ;
+  - slash_buffer_executor:
+    - slash: /
+- oracle_batch:
+  - statement:
+    - oracle_create_package_statement:
+      - keyword: CREATE
+      - keyword: PACKAGE
+      - object_reference:
+        - naked_identifier: skip_col_pkg
+      - keyword: AS
+      - oracle_declare_segment:
+        - oracle_create_function_statement:
+          - keyword: FUNCTION
+          - oracle_function_name:
+            - function_name_identifier: skip_col
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: tab
+              - data_type:
+                - data_type_identifier: TABLE
+              - comma: ','
+              - parameter: col
+              - data_type:
+                - data_type_identifier: COLUMNS
+              - end_bracket: )
+          - keyword: RETURN
+          - data_type:
+            - data_type_identifier: TABLE
+          - keyword: PIPELINED
+          - keyword: ROW
+          - keyword: POLYMORPHIC
+          - keyword: USING
+          - object_reference:
+            - naked_identifier: skip_col_pkg
+          - statement_terminator: ;
+        - oracle_create_function_statement:
+          - keyword: FUNCTION
+          - oracle_function_name:
+            - function_name_identifier: describe
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: tab
+              - keyword: IN
+              - keyword: OUT
+              - data_type:
+                - naked_identifier: DBMS_TF
+                - dot: .
+                - data_type_identifier: TABLE_T
+              - comma: ','
+              - parameter: col
+              - data_type:
+                - naked_identifier: DBMS_TF
+                - dot: .
+                - data_type_identifier: COLUMNS_T
+              - end_bracket: )
+          - keyword: RETURN
+          - data_type:
+            - naked_identifier: DBMS_TF
+            - dot: .
+            - data_type_identifier: DESCRIBE_T
+          - statement_terminator: ;
+        - oracle_create_function_statement:
+          - keyword: FUNCTION
+          - oracle_function_name:
+            - function_name_identifier: skip_col
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: tab
+              - data_type:
+                - data_type_identifier: TABLE
+              - comma: ','
+              - parameter: type_name
+              - data_type:
+                - data_type_identifier: VARCHAR2
+              - comma: ','
+              - parameter: flip
+              - data_type:
+                - data_type_identifier: VARCHAR2
+              - keyword: DEFAULT
+              - expression:
+                - quoted_literal: '''False'''
+              - end_bracket: )
+          - keyword: RETURN
+          - data_type:
+            - data_type_identifier: TABLE
+          - keyword: PIPELINED
+          - keyword: ROW
+          - keyword: POLYMORPHIC
+          - keyword: USING
+          - object_reference:
+            - naked_identifier: skip_col_pkg
+          - statement_terminator: ;
+        - oracle_create_function_statement:
+          - keyword: FUNCTION
+          - oracle_function_name:
+            - function_name_identifier: describe
+          - function_parameter_list:
+            - bracketed:
+              - start_bracket: (
+              - parameter: tab
+              - keyword: IN
+              - keyword: OUT
+              - data_type:
+                - naked_identifier: DBMS_TF
+                - dot: .
+                - data_type_identifier: TABLE_T
+              - comma: ','
+              - parameter: type_name
+              - data_type:
+                - data_type_identifier: VARCHAR2
+              - comma: ','
+              - parameter: flip
+              - data_type:
+                - data_type_identifier: VARCHAR2
+              - keyword: DEFAULT
+              - expression:
+                - quoted_literal: '''False'''
+              - end_bracket: )
+          - keyword: RETURN
+          - data_type:
+            - naked_identifier: DBMS_TF
+            - dot: .
+            - data_type_identifier: DESCRIBE_T
+          - statement_terminator: ;
+      - keyword: END
+      - object_reference:
+        - naked_identifier: skip_col_pkg
+  - statement_terminator: ;
+  - slash_buffer_executor:
+    - slash: /

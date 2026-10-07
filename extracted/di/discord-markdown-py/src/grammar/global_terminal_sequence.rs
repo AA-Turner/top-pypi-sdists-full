@@ -1,13 +1,13 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use nom::{combinator::fail, OutputMode, PResult, Parser};
+use nom::{OutputMode, PResult, Parser, combinator::fail};
 use tracing::Level;
 
 use crate::{
+	Input,
 	error::ParseError,
 	span::{TraceOk, TraceParse},
 	util::iter_alt,
-	Input,
 };
 
 use super::{Grammar, GrammarSet};

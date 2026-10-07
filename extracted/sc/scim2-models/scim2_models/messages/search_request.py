@@ -7,7 +7,6 @@ from typing import Generic
 
 from pydantic import field_validator
 
-from ..annotations import CaseExact
 from ..annotations import Mutability
 from ..base import BaseModel
 from ..exceptions import InvalidCursorException
@@ -15,6 +14,7 @@ from ..exceptions import InvalidFilterException
 from ..exceptions import InvalidPathException
 from ..path import Path
 from ..path import ScimFilter
+from ..path.expressions import AttrPath
 from ..path.path import ResourceT
 from ..path.resolution import AttributeBinding
 from ..path.resolution import _resolve_attr_path
@@ -62,8 +62,6 @@ def _sort_value(resource: Any, binding: AttributeBinding | None) -> Any:
 
     host = attribute_host(resource, binding)
     value = getattr(host, binding.field_name, None) if host is not None else None
-    sub_field_name = binding.sub_field_name
-    case_exact = binding.case_exact
     if binding.is_multivalued:
         # "resources are sorted by the value of the primary attribute, if any,
         # or else the first value in the list, if any."
@@ -72,21 +70,16 @@ def _sort_value(resource: Any, binding: AttributeBinding | None) -> Any:
             (entry for entry in entries if getattr(entry, "primary", None)),
             entries[0] if entries else None,
         )
-        if sub_field_name is None and isinstance(value, BaseModel):
-            # RFC7643 §2.4 holds the significant value of a complex entry in a
-            # "value" sub-attribute, where a scalar entry is the value itself.
-            sub_field_name = "value"
-            case_exact = (
-                type(value).get_field_annotation("value", CaseExact) == CaseExact.true
-            )
 
-    if value is not None and sub_field_name is not None:
-        value = getattr(value, sub_field_name, None)
+    if value is not None and binding.sub_field_name is not None:
+        value = getattr(value, binding.sub_field_name, None)
     # "String type attributes are case insensitive by default, unless the
     # attribute type is defined as a case-exact string", RFC7644 §3.4.2.3.
-    if isinstance(value, str) and not case_exact:
-        return value.casefold()
-    return value
+    # A string the policy cannot prepare sorts as a missing value.
+    try:
+        return binding.comparable(value)
+    except ValueError:
+        return None
 
 
 class SearchRequest(Message, ResponseParameters[ResourceT], Generic[ResourceT]):
@@ -191,11 +184,10 @@ class SearchRequest(Message, ResponseParameters[ResourceT], Generic[ResourceT]):
                 path=str(value), detail=f"Cannot sort on {str(value)!r}"
             ).as_pydantic_error()
 
-        designated = value._designated_attr_path()
         reasons = [
             _unsortable_reason(str(value), binding)
             for model in value.models
-            if (binding := _resolve_attr_path(model, designated, strict=False))
+            if (binding := value.resolve(model))
         ]
         if None in reasons:
             return value
@@ -252,6 +244,40 @@ class SearchRequest(Message, ResponseParameters[ResourceT], Generic[ResourceT]):
         """
         return None if value is None else max(0, value)
 
+    def sort_binding(self, model: type[BaseModel]) -> AttributeBinding | None:
+        """Bind :attr:`sort_by` to the attribute of a model that orders the results.
+
+        This is what :meth:`sort` orders by, for backends that sort on their own.
+        A multi-valued complex attribute is bound to its ``value``
+        sub-attribute, so ``emails`` binds as ``emails.value``, per
+        :rfc:`RFC7644 §3.4.2.3 <7644#section-3.4.2.3>`.
+
+        >>> from scim2_models import SearchRequest, User
+        >>> binding = SearchRequest(sort_by="emails").sort_binding(User)
+        >>> binding.field_name, binding.sub_field_name
+        ('emails', 'value')
+
+        :param model: The resource type to resolve against.
+        :returns: The attribute to sort on, or :data:`None` when :attr:`sort_by`
+            is not set, when the model does not declare the attribute, or when
+            the model cannot sort on it.
+        """
+        if self.sort_by is None:
+            return None
+
+        binding = self.sort_by.resolve(model)
+        if binding is None or _unsortable_reason(str(self.sort_by), binding):
+            return None
+
+        target = binding.target_type
+        if not (isclass(target) and issubclass(target, BaseModel)):
+            return binding
+
+        designated = self.sort_by._designated_attr_path()
+        assert designated is not None
+        value_path = AttrPath(designated.attr, "value", designated.uri)
+        return _resolve_attr_path(model, value_path, strict=False)
+
     def sort(self, resources: Iterable[ResourceT]) -> list[ResourceT]:
         """Order resources as :rfc:`RFC7644 §3.4.2.3 <7644#section-3.4.2.3>` describes.
 
@@ -273,9 +299,6 @@ class SearchRequest(Message, ResponseParameters[ResourceT], Generic[ResourceT]):
         if self.sort_by is None:
             return list(resources)
 
-        sort_by = self.sort_by
-        designated = sort_by._designated_attr_path()
-        assert designated is not None
         bindings: dict[type, AttributeBinding | None] = {}
 
         def key(resource: ResourceT) -> tuple[bool, Any]:
@@ -284,9 +307,7 @@ class SearchRequest(Message, ResponseParameters[ResourceT], Generic[ResourceT]):
                 # "For filtered attributes that are not part of a particular
                 # resource type, the service provider SHALL treat the attribute
                 # as if there is no attribute value", RFC7644 §3.4.2.1.
-                binding = _resolve_attr_path(model, designated, strict=False)
-                sortable = binding and _unsortable_reason(str(sort_by), binding) is None
-                bindings[model] = binding if sortable else None
+                bindings[model] = self.sort_binding(model)
             value = _sort_value(resource, bindings[model])
             # "if there is no data for the specified sortBy value, they are
             # sorted via the sortOrder parameter, i.e., they are ordered last if
@@ -299,14 +320,23 @@ class SearchRequest(Message, ResponseParameters[ResourceT], Generic[ResourceT]):
 
     @property
     def start_index_0(self) -> int | None:
-        """The 0 indexed start index."""
-        return self.start_index - 1 if self.start_index is not None else None
+        """The 0 indexed start index.
+
+        Without :attr:`start_index`, it is 0, as :rfc:`RFC7644 §3.4.2.4
+        <7644#section-3.4.2.4>` defaults ``startIndex`` to 1. It is :data:`None`
+        when a :attr:`cursor` paginates the results instead.
+        """
+        if self.cursor is not None:
+            return None
+        return (self.start_index or 1) - 1
 
     @property
     def stop_index_0(self) -> int | None:
-        """The 0 indexed stop index."""
-        return (
-            self.start_index_0 + self.count
-            if self.start_index_0 is not None and self.count is not None
-            else None
-        )
+        """The 0 indexed stop index, so ``results[start_index_0:stop_index_0]`` is the page.
+
+        It is :data:`None` when :attr:`count` is not set, or when a
+        :attr:`cursor` paginates the results instead.
+        """
+        if self.start_index_0 is None or self.count is None:
+            return None
+        return self.start_index_0 + self.count

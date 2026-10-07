@@ -3,12 +3,13 @@ import re
 
 import pytest
 import yaml
+from flask import jsonify
 
 import schemathesis
-from schemathesis.config import SchemathesisConfig
+from schemathesis.config import GenerationConfig, SchemathesisConfig
 from schemathesis.config._auth import DynamicTokenAuthConfig
 from schemathesis.config._checks import ChecksConfig
-from schemathesis.core.failures import AcceptedNegativeData, Failure, MalformedJson
+from schemathesis.core.failures import AcceptedNegativeData, Failure, FailureGroup, MalformedJson
 from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import EncodedPath, ParameterLocation
 from schemathesis.core.transport import Response
@@ -472,6 +473,35 @@ def test_negative_data_rejection_ignores_extras_next_to_array_query_parameter(ct
     assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
+def test_negative_data_rejection_reports_scalar_query_mutation_beside_array_parameter(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/tags": {
+                "get": {
+                    "parameters": [
+                        {"in": "query", "name": "tag", "schema": {"type": "array", "items": {"type": "string"}}},
+                        {"in": "query", "name": "limit", "schema": {"type": "integer"}},
+                    ]
+                }
+            }
+        }
+    )
+    case = schema["/tags"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter="limit",
+            parameter_location=ParameterLocation.QUERY,
+            mutations=(_mutation(OperatorKind.CHANGE_TYPE, ("type",), "limit"),),
+        ),
+        query={"tag": ["a"], "limit": "abc"},
+    )
+    with pytest.raises(
+        AcceptedNegativeData, match=r"parameter `limit` in query - violates `type` at /properties/limit"
+    ):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
 def _opaque_rejection(response_factory):
     # A rejection with nothing to attribute, so the hint falls back to its schema-side reasoning.
     return Response.from_requests(response_factory.requests(status_code=400), verify=True)
@@ -780,6 +810,31 @@ def test_negative_data_rejection_keeps_checking_when_another_location_has_an_unr
         negative_data_rejection(check_context(), response_factory.requests(), case)
 
 
+def test_negative_data_rejection_ignores_repeated_query_value_with_unreadable_schema(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{id}": {
+                "get": {
+                    "parameters": [
+                        {"in": "path", "name": "id", "required": True, "schema": {"type": "string"}},
+                        {"in": "query", "name": "key", "schema": {"type": "integer", "multipleOf": 0}},
+                    ]
+                }
+            }
+        }
+    )
+    case = schema["/items/{id}"]["GET"].Case(
+        _meta=build_metadata(
+            path_parameters=GenerationMode.NEGATIVE,
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+        ),
+        path_parameters={"id": "abc"},
+        query={"key": [7, 8]},
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
 def test_negative_data_rejection_names_no_parameters_when_several_locations_are_negated(
     response_factory, sample_schema
 ):
@@ -799,6 +854,26 @@ def test_negative_data_rejection_names_no_parameters_when_several_locations_are_
     assert "- query: violates `type` at /properties/key" in exc.value.message
     assert "- header: violates `minimum` at /properties/X-Key" in exc.value.message
     assert "parameters" not in exc.value.message
+
+
+def test_negative_data_rejection_ignores_headers_on_operation_without_header_parameters(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{id}": {
+                "get": {"parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "string"}}]}
+            }
+        }
+    )
+    case = schema["/items/{id}"]["GET"].Case(
+        _meta=build_metadata(
+            path_parameters=GenerationMode.NEGATIVE,
+            headers=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+        ),
+        path_parameters={"id": "abc"},
+        headers={"X-Extra": "1"},
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
 @pytest.fixture
@@ -831,6 +906,90 @@ def _path_and_query_case(schema, path_parameters, query, headers, mutations):
     )
 
 
+NULLABLE_BOOLEAN = {"type": "boolean", "nullable": True}
+
+
+@pytest.mark.parametrize(
+    ("version", "parameters", "query", "reported"),
+    [
+        ("3.0.2", {"flag": {"schema": NULLABLE_BOOLEAN, "allowEmptyValue": True}}, {"flag": "abc"}, True),
+        ("3.0.2", {"flag": {"schema": NULLABLE_BOOLEAN}}, {"flag": "abc"}, True),
+        ("3.0.2", {"flag": {"schema": {"type": "boolean"}, "allowEmptyValue": True}}, {"flag": "abc"}, True),
+        ("3.1.0", {"flag": {"schema": {"type": ["boolean", "null"]}, "allowEmptyValue": True}}, {"flag": "abc"}, True),
+        ("3.0.2", {"flag": {"schema": {"type": "boolean"}}}, {"flag": "abc"}, True),
+        (
+            "3.0.2",
+            {
+                "compressed": {"schema": NULLABLE_BOOLEAN, "allowEmptyValue": True},
+                "full_size": {"schema": {**NULLABLE_BOOLEAN, "default": False}, "allowEmptyValue": True},
+            },
+            {"compressed": "abc", "full_size": "xyz"},
+            True,
+        ),
+        ("3.0.2", {"flag": {"schema": NULLABLE_BOOLEAN, "allowEmptyValue": True}}, {"flag": "true"}, False),
+        ("3.0.2", {"ids": {"schema": {"type": "array", "items": {"type": "integer"}}}}, {"ids": "5"}, False),
+        (
+            "3.0.2",
+            {
+                "ids": {"schema": {"type": "array", "items": {"type": "integer"}}},
+                "flag": {"schema": NULLABLE_BOOLEAN, "allowEmptyValue": True},
+            },
+            {"ids": "5", "flag": "abc"},
+            True,
+        ),
+        ("3.1.0", {"mode": {"schema": {"const": "on"}}}, {"mode": "abc"}, True),
+        ("3.0.2", {"anything": {"schema": {}}}, {"anything": "abc"}, False),
+    ],
+    ids=[
+        "nullable-with-empty-value",
+        "nullable",
+        "empty-value",
+        "openapi-31-type-list",
+        "plain",
+        "two-parameters",
+        "valid-on-the-wire",
+        "array",
+        "beside-array",
+        "const",
+        "untyped",
+    ],
+)
+def test_negative_data_rejection_reports_type_mutations_of_wrapped_scalar_query(
+    ctx, app_runner, version, parameters, query, reported
+):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/thumb": {
+                "get": {
+                    "parameters": [{"in": "query", "name": name, **extra} for name, extra in parameters.items()],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version=version,
+    )
+
+    @app.route("/thumb")
+    def thumb():
+        return jsonify({})
+
+    operation = schemathesis.openapi.from_url(app_runner.openapi_url(app))["/thumb"]["GET"]
+    case = operation.Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            mutations=tuple(_mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter=name) for name in query),
+        ),
+        query=query,
+    )
+    response = case.call()
+    if reported:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
+
+
 _PATH_TYPE_MUTATION = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="id", location=ParameterLocation.PATH)
 _HEADER_TYPE_MUTATION = _mutation(
     OperatorKind.CHANGE_TYPE, ("type",), parameter="X-Key", location=ParameterLocation.HEADER
@@ -850,6 +1009,31 @@ def test_negative_data_rejection_ignores_type_mutations_wire_identical_in_every_
     assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
+def test_negative_data_rejection_reports_type_mutation_of_parameter_missing_from_query(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"in": "query", "name": "id", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            description="Invalid type string (expected integer)",
+            parameter="id",
+            parameter_location=ParameterLocation.QUERY,
+        ),
+        query={"other": "5"},
+    )
+    with pytest.raises(AcceptedNegativeData, match="parameter `id` in query - invalid type string"):
+        negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
+
+
 @pytest.mark.parametrize(
     ("query", "headers", "mutations"),
     [
@@ -864,6 +1048,31 @@ def test_negative_data_rejection_reports_when_one_location_stays_invalid_on_the_
     case = _path_and_query_case(path_and_query_schema, {"id": "7"}, query, headers, mutations)
     with pytest.raises(AcceptedNegativeData):
         negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
+def test_negative_data_rejection_reports_type_mutation_of_undeclared_query_parameter(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"in": "query", "name": "id", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            description="Invalid type string (expected integer)",
+            parameter="ghost",
+            parameter_location=ParameterLocation.QUERY,
+        ),
+        query={"ghost": "5"},
+    )
+    with pytest.raises(AcceptedNegativeData, match="parameter `ghost` in query - invalid type string"):
+        negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
 
 
 @pytest.mark.parametrize(("value", "is_accepted"), [("-1", True), ("5", False)], ids=["below-minimum", "valid"])
@@ -1155,6 +1364,158 @@ def test_negative_data_rejection_validates_boolean_spelling_beside_another_mutat
             negative_data_rejection(check_context(), response, case)
 
 
+_NULLABLE_FLAG = {"schema": {"type": "boolean", "nullable": True}, "allowEmptyValue": True}
+_NEGATED_NULLABLE_FLAG = _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("anyOf",), parameter="compressed")
+
+
+@pytest.mark.parametrize(
+    ("version", "parameters", "query", "mutations", "path", "url", "accepted"),
+    [
+        (
+            "3.0.2",
+            [
+                {
+                    "in": "query",
+                    "name": "full_size",
+                    "schema": {"type": "boolean", "nullable": True, "default": False},
+                    "allowEmptyValue": True,
+                },
+                {"in": "query", "name": "compressed", **_NULLABLE_FLAG},
+            ],
+            {"compressed": "null", "full_size": "null"},
+            (
+                _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("anyOf",), parameter="full_size"),
+                _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="compressed"),
+            ),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=null&full_size=null",
+            True,
+        ),
+        (
+            "3.1.0",
+            [{"in": "query", "name": "compressed", "schema": {"type": ["boolean", "null"]}}],
+            {"compressed": "null"},
+            (_mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="compressed"),),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=null",
+            True,
+        ),
+        (
+            "2.0",
+            [{"in": "query", "name": "compressed", "type": "boolean", "x-nullable": True}],
+            {"compressed": "null"},
+            (_NEGATED_NULLABLE_FLAG,),
+            "/api/thumb",
+            "http://127.0.0.1/api/thumb?compressed=null",
+            True,
+        ),
+        (
+            "3.0.2",
+            [{"in": "query", "name": "compressed", **_NULLABLE_FLAG}],
+            {"compressed": "NULL"},
+            (_NEGATED_NULLABLE_FLAG,),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=NULL",
+            True,
+        ),
+        (
+            "3.0.2",
+            [{"in": "query", "name": "compressed", **_NULLABLE_FLAG}],
+            {"compressed": "Null"},
+            (_NEGATED_NULLABLE_FLAG,),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=Null",
+            True,
+        ),
+        (
+            "3.0.2",
+            [{"in": "query", "name": "compressed", **_NULLABLE_FLAG}],
+            {"compressed": ["bogus", "null"]},
+            (_NEGATED_NULLABLE_FLAG,),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=bogus&compressed=null",
+            True,
+        ),
+        (
+            "3.0.2",
+            [{"in": "query", "name": "compressed", "schema": {"type": "boolean"}}],
+            {"compressed": "null"},
+            (_mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="compressed"),),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=null",
+            False,
+        ),
+        (
+            "3.0.2",
+            [
+                {"in": "query", "name": "compressed", **_NULLABLE_FLAG},
+                {"in": "query", "name": "collection", "schema": {"type": "string", "enum": ["tag"]}},
+            ],
+            {"compressed": "null", "collection": "bogus"},
+            (_NEGATED_NULLABLE_FLAG, _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("enum",), parameter="collection")),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=null&collection=bogus",
+            False,
+        ),
+        (
+            "3.0.2",
+            [{"in": "query", "name": "compressed", **_NULLABLE_FLAG}],
+            {"compressed": "null"},
+            (_NEGATED_NULLABLE_FLAG,),
+            "/other",
+            "http://127.0.0.1/other?compressed=null",
+            False,
+        ),
+        (
+            "3.0.2",
+            [
+                {"in": "query", "name": "full_size", **_NULLABLE_FLAG},
+                {"in": "query", "name": "compressed", **_NULLABLE_FLAG},
+            ],
+            {"full_size": "true", "compressed": "null", "x": []},
+            (_ADDITIONAL_PROPERTIES_MUTATION,),
+            "/thumb",
+            "http://127.0.0.1/thumb?full_size=true&compressed=null",
+            True,
+        ),
+    ],
+    ids=[
+        "openapi-30-nullable",
+        "openapi-31-type-list",
+        "swagger-20-x-nullable",
+        "uppercase",
+        "capitalized",
+        "repeated",
+        "not-nullable",
+        "another-invalid-parameter",
+        "other-path",
+        "unsent-extra-parameter",
+    ],
+)
+def test_negative_data_rejection_validates_null_text_for_nullable_query(
+    ctx, response_factory, version, parameters, query, mutations, path, url, accepted
+):
+    schema = ctx.openapi.load_schema(
+        {"/thumb": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}},
+        version=version,
+    )
+    case = schema["/thumb"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE], mutations=mutations
+        ),
+        query=query,
+    )
+    response = response_factory.requests()
+    response.request.prepare_url(f"http://127.0.0.1{path}", case.as_transport_kwargs()["params"])
+
+    assert response.request.url == url
+    if accepted:
+        assert negative_data_rejection(check_context(), response, case) is None
+    else:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+
+
 @pytest.mark.parametrize("location", [ParameterLocation.HEADER, ParameterLocation.COOKIE], ids=["header", "cookie"])
 @pytest.mark.parametrize(
     ("value", "accepted"),
@@ -1348,6 +1709,26 @@ def test_negative_data_rejection_ignores_huge_integer_wire_value(ctx, response_f
     meta.components = {ParameterLocation.PATH: ComponentInfo(mode=GenerationMode.NEGATIVE)}
     case = schema["/items/{id}"]["GET"].Case(_meta=meta, path_parameters={"id": "9" * 400})
     assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+def test_negative_data_rejection_reports_non_string_path_value(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{id}": {
+                "get": {
+                    "parameters": [
+                        {"in": "path", "name": "id", "required": True, "schema": {"type": "string", "minLength": 3}}
+                    ]
+                }
+            }
+        }
+    )
+    case = schema["/items/{id}"]["GET"].Case(
+        _meta=build_metadata(path_parameters=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        path_parameters={"id": 5},
+    )
+    with pytest.raises(AcceptedNegativeData, match="Invalid data should have been rejected"):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
 
 
 def test_negative_data_rejection_ignores_non_finite_element_in_query_array(ctx, response_factory):
@@ -1559,7 +1940,9 @@ def test_negative_data_rejection_read_only_property_media_types(ctx, response_fa
         ("text/plain", None, GenerationMode.NEGATIVE, None, False),
     ],
 )
-def test_body_negation_becomes_valid_after_serialization(ctx, media_type, body_mode, query_mode, header_mode, expected):
+def test_body_negation_becomes_valid_after_serialization(
+    ctx, response_factory, media_type, body_mode, query_mode, header_mode, expected
+):
     schema = ctx.openapi.load_schema(
         {
             "/endpoint": {
@@ -1590,7 +1973,191 @@ def test_body_negation_becomes_valid_after_serialization(ctx, media_type, body_m
         body={},
         media_type=media_type,
     )
-    assert _body_negation_becomes_valid_after_serialization(case) is expected
+    assert _body_negation_becomes_valid_after_serialization(response_factory.requests(), case) is expected
+
+
+MULTIPART = "multipart/form-data"
+URLENCODED = "application/x-www-form-urlencoded"
+
+
+def _load_form_operation(ctx, app_runner, media_type, properties=None, encoding=None, version="3.0.2"):
+    definition = {
+        "schema": {
+            "type": "object",
+            "properties": {
+                "reason": {"type": "string", "enum": ["dmca", "mature", "other"]},
+                "description": {"type": "string", "nullable": True},
+                **(properties or {}),
+            },
+            "required": ["reason"],
+        }
+    }
+    if encoding is not None:
+        definition["encoding"] = encoding
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/post": {
+                "post": {
+                    "parameters": [{"in": "query", "name": "limit", "schema": {"type": "integer"}}],
+                    "requestBody": {"required": True, "content": {media_type: definition}},
+                    "responses": {"201": {"description": "Created"}},
+                }
+            }
+        },
+        version=version,
+    )
+
+    @app.route("/post", methods=["POST"])
+    def post():
+        return jsonify({}), 201
+
+    return schemathesis.openapi.from_url(app_runner.openapi_url(app))["/post"]["POST"]
+
+
+@pytest.mark.parametrize(
+    ("media_type", "properties", "value", "wire"),
+    [
+        (MULTIPART, None, True, b'name="description"\r\n\r\ntrue\r\n'),
+        (URLENCODED, None, True, "description=true"),
+        (MULTIPART, {"count": {"type": "string", "pattern": "^[0-9]+$"}}, 42, b'name="count"\r\n\r\n42\r\n'),
+        (MULTIPART, None, 1.5, b'name="description"\r\n\r\n1.5\r\n'),
+        (URLENCODED, None, 1.5, "description=1.5"),
+        (MULTIPART, None, [True, 1], b'name="description"\r\n\r\n1\r\n'),
+        (MULTIPART, None, ["x", {"b": None}], b'name="description"\r\n\r\n{"b": null}\r\n'),
+        (MULTIPART, {"count": {"type": "integer", "maximum": 10}}, 5, b'name="count"\r\n\r\n5\r\n'),
+        (URLENCODED, None, {"x": 1}, "description=x"),
+    ],
+    ids=[
+        "multipart-boolean",
+        "urlencoded-boolean",
+        "multipart-integer",
+        "multipart-float",
+        "urlencoded-float",
+        "repeated-values",
+        "repeated-values-with-object",
+        "integer-read-from-text",
+        "object-sent-as-its-keys",
+    ],
+)
+def test_negative_data_rejection_accepts_form_scalars_sent_as_valid_strings(
+    ctx, app_runner, media_type, properties, value, wire
+):
+    operation = _load_form_operation(ctx, app_runner, media_type, properties)
+    name = "count" if properties else "description"
+    case = operation.Case(
+        _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        body={"reason": "dmca", name: value},
+        media_type=media_type,
+    )
+    response = case.call()
+    assert wire in response.request.body
+    assert negative_data_rejection(check_context(), response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("media_type", "value"),
+    [(MULTIPART, []), (URLENCODED, []), (URLENCODED, {})],
+    ids=["multipart-empty-list", "urlencoded-empty-list", "urlencoded-empty-object"],
+)
+def test_negative_data_rejection_accepts_optional_form_fields_not_sent(ctx, app_runner, media_type, value):
+    operation = _load_form_operation(ctx, app_runner, media_type)
+    case = operation.Case(
+        _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        body={"reason": "dmca", "description": value},
+        media_type=media_type,
+    )
+    response = case.call()
+    assert "description" not in (
+        response.request.body.decode() if isinstance(response.request.body, bytes) else response.request.body
+    )
+    assert negative_data_rejection(check_context(), response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("media_type", "properties", "encoding", "version", "body", "query"),
+    [
+        (MULTIPART, {"description": {"type": "string", "maxLength": 3}}, None, "3.0.2", {"description": True}, None),
+        (MULTIPART, None, None, "3.0.2", {"reason": True}, None),
+        (URLENCODED, None, None, "3.0.2", {"reason": True}, None),
+        (MULTIPART, None, None, "3.0.2", {"reason": True, "description": True}, None),
+        (MULTIPART, None, None, "3.0.2", {"description": True}, {"limit": "bad"}),
+        ("application/json", None, None, "3.0.2", {"description": True}, None),
+        (MULTIPART, None, {"description": {"contentType": "application/json"}}, "3.0.2", {"description": True}, None),
+        (MULTIPART, {"meta": {"type": ["object", "string"]}}, None, "3.1.0", {"meta": True}, None),
+        (
+            MULTIPART,
+            {"tags": {"type": ["array", "string"], "items": {"type": "object"}}},
+            None,
+            "3.1.0",
+            {"tags": True},
+            None,
+        ),
+        (MULTIPART, {"file": {"type": "string", "format": "binary"}}, None, "3.0.2", {"file": True}, None),
+        (MULTIPART, None, None, "3.0.2", {"reason": ["bad", "worse"]}, None),
+        (MULTIPART, None, None, "3.0.2", {"reason": []}, None),
+        (URLENCODED, None, None, "3.0.2", {"reason": {}}, None),
+        (
+            MULTIPART,
+            {"file": {"type": "string", "format": "binary"}},
+            None,
+            "3.0.2",
+            {"file": b"\x00", "description": True},
+            None,
+        ),
+        (
+            MULTIPART,
+            {'na"me': {"type": "string"}},
+            {'na"me': {"contentType": "application/json"}},
+            "3.0.2",
+            {'na"me': True},
+            None,
+        ),
+    ],
+    ids=[
+        "max-length",
+        "enum",
+        "urlencoded-enum",
+        "one-of-two-fields-still-invalid",
+        "invalid-query",
+        "json",
+        "json-encoded-part",
+        "object-field",
+        "array-field",
+        "binary-field",
+        "repeated-field-all-invalid",
+        "required-field-omitted",
+        "urlencoded-required-field-omitted",
+        "binary-content-cannot-be-validated",
+        "escaped-name-typed-part",
+    ],
+)
+def test_negative_data_rejection_reports_form_scalars_invalid_when_sent(
+    ctx, app_runner, media_type, properties, encoding, version, body, query
+):
+    operation = _load_form_operation(ctx, app_runner, media_type, properties, encoding, version)
+    case = operation.Case(
+        _meta=build_metadata(
+            body=GenerationMode.NEGATIVE,
+            query=GenerationMode.NEGATIVE if query else None,
+            generation_modes=[GenerationMode.NEGATIVE],
+        ),
+        query=query or {},
+        body={"reason": "dmca", **body},
+        media_type=media_type,
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), case.call(), case)
+
+
+def test_negative_data_rejection_reports_form_body_with_undeclared_media_type(ctx, app_runner):
+    operation = _load_form_operation(ctx, app_runner, URLENCODED)
+    case = operation.Case(
+        _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        body={"reason": "dmca", "description": True},
+        media_type=MULTIPART,
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), case.call(), case)
 
 
 def test_response_schema_conformance_with_unspecified_method(response_factory, sample_raw_schema):
@@ -1981,6 +2548,43 @@ def test_negative_data_rejection_single_element_array_serialization(ctx, respons
     assert result is None
 
 
+def test_negative_data_rejection_non_mapping_query_with_another_invalid_location(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "a", "in": "query", "schema": {"type": "integer"}},
+                        {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            headers=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter="X-Id",
+            parameter_location=ParameterLocation.HEADER,
+            mutations=(
+                _mutation(
+                    OperatorKind.CHANGE_TYPE,
+                    ("type",),
+                    parameter="X-Id",
+                    location=ParameterLocation.HEADER,
+                ),
+            ),
+        ),
+        query="a=1",
+        headers={"X-Id": "abc"},
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
 @pytest.mark.parametrize(
     ("value", "is_accepted_negative"),
     [(["false"], True), ([-1], True), (["5"], False), ([5], False)],
@@ -2071,6 +2675,50 @@ def test_negative_data_rejection_valid_array_element_beside_invalid_parameter(
             negative_data_rejection(check_context(), response, case)
     else:
         assert negative_data_rejection(check_context(), response, case) is None
+
+
+def test_negative_data_rejection_coverage_nullable_query_beside_invalid_header(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "page",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "integer", "minimum": 1, "nullable": True},
+                        },
+                        {
+                            "name": "X-Token",
+                            "in": "header",
+                            "required": True,
+                            "schema": {"type": "string", "minLength": 1},
+                        },
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items")
+    def items():
+        return jsonify({})
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    operation = schema["/items"]["GET"]
+    cases = [
+        case
+        for case in schema.iter_coverage_cases(
+            operation=operation, generation_modes=[GenerationMode.NEGATIVE], generation_config=GenerationConfig()
+        )
+        if case.query.get("page") in ("null", ["null", "null"])
+    ]
+    assert len(cases) == 2
+    for case in cases:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), case.call(), case)
 
 
 def test_negative_data_rejection_multiple_mutations_name_parameters(ctx, response_factory):
@@ -2336,6 +2984,57 @@ def test_response_schema_conformance_with_surrogate_chars_in_response(response_f
     assert failure.position == 1
     assert failure.lineno == 1
     assert failure.colno == 2
+
+
+def test_response_validation_reports_surrogate_returned_by_deserializer(ctx, response_factory):
+    @schemathesis.deserializer("application/vnd.surrogate")
+    def deserialize(_ctx, response):
+        return "\udcf3"
+
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {"application/vnd.surrogate": {"schema": {"type": "string"}}},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    operation = schema["/test"]["GET"]
+    response = Response.from_requests(
+        response_factory.requests(content=b"x", content_type="application/vnd.surrogate"), True
+    )
+    with pytest.raises(MalformedJson) as exc_info:
+        operation.validate_response(response)
+    failure = exc_info.value
+    assert (failure.document, failure.position, failure.lineno, failure.colno) == ("x", 0, 1, 1)
+
+
+def test_response_schema_conformance_reports_malformed_response_media_type(response_factory, ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "get": {
+                    "responses": {"200": {"description": "OK", "content": {"text": {"schema": {"type": "object"}}}}}
+                }
+            }
+        }
+    )
+    case = schema["/foo"]["GET"].Case()
+    response = response_factory.requests(content=b'{"a": 1}', content_type="text")
+
+    with pytest.raises(FailureGroup) as exc_info:
+        case.validate_response(response, checks=[response_schema_conformance])
+
+    failures = exc_info.value.exceptions
+    assert len(failures) == 1
+    assert failures[0].title == "Content deserialization error"
+    assert "Malformed media type: `text`" in failures[0].message
 
 
 BODY_SCHEMA = {"type": "object", "properties": {"a": {"type": "integer"}}, "required": ["a"]}
@@ -2639,6 +3338,102 @@ def test_response_schema_conformance_discriminator(ctx, response_factory, body, 
         assert response_schema_conformance(_CHECK_CTX, response, case) is None
 
 
+def test_response_schema_conformance_discriminator_whole_file_ref(tmp_path, response_factory):
+    (tmp_path / "cat.json").write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "properties": {"petType": {"type": "string"}, "name": {"type": "string"}},
+                "required": ["petType", "name"],
+            }
+        )
+    )
+    (tmp_path / "openapi.json").write_text(
+        json.dumps(
+            {
+                "openapi": "3.0.2",
+                "info": {"title": "Pets", "version": "1.0"},
+                "paths": {
+                    "/pets": {
+                        "get": {
+                            "responses": {
+                                "200": {
+                                    "description": "OK",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "anyOf": [
+                                                    {"$ref": "cat.json"},
+                                                    {"$ref": "#/components/schemas/Dog"},
+                                                ],
+                                                "discriminator": {"propertyName": "petType"},
+                                            }
+                                        }
+                                    },
+                                }
+                            }
+                        }
+                    }
+                },
+                "components": {
+                    "schemas": {
+                        "Dog": {
+                            "type": "object",
+                            "properties": {"petType": {"type": "string"}, "bark": {"type": "boolean"}},
+                            "required": ["petType", "bark"],
+                        }
+                    }
+                },
+            }
+        )
+    )
+    operation = schemathesis.openapi.from_path(tmp_path / "openapi.json")["/pets"]["GET"]
+
+    assert (
+        operation.validate_response(response_factory.requests(content=b'{"petType": "cat", "name": "Misty"}')) is None
+    )
+    with pytest.raises(Failure, match="known schema values: 'Dog', 'cat'"):
+        operation.validate_response(response_factory.requests(content=b'{"petType": "cow", "name": "Misty"}'))
+
+
+def test_response_schema_conformance_discriminator_ignores_nameless_reference(ctx, response_factory):
+    # A reference to an `$id` ending in `/` carries no implicit name, so it adds no known value.
+    schema = ctx.openapi.load_schema(
+        {
+            "/pets": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "anyOf": [
+                                            {"$ref": "https://example.invalid/"},
+                                            {"$ref": "#/components/schemas/Dog"},
+                                        ],
+                                        "discriminator": {"propertyName": "petType"},
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "Root": {"$id": "https://example.invalid/", "type": "object"},
+                "Dog": {"type": "object"},
+            }
+        },
+    )
+    operation = schema["/pets"]["GET"]
+    with pytest.raises(Failure, match="known schema values: 'Dog'$"):
+        operation.validate_response(response_factory.requests(content=b'{"petType": ""}'))
+
+
 def test_response_schema_conformance_discriminator_boolean_schema(ctx, response_factory):
     # Boolean schemas (true/false) in anyOf/oneOf are valid in OpenAPI 3.1.
     # The boolean item is skipped during implicit mapping extraction; only $ref items contribute.
@@ -2734,6 +3529,48 @@ def test_response_schema_conformance_discriminator_inline_branch(ctx, response_f
     with pytest.raises(Failure) as exc_info:
         response_schema_conformance(_CHECK_CTX, invalid, case)
     assert exc_info.value.title == "Discriminator value not in schema mapping"
+
+
+def test_response_schema_conformance_discriminator_with_file_branches(tmp_path, response_factory):
+    pet = json.dumps({"type": "object", "properties": {"petType": {"type": "string"}}})
+    (tmp_path / "cat.json").write_text(pet)
+    (tmp_path / "bird.json").write_text(pet)
+    schema_path = tmp_path / "openapi.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "openapi": "3.0.2",
+                "info": {"title": "Test", "version": "1"},
+                "paths": {
+                    "/pets": {
+                        "get": {
+                            "responses": {
+                                "200": {
+                                    "description": "OK",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "anyOf": [
+                                                    {"$ref": "cat.json"},
+                                                    {"$ref": "bird.json#"},
+                                                    {"$ref": "#/components/schemas/Dog"},
+                                                ],
+                                                "discriminator": {"propertyName": "petType"},
+                                            }
+                                        }
+                                    },
+                                }
+                            }
+                        }
+                    }
+                },
+                "components": {"schemas": {"Dog": {"type": "object", "properties": {"petType": {"type": "string"}}}}},
+            }
+        )
+    )
+    operation = schemathesis.openapi.from_path(str(schema_path))["/pets"]["GET"]
+    response = Response.from_requests(response_factory.requests(content=b'{"petType": "Dog"}'), True)
+    assert operation.validate_response(response) is None
 
 
 _USER_PROFILE_SCHEMA = {
@@ -3391,7 +4228,8 @@ def test_negative_data_rejection_skips_schemas_rejected_by_validator(
     assert negative_data_rejection(check_context(), response_factory.requests(status_code=200), case) is None
 
 
-def test_negative_data_rejection_reports_header_beside_query_rejected_by_validator(ctx, response_factory):
+@pytest.mark.parametrize("query_value", ["abc", ["abc"]], ids=["scalar", "array"])
+def test_negative_data_rejection_reports_header_beside_query_rejected_by_validator(ctx, response_factory, query_value):
     operation = ctx.openapi.load_schema(
         {
             "/items": {
@@ -3411,8 +4249,12 @@ def test_negative_data_rejection_reports_header_beside_query_rejected_by_validat
             headers=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
             description="Invalid component",
+            mutations=(
+                _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="q"),
+                _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="X-Id", location=ParameterLocation.HEADER),
+            ),
         ),
-        query={"q": "abc"},
+        query={"q": query_value},
         headers={"X-Id": "abc"},
     )
     with pytest.raises(AcceptedNegativeData):

@@ -10,6 +10,7 @@ use super::grammar::anyof::AnyNumberOf;
 use super::grammar::conditional::Conditional;
 use super::grammar::delimited::Delimited;
 use super::grammar::noncode::NonCodeMatcher;
+use super::grammar::preceded_by::PrecededBy;
 use super::grammar::sequence::{Bracketed, Sequence};
 use super::grammar::{Anything, Nothing, Ref};
 use super::lookahead::LookaheadExclude;
@@ -89,6 +90,13 @@ impl Matchable {
             _ => None,
         }
     }
+
+    pub fn as_node_matcher_ref(&self) -> Option<&NodeMatcher> {
+        match self.inner.as_ref() {
+            MatchableTraitImpl::NodeMatcher(parser) => Some(parser),
+            _ => None,
+        }
+    }
 }
 
 #[enum_dispatch(MatchableTrait)]
@@ -98,6 +106,7 @@ pub enum MatchableTraitImpl {
     Bracketed(Bracketed),
     NodeMatcher(NodeMatcher),
     NonCodeMatcher(NonCodeMatcher),
+    PrecededBy(PrecededBy),
     Nothing(Nothing),
     Ref(Ref),
     Sequence(Sequence),
@@ -218,6 +227,6 @@ pub fn next_matchable_cache_key() -> MatchableCacheKey {
     // matchers.
     static ID: AtomicU32 = AtomicU32::new(1);
 
-    ID.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+    ID.try_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
         .unwrap()
 }

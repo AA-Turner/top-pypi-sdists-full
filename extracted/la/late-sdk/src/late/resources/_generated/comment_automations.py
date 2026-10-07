@@ -87,7 +87,6 @@ class CommentAutomationsResource:
         profile_id: str,
         account_id: str,
         name: str,
-        dm_message: str,
         *,
         trigger: str | None = "comment",
         platform_post_id: str | None = None,
@@ -97,6 +96,7 @@ class CommentAutomationsResource:
         match_mode: str | None = "contains",
         exclude_keywords: list[str] | None = None,
         typo_tolerance: bool | None = None,
+        dm_message: str | None = None,
         buttons: list[Any] | None = None,
         template: Any | None = None,
         comment_reply: str | None = None,
@@ -109,6 +109,13 @@ class CommentAutomationsResource:
         also_match_in_dms: bool | None = False,
         audience: Any | None = None,
         follow_gate: Any | None = None,
+        repeat_policy: Any | None = None,
+        dedupe_same_text_hours: Any | None = None,
+        public_reply_policy: str | None = "after_dm",
+        actions: Any | None = None,
+        quick_replies: list[Any] | None = None,
+        dm_media: Any | None = None,
+        is_active: bool | None = True,
     ) -> dict[str, Any]:
         """Create comment-to-DM automation"""
         payload = self._build_payload(
@@ -136,6 +143,13 @@ class CommentAutomationsResource:
             also_match_in_dms=also_match_in_dms,
             audience=audience,
             follow_gate=follow_gate,
+            repeat_policy=repeat_policy,
+            dedupe_same_text_hours=dedupe_same_text_hours,
+            public_reply_policy=public_reply_policy,
+            actions=actions,
+            quick_replies=quick_replies,
+            dm_media=dm_media,
+            is_active=is_active,
         )
         return self._client._post("/v1/comment-automations", data=payload)
 
@@ -153,6 +167,9 @@ class CommentAutomationsResource:
         match_mode: str | None = None,
         exclude_keywords: list[str] | None = None,
         typo_tolerance: bool | None = None,
+        platform_post_id: Any | None = None,
+        post_id: Any | None = None,
+        post_title: Any | None = None,
         dm_message: str | None = None,
         buttons: list[Any] | None = None,
         template: Any | None = None,
@@ -167,6 +184,12 @@ class CommentAutomationsResource:
         audience: Any | None = None,
         follow_gate: Any | None = None,
         is_active: bool | None = None,
+        repeat_policy: Any | None = None,
+        dedupe_same_text_hours: Any | None = None,
+        public_reply_policy: str | None = None,
+        actions: Any | None = None,
+        quick_replies: Any | None = None,
+        dm_media: Any | None = None,
     ) -> dict[str, Any]:
         """Update automation settings"""
         payload = self._build_payload(
@@ -176,6 +199,9 @@ class CommentAutomationsResource:
             match_mode=match_mode,
             exclude_keywords=exclude_keywords,
             typo_tolerance=typo_tolerance,
+            platform_post_id=platform_post_id,
+            post_id=post_id,
+            post_title=post_title,
             dm_message=dm_message,
             buttons=buttons,
             template=template,
@@ -190,6 +216,12 @@ class CommentAutomationsResource:
             audience=audience,
             follow_gate=follow_gate,
             is_active=is_active,
+            repeat_policy=repeat_policy,
+            dedupe_same_text_hours=dedupe_same_text_hours,
+            public_reply_policy=public_reply_policy,
+            actions=actions,
+            quick_replies=quick_replies,
+            dm_media=dm_media,
         )
         return self._client._patch(
             f"/v1/comment-automations/{automation_id}", data=payload
@@ -231,7 +263,6 @@ class CommentAutomationsResource:
         profile_id: str,
         account_id: str,
         name: str,
-        dm_message: str,
         *,
         trigger: str | None = "comment",
         platform_post_id: str | None = None,
@@ -241,6 +272,7 @@ class CommentAutomationsResource:
         match_mode: str | None = "contains",
         exclude_keywords: list[str] | None = None,
         typo_tolerance: bool | None = None,
+        dm_message: str | None = None,
         buttons: list[Any] | None = None,
         template: Any | None = None,
         comment_reply: str | None = None,
@@ -253,6 +285,13 @@ class CommentAutomationsResource:
         also_match_in_dms: bool | None = False,
         audience: Any | None = None,
         follow_gate: Any | None = None,
+        repeat_policy: Any | None = None,
+        dedupe_same_text_hours: Any | None = None,
+        public_reply_policy: str | None = "after_dm",
+        actions: Any | None = None,
+        quick_replies: list[Any] | None = None,
+        dm_media: Any | None = None,
+        is_active: bool | None = True,
     ) -> dict[str, Any]:
         """Create comment-to-DM automation (async)"""
         payload = self._build_payload(
@@ -280,6 +319,13 @@ class CommentAutomationsResource:
             also_match_in_dms=also_match_in_dms,
             audience=audience,
             follow_gate=follow_gate,
+            repeat_policy=repeat_policy,
+            dedupe_same_text_hours=dedupe_same_text_hours,
+            public_reply_policy=public_reply_policy,
+            actions=actions,
+            quick_replies=quick_replies,
+            dm_media=dm_media,
+            is_active=is_active,
         )
         return await self._client._apost("/v1/comment-automations", data=payload)
 
@@ -297,6 +343,9 @@ class CommentAutomationsResource:
         match_mode: str | None = None,
         exclude_keywords: list[str] | None = None,
         typo_tolerance: bool | None = None,
+        platform_post_id: Any | None = None,
+        post_id: Any | None = None,
+        post_title: Any | None = None,
         dm_message: str | None = None,
         buttons: list[Any] | None = None,
         template: Any | None = None,
@@ -311,6 +360,12 @@ class CommentAutomationsResource:
         audience: Any | None = None,
         follow_gate: Any | None = None,
         is_active: bool | None = None,
+        repeat_policy: Any | None = None,
+        dedupe_same_text_hours: Any | None = None,
+        public_reply_policy: str | None = None,
+        actions: Any | None = None,
+        quick_replies: Any | None = None,
+        dm_media: Any | None = None,
     ) -> dict[str, Any]:
         """Update automation settings (async)"""
         payload = self._build_payload(
@@ -320,6 +375,9 @@ class CommentAutomationsResource:
             match_mode=match_mode,
             exclude_keywords=exclude_keywords,
             typo_tolerance=typo_tolerance,
+            platform_post_id=platform_post_id,
+            post_id=post_id,
+            post_title=post_title,
             dm_message=dm_message,
             buttons=buttons,
             template=template,
@@ -334,6 +392,12 @@ class CommentAutomationsResource:
             audience=audience,
             follow_gate=follow_gate,
             is_active=is_active,
+            repeat_policy=repeat_policy,
+            dedupe_same_text_hours=dedupe_same_text_hours,
+            public_reply_policy=public_reply_policy,
+            actions=actions,
+            quick_replies=quick_replies,
+            dm_media=dm_media,
         )
         return await self._client._apatch(
             f"/v1/comment-automations/{automation_id}", data=payload

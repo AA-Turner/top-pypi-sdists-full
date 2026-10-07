@@ -176,7 +176,10 @@ class TensorMap:
             return TensorMap.unsafe_from_ptr(new_ptr)
         else:
             new_blocks = [block.copy(deep=False) for block in self.blocks()]
-            return TensorMap(keys=self.keys, blocks=new_blocks)
+            copy = TensorMap(keys=self.keys, blocks=new_blocks)
+            for key, value in self.info().items():
+                copy.set_info(key, value)
+            return copy
 
     def __len__(self):
         return len(self.keys)
@@ -221,7 +224,7 @@ class TensorMap:
         )
         hr = "<hr style='border: none; border-top: 1px solid #888; margin: 0;'>"
 
-        return header + hr + body
+        return header + "\n" + hr + "\n" + body
 
     def __getitem__(self, selection) -> TensorBlock:
         """This is equivalent to self.block(selection)"""

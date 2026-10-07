@@ -354,7 +354,7 @@ def test_a_job_with_only_the_forwarded_session_sends_the_session_headers():
 
 @pytest.mark.parametrize(
     "raw",
-    ["", "claude_code", "cursor:" + SID, "nobody:" + SID, "claude_code:bad id", "claude_code:x"],
+    ["", "claude_code", "nobody:" + SID, "claude_code:bad id", "claude_code:x"],
 )
 def test_a_malformed_or_uncaptured_forwarded_session_is_ignored(raw):
     assert agent_session.resolve_agent_session({"PROBE_AGENT_SESSION": raw}) is None

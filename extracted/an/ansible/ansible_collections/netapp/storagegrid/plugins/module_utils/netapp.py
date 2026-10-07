@@ -32,7 +32,7 @@ __metaclass__ = type
 
 from ansible.module_utils.basic import missing_required_lib
 
-COLLECTION_VERSION = "21.16.0"
+COLLECTION_VERSION = "21.17.0"
 
 try:
     import requests
@@ -70,6 +70,8 @@ class SGRestAPI(object):
         self.module = module
         self.auth_token = self.module.params["auth_token"]
         self.api_url = self.module.params["api_url"]
+        if not self.api_url.startswith("https://"):
+            self.api_url = "https://" + self.api_url
         self.verify = self.module.params["validate_certs"]
         self.timeout = timeout
         self.check_required_library()
@@ -251,7 +253,6 @@ class PgeRestAPI(SGRestAPI):
         json_error = None
         error_details = None
         headers = {
-            "Content-type": "application/json",
             "Cache-Control": "no-cache",
         }
 
@@ -265,20 +266,33 @@ class PgeRestAPI(SGRestAPI):
             success_code = [200, 201, 202, 204]
             if response.status_code not in success_code:
                 error = json.get("message")
+                if json.get("errors"):
+                    error.update({"errors": json.get("errors")})
             else:
                 error = None
             return json, error
 
         try:
-            response = requests.request(
-                method,
-                url,
-                headers=headers,
-                timeout=self.timeout,
-                json=json,
-                verify=self.verify,
-                params=params,
-            )
+            if files:
+                response = requests.request(
+                    method,
+                    url,
+                    timeout=self.timeout,
+                    verify=self.verify,
+                    files=files,
+                    params=params,
+                )
+            else:
+                headers["Content-Type"] = "application/json"
+                response = requests.request(
+                    method,
+                    url,
+                    headers=headers,
+                    timeout=self.timeout,
+                    json=json,
+                    verify=self.verify,
+                    params=params,
+                )
             status_code = response.status_code
             # If the response was successful, no Exception will be raised
             json_dict, json_error = get_json(response)

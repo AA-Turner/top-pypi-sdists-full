@@ -30,7 +30,6 @@ class SMatrix(ABC):
     Abstract base class for system matrices (CSR, SELL, DENSE).
     Provides unified memory management, CUDA loading, and preconditioner computation.
     """
-
     # Class-level cache for compiled CUDA module shared across all matrix types
     _compiled_module = None
 
@@ -43,6 +42,7 @@ class SMatrix(ABC):
             isComplexSMatrix (bool): If True, use complex64 for values. If False, use float32.
             device (Optional[str]): The device to use for computation ('cpu' or 'gpu:0').
         """
+        FORMAT_TAG = None # must be set by every concrete child class
         # Determine device
         if device is None:
             self.device = f'gpu:{config.select_best_gpu()}' if CUPY_AVAILABLE else 'cpu'
@@ -98,10 +98,7 @@ class SMatrix(ABC):
         self.free()
     
     def _release_pool(self):
-        """
-        Release cuda memory
-        """
-        if CUPY_AVAILABLE:
+        if CUPY_AVAILABLE and check_gpu_available(self) and getattr(self, 'gpu_index', None) is not None:
             with cp.cuda.Device(self.gpu_index):
                 cp.get_default_memory_pool().free_all_blocks()
                 cp.cuda.Stream.null.synchronize()

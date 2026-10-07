@@ -21,6 +21,8 @@ from yookassa.domain.models.confirmation.response.confirmation_redirect import \
     ConfirmationRedirect as ResponseConfirmationRedirect
 from yookassa.domain.models.confirmation.response.confirmation_mobile_application import \
     ConfirmationMobileApplication as ResponseConfirmationMobileApplication
+from yookassa.domain.models.confirmation.response.confirmation_unknown import \
+    ConfirmationUnknown as ResponseConfirmationUnknown
 
 
 class ConfirmationClassMap(DataContext):
@@ -48,5 +50,6 @@ class ConfirmationClassMap(DataContext):
             ConfirmationType.EXTERNAL: ResponseConfirmationExternal,
             ConfirmationType.EMBEDDED: ResponseConfirmationEmbedded,
             ConfirmationType.QR: ResponseConfirmationQr,
-            ConfirmationType.MOBILE_APPLICATION: ResponseConfirmationMobileApplication
+            ConfirmationType.MOBILE_APPLICATION: ResponseConfirmationMobileApplication,
+            ConfirmationType.UNKNOWN: ResponseConfirmationUnknown,
         }

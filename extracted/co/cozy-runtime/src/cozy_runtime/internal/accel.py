@@ -20,15 +20,18 @@ hand in their `torch` module; this module imports none.
 from __future__ import annotations
 
 import ctypes
+import re
 import subprocess
+import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
+from pathlib import Path
 from types import ModuleType
 from typing import Any, Literal, cast
 
-from cozy_runtime.internal.config import sees_no_gpu
+from cozy_runtime.internal.config import inherited_environment, sees_no_gpu
 
 #: The #450 law, imposed on every MPS executor's sealed environment: enabling the fallback
 #: silently runs unsupported operations on CPU, which violates the CPU-refusal law. Forced,
@@ -75,15 +78,6 @@ def _smi(*query: str) -> subprocess.CompletedProcess[str]:
         text=True,
         check=True,
     )
-
-
-def process_memory(pid: int, kind: str) -> ProcessMemory:
-    """Read per-process device memory from outside the executor.
-
-    A successful query with no row is measured absence. A failed query is unreadable and
-    never masquerades as zero. MPS has no per-process driver query yet.
-    """
-    return process_memories({pid}, kind)[pid]
 
 
 def process_memories(pids: set[int], kind: str) -> dict[int, ProcessMemory]:
@@ -323,6 +317,35 @@ def device_capability(device: str) -> int:
     return major.value * 10 + minor.value if answer == _NVML_SUCCESS else 0
 
 
+def driver_version() -> str:
+    """The loaded NVIDIA driver's version, read from the kernel: no NVML and no thread, so a
+    fork parent may ask. A compiled kernel's key carries it. Empty where there is none."""
+    for path in ("/sys/module/nvidia/version", "/proc/driver/nvidia/version"):
+        with suppress(OSError):
+            found = re.search(r"\d+\.\d+(\.\d+)*", Path(path).read_text().splitlines()[0])
+            if found:
+                return found.group()
+    return ""
+
+
+def drives_display(index: int) -> bool:
+    """Whether a display is initialized on CUDA device `index` of this process (NVML's display
+    active state: a display server holds memory for a screen there); False where NVML cannot
+    say. A connector with a display attached (NVML's display mode: a dummy plug on many
+    datacenter GPUs) is not one."""
+    visible = inherited_environment().get("CUDA_VISIBLE_DEVICES", "")
+    entries = [e.strip() for e in visible.split(",")]
+    entries = [e for e in entries if e]
+    library = _nvml_library()
+    entry = entries[index] if index < len(entries) else str(index)
+    handle = _nvml_handle(library, entry) if library is not None else None
+    if library is None or handle is None:
+        return False
+    state = ctypes.c_int()
+    active = library.nvmlDeviceGetDisplayActive(handle, ctypes.byref(state))
+    return bool(active == _NVML_SUCCESS and state.value == 1)
+
+
 def _device_memory_of(free: int, total: int) -> DeviceMemory:
     if total <= 0 or free < 0 or free > total:
         return DeviceMemory("unreadable")
@@ -389,14 +412,22 @@ def drain(torch: Any, kind: str) -> None:
         torch.cuda.current_stream().synchronize()
 
 
+#: torch's caching allocator, set in code before the first allocation: a segment grows by
+#: mapping only the pages a request adds and gives freed pages back the same way, so torch
+#: fragments less beside the plane's maps. The machine erases every `PYTORCH_` variable from
+#: an executor's environment: nothing outside the Runtime changes this.
+ALLOCATOR = "expandable_segments:True"
+
+
 def initialize(torch: Any, kind: str) -> None:
     """Bring the accelerator context up EAGERLY, so its cost is a measured prepare step
-    rather than a surprise inside the first kernel."""
+    rather than a surprise inside the first kernel. torch's allocator is configured first."""
     if kind == "mps":
         raise AcceleratorUnsupported("mps", "initialize")
     if sees_no_gpu():
         raise RuntimeError("this process sees no GPU (CUDA_VISIBLE_DEVICES is empty)")
     if kind == "cuda":
+        torch._C._accelerator_setAllocatorSettings(ALLOCATOR)
         torch.cuda.init()
 
 
@@ -478,13 +509,31 @@ def peak_allocated(torch: Any, kind: str) -> int:
     return int(torch.cuda.max_memory_allocated())
 
 
+def peak_reserved(torch: Any, kind: str) -> int:
+    """The allocator's reserved high-water mark since the last `reset_peak`: live tensors plus
+    the segments torch held for them, which is what a stage takes from the device."""
+    if kind == "mps":
+        raise AcceleratorUnsupported("mps", "peak_reserved")
+    return int(torch.cuda.max_memory_reserved())
+
+
+#: This process's own cache releases that returned something, by the function that asked:
+#: how many, and the bytes. (The caller's name is read off its frame: no call site says it.)
+RELEASED: dict[str, list[int]] = {}
+
+
 def release_cached(torch: Any, kind: str) -> None:
     """Return the caching allocator's UNUSED segments to the driver. Frees nothing the
     process still holds; it is what makes an eviction visible to other processes."""
     if kind == "mps":
         raise AcceleratorUnsupported("mps", "release_cached")
     if kind == "cuda":
+        before = int(torch.cuda.memory_reserved())
         torch.cuda.empty_cache()
+        if (freed := before - int(torch.cuda.memory_reserved())) > 0:
+            row = RELEASED.setdefault(sys._getframe(1).f_code.co_name, [0, 0])
+            row[0] += 1
+            row[1] += freed
 
 
 def completion_event(torch: Any, kind: str) -> Any:

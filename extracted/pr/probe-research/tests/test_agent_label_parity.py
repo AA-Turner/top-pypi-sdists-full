@@ -42,7 +42,7 @@ def test_each_agent_resolves_to_the_same_label_on_both_sides(spec) -> None:
 
 def test_no_agent_is_none_not_a_placeholder() -> None:
     # The bug this replaced: an unset PROBE_AGENT defaulted to "claude_code", so
-    # every Cursor and unpaired-Codex user landed in the Claude Code bucket.
+    # every pi and unpaired-Codex user landed in the Claude Code bucket.
     assert core.detect_agent_label({}) is None
     assert agent_session.detect_agent({}) is None
 
@@ -57,9 +57,11 @@ def test_a_blank_override_falls_through_to_detection() -> None:
     assert core.detect_agent_label(env) == "claude_code"
 
 
-def test_cursor_is_labelled_cursor_not_claude_code() -> None:
-    # The headline regression: Cursor is detectable but uncaptured, so
-    # resolve_agent_session() returns None for it while the LABEL is still cursor.
-    env = {"CURSOR_TRACE_ID": "abc"}
-    assert core.detect_agent_label(env) == "cursor"
+def test_a_cursor_terminal_names_no_agent() -> None:
+    # Cursor is not a harness (removed 2026-10-06). The trace id its terminal
+    # exports must not become an agent label, a session id or an attribution.
+    env = {"CURSOR_TRACE_ID": "abc12345-6789"}
+    assert core.detect_agent_label(env) is None
+    assert agent_session.detect_agent(env) is None
+    assert agent_session.session_id_from_env(env) is None
     assert agent_session.resolve_agent_session(env) is None

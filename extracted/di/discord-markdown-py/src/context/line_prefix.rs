@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use nom::Parser;
 
 use crate::{
+	Input,
 	error::ParseError,
 	grammar::{Grammar, GrammarSet},
-	Input,
 };
 
 /// The line prefix required by the innermost enclosing container grammar, or the empty string if

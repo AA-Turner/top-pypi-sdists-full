@@ -24,7 +24,7 @@ the other:
   (``string[].values`` + ``open``), and ``toggleValues`` (a 2-value enum — the
   LABELS are the wire values).
 - **PROVENANCE lives OUT OF BAND, in the sidecar.** Picklist bindings
-  (``customComponent.structured_list``), scope-context bindings
+  (``customComponent.pick_list``), scope-context bindings
   (``VariableDefinition.binding``), and WHICH input component renders the
   value. 🚨 These are NEVER flattened into the schema: a picklist binding in
   the schema would let a caller forge which LIST a value is drawn from, and
@@ -41,7 +41,7 @@ string / number / boolean / enum / enum.open / bounded number / ``string[]`` +
 values fields, ``required`` either true or absent, plus any sidecar entries),
 fields → variables → fields is the identity with zero losses, and
 variables → fields → variables reproduces the variable modulo the documented
-normalizations (legacy ``picklist`` key → ``structured_list``, stash dropped,
+normalizations (legacy ``picklist`` / ``structured_list`` keys → ``pick_list``, stash dropped,
 zero-value defaults omitted).
 
 THE PROMPT DOOR IS NOT TOUCHED. ``matrx_ai.agents.variables`` /
@@ -174,8 +174,8 @@ class KindFieldsConversion(BaseModel):
 
 
 def _read_structured_list(cc: dict[str, Any]) -> dict[str, Any] | None:
-    """Canonical ``structured_list``; legacy ``picklist`` is a READ-ONLY alias."""
-    for key in ("structured_list", "picklist"):
+    """Canonical ``pick_list``; legacy ``structured_list`` and ``picklist`` are READ-ONLY aliases."""
+    for key in ("pick_list", "structured_list", "picklist"):
         value = cc.get(key)
         if isinstance(value, dict):
             return value
@@ -432,7 +432,7 @@ def _with_structured_list(
     structured_list = sidecar.get("structuredList")
     if structured_list is None:
         return cc
-    return {**cc, "structured_list": structured_list}
+    return {**cc, "pick_list": structured_list}
 
 
 def _field_stub_value(field: dict[str, Any]) -> Any:

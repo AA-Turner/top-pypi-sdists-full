@@ -53,6 +53,22 @@ def test_create_state_machine_returns_a_subclass(ctx):
     assert issubclass(cls, RuleBasedStateMachine)
 
 
+def test_repeated_as_state_machine_builds_same_rules(ctx):
+    schema = ctx.graphql.load_sdl("""
+        type Book { id: ID! }
+        type Query { book(id: ID!): Book }
+        type Mutation { addBook(title: String!): Book! }
+    """)
+    first = schema.as_state_machine()
+    second = schema.as_state_machine()
+    rules = [
+        sorted(name for name, value in machine.__dict__.items() if hasattr(value, "hypothesis_stateful_rule"))
+        for machine in (first, second)
+    ]
+    assert first is not second
+    assert rules == [["Mutation_addBook", "Query_book"], ["Mutation_addBook", "Query_book"]]
+
+
 @pytest.mark.parametrize(
     "bundle_name",
     ["Book_ids", "Author_ids", "deleted_Book_ids", "deleted_Author_ids"],
@@ -169,6 +185,27 @@ def test_identifier_argument_bound_to_producer_field(ctx, sdl, expected):
     cls = ctx.graphql.load_sdl(sdl).as_state_machine()
     common = {"Book_ids", "deleted_Book_ids", "schema"}
     assert sorted(name for name in cls.__dict__ if not name.startswith("_") and name not in common) == expected
+
+
+def test_operation_returning_other_type_does_not_produce_foreign_handle(ctx):
+    sdl = """
+    type Book { id: ID! slug: String! title: String! }
+    type Author { id: ID! name: String! }
+    type Query { books: [Book!]! authors: [Author!]! book(slug: String!): Book }
+    type Mutation { addBook(title: String!): Book! }
+    """
+    cls = ctx.graphql.load_sdl(sdl).as_state_machine()
+    common = {"Book_ids", "deleted_Book_ids", "schema"}
+    assert sorted(name for name in cls.__dict__ if not name.startswith("_") and name not in common) == [
+        "Author_ids",
+        "Book__slug",
+        "Mutation_addBook",
+        "Mutation_addBook__slug",
+        "Query_book",
+        "Query_book__slug",
+        "Query_books__slug",
+        "deleted_Author_ids",
+    ]
 
 
 def test_init_raises_NoProducers_when_no_rules(ctx):

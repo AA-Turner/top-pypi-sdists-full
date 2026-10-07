@@ -1,8 +1,9 @@
-"""Immutable identity-scoped guardrail policy and decision contracts."""
+"""Immutable scoped guardrail policy and decision contracts."""
 
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import Field, model_validator
 
@@ -96,19 +97,33 @@ class GuardrailCheck(ContractModel):
 
 
 class GuardrailPolicy(ContractModel):
-    """Immutable guardrail assignment for one organization-scoped identity.
+    """Immutable guardrail policy, scoped to the platform or one identity.
 
-    Lookup is ``(organization_id, identity_id)``. Identities are unique only
+    Omit both scope IDs for a protected platform policy. Scoped identity lookup
+    is ``(organization_id, identity_id)``. Identities are unique only
     inside an organization, so the same identity ID in two organizations
     cannot share a policy. ``protected`` fail-closes on adapter timeout,
     missing adapter, oversized payload, or any other classifier uncertainty.
     Non-protected identities skip a failed check and continue the remaining
     chain.
+
+    Attributes:
+        policy_id: Unique operator-authored policy identity.
+        organization_id: Identity's organization, or None for platform scope.
+        identity_id: Assigned identity, or None for platform scope.
+        revision: Detector and rollout revision used to invalidate cached replay.
+        input_execution: Inspect before dispatch by default, or overlap safe generation.
+        protected: Fail closed on classifier uncertainty; required for platform policies.
+        checks: Ordered checks, empty by default.
+        max_request_bytes: Total canonical input inspection bound, default 1 MiB.
+        max_response_bytes: Total canonical output inspection bound, default 1 MiB.
     """
 
     policy_id: ArtifactId
-    organization_id: OrganizationId
-    identity_id: IdentityId
+    organization_id: OrganizationId | None = None
+    identity_id: IdentityId | None = None
+    revision: str = Field(default="configured", min_length=1, max_length=256)
+    input_execution: Literal["before_dispatch", "parallel"] = "before_dispatch"
     protected: bool = False
     checks: tuple[GuardrailCheck, ...] = ()
     max_request_bytes: int = Field(default=DEFAULT_MAX_REQUEST_BYTES, ge=1, le=64 * 1024 * 1024)
@@ -127,7 +142,17 @@ class GuardrailPolicy(ContractModel):
         ids = tuple(check.check_id for check in self.checks)
         if len(set(ids)) != len(ids):
             raise ValueError("guardrail check IDs must be unique")
+        if (self.organization_id is None) != (self.identity_id is None):
+            raise ValueError("guardrail scope requires both organization_id and identity_id")
+        if self.organization_id is None and not self.protected:
+            raise ValueError("platform guardrail policies must be protected")
         return self
+
+    def bind(self, organization_id: OrganizationId, identity_id: IdentityId) -> GuardrailPolicy:
+        """Capture authenticated decision metadata without changing checks or execution mode."""
+        return self.model_copy(
+            update={"organization_id": organization_id, "identity_id": identity_id}
+        )
 
     @property
     def input_checks(self) -> tuple[GuardrailCheck, ...]:
@@ -149,11 +174,19 @@ class GuardrailToolCall(ContractModel):
 
 
 class GuardrailCompletion(ContractModel):
-    """Winning normalized completion inspected once before any caller delivery."""
+    """Normalized output subject, including readable alternate channels in ``context``.
+
+    Attributes:
+        text: Collected visible text, empty when the provider emits no text.
+        refusal: Whether the provider refused the request, false by default.
+        tool_calls: Completed tool invocations, empty when none were emitted.
+        context: Readable alternate output channels, empty when none were emitted.
+    """
 
     text: str = ""
     refusal: bool = False
     tool_calls: tuple[GuardrailToolCall, ...] = ()
+    context: tuple[str, ...] = ()
 
     def content_bytes(self) -> int:
         """Return the UTF-8 size of the complete serialized classifier subject.

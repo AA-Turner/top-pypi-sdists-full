@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "1.8.0"
+version = "1.9.0"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -139,6 +139,7 @@ ignore = ["E501", "C901", "RUF001", "UP036", "RUF067", "RUF069"]
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "rich.console.Console" = { msg = "Use `google.agents.cli._output.Console` instead to ensure project-wide defaults (soft_wrap=True) are applied." }
 "agentplatform.Client" = { msg = "Use `google.agents.cli._agent_platform.AgentPlatformClient` instead, so the client retries throttled requests." }
+"agentplatform._genai" = { msg = "Private SDK module that can change without notice. Use `types` from `google.agents.cli._agent_platform_types` for SDK types." }
 
 [tool.ruff.lint.pylint]
 max-positional-args = 5

@@ -13,7 +13,10 @@ from exp.runtime.gateway.guardrails.contracts import (
     GuardrailCheck,
     GuardrailCompletion,
 )
-from exp.runtime.gateway.guardrails.streaming import StreamableClassifier, StreamingRedactor
+from exp.runtime.gateway.guardrails.streaming import (
+    StreamableClassifier,
+    StreamingRedactor,
+)
 
 _INTERNAL_CLASSIFICATION: ContextVar[bool] = ContextVar(
     "exp_gateway_guardrail_internal",
@@ -44,28 +47,6 @@ class InspectingClassifier(Protocol):
         check: GuardrailCheck,
     ) -> Awaitable[ClassifierVerdict]:
         """Inspect one winning completion."""
-        ...
-
-
-class SyncInspectingClassifier(Protocol):
-    """Leftover synchronous detector used only through ``BoundedSyncClassifier``."""
-
-    def inspect_input(
-        self,
-        *,
-        request: GatewayRequest,
-        check: GuardrailCheck,
-    ) -> ClassifierVerdict:
-        """Inspect one canonical request on the caller's thread."""
-        ...
-
-    def inspect_output(
-        self,
-        *,
-        completion: GuardrailCompletion,
-        check: GuardrailCheck,
-    ) -> ClassifierVerdict:
-        """Inspect one winning completion on the caller's thread."""
         ...
 
 

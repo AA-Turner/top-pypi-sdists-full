@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 
 use icu_properties::{props::Script, script::ScriptWithExtensions};
 use nom::{
+	IResult, Parser,
 	bytes::tag,
 	character::{
 		char,
@@ -13,10 +14,9 @@ use nom::{
 	error::ParseError,
 	multi::fold_many_m_n,
 	sequence::{delimited, separated_pair},
-	IResult, Parser,
 };
 
-use crate::{inline::mention::CLOSE_DELIMITER, unparse::Unparse, Input};
+use crate::{Input, inline::mention::CLOSE_DELIMITER, unparse::Unparse};
 
 pub const OPEN_DELIMITER: &str = "</";
 
@@ -111,7 +111,7 @@ mod test {
 
 	use crate::test_utils::handle_nom_err;
 
-	use super::{command, Command};
+	use super::{Command, command};
 
 	#[test]
 	fn basic_command() {

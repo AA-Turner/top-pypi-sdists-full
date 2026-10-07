@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipyvuetify
-Version: 3.0.0
+Version: 3.1.0
 Summary: Jupyter widgets based on vuetify UI components
 Author-email: Mario Buikhuizen <mbuikhuizen@gmail.com>, Maarten Breddels <maartenbreddels@gmail.com>
 License: MIT
@@ -12,15 +12,13 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ipyvue>=3.0.0

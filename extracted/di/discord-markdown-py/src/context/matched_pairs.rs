@@ -2,14 +2,14 @@ use std::marker::PhantomData;
 
 use enumset::enum_set;
 use nom::{
-	error::{ErrorKind, ParseError},
 	Input as _, Mode, Parser,
+	error::{ErrorKind, ParseError},
 };
 
 use crate::{
+	Input,
 	grammar::{Grammar, GrammarSet},
 	util::balanced_span,
-	Input,
 };
 
 pub const GRAMMARS: GrammarSet = enum_set!(Grammar::MaskedLinkText);

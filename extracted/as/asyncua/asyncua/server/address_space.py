@@ -491,6 +491,13 @@ class NodeManagementService:
         dname = dname_dv.Value.Value if dname_dv.Value is not None else None
         if dname:
             rdesc.DisplayName = dname
+        if rdesc.NodeClass in (ua.NodeClass.Object, ua.NodeClass.Variable):
+            targetdata = self._aspace.get(addref.TargetNodeId)
+            if targetdata is not None:
+                for target_ref in targetdata.references:
+                    if target_ref.IsForward and target_ref.ReferenceTypeId == ua.NodeId(ua.ObjectIds.HasTypeDefinition):
+                        rdesc.TypeDefinition = target_ref.NodeId
+                        break
         return self._add_unique_reference(sourcedata, rdesc)
 
     def delete_references(
@@ -828,6 +835,9 @@ class AddressSpace:
             attval.value = value
             attval.value_callback = None
 
+        if attr in (ua.AttributeIds.BrowseName, ua.AttributeIds.DisplayName):
+            self._sync_reference_names(nodeid, node, attr, value)
+
         for k, v in attval.datachange_callbacks.items():
             try:
                 await v(k, value)
@@ -835,6 +845,23 @@ class AddressSpace:
                 self.logger.exception("Error calling datachange callback %s, %s, %s", k, v, ex)
 
         return ua.StatusCode()
+
+    def _sync_reference_names(
+        self, nodeid: ua.NodeId, node: NodeData, attr: ua.AttributeIds, value: ua.DataValue
+    ) -> None:
+        # ReferenceDescriptions hold a name snapshot taken at creation time; keep the
+        # copies stored on referencing nodes in sync so Browse returns the new name
+        if value.Value is None or value.Value.Value is None:
+            return
+        field = "BrowseName" if attr == ua.AttributeIds.BrowseName else "DisplayName"
+        new_name = value.Value.Value
+        for ref in node.references:
+            neighbor = self._nodes.get(ref.NodeId)
+            if neighbor is None or neighbor is node:
+                continue
+            for back_ref in neighbor.references:
+                if back_ref.NodeId == nodeid and getattr(back_ref, field) != new_name:
+                    setattr(back_ref, field, new_name)
 
     def _is_expected_variant_type(self, value: ua.DataValue, attval: AttributeValue, node: NodeData) -> bool:
         if attval.value is None or attval.value.Value is None:

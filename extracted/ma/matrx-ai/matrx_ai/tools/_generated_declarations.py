@@ -44,7 +44,7 @@ from matrx_ai.tools.arg_models import (
     FsWriteArgs,
     MemoryArgs,
     NoteArgs,
-    PicklistArgs,
+    PickListArgs,
     RagSearchArgs,
     SeoArgs,
     ShellExecuteArgs,
@@ -780,8 +780,8 @@ _MODULE_LOADERS = {
     "matrx_ai.tools.implementations.notes": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.notes"
     ),
-    "matrx_ai.tools.implementations.picklists_tools": lambda: importlib.import_module(
-        "matrx_ai.tools.implementations.picklists_tools"
+    "matrx_ai.tools.implementations.pick_list_tools": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.pick_list_tools"
     ),
     "matrx_ai.tools.implementations.rag": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.rag"
@@ -825,7 +825,7 @@ _MODULE_LOADERS = {
 }
 
 
-def _reg(name, source_kind, executor, args, module, func, *, validate=True):
+def _reg(name, source_kind, executor, args, module, func, *, validate=True, aliases=()):
     loader = _MODULE_LOADERS.get(module)
     if loader is None:
         # A declaration that names a module with no literal loader entry is a
@@ -842,7 +842,10 @@ def _reg(name, source_kind, executor, args, module, func, *, validate=True):
     except Exception as exc:  # noqa: BLE001 - surfaced by the boot drift gate
         IMPORT_FAILURES.append(f"{name}: {module}.{func}: {exc!r}")
         return
-    tool(name=name, source_kind=source_kind, executor=executor, args=args, validate=validate)(fn)
+    tool(
+        name=name, source_kind=source_kind, executor=executor, args=args, validate=validate,
+        aliases=aliases,
+    )(fn)
 
 
 _reg(
@@ -1102,12 +1105,15 @@ _reg(
     "package_info",
 )
 _reg(
-    "picklist",
+    "pick_list",
     "native",
     None,
-    PicklistArgs,
-    "matrx_ai.tools.implementations.picklists_tools",
-    "picklist",
+    PickListArgs,
+    "matrx_ai.tools.implementations.pick_list_tools",
+    "pick_list",
+    # Renamed from `picklist` on 2026-10-06. Keep until every deployed server runs this code
+    # AND the DB row says pick_list; remove it in a later change (TOOL_RENAMES.md).
+    aliases=("picklist",),
 )
 _reg(
     "knowledge_search",

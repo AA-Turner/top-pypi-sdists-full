@@ -100,17 +100,14 @@ async fn do_test_repo_chunks_storage(
         DEFAULT_MAX_CONCURRENT_REQUESTS,
     ));
 
-    let repo = Repository::create(
-        Some(RepositoryConfig {
+    let repo = Repository::create(Arc::clone(&storage))
+        .config(RepositoryConfig {
             inline_chunk_threshold_bytes: Some(5),
             ..Default::default()
-        }),
-        Arc::clone(&storage),
-        Default::default(),
-        Some(spec_version),
-        true,
-    )
-    .await?;
+        })
+        .spec_version(spec_version)
+        .execute()
+        .await?;
 
     let mut session = repo.writable_session("main").await?;
 
@@ -125,7 +122,10 @@ async fn do_test_repo_chunks_storage(
     // we write 50 native chunks, 6 bytes each
     for idx in 0..50 {
         let bytes = Bytes::copy_from_slice(&[0, 1, 2, 3, 4, 5]);
-        let payload = session.get_chunk_writer()?(bytes.clone()).await?;
+        let payload = session.get_chunk_writer(&array_path, &ChunkIndices(vec![idx]))?(
+            bytes.clone(),
+        )
+        .await?;
         session
             .set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
             .await?;
@@ -134,7 +134,10 @@ async fn do_test_repo_chunks_storage(
     // we write 10 inline chunks, 1 byte each
     for idx in 50..60 {
         let bytes = Bytes::copy_from_slice(&[0]);
-        let payload = session.get_chunk_writer()?(bytes.clone()).await?;
+        let payload = session.get_chunk_writer(&array_path, &ChunkIndices(vec![idx]))?(
+            bytes.clone(),
+        )
+        .await?;
         session
             .set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
             .await?;
@@ -157,6 +160,7 @@ async fn do_test_repo_chunks_storage(
         Arc::clone(&asset_manager),
         NonZeroU16::new(5).unwrap(),
         NonZeroUsize::MIN,
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::try_from(10).unwrap(),
     )
     .await
@@ -171,6 +175,7 @@ async fn do_test_repo_chunks_storage(
         Arc::clone(&asset_manager),
         NonZeroU16::new(5).unwrap(),
         NonZeroUsize::MAX,
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::try_from(10).unwrap(),
     )
     .await
@@ -186,7 +191,10 @@ async fn do_test_repo_chunks_storage(
     // we write 10 more native chunks, 6 bytes each
     for idx in 0..10 {
         let bytes = Bytes::copy_from_slice(&[0, 1, 2, 3, 4, 5]);
-        let payload = session.get_chunk_writer()?(bytes.clone()).await?;
+        let payload = session.get_chunk_writer(&array_path, &ChunkIndices(vec![idx]))?(
+            bytes.clone(),
+        )
+        .await?;
         session
             .set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
             .await?;
@@ -198,6 +206,7 @@ async fn do_test_repo_chunks_storage(
         Arc::clone(&asset_manager),
         NonZeroU16::new(5).unwrap(),
         NonZeroUsize::MIN,
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::try_from(10).unwrap(),
     )
     .await
@@ -215,7 +224,10 @@ async fn do_test_repo_chunks_storage(
     // we write 5 native chunks 6 bytes each
     for idx in 0..5 {
         let bytes = Bytes::copy_from_slice(&[0, 1, 2, 3, 4, 5]);
-        let payload = session.get_chunk_writer()?(bytes.clone()).await?;
+        let payload = session.get_chunk_writer(&array_path, &ChunkIndices(vec![idx]))?(
+            bytes.clone(),
+        )
+        .await?;
         session
             .set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
             .await?;
@@ -223,7 +235,10 @@ async fn do_test_repo_chunks_storage(
     // we write a few inline chunks
     for idx in 50..60 {
         let bytes = Bytes::copy_from_slice(&[0]);
-        let payload = session.get_chunk_writer()?(bytes.clone()).await?;
+        let payload = session.get_chunk_writer(&array_path, &ChunkIndices(vec![idx]))?(
+            bytes.clone(),
+        )
+        .await?;
         session
             .set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
             .await?;
@@ -233,6 +248,7 @@ async fn do_test_repo_chunks_storage(
         Arc::clone(&asset_manager),
         NonZeroU16::new(5).unwrap(),
         NonZeroUsize::MAX,
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::try_from(10).unwrap(),
     )
     .await
@@ -261,17 +277,14 @@ async fn test_virtual_chunk_deduplication(
         DEFAULT_MAX_CONCURRENT_REQUESTS,
     ));
 
-    let repo = Repository::create(
-        Some(RepositoryConfig {
+    let repo = Repository::create(storage)
+        .config(RepositoryConfig {
             inline_chunk_threshold_bytes: Some(5),
             ..Default::default()
-        }),
-        storage,
-        Default::default(),
-        Some(spec_version),
-        true,
-    )
-    .await?;
+        })
+        .spec_version(spec_version)
+        .execute()
+        .await?;
 
     let mut session = repo.writable_session("main").await?;
     let user_data = Bytes::new();
@@ -312,6 +325,7 @@ async fn test_virtual_chunk_deduplication(
         Arc::clone(&asset_manager),
         NonZeroU16::new(5).unwrap(),
         NonZeroUsize::MAX,
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::try_from(10).unwrap(),
     )
     .await

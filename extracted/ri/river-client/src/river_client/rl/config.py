@@ -29,10 +29,18 @@ def acknowledge_risk(allowed, flag, message):
 
 @dataclass(frozen=True)
 class KVCache:
-    """Age relative to sampling weights, independent of training staleness.
+    """Set how long retained KV may be reused as sampling weights change.
 
-    hold selects an existing snapshot within the bound; refill starts a new
-    cache generation under current sampling weights when the bound is exceeded.
+    This policy applies to ``sampling_policy="segment"``. Trajectory-pinned
+    sampling uses one policy throughout and keeps same-policy KV.
+
+    Attributes:
+        max_staleness: Maximum policy steps between the retained KV's anchor
+            weights and the weights used for a new turn.
+        on_limit: ``"hold"`` keeps sampling at a compatible policy;
+            ``"refill"`` moves to current weights and rebuilds the prefix.
+        allow_reprefill: Explicit acknowledgement of the prefix-cache miss
+            caused by ``on_limit="refill"``.
     """
 
     max_staleness: int = 0
@@ -78,11 +86,16 @@ class KVCache:
 
 @dataclass(frozen=True)
 class ForwardBackwardBatch:
-    """Submit when either useful-sequence or input-token threshold is reached.
+    """Submit forward/backward work while more synchronous rollouts finish.
 
-    Complete reward groups stay together, so a chunk may overshoot. Tokens
-    count full model inputs (including prompt context), not just loss tokens.
-    The step boundary always flushes a smaller tail; no capacity is reserved.
+    Work is submitted when either configured threshold is reached; the final
+    smaller chunk is submitted at the step boundary. Complete reward groups
+    stay together, so a chunk can exceed a threshold. Token counts include
+    the full model input, including prompt context.
+
+    Attributes:
+        min_sequences: Submit after this many useful sequences, if set.
+        min_tokens: Submit after this many full input tokens, if set.
     """
 
     min_sequences: int | None = 64
@@ -106,6 +119,19 @@ class ForwardBackwardBatch:
 
 @dataclass(frozen=True)
 class Budget:
+    """Limits for one trajectory.
+
+    Attributes:
+        max_turns: Maximum assistant turns.
+        max_generated_tokens: Total generated-token budget across all turns.
+        max_context_tokens: Maximum context tokens in the current conditioning run.
+        segment_tokens: Maximum tokens requested in one sampling segment.
+        final_answer_reserve: Tokens reserved for a final answer after tool use.
+        tool_output_tokens: Per-tool-output cap before truncation.
+        max_images: Optional cap on images in a trajectory.
+        max_turn_tokens: Optional cap on generated tokens in one turn.
+    """
+
     max_turns: int = 8
     max_generated_tokens: int = 32768
     max_context_tokens: int = 131072
@@ -159,6 +185,22 @@ class Budget:
 
 @dataclass(frozen=True)
 class Schedule:
+    """Client-side rollout admission and sampling submission limits.
+
+    Attributes:
+        window: Seconds to gather ready prompts into a sampling batch.
+        max_batch: Maximum prompts in one sampling submission.
+        max_batch_bytes: Target upper bound on an expanded submission envelope.
+        concurrency: Maximum admitted trajectories.
+        max_sample_requests: Maximum outstanding sampling prompts; defaults to
+            ``concurrency``.
+        max_rpc_workers: Threads for preparation, decoding, and custom blocking
+            samplers. Native sampling RPCs use asyncio without occupying threads.
+        admit_ahead: Batches of rollout groups admitted ahead of training.
+        priority: Ready-queue ordering policy.
+        oversample_factor: Extra groups admitted to replace uninformative groups.
+    """
+
     window: float = 0.01
     # Native sampling transport keeps per-prompt completions independent.
     max_batch: int = 128
@@ -169,7 +211,7 @@ class Schedule:
     max_sample_requests: int | None = (
         None  # native: outstanding prompts; None uses concurrency
     )
-    max_rpc_workers: int = 16  # submit, poll and decode; idle futures use no worker
+    max_rpc_workers: int = 16
     admit_ahead: int = 2
     priority: Literal["fifo", "predicted_length"] = "fifo"
     oversample_factor: float = 1.0
@@ -198,6 +240,19 @@ class Schedule:
 
 @dataclass(frozen=True)
 class GroupCompletion:
+    """Choose when a reward group can be consumed.
+
+    A deadline is measured in generated tokens and takes effect between
+    sampling segments; it cannot interrupt a sample already in progress.
+
+    Attributes:
+        mode: ``"wait"`` completes every member; ``"deadline"`` bounds
+            stragglers by generated tokens.
+        min_members: Minimum completed members needed for a usable group.
+        max_straggler_tokens: Token allowance for deadline mode.
+        on_stragglers: What to do with unfinished members at that deadline.
+    """
+
     mode: Literal["wait", "deadline"]
     min_members: int = 2
     max_straggler_tokens: int | None = None
@@ -223,6 +278,13 @@ class GroupCompletion:
 
 @dataclass(frozen=True)
 class Truncation:
+    """How truncated trajectories contribute to training.
+
+    Attributes:
+        train: Default handling of a truncated trajectory.
+        by_cause: Overrides keyed by the trajectory's truncation cause.
+    """
+
     train: Literal[
         "zero_reward", "reward", "drop", "drop_and_exclude_from_baseline"
     ] = "zero_reward"
@@ -241,6 +303,13 @@ class Truncation:
 
 @dataclass(frozen=True)
 class Cosine:
+    """Cosine learning-rate multiplier with optional linear warmup.
+
+    Attributes:
+        warmup: Number of initial updates used for linear warmup.
+        floor: Minimum multiplier after cosine decay.
+    """
+
     warmup: int = 0
     floor: float = 0.0
 
@@ -260,11 +329,30 @@ class Cosine:
 
 
 def cosine(*, warmup=0, floor=0.0):
+    """Create a checkpointable cosine learning-rate schedule.
+
+    Args:
+        warmup: Number of initial updates used for linear warmup.
+        floor: Minimum multiplier after cosine decay.
+    """
     return Cosine(warmup, floor)
 
 
 @dataclass(frozen=True)
 class Adam:
+    """Optimizer parameters for one trainer update.
+
+    Attributes:
+        lr: Base learning rate before the optional schedule multiplier.
+        beta1: First-moment decay.
+        beta2: Second-moment decay.
+        eps: Numerical stability constant.
+        weight_decay: Decoupled weight decay.
+        grad_clip_norm: Optional global gradient-norm cap.
+        schedule: Optional multiplier called with the update index and total
+            planned updates; use ``rl.cosine()`` for checkpointable runs.
+    """
+
     lr: float
     beta1: float = 0.9
     beta2: float = 0.95

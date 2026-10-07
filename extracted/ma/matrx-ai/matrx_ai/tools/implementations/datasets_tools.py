@@ -273,7 +273,7 @@ def _rows_page(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-async def usertable_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         tables = await _store_arm().list_tables()
     except Exception as exc:  # noqa: BLE001 — carried out whole
@@ -290,7 +290,7 @@ async def usertable_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResul
     )
 
 
-async def usertable_get_metadata(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_get_metadata(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     table_id = args.get("table_id", "").strip()
     if missing := _required(table_id, "table_id"):
         return missing
@@ -309,7 +309,7 @@ async def usertable_get_metadata(args: dict[str, Any], ctx: ToolContext) -> Tool
     )
 
 
-async def usertable_get_fields(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_get_fields(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     table_id = args.get("table_id", "").strip()
     if missing := _required(table_id, "table_id"):
         return missing
@@ -330,7 +330,7 @@ async def usertable_get_fields(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     )
 
 
-async def usertable_get_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_get_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     table_id = args.get("table_id", "").strip()
     if missing := _required(table_id, "table_id"):
         return missing
@@ -363,7 +363,7 @@ async def usertable_get_data(args: dict[str, Any], ctx: ToolContext) -> ToolResu
     )
 
 
-async def usertable_search_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_search_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     table_id = args.get("table_id", "").strip()
     search_term = args.get("search_term", "").strip()
     if missing := _required(table_id, "table_id") or _required(search_term, "search_term"):
@@ -394,7 +394,7 @@ async def usertable_search_data(args: dict[str, Any], ctx: ToolContext) -> ToolR
 # ---------------------------------------------------------------------------
 
 
-async def usertable_add_rows(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_add_rows(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     table_id = args.get("table_id", "").strip()
     rows_input = args.get("rows")
     if missing := _required(table_id, "table_id"):
@@ -426,7 +426,7 @@ UPDATE_ROW_DATA_SHAPE = (
 
 
 
-async def usertable_update_row(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_update_row(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     row_id = args.get("row_id", "").strip()
     table_id = args.get("table_id", "").strip()
     if missing := _required(row_id, "row_id") or _required(table_id, "table_id"):
@@ -447,7 +447,7 @@ async def usertable_update_row(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return _arm_error(exc)
 
 
-async def usertable_delete_row(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def dataset_delete_row(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     row_id = args.get("row_id", "").strip()
     table_id = args.get("table_id", "").strip()
     if missing := _required(row_id, "row_id") or _required(table_id, "table_id"):
@@ -595,7 +595,7 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     action = parsed.action
 
     if action == "list":
-        return _stamp(await usertable_get_all({}, ctx), started_at, ctx)
+        return _stamp(await dataset_get_all({}, ctx), started_at, ctx)
 
     if action == "get":
         return await _dataset_get(args, ctx, started_at)
@@ -605,7 +605,7 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if not query:
             return _validation_error("query is required for action=search.", started_at, ctx)
         return _stamp(
-            await usertable_search_data(
+            await dataset_search_data(
                 {
                     "table_id": args.get("dataset_id", ""),
                     "search_term": query,
@@ -623,7 +623,7 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     if action == "add_rows":
         return _stamp(
-            await usertable_add_rows(
+            await dataset_add_rows(
                 {"table_id": args.get("dataset_id", ""), "rows": args.get("rows")},
                 ctx,
             ),
@@ -635,7 +635,7 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         table_id = (args.get("dataset_id") or "").strip()
         row_id = (args.get("row_id") or "").strip()
         prior = await _prior_row_data(table_id, row_id) if table_id and row_id else None
-        result = await usertable_update_row(
+        result = await dataset_update_row(
             {"table_id": table_id, "row_id": row_id, "data": args.get("data")},
             ctx,
         )
@@ -647,7 +647,7 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     # action == "delete_row"
     return _stamp(
-        await usertable_delete_row(
+        await dataset_delete_row(
             {
                 "table_id": args.get("dataset_id", ""),
                 "row_id": args.get("row_id", ""),

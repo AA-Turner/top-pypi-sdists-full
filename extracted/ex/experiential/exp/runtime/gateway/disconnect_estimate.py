@@ -84,7 +84,8 @@ def settled_terminal(
                 )
             }
         )
-    return terminal, failure
+    denied = None if entry.guardrails is None else entry.guardrails.settlement_failure()
+    return terminal, denied or failure
 
 
 def _frozen_cached_fraction(

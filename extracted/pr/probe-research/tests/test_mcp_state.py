@@ -188,8 +188,8 @@ def test_an_unreadable_kimi_record_is_unknown_never_on(isolate):
     assert kimi_config.MCP_SERVER_KEY == "probe-research"
 
 
-def test_cursor_is_not_offered():
-    assert caps_mod.check_mcp("cursor") == (None, None)
+def test_an_unknown_agent_is_not_offered():
+    assert caps_mod.check_mcp("nobody") == (None, None)
 
 
 # --- a token the API refuses (plan T4) --------------------------------------
@@ -257,7 +257,7 @@ def test_the_wizard_header_prints_each_agents_mcp_answer(monkeypatch):
         "kimi_code": _caps(agent_source="kimi_code", mcp_kind=reg.MCP_PLUGIN_MANIFEST,
                            mcp_check=McpCheck(McpCredential.MISSING)),
         "pi": _caps(agent_source="pi", mcp_kind=reg.MCP_EXTENSION_BRIDGE, tracking_plugin_installed=False),
-        "cursor": _caps(agent_source="cursor", mcp_kind=None),
+        "codex": _caps(agent_source="codex", mcp_kind=None),
     })
     text = "\n".join(lines)
     assert "MCP on " in text

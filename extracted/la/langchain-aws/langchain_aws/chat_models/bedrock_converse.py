@@ -26,7 +26,7 @@ from typing import (
 
 from botocore.exceptions import ClientError
 from langchain_core.callbacks import CallbackManagerForLLMRun
-from langchain_core.exceptions import OutputParserException
+from langchain_core.exceptions import ContextOverflowError, OutputParserException
 from langchain_core.language_models import (
     BaseChatModel,
     LanguageModelInput,
@@ -1544,6 +1544,10 @@ class ChatBedrockConverse(BaseChatModel):
                             generation_chunk.text, chunk=generation_chunk
                         )
                     yield generation_chunk
+        except ClientError as e:
+            # Bedrock can also report the overflow as an event after the stream opens.
+            _raise_if_context_overflow(e)
+            raise
         finally:
             if hasattr(stream, "close"):
                 stream.close()
@@ -2317,6 +2321,79 @@ def _append_to_system_message(
     return [SystemMessage(content=new_content), *messages[1:]]
 
 
+class BedrockContextOverflowError(ClientError, ContextOverflowError):
+    """ClientError raised when input exceeds the Bedrock model's context window."""
+
+    def __reduce__(self) -> Tuple[Any, ...]:
+        # ClientError.__reduce__ rebuilds a plain ClientError, losing the overflow type.
+        return BedrockContextOverflowError, (self.response, self.operation_name)
+
+
+# Lowercased fragments of the ValidationException messages Bedrock returns when
+# the prompt exceeds the model's context window.
+_CONTEXT_OVERFLOW_MARKERS = (
+    # Claude Sonnet 4.5, DeepSeek R1
+    "input is too long",
+    # Claude Haiku 4.5 and newer Claude models; also matched by langchain-anthropic
+    "prompt is too long",
+    # Amazon Nova
+    "input tokens exceeded",
+    # Meta Llama, Mistral, and other open-weight models (gpt-oss, Qwen, DeepSeek V3)
+    "maximum context length",
+    # OpenAI GPT; also matched by langchain-openai
+    "context_length_exceeded",
+    "exceeds the context window",
+    "input tokens exceed the configured limit",
+    # Kimi K3
+    "exceed model maximum",
+    # matched by LiteLLM (Bedrock, vLLM/SGLang)
+    "too many input tokens",
+    "is longer than the model's context length",
+)
+
+
+_CONTEXT_OVERFLOW_ERROR_TYPES: Dict[
+    Type[ClientError], Type[BedrockContextOverflowError]
+] = {}
+
+
+def _context_overflow_error_type(
+    error_type: Type[ClientError],
+) -> Type[BedrockContextOverflowError]:
+    """Return a subclass of both `error_type` and `BedrockContextOverflowError`.
+
+    Subclassing the original type keeps handlers that catch boto3's modeled
+    exceptions, such as `client.exceptions.ValidationException`, working.
+    """
+    if issubclass(BedrockContextOverflowError, error_type):
+        return BedrockContextOverflowError
+    if error_type not in _CONTEXT_OVERFLOW_ERROR_TYPES:
+        _CONTEXT_OVERFLOW_ERROR_TYPES[error_type] = cast(
+            Type[BedrockContextOverflowError],
+            type(error_type.__name__, (error_type, BedrockContextOverflowError), {}),
+        )
+    return _CONTEXT_OVERFLOW_ERROR_TYPES[error_type]
+
+
+def _raise_if_context_overflow(error: ClientError) -> None:
+    """Re-raise `error` as a `ContextOverflowError` if it reports a context overflow.
+
+    Args:
+        error: The ClientError from boto3.
+
+    Raises:
+        BedrockContextOverflowError: If the error is a context window overflow.
+    """
+    error_info = error.response.get("Error", {})
+    # Event stream errors use a lowercase code, e.g. "validationException".
+    if error_info.get("Code", "").lower() != "validationexception":
+        return
+    error_message = str(error_info.get("Message", "")).lower()
+    if any(marker in error_message for marker in _CONTEXT_OVERFLOW_MARKERS):
+        overflow_type = _context_overflow_error_type(type(error))
+        raise overflow_type(error.response, error.operation_name) from error
+
+
 def _handle_bedrock_error(error: ClientError) -> None:
     """Handle Bedrock API errors and provide enhanced error messages.
 
@@ -2324,9 +2401,12 @@ def _handle_bedrock_error(error: ClientError) -> None:
         error: The ClientError from boto3
 
     Raises:
+        BedrockContextOverflowError: If the input exceeds the model's context window
         ValueError: Enhanced error with helpful message for IAM permission issues
         ClientError: Re-raises the original error if not a known case
     """
+    _raise_if_context_overflow(error)
+
     error_code = error.response.get("Error", {}).get("Code", "")
     error_message = str(error)
 
@@ -2346,6 +2426,79 @@ def _handle_bedrock_error(error: ClientError) -> None:
 
     # Re-raise other errors unchanged
     raise error
+
+
+_REASONING_BLOCK_TYPES = frozenset(
+    {"reasoning", "reasoning_content", "thinking", "redacted_thinking"}
+)
+
+
+def _known_model_provider(model_id: Optional[str]) -> Optional[str]:
+    """Return the provider encoded in a Bedrock model ID, or `None` if unknowable.
+
+    ARNs for custom, provisioned, and application inference profile models do
+    not encode the provider.
+    """
+    if not model_id or model_id.startswith("arn:"):
+        return None
+    return parse_model_provider(model_id).lower()
+
+
+def _drop_foreign_reasoning(
+    message: AIMessage,
+    *,
+    model_id: Optional[str],
+    provider: Optional[str],
+) -> AIMessage:
+    """Drop reasoning blocks that a different model provider produced.
+
+    Reasoning carries provider-specific state (signatures, encrypted payloads)
+    that other providers reject outright, so replaying it after switching
+    models mid-thread fails the request. When either side's provider is
+    unknown, the message is returned unchanged.
+
+    Args:
+        message: Assistant message in Converse content format.
+        model_id: Model ID of the model the request is being sent to.
+        provider: Provider of the model the request is being sent to, which
+            takes precedence over the one parsed from `model_id`.
+
+    Returns:
+        The message, or a copy of it without reasoning blocks.
+    """
+    if isinstance(message.content, str):
+        return message
+    if message.response_metadata.get("model_provider") not in (
+        None,
+        "bedrock_converse",
+        "bedrock",
+    ):
+        return message
+    model_name = message.response_metadata.get("model_name")
+    source_provider = (
+        _known_model_provider(model_name) if isinstance(model_name, str) else None
+    )
+    target_provider = (provider or "").lower() or _known_model_provider(model_id)
+    if (
+        source_provider is None
+        or target_provider is None
+        or source_provider == target_provider
+    ):
+        return message
+
+    content = [
+        block
+        for block in message.content
+        if not (isinstance(block, dict) and block.get("type") in _REASONING_BLOCK_TYPES)
+    ]
+    if len(content) == len(message.content):
+        return message
+    logger.debug(
+        "Dropping reasoning blocks produced by provider %s; %s rejects them",
+        source_provider,
+        target_provider,
+    )
+    return message.model_copy(update={"content": content})
 
 
 def _messages_to_bedrock(
@@ -2384,6 +2537,9 @@ def _messages_to_bedrock(
                 messages[idx] = message.model_copy(
                     update={"content": cast(list, normalized)}
                 )
+        messages[idx] = _drop_foreign_reasoning(
+            cast(AIMessage, messages[idx]), model_id=model_id, provider=provider
+        )
 
     bedrock_messages: List[Dict[str, Any]] = []
     bedrock_system: List[Dict[str, Any]] = []

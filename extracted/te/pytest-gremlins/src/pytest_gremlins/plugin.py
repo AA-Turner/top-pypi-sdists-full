@@ -20,6 +20,7 @@ import difflib
 from enum import Enum
 import functools
 import importlib.util
+import inspect
 import json
 import logging
 import os
@@ -73,7 +74,13 @@ from pytest_gremlins.coverage import (
     TestSelector,
 )
 from pytest_gremlins.coverage.context_plugin import GremlinContextPlugin
+from pytest_gremlins.coverage.nodeid_markers import strip_marker_suffix
 from pytest_gremlins.gremlins_options import addopts_without_gremlins
+from pytest_gremlins.instrumentation import origin_finder
+from pytest_gremlins.instrumentation.origin_finder import (
+    file_identity,
+    normalize_origin,
+)
 from pytest_gremlins.instrumentation.switcher import ACTIVE_GREMLIN_ENV_VAR
 from pytest_gremlins.instrumentation.transformer import (
     get_default_registry,
@@ -181,6 +188,8 @@ DEFAULT_COVERAGE_TIMEOUT_SECONDS = 120
 DEFAULT_MUTANT_TIMEOUT_SECONDS = 30
 MAX_SELECTION_IDS_IN_MESSAGE = 5
 """Node ids named in a downgraded-timeout message before the rest are summarised as ``(and N more)``."""
+UNMAPPED_SELECTION_PREFIX = 'no verdict: the gremlin has no test to run'
+"""Start of the error for a gremlin whose whole selection has no pytest node id (issue #571)."""
 TIMEOUT_CONFIRMATION_HEADROOM = 0.5
 """Share of ``mutant_timeout`` the unmutated confirmation run may use for a timeout to stay a kill.
 
@@ -301,6 +310,8 @@ class GremlinSession:
     max_pardons: int | None = None
     no_coverage_filter: bool = False
     test_name_to_node_ids: dict[str, list[str]] = field(default_factory=dict)
+    unmapped_selections: dict[str, list[str]] = field(default_factory=dict)
+    unrunnable_gremlin_ids: set[str] = field(default_factory=set)
     explain_gremlin_id: str | None = None
     preserved_addopts: str = ''
     coverage_timeout: int = DEFAULT_COVERAGE_TIMEOUT_SECONDS
@@ -1022,6 +1033,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 if _XDIST_AVAILABLE:
 
+    @pytest.hookimpl(optionalhook=True)
     def pytest_configure_node(node: _XdistWorkerNode) -> None:
         """Inject gremlins tmpdir into xdist worker input for PRIVATE coverage mode.
 
@@ -1113,6 +1125,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 if _XDIST_AVAILABLE:
 
+    @pytest.hookimpl(optionalhook=True)
     def pytest_xdist_node_collection_finished(node: object, ids: list[str]) -> None:  # noqa: ARG001
         """Capture item IDs reported by the first xdist worker after it finishes collection.
 
@@ -1244,7 +1257,9 @@ def _generate_gremlins(
     all_gremlins: list[Gremlin] = []
     instrumented_asts: dict[str, ast.Module] = {}
 
-    for file_path, source in source_files.items():
+    targets, duplicates = _without_duplicate_origins(source_files, rootdir)
+    for file_path in targets:
+        source = source_files[file_path]
         try:
             gremlins, instrumented_tree = transform_source(source, file_path, gremlin_session.operators)
         except Exception:
@@ -1256,8 +1271,52 @@ def _generate_gremlins(
     gremlin_session.gremlins = all_gremlins
 
     if all_gremlins:
-        instrumented_dir = _write_instrumented_sources(instrumented_asts, rootdir)
+        instrumented_dir = _write_instrumented_sources(instrumented_asts, rootdir, duplicates)
         gremlin_session.instrumented_dir = instrumented_dir
+
+
+def _spelling_rank(file_path: str, rootdir: Path) -> tuple[bool, str]:
+    """Rank a target so that a real file outranks a symlink to it, then by path."""
+    origin = (rootdir / file_path).absolute()
+    return (str(origin) != os.path.realpath(origin), file_path)
+
+
+def _without_duplicate_origins(source_files: dict[str, str], rootdir: Path) -> tuple[list[str], dict[str, list[str]]]:
+    """Return the targets in a stable order with each file on disk listed once.
+
+    The finder in the test subprocess matches a file by where it really is, so two targets that are one
+    file (a symlink, a hard link) can only be served one instrumented source: the loser's gremlins would
+    never activate and be reported as survivors. A loser is dropped before it generates gremlins, and the
+    drop is logged with the file it duplicates.
+
+    Args:
+        source_files: Mapping of target paths to their source code.
+        rootdir: Root directory of the project; a relative path is taken from it.
+
+    Returns:
+        The target paths to instrument, real files first, then in path order, and for each of them the
+        other spellings of the same file that were dropped.
+    """
+    kept: list[str] = []
+    duplicates: dict[str, list[str]] = {}
+    first_seen: dict[str, str] = {}
+    for file_path in sorted(source_files, key=lambda path: _spelling_rank(path, rootdir)):
+        origin = str((rootdir / file_path).absolute())
+        identity = file_identity(origin) or normalize_origin(origin)
+        if identity in first_seen:
+            logger.warning(
+                'Skipping %s as a mutation target: it is the same file on disk as %s, '
+                'so its gremlins are generated once under that path and stay active when imported through either. '
+                'List only one of them in the gremlin targets to silence this warning',
+                file_path,
+                first_seen[identity],
+            )
+            duplicates[first_seen[identity]].append(file_path)
+            continue
+        first_seen[identity] = file_path
+        duplicates[file_path] = []
+        kept.append(file_path)
+    return kept, duplicates
 
 
 def _discover_source_files(
@@ -1427,11 +1486,17 @@ def _add_source_file(path: Path, source_files: dict[str, str]) -> None:
 def _write_instrumented_sources(
     instrumented_asts: dict[str, ast.Module],
     rootdir: Path,
+    duplicates: dict[str, list[str]] | None = None,
 ) -> Path:
     """Write instrumented sources to a JSON file for import hook injection.
 
     Creates a temporary directory containing:
-    1. A JSON file mapping module names to their instrumented source code
+    1. A JSON file mapping the normalized real path of each instrumented file to its
+       instrumented source code, the path that source came from, the file's device and
+       inode (``identity``, for spellings the path key misses) and the lowercased file
+       names it may be imported as (``names``, so the finder skips every other import
+       without touching the disk). No module name is recorded: the finder in the
+       subprocess serves a file under whatever name the import system resolves to it.
     2. A bootstrap script that registers import hooks and runs pytest
 
     This approach ensures that import hooks are registered BEFORE any modules
@@ -1440,7 +1505,9 @@ def _write_instrumented_sources(
 
     Args:
         instrumented_asts: Mapping of original file paths to their instrumented ASTs.
-        rootdir: Root directory of the project.
+        rootdir: Root directory of the project; a relative path is taken from it.
+        duplicates: For a path in ``instrumented_asts``, the other spellings of the same file that
+            were dropped as targets; imported through one of them, the file is still served.
 
     Returns:
         Path to the temporary directory containing the bootstrap infrastructure.
@@ -1454,11 +1521,17 @@ del _gremlin_os
 
     injection_nodes = ast.parse(gremlin_active_injection).body
 
-    instrumented_sources: dict[str, str] = {}
+    instrumented_sources: origin_finder.InstrumentedSources = {}
     for original_path, tree in instrumented_asts.items():
-        module_name = _path_to_module_name(Path(original_path), rootdir)
+        origin = (rootdir / original_path).absolute()
         injected_body = _prepend_injection(tree.body, injection_nodes)
-        instrumented_sources[module_name] = ast.unparse(ast.Module(body=injected_body, type_ignores=tree.type_ignores))
+        spellings = [str(origin), os.path.realpath(origin), *(duplicates or {}).get(original_path, [])]
+        instrumented_sources[normalize_origin(str(origin))] = {
+            'source': ast.unparse(ast.Module(body=injected_body, type_ignores=tree.type_ignores)),
+            'origin': str(origin),
+            'identity': file_identity(str(origin)),
+            'file_names': sorted({Path(spelling).name.lower() for spelling in spellings}),
+        }
 
     sources_file = temp_dir / 'sources.json'
     sources_file.write_text(json.dumps(instrumented_sources))
@@ -1514,33 +1587,6 @@ def _prepend_injection(body: list[ast.stmt], injection_nodes: list[ast.stmt]) ->
     return body[:insert_position] + injection_nodes + body[insert_position:]
 
 
-def _path_to_module_name(file_path: Path, rootdir: Path) -> str:
-    """Convert a file path to a Python module name.
-
-    Args:
-        file_path: Path to the Python file.
-        rootdir: Root directory of the project.
-
-    Returns:
-        The module name (e.g., 'package.module' for 'package/module.py').
-        For src/ layout projects, the 'src' prefix is stripped since it's
-        a layout convention, not part of the import path.
-    """
-    try:
-        relative = file_path.relative_to(rootdir)
-    except ValueError:
-        relative = Path(file_path.name)
-
-    parts = list(relative.with_suffix('').parts)
-
-    # Strip 'src' prefix for src/ layout projects.
-    # Python imports use 'mypackage.module', not 'src.mypackage.module'.
-    if parts and parts[0] == 'src':
-        parts = parts[1:]
-
-    return '.'.join(parts)
-
-
 def _get_bootstrap_script() -> str:
     """Return the bootstrap script that registers import hooks and runs pytest.
 
@@ -1569,8 +1615,8 @@ instrumented code with mutation switching logic, then runs pytest.
 import json
 import os
 import sys
-from importlib.abc import Loader, MetaPathFinder
-from importlib.machinery import ModuleSpec
+
+__ORIGIN_FINDER_SOURCE__
 
 
 def main():
@@ -1582,33 +1628,8 @@ def main():
     with open(sources_file, encoding='utf-8') as f:
         instrumented_sources = json.load(f)
 
-    # Get exec function - use indirect access to satisfy linters
-    # This is the standard pattern for import loaders (see importlib docs)
-    run_code = getattr(__builtins__, 'exec', None) or __builtins__.get('exec')
-
-    class GremlinLoader(Loader):
-        def __init__(self, source, module_name):
-            self._source = source
-            self._module_name = module_name
-
-        def create_module(self, spec):
-            return None
-
-        def exec_module(self, module):
-            # Compile and execute the instrumented source in the module's namespace.
-            # The code comes from our AST transformation, not untrusted input.
-            code = compile(self._source, self._module_name, 'exec')
-            run_code(code, module.__dict__)
-
-    class GremlinFinder(MetaPathFinder):
-        def find_spec(self, fullname, path, target=None):
-            if fullname in instrumented_sources:
-                loader = GremlinLoader(instrumented_sources[fullname], fullname)
-                return ModuleSpec(fullname, loader)
-            return None
-
-    # Register finder at the START of meta_path
-    sys.meta_path.insert(0, GremlinFinder())
+    # Serve each instrumented file under whatever name the import system resolves it to.
+    install(instrumented_sources)
 
     # Now run pytest with remaining arguments
     import pytest
@@ -1657,8 +1678,10 @@ def main():
 if __name__ == '__main__':
     main()
 """
-    return script.replace('__COLLECTION_FAILED_EXIT_CODE__', str(GREMLIN_COLLECTION_FAILED_EXIT_CODE)).replace(
-        '__UNATTRIBUTABLE_MARKER__', UNATTRIBUTABLE_MARKER
+    return (
+        script.replace('__COLLECTION_FAILED_EXIT_CODE__', str(GREMLIN_COLLECTION_FAILED_EXIT_CODE))
+        .replace('__UNATTRIBUTABLE_MARKER__', UNATTRIBUTABLE_MARKER)
+        .replace('__ORIGIN_FINDER_SOURCE__', inspect.getsource(origin_finder))
     )
 
 
@@ -1693,6 +1716,8 @@ import sys
 import traceback
 import unittest
 
+__ORIGIN_FINDER_SOURCE__
+
 
 def setup_import_hooks():
     """Register the gremlin import hooks from sources.json."""
@@ -1703,31 +1728,7 @@ def setup_import_hooks():
     with open(sources_file, encoding='utf-8') as f:
         instrumented_sources = json.load(f)
 
-    run_code = getattr(__builtins__, 'exec', None) or __builtins__.get('exec')
-
-    from importlib.abc import Loader, MetaPathFinder
-    from importlib.machinery import ModuleSpec
-
-    class GremlinLoader(Loader):
-        def __init__(self, source, module_name):
-            self._source = source
-            self._module_name = module_name
-
-        def create_module(self, spec):
-            return None
-
-        def exec_module(self, module):
-            code = compile(self._source, self._module_name, 'exec')
-            run_code(code, module.__dict__)
-
-    class GremlinFinder(MetaPathFinder):
-        def find_spec(self, fullname, path, target=None):
-            if fullname in instrumented_sources:
-                loader = GremlinLoader(instrumented_sources[fullname], fullname)
-                return ModuleSpec(fullname, loader)
-            return None
-
-    sys.meta_path.insert(0, GremlinFinder())
+    install(instrumented_sources)
 
 
 def load_test_module(file_path):
@@ -1893,7 +1894,9 @@ def guarded_main():
 if __name__ == '__main__':
     guarded_main()
 '''
-    return script.replace('__CANNOT_VERIFY_EXIT_CODE__', str(LIGHTWEIGHT_CANNOT_VERIFY_EXIT_CODE))
+    return script.replace('__CANNOT_VERIFY_EXIT_CODE__', str(LIGHTWEIGHT_CANNOT_VERIFY_EXIT_CODE)).replace(
+        '__ORIGIN_FINDER_SOURCE__', inspect.getsource(origin_finder)
+    )
 
 
 def _cleanup_instrumented_dir(instrumented_dir: Path | None) -> None:
@@ -1962,6 +1965,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     _verify_suite_loads_unmutated(session, gremlin_session)
     gremlin_session.results = _dispatch_mutation_run(session, gremlin_session)
+    _report_unmapped_selections(gremlin_session)
 
 
 def _verify_suite_loads_unmutated(session: pytest.Session, gremlin_session: GremlinSession) -> None:
@@ -1971,7 +1975,7 @@ def _verify_suite_loads_unmutated(session: pytest.Session, gremlin_session: Grem
     harness loads the suite cleanly without one. The baseline run is a different process, so it
     cannot vouch for that. When the control run fails, a marker next to ``sources.json`` makes the
     bootstrap stop reporting load failures as kills, so every mapping site scores them as errors.
-    Only gremlins that will actually run count: pardoned and cached ones are skipped, and when none
+    Only gremlins that will actually run count: pardoned, unrunnable and cached ones are skipped, and when none
     is left no subprocess is spawned and nothing is printed. The union of the remaining selections is
     an early-out only; each collection kill is confirmed against its own selection by
     :func:`_confirm_collection_kill`.
@@ -1985,6 +1989,8 @@ def _verify_suite_loads_unmutated(session: pytest.Session, gremlin_session: Grem
         if _immediate_result_if_pardoned(gremlin) is not None:
             continue
         selected_tests = _select_tests_for_gremlin_prioritized(gremlin, gremlin_session)
+        if _immediate_result_if_selection_unrunnable(gremlin, gremlin_session) is not None:
+            continue
         if _check_cache_for_gremlin(gremlin, selected_tests, gremlin_session) is not None:
             continue
         selected_node_ids.update(_node_ids_for_tests(selected_tests, gremlin_session))
@@ -2351,7 +2357,7 @@ def _make_node_ids_relative(node_ids: list[str], rootdir: Path) -> list[str]:
     for node_id in node_ids:
         # Strip any plugin-added suffixes like "[SMALL]", "[MEDIUM]", etc.
         # These are display decorations, not part of the actual node ID
-        cleaned_node_id = re.sub(r'\s*\[[A-Z]+\]\s*$', '', node_id)
+        cleaned_node_id = strip_marker_suffix(node_id)
 
         # Node IDs have format: path/to/file.py::test_name
         # or just: file.py::test_name
@@ -2777,7 +2783,7 @@ def _decode_numbits(numbits: bytes) -> list[int]:
     ]
 
 
-def _run_batch_mutation_testing(  # pragma: no cover  # noqa: C901, PLR0912
+def _run_batch_mutation_testing(  # pragma: no cover
     session: pytest.Session,
     gremlin_session: GremlinSession,
 ) -> list[GremlinResult]:
@@ -2808,28 +2814,7 @@ def _run_batch_mutation_testing(  # pragma: no cover  # noqa: C901, PLR0912
         selected_tests = _select_tests_for_gremlin_prioritized(gremlin, gremlin_session)
         gremlin_tests[gremlin.gremlin_id] = selected_tests
 
-    # Check cache and separate cached from uncached
-    cached_results: list[GremlinResult] = []
-    uncached_gremlins: list[Gremlin] = []
-
-    for gremlin in gremlins:
-        pardoned_result = _immediate_result_if_pardoned(gremlin)
-        if pardoned_result is not None:
-            cached_results.append(pardoned_result)
-            continue
-        selected_tests = gremlin_tests[gremlin.gremlin_id]
-        cached_result = _check_cache_for_gremlin(gremlin, selected_tests, gremlin_session)
-        if cached_result is not None:
-            gremlin_session.cache_hits += 1
-            cached_results.append(cached_result)
-        else:
-            if gremlin_session.cache_enabled:
-                gremlin_session.cache_misses += 1
-            uncached_gremlins.append(gremlin)
-
-    # Report cache stats
-    if cached_results:
-        print(f'pytest-gremlins: {len(cached_results)} gremlins from cache, {len(uncached_gremlins)} to test')
+    cached_results, uncached_gremlins = _split_gremlins_needing_a_run(gremlins, gremlin_tests, gremlin_session)
 
     if not uncached_gremlins:
         return cached_results
@@ -2916,7 +2901,7 @@ def _run_batch_mutation_testing(  # pragma: no cover  # noqa: C901, PLR0912
     return results
 
 
-def _run_parallel_mutation_testing(  # pragma: no cover  # noqa: C901, PLR0912, PLR0915
+def _run_parallel_mutation_testing(  # pragma: no cover
     session: pytest.Session,
     gremlin_session: GremlinSession,
 ) -> list[GremlinResult]:
@@ -2946,28 +2931,7 @@ def _run_parallel_mutation_testing(  # pragma: no cover  # noqa: C901, PLR0912, 
         selected_tests = _select_tests_for_gremlin_prioritized(gremlin, gremlin_session)
         gremlin_tests[gremlin.gremlin_id] = selected_tests
 
-    # Check cache and separate cached from uncached
-    cached_results: list[GremlinResult] = []
-    uncached_gremlins: list[Gremlin] = []
-
-    for gremlin in gremlins:
-        pardoned_result = _immediate_result_if_pardoned(gremlin)
-        if pardoned_result is not None:
-            cached_results.append(pardoned_result)
-            continue
-        selected_tests = gremlin_tests[gremlin.gremlin_id]
-        cached_result = _check_cache_for_gremlin(gremlin, selected_tests, gremlin_session)
-        if cached_result is not None:
-            gremlin_session.cache_hits += 1
-            cached_results.append(cached_result)
-        else:
-            if gremlin_session.cache_enabled:
-                gremlin_session.cache_misses += 1
-            uncached_gremlins.append(gremlin)
-
-    # Report cache stats
-    if cached_results:
-        print(f'pytest-gremlins: {len(cached_results)} gremlins from cache, {len(uncached_gremlins)} to test')
+    cached_results, uncached_gremlins = _split_gremlins_needing_a_run(gremlins, gremlin_tests, gremlin_session)
 
     if not uncached_gremlins:
         return cached_results
@@ -3100,7 +3064,7 @@ def _emit_selection_explainer(gremlin_session: GremlinSession) -> None:
         return
 
     covering = _covering_tests_for_gremlin(target_gremlin, gremlin_session)
-    selected = _select_tests_for_gremlin_prioritized(target_gremlin, gremlin_session)
+    selected = _selected_test_names_for_gremlin(target_gremlin, gremlin_session)
     runnable = set(gremlin_session.test_node_ids)
     covering_minus_selected = sorted(covering - set(selected))
     selected_minus_runnable = sorted(set(selected) - runnable)
@@ -3187,22 +3151,88 @@ def _print_unrunnable_selections(orphans: list[str], runnable_candidates: list[s
         print(f'    close match: {_close_matches_display(key, runnable_candidates)}')
 
 
+def _split_gremlins_needing_a_run(
+    gremlins: list[Gremlin],
+    gremlin_tests: dict[str, list[str]],
+    gremlin_session: GremlinSession,
+) -> tuple[list[GremlinResult], list[Gremlin]]:
+    """Separate gremlins whose verdict is already known from those that must run.
+
+    Pardoned and unrunnable gremlins are settled without running; the rest are looked
+    up in the cache. The cache hit and miss counters are updated and the split is
+    reported once.
+
+    Args:
+        gremlins: The gremlins to split, in run order.
+        gremlin_tests: The runnable selection for each gremlin, keyed by gremlin id.
+        gremlin_session: The current gremlin session.
+
+    Returns:
+        The results known without running, and the gremlins still to test.
+    """
+    known_results: list[GremlinResult] = []
+    gremlins_to_test: list[Gremlin] = []
+    settled_without_running = 0
+
+    for gremlin in gremlins:
+        settled_result = _immediate_result_if_pardoned(gremlin)
+        if settled_result is None:
+            settled_result = _immediate_result_if_selection_unrunnable(gremlin, gremlin_session)
+        if settled_result is not None:
+            known_results.append(settled_result)
+            settled_without_running += 1
+            continue
+        cached_result = _check_cache_for_gremlin(gremlin, gremlin_tests[gremlin.gremlin_id], gremlin_session)
+        if cached_result is not None:
+            gremlin_session.cache_hits += 1
+            known_results.append(cached_result)
+            continue
+        if gremlin_session.cache_enabled:
+            gremlin_session.cache_misses += 1
+        gremlins_to_test.append(gremlin)
+
+    if known_results:
+        print(
+            _format_cache_report(
+                cache_hits=len(known_results) - settled_without_running,
+                settled_without_running=settled_without_running,
+                to_test=len(gremlins_to_test),
+            )
+        )
+    return known_results, gremlins_to_test
+
+
+def _format_cache_report(*, cache_hits: int, settled_without_running: int, to_test: int) -> str:
+    """Describe how the gremlins were split before execution starts.
+
+    Pardoned and unrunnable gremlins get their verdict without running, so they
+    are reported apart from genuine cache hits.
+
+    Examples:
+        >>> _format_cache_report(cache_hits=3, settled_without_running=0, to_test=2)
+        'pytest-gremlins: 3 gremlins from cache, 2 to test'
+        >>> _format_cache_report(cache_hits=0, settled_without_running=4, to_test=0)
+        'pytest-gremlins: 0 gremlins from cache, 4 settled without running, 0 to test'
+    """
+    settled = f', {settled_without_running} settled without running' if settled_without_running else ''
+    return f'pytest-gremlins: {cache_hits} gremlins from cache{settled}, {to_test} to test'
+
+
 def _drop_bracketed_suffix(nodeid: str) -> str:
     """Return ``nodeid`` with a trailing ``' [...]'`` marker suffix removed.
 
-    Mirrors the stripping behavior used by the coverage subprocess bootstrap
-    (`_strip_nodeid_markers`): finds the first ``' ['`` and truncates there.
-    Used only by :func:`_emit_selection_explainer` to show the reader the
-    shape the subprocess would record for a drifted key.
+    Shares its rule (:func:`strip_marker_suffix`) with the coverage subprocess
+    bootstrap (`_strip_nodeid_markers`).  Used only by
+    :func:`_emit_selection_explainer` to show the reader the shape the
+    subprocess would record for a drifted key.
 
     Examples:
-        >>> _drop_bracketed_suffix('tests/test_foo.py::test_bar [custom-tag]')
+        >>> _drop_bracketed_suffix('tests/test_foo.py::test_bar [SMALL]')
         'tests/test_foo.py::test_bar'
         >>> _drop_bracketed_suffix('tests/test_foo.py::test_bar')
         'tests/test_foo.py::test_bar'
     """
-    idx = nodeid.find(' [')
-    return nodeid[:idx] if idx != -1 else nodeid
+    return strip_marker_suffix(nodeid)
 
 
 def _run_mutation_testing(
@@ -3234,6 +3264,10 @@ def _run_mutation_testing(
             results.append(pardoned_result)
             continue
         selected_tests = _select_tests_for_gremlin_prioritized(gremlin, gremlin_session)
+        unrunnable_result = _immediate_result_if_selection_unrunnable(gremlin, gremlin_session)
+        if unrunnable_result is not None:
+            results.append(unrunnable_result)
+            continue
         test_count = len(selected_tests)
         total = gremlin_session.total_tests
 
@@ -3448,11 +3482,11 @@ def _report_gremlin_cache_miss(
     print(f'{prefix} - cache miss')
 
 
-def _select_tests_for_gremlin_prioritized(
+def _selected_test_names_for_gremlin(
     gremlin: Gremlin,
     gremlin_session: GremlinSession,
 ) -> list[str]:
-    """Select tests for a gremlin, ordered by specificity (most specific first).
+    """Select the test names for a gremlin, ordered by specificity (most specific first).
 
     Uses the PrioritizedSelector to return tests in an order that maximizes
     the chance of catching the mutation quickly. Tests covering fewer lines
@@ -3463,6 +3497,9 @@ def _select_tests_for_gremlin_prioritized(
     module constants) that executes at import time before any test function
     runs. Coverage.py records these lines under the empty context, which isn't
     associated with any specific test.
+
+    The names are not yet checked against ``test_node_ids``; see
+    :func:`_select_tests_for_gremlin_prioritized` for the runnable subset.
 
     Args:
         gremlin: The gremlin to select tests for.
@@ -3482,6 +3519,90 @@ def _select_tests_for_gremlin_prioritized(
         return list(gremlin_session.test_node_ids.keys())
 
     return selected
+
+
+def _select_tests_for_gremlin_prioritized(
+    gremlin: Gremlin,
+    gremlin_session: GremlinSession,
+) -> list[str]:
+    """Select the runnable tests for a gremlin, ordered by specificity (most specific first).
+
+    A selected name with no entry in ``test_node_ids`` cannot be passed to pytest, so it is left
+    out and recorded in ``gremlin_session.unmapped_selections`` instead of vanishing silently. The
+    command, the cache key, the confirmations and the result all use this same list, so none of
+    them can disagree about what the gremlin ran. When every selected name is dropped the result
+    is empty, and :func:`_immediate_result_if_selection_unrunnable` abstains: an empty list must
+    never reach pytest, where it would run the whole suite and score a verdict the selection did
+    not back.
+
+    Args:
+        gremlin: The gremlin to select tests for.
+        gremlin_session: The current gremlin session.
+
+    Returns:
+        The selected test names that have a node id, in selection order.
+    """
+    selected = _selected_test_names_for_gremlin(gremlin, gremlin_session)
+    runnable = [name for name in selected if name in gremlin_session.test_node_ids]
+    dropped = [name for name in selected if name not in gremlin_session.test_node_ids]
+    gremlin_session.unmapped_selections.pop(gremlin.gremlin_id, None)
+    gremlin_session.unrunnable_gremlin_ids.discard(gremlin.gremlin_id)
+    if dropped:
+        gremlin_session.unmapped_selections[gremlin.gremlin_id] = dropped
+        if not runnable:
+            gremlin_session.unrunnable_gremlin_ids.add(gremlin.gremlin_id)
+    return runnable
+
+
+def _immediate_result_if_selection_unrunnable(
+    gremlin: Gremlin,
+    gremlin_session: GremlinSession,
+) -> GremlinResult | None:
+    """Return an ERROR result when every test selected for the gremlin lacks a node id, else None.
+
+    Called at the top of every execution loop, right after the pardon check and once the gremlin's
+    selection has been made. Such a gremlin has no command to run, so no verdict can be backed by a
+    test: it abstains with an error naming the dropped tests.
+
+    Args:
+        gremlin: The gremlin to check.
+        gremlin_session: The current gremlin session, holding the dropped selections.
+
+    Returns:
+        A GremlinResult with ERROR status when the whole selection was dropped, otherwise None.
+    """
+    if gremlin.gremlin_id not in gremlin_session.unrunnable_gremlin_ids:
+        return None
+    dropped = gremlin_session.unmapped_selections[gremlin.gremlin_id]
+    shown_ids = ', '.join(dropped[:MAX_SELECTION_IDS_IN_MESSAGE])
+    hidden_count = len(dropped) - MAX_SELECTION_IDS_IN_MESSAGE
+    overflow_note = f' (and {hidden_count} more)' if hidden_count > 0 else ''
+    return GremlinResult(
+        gremlin=gremlin,
+        status=GremlinResultStatus.ERROR,
+        error_output=(
+            f'{UNMAPPED_SELECTION_PREFIX}: {len(dropped)} selected test(s) have no pytest node id, '
+            f'so none could run: {shown_ids}{overflow_note}'
+        ),
+    )
+
+
+def _report_unmapped_selections(gremlin_session: GremlinSession) -> None:
+    """Report once per run that coverage-selected tests were not run because they have no node id.
+
+    Written to stderr rather than raised through ``warnings.warn``: this runs in ``pytest_sessionfinish``,
+    where a project's ``filterwarnings = error`` would turn the report into a crash after a green run (#543).
+    """
+    unmapped = gremlin_session.unmapped_selections
+    if not unmapped:
+        return
+    dropped_names = {name for names in unmapped.values() for name in names}
+    example = next(iter(unmapped.values()))[0]
+    print(
+        f'pytest-gremlins: {len(dropped_names)} selected test(s) for {len(unmapped)} gremlin(s) have no pytest '
+        f'node id and were not run, e.g. {example}. Gremlins left with no runnable test are scored ERROR.',
+        file=sys.stderr,
+    )
 
 
 def _report_gremlin_progress(

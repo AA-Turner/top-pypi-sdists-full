@@ -1,93 +1,89 @@
 import ast
 import itertools
 from collections import defaultdict
-from typing import DefaultDict, Union
 
 
-# The following types were created to help mypy understand that there is a
-# "parent" attribute on the ast.AST nodes.
-class UnaryOp(ast.UnaryOp):
-    def __init__(self, orig: ast.UnaryOp) -> None:
-        self.op = orig.op
-        self.operand = orig.operand
-        # For all ast.*:
-        self.lineno = orig.lineno
-        self.col_offset = orig.col_offset
-        self.parent: ast.Expr = orig.parent  # type: ignore
+def add_meta(root: ast.AST) -> None:
+    """
+    Link every node to its parent and its siblings.
+
+    Siblings are linked across all fields of the parent, so the last
+    statement of ``body`` has the first statement of ``orelse`` as next
+    sibling. Use ``get_parent`` / ``get_previous_sibling`` /
+    ``get_next_sibling`` to read the links.
+    """
+    for parent in ast.walk(root):
+        previous: ast.AST | None = None
+        for child in ast.iter_child_nodes(parent):
+            setattr(child, "parent", parent)  # noqa: B010
+            setattr(child, "previous_sibling", previous)  # noqa: B010
+            setattr(child, "next_sibling", None)  # noqa: B010
+            if previous is not None:
+                setattr(previous, "next_sibling", child)  # noqa: B010
+            previous = child
 
 
-class Call(ast.Call):
-    """For mypy so that it knows that added attributes exist."""
-
-    def __init__(self, orig: ast.Call) -> None:
-        self.func = orig.func
-        self.args = orig.args
-        self.keywords = orig.keywords
-        # For all ast.*:
-        self.lineno = orig.lineno
-        self.col_offset = orig.col_offset
-
-        # Added attributes
-        self.parent: ast.Expr = orig.parent  # type: ignore
+def get_parent(node: ast.AST) -> ast.AST | None:
+    return getattr(node, "parent", None)  # type: ignore[no-any-return]
 
 
-class If(ast.If):
-    """For mypy so that it knows that added attributes exist."""
-
-    def __init__(self, orig: ast.If) -> None:
-        self.test = orig.test
-        self.body = orig.body
-        self.orelse = orig.orelse
-
-        # For all ast.*:
-        self.lineno = orig.lineno
-        self.col_offset = orig.col_offset
-
-        # Added attributes
-        self.parent: ast.Expr = orig.parent  # type: ignore
+def get_previous_sibling(node: ast.AST) -> ast.AST | None:
+    return getattr(node, "previous_sibling", None)  # type: ignore[no-any-return]
 
 
-class For(ast.For):
-    """For mypy so that it knows that added attributes exist."""
-
-    def __init__(self, orig: ast.For) -> None:
-        self.target = orig.target
-        self.iter = orig.iter
-        self.body = orig.body
-        self.orelse = orig.orelse
-        # For all ast.*:
-        self.lineno = orig.lineno
-        self.col_offset = orig.col_offset
-
-        # Added attributes
-        self.parent: ast.AST = orig.parent  # type: ignore
-        self.previous_sibling = orig.previous_sibling  # type: ignore
+def get_next_sibling(node: ast.AST) -> ast.AST | None:
+    return getattr(node, "next_sibling", None)  # type: ignore[no-any-return]
 
 
-class Assign(ast.Assign):
-    """For mypy so that it knows that added attributes exist."""
+def in_same_block(first: ast.AST, second: ast.AST) -> bool:
+    """
+    Check that both statements are part of the same statement list.
 
-    def __init__(self, orig: ast.Assign) -> None:
-        self.targets = orig.targets
-        self.value = orig.value
-        # For all ast.*:
-        self.orig = orig
-        self.lineno = orig.lineno
-        self.col_offset = orig.col_offset
+    Siblings are linked across the fields of a node, so the last statement of
+    ``body`` has the first statement of ``orelse`` as next sibling.
+    """
+    parent = get_parent(first)
+    if parent is None:
+        return True
+    for _, value in ast.iter_fields(parent):
+        if isinstance(value, list) and first in value:
+            return second in value
+    return True
 
-        # Added attributes
-        self.parent: ast.AST = orig.parent  # type: ignore
-        self.previous_sibling = orig.previous_sibling  # type: ignore
+
+def get_returned_bool(body: list[ast.stmt]) -> bool | None:
+    """Get the value if the body is just ``return True`` / ``return False``."""
+    if (
+        len(body) == 1
+        and isinstance(body[0], ast.Return)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, bool)
+    ):
+        return body[0].value.value
+    return None
+
+
+def negate_source(expr: ast.expr) -> str:
+    """Get the source code of ``not expr``, with parentheses if needed."""
+    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
+        return to_source(expr.operand)
+    # These bind weaker than "not"
+    if isinstance(expr, (ast.BoolOp, ast.IfExp, ast.Lambda, ast.NamedExpr)):
+        return f"not ({to_source(expr)})"
+    return f"not {to_source(expr)}"
 
 
 def to_source(
-    node: Union[None, ast.expr, ast.Expr, ast.withitem, ast.slice, ast.Assign],
+    node: None | ast.expr | ast.Expr | ast.withitem | ast.slice | ast.Assign,
 ) -> str:
     if node is None:
         return "None"
     source: str = ast.unparse(node).strip()
-    source = strip_triple_quotes(source)
-    source = use_double_quotes(source)
+    # Only string literals: an expression like 'a' <= x <= 'z' also starts
+    # and ends with a quote, but must not be changed
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        source = strip_triple_quotes(source)
+        source = use_double_quotes(source)
     return source
 
 
@@ -118,7 +114,7 @@ def is_body_same(body1: list[ast.stmt], body2: list[ast.stmt]) -> bool:
     """Check if two lists of expressions are equivalent."""
     if len(body1) != len(body2):
         return False
-    for a, b in zip(body1, body2):
+    for a, b in zip(body1, body2, strict=True):
         try:
             stmt_equal = is_stmt_equal(a, b)
         except RecursionError:  # maximum recursion depth
@@ -150,7 +146,7 @@ def is_stmt_equal(a: ast.stmt, b: ast.stmt) -> bool:
     elif isinstance(a, list):
         if len(a) != len(b):
             return False
-        return all(itertools.starmap(is_stmt_equal, zip(a, b)))
+        return all(itertools.starmap(is_stmt_equal, zip(a, b, strict=True)))
     else:
         return a == b
 
@@ -169,13 +165,11 @@ def get_if_body_pairs(node: ast.If) -> list[tuple[ast.expr, list[ast.stmt]]]:
 
 
 def is_constant_increase(expr: ast.AugAssign) -> bool:
-    return isinstance(expr.op, ast.Add) and (
-        (isinstance(expr.value, ast.Constant) and expr.value.value == 1)
-        or (
-            isinstance(expr.value, ast.Constant)
-            and isinstance(expr.value.value, (int, float, complex))
-            and expr.value.value == 1
-        )
+    return (
+        isinstance(expr.op, ast.Add)
+        and isinstance(expr.value, ast.Constant)
+        and isinstance(expr.value.value, (int, float, complex))
+        and expr.value.value == 1
     )
 
 
@@ -215,7 +209,7 @@ def _get_duplicated_isinstance_call_by_node(node: ast.BoolOp) -> list[str]:
     >> g("isinstance(a, int) or isinstance(b, float) or isinstance(b, int)
     ['b']
     """
-    counter: DefaultDict[str, int] = defaultdict(int)
+    counter: defaultdict[str, int] = defaultdict(int)
 
     for call in node.values:
         # Make sure that this function call is actually a call of the built-in

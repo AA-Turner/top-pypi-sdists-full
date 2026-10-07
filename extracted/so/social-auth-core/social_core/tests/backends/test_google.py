@@ -10,8 +10,12 @@ import jwt
 import responses
 
 from social_core.actions import do_disconnect
-from social_core.exceptions import AuthException, AuthTokenError
-from social_core.tests.models import User
+from social_core.exceptions import (
+    AuthConfigurationError,
+    AuthResponseError,
+    AuthSessionError,
+)
+from social_core.tests.models import TestUserSocialAuth, User
 from social_core.utils import get_querystring, parse_qs
 
 from .base import BaseBackendTest
@@ -19,7 +23,52 @@ from .oauth import BaseAuthUrlTestMixin, OAuth1AuthUrlTestMixin, OAuth1Test, OAu
 from .open_id_connect import STORED_ID_TOKEN_CONTEXT_KEY, OpenIdConnectTest
 
 
-class GoogleOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
+class GoogleEmailVerificationTestMixin:
+    def _assert_unverified_email_rejected(
+        self, claims: dict[str, object], code: str
+    ) -> None:
+        case = cast("OAuth2Test", self)
+        assert case.user_data_body is not None
+        response = json.loads(case.user_data_body)
+        del response["email_verified"]
+        response.update(claims)
+        case.user_data_body = json.dumps(response)
+
+        with case.assertRaises(AuthResponseError) as caught:
+            case.do_login()
+
+        case.assertEqual(caught.exception.code, code)
+        case.assertEqual(caught.exception.claim, "email_verified")
+        case.assertEqual(caught.exception.stage, "user_info")
+        case.assertEqual(User.cache, {})
+        case.assertEqual(TestUserSocialAuth.cache, {})
+        case.assertEqual(TestUserSocialAuth.cache_by_uid, {})
+
+    def test_unverified_email(self) -> None:
+        self._assert_unverified_email_rejected(
+            {"email_verified": False}, "invalid_claim"
+        )
+
+    def test_missing_email_verified(self) -> None:
+        self._assert_unverified_email_rejected({}, "missing_claim")
+
+    def test_null_email_verified(self) -> None:
+        self._assert_unverified_email_rejected(
+            {"email_verified": None}, "missing_claim"
+        )
+
+    def test_string_email_verified(self) -> None:
+        self._assert_unverified_email_rejected(
+            {"email_verified": "true"}, "invalid_claim"
+        )
+
+    def test_integer_email_verified(self) -> None:
+        self._assert_unverified_email_rejected({"email_verified": 1}, "invalid_claim")
+
+
+class GoogleOAuth2Test(
+    GoogleEmailVerificationTestMixin, OAuth2Test, BaseAuthUrlTestMixin
+):
     backend_path = "social_core.backends.google.GoogleOAuth2"
     user_data_url = "https://www.googleapis.com/oauth2/v3/userinfo"
     expected_username = "foo"
@@ -44,10 +93,7 @@ class GoogleOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
         last_request = responses.calls[-1].request
         self.assertEqual(last_request.method, "GET")
         self.assertEqual(self.user_data_url, last_request.url)
-        self.assertEqual(
-            last_request.headers["Authorization"],
-            "Bearer foobar",
-        )
+        self.assertEqual(last_request.headers["Authorization"], "Bearer foobar")
 
     def test_partial_pipeline(self) -> None:
         self.do_partial_pipeline()
@@ -65,7 +111,9 @@ class GoogleOAuth1Test(OAuth1Test, OAuth1AuthUrlTestMixin):
     backend_path = "social_core.backends.google.GoogleOAuth"
     user_data_url = "https://www.googleapis.com/userinfo/email"
     expected_username = "foobar"
-    access_token_body = json.dumps({"access_token": "foobar", "token_type": "bearer"})
+    access_token_body = urlencode(
+        {"oauth_token": "foobar", "oauth_token_secret": "foobar-secret"}
+    )
     request_token_body = urlencode(
         {
             "oauth_token_secret": "foobar-secret",
@@ -119,9 +167,13 @@ class GoogleRevokeTokenTest(GoogleOAuth2Test):
         do_disconnect(self.backend, user)
 
 
-class GoogleOpenIdConnectTest(OpenIdConnectTest):
+class GoogleOpenIdConnectTest(GoogleEmailVerificationTestMixin, OpenIdConnectTest):
     backend_path = "social_core.backends.google_openidconnect.GoogleOpenIdConnect"
-    user_data_url = "https://www.googleapis.com/plus/v1/people/me/openIdConnect"
+    user_data_url = "https://openidconnect.googleapis.com/v1/userinfo"
+    expected_username = "foo"
+    user_data_body = json.dumps(
+        {"sub": "1234", "email": "foo@bar.com", "email_verified": True}
+    )
     issuer = "accounts.google.com"
     openid_config_body = json.dumps(
         {
@@ -173,6 +225,12 @@ class GoogleOpenIdConnectTest(OpenIdConnectTest):
         }
     )
 
+    def test_login(self) -> None:
+        self.do_login()
+
+    def test_partial_pipeline(self) -> None:
+        self.do_partial_pipeline()
+
     def test_refresh_preserves_oidc_data_with_google_extra_data(self) -> None:
         responses.add(
             responses.GET,
@@ -182,6 +240,7 @@ class GoogleOpenIdConnectTest(OpenIdConnectTest):
                 {
                     "sub": "1234",
                     "email": "foo@bar.com",
+                    "email_verified": True,
                     "preferred_username": "foo",
                 }
             ),
@@ -213,7 +272,9 @@ class GoogleOpenIdConnectTest(OpenIdConnectTest):
             responses.GET,
             url="https://openidconnect.googleapis.com/v1/userinfo",
             status=200,
-            body=json.dumps({"preferred_username": "foo@bar.com"}),
+            body=json.dumps(
+                {"preferred_username": "foo@bar.com", "email_verified": True}
+            ),
             content_type="text/json",
         )
 
@@ -299,8 +360,10 @@ oQIDAQAB
     def _get_jwt_payload(self):
         claimed_at = int(time.time())
         return {
+            "sub": "google-user-id",
             "given_name": "test name",
             "email": "test@test.com",
+            "email_verified": True,
             "aud": self.client_id,
             "iat": claimed_at,
             "exp": claimed_at + 30,
@@ -308,17 +371,39 @@ oQIDAQAB
         }
 
     def test_auth_url(self) -> None:
-        with self.assertRaises(AuthException):
+        with self.assertRaises(AuthConfigurationError):
             self.backend.start()
 
     def test_verify_csrf_no_csrf_token_body(self) -> None:
-        with self.assertRaises(AuthTokenError):
+        with self.assertRaises(AuthResponseError):
             self.backend.verify_csrf(request=mock.Mock())
 
     def test_verify_csrf_no_csrf_token_cookie_not_ignored(self) -> None:
         self.backend.data = {"g_csrf_token": "csrf"}
-        with self.assertRaises(AuthTokenError):
+        with self.assertRaises(AuthSessionError) as caught:
             self.backend.verify_csrf(request=mock.Mock(COOKIES={}))
+        self.assertEqual(caught.exception.code, "session_context_missing")
+        self.assertEqual(caught.exception.source, "session")
+        self.assertEqual(caught.exception.stage, "callback")
+        self.assertEqual(caught.exception.recovery, "restart_login")
+
+    def test_verify_csrf_mismatch_requires_session_restart(self) -> None:
+        self.backend.data = {"g_csrf_token": "csrf"}
+        for ignore_missing in (False, True):
+            self.strategy.set_settings(
+                {"SOCIAL_AUTH_GOOGLE_ONETAP_IGNORE_MISSING_CSRF_COOKIE": ignore_missing}
+            )
+            with (
+                self.subTest(ignore_missing=ignore_missing),
+                self.assertRaises(AuthSessionError) as caught,
+            ):
+                self.backend.verify_csrf(
+                    request=mock.Mock(COOKIES={"g_csrf_token": "other"})
+                )
+            self.assertEqual(caught.exception.code, "state_mismatch")
+            self.assertEqual(caught.exception.source, "session")
+            self.assertEqual(caught.exception.stage, "callback")
+            self.assertEqual(caught.exception.recovery, "restart_login")
 
     def test_verify_csrf_no_csrf_token_cookie_ignored(self) -> None:
         self.strategy.set_settings(
@@ -331,22 +416,59 @@ oQIDAQAB
         self.backend.data = {"g_csrf_token": "csrf"}
         self.backend.verify_csrf(request=mock.Mock(COOKIES={"g_csrf_token": "csrf"}))
 
+    def test_verify_csrf_rejects_malformed_tokens(self) -> None:
+        for body, cookie in (
+            ("é", "csrf"),
+            ("csrf", "é"),
+            (["csrf"], ["csrf"]),
+            ({"csrf": "token"}, {"csrf": "token"}),
+            (True, True),
+            (123, 123),
+            (b"csrf", b"csrf"),
+            ("csrf", ["csrf"]),
+            (["csrf"], "csrf"),
+        ):
+            self.backend.data = {"g_csrf_token": body}
+            with (
+                self.subTest(body=body, cookie=cookie),
+                self.assertRaises(AuthSessionError) as caught,
+            ):
+                self.backend.verify_csrf(
+                    request=mock.Mock(COOKIES={"g_csrf_token": cookie})
+                )
+            self.assertEqual(caught.exception.code, "state_mismatch")
+            self.assertEqual(caught.exception.stage, "callback")
+
     def test_get_decoded_info_error(self) -> None:
-        payload = self._get_jwt_payload()
-        payload["exp"] -= 31
-        self.backend.data = {
-            "credential": jwt.encode(
+        self.strategy.set_settings({"SOCIAL_AUTH_GOOGLE_ONETAP_KEY": self.client_id})
+        valid_payload = self._get_jwt_payload()
+        for name, payload in (
+            ("expired", {**valid_payload, "exp": valid_payload["exp"] - 31}),
+            ("wrong_audience", {**valid_payload, "aud": "other-client"}),
+            ("invalid_signature", valid_payload),
+        ):
+            credential = jwt.encode(
                 payload,
                 self.private_key,
                 algorithm="RS256",
                 headers={"kid": "test_key"},
-            ),
-            "g_csrf_token": "csrf",
-        }
-        request = mock.Mock(COOKIES={"g_csrf_token": "csrf"})
-
-        with self.assertRaises(AuthException):
-            self.backend.auth_complete(request=request)
+            )
+            if name == "invalid_signature":
+                header, body, signature = credential.split(".")
+                replacement = "A" if signature[0] != "A" else "B"
+                credential = f"{header}.{body}.{replacement}{signature[1:]}"
+            self.backend.data = {"credential": credential, "g_csrf_token": "csrf"}
+            request = mock.Mock(COOKIES={"g_csrf_token": "csrf"})
+            with (
+                self.subTest(name=name),
+                mock.patch.object(self.strategy, "authenticate") as authenticate,
+                self.assertRaises(AuthResponseError) as caught,
+            ):
+                self.backend.auth_complete(request=request)
+            self.assertEqual(caught.exception.code, "invalid_claim")
+            self.assertEqual(caught.exception.stage, "token_validation")
+            self.assertIsInstance(caught.exception.__cause__, ValueError)
+            authenticate.assert_not_called()
 
     def test_get_decoded_info_success(self) -> None:
         self.backend.data = {
@@ -364,3 +486,40 @@ oQIDAQAB
 
         self.assertEqual(user.email, "test@test.com")
         self.assertEqual(user.first_name, "test name")
+
+    def test_rejects_unverified_email_before_authentication(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_GOOGLE_ONETAP_KEY": self.client_id})
+        for claims, code in (
+            ({}, "missing_claim"),
+            ({"email_verified": None}, "missing_claim"),
+            ({"email_verified": False}, "invalid_claim"),
+            ({"email_verified": "true"}, "invalid_claim"),
+            ({"email_verified": 1}, "invalid_claim"),
+        ):
+            payload = self._get_jwt_payload()
+            del payload["email_verified"]
+            payload.update(claims)
+            self.backend.data = {
+                "credential": jwt.encode(
+                    payload,
+                    self.private_key,
+                    algorithm="RS256",
+                    headers={"kid": "test_key"},
+                ),
+                "g_csrf_token": "csrf",
+            }
+            request = mock.Mock(COOKIES={"g_csrf_token": "csrf"})
+            with (
+                self.subTest(claims=claims),
+                mock.patch.object(self.strategy, "authenticate") as authenticate,
+                self.assertRaises(AuthResponseError) as caught,
+            ):
+                self.backend.auth_complete(request=request)
+
+            self.assertEqual(caught.exception.code, code)
+            self.assertEqual(caught.exception.claim, "email_verified")
+            self.assertEqual(caught.exception.stage, "token_validation")
+            authenticate.assert_not_called()
+            self.assertEqual(User.cache, {})
+            self.assertEqual(TestUserSocialAuth.cache, {})
+            self.assertEqual(TestUserSocialAuth.cache_by_uid, {})

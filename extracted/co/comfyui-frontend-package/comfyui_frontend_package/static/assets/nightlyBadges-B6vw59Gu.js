@@ -1,0 +1,1 @@
+import{Ei as e}from"./settingStore-X9ZV_dAu.js";import{d as t}from"./i18n-D4hs22tD.js";var n=[{text:t(`nightly.badge.label`),label:t(`g.nightly`),variant:`warning`,tooltip:t(`nightly.badge.tooltip`)}];e().registerExtension({name:`Comfy.Nightly.Badges`,topbarBadges:n});

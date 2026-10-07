@@ -5,6 +5,8 @@ Trello OAuth1 backend, docs at:
 
 from typing import Any, cast
 
+from social_core.exceptions import SocialAuthBaseException
+
 from .oauth import BaseOAuth1
 
 
@@ -12,12 +14,16 @@ class TrelloOAuth(BaseOAuth1):
     """Trello OAuth authentication backend"""
 
     name = "trello"
-    ID_KEY = "username"
+    title = "Trello"
+    ID_KEY = "id"
+    LEGACY_ID_KEYS = ("username",)
+    MUTABLE_ID_KEYS = ("username",)
     AUTHORIZATION_URL = "https://trello.com/1/OAuthAuthorizeToken"
     REQUEST_TOKEN_URL = "https://trello.com/1/OAuthGetRequestToken"
     ACCESS_TOKEN_URL = "https://trello.com/1/OAuthGetAccessToken"
 
     EXTRA_DATA = [
+        ("id", "id"),
         ("username", "username"),
         ("email", "email"),
         ("fullName", "fullName"),
@@ -25,7 +31,9 @@ class TrelloOAuth(BaseOAuth1):
 
     def get_user_details(self, response):
         """Return user details from Trello account"""
-        fullname, first_name, last_name = self.get_user_names(response.get("fullName"))
+        fullname = response.get("fullName")
+        first_name = ""
+        last_name = ""
         return {
             "username": response.get("username"),
             "email": response.get("email"),
@@ -38,7 +46,11 @@ class TrelloOAuth(BaseOAuth1):
         """Return user data provided"""
         url = "https://trello.com/1/members/me"
         try:
-            return self.get_json(url, auth=self.oauth_auth(access_token))
+            return self.get_json(
+                url, auth=self.oauth_auth(access_token, stage="user_info")
+            )
+        except SocialAuthBaseException:
+            raise
         except ValueError:
             return None
 

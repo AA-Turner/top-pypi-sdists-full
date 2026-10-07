@@ -1,17 +1,17 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use nom::{
-	branch::alt, bytes::complete::tag, character::char, combinator::recognize, OutputMode, PResult,
-	Parser,
+	OutputMode, PResult, Parser, branch::alt, bytes::complete::tag, character::char,
+	combinator::recognize,
 };
 use tracing::Level;
 
 use crate::{
+	Input,
 	error::ParseError,
 	inline::italic,
 	span::{TraceOk, TraceParse},
 	util::single_alphanumeric,
-	Input,
 };
 
 use super::Grammar;

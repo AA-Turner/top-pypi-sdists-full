@@ -94,6 +94,7 @@ class DiffResultWrapper:
     info_tree: InfoTree
     stats: dict
     result_list: list = attrs.field(factory=list)
+    sample: list = attrs.field(factory=list)  # The first rows counted by the last stats call, see _get_stats
 
     def __iter__(self) -> Iterator[Any]:
         yield from self.result_list
@@ -101,13 +102,17 @@ class DiffResultWrapper:
             self.result_list.append(i)
             yield i
 
-    def _get_stats(self, is_dbt: bool = False, retain_rows: bool = True) -> DiffStats:
+    def _get_stats(self, is_dbt: bool = False, retain_rows: bool = True, sample_size: int = 0) -> DiffStats:
         """Count the diff by key, consuming the rest of the diff.
 
         With `retain_rows`, every row is kept in `result_list` so the diff can be iterated again afterwards.
         Without it, rows not consumed yet are counted and dropped, so memory grows with the number of
         differing keys rather than with every differing row and all of its columns.
+
+        Either way, the first `sample_size` rows, in the order the diff yields them, are kept in `sample`, so a
+        caller that wants a few differing rows to show doesn't have to diff the tables a second time.
         """
+        self.sample.clear()
         if retain_rows:
             list(self)  # Consume the iterator into result_list, if we haven't already
             rows = self.result_list
@@ -124,6 +129,8 @@ class DiffResultWrapper:
             extra_column_diffs = {k: 0 for k in extra_columns}
 
         for sign, values in rows:
+            if len(self.sample) < sample_size:
+                self.sample.append((sign, values))
             k = values[:len_key_columns]
             if is_dbt:
                 extra_column_values = values[len_key_columns:]
@@ -157,8 +164,8 @@ class DiffResultWrapper:
 
         return DiffStats(diff_by_sign, table1_count, table2_count, unchanged, diff_percent, extra_column_diffs)
 
-    def get_stats_string(self, is_dbt: bool = False, retain_rows: bool = True):
-        diff_stats = self._get_stats(is_dbt, retain_rows)
+    def get_stats_string(self, is_dbt: bool = False, retain_rows: bool = True, sample_size: int = 0):
+        diff_stats = self._get_stats(is_dbt, retain_rows, sample_size)
 
         total_rows_diff = diff_stats.table2_count - diff_stats.table1_count
 
@@ -192,8 +199,8 @@ class DiffResultWrapper:
 
         return string_output
 
-    def get_stats_dict(self, is_dbt: bool = False, retain_rows: bool = True):
-        diff_stats = self._get_stats(is_dbt, retain_rows)
+    def get_stats_dict(self, is_dbt: bool = False, retain_rows: bool = True, sample_size: int = 0):
+        diff_stats = self._get_stats(is_dbt, retain_rows, sample_size)
         json_output = {
             "rows_A": diff_stats.table1_count,
             "rows_B": diff_stats.table2_count,
@@ -206,6 +213,11 @@ class DiffResultWrapper:
         }
         json_output["values"] = diff_stats.extra_column_diffs or {}
         return json_output
+
+
+# Segments are diffed on a thread pool, so merging their counts into a differ's stats takes this lock. It's not a
+# field of the differ because those are sent as JSON with the tracking event.
+_stats_lock = threading.Lock()
 
 
 @attrs.define(frozen=False)
@@ -240,9 +252,8 @@ class TableDiffer(ThreadBase, ABC):
 
     def _diff_tables_wrapper(self, table1: TableSegment, table2: TableSegment, info_tree: InfoTree) -> DiffResult:
         if is_tracking_enabled():
-            options = attrs.asdict(self, recurse=False)
-            # not a useful event attribute
-            options.pop("_ignored_columns_lock")
+            # Only the options the differ was created with: its locks and progress aren't useful event attributes
+            options = attrs.asdict(self, recurse=False, filter=lambda attribute, _value: attribute.init)
             options["differ_name"] = type(self).__name__
             event_json = create_start_event_json(options)
             run_as_daemon(send_event_json, event_json)
@@ -445,6 +456,19 @@ class TableDiffer(ThreadBase, ABC):
             ti.submit(
                 self._diff_segments, ti, t1, t2, info_node, max_rows, level + 1, i + 1, len(segmented1), priority=level
             )
+
+    def _add_diff_counts(self, diff_counts: Dict[str, int]) -> None:
+        """Add a segment's counts of differing rows per column to stats["diff_counts"].
+
+        Only rows found in both tables are counted, in the columns compared other than the keys, by table1's names.
+        Columns that never differ are left out, so with no such rows there is no "diff_counts" at all.
+        """
+        if not diff_counts:
+            return
+        with _stats_lock:
+            totals = self.stats.setdefault("diff_counts", {})
+            for column, count in diff_counts.items():
+                totals[column] = totals.get(column, 0) + count
 
     def ignore_column(self, column_name1: str, column_name2: str) -> None:
         """

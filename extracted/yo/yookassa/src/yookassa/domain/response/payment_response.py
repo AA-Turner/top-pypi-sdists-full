@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-from yookassa.domain.common import ResponseObject, PaymentMethodType
+from yookassa.domain.common import ResponseObject, PaymentMethodType, ConfirmationType
 from yookassa.domain.models import Amount, AuthorizationDetails, CancellationDetails, Recipient
+from yookassa.domain.models.confirmation.confirmation_class_map import ConfirmationClassMap
 from yookassa.domain.models.confirmation.confirmation_factory import ConfirmationFactory
 from yookassa.domain.models.deal import PaymentDealInfo
 from yookassa.domain.models.payment_data.payment_data_class_map import PaymentDataClassMap
@@ -303,6 +304,8 @@ class PaymentResponse(ResponseObject):
         :param value: confirmation модели PaymentResponse.
         :type value: ConfirmationRequest
         """
+        if isinstance(value, dict) and 'type' in value and value['type'] not in ConfirmationClassMap().response:
+            value['type'] = ConfirmationType.UNKNOWN
         self.__confirmation = ConfirmationFactory().create(value, self.context())
 
     @property

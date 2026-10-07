@@ -37,6 +37,7 @@ class TeamsRuleArgs:
         """
         The set of arguments for constructing a TeamsRule resource.
 
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.str] action: Specify the action to perform when the associated traffic, identity, and device posture expressions either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] name: Specify the rule name.
@@ -78,6 +79,9 @@ class TeamsRuleArgs:
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Input[_builtins.str]:
+        """
+        Specify the Cloudflare account identifier.
+        """
         return pulumi.get(self, "account_id")
 
     @account_id.setter
@@ -257,6 +261,7 @@ class _TeamsRuleState:
         """
         Input properties used for looking up and filtering TeamsRule resources.
 
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.str] action: Specify the action to perform when the associated traffic, identity, and device posture expressions either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] deleted_at: Indicate the date of deletion, if any.
@@ -323,6 +328,9 @@ class _TeamsRuleState:
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specify the Cloudflare account identifier.
+        """
         return pulumi.get(self, "account_id")
 
     @account_id.setter
@@ -581,13 +589,13 @@ class TeamsRule(pulumi.CustomResource):
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  device_posture: pulumi.Input[Optional[_builtins.str]] = None,
                  enabled: pulumi.Input[Optional[_builtins.bool]] = None,
-                 expiration: pulumi.Input[Optional[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict']]] = None,
+                 expiration: pulumi.Input[Optional[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict', 'outputs.TeamsRuleExpiration']]] = None,
                  filters: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  identity: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  precedence: pulumi.Input[Optional[_builtins.int]] = None,
-                 rule_settings: pulumi.Input[Optional[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict']]] = None,
-                 schedule: pulumi.Input[Optional[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict']]] = None,
+                 rule_settings: pulumi.Input[Optional[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict', 'outputs.TeamsRuleRuleSettings']]] = None,
+                 schedule: pulumi.Input[Optional[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict', 'outputs.TeamsRuleSchedule']]] = None,
                  traffic: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
@@ -739,18 +747,19 @@ class TeamsRule(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.str] action: Specify the action to perform when the associated traffic, identity, and device posture expressions either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] description: Specify the rule description.
         :param pulumi.Input[_builtins.str] device_posture: Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.bool] enabled: Specify whether the rule is enabled.
-        :param pulumi.Input[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict']] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
+        :param pulumi.Input[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict', 'outputs.TeamsRuleExpiration']] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: Specify the protocol or layer to evaluate the traffic, identity, and device posture expressions. Can only contain a single value.
         :param pulumi.Input[_builtins.str] identity: Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.str] name: Specify the rule name.
         :param pulumi.Input[_builtins.int] precedence: Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
-        :param pulumi.Input[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict']] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
-        :param pulumi.Input[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict']] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
+        :param pulumi.Input[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict', 'outputs.TeamsRuleRuleSettings']] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
+        :param pulumi.Input[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict', 'outputs.TeamsRuleSchedule']] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
         :param pulumi.Input[_builtins.str] traffic: Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         """
         ...
@@ -926,13 +935,13 @@ class TeamsRule(pulumi.CustomResource):
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  device_posture: pulumi.Input[Optional[_builtins.str]] = None,
                  enabled: pulumi.Input[Optional[_builtins.bool]] = None,
-                 expiration: pulumi.Input[Optional[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict']]] = None,
+                 expiration: pulumi.Input[Optional[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict', 'outputs.TeamsRuleExpiration']]] = None,
                  filters: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  identity: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  precedence: pulumi.Input[Optional[_builtins.int]] = None,
-                 rule_settings: pulumi.Input[Optional[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict']]] = None,
-                 schedule: pulumi.Input[Optional[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict']]] = None,
+                 rule_settings: pulumi.Input[Optional[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict', 'outputs.TeamsRuleRuleSettings']]] = None,
+                 schedule: pulumi.Input[Optional[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict', 'outputs.TeamsRuleSchedule']]] = None,
                  traffic: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         pulumi.log.warn("""TeamsRule is deprecated: cloudflare.index/teamsrule.TeamsRule has been deprecated in favor of cloudflare.index/zerotrustgatewaypolicy.ZeroTrustGatewayPolicy""")
@@ -990,14 +999,14 @@ class TeamsRule(pulumi.CustomResource):
             description: pulumi.Input[Optional[_builtins.str]] = None,
             device_posture: pulumi.Input[Optional[_builtins.str]] = None,
             enabled: pulumi.Input[Optional[_builtins.bool]] = None,
-            expiration: pulumi.Input[Optional[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict']]] = None,
+            expiration: pulumi.Input[Optional[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict', 'outputs.TeamsRuleExpiration']]] = None,
             filters: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             identity: pulumi.Input[Optional[_builtins.str]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
             precedence: pulumi.Input[Optional[_builtins.int]] = None,
             read_only: pulumi.Input[Optional[_builtins.bool]] = None,
-            rule_settings: pulumi.Input[Optional[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict']]] = None,
-            schedule: pulumi.Input[Optional[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict']]] = None,
+            rule_settings: pulumi.Input[Optional[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict', 'outputs.TeamsRuleRuleSettings']]] = None,
+            schedule: pulumi.Input[Optional[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict', 'outputs.TeamsRuleSchedule']]] = None,
             sharable: pulumi.Input[Optional[_builtins.bool]] = None,
             source_account: pulumi.Input[Optional[_builtins.str]] = None,
             traffic: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1011,20 +1020,21 @@ class TeamsRule(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] account_id: Specify the Cloudflare account identifier.
         :param pulumi.Input[_builtins.str] action: Specify the action to perform when the associated traffic, identity, and device posture expressions either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] deleted_at: Indicate the date of deletion, if any.
         :param pulumi.Input[_builtins.str] description: Specify the rule description.
         :param pulumi.Input[_builtins.str] device_posture: Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.bool] enabled: Specify whether the rule is enabled.
-        :param pulumi.Input[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict']] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
+        :param pulumi.Input[Union['TeamsRuleExpirationArgs', 'TeamsRuleExpirationArgsDict', 'outputs.TeamsRuleExpiration']] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: Specify the protocol or layer to evaluate the traffic, identity, and device posture expressions. Can only contain a single value.
         :param pulumi.Input[_builtins.str] identity: Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.str] name: Specify the rule name.
         :param pulumi.Input[_builtins.int] precedence: Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
         :param pulumi.Input[_builtins.bool] read_only: Indicate that this rule is shared via the Orgs API and read only.
-        :param pulumi.Input[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict']] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
-        :param pulumi.Input[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict']] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
+        :param pulumi.Input[Union['TeamsRuleRuleSettingsArgs', 'TeamsRuleRuleSettingsArgsDict', 'outputs.TeamsRuleRuleSettings']] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
+        :param pulumi.Input[Union['TeamsRuleScheduleArgs', 'TeamsRuleScheduleArgsDict', 'outputs.TeamsRuleSchedule']] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
         :param pulumi.Input[_builtins.bool] sharable: Indicate that this rule is sharable via the Orgs API.
         :param pulumi.Input[_builtins.str] source_account: Provide the account tag of the account that created the rule.
         :param pulumi.Input[_builtins.str] traffic: Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
@@ -1061,6 +1071,9 @@ class TeamsRule(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specify the Cloudflare account identifier.
+        """
         return pulumi.get(self, "account_id")
 
     @_builtins.property

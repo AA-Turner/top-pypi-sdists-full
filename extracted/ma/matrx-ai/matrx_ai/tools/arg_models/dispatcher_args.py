@@ -346,13 +346,13 @@ class PicklistListWire(ToolArgs):
 
 class PicklistGetWire(ToolArgs):
     action: Literal["get"]
-    picklist_id: str
+    pick_list_id: str
     group_by: bool = False
 
 
 class PicklistCreateWire(ToolArgs):
     action: Literal["create"]
-    picklist_name: str
+    pick_list_name: str
     items: list
     description: str | None = None
     group_name: str | None = None
@@ -373,7 +373,7 @@ class PicklistUpdateItemWire(ToolArgs):
 
 class PicklistBatchUpdateWire(ToolArgs):
     action: Literal["batch_update"]
-    picklist_id: str
+    pick_list_id: str
     items: list | None = None
 
     @field_validator("items", mode="before")
@@ -382,7 +382,7 @@ class PicklistBatchUpdateWire(ToolArgs):
         return coerce_list(v, field="items", purpose="picklist item objects")
 
 
-class PicklistArgs(
+class PickListArgs(
     RootModel[
         Annotated[
             PicklistListWire

@@ -7,7 +7,7 @@ file:
       - naked_identifier: table1
     - keyword: RENAME
     - keyword: TO
-    - parameter: '"table2"'
+    - quoted_identifier: '"table2"'
 - statement_terminator: ;
 - statement:
   - alter_table_statement:
@@ -20,8 +20,7 @@ file:
     - column_reference:
       - quoted_identifier: '"a"'
     - keyword: TO
-    - column_reference:
-      - naked_identifier: b
+    - naked_identifier: b
 - statement_terminator: ;
 - statement:
   - alter_table_statement:

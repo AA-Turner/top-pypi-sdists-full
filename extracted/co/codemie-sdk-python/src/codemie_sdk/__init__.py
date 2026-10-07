@@ -156,6 +156,7 @@ from .models.integration import (
     TransferMode,
     TransferItem,
     TransferSettingsResponse,
+    TypeOfIntegration,
 )
 from .models.a2a import (
     AgentCard,
@@ -284,6 +285,7 @@ __all__ = [
     "TransferMode",
     "TransferItem",
     "TransferSettingsResponse",
+    "TypeOfIntegration",
     "AgentCard",
     "AgentProvider",
     "AgentCapabilities",

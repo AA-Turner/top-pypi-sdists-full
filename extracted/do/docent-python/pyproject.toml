@@ -1,7 +1,7 @@
 [project]
 name = "docent-python"
 description = "Renamed to 'docent'. This package is a redirect that depends on 'docent'."
-version = "0.1.87"
+version = "0.1.88"
 readme = "README.md"
 authors = [
   { name="Transluce", email="info@transluce.org" },
@@ -11,7 +11,7 @@ license-files = ["LICENSE.md"]
 
 requires-python = ">=3.11"
 dependencies = [
-    "docent==0.1.87",
+    "docent==0.1.88",
 ]
 
 [build-system]

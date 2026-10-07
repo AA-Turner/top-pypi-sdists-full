@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use itertools::Itertools;
 use smol_str::{SmolStr, ToSmolStr};
 
@@ -23,17 +25,156 @@ pub struct SelectStatementColumnsAndTables {
     pub table_reference_buffer: Vec<ObjectReferenceSegment>,
 }
 
-pub fn get_object_references(segment: &ErasedSegment) -> Vec<ObjectReferenceSegment> {
-    segment
-        .recursive_crawl(
+fn get_struct_alias_refs(segment: &ErasedSegment) -> HashSet<u32> {
+    let mut struct_alias_ids = HashSet::new();
+
+    for function in segment.recursive_crawl(
+        const { &SyntaxSet::single(SyntaxKind::Function) },
+        true,
+        const { &SyntaxSet::new(&[SyntaxKind::SelectStatement, SyntaxKind::MergeStatement]) },
+        true,
+    ) {
+        let Some(function_name) =
+            function.child(const { &SyntaxSet::single(SyntaxKind::FunctionName) })
+        else {
+            continue;
+        };
+        if !function_name.raw().eq_ignore_ascii_case("STRUCT") {
+            continue;
+        }
+
+        let Some(function_contents) =
+            function.child(const { &SyntaxSet::single(SyntaxKind::FunctionContents) })
+        else {
+            continue;
+        };
+        let Some(bracketed) =
+            function_contents.child(const { &SyntaxSet::single(SyntaxKind::Bracketed) })
+        else {
+            continue;
+        };
+
+        let mut previous_was_alias_marker = false;
+        for segment in bracketed.segments() {
+            if segment.is_type(SyntaxKind::IndexColumnDefinition) {
+                previous_was_alias_marker = true;
+            } else if segment.is_type(SyntaxKind::Expression)
+                && segment.raw().eq_ignore_ascii_case("AS")
+            {
+                // sqruff currently parses the STRUCT alias marker itself as an
+                // expression/object reference. Exclude it along with the alias
+                // expression that follows it.
+                for reference in segment.recursive_crawl(
+                    const {
+                        &SyntaxSet::new(&[SyntaxKind::ObjectReference, SyntaxKind::ColumnReference])
+                    },
+                    true,
+                    const { &SyntaxSet::EMPTY },
+                    true,
+                ) {
+                    struct_alias_ids.insert(reference.id());
+                }
+                previous_was_alias_marker = true;
+            } else if previous_was_alias_marker
+                && !matches!(
+                    segment.get_type(),
+                    SyntaxKind::Whitespace
+                        | SyntaxKind::Newline
+                        | SyntaxKind::Indent
+                        | SyntaxKind::Dedent
+                )
+            {
+                for reference in segment.recursive_crawl(
+                    const {
+                        &SyntaxSet::new(&[SyntaxKind::ObjectReference, SyntaxKind::ColumnReference])
+                    },
+                    true,
+                    const { &SyntaxSet::EMPTY },
+                    true,
+                ) {
+                    struct_alias_ids.insert(reference.id());
+                }
+                previous_was_alias_marker = false;
+            }
+        }
+    }
+
+    struct_alias_ids
+}
+
+/// References inside `SELECT * EXCEPT (...)` name columns to remove from the
+/// wildcard expansion; they are not ordinary references needing qualification.
+fn get_select_except_refs(segment: &ErasedSegment) -> HashSet<u32> {
+    let mut except_ref_ids = HashSet::new();
+
+    for except_clause in segment.recursive_crawl(
+        const { &SyntaxSet::single(SyntaxKind::SelectExceptClause) },
+        true,
+        const { &SyntaxSet::new(&[SyntaxKind::SelectStatement, SyntaxKind::MergeStatement]) },
+        true,
+    ) {
+        for reference in except_clause.recursive_crawl(
             const { &SyntaxSet::new(&[SyntaxKind::ObjectReference, SyntaxKind::ColumnReference]) },
             true,
-            const { &SyntaxSet::single(SyntaxKind::SelectStatement) },
+            const { &SyntaxSet::EMPTY },
+            true,
+        ) {
+            except_ref_ids.insert(reference.id());
+        }
+    }
+
+    except_ref_ids
+}
+
+/// Hint arguments name tables or aliases for the planner, not columns needing
+/// qualification in the select list (e.g. `SELECT /*+ BROADCAST(t1) */ ...`).
+fn get_hint_refs(segment: &ErasedSegment) -> HashSet<u32> {
+    let mut hint_ref_ids = HashSet::new();
+
+    for hint in segment.recursive_crawl(
+        const { &SyntaxSet::single(SyntaxKind::SelectHint) },
+        true,
+        const { &SyntaxSet::new(&[SyntaxKind::SelectStatement, SyntaxKind::MergeStatement]) },
+        true,
+    ) {
+        for reference in hint.recursive_crawl(
+            const { &SyntaxSet::new(&[SyntaxKind::ObjectReference, SyntaxKind::ColumnReference]) },
+            true,
+            const { &SyntaxSet::EMPTY },
+            true,
+        ) {
+            hint_ref_ids.insert(reference.id());
+        }
+    }
+
+    hint_ref_ids
+}
+
+fn get_object_references_excluding(
+    segment: &ErasedSegment,
+    exclude_ids: Option<&HashSet<u32>>,
+) -> Vec<ObjectReferenceSegment> {
+    segment
+        .recursive_crawl(
+            const {
+                &SyntaxSet::new(&[
+                    SyntaxKind::ObjectReference,
+                    SyntaxKind::ColumnReference,
+                    SyntaxKind::WildcardIdentifier,
+                ])
+            },
+            true,
+            const { &SyntaxSet::new(&[SyntaxKind::SelectStatement, SyntaxKind::MergeStatement]) },
             true,
         )
         .into_iter()
+        .filter(|segment| exclude_ids.is_none_or(|ids| !ids.contains(&segment.id())))
         .map(|seg| seg.reference())
         .collect()
+}
+
+pub fn get_object_references(segment: &ErasedSegment) -> Vec<ObjectReferenceSegment> {
+    get_object_references_excluding(segment, None)
 }
 
 pub fn get_select_statement_info(
@@ -48,7 +189,10 @@ pub fn get_select_statement_info(
     }
 
     let sc = segment.child(const { &SyntaxSet::new(&[SyntaxKind::SelectClause]) })?;
-    let mut reference_buffer = get_object_references(&sc);
+    let mut exclude_ref_ids = get_struct_alias_refs(&sc);
+    exclude_ref_ids.extend(get_select_except_refs(&sc));
+    exclude_ref_ids.extend(get_hint_refs(&sc));
+    let mut reference_buffer = get_object_references_excluding(&sc, Some(&exclude_ref_ids));
     let mut table_reference_buffer = Vec::new();
     for potential_clause in [
         SyntaxKind::WhereClause,
@@ -161,8 +305,9 @@ pub fn get_aliases_from_select(
     };
 
     let mut standalone_aliases = Vec::new();
-    standalone_aliases.extend(get_pivot_table_columns(segment, dialect));
+    standalone_aliases.extend(get_pivot_table_aliases(segment, dialect));
     standalone_aliases.extend(get_lambda_argument_columns(segment, dialect));
+    standalone_aliases.extend(get_unpivot_table_aliases(segment, dialect));
 
     let mut table_aliases = Vec::new();
     for (table_expr, alias_info) in aliases {
@@ -186,7 +331,7 @@ fn has_value_table_function(table_expr: ErasedSegment, dialect: Option<&Dialect>
     for function_name in table_expr.recursive_crawl(
         const { &SyntaxSet::new(&[SyntaxKind::FunctionName]) },
         true,
-        &SyntaxSet::EMPTY,
+        const { &SyntaxSet::new(&[SyntaxKind::SelectStatement]) },
         true,
     ) {
         if dialect
@@ -200,35 +345,121 @@ fn has_value_table_function(table_expr: ErasedSegment, dialect: Option<&Dialect>
     false
 }
 
-fn get_pivot_table_columns(segment: &ErasedSegment, dialect: Option<&Dialect>) -> Vec<SmolStr> {
+fn get_pivot_table_aliases(segment: &ErasedSegment, dialect: Option<&Dialect>) -> Vec<SmolStr> {
     let Some(_dialect) = dialect else {
         return Vec::new();
     };
 
-    let fc = segment.recursive_crawl(
+    let mut aliases = Vec::new();
+    for pivot in segment.recursive_crawl(
         const { &SyntaxSet::new(&[SyntaxKind::FromPivotExpression]) },
         true,
         &SyntaxSet::EMPTY,
         true,
-    );
-    if !fc.is_empty() {
-        return Vec::new();
+    ) {
+        for alias in
+            pivot.recursive_crawl(
+                const {
+                    &SyntaxSet::new(&[SyntaxKind::PivotColumnReference, SyntaxKind::TableReference])
+                },
+                true,
+                &SyntaxSet::EMPTY,
+                true,
+            )
+        {
+            // Standalone aliases are strings here, so preserve both spellings
+            // before discarding the segment used to normalize quoted identifiers.
+            for name in [alias.raw().clone(), alias.raw_normalized()] {
+                if !aliases.contains(&name) {
+                    aliases.push(name);
+                }
+            }
+        }
     }
 
-    let mut pivot_table_column_aliases = Vec::new();
-    for pivot_table_column_alias in segment.recursive_crawl(
-        const { &SyntaxSet::new(&[SyntaxKind::PivotColumnReference]) },
+    aliases
+}
+
+fn push_standalone_alias(aliases: &mut Vec<SmolStr>, alias: &ErasedSegment) {
+    // Standalone aliases are strings here, so preserve both spellings before
+    // discarding the segment used to normalize quoted identifiers.
+    for name in [alias.raw().clone(), alias.raw_normalized()] {
+        if !aliases.contains(&name) {
+            aliases.push(name);
+        }
+    }
+}
+
+fn get_unpivot_table_aliases(segment: &ErasedSegment, dialect: Option<&Dialect>) -> Vec<SmolStr> {
+    let Some(_dialect) = dialect else {
+        return Vec::new();
+    };
+
+    let mut aliases = Vec::new();
+
+    // Redshift SUPER object unpivoting and array unnesting introduce output
+    // aliases immediately after their AS and AT keywords.
+    for unpivot in segment.recursive_crawl(
+        const { &SyntaxSet::new(&[SyntaxKind::ObjectUnpivoting, SyntaxKind::ArrayUnnesting]) },
         true,
         &SyntaxSet::EMPTY,
         true,
     ) {
-        let raw = pivot_table_column_alias.raw().clone();
-        if !pivot_table_column_aliases.contains(&raw) {
-            pivot_table_column_aliases.push(raw);
+        let mut seen_keyword = false;
+        for child in unpivot.segments() {
+            if child.is_keyword("AS") || child.is_keyword("AT") {
+                seen_keyword = true;
+            } else if seen_keyword
+                && !matches!(
+                    child.get_type(),
+                    SyntaxKind::Whitespace
+                        | SyntaxKind::Newline
+                        | SyntaxKind::Indent
+                        | SyntaxKind::Dedent
+                )
+            {
+                push_standalone_alias(&mut aliases, child);
+                seen_keyword = false;
+            }
         }
     }
 
-    pivot_table_column_aliases
+    // Standard UNPIVOT expressions introduce value and key columns before the
+    // IN clause: UNPIVOT (value_column FOR key_column IN (...)).
+    for unpivot in segment.recursive_crawl(
+        const { &SyntaxSet::single(SyntaxKind::FromUnpivotExpression) },
+        true,
+        &SyntaxSet::EMPTY,
+        true,
+    ) {
+        let Some(bracketed) = unpivot.child(const { &SyntaxSet::single(SyntaxKind::Bracketed) })
+        else {
+            continue;
+        };
+
+        for child in bracketed.segments() {
+            if child.is_keyword("IN") {
+                break;
+            }
+
+            if !matches!(
+                child.get_type(),
+                SyntaxKind::Whitespace
+                    | SyntaxKind::Newline
+                    | SyntaxKind::Indent
+                    | SyntaxKind::Dedent
+                    | SyntaxKind::StartBracket
+                    | SyntaxKind::EndBracket
+                    | SyntaxKind::Bracketed
+                    | SyntaxKind::Keyword
+                    | SyntaxKind::Comma
+            ) {
+                push_standalone_alias(&mut aliases, child);
+            }
+        }
+    }
+
+    aliases
 }
 
 fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect>) -> Vec<SmolStr> {
@@ -236,20 +467,28 @@ fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect
         return Vec::new();
     };
 
-    if !matches!(dialect.name, DialectKind::Athena | DialectKind::Sparksql) {
+    if !matches!(
+        dialect.name,
+        DialectKind::Athena
+            | DialectKind::Sparksql
+            | DialectKind::Duckdb
+            | DialectKind::Trino
+            | DialectKind::Databricks
+            | DialectKind::Snowflake
+    ) {
         return Vec::new();
     }
 
     let mut lambda_argument_columns = Vec::new();
     for potential_lambda in segment.recursive_crawl(
-        const { &SyntaxSet::single(SyntaxKind::Expression) },
+        const { &SyntaxSet::new(&[SyntaxKind::Expression, SyntaxKind::LambdaFunction]) },
         true,
         &SyntaxSet::EMPTY,
         true,
     ) {
-        let Some(potential_arrow) =
-            potential_lambda.child(&SyntaxSet::single(SyntaxKind::BinaryOperator))
-        else {
+        let Some(potential_arrow) = potential_lambda.child(
+            const { &SyntaxSet::new(&[SyntaxKind::BinaryOperator, SyntaxKind::LambdaArrow]) },
+        ) else {
             continue;
         };
 
@@ -262,7 +501,7 @@ fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect
                 .filter(|it| {
                     matches!(
                         it.get_type(),
-                        SyntaxKind::Bracketed | SyntaxKind::ColumnReference
+                        SyntaxKind::Bracketed | SyntaxKind::ColumnReference | SyntaxKind::Parameter
                     )
                 })
                 .collect_vec();
@@ -277,8 +516,14 @@ fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect
                         .unwrap();
 
                     if start_bracket.raw() == "(" {
-                        let bracketed_arguments = child_segment
-                            .children(const { &SyntaxSet::single(SyntaxKind::ColumnReference) });
+                        let bracketed_arguments = child_segment.children(
+                            const {
+                                &SyntaxSet::new(&[
+                                    SyntaxKind::ColumnReference,
+                                    SyntaxKind::Parameter,
+                                ])
+                            },
+                        );
 
                         lambda_argument_columns.extend(
                             bracketed_arguments
@@ -287,7 +532,7 @@ fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect
                         )
                     }
                 }
-                SyntaxKind::ColumnReference => {
+                SyntaxKind::ColumnReference | SyntaxKind::Parameter => {
                     lambda_argument_columns.push(child_segment.raw().to_smolstr())
                 }
                 _ => {}

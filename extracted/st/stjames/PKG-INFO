@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stjames
-Version: 0.0.279
+Version: 0.0.280
 Summary: structured JSON atom/molecule encoding scheme
 Project-URL: Homepage, https://github.com/rowansci/stjames
 Project-URL: Bug Tracker, https://github.com/rowansci/stjames/issues
@@ -24,7 +24,7 @@ Dynamic: license-file
 
 ## STructured JSON Atom/Molecule Encoding Scheme
 
-<img src='img/james_icon.jpg' width=350>
+<img src='https://raw.githubusercontent.com/rowansci/stjames-public/master/img/james_icon.jpg' width=350>
 
 This is the Rowan schema for passing molecule/calculation data back and forth between different parts of the software.
 

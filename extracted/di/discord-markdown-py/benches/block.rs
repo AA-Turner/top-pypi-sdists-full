@@ -1,58 +1,39 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use discord_markdown::Options;
+use gungraun::prelude::*;
 use nom::error::Error;
 use std::fs;
+use std::hint::black_box;
 
-pub fn bench_parse(c: &mut Criterion) {
-	// let text = "_foo t_a **bat** <a:abcd:1234><t:1234><@1234> butt_";
-	// let text = "_foo t_a **bat** <a:abcd:1234><t:1234><@1234> butt_ _foo t_a **bat** <a:abcd:1234><t:1234><@1234> butt_ _foo t_a **bat** <a:abcd:1234><t:1234><@1234> butt_ _foo t_a **bat** <a:abcd:1234><t:1234><@1234> butt_ _foo t_a **bat** <a:abcd:1234><t:1234><@1234> butt_";
-	let djs_announcement =
-		fs::read_to_string("./test_content/discordjs_announcement/content.md").unwrap();
-
-	let helldivers_announcement =
-		fs::read_to_string("test_content/helldivers_announcement/content.md").unwrap();
-
-	let ddevs_announcement =
-		fs::read_to_string("test_content/ddevs_announcement/content.md").unwrap();
-
-	c.bench_with_input(
-		BenchmarkId::new("parser::parse", "discordjs announcement"),
-		&djs_announcement,
-		|b, text| {
-			b.iter(|| discord_markdown::parse::<(), Error<_>>(&**text, Options::default()));
-		},
-	);
-
-	c.bench_with_input(
-		BenchmarkId::new("parser::parse", "helldivers announcement"),
-		&helldivers_announcement,
-		|b, text| b.iter(|| discord_markdown::parse::<(), Error<_>>(&**text, Options::default())),
-	);
-
-	c.bench_with_input(
-		BenchmarkId::new("parser::parse", "ddevs announcement"),
-		&ddevs_announcement,
-		|b, text| b.iter(|| discord_markdown::parse::<(), Error<_>>(&**text, Options::default())),
-	);
-
-	let opens = ["(", "<", "[", "{", "~~", "_", "__", "*", "**", "<", "<:"];
-	let closes = [")", ">", "]", "}", "~~", "_", "__", "*", "**", ":/", ":>"];
-	for (i, open_c) in opens.iter().enumerate() {
-		let close_c = closes[i];
-		let open_s = open_c.repeat(1_000);
-		let close_s = close_c.repeat(1_000);
-		let s = open_s + "x" + &close_s;
-		c.bench_with_input(
-			BenchmarkId::new("parser::parse", format!("{}{}", open_c, close_c)),
-			&s,
-			|b, text| {
-				b.iter(|| {
-					discord_markdown::parse::<(), Error<_>>(text.as_str(), Options::default())
-				})
-			},
-		);
-	}
+fn corpus(name: &str) -> String {
+	fs::read_to_string(format!("test_content/{name}/content.md")).unwrap()
 }
 
-criterion_group!(benches, bench_parse);
-criterion_main!(benches);
+/// 1,000 opens, an `x`, then 1,000 closes.
+fn nested(open: &str, close: &str) -> String {
+	open.repeat(1_000) + "x" + &close.repeat(1_000)
+}
+
+#[library_benchmark]
+#[bench::discordjs_announcement(args = ("discordjs_announcement"), setup = corpus)]
+#[bench::helldivers_announcement(args = ("helldivers_announcement"), setup = corpus)]
+#[bench::ddevs_announcement(args = ("ddevs_announcement"), setup = corpus)]
+#[bench::paren(args = ("(", ")"), setup = nested)]
+#[bench::angle(args = ("<", ">"), setup = nested)]
+#[bench::bracket(args = ("[", "]"), setup = nested)]
+#[bench::brace(args = ("{", "}"), setup = nested)]
+#[bench::strikethrough(args = ("~~", "~~"), setup = nested)]
+#[bench::underscore(args = ("_", "_"), setup = nested)]
+#[bench::underline(args = ("__", "__"), setup = nested)]
+#[bench::italic(args = ("*", "*"), setup = nested)]
+#[bench::bold(args = ("**", "**"), setup = nested)]
+#[bench::angle_url(args = ("<", ":/"), setup = nested)]
+#[bench::angle_emoji(args = ("<:", ":>"), setup = nested)]
+fn parse(text: String) {
+	let _ = black_box(discord_markdown::parse::<(), Error<_>>(
+		black_box(text.as_str()),
+		Options::default(),
+	));
+}
+
+library_benchmark_group!(name = parser, benchmarks = parse);
+main!(library_benchmark_groups = parser);

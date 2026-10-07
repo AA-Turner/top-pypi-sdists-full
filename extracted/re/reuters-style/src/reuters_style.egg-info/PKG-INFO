@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: reuters-style
+Version: 1.0.0
+Summary: Reuters editorial formatting and Graphics chart colours
+Author-email: Ben Welsh <b@palewi.re>
+License-Expression: MIT
+Project-URL: Documentation, https://palewi.re/docs/reuters-style/
+Project-URL: Source, https://github.com/palewire/reuters-style
+Project-URL: Issues, https://github.com/palewire/reuters-style/issues
+Keywords: reuters,journalism,style,dates,slugs,charts,colours
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# reuters-style
+
+A Python library for Reuters editorial formatting and Graphics chart colours.
+The current development setup supports Python 3.11 through 3.14.
+
+- [Documentation](https://palewi.re/docs/reuters-style/)
+- [Source code](https://github.com/palewire/reuters-style)
+- [Issues](https://github.com/palewire/reuters-style/issues)
+- [PyPI](https://pypi.org/project/reuters-style/)
+
+## Install
+
+```sh
+pip install reuters-style
+```
+
+## Develop
+
+This project uses uv, Ruff, ty, pytest and Sphinx. Run `make bootstrap` to
+install the locked dependencies, `make check` for fast checks and `make verify`
+for tests, packaging and documentation.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more information and
+[RELEASING.md](RELEASING.md) for the release checklist.
+
+The [Graphics colours reference](docs/colors.md) shows the named palettes and
+their use in Python.

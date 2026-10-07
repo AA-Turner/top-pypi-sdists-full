@@ -4,13 +4,16 @@ use sqruff_lib_core::dialects::Dialect;
 use sqruff_lib_core::dialects::init::{DialectConfig, DialectKind};
 use sqruff_lib_core::dialects::syntax::SyntaxKind;
 use sqruff_lib_core::helpers::{Config, ToMatchable};
-use sqruff_lib_core::parser::grammar::anyof::{AnyNumberOf, one_of, optionally_bracketed};
+use sqruff_lib_core::parser::grammar::anyof::{
+    AnyNumberOf, any_set_of, one_of, optionally_bracketed,
+};
 use sqruff_lib_core::parser::grammar::delimited::Delimited;
 use sqruff_lib_core::parser::grammar::sequence::{Bracketed, Sequence};
 use sqruff_lib_core::parser::grammar::{Anything, Ref};
 use sqruff_lib_core::parser::lexer::Matcher;
 use sqruff_lib_core::parser::matchable::{Matchable, MatchableTrait};
 use sqruff_lib_core::parser::node_matcher::NodeMatcher;
+use sqruff_lib_core::parser::parsers::StringParser;
 use sqruff_lib_core::parser::segments::meta::MetaSegment;
 use sqruff_lib_core::parser::types::{DialectElementType, ParseMode};
 use sqruff_lib_core::value::Value;
@@ -60,24 +63,28 @@ pub fn raw_dialect() -> Dialect {
     let mut dialect = ansi::raw_dialect();
     dialect.name = DialectKind::Teradata;
 
-    dialect.patch_lexer_matchers(vec![Matcher::regex(
+    // Accept scientific notation and leading-dot decimals as single tokens,
+    // while retaining trailing-dot literals such as 1.
+    dialect.patch_lexer_matchers(vec![Matcher::legacy(
         "numeric_literal",
-        r"([0-9]+(\.[0-9]*)?)",
+        |s| s.starts_with(|ch: char| ch.is_ascii_digit() || ch == '.'),
+        r"(?>\d+\.\d+|\d+\.(?![\.\w])|\.\d+|\d+)(\.?[eE][+-]?\d+)?((?<=\.)|(?=\b))",
         SyntaxKind::NumericLiteral,
     )]);
 
     dialect.sets_mut("unreserved_keywords").remove("UNION");
     dialect.sets_mut("unreserved_keywords").remove("TIMESTAMP");
+    dialect.sets_mut("unreserved_keywords").remove("LOCKING");
+    dialect.sets_mut("unreserved_keywords").remove("REPLACE");
     dialect.sets_mut("unreserved_keywords").extend([
         "AUTOINCREMENT",
         "ACTIVITYCOUNT",
-        "CASESPECIFIC",
-        "CS",
         "DAYS",
         "DEL",
         "DUAL",
         "EQ",
         "ERRORCODE",
+        "EXCL",
         "EXPORT",
         "FALLBACK",
         "FORMAT",
@@ -98,6 +105,7 @@ pub fn raw_dialect() -> Dialect {
         "MERGEBLOCKRATIO",
         "NONE",
         "NE",
+        "OVERRIDE",
         "PERCENT",
         "PROFILE",
         "PROTECTION",
@@ -112,12 +120,17 @@ pub fn raw_dialect() -> Dialect {
         "STATISTICS",
         "SUMMARY",
         "THRESHOLD",
+    ]);
+    dialect.sets_mut("reserved_keywords").extend([
+        "LOCKING",
+        "UNION",
+        "REPLACE",
+        "TIMESTAMP",
+        "CASESPECIFIC",
+        "CS",
         "UC",
         "UPPERCASE",
     ]);
-    dialect
-        .sets_mut("reserved_keywords")
-        .extend(["UNION", "TIMESTAMP"]);
     dialect.sets_mut("bare_functions").insert("DATE");
 
     add_operators(&mut dialect);
@@ -138,6 +151,12 @@ fn add_operators(dialect: &mut Dialect) {
         dialect.add([(name.into(), kw(keyword).into())]);
     }
     dialect.add([
+        (
+            "OverlapsOperatorSegment".into(),
+            StringParser::new("OVERLAPS", SyntaxKind::ComparisonOperator)
+                .to_matchable()
+                .into(),
+        ),
         (
             "NotEqualToSegment_b".into(),
             NodeMatcher::new(SyntaxKind::ComparisonOperator, |_| {
@@ -180,6 +199,7 @@ fn add_operators(dialect: &mut Dialect) {
             Ref::new("NotEqualToSegment_b").to_matchable(),
             Ref::new("NotEqualToSegment_c").to_matchable(),
             Ref::new("LikeOperatorSegment").to_matchable(),
+            Ref::new("OverlapsOperatorSegment").to_matchable(),
             Sequence::new(vec![kw("IS"), kw("DISTINCT"), kw("FROM")]).to_matchable(),
             Sequence::new(vec![kw("IS"), kw("NOT"), kw("DISTINCT"), kw("FROM")]).to_matchable(),
         ])
@@ -189,6 +209,23 @@ fn add_operators(dialect: &mut Dialect) {
 
 fn add_segments(dialect: &mut Dialect) {
     dialect.add([
+        (
+            "BteqFilePathSegment".into(),
+            NodeMatcher::new(SyntaxKind::BteqFilePath, |_| {
+                AnyNumberOf::new(vec![
+                    Ref::new("SingleIdentifierGrammar").to_matchable(),
+                    Ref::new("DotSegment").to_matchable(),
+                    Ref::new("SlashSegment").to_matchable(),
+                ])
+                .config(|this| {
+                    this.min_times(1);
+                    this.disallow_gaps();
+                })
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
         (
             "BteqKeyWordSegment".into(),
             NodeMatcher::new(SyntaxKind::BteqKeyWordSegment, |_| {
@@ -230,6 +267,16 @@ fn add_segments(dialect: &mut Dialect) {
                     Ref::new("BteqKeyWordSegment").to_matchable(),
                     AnyNumberOf::new(vec![
                         Ref::new("BteqKeyWordSegment").to_matchable(),
+                        Sequence::new(vec![
+                            kw("FILE"),
+                            Ref::new("EqualsSegment").to_matchable(),
+                            one_of(vec![
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                                Ref::new("BteqFilePathSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
                         optional_sequence(vec![
                             Ref::new("ComparisonOperatorGrammar").to_matchable(),
                             Ref::new("LiteralGrammar").to_matchable(),
@@ -338,7 +385,16 @@ fn add_segments(dialect: &mut Dialect) {
         (
             "TeradataCastSegment".into(),
             NodeMatcher::new(SyntaxKind::CastExpression, |_| {
-                Bracketed::new(vec![Ref::new("DatatypeSegment").to_matchable()]).to_matchable()
+                Bracketed::new(vec![
+                    Ref::new("DatatypeSegment").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::new("CommaSegment").to_matchable(),
+                        Ref::new("CharCharacterSetGrammar").to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
+                ])
+                .to_matchable()
             })
             .to_matchable()
             .into(),
@@ -367,10 +423,54 @@ fn add_segments(dialect: &mut Dialect) {
             NodeMatcher::new(SyntaxKind::QualifyClause, |_| {
                 Sequence::new(vec![
                     kw("QUALIFY"),
-                    MetaSegment::indent().to_matchable(),
+                    MetaSegment::implicit_indent().to_matchable(),
                     optionally_bracketed(vec![Ref::new("ExpressionSegment").to_matchable()])
                         .to_matchable(),
                     MetaSegment::dedent().to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "LockingClauseSegment".into(),
+            NodeMatcher::new(SyntaxKind::LockingClause, |_| {
+                Sequence::new(vec![
+                    one_of(vec![kw("LOCKING"), kw("LOCK")]).to_matchable(),
+                    one_of(vec![
+                        kw("ROW"),
+                        Sequence::new(vec![
+                            kw("TABLE"),
+                            Ref::new("ObjectReferenceSegment").optional().to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            kw("VIEW"),
+                            Ref::new("ObjectReferenceSegment").optional().to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            kw("DATABASE"),
+                            Ref::new("ObjectReferenceSegment").optional().to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    one_of(vec![kw("FOR"), kw("IN")]).to_matchable(),
+                    one_of(vec![
+                        kw("ACCESS"),
+                        kw("WRITE"),
+                        kw("EXCLUSIVE"),
+                        kw("EXCL"),
+                        Sequence::new(vec![kw("READ"), kw("OVERRIDE").optional()]).to_matchable(),
+                        kw("SHARE"),
+                        kw("CHECKSUM"),
+                        Sequence::new(vec![kw("LOAD"), kw("COMMITTED")]).to_matchable(),
+                    ])
+                    .to_matchable(),
+                    kw("MODE").optional(),
+                    kw("NOWAIT").optional(),
                 ])
                 .to_matchable()
             })
@@ -473,6 +573,24 @@ fn collect_statistics_segment() -> DialectElementType {
             kw("ON"),
             kw("TEMPORARY").optional(),
             Ref::new("TableReferenceSegment").to_matchable(),
+            optional_sequence(vec![
+                kw("COLUMN"),
+                optionally_bracketed(vec![
+                    Delimited::new(vec![
+                        one_of(vec![
+                            Ref::new("ColumnReferenceSegment").to_matchable(),
+                            kw("PARTITION"),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                optional_sequence(vec![
+                    kw("AS").optional(),
+                    Ref::new("ObjectReferenceSegment").to_matchable(),
+                ]),
+            ]),
         ])
         .to_matchable()
     })
@@ -578,33 +696,17 @@ fn comment_segment() -> DialectElementType {
 
 fn column_constraint_segment() -> DialectElementType {
     NodeMatcher::new(SyntaxKind::TdColumnAttributeConstraint, |_| {
-        one_of(vec![
-            Sequence::new(vec![
-                kw("CHARACTER"),
-                kw("SET"),
-                Ref::new("SingleIdentifierGrammar").to_matchable(),
-            ])
-            .to_matchable(),
-            Sequence::new(vec![
-                kw("NOT").optional(),
-                one_of(vec![kw("CASESPECIFIC"), kw("CS")]).to_matchable(),
-            ])
-            .to_matchable(),
-            one_of(vec![kw("UPPERCASE"), kw("UC")]).to_matchable(),
-            Sequence::new(vec![
-                kw("COMPRESS"),
-                one_of(vec![
-                    Bracketed::new(vec![
-                        Delimited::new(vec![Ref::new("LiteralGrammar").to_matchable()])
-                            .to_matchable(),
-                    ])
-                    .to_matchable(),
-                    Ref::new("LiteralGrammar").to_matchable(),
-                    kw("NULL"),
+        Sequence::new(vec![
+            kw("COMPRESS"),
+            one_of(vec![
+                Bracketed::new(vec![
+                    Delimited::new(vec![Ref::new("LiteralGrammar").to_matchable()]).to_matchable(),
                 ])
-                .config(|this| this.optional())
                 .to_matchable(),
+                Ref::new("LiteralGrammar").to_matchable(),
+                kw("NULL"),
             ])
+            .config(|this| this.optional())
             .to_matchable(),
         ])
         .to_matchable()
@@ -656,6 +758,12 @@ fn create_table_options() -> DialectElementType {
                         Ref::new("EqualsSegment").to_matchable(),
                         Ref::new("NumericLiteralSegment").to_matchable(),
                         kw("PERCENT").optional(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        kw("MAP"),
+                        Ref::new("EqualsSegment").to_matchable(),
+                        Ref::new("ObjectReferenceSegment").to_matchable(),
                     ])
                     .to_matchable(),
                 ])
@@ -784,6 +892,29 @@ fn query_band_segment() -> DialectElementType {
 }
 
 fn replace_core_grammars(dialect: &mut Dialect) {
+    dialect.replace_grammar(
+        "CharCharacterSetGrammar",
+        one_of(vec![
+            Sequence::new(vec![
+                kw("CHARACTER"),
+                kw("SET"),
+                Ref::new("SingleIdentifierGrammar").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                kw("NOT").optional(),
+                one_of(vec![kw("CASESPECIFIC"), kw("CS")]).to_matchable(),
+            ])
+            .to_matchable(),
+            one_of(vec![kw("UPPERCASE"), kw("UC")]).to_matchable(),
+        ])
+        .to_matchable(),
+    );
+    // Teradata character attributes can follow expressions like COLLATE.
+    dialect.replace_grammar(
+        "CollateGrammar",
+        Bracketed::new(vec![Ref::new("CharCharacterSetGrammar").to_matchable()]).to_matchable(),
+    );
     let from_clause_terminator = dialect.grammar("FromClauseTerminatorGrammar");
     dialect.replace_grammar(
         "FromClauseTerminatorGrammar",
@@ -816,6 +947,22 @@ fn replace_core_grammars(dialect: &mut Dialect) {
                     kw("FORMAT"),
                     Ref::new("QuotedLiteralSegment").to_matchable(),
                 ]),
+                // Each character attribute may appear once, in any order.
+                any_set_of(vec![
+                    Sequence::new(vec![
+                        kw("CHARACTER"),
+                        kw("SET"),
+                        Ref::new("SingleIdentifierGrammar").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        kw("NOT").optional(),
+                        one_of(vec![kw("CASESPECIFIC"), kw("CS")]).to_matchable(),
+                    ])
+                    .to_matchable(),
+                    one_of(vec![kw("UPPERCASE"), kw("UC")]).to_matchable(),
+                ])
+                .to_matchable(),
             ])
             .to_matchable()
         })
@@ -857,6 +1004,24 @@ fn replace_core_grammars(dialect: &mut Dialect) {
     );
     dialect.replace_grammar("CreateTableStatementSegment", create_table_statement());
     dialect.replace_grammar(
+        "CreateViewStatementSegment",
+        Sequence::new(vec![
+            one_of(vec![kw("CREATE"), kw("REPLACE")]).to_matchable(),
+            kw("VIEW"),
+            Ref::new("IfNotExistsGrammar").optional().to_matchable(),
+            Ref::new("TableReferenceSegment").to_matchable(),
+            Ref::new("BracketedColumnReferenceListGrammar")
+                .optional()
+                .to_matchable(),
+            kw("AS"),
+            optionally_bracketed(vec![Ref::new("SelectableGrammar").to_matchable()]).to_matchable(),
+            Ref::new("WithNoSchemaBindingClauseSegment")
+                .optional()
+                .to_matchable(),
+        ])
+        .to_matchable(),
+    );
+    dialect.replace_grammar(
         "DeleteStatementSegment",
         Sequence::new(vec![
             one_of(vec![kw("DELETE"), kw("DEL")]).to_matchable(),
@@ -882,6 +1047,7 @@ fn replace_core_grammars(dialect: &mut Dialect) {
             Delimited::new(vec![Ref::new("SelectClauseElementSegment").to_matchable()])
                 .config(|this| this.allow_trailing())
                 .to_matchable(),
+            MetaSegment::dedent().to_matchable(),
         ])
         .terminators(vec![
             kw("FROM"),
@@ -897,14 +1063,41 @@ fn replace_core_grammars(dialect: &mut Dialect) {
         "SelectClauseModifierSegment",
         NodeMatcher::new(SyntaxKind::SelectClauseModifier, |_| select_modifier()).to_matchable(),
     );
+    let select_statement_with_qualify = ansi::select_statement().copy(
+        Some(vec![
+            Ref::new("QualifyClauseSegment").optional().to_matchable(),
+        ]),
+        None,
+        Some(Ref::new("OrderByClauseSegment").optional().to_matchable()),
+        None,
+        Vec::new(),
+        false,
+    );
     dialect.replace_grammar(
         "SelectStatementSegment",
-        ansi::select_statement().copy(
+        select_statement_with_qualify.copy(
             Some(vec![
-                Ref::new("QualifyClauseSegment").optional().to_matchable(),
+                Ref::new("LockingClauseSegment").optional().to_matchable(),
             ]),
             None,
-            Some(Ref::new("OrderByClauseSegment").optional().to_matchable()),
+            Some(Ref::new("SelectClauseSegment").to_matchable()),
+            None,
+            Vec::new(),
+            false,
+        ),
+    );
+    let with_compound_statement = dialect
+        .grammar("WithCompoundStatementSegment")
+        .match_grammar(dialect)
+        .unwrap();
+    dialect.replace_grammar(
+        "WithCompoundStatementSegment",
+        with_compound_statement.copy(
+            Some(vec![
+                Ref::new("LockingClauseSegment").optional().to_matchable(),
+            ]),
+            Some(0),
+            None,
             None,
             Vec::new(),
             false,
@@ -950,12 +1143,13 @@ fn create_table_statement() -> Matchable {
         Sequence::new(vec![
             kw("CREATE"),
             optional_sequence(vec![kw("OR"), kw("REPLACE")]),
-            one_of(vec![kw("SET"), kw("MULTISET")])
-                .config(|this| this.optional())
+            any_set_of(vec![
+                one_of(vec![kw("SET"), kw("MULTISET")]).to_matchable(),
+                one_of(vec![
+                    Sequence::new(vec![kw("GLOBAL"), kw("TEMPORARY")]).to_matchable(),
+                    kw("VOLATILE"),
+                ])
                 .to_matchable(),
-            one_of(vec![
-                Sequence::new(vec![kw("GLOBAL"), kw("TEMPORARY")]).to_matchable(),
-                kw("VOLATILE"),
             ])
             .config(|this| this.optional())
             .to_matchable(),
@@ -999,6 +1193,7 @@ fn update_statement() -> Matchable {
     NodeMatcher::new(SyntaxKind::UpdateStatement, |_| {
         Sequence::new(vec![
             kw("UPDATE"),
+            MetaSegment::indent().to_matchable(),
             one_of(vec![
                 Ref::new("TableReferenceSegment").to_matchable(),
                 Ref::new("FromUpdateClauseSegment").to_matchable(),
@@ -1009,6 +1204,7 @@ fn update_statement() -> Matchable {
                 .to_matchable(),
             ])
             .to_matchable(),
+            MetaSegment::dedent().to_matchable(),
             Ref::new("SetClauseListSegment").to_matchable(),
             Ref::new("WhereClauseSegment").optional().to_matchable(),
         ])

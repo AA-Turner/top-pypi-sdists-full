@@ -95,7 +95,10 @@ class TransferResponse(BaseObject):
         :param value: status модели TransferResponse.
         :type value: str
         """
-        self.__status = str(value)
+        value = str(value)
+        if value not in {getattr(TransferStatus, _n) for _n in dir(TransferStatus) if not _n.startswith('_')}:
+            value = TransferStatus.UNKNOWN
+        self.__status = value
 
     @property
     def platform_fee_amount(self):
@@ -220,3 +223,5 @@ class TransferStatus(object):
     """Успешно оплачен и получен магазином."""
     CANCELED = 'canceled'
     """Неуспех оплаты или отменен магазином (cancel)."""
+    UNKNOWN = 'unknown'
+    """Неизвестный статус распределения денег."""

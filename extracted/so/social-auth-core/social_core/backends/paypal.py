@@ -10,6 +10,7 @@ class PayPalOAuth2(BaseOAuth2):
     """
 
     name = "paypal-oauth2"
+    title = "PayPal"
     ID_KEY = "user_id"
     AUTHORIZATION_URL = "https://www.paypal.com/connect"
     ACCESS_TOKEN_URL = "https://api.paypal.com/v1/oauth2/token"
@@ -19,6 +20,7 @@ class PayPalOAuth2(BaseOAuth2):
     DEFAULT_SCOPE = ["openid", "profile"]
     REFRESH_TOKEN_METHOD = "POST"
     REDIRECT_STATE = False
+    EXTRA_DATA = [("refresh_token", "refresh_token", True)]
 
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         auth_header = {"Authorization": f"Bearer {access_token}"}
@@ -26,11 +28,9 @@ class PayPalOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         username = response.get(self.id_key()).split("/")[-1]
-        fullname, first_name, last_name = self.get_user_names(
-            response.get("name", ""),
-            response.get("given_name", ""),
-            response.get("family_name", ""),
-        )
+        fullname = response.get("name", "")
+        first_name = response.get("given_name", "")
+        last_name = response.get("family_name", "")
         emails = response.get("emails", [])
         email = self.get_email(emails)
         return {
@@ -64,6 +64,7 @@ class PayPalOAuth2(BaseOAuth2):
 
 class PayPalOAuth2Sandbox(PayPalOAuth2):
     name = "paypal-oauth2-sandbox"
+    title = "PayPal (Sandbox)"
     AUTHORIZATION_URL = "https://www.sandbox.paypal.com/connect"
     ACCESS_TOKEN_URL = "https://api.sandbox.paypal.com/v1/oauth2/token"
     USER_DATA_URL = (

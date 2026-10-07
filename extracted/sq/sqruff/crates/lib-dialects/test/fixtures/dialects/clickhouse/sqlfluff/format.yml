@@ -32,7 +32,8 @@ file:
       - select_clause_element:
         - numeric_literal: '1'
         - alias_expression:
-          - keyword: as
+          - alias_operator:
+            - keyword: as
           - naked_identifier: test
     - keyword: FORMAT
     - word: CSV
@@ -86,9 +87,10 @@ file:
         - quoted_literal: '''1'''
     - keyword: FORMAT
     - word: CSV
-    - keyword: SETTINGS
-    - naked_identifier: format_csv_delimiter
-    - comparison_operator:
-      - raw_comparison_operator: =
-    - quoted_literal: ''','''
+    - settings_clause:
+      - keyword: SETTINGS
+      - naked_identifier: format_csv_delimiter
+      - comparison_operator:
+        - raw_comparison_operator: =
+      - quoted_literal: ''','''
 - statement_terminator: ;

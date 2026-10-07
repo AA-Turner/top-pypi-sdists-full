@@ -900,6 +900,12 @@ def _citation_direction(value: object) -> str:
         raise ValueError(f"citation direction must be one of {allowed}; got {raw!r}") from None
 
 
+#: The agent a captured session belongs to when a caller names none: the
+#: harness that was first and is still the most common. Part of the session
+#: document's identity server-side, not a filter.
+DEFAULT_SESSION_SOURCE = "claude_code"
+
+
 class Client:
     #: True for a client whose queue is drained by hand on purpose -- the
     #: offline run's, which `probe sync` drains (plan 2.12) -- so the "no
@@ -9128,7 +9134,7 @@ class Client:
         well-formed id answers empty, as ``session_work`` does."""
         return self.transport.get(f"/v1/sessions/{session_id}/created")
 
-    def session_transcript(self, session_id: str, *, source: str = "claude_code") -> dict:
+    def session_transcript(self, session_id: str, *, source: str = DEFAULT_SESSION_SOURCE) -> dict:
         """``GET /v1/sessions/{id}/transcript`` — the complete normalized
         transcript captured for one session.
 
@@ -9141,6 +9147,58 @@ class Client:
         return self.transport.get(
             f"/v1/sessions/{session_id}/transcript", params={"source": source}
         )
+
+    def session_trajectory(
+        self,
+        session_id: str,
+        *,
+        source: str = DEFAULT_SESSION_SOURCE,
+        step_from: int = 1,
+        step_limit: int = 200,
+    ) -> dict:
+        """``GET /v1/sessions/{id}/trajectory`` — one page of the session as an
+        ATIF trajectory (Harbor's Agent Trajectory Interchange Format), written
+        when the session ends: ``{session_id, agent, total_steps, step_from,
+        next_step_from, trajectory}``. 404 with ``reason`` ``not_built`` means
+        there is none to serve (still running, or too large); read the transcript."""
+        return self.transport.get(
+            f"/v1/sessions/{session_id}/trajectory",
+            params={"source": source, "step_from": step_from, "step_limit": step_limit},
+        )
+
+    def export_session_trajectory(self, session_id: str, *, source: str = DEFAULT_SESSION_SOURCE) -> dict:
+        """The whole trajectory as one ATIF document: every page of
+        ``session_trajectory`` with the steps joined in order. Valid ATIF for
+        Harbor, Phoenix or Transluce. The trajectory never carries tool
+        arguments or tool output. Raises ``errors.ServerError`` when the pages
+        do not add up to the document (a cursor that stops early, or a
+        trajectory rewritten between pages), never a silently partial one."""
+        step_from = 1
+        document: dict | None = None
+        total: int | None = None
+        steps: list = []
+        while True:
+            page = self.session_trajectory(
+                session_id, source=source, step_from=step_from, step_limit=2000
+            )
+            trajectory = page["trajectory"]
+            if document is None:
+                document = {k: v for k, v in trajectory.items() if k != "steps"}
+                total = page.get("total_steps")
+            elif page.get("total_steps") != total:
+                raise errors.ServerError("the session's trajectory changed while it was read")
+            steps.extend(trajectory.get("steps") or [])
+            following = page.get("next_step_from")
+            if following is None:
+                break
+            if following <= step_from:
+                raise errors.ServerError(f"trajectory paging stopped at step {step_from}")
+            step_from = following
+        assert document is not None
+        if total is not None and len(steps) != total:
+            raise errors.ServerError(f"trajectory pages held {len(steps)} of {total} steps")
+        document["steps"] = steps
+        return document
 
     #: NO "trial". `PATCH /v1/trials/{id}` accepts the same notes writes and this
     #: client deliberately never sends them -- see `_NOTE_TARGETS` in the CLI for

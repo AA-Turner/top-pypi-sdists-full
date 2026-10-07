@@ -34,6 +34,7 @@ options:
     ini:
       - section: callback_splunk
         key: authtoken
+    secret: true
   validate_certs:
     description: Whether to validate certificates for connections to HEC. It is not recommended to set to V(false) except
       when you are sure that nobody can intercept the connection between this plugin and HEC, as setting it to V(false) allows
@@ -97,6 +98,7 @@ from ansible.plugins.callback import CallbackBase
 from ansible_collections.community.general.plugins.module_utils._datetime import (
     now,
 )
+from ansible_collections.community.general.plugins.module_utils._secrets import mask_secret_values
 
 
 class SplunkHTTPCollectorSource:
@@ -142,7 +144,7 @@ class SplunkHTTPCollectorSource:
         data["ansible_host"] = result._host.name
         data["ansible_playbook"] = self.ansible_playbook
         data["ansible_role"] = ansible_role
-        data["ansible_task"] = result._task_fields
+        data["ansible_task"] = mask_secret_values(result._task_fields)
         data["ansible_result"] = result._result
 
         # This wraps the json payload in and outer json event needed by Splunk

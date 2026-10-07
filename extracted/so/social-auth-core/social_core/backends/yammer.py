@@ -8,9 +8,16 @@ from .oauth import BaseOAuth2
 
 class YammerOAuth2(BaseOAuth2):
     name = "yammer"
+    title = "Microsoft Viva Engage"
     AUTHORIZATION_URL = "https://www.yammer.com/dialog/oauth"
     ACCESS_TOKEN_URL = "https://www.yammer.com/oauth2/access_token"
     EXTRA_DATA = [("id", "id"), ("expires", "expires"), ("mugshot_url", "mugshot_url")]
+
+    def get_access_token(self, response):
+        token = response.get("access_token")
+        if isinstance(token, dict):
+            return super().get_access_token({"access_token": token.get("token")})
+        return super().get_access_token(response)
 
     def get_user_id(self, details, response):
         return self.get_user_id_from_sources(
@@ -19,11 +26,9 @@ class YammerOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         username = response["user"]["name"]
-        fullname, first_name, last_name = self.get_user_names(
-            fullname=response["user"]["full_name"],
-            first_name=response["user"]["first_name"],
-            last_name=response["user"]["last_name"],
-        )
+        fullname = response["user"]["full_name"]
+        first_name = response["user"]["first_name"]
+        last_name = response["user"]["last_name"]
         email = response["user"]["contact"]["email_addresses"][0]["address"]
         mugshot_url = response["user"]["mugshot_url"]
         return {
@@ -38,6 +43,7 @@ class YammerOAuth2(BaseOAuth2):
 
 class YammerStagingOAuth2(YammerOAuth2):
     name = "yammer-staging"
+    title = "Microsoft Viva Engage (Staging)"
     AUTHORIZATION_URL = "https://www.staging.yammer.com/dialog/oauth"
     ACCESS_TOKEN_URL = "https://www.staging.yammer.com/oauth2/access_token"
     REQUEST_TOKEN_URL = "https://www.staging.yammer.com/oauth2/request_token"

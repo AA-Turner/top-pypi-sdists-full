@@ -681,7 +681,9 @@ def test_decide_outcome_table():
 # ---------------------------------------------------------------------------
 # 6. 取消 / 期限 / completion の再送・409 / 再起動
 # ---------------------------------------------------------------------------
-async def test_cancel_stops_agent_and_keeps_effects(tmp_path: Path):
+async def test_cancel_stops_agent_and_exits_0_when_front_refuses_the_completion(tmp_path: Path):
+    """取消の後は front が成果物も completion も 409 cancelled で拒む（executor が stopped で閉じる）。runner は停止として
+    終わり、保存できなかったことを失敗にしない（終了コード 0。指示書 35 の 3）。"""
     fake = FakeRuntime()
 
     async def cancel_soon():
@@ -690,8 +692,9 @@ async def test_cancel_stops_agent_and_keeps_effects(tmp_path: Path):
     task = asyncio.create_task(cancel_soon())
     res = await run_with(fake, "run_slow", tmp_path, cancel_poll_seconds=0.2)
     await task
-    assert (res.outcome, res.outcome_reason_code) == ("stopped", "cancelled") and res.completion_saved
-    assert (tmp_path / "output" / "reply.md").exists() and fake.artifacts
+    assert (res.outcome, res.outcome_reason_code) == ("stopped", "cancelled")
+    assert not res.completion_saved and res.exit_code == 0 and fake.completion is None
+    assert (tmp_path / "output" / "reply.md").exists() and not fake.artifacts
 
 
 async def test_deadline_stops_agent_as_timeout(tmp_path: Path):
@@ -1366,18 +1369,56 @@ async def test_cached_connection_token_is_not_returned_past_the_agent_deadline()
 # ---------------------------------------------------------------------------
 # 3.0.5 公開前レビューの指摘（live 読み取りの 409 / 停止後の token / 期限不明の token / slot / 再送回数）
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("code,outcome", [("cancelled", ("stopped", "cancelled")), ("run_closed", ("stopped", "cancelled")),
-                                          ("deadline_exceeded", ("timeout", "execution_timeout"))])
-async def test_live_reject_while_staging_inputs_ends_through_the_normal_stop_path(tmp_path: Path, code, outcome):
+@pytest.mark.parametrize("code,outcome,exit_code", [("cancelled", ("stopped", "cancelled"), 0),
+                                                    ("run_closed", ("stopped", "cancelled"), 2),
+                                                    ("deadline_exceeded", ("timeout", "execution_timeout"), 2)])
+async def test_live_reject_while_staging_inputs_ends_through_the_normal_stop_path(tmp_path: Path, code, outcome, exit_code):
     """front は取消 / run の終端 / 期限の後の入力取得を 409 で拒否する。runner は例外で落ちずに停止理由へ写し、
-    Agent を起動せずに completion を送る（変更前と同じ終端）。"""
+    Agent を起動しない。completion も同じ理由で拒まれるので保存されない。終了コードは取消だけ 0（executor が stopped で
+    閉じる）、run の終端（取消の無い終端もある）と期限は 2（executor が回収期限を待たずに閉じる）。"""
     fake = FakeRuntime()
     fake.download_reject = (409, code)
     res = await run_with(fake, "run_reply", tmp_path)
-    assert (res.outcome, res.outcome_reason_code) == outcome
-    assert res.completion_saved and fake.completion is not None
+    assert (res.outcome, res.outcome_reason_code) == outcome and res.had_mutating_success is False
+    assert not res.completion_saved and fake.completion is None and res.exit_code == exit_code
     assert not (tmp_path / "output" / "reply.md").exists(), "Agent は起動しない"
-    assert fake.completion["envelope"]["had_mutating_success"] is False
+
+
+@pytest.mark.parametrize("code,exit_code", [("cancelled", 0), ("run_closed", 2)])
+async def test_cancel_between_invoked_and_effect_is_a_stop_not_an_audit_failure(tmp_path: Path, code, exit_code):
+    """承認の後・効果の監査の前に取消 / run の終端が入ると、front は効果の監査を 409 で拒む。保存の失敗
+    （failed/audit_persist_failed）ではなく停止として終わる（指示書 35 の 3）。run の取消は /context に出ないので、
+    runner が最初に知るのは書き込みの 409 になる。"""
+    fake = FakeRuntime()
+
+    async def close_soon():
+        await asyncio.sleep(0.7)
+        if code == "cancelled":
+            fake.cancel_requested_at = "2026-10-06T00:00:00Z"
+        else:
+            fake.run_closed = True
+    task = asyncio.create_task(close_soon())
+    res = await run_with(fake, "run_read_wait_then_effect", tmp_path, cancel_poll_seconds=30)  # /context では知らせない
+    await task
+    assert (res.outcome, res.outcome_reason_code) == ("stopped", "cancelled")
+    assert not res.completion_saved and res.exit_code == exit_code
+    assert [e["event_type"] for e in fake.audit_events] == ["context.manifest", "context.manifest", "tool.invoked"]
+
+
+@pytest.mark.parametrize("code,exit_code", [("cancelled", 0), ("run_closed", 2)])
+async def test_cancel_before_start_refuses_the_manifest_without_an_error(tmp_path: Path, code, exit_code, caplog):
+    """起動前に取消 / run の終端が入っていると、最初の書き込み（起動 fence の manifest 監査）が 409 になる。保存の失敗として
+    扱わず、Agent を起動せず completion も送らない（所有権を証明していない）。"""
+    fake = FakeRuntime()
+    if code == "cancelled":
+        fake.cancel_requested_at = "2026-10-06T00:00:00Z"
+    else:
+        fake.run_closed = True
+    res = await run_with(fake, "run_reply", tmp_path)
+    assert res.outcome is None and not res.completion_saved and res.exit_code == exit_code
+    assert fake.completion is None and fake.audit_events == []
+    assert "manifest audit not persisted" not in caplog.text, "保存の失敗として扱わない"
+    assert not (tmp_path / "output" / "reply.md").exists(), "Agent は起動しない"
 
 
 async def test_other_api_errors_while_staging_still_propagate(tmp_path: Path):
@@ -2185,3 +2226,148 @@ async def test_runner_answer_does_not_turn_a_pending_stop_into_a_stop_reason():
         runner.execution_id = EXECUTION_ID
         reply = await runner._answer({"op": "done", "status": "ok"})
         assert "stop_reason" not in reply and runner._stop_reason is None
+
+
+# ---------------------------------------------------------------------------
+# 指示書 35（MP ワークフロー型の検証で見つかった点）: token の保護 / ログの出力先 / SIGTERM / 送れない監査の値
+# ---------------------------------------------------------------------------
+async def test_non_finite_metadata_is_dropped_by_the_sdk_and_the_rest_is_sent(tmp_path: Path, capfd):
+    """NaN / Infinity は JSON にできず、送信が例外になって runner ごと落ちていた。SDK はキーごと捨てて警告する（追加 B・11）。"""
+    fake = FakeRuntime()
+    res = await run_with(fake, "run_nan_metadata", tmp_path)
+    assert (res.outcome, res.outcome_reason_code) == ("completed", "completed") and res.completion_saved
+    invoked = next(e for e in fake.audit_events if e["event_type"] == "tool.invoked")
+    assert invoked["metadata"]["note"] == "kept" and "score" not in invoked["metadata"] and "ratio" not in invoked["metadata"]
+    err = capfd.readouterr().err
+    assert "metadata keys dropped" in err and "ratio, score" in err and "nan" not in err.lower().split("dropped")[1]
+
+
+async def test_runner_survives_audit_events_written_around_the_sdk(tmp_path: Path):
+    """制御チャネルは Agent のプロセスが書けるので、SDK を通らない値も来うる。runner は落ちず、保存できなかった監査として
+    終える（failed/audit_persist_failed。completion は送る）。"""
+    fake = FakeRuntime()
+    res = await run_with(fake, "run_raw_ipc_bad_audit", tmp_path)
+    assert (res.outcome, res.outcome_reason_code) == ("failed", "audit_persist_failed") and res.completion_saved
+    assert fake.completion["envelope"]["counts"]["audit_persist_failures"] == 3   # NaN / 形違い / サロゲート
+    assert [e["event_id"] for e in fake.audit_events][2:] == ["tool-invoked-deep"]
+    assert (tmp_path / "output" / "reply.md").exists(), "読み捨てた行の後も Agent は続く"
+
+
+async def test_runner_drops_a_non_string_error_class_from_the_control_channel(tmp_path: Path):
+    fake = FakeRuntime()
+    res = await run_with(fake, "run_raw_ipc_bad_done", tmp_path)
+    assert (res.outcome, res.outcome_reason_code) == ("failed", "agent_error") and res.completion_saved
+    assert fake.completion["envelope"]["error_class"] == "AgentError"
+
+
+@pytest.mark.parametrize("product,expected", [("P-100", "E" * 128), ("astral", "\U0001F600" * 64)])
+async def test_runner_cuts_error_class_to_the_front_limit(tmp_path: Path, monkeypatch, product, expected):
+    """front は error_class が 128（JS の length = UTF-16 の単位）を超えると completion ごと拒む。"""
+    fake = FakeRuntime()
+    orig = fake._ctx
+
+    def ctx():
+        c = orig()
+        c["parameters"] = {**c["parameters"], "product_code": product}
+        return c
+    monkeypatch.setattr(fake, "_ctx", ctx)
+    res = await run_with(fake, "run_raw_ipc_long_done", tmp_path)
+    assert res.completion_saved and fake.completion["envelope"]["error_class"] == expected
+
+
+async def test_unencodable_request_body_is_a_workflow_error_not_a_crash():
+    """送る前の検査を通っても、送る時に包まれて符号化できない本文（深さの境界・NaN 等）は、送らずに WorkflowError にする
+    （呼び出し側の保存失敗の扱いに乗る。runner を例外で落とさない）。"""
+    from agenticstar_platform.workflow.errors import WorkflowError
+    from agenticstar_platform.workflow.runtime_client import RuntimeClient
+
+    fake = FakeRuntime()
+    client = RuntimeClient(env_for()["ASTER_RUNTIME_BASE_URL"], EXECUTION_ID, TOKEN, transport=fake.transport)
+    deep: list = []
+    for _ in range(200_000):
+        deep = [deep]
+    try:
+        for bad in ({"v": float("nan")}, {"v": deep}):
+            with pytest.raises(WorkflowError, match="cannot be encoded"):
+                await client.post_audit([{"event_id": "e", "event_type": "tool.invoked", "metadata": bad}])
+        assert not any(c.endswith("/audit") for c in fake.calls), "送っていない（再送もしない）"
+    finally:
+        await client.aclose()
+
+
+_ENVIRON_PROBE = r'''
+import os, subprocess, sys
+if sys.argv[1] == "protect":
+    from agenticstar_platform.workflow.runner import _protect_token_from_children
+    _protect_token_from_children()
+probe = ("import os\n"
+         "try:\n"
+         "    data = open('/proc/%d/environ' % os.getppid(), 'rb').read()\n"
+         "    print('READ' if b'probe-token-123' in data else 'NO_TOKEN')\n"
+         "except PermissionError:\n"
+         "    print('DENIED')\n")
+print(subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True).stdout.strip())
+'''
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux") or os.geteuid() == 0, reason="Linux の非 root で確かめる")
+@pytest.mark.parametrize("mode,expected", [("plain", "READ"), ("protect", "DENIED")])
+def test_agent_process_cannot_read_the_runner_token_from_proc(mode, expected):
+    """runner の env の token は、同じ uid の子から /proc/<pid>/environ で読めた（子の env から外すだけでは足りない）。
+    dumpable = 0 にすると読めない（指示書 35 の 1、AC-MWF01）。plain は対照（守らなければ読める = 試験が効いている）。"""
+    import subprocess
+
+    sdk_root = str(Path(__file__).resolve().parents[2])
+    env = {"PATH": os.environ.get("PATH", ""), "PYTHONPATH": sdk_root, "ASTER_RUNTIME_TOKEN": "probe-token-123"}
+    out = subprocess.run([sys.executable, "-c", _ENVIRON_PROBE, mode], env=env, capture_output=True, text=True, timeout=60)
+    assert out.stdout.strip() == expected, out.stderr
+
+
+def test_run_adds_log_output_only_when_logging_is_unconfigured():
+    """推奨の起動ではログの出力先が無く、context.log が捨てられていた（指示書 35 の 7、AC-MWF05）。SDK の logger にだけ付ける。"""
+    import io
+    import logging
+
+    from agenticstar_platform.workflow import runner as r
+
+    sdk_logger, root = logging.getLogger("agenticstar_platform"), logging.getLogger()
+    saved = (list(sdk_logger.handlers), sdk_logger.level, list(root.handlers))
+    try:
+        sdk_logger.handlers, root.handlers = [], []
+        sdk_logger.setLevel(logging.NOTSET)
+        r._ensure_log_output()
+        r._ensure_log_output()
+        assert len(sdk_logger.handlers) == 1, "二重に付けない"
+        stream = io.StringIO()
+        sdk_logger.handlers[0].setStream(stream)
+        logging.getLogger("agenticstar_platform.workflow.runner").info("[x] agent: hello")
+        logging.getLogger("httpx").info("not ours")
+        assert "agent: hello" in stream.getvalue() and "not ours" not in stream.getvalue()
+
+        sdk_logger.handlers = []
+        sdk_logger.setLevel(logging.NOTSET)
+        root.handlers = [logging.NullHandler()]
+        r._ensure_log_output()
+        assert sdk_logger.handlers == [], "呼び出し側がログを設定していれば触らない"
+    finally:
+        sdk_logger.handlers, root.handlers = saved[0], saved[2]
+        sdk_logger.setLevel(saved[1])
+
+
+def test_run_takes_stop_on_sigterm_separately_from_exit_process(monkeypatch):
+    """run(exit_process=False) は SIGTERM の協調停止も切っていた。stop_on_sigterm で別に指定できる（指示書 35 の 11、AC-MWF08）。
+    token の保護はプロセスを所有する run() が常に入れる。"""
+    from agenticstar_platform.workflow import runner as r
+
+    seen: list[dict] = []
+
+    async def fake_arun(entrypoint, **kw):
+        seen.append(kw)
+        return r.WorkflowResult(EXECUTION_ID, None, None, None, False, True, 0)
+
+    monkeypatch.setattr(r, "arun", fake_arun)
+    monkeypatch.setattr(r, "_ensure_log_output", lambda: None)
+    r.run("m:f", env=env_for(), exit_process=False, stop_on_sigterm=True)
+    r.run("m:f", env=env_for(), exit_process=False)
+    assert [kw["stop_on_sigterm"] for kw in seen] == [True, False]
+    assert all(kw["protect_token"] is True for kw in seen)

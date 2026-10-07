@@ -26,7 +26,7 @@ _DEFAULT_MAX_CONCURRENCY = 8
 _SUPPORTED_CONTENT_TYPES = frozenset(
   {"application/gzip", "application/json", "application/x-tar", "text/plain"}
 )
-_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._ @+()\[\]-]{1,255}$")
+_UNSAFE_PATH_CHARACTER = re.compile(r"[\\\x00-\x1f\x7f-\x9f\ud800-\udfff]")
 _RETRYABLE_STATUS_CODES = frozenset({408, 409, 429, 500, 502, 503, 504})
 _UPLOAD_CHUNK_SIZE = 64 * 1024
 
@@ -234,15 +234,21 @@ def _index_urls(urls: list[BenchmarkUploadUrl]) -> dict[str, BenchmarkUploadUrl]
 
 
 def _validate_upload_path(path: str) -> None:
-  if not path or path.startswith("/") or len(path) > 1024:
-    raise ValueError("Upload path must be a non-empty relative POSIX path")
-  if any(
-    segment in {"", ".", ".."} or not _PATH_SEGMENT.fullmatch(segment)
-    for segment in path.split("/")
+  if (
+    not path
+    or _UNSAFE_PATH_CHARACTER.search(path)
+    or path.startswith("/")
+    or re.match(r"^[A-Za-z]:", path)
+    or len(path.encode("utf-8")) > 1024
   ):
     raise ValueError(
-      f"Upload path {path!r} must contain only relative [A-Za-z0-9._ @+()[]-] segments "
-      "(at most 255 characters each)"
+      "Upload path must be a non-empty relative POSIX path without control characters"
+    )
+  if any(
+    segment in {"", ".", ".."} or len(segment.encode("utf-8")) > 255 for segment in path.split("/")
+  ):
+    raise ValueError(
+      "Upload path segments must be non-empty, not '.' or '..', and at most 255 UTF-8 bytes"
     )
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 33.0.0
+Version: 34.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -602,6 +602,7 @@ Class | Method | HTTP request | Description
 *TagsApi* | [**get_tag**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#get_tag) | **GET** /tags/{tagId} | Get a tag
 *TagsApi* | [**get_tags**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#get_tags) | **GET** /tags | Get list of tags
 *TagsApi* | [**update_tag**](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsApi.md#update_tag) | **PATCH** /tags/{tagId} | Update a tag
+*TempoBetaApi* | [**create_tempo_transfer**](https://github.com/fireblocks/py-sdk/tree/master/docs/TempoBetaApi.md#create_tempo_transfer) | **POST** /operations/tempo/transfer | Create a Tempo transfer transaction
 *TokenizationApi* | [**burn_collection_token**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#burn_collection_token) | **POST** /tokenization/collections/{id}/tokens/burn | Burn tokens
 *TokenizationApi* | [**create_new_collection**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#create_new_collection) | **POST** /tokenization/collections | Create a new collection
 *TokenizationApi* | [**deactivate_and_unlink_adapters**](https://github.com/fireblocks/py-sdk/tree/master/docs/TokenizationApi.md#deactivate_and_unlink_adapters) | **DELETE** /tokenization/multichain/bridge/layerzero | Remove LayerZero adapters
@@ -709,6 +710,7 @@ Class | Method | HTTP request | Description
 *VaultsApi* | [**get_vault_balance_by_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_vault_balance_by_asset) | **GET** /vault/assets/{assetId} | Get vault balance by an asset
 *VaultsApi* | [**hide_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#hide_vault_account) | **POST** /vault/accounts/{vaultAccountId}/hide | Hide a vault account in the console
 *VaultsApi* | [**lookup_vault_by_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#lookup_vault_by_address) | **GET** /vault/lookup_by_address | Look up a vault account by blockchain address
+*VaultsApi* | [**register_tempo_omnibus_wallet**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#register_tempo_omnibus_wallet) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/omnibus/tempo/register | Register a Tempo omnibus wallet
 *VaultsApi* | [**set_customer_ref_id_for_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_customer_ref_id_for_address) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/addresses/{addressId}/set_customer_ref_id | Assign AML customer reference ID
 *VaultsApi* | [**set_usdc_gateway_deposit_automation_beta**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_usdc_gateway_deposit_automation_beta) | **POST** /vault/accounts/{vaultAccountId}/virtual_asset_wallet/usdc_gateway/deposit_automation | Set up a USDC Gateway deposit automation for a vault account
 *VaultsApi* | [**set_vault_account_auto_fuel**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#set_vault_account_auto_fuel) | **POST** /vault/accounts/{vaultAccountId}/set_auto_fuel | Set auto fueling to on or off
@@ -824,9 +826,6 @@ Class | Method | HTTP request | Description
  - [AddressesFilters](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressesFilters.md)
  - [AlertExposureTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AlertExposureTypeEnum.md)
  - [AlertLevelEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AlertLevelEnum.md)
- - [AllocationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AllocationResponse.md)
- - [AllocationResponseAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/AllocationResponseAccept.md)
- - [AllocationResponseReject](https://github.com/fireblocks/py-sdk/tree/master/docs/AllocationResponseReject.md)
  - [AllocationWithdrawPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/AllocationWithdrawPayload.md)
  - [AllowListPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/AllowListPayload.md)
  - [AllowlistEntry](https://github.com/fireblocks/py-sdk/tree/master/docs/AllowlistEntry.md)
@@ -951,7 +950,6 @@ Class | Method | HTTP request | Description
  - [CantonCallEndInvestorInviteCancel](https://github.com/fireblocks/py-sdk/tree/master/docs/CantonCallEndInvestorInviteCancel.md)
  - [CantonCallEndInvestorOffboard](https://github.com/fireblocks/py-sdk/tree/master/docs/CantonCallEndInvestorOffboard.md)
  - [CantonCallParticipantOnboarding](https://github.com/fireblocks/py-sdk/tree/master/docs/CantonCallParticipantOnboarding.md)
- - [CantonCallTransferWithdraw](https://github.com/fireblocks/py-sdk/tree/master/docs/CantonCallTransferWithdraw.md)
  - [CantonDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/CantonDetails.md)
  - [CantonDomainEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/CantonDomainEnum.md)
  - [CantonOfferResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/CantonOfferResponseDetails.md)
@@ -1093,6 +1091,8 @@ Class | Method | HTTP request | Description
  - [CreateSigningKeyDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateSigningKeyDto.md)
  - [CreateSigningKeyDtoProofOfOwnership](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateSigningKeyDtoProofOfOwnership.md)
  - [CreateTagRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateTagRequest.md)
+ - [CreateTempoTransferRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateTempoTransferRequest.md)
+ - [CreateTempoTransferResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateTempoTransferResponse.md)
  - [CreateTokenRequestDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateTokenRequestDto.md)
  - [CreateTokenRequestDtoCreateParams](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateTokenRequestDtoCreateParams.md)
  - [CreateTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateTransactionResponse.md)
@@ -1117,6 +1117,7 @@ Class | Method | HTTP request | Description
  - [Delegation](https://github.com/fireblocks/py-sdk/tree/master/docs/Delegation.md)
  - [DelegationBlockchainPositionInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/DelegationBlockchainPositionInfo.md)
  - [DelegationSummary](https://github.com/fireblocks/py-sdk/tree/master/docs/DelegationSummary.md)
+ - [DeleteApprovalApiKeyResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DeleteApprovalApiKeyResponse.md)
  - [DeleteNetworkConnectionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DeleteNetworkConnectionResponse.md)
  - [DeleteNetworkIdResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DeleteNetworkIdResponse.md)
  - [DeleteWebhookMtlsConfigResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DeleteWebhookMtlsConfigResponse.md)
@@ -1159,6 +1160,7 @@ Class | Method | HTTP request | Description
  - [DraftReviewAndValidationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DraftReviewAndValidationResponse.md)
  - [DropTransactionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/DropTransactionRequest.md)
  - [DropTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DropTransactionResponse.md)
+ - [DtccOnboardingRejectPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/DtccOnboardingRejectPayload.md)
  - [DvnConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/DvnConfig.md)
  - [DvnConfigWithConfirmations](https://github.com/fireblocks/py-sdk/tree/master/docs/DvnConfigWithConfirmations.md)
  - [EVMTokenCreateParamsDto](https://github.com/fireblocks/py-sdk/tree/master/docs/EVMTokenCreateParamsDto.md)
@@ -1428,15 +1430,16 @@ Class | Method | HTTP request | Description
  - [Offer](https://github.com/fireblocks/py-sdk/tree/master/docs/Offer.md)
  - [OfferResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponse.md)
  - [OfferResponseAccepted](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseAccepted.md)
- - [OfferResponseAllocation](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseAllocation.md)
- - [OfferResponseOnboarding](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseOnboarding.md)
- - [OfferResponseTransfer](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseTransfer.md)
+ - [OfferResponseAllocationAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseAllocationAccept.md)
+ - [OfferResponseAllocationReject](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseAllocationReject.md)
+ - [OfferResponseDtccOnboardingAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseDtccOnboardingAccept.md)
+ - [OfferResponseDtccOnboardingReject](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseDtccOnboardingReject.md)
+ - [OfferResponseTradewebAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseTradewebAccept.md)
+ - [OfferResponseTradewebReject](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseTradewebReject.md)
+ - [OfferResponseTransferAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseTransferAccept.md)
+ - [OfferResponseTransferReject](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseTransferReject.md)
+ - [OfferResponseTransferWithdraw](https://github.com/fireblocks/py-sdk/tree/master/docs/OfferResponseTransferWithdraw.md)
  - [OffersResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/OffersResponse.md)
- - [OnboardingResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/OnboardingResponse.md)
- - [OnboardingResponseDtccAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/OnboardingResponseDtccAccept.md)
- - [OnboardingResponseDtccReject](https://github.com/fireblocks/py-sdk/tree/master/docs/OnboardingResponseDtccReject.md)
- - [OnboardingResponseTradewebAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/OnboardingResponseTradewebAccept.md)
- - [OnboardingResponseTradewebReject](https://github.com/fireblocks/py-sdk/tree/master/docs/OnboardingResponseTradewebReject.md)
  - [OnchainTransaction](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainTransaction.md)
  - [OnchainTransactionsPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainTransactionsPagedResponse.md)
  - [OnchainTransactionsPagedResponse2](https://github.com/fireblocks/py-sdk/tree/master/docs/OnchainTransactionsPagedResponse2.md)
@@ -1857,6 +1860,9 @@ Class | Method | HTTP request | Description
  - [TagType](https://github.com/fireblocks/py-sdk/tree/master/docs/TagType.md)
  - [TagsPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsPagedResponse.md)
  - [TemplatesPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TemplatesPaginatedResponse.md)
+ - [TempoTransferDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/TempoTransferDestination.md)
+ - [TempoTransferDestinationItem](https://github.com/fireblocks/py-sdk/tree/master/docs/TempoTransferDestinationItem.md)
+ - [TempoTransferSource](https://github.com/fireblocks/py-sdk/tree/master/docs/TempoTransferSource.md)
  - [ThirdPartyRouting](https://github.com/fireblocks/py-sdk/tree/master/docs/ThirdPartyRouting.md)
  - [TimeBasedTrigger](https://github.com/fireblocks/py-sdk/tree/master/docs/TimeBasedTrigger.md)
  - [TimeInForce](https://github.com/fireblocks/py-sdk/tree/master/docs/TimeInForce.md)
@@ -1922,11 +1928,7 @@ Class | Method | HTTP request | Description
  - [TransferPeerTypeEnum2](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferPeerTypeEnum2.md)
  - [TransferRail](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferRail.md)
  - [TransferReceipt](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferReceipt.md)
- - [TransferResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferResponse.md)
- - [TransferResponseAccept](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferResponseAccept.md)
- - [TransferResponseReject](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferResponseReject.md)
  - [TransferValidationFailure](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferValidationFailure.md)
- - [TransferWithdrawPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferWithdrawPayload.md)
  - [TravelRuleActionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleActionEnum.md)
  - [TravelRuleAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleAddress.md)
  - [TravelRuleCreateTransactionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleCreateTransactionRequest.md)

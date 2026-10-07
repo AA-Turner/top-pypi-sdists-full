@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: rasterix
-Version: 0.2.2
+Version: 0.2.4
 Summary: Raster extensions for Xarray
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -30,11 +30,10 @@ Requires-Dist: myst-nb; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
 Requires-Dist: netcdf4; extra == 'docs'
 Requires-Dist: numpydoc; extra == 'docs'
-Requires-Dist: polars; extra == 'docs'
 Requires-Dist: pooch; extra == 'docs'
 Requires-Dist: rasterio; extra == 'docs'
 Requires-Dist: rioxarray; extra == 'docs'
-Requires-Dist: rusterize>=0.7.1; extra == 'docs'
+Requires-Dist: rusterize>=0.8.1; extra == 'docs'
 Requires-Dist: sparse; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autoapi; extra == 'docs'
@@ -50,8 +49,7 @@ Requires-Dist: sparse; extra == 'exactextract'
 Provides-Extra: rasterize
 Requires-Dist: rasterio; extra == 'rasterize'
 Provides-Extra: rusterize
-Requires-Dist: polars; extra == 'rusterize'
-Requires-Dist: rusterize>=0.7.1; extra == 'rusterize'
+Requires-Dist: rusterize>=0.8.1; extra == 'rusterize'
 Description-Content-Type: text/markdown
 
 # rasterix: Raster tricks for Xarray
@@ -67,7 +65,7 @@ This project contains tools to make it easier to analyze raster data with Xarray
 It currently has two pieces.
 
 1. `RasterIndex` for indexing using the affine transform recorded in GeoTIFFs.
-1. Dask-aware rasterization wrappers around `exactextract`, `rasterio.features.rasterize`, and `rasterio.features.geometry_mask`.
+1. Dask-aware rasterization wrappers around `exactextract`, `rasterio.features.rasterize`, `rusterize.rusterize`, and `rasterio.features.geometry_mask`.
 
 Our intent is to provide reusable building blocks for the many sub-ecosystems around: e.g. `rioxarray`, `odc.geo`, etc.
 

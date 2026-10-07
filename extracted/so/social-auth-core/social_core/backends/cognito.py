@@ -5,7 +5,11 @@ from social_core.backends.oauth import BaseOAuth2
 
 class CognitoOAuth2(BaseOAuth2):
     name = "cognito"
-    ID_KEY = "username"
+    title = "Amazon Cognito"
+    ID_KEY = "sub"
+    LEGACY_ID_KEYS = ("username",)
+    MUTABLE_ID_KEYS = ("username", "preferred_username", "email")
+    EXTRA_DATA = [("sub", "sub")]
     DEFAULT_SCOPE = ["openid", "profile", "email"]
     REDIRECT_STATE = False
 
@@ -25,10 +29,7 @@ class CognitoOAuth2(BaseOAuth2):
         """Return user details from their cognito pool account"""
         first_name = response.get("given_name") or ""
         last_name = response.get("family_name") or ""
-        fullname, first_name, last_name = self.get_user_names(
-            first_name=first_name,
-            last_name=last_name,
-        )
+        fullname = ""
         return {
             "username": response.get("username") or response.get("email"),
             "email": response.get("email"),
@@ -45,6 +46,7 @@ class CognitoOAuth2(BaseOAuth2):
         )
 
         return {
+            "sub": response.get("sub"),
             "given_name": response.get("given_name"),
             "family_name": response.get("family_name"),
             "username": response.get("username"),

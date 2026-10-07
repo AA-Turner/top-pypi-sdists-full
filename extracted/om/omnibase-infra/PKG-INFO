@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: omnibase_infra
-Version: 0.38.66
+Version: 0.38.67
 Summary: ONEX Infrastructure - Service integration and database infrastructure tools
 Author-email: "OmniNode.ai" <contact@omninode.ai>
 License: MIT
@@ -17,7 +17,7 @@ Requires-Dist: click<9.0.0,>=8.3.3
 Requires-Dist: confluent-kafka<3.0.0,>=2.12.0
 Requires-Dist: cryptography<51.0.0,>=46.0.3
 Requires-Dist: dependency-injector<5.0.0,>=4.48.1
-Requires-Dist: fastapi<0.142.0,>=0.120.1
+Requires-Dist: fastapi<0.143.0,>=0.120.1
 Requires-Dist: grpcio<2.0.0,>=1.62.0
 Requires-Dist: httpx<0.29.0,>=0.28.1
 Requires-Dist: infisicalsdk<2.0.0,>=1.0.15

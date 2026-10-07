@@ -15,6 +15,8 @@ from ..annotations import Mutability
 from ..base import BaseModel
 from ..exceptions import InvalidFilterException
 from ..exceptions import PathNotFoundException
+from ..policy import ScimPolicy
+from ..policy import _effective_policy
 from ..utils import _find_field_name
 from ..utils import _normalize_attribute_name
 from .expressions import ORDERING_OPERATORS
@@ -128,6 +130,31 @@ class AttributeBinding:
         if model is None:
             return None
         return model.get_field_annotation(self.target_field_name, annotation_type)
+
+    def comparable(self, value: Any, policy: ScimPolicy | None = None) -> Any:
+        """Return what comparisons use in place of a value of the attribute.
+
+        Filters, sorting and uniqueness checks compare values in this form, so
+        a storage that keeps it can compare as :meth:`~scim2_models.ScimFilter.match`
+        does. Strings go through the
+        :attr:`~scim2_models.ScimPolicy.comparison_key` of the policy. By
+        default, they are normalized to NFC, and mapped to lowercase unless the
+        attribute is ``caseExact``. Other values are returned unchanged.
+
+        >>> from scim2_models import Path, User
+        >>> binding = Path[User]("userName").resolve()
+        >>> binding.comparable("BJensen")
+        'bjensen'
+
+        :param value: A value of the attribute.
+        :param policy: The policy to compare under. Without one, the policy of
+            the innermost open block applies, or else the default one.
+        :returns: What comparisons use in place of the value.
+        :raises ValueError: If the policy cannot prepare the string.
+        """
+        if not isinstance(value, str):
+            return value
+        return _effective_policy(policy).comparison_key(self, value)
 
     def _nested_in(self, urn: str) -> "AttributeBinding":
         """Return the same attribute, qualified by the URN it was resolved under.
@@ -290,10 +317,7 @@ def _resolve_attr_path_uncached(
         return None
 
     field_type = target.get_field_root_type(field_name)
-    is_multivalued = target.get_field_multiplicity(field_name)
-
     sub_field_name: str | None = None
-    sub_field_type: type | None = None
 
     if attr_path.sub_attr is not None:
         if not (isclass(field_type) and issubclass(field_type, BaseModel)):
@@ -311,27 +335,35 @@ def _resolve_attr_path_uncached(
                 )
             return None
 
-        sub_field_type = field_type.get_field_root_type(sub_field_name)
+    return _bind(target, field_name, sub_field_name)
 
-    # A sub-attribute is only resolved on a model, as checked above, so the
-    # holder is always one.
-    case_exact_holder = field_type if sub_field_name else target
+
+def _bind(
+    model: type[BaseModel], field_name: str, sub_field_name: str | None = None
+) -> AttributeBinding:
+    """Bind a field of a model, and one of its sub-attributes, by their Python names."""
+    field_type = model.get_field_root_type(field_name)
+    sub_model = cast(type[BaseModel], field_type)
+    sub_field_type = (
+        sub_model.get_field_root_type(sub_field_name) if sub_field_name else None
+    )
+
+    # A sub-attribute is only resolved on a model, so the holder is always one.
+    case_exact_holder = sub_model if sub_field_name else model
     case_exact = (
-        case_exact_holder.get_field_annotation(  # type: ignore[union-attr]
-            sub_field_name or field_name, CaseExact
-        )
+        case_exact_holder.get_field_annotation(sub_field_name or field_name, CaseExact)
         == CaseExact.true
     )
 
     return AttributeBinding(
-        model=target,
+        model=model,
         field_name=field_name,
         field_type=field_type,
-        is_multivalued=is_multivalued,
+        is_multivalued=model.get_field_multiplicity(field_name),
         sub_field_name=sub_field_name,
         sub_field_type=sub_field_type,
         case_exact=case_exact,
-        urn=_build_urn(target, field_name, field_type, sub_field_name),
+        urn=_build_urn(model, field_name, field_type, sub_field_name),
     )
 
 

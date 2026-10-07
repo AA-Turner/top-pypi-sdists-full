@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from social_core.exceptions import AuthResponseError
+
 from .oauth import BaseOAuth2
 
 if TYPE_CHECKING:
@@ -16,12 +18,17 @@ if TYPE_CHECKING:
 
     from requests.auth import AuthBase
 
+    from social_core.exceptions import ErrorStage
+
 
 class QiitaOAuth2(BaseOAuth2):
     """Qiita OAuth authentication backend"""
 
     name = "qiita"
-    ID_KEY = "id"
+    title = "Qiita"
+    ID_KEY = "permanent_id"
+    LEGACY_ID_KEYS = ("id",)
+    MUTABLE_ID_KEYS = ("id",)
 
     AUTHORIZATION_URL = "https://qiita.com/api/v2/oauth/authorize"
     ACCESS_TOKEN_URL = "https://qiita.com/api/v2/access_tokens"
@@ -57,7 +64,7 @@ class QiitaOAuth2(BaseOAuth2):
             del data["redirect_uri"]
         return data
 
-    def request_access_token(
+    def request_access_token(  # noqa: PLR0913
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
@@ -66,17 +73,25 @@ class QiitaOAuth2(BaseOAuth2):
         json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
+        *,
+        stage: ErrorStage = "token_exchange",
     ) -> dict[Any, Any]:
         data = super().request_access_token(
             url=url,
             method=method,
+            stage=stage,
             headers=headers,
             data=data,
             json=json,
             auth=auth,
             params=params,
         )
-        data.update({"access_token": data["token"]})
+        token = data.get("token")
+        if not isinstance(token, str) or not token:
+            raise AuthResponseError(
+                self, claim="token", code="missing_claim", stage=stage
+            )
+        data["access_token"] = token
         return data
 
     def get_user_details(self, response):

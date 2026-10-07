@@ -37,18 +37,26 @@ class PdfCleanerAgent(NamedAgent):
 async def clean_pdf_extracted_content(
     content: str,
     ctx: ToolContext = None,
+    *,
+    suppress_stream: bool = True,
 ) -> AgentResult:
-    """Canonical entry point — runs through THE ONE (NamedAgent/run_agent)."""
+    """Canonical entry point — runs through THE ONE (NamedAgent/run_agent).
+
+    ``suppress_stream`` defaults to True for NESTED callers (a tool or an
+    ingestion step already streaming something else to the person). A caller
+    whose own stream IS this cleanup — the manual "AI Clean" endpoint — passes
+    False so the person watches the cleaned text arrive instead of minutes of
+    heartbeats."""
     stamp_source_context(source_app="matrx-ai", source_feature="pdf-cleaner")
     result = await run_mandated(
         PdfCleanerAgent,
         inputs=PdfCleanerAgent.Inputs(content=content),
         label="PDF Cleanup",
-        # NESTED-AGENT STREAM LEAK: this runs inside a tool / ingestion step
-        # while the caller is already streaming to a user, so unmuted the whole
-        # cleaned PDF pours onto the caller's user-facing NDJSON stream. The
-        # cleaned text is machine-parsed and still returns via AgentRunResult.
-        suppress_stream=True,
+        # NESTED-AGENT STREAM LEAK (the default): inside a tool / ingestion
+        # step the caller is already streaming to a user, so unmuted the whole
+        # cleaned PDF pours onto that caller's NDJSON stream. The cleaned text
+        # still returns via AgentRunResult either way.
+        suppress_stream=suppress_stream,
     )
     return AgentResult(
         success=result.success,

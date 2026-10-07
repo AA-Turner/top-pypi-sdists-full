@@ -89,6 +89,7 @@ VERSIONS = {
     "sqlalchemy-bigquery": "sqlalchemy-bigquery>=1.15.0",
     "presidio-analyzer": "presidio-analyzer==2.2.358",
     "asammdf": "asammdf>=8.2,<8.8",  # 8.8+ requires chardet>=7, conflicting with the chardet==4.0.0 profiler pin
+    "canmatrix": "canmatrix<1.3",  # 1.3 breaks importing asammdf: https://github.com/ebroecker/canmatrix/issues/926
     "kafka-connect": "kafka-connect-py==0.10.11",
     "griffe2md": "griffe2md~=1.2",
     "factory-boy": "factory-boy~=3.3.3",
@@ -105,6 +106,7 @@ COMMONS = {
     },
     "datalake": {
         VERSIONS["asammdf"],
+        VERSIONS["canmatrix"],
         VERSIONS["avro"],
         VERSIONS["boto3"],
         VERSIONS["ijson"],
@@ -190,7 +192,10 @@ base_requirements = {
     "PyYAML~=6.0",
     "requests>=2.32.4",
     "requests-aws4auth~=1.1",  # Only depends on requests as external package. Leaving as base.
-    "sqlalchemy>=2.0.0,<3",
+    # snowflake-sqlalchemy subclasses sqlalchemy.orm.context.ORMSelectCompileState, which is
+    # private in SQLAlchemy 2.1 — importing the Snowflake dialect raises AttributeError there.
+    # Raise the ceiling once a snowflake-sqlalchemy release supports 2.1.
+    "sqlalchemy>=2.0.0,<2.1",
     "collate-sqllineage==2.1.7",
     "tabulate==0.9.0",
     "tenacity>=8.0,<10",

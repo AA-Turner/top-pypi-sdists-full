@@ -6,6 +6,7 @@ import base64
 import copy
 import math
 import uuid
+import warnings
 from dataclasses import asdict, dataclass
 from typing import Literal
 
@@ -14,6 +15,9 @@ import numpy as np
 from river_client.images import ImageHandle
 from river_client.renderers import ModelInputChunk
 from river_client.types import PolicyVersion, Sample
+
+
+_RECOVERING_UNSET = object()
 
 
 def encode_state(value):
@@ -171,10 +175,20 @@ class Span:
 
 
 class Trajectory:
-    """Append-only spans, split into independent conditioning runs by ``rewrite``.
+    """A rollout's conversation, exact model inputs, and generated spans.
 
-    Generated ids never pass through a renderer. ``messages`` and ``final_text``
-    may be decoded for tools, rewards and inspection, but never for training.
+    The ``messages`` and ``final_text`` views support tools, rewards, and
+    inspection. Training uses the recorded token spans, preserving the exact
+    inputs and outputs sampled by the model. ``rewrite`` starts a new
+    conditioning run when the conversation must be compacted.
+
+    ``loss_mask_end`` limits which generated tokens train. When an environment
+    sets it, generated tokens at or past that offset (counted over every
+    generated span in order, across runs) stay in the training input as
+    context but get zero advantage. An environment that cuts a turn short, for
+    example at the start of a degenerate repetition loop, sets it where the cut
+    falls, so the reward trains the tokens that led there and not the tail that
+    still has to be fed back for expert-routing replay.
     """
 
     def __init__(self, chunks: list[ModelInputChunk], *, messages=None, id=None):
@@ -198,6 +212,7 @@ class Trajectory:
         self.elapsed = 0.0
         self.wrap_up = False
         self.sample_index = 0
+        self.loss_mask_end: int | None = None
 
     @property
     def spans(self) -> tuple[Span, ...]:
@@ -269,10 +284,10 @@ class Trajectory:
         self._spans.append(Span("framing", chunks, run=self.run))
 
     def rewrite(self, messages, *, chunks: list[ModelInputChunk]):
-        """Explicit compaction: preserve old runs and start a new datum.
+        """Replace conversation context while retaining earlier training spans.
 
-        Supply freshly rendered chunks for the rewritten messages. This costs a
-        full prefix-cache miss; it cannot retroactively change earlier samples.
+        Supply freshly rendered chunks for the replacement messages. The next
+        model turn must prefill this new context; earlier samples are unchanged.
         """
         self._spans.append(Span("prompt", chunks, run=self.run + 1))
         self.messages = copy.deepcopy(messages)
@@ -294,7 +309,13 @@ class Trajectory:
             raise ValueError(
                 "staleness masking needs current_step and a nonnegative limit"
             )
+        mask_end = self.loss_mask_end
+        if mask_end is not None and (
+            type(mask_end) is not int or mask_end < 0  # bool is not an offset
+        ):
+            raise ValueError("loss_mask_end must be a nonnegative token offset")
         data = []
+        generated_before = 0  # generated tokens in earlier spans, across runs
         for run in range(self.run + 1):
             spans = [s for s in self._spans if s.run == run]
             generated = [i for i, s in enumerate(spans) if s.kind == "generated"]
@@ -316,7 +337,11 @@ class Trajectory:
                             "trajectory contains a policy step newer than the trainer"
                         )
                     if max_staleness is None or age <= max_staleness:
-                        adv[offset - 1 : offset + len(span) - 1] = advantage
+                        keep = len(span)
+                        if mask_end is not None:
+                            keep = max(0, min(keep, mask_end - generated_before))
+                        adv[offset - 1 : offset - 1 + keep] = advantage
+                    generated_before += len(span)
                 offset += len(span)
             chunks = [c for s in spans for c in s.chunks]
             datum = {"old_logprobs": old.tolist(), "advantages": adv.tolist()}
@@ -326,11 +351,9 @@ class Trajectory:
                 datum["input_ids"] = [t for c in chunks for t in c["tokens"]]
                 datum["attention_mask"] = [1] * n
             last = spans[-1]
-            if last.routing_handle is not None and any(
-                last is s for s in self._spans[: self._routing_recovery_start]
-            ):
+            if any(last is s for s in self._spans[: self._routing_recovery_start]):
                 datum["_rl_recovered_routing"] = True
-            elif last.routing_handle is not None:
+            if last.routing_handle is not None:
                 if last.routing_num_tokens != n - 1:
                     raise ValueError(
                         "routing handle does not align with the training datum"
@@ -351,7 +374,14 @@ class Trajectory:
         )
 
     @classmethod
-    def from_state_dict(cls, state, *, recovering=False):
+    def from_state_dict(cls, state, *, recovering=_RECOVERING_UNSET):
+        if recovering is not _RECOVERING_UNSET:
+            warnings.warn(
+                "Trajectory.from_state_dict(recovering=...) is deprecated and ignored; "
+                "saved routing captures are reused whenever available.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         state = decode_state(copy.deepcopy(state))
         if state.pop("version") != 1:
             raise ValueError("unsupported trajectory state version")
@@ -368,6 +398,4 @@ class Trajectory:
         result = cls(spans[0].chunks, id=state.get("id"))
         result.__dict__.update(state)
         result._spans = spans
-        if recovering:
-            result._routing_recovery_start = len(spans)
         return result

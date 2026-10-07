@@ -113,7 +113,7 @@ class DocumentInputContentModel(StructuredInputBaseModel):
 class ListInputContentModel(StructuredInputBaseModel):
     type: Literal["input_list"] = "input_list"
     bookmarks: list[dict[str, Any]] = Field(default_factory=list)
-    _editable_tools: frozenset[str] = PrivateAttr(default=frozenset({"picklist"}))
+    _editable_tools: frozenset[str] = PrivateAttr(default=frozenset({"pick_list"}))
 
 
 class NotesInputContentModel(StructuredInputBaseModel):

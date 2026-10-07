@@ -18,12 +18,19 @@ if TYPE_CHECKING:
 
     from requests.auth import AuthBase
 
+    from social_core.exceptions import ErrorStage
+
 
 class DeezerOAuth2(BaseOAuth2):
     """Deezer OAuth2 authentication backend"""
 
     name = "deezer"
-    ID_KEY = "name"
+    title = "Deezer"
+    ID_KEY = "id"
+    REQUIRES_USER_ID = True
+    LEGACY_ID_KEYS = ("name",)
+    MUTABLE_ID_KEYS = ("name",)
+    EXTRA_DATA = ["id"]
     AUTHORIZATION_URL = "https://connect.deezer.com/oauth/auth.php"
     ACCESS_TOKEN_URL = "https://connect.deezer.com/oauth/access_token.php"
     SCOPE_SEPARATOR = ","
@@ -37,7 +44,7 @@ class DeezerOAuth2(BaseOAuth2):
             "code": self.data.get("code"),
         }
 
-    def request_access_token(
+    def request_access_token(  # noqa: PLR0913
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
@@ -46,24 +53,29 @@ class DeezerOAuth2(BaseOAuth2):
         json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
+        *,
+        stage: ErrorStage = "token_exchange",
     ) -> dict[Any, Any]:
-        with wrap_access_token_error(self):
+        with wrap_access_token_error(self, stage=stage):
             response = self.request(
                 url,
                 method=method,
+                stage=stage,
                 headers=headers,
                 data=data,
                 json=json,
                 auth=auth,
                 params=params,
             )
-        return dict(parse_qsl(response.text))
+        data = dict(parse_qsl(response.text))
+        self._process_error(data, stage=stage)
+        return data
 
     def get_user_details(self, response):
         """Return user details from Deezer account"""
-        fullname, first_name, last_name = self.get_user_names(
-            first_name=response.get("firstname"), last_name=response.get("lastname")
-        )
+        fullname = ""
+        first_name = response.get("firstname")
+        last_name = response.get("lastname")
         return {
             "username": response.get("name"),
             "email": response.get("email"),

@@ -8,13 +8,14 @@ class V1beta1DeviceRequest:
     allocation_mode: typing.Optional[str]
     capacity: typing.Optional[kubernetes.client.V1beta1CapacityRequirements]
     count: typing.Optional[int]
+    derived_attributes: typing.Optional[list[kubernetes.client.V1beta1DeviceDerivedAttribute]]
     device_class_name: typing.Optional[str]
     first_available: typing.Optional[list[kubernetes.client.V1beta1DeviceSubRequest]]
     name: str
     selectors: typing.Optional[list[kubernetes.client.V1beta1DeviceSelector]]
     tolerations: typing.Optional[list[kubernetes.client.V1beta1DeviceToleration]]
     
-    def __init__(self, *, admin_access: typing.Optional[bool] = ..., allocation_mode: typing.Optional[str] = ..., capacity: typing.Optional[kubernetes.client.V1beta1CapacityRequirements] = ..., count: typing.Optional[int] = ..., device_class_name: typing.Optional[str] = ..., first_available: typing.Optional[list[kubernetes.client.V1beta1DeviceSubRequest]] = ..., name: str, selectors: typing.Optional[list[kubernetes.client.V1beta1DeviceSelector]] = ..., tolerations: typing.Optional[list[kubernetes.client.V1beta1DeviceToleration]] = ...) -> None:
+    def __init__(self, *, admin_access: typing.Optional[bool] = ..., allocation_mode: typing.Optional[str] = ..., capacity: typing.Optional[kubernetes.client.V1beta1CapacityRequirements] = ..., count: typing.Optional[int] = ..., derived_attributes: typing.Optional[list[kubernetes.client.V1beta1DeviceDerivedAttribute]] = ..., device_class_name: typing.Optional[str] = ..., first_available: typing.Optional[list[kubernetes.client.V1beta1DeviceSubRequest]] = ..., name: str, selectors: typing.Optional[list[kubernetes.client.V1beta1DeviceSelector]] = ..., tolerations: typing.Optional[list[kubernetes.client.V1beta1DeviceToleration]] = ...) -> None:
         ...
     def to_dict(self) -> V1beta1DeviceRequestDict:
         ...
@@ -23,6 +24,7 @@ class V1beta1DeviceRequestDict(typing.TypedDict, total=False):
     allocationMode: typing.Optional[str]
     capacity: typing.Optional[kubernetes.client.V1beta1CapacityRequirementsDict]
     count: typing.Optional[int]
+    derivedAttributes: typing.Optional[list[kubernetes.client.V1beta1DeviceDerivedAttributeDict]]
     deviceClassName: typing.Optional[str]
     firstAvailable: typing.Optional[list[kubernetes.client.V1beta1DeviceSubRequestDict]]
     name: str

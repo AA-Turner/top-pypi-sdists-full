@@ -87,6 +87,46 @@ pass_tsql_assignment_operator:
     core:
       dialect: tsql
 
+pass_oracle_execute_file_double_at_sign:
+  # Oracle SQL*Plus @@ execute-file prefixes must stay together.
+  pass_str: |
+    @@ACS_DBLOGIN_FK.SQL
+    @@ACS_DPS_STRUKTURKLASSE_FK.SQL
+  configs:
+    core:
+      dialect: oracle
+
+pass_oracle_attribute_indicator:
+  # %TYPE / %ROWTYPE / cursor attributes should not be spaced like the modulo
+  # operator. https://github.com/sqlfluff/sqlfluff/issues/8070
+  pass_str: |
+    DECLARE
+      v_a ex_tab.a%TYPE;
+      v_r ex_tab%ROWTYPE;
+      CURSOR c1 IS SELECT 1 FROM dual;
+    BEGIN
+      IF c1%NOTFOUND THEN
+        NULL;
+      END IF;
+    END;
+  configs:
+    core:
+      dialect: oracle
+
+fail_oracle_modulo_still_spaced:
+  # Real modulo must still get spacing enforced.
+  fail_str: |
+    BEGIN
+      x := a%b;
+    END;
+  fix_str: |
+    BEGIN
+      x := a % b;
+    END;
+  configs:
+    core:
+      dialect: oracle
+
 pass_concat_string:
   pass_str: SELECT 'barry' || 'pollard'
 
@@ -161,3 +201,15 @@ fail_bigquery_safe_prefix_function:
   configs:
     core:
       dialect: bigquery
+
+pass_sparksql_file_literal:
+  pass_str: ADD JAR path/to/some.jar;
+  configs:
+    core:
+      dialect: sparksql
+
+pass_sqlite_column_path_operator:
+  pass_str: SELECT a -> 'b';
+  configs:
+    core:
+      dialect: sqlite

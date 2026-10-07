@@ -179,11 +179,14 @@ def describe(kind: str, row: dict) -> str:
 
 
 def is_uuid(ref: str) -> bool:
-    """Whether ``ref`` is id-shaped. Only ever used to make an ERROR more helpful.
+    """Whether ``ref`` is id-shaped.
 
     Deliberately permissive (``UUID()`` also takes the dashless, braced and
-    ``urn:`` spellings) because being generous here only widens the set of
-    failures that get the "write it as id:" hint. Nothing resolves on it.
+    ``urn:`` spellings): its callers either make an ERROR more helpful (the
+    "write it as id:" hint) or route an id-shaped value as an id -- an ambient
+    project ref (``from_ambient``), an experiment's filing (``_filed_under``,
+    ``_active_project_id``) and an ``edge add`` run end that skips the petname
+    lookup. Tightening or loosening it changes all of them.
     """
     try:
         UUID(ref)
@@ -368,12 +371,34 @@ def resolve_run(client, ref: str) -> Ref:
     The mutating routes (``DELETE``/``PATCH /v1/runs/{run_id}``) are UUID-typed,
     which is why a petname that read fine in ``run get`` used to 422 in
     ``run delete``.
+
+    The ref goes into the URL path, so it must be ONE segment and the row that
+    comes back must be the run it names: `x/edges` answered a list (a crash
+    further on) and `A/../B` answered run B while the command named A.
     """
     bare, how = split_selector(ref)
     if how == "name":
         return _by_name(client, "run", bare)
+    missing = NotFoundError(f"no run with id or petname {bare!r}")
+    if not bare or "/" in bare or bare in (".", ".."):
+        raise missing
     try:
         row = client.get_run(bare)
     except NotFoundError:
-        raise NotFoundError(f"no run with id or petname {bare!r}") from None
+        raise missing from None
+    if not isinstance(row, dict) or not _names(row, bare):
+        raise missing
     return Ref(str(row["id"]), describe("run", row), row)
+
+
+def _names(row: dict, bare: str) -> bool:
+    """Is ``row`` the run ``bare`` names: its id (as typed, or any spelling
+    ``UUID()`` reads) or its petname."""
+    if str(row.get("id")) == bare:
+        return True
+    if is_uuid(bare):
+        try:
+            return UUID(bare) == UUID(str(row.get("id")))
+        except ValueError:
+            return False
+    return str(row.get("slug") or "").lower() == bare.lower()

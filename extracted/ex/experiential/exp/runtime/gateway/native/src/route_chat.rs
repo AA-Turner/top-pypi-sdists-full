@@ -2,6 +2,7 @@
 //! handler with its keyed-replay protocol, plus the chat-shaped settled,
 //! aggregated, guarded, and live-streaming response paths.
 
+use crate::guardrails::input::acquire_guarded_attempt;
 use std::sync::atomic::Ordering;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -35,7 +36,7 @@ use crate::settlement::{settle_guarded_failure, AttemptGuard};
 use crate::tool_search::{
     adopt_outcome, annotate_chat_completion_for, configure_chat_encoder, disclose_after_collection,
 };
-use crate::waterfall::{acquire_attempt, CommittedAttempt, SettledAttempt, WaterfallContext, Won};
+use crate::waterfall::{CommittedAttempt, SettledAttempt, WaterfallContext, Won};
 
 pub(crate) async fn chat(
     State(state): State<AppState>,
@@ -125,6 +126,9 @@ pub(crate) async fn chat(
         "client_ip": client_ip(&headers),
         "capture_session_id": crate::capture::session_id(&headers),
     });
+    if let Some(owner) = lease.as_ref() {
+        admit_value["claimed_guardrail_revision"] = json!(owner.guardrail_revision());
+    }
     with_app_identity(&mut admit_value, &headers);
     let admit_argument = compact_json(&admit_value);
     let admission_text = match state.bridge.call("admit", admit_argument).await {
@@ -224,8 +228,15 @@ pub(crate) async fn chat(
         output_less_retention: None,
         output_token_cap: admission.maximum_output_tokens,
         tool_search: admission.tool_search.as_ref(),
+        output_guardrails: admission.output_guardrail.enforces().then_some(
+            crate::waterfall::OutputGuardrailContext {
+                web_search: admission.web_search.as_ref(),
+                responses: false,
+            },
+        ),
     };
-    let mut won = acquire_attempt(&context, &mut guard).await;
+    let mut won =
+        acquire_guarded_attempt(&context, &mut guard, admission.guardrail_input_pending).await;
     adopt_outcome(&mut admission, &mut won);
     won = checkpoint_winner(
         state.capture.as_ref(),
@@ -742,7 +753,8 @@ async fn guarded_chat_response(
         }
     };
     disclose_after_collection(&mut admission, &committed);
-    let events = match apply_output_guardrail(&state, &admission, collected, deadline).await {
+    let events = match apply_output_guardrail(&state, &admission, collected, deadline, false).await
+    {
         Ok(events) => events,
         Err(failure) => {
             settle_guarded_failure(&mut guard, &mut committed, &mut lease, &failure).await;

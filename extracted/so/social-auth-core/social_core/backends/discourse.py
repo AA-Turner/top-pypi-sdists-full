@@ -3,19 +3,23 @@ import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from hashlib import sha256
 from typing import cast
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode
 
-from social_core.exceptions import AuthException, AuthTokenError
-from social_core.utils import parse_qs
+from social_core.exceptions import AuthInputError, AuthResponseError
+from social_core.groups import read_groups
+from social_core.utils import constant_time_compare, drop_lists
 
 from .base import BaseAuth
 
 
 class DiscourseAuth(BaseAuth):
     name = "discourse"
-    ID_KEY = "email"
+    title = "Discourse"
+    ID_KEY = "external_id"
+    LEGACY_ID_KEYS = ("email",)
+    MUTABLE_ID_KEYS = ("email",)
     REQUIRES_USER_ID = True
-    EXTRA_DATA = ["username", "name", "avatar_url"]
+    EXTRA_DATA = ["external_id", "username", "name", "avatar_url"]
 
     def auth_url(self) -> str:
         """
@@ -44,11 +48,23 @@ class DiscourseAuth(BaseAuth):
             "username": response.get("username"),
             "email": response.get("email"),
             "name": response.get("name"),
-            "groups": response.get("groups", "").split(","),
             "is_staff": response.get("admin") == "true"
             or response.get("moderator") == "true",
             "is_superuser": response.get("admin") == "true",
         }
+
+    def get_user_groups(self, response) -> list[str] | None:
+        if not self.setting("GROUPS_ENABLED", False):
+            return None
+        data = dict(response)
+        if isinstance(data.get("groups"), str):
+            data["groups"] = data["groups"].split(",") if data["groups"] else []
+        return read_groups(
+            self,
+            data,
+            "groups",
+            missing_as_empty=self.setting("GROUPS_MISSING_AS_EMPTY", False),
+        )
 
     def add_nonce(self, nonce) -> None:
         self.strategy.storage.nonce.use(
@@ -71,24 +87,40 @@ class DiscourseAuth(BaseAuth):
         request_data = self.strategy.request_data()
 
         sso_params = request_data.get("sso")
+        if not sso_params:
+            raise AuthInputError(
+                self, parameter="sso", code="missing_parameter", stage="callback"
+            )
         sso_signature = request_data.get("sig")
 
         param_signature = hmac.new(
             self.setting("SECRET").encode("utf8"), sso_params.encode("utf8"), sha256
         ).hexdigest()
 
-        if not hmac.compare_digest(str(sso_signature), str(param_signature)):
-            raise AuthException(self, "Could not verify discourse login")
+        if not isinstance(sso_signature, str) or not constant_time_compare(
+            sso_signature, param_signature
+        ):
+            raise AuthResponseError(
+                self,
+                "Could not verify discourse login",
+                code="invalid_signature",
+                stage="callback",
+            )
 
         decoded_params = urlsafe_b64decode(sso_params.encode("utf8")).decode("ascii")
 
         # Validate the nonce to ensure the request was not modified
-        response = parse_qs(decoded_params)
+        response = drop_lists(parse_qs(decoded_params, keep_blank_values=True))
         nonce_obj = self.get_nonce(response.get("nonce"))
         if nonce_obj:
             self.delete_nonce(nonce_obj)
         else:
-            raise AuthTokenError(self, "Incorrect id_token: nonce")
+            raise AuthResponseError(
+                self,
+                "Incorrect id_token: nonce",
+                code="nonce_mismatch",
+                stage="callback",
+            )
 
         kwargs.update({"sso": "", "sig": "", "backend": self, "response": response})
         return self.strategy.authenticate(*args, **kwargs)

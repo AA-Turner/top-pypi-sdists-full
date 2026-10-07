@@ -9,8 +9,8 @@ use crate::dialects::common::AliasInfo;
 use crate::dialects::syntax::{SyntaxKind, SyntaxSet};
 use crate::helpers::IndexMap;
 use crate::parser::segments::ErasedSegment;
+use crate::parser::segments::from::get_from_expression_aliases;
 use crate::utils::analysis::select::get_select_statement_info;
-use crate::utils::functional::segments::Segments;
 
 const SELECTABLE_TYPES: SyntaxSet = SyntaxSet::new(&[
     SyntaxKind::WithCompoundStatement,
@@ -28,6 +28,11 @@ const SUBSELECT_TYPES: SyntaxSet = SyntaxSet::new(&[
     // the same code paths - although are likely to return nothing.
     SyntaxKind::ValuesClause,
 ]);
+
+/// Return an identifier's raw value without its quoting delimiters.
+pub fn normalize_identifier(segment: &ErasedSegment) -> SmolStr {
+    segment.raw_normalized()
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum QueryType {
@@ -113,35 +118,61 @@ impl Selectable<'_> {
             return get_select_statement_info(&self.selectable, self.dialect.into(), false);
         }
 
-        let values = Segments::new(self.selectable.clone(), None);
-        let alias_expression = values
-            .children_all()
-            .find_first_where(|it: &ErasedSegment| it.is_type(SyntaxKind::AliasExpression));
-        let name = alias_expression
-            .children_all()
-            .find_first_where(|it: &ErasedSegment| {
-                matches!(
-                    it.get_type(),
-                    SyntaxKind::NakedIdentifier | SyntaxKind::QuotedIdentifier,
-                )
+        let mut table_aliases = Vec::new();
+        for alias_expression in self
+            .selectable
+            .children(const { &SyntaxSet::single(SyntaxKind::AliasExpression) })
+        {
+            let name =
+                alias_expression.child(
+                    const {
+                        &SyntaxSet::new(&[
+                            SyntaxKind::NakedIdentifier,
+                            SyntaxKind::QuotedIdentifier,
+                        ])
+                    },
+                );
+            table_aliases.push(AliasInfo {
+                ref_str: name
+                    .as_ref()
+                    .map_or_else(|| SmolStr::new_static(""), |name| name.raw().clone()),
+                segment: name.clone(),
+                aliased: name.is_some(),
+                from_expression_element: self.selectable.clone(),
+                alias_expression: Some(alias_expression.clone()),
+                object_reference: None,
             });
+        }
 
-        let alias_info = AliasInfo {
-            ref_str: if name.is_empty() {
-                SmolStr::new_static("")
-            } else {
-                name.first().unwrap().raw().clone()
-            },
-            segment: name.first().cloned(),
-            aliased: !name.is_empty(),
-            from_expression_element: self.selectable.clone(),
-            alias_expression: alias_expression.first().cloned(),
-            object_reference: None,
-        };
+        // MySQL UPDATE targets can be nested in one or more from_expressions.
+        // Reuse the FROM-clause resolver so joined and comma-separated targets
+        // are both visible to correlated subqueries.
+        if table_aliases.is_empty()
+            && self
+                .selectable
+                .child(const { &SyntaxSet::single(SyntaxKind::FromExpression) })
+                .is_some()
+        {
+            table_aliases = get_from_expression_aliases(&self.selectable)
+                .into_iter()
+                .map(|(_, alias)| alias)
+                .collect();
+        }
+
+        if table_aliases.is_empty() {
+            table_aliases.push(AliasInfo {
+                ref_str: SmolStr::new_static(""),
+                segment: None,
+                aliased: false,
+                from_expression_element: self.selectable.clone(),
+                alias_expression: None,
+                object_reference: None,
+            });
+        }
 
         SelectStatementColumnsAndTables {
             select_statement: self.selectable.clone(),
-            table_aliases: vec![alias_info],
+            table_aliases,
             standalone_aliases: Vec::new(),
             reference_buffer: Vec::new(),
             select_targets: Vec::new(),
@@ -166,6 +197,7 @@ pub struct QueryInner<'me> {
     pub ctes: IndexMap<SmolStr, Query<'me>>,
     pub parent: Option<Query<'me>>,
     pub subqueries: Vec<Query<'me>>,
+    pub is_subquery: bool,
     pub cte_definition_segment: Option<ErasedSegment>,
     pub cte_name_segment: Option<ErasedSegment>,
 }
@@ -252,7 +284,11 @@ impl<'me> Query<'me> {
         let this = self.clone();
 
         for subquery in &RefCell::borrow(&self.inner).subqueries {
-            RefCell::borrow_mut(&subquery.inner).parent = this.clone().into();
+            let mut subquery_inner = RefCell::borrow_mut(&subquery.inner);
+            subquery_inner.parent = this.clone().into();
+            // Distinguish nested SELECTs from CTE children for rules which need
+            // correlated-reference visibility without treating CTEs as subqueries.
+            subquery_inner.is_subquery = true;
         }
 
         for cte in RefCell::borrow(&self.inner).ctes.values().cloned() {
@@ -319,8 +355,13 @@ impl<'me> Query<'me> {
         } else if segment.is_type(SyntaxKind::SetExpression) {
             selectables.extend(
                 segment
-                    .children(const { &SyntaxSet::new(&[SyntaxKind::SelectStatement]) })
-                    .cloned()
+                    .recursive_crawl(
+                        const { &SyntaxSet::single(SyntaxKind::SelectStatement) },
+                        false,
+                        &SyntaxSet::EMPTY,
+                        false,
+                    )
+                    .into_iter()
                     .map(|selectable| Selectable {
                         selectable,
                         dialect,
@@ -363,6 +404,7 @@ impl<'me> Query<'me> {
                 ctes: <_>::default(),
                 parent,
                 subqueries,
+                is_subquery: false,
                 cte_definition_segment: None,
                 cte_name_segment: None,
             })),
@@ -377,7 +419,7 @@ impl<'me> Query<'me> {
         let mut ctes = IndexMap::default();
         for cte in cte_defs {
             let name_seg = cte.segments()[0].clone();
-            let name = name_seg.raw().to_uppercase_smolstr();
+            let name = normalize_identifier(&name_seg).to_uppercase_smolstr();
 
             let queries = cte.recursive_crawl(
                 const { &SELECTABLE_TYPES.union(&SUBSELECT_TYPES) },

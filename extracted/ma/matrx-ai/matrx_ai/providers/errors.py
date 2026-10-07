@@ -639,10 +639,20 @@ def _rebrand_openai_compatible(result: RetryableError, display: str, key: str) -
     return result
 
 
+#: A provider that reports a THROTTLE as a 400 (Anthropic: "Grammar compilation rate
+#: limit exceeded ... 20 compilations per minute") is still rate-limited, not a bad
+#: request — retry with backoff (feedback eb34e17d). Per-minute windows → 30 s.
+_RATE_LIMIT_IN_400_MARKERS = ("rate limit exceeded", "rate_limit_exceeded", "too many requests")
+_RATE_LIMIT_IN_400_RETRY_AFTER = 30.0
+
+
 def _handle_bad_request(provider: str, message: str, body: dict[str, object]) -> RetryableError:
     setting = _setting_rejection_or_none(provider, message, body, 400)
     if setting is not None:
         return setting
+    detail_text = str(body.get("message", message) or message).lower()
+    if any(marker in detail_text or marker in message.lower() for marker in _RATE_LIMIT_IN_400_MARKERS):
+        return _handle_rate_limit(provider, message, _RATE_LIMIT_IN_400_RETRY_AFTER)
     detail = body.get("message", message)
     return RetryableError(
         error_type="invalid_request",

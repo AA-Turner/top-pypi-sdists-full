@@ -2,20 +2,20 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use enumset::enum_set;
 use nom::{
+	OutputMode, PResult, Parser,
 	branch::alt,
 	bytes::complete::tag,
 	character::char,
 	combinator::{peek, recognize},
-	OutputMode, PResult, Parser,
 };
 use tracing::Level;
 
 use crate::{
+	Input,
 	error::ParseError,
 	inline::italic,
 	span::{TraceOk, TraceParse},
 	util::single_alphanumeric,
-	Input,
 };
 
 use super::{Grammar, GrammarSet};
@@ -95,7 +95,7 @@ where
 
 #[cfg(test)]
 mod test {
-	use super::{parser, GRAMMARS};
+	use super::{GRAMMARS, parser};
 	use crate::grammar::GrammarSet;
 
 	/// [`GRAMMARS`] short-circuits the search for overrides, so it must list exactly the grammars

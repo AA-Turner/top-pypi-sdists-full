@@ -303,6 +303,21 @@ class GoogleImageGeneration(BaseMediaGeneration):
                 assets.append(GeneratedAsset(data=data, mime_type=mime, metadata=metadata or None))
         return assets
 
+    def _extract_text_reply(self, raw: Any) -> str:
+        """Gemini native image models answer non-image prompts in text; keep it."""
+        if self._is_imagen_call:
+            return ""
+        texts: list[str] = []
+        for cand in getattr(raw, "candidates", None) or []:
+            content = getattr(cand, "content", None)
+            for part in getattr(content, "parts", None) or []:
+                if getattr(part, "thought", False):
+                    continue
+                text = getattr(part, "text", None)
+                if isinstance(text, str) and text.strip():
+                    texts.append(text)
+        return "".join(texts)
+
     def _classify_error(self, exc: Exception) -> Any:
         from matrx_ai.providers.errors import classify_google_error
 

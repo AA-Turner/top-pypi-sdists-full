@@ -81,6 +81,10 @@ FROM baz;
         &[RuleGroups::All, RuleGroups::Convention]
     }
 
+    fn is_fix_compatible(&self) -> bool {
+        true
+    }
+
     fn eval(&self, context: &RuleContext) -> Vec<LintResult> {
         // Use "COALESCE" instead of "IFNULL" or "NVL".
         // We only care about function names, and they should be the
@@ -92,6 +96,13 @@ FROM baz;
         if !(context.segment.raw().eq_ignore_ascii_case("IFNULL")
             || context.segment.raw().eq_ignore_ascii_case("NVL"))
         {
+            return Vec::new();
+        }
+
+        // A qualified function name is a user-defined function, not the builtin.
+        if context.parent_stack.last().is_some_and(|parent| {
+            parent.is_type(SyntaxKind::FunctionName) && parent.segments().len() != 1
+        }) {
             return Vec::new();
         }
 

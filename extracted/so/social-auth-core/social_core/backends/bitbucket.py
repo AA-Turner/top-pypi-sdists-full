@@ -7,13 +7,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from social_core.exceptions import AuthForbidden
+from social_core.exceptions import AuthResponseError
 
 from .oauth import BaseOAuth2
 
 
 class BitbucketOAuth2(BaseOAuth2):
     name = "bitbucket-oauth2"
+    title = "Bitbucket"
+    icon = "bitbucket.svg"
     SCOPE_SEPARATOR = " "
     AUTHORIZATION_URL = "https://bitbucket.org/site/oauth2/authorize"
     ACCESS_TOKEN_URL = "https://bitbucket.org/site/oauth2/access_token"
@@ -25,6 +27,7 @@ class BitbucketOAuth2(BaseOAuth2):
         ("refresh_token", "refresh_token"),
     ]
     ID_KEY = "uuid"
+    MUTABLE_ID_KEYS = ("username",)
 
     def get_user_id(self, details, response):
         id_key = self.id_key()
@@ -34,7 +37,9 @@ class BitbucketOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from Bitbucket account"""
-        fullname, first_name, last_name = self.get_user_names(response["display_name"])
+        fullname = response["display_name"]
+        first_name = ""
+        last_name = ""
 
         return {
             "username": response.get("username", ""),
@@ -57,7 +62,12 @@ class BitbucketOAuth2(BaseOAuth2):
                 break
 
         if self.setting("VERIFIED_EMAILS_ONLY", False) and not is_confirmed:
-            raise AuthForbidden(self, "Bitbucket account has no verified email")
+            raise AuthResponseError(
+                self,
+                "Bitbucket account has no verified email",
+                code="profile_email_missing",
+                stage="user_info",
+            )
 
         user = self._get_user(access_token)
         if email:

@@ -1,5 +1,10 @@
-import pytest
+import json
 
+import jsonschema_rs
+import pytest
+from hypothesis import given, settings
+
+import schemathesis
 from schemathesis.core.jsonschema import make_validator, make_validator_for
 from schemathesis.core.transforms import transform
 from schemathesis.specs.openapi import converter
@@ -645,6 +650,14 @@ def test_pattern_the_validator_enforces_is_kept(pattern):
     assert result["pattern"] == pattern
 
 
+def test_posix_class_keeps_its_posix_meaning_for_the_validator():
+    # ECMA reads `[[:alnum:]]` as literal characters, but authors mean the POSIX class their server enforces.
+    schema = {"type": "string", "pattern": "^[[:alnum:]]+$"}
+    result = transform(schema, converter.to_json_schema, nullable_keyword="x-nullable")
+    validator = jsonschema_rs.validator_for(result)
+    assert [validator.is_valid(value) for value in ("abc1", ":]")] == [True, False]
+
+
 def test_nested_object_required_array_not_duplicated():
     # GH-3460: Nested `required` arrays should not cause duplicates in parent's `required`
     schema = {
@@ -950,6 +963,54 @@ def test_discriminator_pin_skipped_for_polymorphic_branch_target(ctx):
     assert validator.is_valid({"type": "msg"})
     assert validator.is_valid({"type": "resp"})
     assert not validator.is_valid({"type": "Item"})
+
+
+def test_discriminator_pin_uses_file_name_for_whole_file_ref(tmp_path):
+    (tmp_path / "cat.json").write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "properties": {"kind": {"type": "string"}, "meow": {"type": "integer"}},
+                "required": ["kind"],
+            }
+        )
+    )
+    (tmp_path / "openapi.json").write_text(
+        json.dumps(
+            {
+                "openapi": "3.0.2",
+                "info": {"title": "Test", "version": "1"},
+                "paths": {
+                    "/pets": {
+                        "post": {
+                            "requestBody": {
+                                "required": True,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "oneOf": [{"$ref": "cat.json"}],
+                                            "discriminator": {"propertyName": "kind"},
+                                        }
+                                    }
+                                },
+                            },
+                            "responses": {"200": {"description": "OK"}},
+                        }
+                    }
+                },
+            }
+        )
+    )
+    schema = schemathesis.openapi.from_path(tmp_path / "openapi.json")
+    kinds = set()
+
+    @given(case=schema["/pets"]["POST"].as_strategy())
+    @settings(max_examples=10, deadline=None)
+    def test(case):
+        kinds.add(case.body["kind"])
+
+    test()
+    assert kinds == {"cat"}
 
 
 def test_discriminator_pin_applies_to_boolean_branch_target(ctx):

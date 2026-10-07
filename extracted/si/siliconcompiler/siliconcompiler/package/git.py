@@ -11,8 +11,13 @@ import sys
 
 from typing import Dict, Type, Optional, TYPE_CHECKING
 
-from git import Repo, GitCommandError
 from urllib import parse as url_parse
+
+try:
+    import git
+except ImportError:
+    # GitPython raises ImportError when it cannot find a git executable.
+    git = None
 
 from siliconcompiler.package import RemoteResolver
 
@@ -52,18 +57,81 @@ def get_resolver() -> Dict[str, Type["GitResolver"]]:
         "git": GitResolver,
         "git+https": GitResolver,
         "git+ssh": GitResolver,
-        "ssh": GitResolver
+        "ssh": GitResolver,
+        "git+private": GitResolver,
+        "git+https+private": GitResolver,
+        "git+ssh+private": GitResolver,
+        "ssh+private": GitResolver
     }
 
 
 class GitResolver(RemoteResolver):
     """
-    A resolver for fetching data from remote Git repositories.
+    A Git repository, cloned and checked out at a branch, tag or commit.
 
-    This class handles cloning repositories, checking out specific references,
-    and managing the local cache. It supports authentication via environment
-    tokens (e.g., GITHUB_TOKEN) for HTTPS and assumes SSH keys are configured
-    for SSH-based URLs.
+    Format:
+        ``git+https://<host>/<path>``, ``git+ssh://<user>@<host>/<path>`` or
+        ``ssh://<user>@<host>/<path>``
+
+        ``git://`` is cloned over HTTPS, as ``git+https://`` is. Submodules are
+        checked out, and Git LFS files fetched, when the repository has them;
+        ``?submodules=false`` or ``?lfs=false`` on the URL skips either. A
+        repository that uses LFS needs ``git-lfs`` installed.
+
+    Tag:
+        The branch, tag or commit checked out after cloning.
+
+    Authentication:
+        ``git+ssh://`` and ``ssh://`` use this machine's SSH keys. Prefer them
+        where you can: they keep the credential out of the URL entirely, while a
+        token sent over HTTPS is written into the cached clone's
+        ``.git/config``.
+
+        Over HTTPS the token is read from the environment and sent as the
+        basic-auth password, under the username the host expects:
+
+        .. list-table::
+           :header-rows: 1
+           :widths: 15 40 45
+
+           * - Host
+             - Environment variable
+             - Sent to the server as
+           * - ``github.com``
+             - ``GITHUB_TOKEN``, ``GH_TOKEN``, then ``GIT_TOKEN``
+             - ``x-access-token:<token>``
+           * - ``gitlab.com``
+             - ``GITLAB_TOKEN``, ``GL_TOKEN``, then ``GIT_TOKEN``
+             - ``oauth2:<token>``
+           * - ``bitbucket.org``
+             - ``BITBUCKET_TOKEN``, then ``GIT_TOKEN``
+             - ``x-token-auth:<token>``
+           * - anything else
+             - ``GIT_TOKEN``
+             - the username above for a host named after a forge
+               (``gitlab.example.com``), else ``<token>`` as the username with
+               an empty password
+
+        The username matters: a GitHub App installation token is accepted only
+        in the form above, while a classic personal access token is accepted
+        either way.
+
+        A forge's own variables unlock only for that forge's own domains. A
+        self-hosted GitHub Enterprise or GitLab -- ``gitlab.example.com`` --
+        still gets the right username, but takes its token from ``GIT_TOKEN``:
+        a forge name in a host label is not evidence that the forge owns the
+        host, and ``GITLAB_TOKEN`` must not be handed to
+        ``gitlab.attacker.example`` on the strength of one.
+
+        For a host that needs some other username, write it into the URL and
+        the token becomes its password, as in
+        ``git+https://<user>@git.example.com/<owner>/<repo>``. A password
+        written into the URL is used as it is.
+
+    Example:
+        .. code-block:: python
+
+            design.set_dataroot("ip", "git+https://github.com/org/ip.git", tag="v1.0")
     """
 
     def __init__(self, name: str, schema: "Project", source: str, reference: Optional[str] = None):
@@ -82,14 +150,23 @@ class GitResolver(RemoteResolver):
 
         Returns:
             bool: True if a valid repository exists, False otherwise.
+
+        Raises:
+            RuntimeError: If no git executable is available.
         """
+        # resolve() always checks the cache before resolve_remote(), so this
+        # guards every use of git.
+        if git is None:
+            raise RuntimeError(
+                f"git is required to fetch {self.display_name}, but no git executable was found")
+
         if os.path.exists(self.cache_path):
             try:
-                repo = Repo(self.cache_path)
+                repo = git.Repo(self.cache_path)
                 if repo.untracked_files or repo.index.diff("HEAD"):
                     self.logger.warning('The repo of the cached data is dirty.')
                 return True
-            except GitCommandError:
+            except git.GitCommandError:
                 self.logger.warning('Deleting corrupted cache data.')
                 # Make writable first, in case cache was previously made read-only
                 try:
@@ -99,30 +176,6 @@ class GitResolver(RemoteResolver):
                 shutil.rmtree(self.cache_path)
                 return False
         return False
-
-    @staticmethod
-    def _host_forge(hostname: Optional[str]) -> Optional[str]:
-        """
-        Identifies which forge a hostname belongs to.
-
-        Matches whole dot-separated labels, so a self-hosted instance
-        (``gitlab.example.com``, ``github.mycorp.com``) is recognised while an
-        unrelated host that merely contains the name (``mygithub.internal``) is
-        not.
-
-        Args:
-            hostname (str or None): The host from the source URL.
-
-        Returns:
-            str or None: The forge key, or None if the host is unrecognised.
-        """
-        if not hostname:
-            return None
-        labels = hostname.lower().split('.')
-        for forge in ("github", "gitlab", "bitbucket"):
-            if forge in labels:
-                return forge
-        return None
 
     @classmethod
     def _token_username(cls, hostname: Optional[str]) -> Optional[str]:
@@ -149,34 +202,6 @@ class GitResolver(RemoteResolver):
             "gitlab": "oauth2",
             "bitbucket": "x-token-auth",
         }.get(cls._host_forge(hostname))
-
-    @staticmethod
-    def _saas_forge(hostname: Optional[str]) -> Optional[str]:
-        """
-        Identifies a forge's own hosted service, by exact domain.
-
-        This is the ownership check, and it is deliberately stricter than
-        :meth:`_host_forge`. Matching a forge name in any label is fine for
-        choosing a username -- that is a fixed, public string -- but it is not
-        evidence of who owns a host, and ``gitlab.attacker.example`` must not be
-        handed the ambient ``GITLAB_TOKEN``. A self-hosted instance supplies its
-        credential through ``GIT_TOKEN``, or through a username in the URL.
-
-        Args:
-            hostname (str or None): The host from the source URL.
-
-        Returns:
-            str or None: The forge key, or None if the host is not that forge's.
-        """
-        if not hostname:
-            return None
-        host = hostname.lower()
-        for forge, domain in (("github", "github.com"),
-                              ("gitlab", "gitlab.com"),
-                              ("bitbucket", "bitbucket.org")):
-            if host == domain or host.endswith(f".{domain}"):
-                return forge
-        return None
 
     @classmethod
     def _redact_url(cls, url: str) -> str:
@@ -378,7 +403,7 @@ class GitResolver(RemoteResolver):
             return False
         return False
 
-    def _pull_lfs(self, repo: "Repo") -> None:
+    def _pull_lfs(self, repo: "git.Repo") -> None:
         """
         Runs ``git lfs pull`` on the given repo if it has LFS-tracked files.
 
@@ -393,7 +418,7 @@ class GitResolver(RemoteResolver):
             repo.git.update_environment(**env)
         try:
             repo.git.lfs("pull")
-        except GitCommandError as e:
+        except git.GitCommandError as e:
             msg = f"{e}".lower()
             if "lfs" in msg and ("is not a git command" in msg or "not found" in msg):
                 raise RuntimeError(
@@ -420,9 +445,9 @@ class GitResolver(RemoteResolver):
             path = self.git_path
             self.logger.info(
                 f'Cloning {self.display_name} data from {self._redact_url(path)}')
-            repo = Repo.clone_from(path, self.cache_path,
-                                   recurse_submodules=self.include_submodules,
-                                   env=env or None)
+            repo = git.Repo.clone_from(path, self.cache_path,
+                                       recurse_submodules=self.include_submodules,
+                                       env=env or None)
             if env:
                 # clone_from's env covers only the clone itself; the checkout,
                 # submodule and LFS steps below run through this repo's git.
@@ -443,7 +468,7 @@ class GitResolver(RemoteResolver):
                 if has_submodules:
                     for submodule in repo.submodules:
                         self._pull_lfs(submodule.module())
-        except GitCommandError as e:
+        except git.GitCommandError as e:
             error_msg = str(e)
             # What git says for a credential that was refused, missing, or
             # unobtainable. 'could not read Username'/'Password' are what it

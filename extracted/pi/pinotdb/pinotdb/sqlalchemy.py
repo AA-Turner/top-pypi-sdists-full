@@ -24,7 +24,16 @@ class PinotCompiler(compiler.SQLCompiler):
     def visit_select(self, select, **kwargs):
         return super().visit_select(select, **kwargs)
 
+    def visit_table(self, table, **kwargs):
+        if self.preparer.omit_schema:
+            kwargs["ambiguous_table_name_map"] = None
+        return super().visit_table(table, **kwargs)
+
     def visit_column(self, column, result_map=None, **kwargs):
+        if self.preparer.omit_schema:
+            # Schema-qualified tables populate SQLAlchemy's automatic alias
+            # map, but omitted schemas must render like schema=None tables.
+            kwargs["ambiguous_table_name_map"] = None
         result_map = result_map or kwargs.pop("add_to_result_map", None)
         # This is a hack to modify the original column, but how do I clone it ?
         column.is_literal = True
@@ -78,7 +87,6 @@ class PinotTypeCompiler(compiler.GenericTypeCompiler):
     visit_SMALLINT = visit_NUMERIC
     visit_BIGINT = visit_NUMERIC
     visit_BOOLEAN = visit_NUMERIC
-    visit_TIMESTAMP = visit_NUMERIC
     visit_DATE = visit_NUMERIC
 
     def visit_CHAR(self, type_, **kwargs):
@@ -96,6 +104,8 @@ class PinotTypeCompiler(compiler.GenericTypeCompiler):
 
     def visit_DATETIME(self, type_, **kwargs):
         return "TIMESTAMP"
+
+    visit_TIMESTAMP = visit_DATETIME
 
     def visit_TIME(self, type_, **kwargs):
         raise exceptions.NotSupportedError("Type TIME is not supported")
@@ -135,6 +145,22 @@ class PinotIdentifierPareparer(compiler.IdentifierPreparer):
             escape_quote=escape_quote,
             omit_schema=omit_schema,
         )
+
+    def schema_for_object(self, obj):
+        # SELECT table/column visitors use this hook directly, bypassing
+        # format_table() and its omit_schema check. Keep Table.schema intact
+        # for reflection; Pinot's database context comes from the connection.
+        if self.omit_schema:
+            return None
+        return super().schema_for_object(obj)
+
+    def _with_schema_translate(self, schema_translate_map):
+        # SQLAlchemy replaces schema_for_object on translated preparers. A
+        # translation must not reintroduce schemas when they are omitted.
+        preparer = super()._with_schema_translate(schema_translate_map)
+        if self.omit_schema:
+            preparer.schema_for_object = self.schema_for_object
+        return preparer
 
 
 def extract_table_name(fqn):
@@ -459,7 +485,7 @@ class PinotDialect(default.DefaultDialect):
         else:
             return ['default']
 
-    def has_table(self, connection, table_name, schema=None):
+    def has_table(self, connection, table_name, schema=None, **kwargs):
         return table_name in self.get_table_names(connection, schema)
 
     def get_table_names(self, connection, schema=None, **kwargs):

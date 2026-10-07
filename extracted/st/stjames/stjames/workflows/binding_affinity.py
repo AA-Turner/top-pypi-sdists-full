@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, TypeAlias
 
 from pydantic import AfterValidator, BaseModel, Field, PositiveFloat, model_validator
 
@@ -9,9 +9,11 @@ from ..pdb import PDB
 from ..protein import ProteinSequence
 from ..settings import Settings
 from ..solvent import Solvent, SolventModel, SolventSettings
-from ..types import UUID
+from ..types import UUID, ProteinUUID
 from .multistage_opt import MultiStageOptSettings
 from .workflow import ProteinStructureWorkflow
+
+CalculationUUID: TypeAlias = UUID
 
 
 class SinglePointEnergySettings(BaseModel):
@@ -74,10 +76,15 @@ class BindingAffinityResult(Base):
     Result of computing binding affinity for a given pose.
 
     :param binding_affinity: binding affinity in kcal/mol for single-point energy
-        calculations, or log10(M) for GNINA, AEV-PLIG, and Nesso-1 calculations
+        calculations, or log10(M) for GNINA, AEV-PLIG, and Nesso-1 calculations.
+        None when a pose has been saved but scoring has not succeeded.
+    :param pose: saved optimized ligand calculation UUID
+    :param complex_pdb: saved optimized protein–ligand complex UUID
     """
 
-    binding_affinity: Annotated[float, AfterValidator(round_float(3))]
+    binding_affinity: Annotated[float, AfterValidator(round_float(3))] | None = None
+    pose: CalculationUUID | None = None
+    complex_pdb: ProteinUUID | None = None
 
 
 class BindingAffinityWorkflow(ProteinStructureWorkflow):
@@ -102,6 +109,7 @@ class BindingAffinityWorkflow(ProteinStructureWorkflow):
     Results:
     :param binding_affinity_results: the binding affinity for each molecule.
         A value of `None` indicates a failed row.
+
     """
 
     protein: PDB | UUID | None = None

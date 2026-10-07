@@ -34,7 +34,9 @@ class ProvenanceSource(BaseModel):
     vendor: Optional[StrictStr] = None
     address: Optional[SourceAddress] = None
     last_seen: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["source_class", "source_id", "vendor", "address", "last_seen"]
+    external_id: Optional[StrictStr] = None
+    last_scanned: Optional[datetime] = None
+    __properties: ClassVar[List[str]] = ["source_class", "source_id", "vendor", "address", "last_seen", "external_id", "last_scanned"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -98,6 +100,16 @@ class ProvenanceSource(BaseModel):
         if self.last_seen is None and "last_seen" in self.model_fields_set:
             _dict['last_seen'] = None
 
+        # set to None if external_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.external_id is None and "external_id" in self.model_fields_set:
+            _dict['external_id'] = None
+
+        # set to None if last_scanned (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_scanned is None and "last_scanned" in self.model_fields_set:
+            _dict['last_scanned'] = None
+
         return _dict
 
     @classmethod
@@ -114,7 +126,9 @@ class ProvenanceSource(BaseModel):
             "source_id": obj.get("source_id"),
             "vendor": obj.get("vendor"),
             "address": SourceAddress.from_dict(obj["address"]) if obj.get("address") is not None else None,
-            "last_seen": obj.get("last_seen")
+            "last_seen": obj.get("last_seen"),
+            "external_id": obj.get("external_id"),
+            "last_scanned": obj.get("last_scanned")
         })
         return _obj
 

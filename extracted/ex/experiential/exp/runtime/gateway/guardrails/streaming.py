@@ -1,4 +1,4 @@
-"""Incremental redaction of a streamed completion by a deterministic adapter.
+"""Streaming capabilities for deterministic redactors.
 
 A deterministic redactor decides about a prefix of a completion without
 seeing the rest of it, so a streamed completion does not have to be buffered
@@ -7,9 +7,8 @@ that makes that safe: the adapter names how much of the buffered tail is
 still undecided, everything before that point is redacted and released, and
 the tail stays buffered until more text arrives or the stream ends.
 
-The caller (the native data plane) owns the buffer. Every function here is
-pure, so a release decision can run on any control-plane worker thread
-without per-request state.
+The native data plane owns withheld events. Deterministic release helpers are
+pure; model-backed output classifiers require the complete completion.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ from typing import Protocol, runtime_checkable
 from exp.common.core.artifacts import ContractModel
 
 
-@runtime_checkable
 class StreamingRedactor(Protocol):
     """A deterministic detector that can decide about a prefix of its subject.
 

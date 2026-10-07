@@ -1,0 +1,70 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (py${{ matrix.python }}${{ matrix.pydantic == 'v1' && ', pydantic v1' || '' }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        pydantic: [v2]
+        include:
+          - python: "3.10"
+            pydantic: v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - if: matrix.pydantic == 'v2'
+        run: uv run --python ${{ matrix.python }} --group dev pytest -q
+      - if: matrix.pydantic == 'v1'
+        run: uv run --python ${{ matrix.python }} --with 'pydantic<2' --group dev pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run --group dev ruff check .
+      - run: uv run --group dev ruff format --check custom tests scripts examples
+      - run: uv run --group dev mypy
+      - run: uv build
+
+  # src/supermemory must be exactly what scripts/generate produces from the
+  # committed spec + fern/ + custom/ — no hand edits.
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: astral-sh/setup-uv@v6
+      - run: SKIP_FETCH=1 scripts/generate
+      - name: Check for drift
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "::error::src/supermemory doesn't match scripts/generate. Edit fern/ or custom/ instead of src/, then run SKIP_FETCH=1 scripts/generate and commit."
+            exit 1
+          fi
+
+  # Against the real API; runs when the SUPERMEMORY_LIVE_API_KEY secret exists.
+  live:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      SUPERMEMORY_LIVE_API_KEY: ${{ secrets.SUPERMEMORY_LIVE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.SUPERMEMORY_LIVE_API_KEY != ''
+      - uses: astral-sh/setup-uv@v6
+        if: env.SUPERMEMORY_LIVE_API_KEY != ''
+      - if: env.SUPERMEMORY_LIVE_API_KEY != ''
+        run: uv run --group dev pytest tests/live -q

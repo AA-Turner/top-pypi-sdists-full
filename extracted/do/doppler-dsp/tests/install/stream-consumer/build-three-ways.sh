@@ -24,7 +24,7 @@ CC="${CC:-cc}"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-cp "$HERE/app.c" "$HERE/CMakeLists.txt" "$work/"
+cp "$HERE/app.c" "$HERE/stream_only.c" "$HERE/CMakeLists.txt" "$work/"
 cd "$work"
 
 echo "== face 1: bare cc (static) =="
@@ -36,6 +36,16 @@ cc app.c -I "$PREFIX/include" \
 # --8<-- [end:cc]
 mv app app-cc
 
+# Debian and Ubuntu's gcc defaults to --as-needed; Arch's and macOS's linkers do
+# not. The stream-only builds below are only a test of the shared libraries
+# resolving each other if the linker drops what the program never calls, so ask
+# for it rather than depend on the host (Linux only: ld64 has no such option).
+asneeded=""
+if [ "$(uname -s)" = Linux ]; then
+    asneeded="-Wl,--as-needed"
+    export LDFLAGS="$asneeded${LDFLAGS:+ $LDFLAGS}"
+fi
+
 echo "== face 2: CMake (find_package) =="
 # --8<-- [start:cmake-commands]
 cmake -B build -DCMAKE_PREFIX_PATH="$PREFIX"
@@ -46,20 +56,32 @@ cp build/app app-cmake
 echo "== face 3: pkg-config =="
 # --8<-- [start:pkg-config]
 export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-cc app.c $(pkg-config --cflags --libs doppler_stream) -lm -o app
+cc app.c $(pkg-config --cflags --libs doppler_stream) \
+   -Wl,-rpath,"$(pkg-config --variable=libdir doppler_stream)" -lm -o app
 # --8<-- [end:pkg-config]
 mv app app-pc
 
-# CMake/pkg-config faces link the shared libs; point the loader at the
-# prefix so all three run in one identical environment.
-export LD_LIBRARY_PATH="$PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export DYLD_LIBRARY_PATH="$PREFIX/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+echo "== stream only: pkg-config, and CMake's second target =="
+# shellcheck disable=SC2046
+cc stream_only.c $asneeded $(pkg-config --cflags --libs doppler_stream) \
+   -Wl,-rpath,"$(pkg-config --variable=libdir doppler_stream)" -lm -o app-stream-pc
+cp build/app_stream_only app-stream-cmake
+
+# The binaries run AS BUILT. The CMake and pkg-config faces link the shared
+# libraries, and an inherited loader path would let a recipe that forgot to say
+# where they live pass here and fail for the user: the pkg-config command had no
+# rpath, this script exported LD_LIBRARY_PATH around it, and `./app` failed on a
+# clean shell. So the environment is cleared, not extended.
+unset LD_LIBRARY_PATH DYLD_LIBRARY_PATH
 
 ./app-cc     > out-cc.txt
 ./app-cmake  > out-cmake.txt
 ./app-pc     > out-pc.txt
+./app-stream-pc    > out-stream-pc.txt
+./app-stream-cmake > out-stream-cmake.txt
 
 diff out-cc.txt out-cmake.txt
 diff out-cc.txt out-pc.txt
-echo "three faces OK — identical output:"
+diff out-stream-pc.txt out-stream-cmake.txt
+echo "three faces OK, and the stream-only builds run — identical output:"
 sed 's/^/  /' out-cc.txt

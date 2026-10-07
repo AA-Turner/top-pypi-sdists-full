@@ -24,16 +24,32 @@ pub mod databricks_keywords;
 pub mod db2;
 #[cfg(feature = "db2")]
 mod db2_keywords;
+#[cfg(feature = "doris")]
+pub mod doris;
+#[cfg(feature = "doris")]
+mod doris_keywords;
 #[cfg(feature = "duckdb")]
 pub mod duckdb;
 #[cfg(feature = "exasol")]
 pub mod exasol;
 #[cfg(feature = "exasol")]
 mod exasol_keywords;
+#[cfg(feature = "flink")]
+pub mod flink;
+#[cfg(feature = "flink")]
+mod flink_keywords;
 #[cfg(feature = "greenplum")]
 pub mod greenplum;
 #[cfg(feature = "hive")]
 pub mod hive;
+#[cfg(feature = "impala")]
+pub mod impala;
+#[cfg(feature = "impala")]
+mod impala_keywords;
+#[cfg(feature = "mariadb")]
+pub mod mariadb;
+#[cfg(feature = "mariadb")]
+mod mariadb_keywords;
 #[cfg(feature = "materialize")]
 pub mod materialize;
 #[cfg(feature = "materialize")]
@@ -44,6 +60,8 @@ pub mod mysql;
 mod mysql_keywords;
 #[cfg(feature = "oracle")]
 pub mod oracle;
+#[cfg(feature = "oracle")]
+mod oracle_keywords;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 #[cfg(feature = "postgres")]
@@ -78,6 +96,10 @@ mod trino_keywords;
 pub mod tsql;
 #[cfg(feature = "tsql")]
 mod tsql_keywords;
+#[cfg(feature = "vertica")]
+pub mod vertica;
+#[cfg(feature = "vertica")]
+mod vertica_keywords;
 
 /// Returns dialect-specific configuration options for the given dialect kind.
 /// Each entry is (option_name, description, default_value).
@@ -97,6 +119,10 @@ pub fn dialect_config_options(
         DialectKind::Databricks => databricks::DatabricksDialectConfig::config_options(),
         #[cfg(feature = "db2")]
         DialectKind::Db2 => db2::Db2DialectConfig::config_options(),
+        #[cfg(feature = "doris")]
+        DialectKind::Doris => doris::DorisDialectConfig::config_options(),
+        #[cfg(feature = "flink")]
+        DialectKind::Flink => flink::FlinkDialectConfig::config_options(),
         #[cfg(feature = "duckdb")]
         DialectKind::Duckdb => duckdb::DuckDBDialectConfig::config_options(),
         #[cfg(feature = "exasol")]
@@ -105,6 +131,10 @@ pub fn dialect_config_options(
         DialectKind::Greenplum => greenplum::GreenplumDialectConfig::config_options(),
         #[cfg(feature = "hive")]
         DialectKind::Hive => hive::HiveDialectConfig::config_options(),
+        #[cfg(feature = "impala")]
+        DialectKind::Impala => impala::ImpalaDialectConfig::config_options(),
+        #[cfg(feature = "mariadb")]
+        DialectKind::Mariadb => mariadb::MariaDBDialectConfig::config_options(),
         #[cfg(feature = "mysql")]
         DialectKind::Mysql => mysql::MySQLDialectConfig::config_options(),
         #[cfg(feature = "materialize")]
@@ -129,6 +159,8 @@ pub fn dialect_config_options(
         DialectKind::Trino => trino::TrinoDialectConfig::config_options(),
         #[cfg(feature = "tsql")]
         DialectKind::Tsql => tsql::TSQLDialectConfig::config_options(),
+        #[cfg(feature = "vertica")]
+        DialectKind::Vertica => vertica::VerticaDialectConfig::config_options(),
         _ => vec![],
     }
 }
@@ -147,6 +179,10 @@ pub fn kind_to_dialect(kind: &DialectKind, config: Option<&Value>) -> Option<Dia
         DialectKind::Databricks => databricks::dialect(config),
         #[cfg(feature = "db2")]
         DialectKind::Db2 => db2::dialect(config),
+        #[cfg(feature = "doris")]
+        DialectKind::Doris => doris::dialect(config),
+        #[cfg(feature = "flink")]
+        DialectKind::Flink => flink::dialect(config),
         #[cfg(feature = "duckdb")]
         DialectKind::Duckdb => duckdb::dialect(config),
         #[cfg(feature = "exasol")]
@@ -155,6 +191,10 @@ pub fn kind_to_dialect(kind: &DialectKind, config: Option<&Value>) -> Option<Dia
         DialectKind::Greenplum => greenplum::dialect(config),
         #[cfg(feature = "hive")]
         DialectKind::Hive => hive::dialect(config),
+        #[cfg(feature = "impala")]
+        DialectKind::Impala => impala::dialect(config),
+        #[cfg(feature = "mariadb")]
+        DialectKind::Mariadb => mariadb::dialect(config),
         #[cfg(feature = "mysql")]
         DialectKind::Mysql => mysql::dialect(config),
         #[cfg(feature = "materialize")]
@@ -179,6 +219,8 @@ pub fn kind_to_dialect(kind: &DialectKind, config: Option<&Value>) -> Option<Dia
         DialectKind::Trino => trino::dialect(config),
         #[cfg(feature = "tsql")]
         DialectKind::Tsql => tsql::dialect(config),
+        #[cfg(feature = "vertica")]
+        DialectKind::Vertica => vertica::dialect(config),
         _ => return None,
     })
 }

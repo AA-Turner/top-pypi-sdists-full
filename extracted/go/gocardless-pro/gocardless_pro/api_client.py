@@ -158,7 +158,27 @@ class ApiClient(object):
         raise exception_class(error)
 
     def _url_for(self, path):
-        return urlparse.urljoin(self.base_url, path)
+        return urlparse.urljoin(self.base_url, self._validate_path(path))
+
+    @staticmethod
+    def _validate_path(path):
+        """Check that a request path cannot move the request off the configured base URL.
+
+        ``urljoin`` resolves ``path`` against ``base_url`` like a browser resolves a link,
+        so an absolute or scheme-relative path replaces the configured origin while the
+        access token stays attached. Checked with ``urlsplit``, the same parser ``urljoin``
+        itself uses. Dot segments are left alone, since they resolve against ``base_url``
+        and can't leave its origin.
+        """
+        parsed = urlparse.urlsplit(path)
+
+        if parsed.scheme or parsed.netloc:
+            raise errors.GoCardlessProError(
+                "Invalid request path '{0}': a path may not specify a scheme or a host, only "
+                'a location relative to the configured base URL'.format(path)
+            )
+
+        return path
 
     def _headers(self, custom_headers):
         headers = self._default_headers()
@@ -172,7 +192,7 @@ class ApiClient(object):
             'Authorization': 'Bearer {0}'.format(self.access_token),
             'Content-Type': 'application/json',
             'GoCardless-Client-Library': 'gocardless-pro-python',
-            'GoCardless-Client-Version': '3.17.0',
+            'GoCardless-Client-Version': '3.20.1',
             'User-Agent': self._user_agent(),
             'GoCardless-Version': '2015-07-06',
         }
@@ -181,7 +201,7 @@ class ApiClient(object):
         python_version = '.'.join(platform.python_version_tuple()[0:2])
         vm_version = '{}.{}.{}-{}{}'.format(*sys.version_info)
         return ' '.join([
-            'gocardless-pro-python/3.17.0',
+            'gocardless-pro-python/3.20.1',
             'python/{0}'.format(python_version),
             '{0}/{1}'.format(platform.python_implementation(), vm_version),
             '{0}/{1}'.format(platform.system(), platform.release()),

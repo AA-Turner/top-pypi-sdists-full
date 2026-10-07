@@ -12,7 +12,7 @@ use sqruff_lib::core::rules::ErasedRule;
 #[cfg(feature = "codegen-docs")]
 use sqruff_lib::rules::rules;
 #[cfg(feature = "codegen-docs")]
-use sqruff_lib::templaters::TEMPLATERS;
+use sqruff_lib::templaters::{TEMPLATER_DOCS, TemplaterDocumentation};
 #[cfg(feature = "codegen-docs")]
 use sqruff_lib_core::dialects::init::DialectKind;
 #[cfg(feature = "codegen-docs")]
@@ -29,9 +29,8 @@ const TEMPLATERS_TEMPLATE: &str = include_str!("docs/generate_templater_docs_tem
 const DIALECTS_TEMPLATE: &str = include_str!("docs/generate_dialect_docs_template.md");
 
 #[cfg(feature = "codegen-docs")]
-pub(crate) fn codegen_docs() {
-    let docs_dir = Path::new("docs").join("reference");
-    std::fs::create_dir_all(&docs_dir).unwrap();
+pub(crate) fn codegen_docs(docs_dir: &Path) {
+    std::fs::create_dir_all(docs_dir).unwrap();
 
     // CLI Docs
     let markdown: String = clap_markdown::help_markdown::<Cli>();
@@ -57,7 +56,7 @@ pub(crate) fn codegen_docs() {
     env.add_template("templaters", TEMPLATERS_TEMPLATE).unwrap();
 
     let tmpl = env.get_template("templaters").unwrap();
-    let templaters = TEMPLATERS
+    let templaters = TEMPLATER_DOCS
         .into_iter()
         .map(Templater::from)
         .collect::<Vec<_>>();
@@ -108,6 +107,8 @@ struct DialectConfigOption {
 struct Dialect {
     name: &'static str,
     description: &'static str,
+    default_casing: Option<&'static str>,
+    quotes: Option<&'static str>,
     doc_url: Option<&'static str>,
     config_section: String,
     config_options: Vec<DialectConfigOption>,
@@ -130,6 +131,8 @@ impl From<DialectKind> for Dialect {
         Dialect {
             name: value.name(),
             description: value.description(),
+            default_casing: value.default_casing(),
+            quotes: value.quotes(),
             doc_url: value.doc_url(),
             config_section: value.config_section(),
             config_options,
@@ -139,8 +142,8 @@ impl From<DialectKind> for Dialect {
 }
 
 #[cfg(feature = "codegen-docs")]
-impl From<&'static dyn sqruff_lib::templaters::Templater> for Templater {
-    fn from(value: &'static dyn sqruff_lib::templaters::Templater) -> Self {
+impl From<&'static dyn TemplaterDocumentation> for Templater {
+    fn from(value: &'static dyn TemplaterDocumentation) -> Self {
         Templater {
             name: value.name(),
             description: value.description(),

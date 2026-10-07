@@ -40,12 +40,15 @@ _DEFAULT_VALUES: dict[str, object] = {
     "profile_skip_column_inference": False,
     "profile_skip_contracts": False,
     "profile_skip_write": False,
+    "start_cursor": None,
+    "end_cursor": None,
     "start_cursor_ts": None,
     "max_microbatches": None,
     "end_cursor_ts": None,
     "start_cursor_int": None,
     "end_cursor_int": None,
     "no_color": False,
+    "compiler_engine": None,
     "fail_fast": False,
     "full_refresh": False,
     "as_target": None,
@@ -130,6 +133,7 @@ _DEFAULT_VALUES: dict[str, object] = {
     "skills_target": [],
     "skills_force": False,
     "select": [],
+    "positional_select": [],
     "select_file": [],
     "exclude": [],
     "dbt_command": None,
@@ -206,12 +210,15 @@ class CliNamespace:
     profile_skip_column_inference: bool
     profile_skip_contracts: bool
     profile_skip_write: bool
+    start_cursor: str | None
+    end_cursor: str | None
     start_cursor_ts: str | None
     max_microbatches: int | None
     end_cursor_ts: str | None
     start_cursor_int: str | None
     end_cursor_int: str | None
     no_color: bool
+    compiler_engine: str | None
     fail_fast: bool
     full_refresh: bool
     as_target: str | None
@@ -301,6 +308,7 @@ class CliNamespace:
     skills_target: list[str]
     skills_force: bool
     select: list[str]
+    positional_select: list[str]
     select_file: list[str]
     exclude: list[str]
     dbt_command: str | None

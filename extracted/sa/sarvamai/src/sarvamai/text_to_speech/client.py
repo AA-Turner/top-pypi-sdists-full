@@ -55,14 +55,15 @@ class TextToSpeechClient:
         Convert text into spoken audio. The output is a base64-encoded audio string that must be decoded before use.
 
         **Available Models:**
-        - **bulbul:v3**: Latest model with improved quality, 30+ voices, and temperature control
+        - **bulbul:v4-flash**: Latest model, recommended for new integrations — same request/response contract as bulbul:v3, with a 200+ voice persona catalog
+        - **bulbul:v3**: Stable model (API default when `model` is omitted) with 30+ voices and temperature control
         - **bulbul:v2**: Legacy model with pitch and loudness controls
 
-        **Important Notes for bulbul:v3:**
+        **Important Notes for bulbul:v3 and bulbul:v4-flash:**
         - Pitch and loudness parameters are NOT supported
         - Pace range: 0.5 to 2.0
         - Preprocessing is automatically enabled
-        - Default sample rate is 24000 Hz
+        - Default sample rate is 22050 Hz when `speech_sample_rate` is omitted
         - Supports sample rates: 8000, 16000, 22050, 24000 Hz (REST API also supports 32000, 44100, 48000 Hz)
 
         Parameters
@@ -75,6 +76,7 @@ class TextToSpeechClient:
 
             **Model-specific limits:**
             - **bulbul:v3:** Max 2500 characters
+            - **bulbul:v4-flash:** Max 2500 characters
             - **bulbul:v2:** Max 1500 characters
 
             **Important Note:**
@@ -87,11 +89,13 @@ class TextToSpeechClient:
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2), shubh_enhi_ads (for bulbul:v4-flash). For v4, you can omit `speaker` to use `shubh_enhi_ads`, or set any persona ID from the Voices guide (v3/v2 short names are not valid).
 
             **Model Compatibility (Speakers compatible with respective model):**
             - **bulbul:v3:**
               - shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait, anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali
+            - **bulbul:v4-flash:**
+              - 200+ persona voices named `<name>_<language>_<style>` (e.g. `shubh_hi_devotional`, `simran_en_customer`). See the [Voices guide](https://docs.sarvam.ai/api/api-guides-tutorials/text-to-speech/voices#bulbul-v4-flash-voices) for the full catalog.
             - **bulbul:v2:**
               - Female: anushka, manisha, vidya, arya
               - Male: abhilash, karun, hitesh
@@ -103,55 +107,60 @@ class TextToSpeechClient:
         pitch : typing.Optional[float]
             Controls the pitch of the audio. Lower values result in a deeper voice, while higher values make it sharper. The suitable range is between -0.75 and 0.75. Default is 0.0.
 
-            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3.
+            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3 or bulbul:v4-flash.
 
         pace : typing.Optional[float]
             Controls the speed of the audio. Lower values result in slower speech, while higher values make it faster. Default is 1.0.
 
             **Model-specific ranges:**
             - **bulbul:v3:** 0.5 to 2.0
+            - **bulbul:v4-flash:** 0.5 to 2.0
             - **bulbul:v2:** 0.3 to 3.0
 
         loudness : typing.Optional[float]
             Controls the loudness of the audio. Lower values result in quieter audio, while higher values make it louder. The suitable range is between 0.3 and 3.0. Default is 1.0.
 
-            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3.
+            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3 or bulbul:v4-flash.
 
         speech_sample_rate : typing.Optional[SpeechSampleRate]
             Specifies the sample rate of the output audio. Supported values are 8000, 16000, 22050, 24000, 32000, 44100, 48000 Hz.
 
-            **Note:** Higher sample rates (32000, 44100, 48000 Hz) are only available with bulbul:v3 via the REST API, not in streaming mode.
+            **Note:** Higher sample rates (32000, 44100, 48000 Hz) are only available with bulbul:v3 and bulbul:v4-flash via the REST API, not in streaming mode.
 
-            **Default:** 24000 Hz
+            **Default:** 22050 Hz
 
         enable_preprocessing : typing.Optional[bool]
             Controls whether normalization of English words and numeric entities (e.g., numbers, dates) is performed. Set to true for better handling of mixed-language text.
 
             **Model-specific behavior:**
             - **bulbul:v3:** Not Supported
+            - **bulbul:v4-flash:** Not Supported
             - **bulbul:v2:** Default is false
 
         model : typing.Optional[TextToSpeechModel]
             Specifies the model to use for text-to-speech conversion.
 
             **Available models:**
-            - **bulbul:v3:** Latest model with improved quality, 30+ voices, pace, and temperature control
+            - **bulbul:v4-flash:** Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
+            - **bulbul:v3:** Stable model (API default when `model` is omitted) with 30+ voices, pace, and temperature control
             - **bulbul:v2:** Legacy model with pitch, loudness, and pace controls
 
         output_audio_codec : typing.Optional[TextToSpeechOutputAudioCodec]
             Specifies the audio codec for the output audio file. Different codecs offer various compression and quality characteristics.
 
+            **Note:** On `/text-to-speech` with **bulbul:v3** and **bulbul:v4-flash**, `opus` is listed for schema compatibility but currently returns a validation error; use `wav`, `mp3`, `aac`, `flac`, or `linear16`.
+
         temperature : typing.Optional[float]
             Temperature controls how much randomness and expressiveness the TTS model uses while generating speech.
 
-            Lower values produce more stable and consistent output, while higher values sound more expressive but may introduce artifacts or errors. The suitable range is between 0.01 and 2.0. Default is 0.6.
+            Lower values produce more stable and consistent output, while higher values sound more expressive but may introduce artifacts or errors. The suitable range is between 0.01 and 1.0. Default is 0.6.
 
-            **Note:** This parameter is only supported for bulbul:v3. It has no effect on bulbul:v2.
+            **Note:** This parameter is only supported for bulbul:v3 and bulbul:v4-flash. It has no effect on bulbul:v2.
 
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3** and **bulbul:v4-flash**.
 
         enable_cached_responses : typing.Optional[bool]
             Enable caching for the request. When enabled, identical requests will return cached audio instead of regenerating. Default is false.
@@ -241,7 +250,7 @@ class TextToSpeechClient:
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2), shubh_enhi_ads (for bulbul:v4-flash). Omit `speaker` on v4-flash to use `shubh_enhi_ads`, or set any persona ID from the Voices guide.
 
             **Note:** Speaker selection must match the chosen model version.
 
@@ -257,6 +266,7 @@ class TextToSpeechClient:
 
             **Model-specific ranges:**
             - **bulbul:v3:** 0.5 to 2.0
+            - **bulbul:v4-flash:** 0.5 to 2.0
             - **bulbul:v2:** 0.3 to 3.0
 
         loudness : typing.Optional[float]
@@ -278,7 +288,7 @@ class TextToSpeechClient:
         temperature : typing.Optional[float]
             Controls the randomness of the output. Range: 0.01 to 1.0. Default is 0.6.
 
-            **Note:** Only supported for bulbul:v3.
+            **Note:** Only supported for bulbul:v3 and bulbul:v4-flash.
 
         enable_cached_responses : typing.Optional[bool]
             Enable caching for the request. Default is false. Currently in beta.
@@ -286,7 +296,7 @@ class TextToSpeechClient:
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3** and **bulbul:v4-flash**.
 
         output_audio_codec : typing.Optional[SpeechStreamCodec]
             Specifies the codec for the streamed output audio (e.g., 'mp3').
@@ -370,14 +380,15 @@ class AsyncTextToSpeechClient:
         Convert text into spoken audio. The output is a base64-encoded audio string that must be decoded before use.
 
         **Available Models:**
-        - **bulbul:v3**: Latest model with improved quality, 30+ voices, and temperature control
+        - **bulbul:v4-flash**: Latest model, recommended for new integrations — same request/response contract as bulbul:v3, with a 200+ voice persona catalog
+        - **bulbul:v3**: Stable model (API default when `model` is omitted) with 30+ voices and temperature control
         - **bulbul:v2**: Legacy model with pitch and loudness controls
 
-        **Important Notes for bulbul:v3:**
+        **Important Notes for bulbul:v3 and bulbul:v4-flash:**
         - Pitch and loudness parameters are NOT supported
         - Pace range: 0.5 to 2.0
         - Preprocessing is automatically enabled
-        - Default sample rate is 24000 Hz
+        - Default sample rate is 22050 Hz when `speech_sample_rate` is omitted
         - Supports sample rates: 8000, 16000, 22050, 24000 Hz (REST API also supports 32000, 44100, 48000 Hz)
 
         Parameters
@@ -390,6 +401,7 @@ class AsyncTextToSpeechClient:
 
             **Model-specific limits:**
             - **bulbul:v3:** Max 2500 characters
+            - **bulbul:v4-flash:** Max 2500 characters
             - **bulbul:v2:** Max 1500 characters
 
             **Important Note:**
@@ -402,11 +414,13 @@ class AsyncTextToSpeechClient:
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2), shubh_enhi_ads (for bulbul:v4-flash). For v4, you can omit `speaker` to use `shubh_enhi_ads`, or set any persona ID from the Voices guide (v3/v2 short names are not valid).
 
             **Model Compatibility (Speakers compatible with respective model):**
             - **bulbul:v3:**
               - shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait, anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali
+            - **bulbul:v4-flash:**
+              - 200+ persona voices named `<name>_<language>_<style>` (e.g. `shubh_hi_devotional`, `simran_en_customer`). See the [Voices guide](https://docs.sarvam.ai/api/api-guides-tutorials/text-to-speech/voices#bulbul-v4-flash-voices) for the full catalog.
             - **bulbul:v2:**
               - Female: anushka, manisha, vidya, arya
               - Male: abhilash, karun, hitesh
@@ -418,55 +432,60 @@ class AsyncTextToSpeechClient:
         pitch : typing.Optional[float]
             Controls the pitch of the audio. Lower values result in a deeper voice, while higher values make it sharper. The suitable range is between -0.75 and 0.75. Default is 0.0.
 
-            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3.
+            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3 or bulbul:v4-flash.
 
         pace : typing.Optional[float]
             Controls the speed of the audio. Lower values result in slower speech, while higher values make it faster. Default is 1.0.
 
             **Model-specific ranges:**
             - **bulbul:v3:** 0.5 to 2.0
+            - **bulbul:v4-flash:** 0.5 to 2.0
             - **bulbul:v2:** 0.3 to 3.0
 
         loudness : typing.Optional[float]
             Controls the loudness of the audio. Lower values result in quieter audio, while higher values make it louder. The suitable range is between 0.3 and 3.0. Default is 1.0.
 
-            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3.
+            **Note:** This parameter is only supported for bulbul:v2. It is NOT supported for bulbul:v3 or bulbul:v4-flash.
 
         speech_sample_rate : typing.Optional[SpeechSampleRate]
             Specifies the sample rate of the output audio. Supported values are 8000, 16000, 22050, 24000, 32000, 44100, 48000 Hz.
 
-            **Note:** Higher sample rates (32000, 44100, 48000 Hz) are only available with bulbul:v3 via the REST API, not in streaming mode.
+            **Note:** Higher sample rates (32000, 44100, 48000 Hz) are only available with bulbul:v3 and bulbul:v4-flash via the REST API, not in streaming mode.
 
-            **Default:** 24000 Hz
+            **Default:** 22050 Hz
 
         enable_preprocessing : typing.Optional[bool]
             Controls whether normalization of English words and numeric entities (e.g., numbers, dates) is performed. Set to true for better handling of mixed-language text.
 
             **Model-specific behavior:**
             - **bulbul:v3:** Not Supported
+            - **bulbul:v4-flash:** Not Supported
             - **bulbul:v2:** Default is false
 
         model : typing.Optional[TextToSpeechModel]
             Specifies the model to use for text-to-speech conversion.
 
             **Available models:**
-            - **bulbul:v3:** Latest model with improved quality, 30+ voices, pace, and temperature control
+            - **bulbul:v4-flash:** Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
+            - **bulbul:v3:** Stable model (API default when `model` is omitted) with 30+ voices, pace, and temperature control
             - **bulbul:v2:** Legacy model with pitch, loudness, and pace controls
 
         output_audio_codec : typing.Optional[TextToSpeechOutputAudioCodec]
             Specifies the audio codec for the output audio file. Different codecs offer various compression and quality characteristics.
 
+            **Note:** On `/text-to-speech` with **bulbul:v3** and **bulbul:v4-flash**, `opus` is listed for schema compatibility but currently returns a validation error; use `wav`, `mp3`, `aac`, `flac`, or `linear16`.
+
         temperature : typing.Optional[float]
             Temperature controls how much randomness and expressiveness the TTS model uses while generating speech.
 
-            Lower values produce more stable and consistent output, while higher values sound more expressive but may introduce artifacts or errors. The suitable range is between 0.01 and 2.0. Default is 0.6.
+            Lower values produce more stable and consistent output, while higher values sound more expressive but may introduce artifacts or errors. The suitable range is between 0.01 and 1.0. Default is 0.6.
 
-            **Note:** This parameter is only supported for bulbul:v3. It has no effect on bulbul:v2.
+            **Note:** This parameter is only supported for bulbul:v3 and bulbul:v4-flash. It has no effect on bulbul:v2.
 
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3** and **bulbul:v4-flash**.
 
         enable_cached_responses : typing.Optional[bool]
             Enable caching for the request. When enabled, identical requests will return cached audio instead of regenerating. Default is false.
@@ -564,7 +583,7 @@ class AsyncTextToSpeechClient:
         speaker : typing.Optional[TextToSpeechSpeaker]
             The speaker voice to be used for the output audio.
 
-            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2)
+            **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2), shubh_enhi_ads (for bulbul:v4-flash). Omit `speaker` on v4-flash to use `shubh_enhi_ads`, or set any persona ID from the Voices guide.
 
             **Note:** Speaker selection must match the chosen model version.
 
@@ -580,6 +599,7 @@ class AsyncTextToSpeechClient:
 
             **Model-specific ranges:**
             - **bulbul:v3:** 0.5 to 2.0
+            - **bulbul:v4-flash:** 0.5 to 2.0
             - **bulbul:v2:** 0.3 to 3.0
 
         loudness : typing.Optional[float]
@@ -601,7 +621,7 @@ class AsyncTextToSpeechClient:
         temperature : typing.Optional[float]
             Controls the randomness of the output. Range: 0.01 to 1.0. Default is 0.6.
 
-            **Note:** Only supported for bulbul:v3.
+            **Note:** Only supported for bulbul:v3 and bulbul:v4-flash.
 
         enable_cached_responses : typing.Optional[bool]
             Enable caching for the request. Default is false. Currently in beta.
@@ -609,7 +629,7 @@ class AsyncTextToSpeechClient:
         dict_id : typing.Optional[str]
             The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
 
-            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+            Create and manage dictionaries via the [Pronunciation Dictionary API](https://docs.sarvam.ai/api-reference-docs/pronunciation-dictionary/create). Only supported by **bulbul:v3** and **bulbul:v4-flash**.
 
         output_audio_codec : typing.Optional[SpeechStreamCodec]
             Specifies the codec for the streamed output audio (e.g., 'mp3').

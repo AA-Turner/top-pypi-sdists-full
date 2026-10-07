@@ -447,11 +447,24 @@ releases:
     release_date: "2026-08-10"
   12.4.2:
     changes:
-      release_summary: |
-        This patch is a re-release of 12.4.1 containing fixes for
+      release_summary:
+        "This patch is a re-release of 12.4.1 containing fixes for
+
         iosxr_bgp_neighbor_address_family facts gathering fix
+
         and netconf connections to have huge_tree support
+
+        "
     release_date: "2026-08-13"
+  12.5.0:
+    changes:
+      bugfixes:
+        - route_maps - Fix ``set med +<N>`` / ``set med -<N>`` parsing in ``Route_mapsTemplate``
+          so that incremental MED statements using device-native attached-sign syntax
+          are no longer silently skipped during fact gathering.
+    fragments:
+      - fix_route_maps_set_med_parsing.yaml
+    release_date: "2026-09-15"
   2.0.0:
     changes:
       bugfixes:

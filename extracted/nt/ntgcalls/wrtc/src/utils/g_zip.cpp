@@ -56,6 +56,7 @@ namespace bytes {
             output.resize(data.size() * 2);
             while (status == Z_OK) {
                 if (size_limit > 0 && stream.total_out > size_limit) {
+                    inflateEnd(&stream);
                     return std::nullopt;
                 }
                 if (stream.total_out >= output.size()) {
@@ -68,11 +69,13 @@ namespace bytes {
             if (inflateEnd(&stream) == Z_OK) {
                 if (status == Z_STREAM_END) {
                     output.resize(stream.total_out);
-                } else if (size_limit > 0 && output.size() > size_limit) {
-                    return std::nullopt;
                 }
             }
         }
+        if (size_limit > 0 && output.size() > size_limit) {
+            return std::nullopt;
+        }
+
         return output;
     }
 } // bytes

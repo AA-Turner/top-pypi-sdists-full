@@ -65,15 +65,15 @@ class AgentVariable(BaseModel):
         """Return the authoritative picklist binding for this variable, or None.
 
         Shape (when bound): ``{"list_id": str, "multiple": bool}``. Sourced from the
-        agent definition (``customComponent.structured_list``, with read-only fallback to
-        the legacy ``customComponent.picklist`` key for historical defs), NOT from any
+        agent definition (``customComponent.pick_list``, with read-only fallback to
+        the legacy ``structured_list`` / ``picklist`` keys for historical defs), NOT from any
         client payload, so a client can only choose WHICH item — never which list.
         """
         cc = self.custom_component
         if not isinstance(cc, dict):
             return None
-        # Canonical key is `structured_list`; `picklist` is the legacy read-only alias.
-        pl = cc.get("structured_list") or cc.get("picklist")
+        # Canonical key is `pick_list`; `structured_list` and `picklist` are legacy read-only aliases.
+        pl = cc.get("pick_list") or cc.get("structured_list") or cc.get("picklist")
         if not isinstance(pl, dict):
             return None
         list_id = pl.get("listId") or pl.get("list_id")

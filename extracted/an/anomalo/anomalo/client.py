@@ -518,6 +518,13 @@ class Client:
             metric_name=metric_name,
         )
 
+    def download_bad_rows_csv_post(self, quality_check_run_id: int) -> Any:
+        return self._api_call(
+            "download_bad_rows_csv",
+            method="POST",
+            quality_check_run_id=quality_check_run_id,
+        )
+
     def create_check(self, table_id, check_type, **params):
         return self._api_call(
             "create_check",

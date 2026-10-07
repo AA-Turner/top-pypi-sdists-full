@@ -122,7 +122,8 @@ class PostgresqlDialect(BaseDialect):
             is_time = False
 
         if isinstance(coltype, Date) or is_date:
-            return f"cast({value} as varchar)"
+            # Explicit, since a cast follows the session's DateStyle ('15/01/2024' under "SQL, DMY")
+            return f"to_char({value}, 'YYYY-MM-DD')"
 
         if isinstance(coltype, Time) or is_time:
             seconds = f"EXTRACT( epoch from {value})"
@@ -195,12 +196,12 @@ class PostgreSQL(ThreadedDatabase):
         pg = import_postgresql()
         try:
             self._args["password"] = unquote(self._args["password"])
-            self._conn = pg.connect(
-                **self._args, keepalives=1, keepalives_idle=5, keepalives_interval=2, keepalives_count=2
-            )
+            conn = pg.connect(**self._args, keepalives=1, keepalives_idle=5, keepalives_interval=2, keepalives_count=2)
             if SESSION_TIME_ZONE:
-                self._conn.cursor().execute(f"SET TIME ZONE '{SESSION_TIME_ZONE}'")
-            return self._conn
+                conn.cursor().execute(f"SET TIME ZONE '{SESSION_TIME_ZONE}'")
+            # Each thread of the pool opens a connection of its own: by now self._conn may be another thread's
+            self._conn = conn
+            return conn
         except pg.OperationalError as e:
             raise ConnectError(*e.args) from e
 

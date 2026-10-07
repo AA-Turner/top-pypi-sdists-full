@@ -115,9 +115,12 @@ async def send_once(
     from matrx_connect.request_latency import mark_first_provider_call
 
     mark_first_provider_call()
-    call = client.execute(request)
+    from matrx_ai.orchestrator.first_output import watching_first_output
+
     try:
-        response = await (around(call) if around is not None else call)
+        with watching_first_output(state):
+            call = client.execute(request)
+            response = await (around(call) if around is not None else call)
     except stop_exceptions:
         if wire_config is not None:
             request.config = canonical_config

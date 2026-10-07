@@ -34,6 +34,7 @@ from docling_core.transforms.serializer.common import (
     _PageBreakSerResult,
     _should_use_legacy_annotations,
     create_ser_result,
+    hyperlink_uri,
 )
 from docling_core.types.doc import (
     BaseMeta,
@@ -367,8 +368,10 @@ class MarkdownTextSerializer(BaseModel, BaseTextSerializer):
 
             if isinstance(item, ListItem):
                 pieces: list[str] = []
-                case_auto = params.orig_list_item_marker_mode == OrigListItemMarkerMode.AUTO and bool(
-                    re.search(r"[a-zA-Z0-9]", item.marker)
+                # Any Unicode letter or digit (as in a), ① or 第一条) makes the
+                # original marker informative; bullet glyphs (•, ◦) do not.
+                case_auto = params.orig_list_item_marker_mode == OrigListItemMarkerMode.AUTO and any(
+                    char.isalnum() for char in item.marker
                 )
                 case_already_valid = (
                     params.ensure_valid_list_item_marker
@@ -1250,11 +1253,11 @@ class MarkdownDocSerializer(DocSerializer):
     def serialize_hyperlink(
         self,
         text: str,
-        hyperlink: AnyUrl | Path,
+        hyperlink: AnyUrl | PurePath,
         **kwargs: Any,
     ):
         """Apply Markdown-specific hyperlink serialization."""
-        return f"[{text}]({hyperlink!s})"
+        return f"[{text}]({hyperlink_uri(hyperlink)})"
 
     @classmethod
     def _escape_underscores(cls, text: str):
@@ -1288,7 +1291,7 @@ class MarkdownDocSerializer(DocSerializer):
         escape_html: bool = True,
         escape_underscores: bool = True,
         formatting: Formatting | None = None,
-        hyperlink: AnyUrl | Path | None = None,
+        hyperlink: AnyUrl | PurePath | None = None,
         **kwargs: Any,
     ) -> str:
         """Apply some text post-processing steps."""

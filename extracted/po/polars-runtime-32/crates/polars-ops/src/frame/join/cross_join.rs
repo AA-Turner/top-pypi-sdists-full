@@ -1,7 +1,8 @@
 use polars_core::utils::{
     _set_partition_size, CustomIterTools, NoNull, accumulate_dataframes_vertical_unchecked,
-    concat_df_unchecked, split,
+    concat_df_unchecked, par_iter_bounded, split,
 };
+use polars_defs::join::{CrossJoinOptions, JoinType, MaintainOrderJoin};
 use polars_utils::pl_str::PlSmallStr;
 
 use super::*;
@@ -175,9 +176,9 @@ pub(super) fn fused_cross_filter(
     let rename_names = &rename_names[left.width()..];
     let len_right = right.height();
 
-    let dfs = RAYON
-        .install(|| {
-            cartesian_prod.par_iter().map(|(left_chunk, right_chunk)| {
+    let dfs = RAYON.install(|| {
+        par_iter_bounded(&cartesian_prod)
+            .map(|(left_chunk, right_chunk)| {
                 let (mut joined, right_taken) =
                     cross_join_dfs(left_chunk, right_chunk, None, false, maintain_order)?;
                 let mut right_columns = right_taken.into_columns();
@@ -189,9 +190,12 @@ pub(super) fn fused_cross_filter(
                 unsafe { joined.hstack_mut_unchecked(&right_columns) };
 
                 if !emit_unmatched_left {
-                    cross_join_options.predicate.apply(joined)
+                    cross_join_options.predicate.apply(joined, false)
                 } else {
-                    let mask = cross_join_options.predicate.evaluate(&joined)?;
+                    let mask = cross_join_options
+                        .predicate
+                        .evaluate(&joined)?
+                        .broadcast_owned_to(joined.height())?;
 
                     let len_left = left_chunk.height();
                     debug_assert_eq!(joined.height(), len_left * len_right);
@@ -238,8 +242,8 @@ pub(super) fn fused_cross_filter(
                     Ok(out)
                 }
             })
-        })
-        .collect::<PolarsResult<Vec<_>>>()?;
+            .collect::<PolarsResult<Vec<_>>>()
+    })?;
 
     Ok(accumulate_dataframes_vertical_unchecked(dfs))
 }

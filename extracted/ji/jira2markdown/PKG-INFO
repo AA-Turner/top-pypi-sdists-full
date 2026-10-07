@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jira2markdown
-Version: 0.5.1
+Version: 0.5.2
 Summary: Convert text from JIRA markup to Markdown using parsing expression grammars
 License-Expression: MIT
 License-File: LICENSE
@@ -73,11 +73,14 @@ from jira2markdown import convert
 convert("Some *Jira text* formatting [example|https://example.com].")
 # >>> Some **Jira text** formatting [example](https://example.com).
 
-# To convert user mentions provide a mapping Jira internal account id to username 
+# To convert user mentions provide a mapping Jira internal account id to username
 # as a second argument to convert function
-convert("[Winston Smith|~accountid:internal-id] woke up with the word 'Shakespeare' on his lips", {
-    "internal-id": "winston",
-})
+convert(
+    "[Winston Smith|~accountid:internal-id] woke up with the word 'Shakespeare' on his lips",
+    {
+        "internal-id": "winston",
+    },
+)
 # >>> @winston woke up with the word 'Shakespeare' on his lips
 ```
 
@@ -102,7 +105,7 @@ convert("[Winston Smith|~accountid:internal-id] woke up with the word 'Shakespea
 |`_emphasis_`|Not converted (the same syntax)|
 |`??citation??`|`<q>citation</q>`|
 |`-deleted-`|`~~deleted~~`|
-|`+inserted+`|`inserted`|
+|`+inserted+`|`<u>inserted</u>`|
 |`^superscript^`|`<sup>superscript</sup>`|
 |`~subscript~`|`<sub>subscript</sub>`|
 |`{{monospaced}}`|`` `monospaced` ``|
@@ -388,11 +391,12 @@ from jira2markdown.markup.base import AbstractMarkup
 from jira2markdown.markup.links import Link
 from jira2markdown.markup.text_effects import Color
 
-class CustomColor(Color):
-    ...
 
-class MyElement(AbstractMarkup):
-    ...
+class CustomColor(Color): ...
+
+
+class MyElement(AbstractMarkup): ...
+
 
 elements = MarkupElements()
 elements.replace(Color, CustomColor)

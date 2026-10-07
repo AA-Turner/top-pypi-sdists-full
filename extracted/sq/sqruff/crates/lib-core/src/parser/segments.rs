@@ -13,18 +13,24 @@ use std::cell::{Cell, OnceCell};
 use std::fmt::Debug;
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::rc::Rc;
+use std::sync::LazyLock;
 
 use hashbrown::{DefaultHashBuilder, HashMap};
 use itertools::enumerate;
 use smol_str::SmolStr;
+use strum::IntoEnumIterator;
 
 use crate::dialects::init::DialectKind;
 use crate::dialects::syntax::{SyntaxKind, SyntaxSet};
 use crate::lint_fix::LintFix;
+use crate::parser::Parser;
+use crate::parser::context::ParseContext;
 use crate::parser::markers::PositionMarker;
+use crate::parser::matchable::MatchableTrait;
 use crate::parser::segments::fix::{FixPatch, SourceFix};
 use crate::parser::segments::object_reference::{ObjectReferenceKind, ObjectReferenceSegment};
 use crate::segments::AnchorEditInfo;
+use crate::slice_helpers::is_zero_slice;
 use crate::templaters::TemplatedFile;
 
 pub struct SegmentBuilder {
@@ -62,7 +68,6 @@ impl SegmentBuilder {
             node_or_token: NodeOrToken {
                 id,
                 syntax_kind,
-                class_types: class_types(syntax_kind),
                 position_marker: None,
                 code_idx: OnceCell::new(),
                 kind: NodeOrTokenKind::Node(NodeData {
@@ -84,9 +89,11 @@ impl SegmentBuilder {
                 id,
                 syntax_kind,
                 code_idx: OnceCell::new(),
-                class_types: class_types(syntax_kind),
                 position_marker: None,
-                kind: NodeOrTokenKind::Token(TokenData { raw: raw.into() }),
+                kind: NodeOrTokenKind::Token(TokenData {
+                    raw: RawString::new(raw),
+                    source_fixes: Vec::new(),
+                }),
                 hash: OnceCell::new(),
                 template_info: None,
             },
@@ -116,8 +123,9 @@ impl SegmentBuilder {
     }
 
     pub fn with_source_fixes(mut self, source_fixes: Vec<SourceFix>) -> Self {
-        if let NodeOrTokenKind::Node(ref mut node) = self.node_or_token.kind {
-            node.source_fixes = source_fixes;
+        match &mut self.node_or_token.kind {
+            NodeOrTokenKind::Node(node) => node.source_fixes = source_fixes,
+            NodeOrTokenKind::Token(token) => token.source_fixes = source_fixes,
         }
         self
     }
@@ -161,8 +169,27 @@ impl ErasedSegment {
             NodeOrTokenKind::Node(node) => node.raw.get_or_init(|| {
                 SmolStr::from_iter(self.segments().iter().map(|segment| segment.raw().as_str()))
             }),
-            NodeOrTokenKind::Token(token) => &token.raw,
+            NodeOrTokenKind::Token(token) => token.raw.as_smol_str(),
         }
+    }
+
+    /// Return the segment's raw value without identifier quoting delimiters.
+    pub fn raw_normalized(&self) -> SmolStr {
+        if let NodeOrTokenKind::Token(token) = &self.value.kind {
+            return token.raw.normalized().clone();
+        }
+
+        self.get_raw_segments()
+            .into_iter()
+            .map(|raw_segment| {
+                if raw_segment.is_type(SyntaxKind::QuotedIdentifier) {
+                    normalize_raw(raw_segment.raw())
+                } else {
+                    raw_segment.raw().to_string()
+                }
+            })
+            .collect::<String>()
+            .into()
     }
 
     pub fn segments(&self) -> &[ErasedSegment] {
@@ -204,6 +231,15 @@ impl ErasedSegment {
         self.value.template_info.as_ref().map(|i| i.block_type)
     }
 
+    fn is_empty_templated_placeholder(&self) -> bool {
+        self.is_type(SyntaxKind::Placeholder)
+            && self.raw().is_empty()
+            && self.get_position_marker().is_some_and(|marker| {
+                is_zero_slice(&marker.templated_slice) && !is_zero_slice(&marker.source_slice)
+            })
+            && self.block_type() == Some(BlockType::Templated)
+    }
+
     /// Source text for a placeholder, else the segment raw.
     pub fn source_str(&self) -> SmolStr {
         match self.value.template_info.as_ref() {
@@ -230,7 +266,7 @@ impl ErasedSegment {
 
     #[cfg(feature = "stringify")]
     pub fn stringify(&self, code_only: bool) -> String {
-        serde_yaml::to_string(&self.to_serialised(code_only, true)).unwrap()
+        serde_yaml::to_string(&self.to_serialised(code_only, true, true, false)).unwrap()
     }
 
     pub fn child(&self, seg_types: &SyntaxSet) -> Option<ErasedSegment> {
@@ -303,7 +339,6 @@ impl ErasedSegment {
             value: Rc::new(NodeOrToken {
                 id: self.value.id,
                 syntax_kind: self.value.syntax_kind,
-                class_types: self.value.class_types.clone(),
                 position_marker: None,
                 code_idx: OnceCell::new(),
                 kind: NodeOrTokenKind::Node(NodeData {
@@ -472,11 +507,22 @@ impl ErasedSegment {
             let mut source_idx = pos.source_slice.start;
             let mut templated_idx = pos.templated_slice.start;
             let mut insert_buff = String::new();
+            let mut first_segment_pos = None;
 
             for segment in segments {
                 let pos_marker = segment.get_position_marker().unwrap();
                 if !segment.raw().is_empty() && pos_marker.is_point() {
                     insert_buff.push_str(segment.raw().as_ref());
+                    first_segment_pos = first_segment_pos.or(Some(pos_marker));
+                    continue;
+                }
+
+                // An empty-rendering template placeholder occupies source space but
+                // no templated space. The lexer may place it before an adjacent
+                // literal whose templated position is earlier. It therefore cannot
+                // contribute a gap patch or advance either running index.
+                if segment.is_empty_templated_placeholder() {
+                    acc.extend(segment.iter_source_fix_patches(templated_file));
                     continue;
                 }
 
@@ -484,19 +530,31 @@ impl ErasedSegment {
 
                 if start_diff > 0 || !insert_buff.is_empty() {
                     let fixed_raw = std::mem::take(&mut insert_buff);
-                    let raw_segments = segment.get_raw_segments();
-                    let first_segment_pos = raw_segments[0].get_position_marker().unwrap();
+                    let patch_start_pos = first_segment_pos.unwrap_or(pos_marker);
 
                     // The slices must never go backwards so the end of the slice
                     // must be >= the start. This can happen when source positions
                     // are non-monotonic due to template expansion.
+                    let templated_slice =
+                        templated_idx..patch_start_pos.templated_slice.start.max(templated_idx);
+                    let source_slice = if start_diff > 0 && fixed_raw.is_empty() {
+                        templated_file
+                            .templated_slice_to_source_slice(templated_slice.clone())
+                            .unwrap_or_else(|_| {
+                                source_idx..patch_start_pos.source_slice.start.max(source_idx)
+                            })
+                    } else {
+                        source_idx..patch_start_pos.source_slice.start.max(source_idx)
+                    };
                     acc.push(FixPatch::new(
-                        templated_idx..first_segment_pos.templated_slice.start.max(templated_idx),
+                        templated_slice,
                         fixed_raw.into(),
-                        source_idx..first_segment_pos.source_slice.start.max(source_idx),
+                        source_slice,
                         String::new(),
                         String::new(),
                     ));
+
+                    first_segment_pos = None;
                 }
 
                 acc.extend(segment.iter_patches(templated_file));
@@ -600,7 +658,7 @@ impl ErasedSegment {
     pub fn get_source_fixes(&self) -> Vec<SourceFix> {
         match &self.value.kind {
             NodeOrTokenKind::Node(node) => node.source_fixes.clone(),
-            NodeOrTokenKind::Token(_) => Vec::new(),
+            NodeOrTokenKind::Token(token) => token.source_fixes.clone(),
         }
     }
 
@@ -624,7 +682,7 @@ impl ErasedSegment {
                 todo!()
             }
             NodeOrTokenKind::Token(token) => {
-                let raw = raw.as_deref().unwrap_or(token.raw.as_ref());
+                let raw = raw.as_deref().unwrap_or(token.raw.as_str());
                 SegmentBuilder::token(id, raw, self.value.syntax_kind)
                     .with_position(self.get_position_marker().unwrap().clone())
                     .finish()
@@ -633,16 +691,19 @@ impl ErasedSegment {
     }
 
     pub fn class_types(&self) -> &SyntaxSet {
-        &self.value.class_types
+        &CLASS_TYPES_BY_KIND[self.value.syntax_kind as usize]
     }
 
-    pub(crate) fn first_non_whitespace_segment_raw_upper(&self) -> Option<String> {
-        for seg in self.get_raw_segments() {
-            if !seg.raw().is_empty() {
-                return Some(seg.raw().to_uppercase());
+    pub(crate) fn first_non_whitespace_segment_raw_upper(&self) -> Option<&str> {
+        match &self.value.kind {
+            NodeOrTokenKind::Token(token) => {
+                (!token.raw.as_str().is_empty()).then_some(token.raw.upper())
             }
+            NodeOrTokenKind::Node(node) => node
+                .segments
+                .iter()
+                .find_map(ErasedSegment::first_non_whitespace_segment_raw_upper),
         }
-        None
     }
 
     pub fn is(&self, other: &ErasedSegment) -> bool {
@@ -670,7 +731,10 @@ impl ErasedSegment {
             self.raw().hash(&mut hasher);
 
             if let Some(marker) = &self.get_position_marker() {
-                marker.source_position().hash(&mut hasher);
+                // NOTE: We use the start of the source slice because it's
+                // the lowest cost way of getting a reliable location in the
+                // source file for deduplication.
+                marker.source_slice.start.hash(&mut hasher);
             } else {
                 None::<usize>.hash(&mut hasher);
             }
@@ -795,14 +859,23 @@ impl ErasedSegment {
     pub fn apply_fixes(
         &self,
         fixes: &mut HashMap<u32, AnchorEditInfo>,
-    ) -> (ErasedSegment, Vec<ErasedSegment>, Vec<ErasedSegment>) {
+        parse_context: &mut ParseContext,
+    ) -> (ErasedSegment, Vec<ErasedSegment>, Vec<ErasedSegment>, bool) {
+        self.apply_fixes_with_options(fixes, parse_context, false)
+    }
+
+    pub fn apply_fixes_with_options(
+        &self,
+        fixes: &mut HashMap<u32, AnchorEditInfo>,
+        parse_context: &mut ParseContext,
+        fix_even_unparsable: bool,
+    ) -> (ErasedSegment, Vec<ErasedSegment>, Vec<ErasedSegment>, bool) {
         if fixes.is_empty() || self.segments().is_empty() {
-            return (self.clone(), Vec::new(), Vec::new());
+            return (self.clone(), Vec::new(), Vec::new(), true);
         }
 
         let mut seg_buffer = Vec::new();
         let mut has_applied_fixes = false;
-        let mut _requires_validate = false;
 
         for seg in self.segments() {
             // Look for uuid match.
@@ -826,7 +899,6 @@ impl ErasedSegment {
                 // Deletes are easy.
                 if matches!(lint_fix, LintFix::Delete { .. }) {
                     // We're just getting rid of this segment.
-                    _requires_validate = true;
                     // NOTE: We don't add the segment in this case.
                     continue;
                 }
@@ -850,19 +922,15 @@ impl ErasedSegment {
                         for s in edit {
                             seg_buffer.push(s);
                         }
-                        _requires_validate = true;
                     }
                     LintFix::CreateBefore { edit, .. } => {
                         for s in edit {
                             seg_buffer.push(s);
                         }
                         seg_buffer.push(seg.clone());
-                        _requires_validate = true;
                     }
                     LintFix::Replace { edit, .. } => {
                         let mut consumed_pos = false;
-                        let is_single_same_type =
-                            edit.len() == 1 && edit[0].class_types() == seg.class_types();
 
                         for mut s in edit {
                             if !consumed_pos && s.raw() == seg.raw() {
@@ -871,10 +939,6 @@ impl ErasedSegment {
                                     .set_position_marker(seg.get_position_marker().cloned());
                             }
                             seg_buffer.push(s);
-                        }
-
-                        if !is_single_same_type {
-                            _requires_validate = true;
                         }
                     }
                     LintFix::Delete { .. } => {
@@ -892,8 +956,11 @@ impl ErasedSegment {
 
         let seg_queue = seg_buffer;
         let mut seg_buffer = Vec::new();
+        let mut requires_validate = has_applied_fixes;
         for seg in seg_queue {
-            let (mid, pre, post) = seg.apply_fixes(fixes);
+            let (mid, pre, post, child_validated) =
+                seg.apply_fixes_with_options(fixes, parse_context, fix_even_unparsable);
+            requires_validate |= !child_validated;
 
             seg_buffer.extend(pre);
             seg_buffer.push(mid);
@@ -902,7 +969,124 @@ impl ErasedSegment {
 
         let seg_buffer =
             position_segments(&seg_buffer, self.get_position_marker().as_ref().unwrap());
-        (self.new(seg_buffer), Vec::new(), Vec::new())
+        let new_segment = self.new(seg_buffer);
+        let validated = if requires_validate {
+            let was_unparsable = self.is_type(SyntaxKind::Unparsable)
+                || self.descendant_type_set().contains(SyntaxKind::Unparsable);
+            if was_unparsable {
+                if fix_even_unparsable {
+                    // Validation cannot succeed for an already-unparsable region. Keep
+                    // its fixes when explicitly requested, while allowing parsable
+                    // ancestors to continue their own validation.
+                    true
+                } else {
+                    // Without an explicit opt-in, fixes inside an unparsable region
+                    // cannot be proven safe. Discard this subtree's changes.
+                    return (self.clone(), Vec::new(), Vec::new(), true);
+                }
+            } else {
+                new_segment.validate_after_fixes(parse_context)
+            }
+        } else {
+            true
+        };
+
+        (new_segment, Vec::new(), Vec::new(), validated)
+    }
+
+    /// Check a structurally changed segment against the grammar that created it.
+    ///
+    /// Nodes without a match grammar defer validation to their parent. This lets
+    /// constructs such as bracketed segments be checked in the context where
+    /// their grammar is defined.
+    fn validate_after_fixes(&self, parse_context: &mut ParseContext) -> bool {
+        let grammars = parse_context
+            .dialect()
+            .match_grammars_for_kind(self.get_type());
+        if grammars.is_empty() {
+            return false;
+        }
+
+        let raw_segments = self
+            .get_raw_segments()
+            .into_iter()
+            .filter(|segment| !segment.is_meta())
+            .collect::<Vec<_>>();
+        let opening_unparsables = self
+            .recursive_crawl(
+                &SyntaxSet::single(SyntaxKind::Unparsable),
+                true,
+                &SyntaxSet::EMPTY,
+                true,
+            )
+            .len();
+
+        // File parsing has explicit recovery behavior for unmatched input, so
+        // validate it through the root parser instead of its match grammar.
+        if self.is_type(SyntaxKind::File) {
+            let parser = Parser::new_with_limits(
+                parse_context.dialect(),
+                parse_context.indentation_config,
+                parse_context.max_parse_depth(),
+                parse_context.max_parse_nodes(),
+            );
+            let Ok(Some(reparsed)) = parser.parse(&Tables::default(), &raw_segments) else {
+                return false;
+            };
+            let closing_unparsables = reparsed
+                .recursive_crawl(
+                    &SyntaxSet::single(SyntaxKind::Unparsable),
+                    true,
+                    &SyntaxSet::EMPTY,
+                    true,
+                )
+                .len();
+            return closing_unparsables <= opening_unparsables;
+        }
+
+        let Some(start_idx) = raw_segments.iter().position(ErasedSegment::is_code) else {
+            return false;
+        };
+        let end_idx = raw_segments
+            .iter()
+            .rposition(ErasedSegment::is_code)
+            .unwrap()
+            + 1;
+        let trimmed = &raw_segments[start_idx..end_idx];
+
+        grammars.into_iter().any(|grammar| {
+            let Ok(rematch) = grammar.match_segments(trimmed, 0, parse_context) else {
+                return false;
+            };
+            if rematch.span.start != 0 || rematch.span.end != trimmed.len() as u32 {
+                return false;
+            }
+
+            if parse_context
+                .check_parse_node_limit(&rematch, trimmed.len())
+                .is_err()
+            {
+                return false;
+            }
+
+            let rematched_segments =
+                rematch.apply(&Tables::default(), parse_context.dialect().name, trimmed);
+            let closing_unparsables = rematched_segments
+                .iter()
+                .map(|segment| {
+                    segment
+                        .recursive_crawl(
+                            &SyntaxSet::single(SyntaxKind::Unparsable),
+                            true,
+                            &SyntaxSet::EMPTY,
+                            true,
+                        )
+                        .len()
+                })
+                .sum::<usize>();
+
+            closing_unparsables <= opening_unparsables
+        })
     }
 }
 
@@ -913,6 +1097,16 @@ pub mod serde {
 
     use crate::parser::segments::ErasedSegment;
 
+    #[derive(Deserialize)]
+    struct SerialisedPosition {
+        start_line_no: usize,
+        start_line_pos: usize,
+        start_file_pos: usize,
+        end_line_no: usize,
+        end_line_pos: usize,
+        end_file_pos: usize,
+    }
+
     #[derive(Serialize, Deserialize)]
     #[serde(untagged)]
     pub enum SerialisedSegmentValue {
@@ -921,14 +1115,26 @@ pub mod serde {
     }
 
     #[derive(Deserialize)]
-    pub struct TupleSerialisedSegment(String, SerialisedSegmentValue);
+    pub struct TupleSerialisedSegment(
+        String,
+        SerialisedSegmentValue,
+        #[serde(default)] Option<SerialisedPosition>,
+    );
 
     impl Serialize for TupleSerialisedSegment {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
-            let mut map = serializer.serialize_map(None)?;
+            let mut map = serializer.serialize_map(Some(if self.2.is_some() { 7 } else { 1 }))?;
+            if let Some(position) = &self.2 {
+                map.serialize_entry("start_line_no", &position.start_line_no)?;
+                map.serialize_entry("start_line_pos", &position.start_line_pos)?;
+                map.serialize_entry("start_file_pos", &position.start_file_pos)?;
+                map.serialize_entry("end_line_no", &position.end_line_no)?;
+                map.serialize_entry("end_line_pos", &position.end_line_pos)?;
+                map.serialize_entry("end_file_pos", &position.end_file_pos)?;
+            }
             map.serialize_key(&self.0)?;
             map.serialize_value(&self.1)?;
             map.end()
@@ -936,39 +1142,85 @@ pub mod serde {
     }
 
     impl TupleSerialisedSegment {
-        pub fn sinlge(key: String, value: String) -> Self {
-            Self(key, SerialisedSegmentValue::Single(value))
+        fn single(key: String, value: String, position: Option<SerialisedPosition>) -> Self {
+            Self(key, SerialisedSegmentValue::Single(value), position)
         }
 
-        pub fn nested(key: String, segments: Vec<TupleSerialisedSegment>) -> Self {
-            Self(key, SerialisedSegmentValue::Nested(segments))
+        fn nested(
+            key: String,
+            segments: Vec<TupleSerialisedSegment>,
+            position: Option<SerialisedPosition>,
+        ) -> Self {
+            Self(key, SerialisedSegmentValue::Nested(segments), position)
         }
     }
 
     impl ErasedSegment {
-        pub fn to_serialised(&self, code_only: bool, show_raw: bool) -> TupleSerialisedSegment {
+        fn serialised_position(&self, include_position: bool) -> Option<SerialisedPosition> {
+            let marker = include_position
+                .then(|| self.get_position_marker())
+                .flatten()?;
+            let (start_line_no, start_line_pos) = marker.source_position();
+            let (end_line_no, end_line_pos) = marker
+                .templated_file
+                .get_line_pos_of_char_pos(marker.source_slice.end, true);
+
+            Some(SerialisedPosition {
+                start_line_no,
+                start_line_pos,
+                start_file_pos: marker.source_slice.start,
+                end_line_no,
+                end_line_pos,
+                end_file_pos: marker.source_slice.end,
+            })
+        }
+
+        pub fn to_serialised(
+            &self,
+            code_only: bool,
+            show_raw: bool,
+            include_meta: bool,
+            include_position: bool,
+        ) -> TupleSerialisedSegment {
+            let position = self.serialised_position(include_position);
+
             if show_raw && self.segments().is_empty() {
-                TupleSerialisedSegment::sinlge(
-                    self.get_type().as_str().to_string(),
-                    self.raw().to_string(),
-                )
+                let raw = if self.get_type() == crate::dialects::syntax::SyntaxKind::Placeholder {
+                    self.source_str().to_string()
+                } else {
+                    self.raw().to_string()
+                };
+                TupleSerialisedSegment::single(self.get_type().as_str().to_string(), raw, position)
             } else if code_only {
                 let segments = self
                     .segments()
                     .iter()
                     .filter(|seg| seg.is_code() && !seg.is_meta())
-                    .map(|seg| seg.to_serialised(code_only, show_raw))
+                    .map(|seg| {
+                        seg.to_serialised(code_only, show_raw, include_meta, include_position)
+                    })
                     .collect::<Vec<_>>();
 
-                TupleSerialisedSegment::nested(self.get_type().as_str().to_string(), segments)
+                TupleSerialisedSegment::nested(
+                    self.get_type().as_str().to_string(),
+                    segments,
+                    position,
+                )
             } else {
                 let segments = self
                     .segments()
                     .iter()
-                    .map(|seg| seg.to_serialised(code_only, show_raw))
+                    .filter(|seg| include_meta || !seg.is_meta())
+                    .map(|seg| {
+                        seg.to_serialised(code_only, show_raw, include_meta, include_position)
+                    })
                     .collect::<Vec<_>>();
 
-                TupleSerialisedSegment::nested(self.get_type().as_str().to_string(), segments)
+                TupleSerialisedSegment::nested(
+                    self.get_type().as_str().to_string(),
+                    segments,
+                    position,
+                )
             }
         }
     }
@@ -1019,6 +1271,12 @@ pub fn position_segments(
                 let mut end_point = None;
                 for fwd_seg in &segments[idx + 1..] {
                     if fwd_seg.get_position_marker().is_some() {
+                        // Empty-rendering placeholders may precede a sibling whose
+                        // templated position is earlier. Using one as the endpoint
+                        // would give an inserted segment an over-wide source slice.
+                        if fwd_seg.is_empty_templated_placeholder() {
+                            continue;
+                        }
                         end_point = Some(
                             fwd_seg.get_raw_segments()[0]
                                 .get_position_marker()
@@ -1048,7 +1306,13 @@ pub fn position_segments(
         new_position = new_position.with_working_position(line_no, line_pos);
         (line_no, line_pos) = PositionMarker::infer_next_position(segment.raw(), line_no, line_pos);
 
-        let mut new_seg = if !segment.segments().is_empty() && old_position != Some(&new_position) {
+        let has_unpositioned_children = segment
+            .segments()
+            .iter()
+            .any(|child| child.get_position_marker().is_none());
+        let mut new_seg = if !segment.segments().is_empty()
+            && (old_position != Some(&new_position) || has_unpositioned_children)
+        {
             let child_segments = position_segments(segment.segments(), &new_position);
             segment.change_segments(child_segments)
         } else {
@@ -1066,7 +1330,6 @@ pub fn position_segments(
 pub struct NodeOrToken {
     id: u32,
     syntax_kind: SyntaxKind,
-    class_types: SyntaxSet,
     position_marker: Option<PositionMarker>,
     kind: NodeOrTokenKind,
     code_idx: OnceCell<Rc<Vec<usize>>>,
@@ -1110,6 +1373,9 @@ pub enum NodeOrTokenKind {
 
 impl NodeOrToken {
     pub fn set_position_marker(&mut self, position_marker: Option<PositionMarker>) {
+        // The cached hash includes the source position. A cloned segment may
+        // already have a hash when it is repositioned during fixing.
+        self.hash.take();
         self.position_marker = position_marker;
     }
 
@@ -1134,7 +1400,79 @@ pub struct NodeData {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TokenData {
+    raw: RawString,
+    source_fixes: Vec<SourceFix>,
+}
+
+/// Keep token text and its uppercase lookup key in sync on construction.
+#[derive(Debug, Clone)]
+struct RawString {
     raw: SmolStr,
+    // No duplicate allocation for punctuation, numbers, or already-uppercase text.
+    raw_upper: Option<SmolStr>,
+    // Only quoted tokens need a cached normalized form. Keep it off the common path.
+    normalized: Option<Box<OnceCell<SmolStr>>>,
+}
+
+impl PartialEq for RawString {
+    fn eq(&self, other: &Self) -> bool {
+        self.raw == other.raw
+    }
+}
+
+impl RawString {
+    fn new(raw: &str) -> Self {
+        Self {
+            raw: raw.into(),
+            raw_upper: (!raw.is_ascii() || raw.bytes().any(|byte| byte.is_ascii_lowercase()))
+                .then(|| raw.to_uppercase().into()),
+            normalized: needs_normalization(raw).then(|| Box::new(OnceCell::new())),
+        }
+    }
+
+    fn as_smol_str(&self) -> &SmolStr {
+        &self.raw
+    }
+
+    fn as_str(&self) -> &str {
+        self.raw.as_str()
+    }
+
+    fn upper(&self) -> &str {
+        self.raw_upper.as_deref().unwrap_or(&self.raw)
+    }
+
+    fn normalized(&self) -> &SmolStr {
+        self.normalized
+            .as_ref()
+            .map(|cache| cache.get_or_init(|| normalize_raw(&self.raw).into()))
+            .unwrap_or(&self.raw)
+    }
+}
+
+fn needs_normalization(raw: &str) -> bool {
+    (raw.starts_with('[') && raw.ends_with(']') && raw.len() >= 2)
+        || (matches!(raw.chars().next(), Some('"') | Some('\'') | Some('`'))
+            && raw.len() >= 2
+            && raw.chars().next() == raw.chars().last())
+}
+
+fn normalize_raw(raw: &str) -> String {
+    if raw.starts_with('[') && raw.ends_with(']') && raw.len() >= 2 {
+        return raw[1..raw.len() - 1].replace("]]", "]");
+    }
+
+    if matches!(raw.chars().next(), Some('"') | Some('\'') | Some('`'))
+        && raw.len() >= 2
+        && raw.chars().next() == raw.chars().last()
+    {
+        let quote = raw.chars().next().unwrap();
+        return raw[1..raw.len() - 1]
+            .replace(&format!("{quote}{quote}"), &quote.to_string())
+            .replace(&format!("\\{quote}"), &quote.to_string());
+    }
+
+    raw.to_string()
 }
 
 #[track_caller]
@@ -1162,6 +1500,18 @@ fn class_types(syntax_kind: SyntaxKind) -> SyntaxSet {
         _ => SyntaxSet::single(syntax_kind),
     }
 }
+
+/// Class membership is determined entirely by syntax kind. Share one bitset
+/// per kind instead of storing a full bitset on every node and token.
+static CLASS_TYPES_BY_KIND: LazyLock<Vec<SyntaxSet>> = LazyLock::new(|| {
+    SyntaxKind::iter()
+        .enumerate()
+        .map(|(index, kind)| {
+            debug_assert_eq!(index, kind as usize);
+            class_types(kind)
+        })
+        .collect()
+});
 
 #[cfg(test)]
 mod tests {
@@ -1197,12 +1547,183 @@ mod tests {
     }
 
     #[test]
+    fn test_repositioning_token_invalidates_copied_hash() {
+        let template: TemplatedFile = "foobarfoobar".into();
+        let segment = SegmentBuilder::token(0, "foobar", SyntaxKind::Word)
+            .with_position(PositionMarker::new(
+                0..6,
+                0..6,
+                template.clone(),
+                None,
+                None,
+            ))
+            .finish();
+        let old_hash = segment.hash_value();
+        let mut copied = segment.deep_clone();
+        assert_eq!(copied.value.hash.get(), Some(&old_hash));
+
+        copied
+            .get_mut()
+            .set_position_marker(Some(PositionMarker::new(
+                6..12,
+                6..12,
+                template,
+                None,
+                None,
+            )));
+
+        assert!(copied.value.hash.get().is_none());
+        assert_ne!(copied.hash_value(), old_hash);
+        assert_eq!(segment.hash_value(), old_hash);
+    }
+
+    #[test]
+    fn test_repositioning_node_invalidates_copied_hash() {
+        let template: TemplatedFile = "foobarfoobar".into();
+        let token = SegmentBuilder::token(0, "foobar", SyntaxKind::Word).finish();
+        let segment =
+            SegmentBuilder::node(1, SyntaxKind::Expression, DialectKind::Ansi, vec![token])
+                .with_position(PositionMarker::new(
+                    0..6,
+                    0..6,
+                    template.clone(),
+                    None,
+                    None,
+                ))
+                .finish();
+        let old_hash = segment.hash_value();
+        let mut copied = segment.deep_clone();
+        assert_eq!(copied.value.hash.get(), Some(&old_hash));
+
+        copied
+            .get_mut()
+            .set_position_marker(Some(PositionMarker::new(
+                6..12,
+                6..12,
+                template,
+                None,
+                None,
+            )));
+
+        assert!(copied.value.hash.get().is_none());
+        assert_ne!(copied.hash_value(), old_hash);
+        assert_eq!(segment.hash_value(), old_hash);
+    }
+
+    #[test]
     // TODO Implement
     /// Test raw segments behave as expected.
     fn test_parser_base_segments_raw() {
         let raw_seg = raw_seg();
 
         assert_eq!(raw_seg.raw(), "foobar");
+    }
+
+    #[test]
+    fn test_class_types_are_shared_by_syntax_kind() {
+        let first = SegmentBuilder::token(1, "a", SyntaxKind::NakedIdentifier).finish();
+        let second = SegmentBuilder::token(2, "b", SyntaxKind::NakedIdentifier).finish();
+        assert!(std::ptr::eq(first.class_types(), second.class_types()));
+        assert!(
+            first
+                .class_types()
+                .intersects(&SyntaxSet::single(SyntaxKind::NakedIdentifier))
+        );
+
+        let column = SegmentBuilder::node(
+            3,
+            SyntaxKind::ColumnReference,
+            DialectKind::Ansi,
+            vec![first],
+        )
+        .finish();
+        assert!(
+            column
+                .class_types()
+                .intersects(&SyntaxSet::single(SyntaxKind::ObjectReference))
+        );
+    }
+
+    #[test]
+    fn test_token_raw_upper_is_cached_and_updated_on_edit() {
+        let templated_file: TemplatedFile = "gzip".into();
+        let position = PositionMarker::new(0..4, 0..4, templated_file, None, None);
+        let token = SegmentBuilder::token(1, "gzip", SyntaxKind::Word)
+            .with_position(position)
+            .finish();
+        assert_eq!(token.first_non_whitespace_segment_raw_upper(), Some("GZIP"));
+
+        let edited = token.edit(2, Some("zip".into()), None);
+        assert_eq!(edited.first_non_whitespace_segment_raw_upper(), Some("ZIP"));
+        assert_eq!(token.first_non_whitespace_segment_raw_upper(), Some("GZIP"));
+    }
+
+    #[test]
+    fn test_raw_string_skips_redundant_uppercase_copy() {
+        let uppercase = RawString::new("SELECT 42");
+        assert!(uppercase.raw_upper.is_none());
+        assert_eq!(uppercase.upper(), "SELECT 42");
+
+        let lowercase = RawString::new("select");
+        assert_eq!(lowercase.raw_upper.as_deref(), Some("SELECT"));
+
+        let unicode = RawString::new("straße");
+        assert_eq!(unicode.upper(), "STRASSE");
+    }
+
+    #[test]
+    fn test_raw_string_normalization_is_lazy_and_preserved_on_edit() {
+        let plain = RawString::new("plain");
+        assert!(plain.normalized.is_none());
+        assert_eq!(plain.normalized(), "plain");
+
+        let quoted = RawString::new("\"a\"\"b\"");
+        assert!(quoted.normalized.as_ref().unwrap().get().is_none());
+        assert_eq!(quoted.normalized(), "a\"b");
+        assert!(quoted.normalized.as_ref().unwrap().get().is_some());
+
+        let templated_file: TemplatedFile = "\"a\"".into();
+        let position = PositionMarker::new(0..3, 0..3, templated_file, None, None);
+        let token = SegmentBuilder::token(1, "\"a\"", SyntaxKind::QuotedIdentifier)
+            .with_position(position)
+            .finish();
+        assert_eq!(token.raw_normalized(), "a");
+        let edited = token.edit(2, Some("\"b\"".into()), None);
+        assert_eq!(edited.raw_normalized(), "b");
+        assert_eq!(token.raw_normalized(), "a");
+    }
+
+    #[test]
+    fn test_first_non_whitespace_raw_upper_borrows_nested_token() {
+        let empty = SegmentBuilder::token(1, "", SyntaxKind::Word).finish();
+        let token = SegmentBuilder::token(2, "straße", SyntaxKind::Word).finish();
+        let node = SegmentBuilder::node(
+            3,
+            SyntaxKind::Expression,
+            DialectKind::Ansi,
+            vec![empty, token],
+        )
+        .finish();
+
+        assert_eq!(
+            node.first_non_whitespace_segment_raw_upper(),
+            Some("STRASSE")
+        );
+    }
+
+    #[test]
+    fn test_position_segments_positions_unpositioned_children() {
+        let templated_file: TemplatedFile = "'a string'".into();
+        let position = PositionMarker::new(0..10, 0..10, templated_file, None, None);
+        let raw = SegmentBuilder::token(1, "'a string'", SyntaxKind::QuotedLiteral).finish();
+        let parent =
+            SegmentBuilder::node(2, SyntaxKind::QuotedLiteral, DialectKind::Ansi, vec![raw])
+                .with_position(position.clone())
+                .finish();
+
+        let positioned = position_segments(&[parent], &position);
+
+        assert!(positioned[0].segments()[0].get_position_marker().is_some());
     }
 
     #[test]
@@ -1274,6 +1795,97 @@ mod tests {
                 None,
             )
         );
+    }
+
+    #[test]
+    fn test_lint_fix_edit_is_isolated_from_source_segment() {
+        let source = raw_segments().remove(0);
+        assert!(source.get_position_marker().is_some());
+
+        let fix = LintFix::replace(source.clone(), vec![source.clone()], None);
+        let LintFix::Replace { edit, .. } = fix else {
+            unreachable!();
+        };
+
+        assert!(source.get_position_marker().is_some());
+        assert!(edit[0].get_position_marker().is_none());
+        assert!(!source.is(&edit[0]));
+        assert_eq!(source.raw(), edit[0].raw());
+    }
+
+    #[test]
+    fn test_iter_patches_anchors_buffer_on_first_insertion_point() {
+        use crate::templaters::{RawFileSlice, TemplateSliceKind, TemplatedFileSlice};
+
+        let templated_file = TemplatedFile::new(
+            "a{{ x }}b".into(),
+            "test.sql".into(),
+            Some("ab".into()),
+            Some(vec![
+                TemplatedFileSlice::new(TemplateSliceKind::Literal, 0..1, 0..1),
+                TemplatedFileSlice::new(TemplateSliceKind::Templated, 1..8, 1..1),
+                TemplatedFileSlice::new(TemplateSliceKind::Literal, 8..9, 1..2),
+            ]),
+            Some(vec![
+                RawFileSlice::new("a".into(), TemplateSliceKind::Literal, 0, None, None),
+                RawFileSlice::new(
+                    "{{ x }}".into(),
+                    TemplateSliceKind::Templated,
+                    1,
+                    None,
+                    None,
+                ),
+                RawFileSlice::new("b".into(), TemplateSliceKind::Literal, 8, None, None),
+            ]),
+        )
+        .unwrap();
+
+        let first = SegmentBuilder::token(1, "a", SyntaxKind::Word)
+            .with_position(PositionMarker::new(
+                0..1,
+                0..1,
+                templated_file.clone(),
+                None,
+                None,
+            ))
+            .finish();
+        let insertion = SegmentBuilder::token(2, ",", SyntaxKind::Comma)
+            .with_position(PositionMarker::from_point(
+                1,
+                1,
+                templated_file.clone(),
+                None,
+                None,
+            ))
+            .finish();
+        let last = SegmentBuilder::token(3, "b", SyntaxKind::Word)
+            .with_position(PositionMarker::new(
+                8..9,
+                1..2,
+                templated_file.clone(),
+                None,
+                None,
+            ))
+            .finish();
+        let parent = SegmentBuilder::node(
+            4,
+            SyntaxKind::File,
+            DialectKind::Ansi,
+            vec![first, insertion, last],
+        )
+        .with_position(PositionMarker::new(
+            0..9,
+            0..2,
+            templated_file.clone(),
+            None,
+            None,
+        ))
+        .finish();
+
+        let patches = parent.iter_patches(&templated_file);
+        assert_eq!(patches.len(), 1);
+        assert_eq!(patches[0].fixed_raw, ",");
+        assert_eq!(patches[0].source_slice, 1..1);
     }
 
     /// Regression test for issue #1884: raw_segments_with_ancestors must not

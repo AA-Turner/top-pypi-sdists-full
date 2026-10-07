@@ -5231,6 +5231,85 @@ def mcp_status() -> None:
         raise typer.Exit(1)
 
 
+# The hosted Probe MCP from the shell, for `/probe inline` only (`cli/mcp_bridge.py`):
+# hidden, and refused in every other session, so nothing outside inline offers them.
+MCP_TOOLS_MATCHED = "probe mcp tools"
+MCP_CALL_MATCHED = "probe mcp call"
+
+
+def _mcp_bridge(matched: str):
+    """The bridge's target, once this session is inline; else the refusal (exit 2)."""
+    from . import mcp_bridge
+
+    refused = mcp_bridge.refusal(matched)
+    if refused:
+        print(refused, file=sys.stderr)
+        raise typer.Exit(mcp_bridge.EXIT_NOT_INLINE)
+    try:
+        return mcp_bridge, mcp_bridge.target(base_url=_conn.base_url)
+    except mcp_bridge.BridgeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise typer.Exit(1) from exc
+
+
+@mcp_app.command("tools", hidden=True)
+def mcp_tools(
+    names: Optional[list[str]] = typer.Argument(
+        None, help="tools to show in full, with their input schema", show_default=False
+    ),
+) -> None:
+    """The Probe MCP's read guide and tools, as it serves them (`/probe inline` only)."""
+    bridge, where = _mcp_bridge(MCP_TOOLS_MATCHED)
+    try:
+        instructions, tools = bridge.list_tools(where)
+    except bridge.BridgeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise typer.Exit(1) from exc
+    try:
+        listing = bridge.render_tools(instructions, tools, names or ())
+    except KeyError as exc:
+        served = ", ".join(tool.name for tool in tools)
+        print(f"error: the Probe MCP serves no tool {exc.args[0]} (it serves: {served})", file=sys.stderr)
+        raise typer.Exit(1) from exc
+    print(listing)
+
+
+@mcp_app.command("call", hidden=True)
+def mcp_call(
+    tool: str = typer.Argument(..., help="the tool's name (`probe mcp tools` lists them)"),
+    arguments: Optional[str] = typer.Argument(
+        None, help="its arguments, as one JSON object (default {})", show_default=False
+    ),
+    args_file: Optional[str] = typer.Option(
+        None, "--args-file", help="read the JSON arguments from this file, or - for stdin"
+    ),
+) -> None:
+    """Call one Probe MCP tool and print what it returns (`/probe inline` only)."""
+    bridge, where = _mcp_bridge(MCP_CALL_MATCHED)
+    if arguments is not None and args_file is not None:
+        raise typer.BadParameter("give the arguments OR --args-file, not both")
+    raw = arguments
+    if args_file is not None:
+        try:
+            raw = sys.stdin.read() if args_file == "-" else Path(args_file).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise typer.BadParameter(f"cannot read {args_file}: {exc}") from exc
+    try:
+        payload = bridge.parse_arguments(raw)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    try:
+        result = bridge.call_tool(where, tool, payload)
+    except bridge.BridgeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise typer.Exit(1) from exc
+    text = bridge.result_text(result)
+    if result.isError:
+        print(text or f"error: {tool} failed", file=sys.stderr)
+        raise typer.Exit(1)
+    print(text)
+
+
 # -- context ----------------------------------------------------------------
 context_app = typer.Typer(
     no_args_is_help=True, help="named local contexts: endpoint + credentials + anchors"
@@ -6085,6 +6164,18 @@ def project_get(
     """Show one project."""
     with _client() as c:
         _print_json(_select_fields(c.get_project(_project_id(c, project_id)), fields))
+
+
+@project_app.command("lineage")
+def project_lineage(project_id: str = slug_ref("project")) -> None:
+    """Print the project's OWN links: what it came from and what came from it.
+
+    Its links in and out (stored, then "built on" derived from its runs' reads,
+    `derived: true`), its `origin` and its direct children. An experiment's own
+    links are `experiment lineage`. Look here before linking it to anything.
+    """
+    with _client() as c:
+        _print_json(c.project_lineage(_project_id(c, project_id)))
 
 
 @project_app.command("contributors")
@@ -8883,7 +8974,7 @@ def _resolve_agent_session(session: str | None) -> str:
     The hardcoded ``CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID`` this replaces
     is why every `probe session` subcommand exited 1 under pi even though
     ``PI_SESSION_ID`` was in that table: an agent added to the table did not
-    become an agent the switch could name. Cursor was in the same position.
+    become an agent the switch could name.
     """
     resolved = session or agent_session.session_id_from_env()
     if not resolved:
@@ -8968,7 +9059,7 @@ def _switch_word(session_id: str, value: str) -> str:
 
     wanted = session_marker.normalize_state(value)
     if wanted is None:
-        print(_expected_state(value), file=sys.stderr)
+        print(_expected_state(value, extra=(session_marker.INLINE_WORD,)), file=sys.stderr)
         raise typer.Exit(1)
     target = session_marker.switch_target(session_id, wanted, calling_agent())
     if target is None:
@@ -9036,10 +9127,34 @@ def _daemon_block(session_id: str, state: str) -> "dict | None":
     }
 
 
+def _refuse_switch_from_agent(session_id: "str | None", verb: str) -> None:
+    """The researcher's switch, run from inside a coding agent's session the
+    Probe daemon records (`<sid>.profile`): the agent moving it, however the call
+    was wrapped (`probe exec`, `bash -lc`, a script) -- the guard refuses the bare
+    command; this refuses the rest (exit 2, nothing written). The researcher
+    moves it with `/probe`, pi's command (spawned without the agent's session
+    variable) or a terminal outside the agent."""
+    own = agent_session.session_id_from_env()
+    if not own:
+        return
+    for sid in {own, session_id or own}:
+        if session_marker.session_profile(sid) == session_marker.RECORDER_DAEMON:
+            print(session_marker.RESEARCHER_SWITCH_DENY.format(matched=f"probe session {verb}"), file=sys.stderr)
+            raise typer.Exit(2)
+
+
+#: `probe session state inline` from inside a coding agent's shell.
+INLINE_FROM_AGENT = (
+    "`probe session state inline` was refused: it runs inside a coding agent's session, and only "
+    "the researcher hands Probe to the agent (typing `/probe inline`, or this command from a "
+    "terminal outside the agent). Nothing changed."
+)
+
+
 @session_app.command("state")
 def session_state_cmd(
     value: str = typer.Argument(
-        None, help="on | read | off \u2014 omit to show the current state"
+        None, help="on | read | off | inline \u2014 omit to show the current state"
     ),
     session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
 ) -> None:
@@ -9054,6 +9169,10 @@ def session_state_cmd(
     records), the same three read `on (daemon)` -- stored as `daemon` --,
     `read only (daemon)` and `off`. The daemon is not a position of this
     switch: `daemon` is refused.
+
+    inline  (the researcher's, where the daemon records) the daemon stops and
+            the agent reads and writes Probe itself, as `on (inline)`, until
+            the switch moves again. Elsewhere `inline` is `on`.
 
     Nothing already recorded is deleted by any of them, and moving back to `on`
     does not backfill the interval that was skipped -- it happened unrecorded,
@@ -9078,8 +9197,25 @@ def session_state_cmd(
             }
         )
         return
-    wanted = _switch_word(resolved, value)
-    session_marker.set_session_state(resolved, wanted)
+    if value.strip().lower() == session_marker.INLINE_WORD:
+        # The researcher's `/probe inline`, from a terminal or pi's command (which
+        # spawns this without the agent's session variable). Inside a coding
+        # agent's shell it is the agent asking for itself, however the call was
+        # wrapped (`probe exec`, `bash -lc`, a script): refused before anything moves.
+        if agent_session.session_id_from_env():
+            print(INLINE_FROM_AGENT, file=sys.stderr)
+            raise typer.Exit(2)
+        wanted = session_marker.STATE_FULL
+        if not session_marker.switch_to_inline(resolved) or (
+            session_marker.session_profile(resolved) == session_marker.RECORDER_DAEMON
+            and not session_marker.is_inline(resolved)
+        ):
+            print("the switch could not be written: Probe is not inline", file=sys.stderr)
+            raise typer.Exit(1)
+    else:
+        _refuse_switch_from_agent(resolved, "state")
+        wanted = _switch_word(resolved, value)
+        session_marker.set_session_state(resolved, wanted)
     _require_state(resolved, wanted)
     _print_json(_state_block(resolved, wanted, heal=True))
 
@@ -9101,6 +9237,7 @@ def session_untrack(
     where it is, because it happened.
     """
     resolved = _resolve_agent_session(session)
+    _refuse_switch_from_agent(resolved, "untrack")
     ok = session_marker.set_tracking(resolved, False)
     # No `_capture_block` here, unlike `track` and `toggle`: the guard those
     # two carry ("heal only if the signal now reads on") is unreachable by
@@ -9131,6 +9268,7 @@ def session_track(
     session IS research before it has created anything.
     """
     resolved = _resolve_agent_session(session)
+    _refuse_switch_from_agent(resolved, "track")
     # `on` is stored by who records: `daemon` where the daemon records (the lean
     # plugin gives the agent nothing to record with, so `full` would record nothing).
     from probe.cli.daemon_cli import calling_agent
@@ -9182,6 +9320,7 @@ def session_toggle(
     hook is absent.
     """
     resolved = _resolve_agent_session(session)
+    _refuse_switch_from_agent(resolved, "toggle")
     current = session_marker.session_state(resolved)
     if current is None:
         current, _source = session_marker.resolve_state_default(None)
@@ -9194,121 +9333,6 @@ def session_toggle(
     block = _state_block(resolved, target, heal=True)
     block["was"] = _state_word(current)
     _print_json(block)
-
-
-#: What `probe session inline` prints first: where the agent stands and how it
-#: hands back, then the one mechanics line the skills below it need in a session
-#: with no Probe MCP tools (the daemon profile loads none).
-INLINE_ENTERED = (
-    "Probe is `on (inline)` for this conversation: you read and write Probe yourself "
-    "until `probe session daemon` hands control back to the daemon."
-)
-INLINE_NO_MCP = (
-    "This session has no Probe MCP tools: where the skills below name one, use its "
-    "`probe` CLI command (`probe --help`)."
-)
-INLINE_SKILLS_MISSING = "These skills were not found in this install: {names}."
-INLINE_LEFT = "Probe is back to `{label}` for this conversation: the daemon records again."
-INLINE_LEFT_READ = "Probe is back to `{label}` for this conversation: the daemon reads, nothing is recorded."
-INLINE_LEFT_DOWN = (
-    "Probe is back to `{label}` for this conversation, but the daemon is {reason}, so nothing is "
-    "recorded until it runs again; `probe session inline` takes Probe back."
-)
-INLINE_OTHER_SESSION = (
-    "`probe session {verb}` acts only on this conversation, not on another session: nothing changed."
-)
-
-
-def _inline_skills_text() -> str:
-    """The main agent's version of the skills the daemon records by
-    (`bite.SHARED_SKILLS`: track-work and edit-notes), whole: in the daemon
-    profile no skill but instrument-code is installed, and an agent that takes
-    Probe over records by these (Richard 2026-10-05). Never raises: the takeover
-    has already happened when this runs."""
-    names: tuple[str, ...] = ()
-    try:
-        from probe import skill_versions
-        from probe.daemon.bite import SHARED_SKILLS, skills_root
-
-        names = SHARED_SKILLS
-        root = skills_root()
-        parts, missing = [], []
-        for name in names:
-            folder = root / name if root is not None else None
-            if folder is None or not (folder / "SKILL.md").is_file():
-                missing.append(name)
-                continue
-            body = skill_versions.split_front_matter(skill_versions.render(folder, skill_versions.MAIN_AGENT))[1]
-            parts.append(f"# Skill: {name}\n\n{body.strip()}")
-    except Exception:  # noqa: BLE001 - the switch already moved; say what is missing instead
-        return INLINE_SKILLS_MISSING.format(names=", ".join(names) or "track-work, edit-notes")
-    if missing:
-        parts.append(INLINE_SKILLS_MISSING.format(names=", ".join(missing)))
-    return "\n\n".join(parts)
-
-
-def _own_session(session: str | None, verb: str) -> str:
-    """This conversation's id for `probe session inline|daemon`. From inside a
-    coding agent a takeover is the calling agent's own act: `--session` naming
-    another conversation is refused (exit 2, nothing written). From a terminal
-    (no agent session) `--session` names the one to act on."""
-    own = agent_session.session_id_from_env()
-    if own and session and session != own:
-        print(INLINE_OTHER_SESSION.format(verb=verb), file=sys.stderr)
-        raise typer.Exit(2)
-    return _resolve_agent_session(session)
-
-
-@session_app.command("inline")
-def session_inline(
-    session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
-) -> None:
-    """Take Probe over from the daemon: read and write it yourself.
-
-    Only where the Probe daemon records this conversation, and only while the
-    researcher has Probe on or read (never off). The daemon leaves the turns you
-    hold to you; `probe session daemon` hands control back. Moving the switch
-    (`/probe on|read|off`) ends it too.
-    """
-    resolved = _own_session(session, "inline")
-    refusal = session_marker.enter_inline(resolved)
-    if refusal is not None:
-        print(refusal, file=sys.stderr)
-        raise typer.Exit(2)
-    typer.echo(INLINE_ENTERED)
-    typer.echo(INLINE_NO_MCP)
-    typer.echo("")
-    typer.echo(_inline_skills_text())
-
-
-@session_app.command("daemon")
-def session_daemon(
-    session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
-) -> None:
-    """Hand Probe back to the daemon after `probe session inline`.
-
-    Restores the state the session was taken over from (`on (daemon)` or
-    `read only (daemon)`). A session that is not inline is left exactly as it is.
-    """
-    resolved = _own_session(session, "daemon")
-    restored, failure = session_marker.leave_inline(resolved)
-    if failure is not None:
-        print(failure, file=sys.stderr)
-        raise typer.Exit(1)
-    if restored is None:
-        typer.echo(session_marker.NOT_INLINE)
-        return
-    label = _state_display(resolved, restored)
-    if restored != session_marker.STATE_DAEMON:
-        typer.echo(INLINE_LEFT_READ.format(label=label))
-        return
-    _capture_block(resolved, heal_cwd=os.getcwd())
-    status = session_marker.daemon_status(resolved, restored)
-    if status is not None and status[0] == session_marker.DAEMON_DEGRADED:
-        reason = session_marker.DAEMON_REASON_WORDS.get(status[1] or "", "not running")
-        typer.echo(INLINE_LEFT_DOWN.format(label=label, reason=reason))
-    else:
-        typer.echo(INLINE_LEFT.format(label=label))
 
 
 @session_app.command("initialize", hidden=True)
@@ -9345,10 +9369,10 @@ def session_initialize(
         # An `on` session follows its profile: a session resumed after the
         # researcher switched Who records records the way pi now loads it.
         # `read-only` and `off` are the researcher's own switch and stay, and so
-        # does a session the agent took over (`probe session inline`): a reload
-        # must not hand Probe back behind the agent's back.
+        # does a session they set inline (`/probe inline`): a reload must not
+        # hand Probe back to the daemon behind their back.
         target = session_marker.on_state(resolved, agent)
-        if target != state and session_marker.set_session_state(resolved, target):
+        if target != state and session_marker.set_session_state(resolved, target, explicit=False):
             state = session_marker.session_state(resolved)
             signal = session_marker.tracking_signal(resolved)
     if state is None:
@@ -9356,7 +9380,9 @@ def session_initialize(
         # The same rule as the session-start hook: `on` (or a `daemon` default
         # from before) is stored by who records.
         default = session_marker.seed_state(resolved, default, agent)
-        seeded = session_marker.set_session_state_if_absent(resolved, default)
+        seeded = session_marker.set_session_state_if_absent(
+            resolved, default, source=session_marker.seed_source(source)
+        )
         state = session_marker.session_state(resolved)
         signal = session_marker.tracking_signal(resolved)
         if signal is None:
@@ -9415,6 +9441,48 @@ def _initializing_agent() -> "str | None":
     return harness.id if harness is not None and harness.installable else None
 
 
+@session_app.command("export")
+def session_export(
+    session_id: str = typer.Argument(..., help="the captured session's id"),
+    source: str = typer.Option(
+        None, "--source", help="the agent that recorded it, as its harness id (default: each in turn)"
+    ),
+    out: Path = typer.Option(None, "--out", "-o", help="write the ATIF JSON here instead of stdout"),
+) -> None:
+    """A captured session as one ATIF trajectory document (Harbor's Agent
+    Trajectory Interchange Format), readable by Harbor, Phoenix and Transluce.
+
+    Written by Probe when the session ends; a session still running has none
+    yet. The trajectory never carries tool arguments or tool output.
+    """
+    from probe.harness import get_registry
+
+    # `source` is part of the document's identity: an unnamed one is asked of
+    # each captured agent in turn, never defaulted (a default would read every
+    # other agent's session as "not found").
+    candidates = [source] if source else [h.id for h in get_registry().captured()]
+    document = None
+    with _client() as c:
+        for candidate in candidates:
+            try:
+                document = c.export_session_trajectory(session_id, source=candidate)
+                break
+            except errors.NotFoundError as exc:
+                if isinstance(exc.detail, dict) and exc.detail.get("error") == "trajectory_unavailable":
+                    raise  # the session exists under this agent; it has no trajectory yet
+    if document is None:
+        raise errors.NotFoundError(
+            f"no captured session {session_id} under "
+            + (source or f"any known agent ({', '.join(candidates)})"),
+            status=404,
+        )
+    if out is None:
+        _print_json(document)
+        return
+    out.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    typer.echo(f"wrote {out} ({len(document.get('steps') or [])} steps)")
+
+
 @session_app.command("status")
 def session_status(
     session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
@@ -9452,6 +9520,11 @@ def session_status(
             # lease the daemon records and this is False; degraded, it is True.
             "writes_allowed": session_marker.agent_writes_freely(resolved, session_state),
             "daemon": _daemon_block(resolved, session_state),
+            # The daemon paused itself: the session's work is not ML and its
+            # state is a default (`state_source`), never the researcher's choice.
+            "auto_paused": session_marker.auto_paused(resolved, session_state),
+            # `unrecorded`: an older client seeded it (counts as explicit).
+            "state_source": session_marker.state_source_label(resolved),
             # WHY, not just what. The status line shows two states on purpose, so
             # "off because I said so" and "off because this machine defaults off"
             # look identical there; this is where they separate.
@@ -9539,6 +9612,8 @@ def session_default(
     `daemon` is refused: whether the Probe daemon records is `probe wizard
     ` › Defaults › Who records, and a new session's `on` follows it.
     """
+    if value is not None:
+        _refuse_switch_from_agent(None, "default")
     if folder is None and value is None:
         _print_json(
             {
@@ -14655,6 +14730,20 @@ def experiment_edges(experiment_id: str = slug_ref("experiment")) -> None:
         _print_json(c.experiment_edges(_ref(c, "experiment", experiment_id).id))
 
 
+@experiment_app.command("lineage")
+def experiment_lineage(experiment_id: str = slug_ref("experiment")) -> None:
+    """Print the experiment's OWN links: what it came from and what came from it.
+
+    `experiment edges` is the graph AMONG its runs and files. This is the
+    experiment as one node: its links in and out (stored, then "built on"
+    derived from its runs' reads, `derived: true`), its `origin` and its direct
+    children. Look here before linking it to anything.
+    """
+    with _client() as c:
+        target = _ref(c, "experiment", experiment_id)
+        _print_json(c.experiment_lineage(target.id, project_id=_filed_under(target)))
+
+
 # -- run groups (sweeps / ensembles) ----------------------------------------
 group_app = typer.Typer(
     no_args_is_help=True, help="run groups: sweeps, ensembles, distributed runs"
@@ -14742,9 +14831,20 @@ app.add_typer(edge_app, name="edge")
 
 def _edge_end(client: Client, end_type: str, ref: str) -> tuple[str, str]:
     """One `edge add` end as the server takes it: `experiment:`/`project:` by
-    slug or `id:<uuid>` -> (`project`, its id); every other type's id as typed."""
+    slug or `id:<uuid>` -> (`project`, its id); `run:` by id or petname -> its
+    id; every other type's id as typed."""
     if end_type in _PROJECT_END_TYPES:
         return LineageEntityType.project.value, _ref(client, end_type, ref).id
+    if end_type == LineageEntityType.run.value:
+        # A run is named by petname as often as by id (`run get` takes either),
+        # but `POST /v1/edges` takes only the id: a petname reached it as a 422
+        # and the caller had to look the id up and try again. An id costs no
+        # lookup; anything else resolves like `run get`, a `name:` selector
+        # included even when the name itself looks like an id.
+        bare, how = refs.split_selector(ref)
+        if (how == "id" or bare == ref) and refs.is_uuid(bare):
+            return end_type, bare
+        return end_type, _ref(client, "run", ref).id
     return end_type, ref
 
 
@@ -14781,10 +14881,10 @@ def edge_add(
     """Add a lineage edge.
 
     --source/--target are `type:ref`, with type in
-    run|artifact|artifact_version|paper|experiment|project. A run, file or
-    paper is named by its id; an experiment or project by its slug, or
-    `id:<uuid>` (as `run move --to` takes it). Both are stored as the end type
-    `project`: an experiment IS a project.
+    run|artifact|artifact_version|paper|experiment|project. A run is named by
+    its id or petname; a file or paper by its id; an experiment or project by
+    its slug, or `id:<uuid>` (as `run move --to` takes it). Both are stored as
+    the end type `project`: an experiment IS a project.
 
     A run may have more than one parent (forked_from, resumed_from,
     retried_from, branched_from): the first stays the run's parent, the others

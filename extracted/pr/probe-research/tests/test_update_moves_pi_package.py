@@ -9,6 +9,7 @@ a 0.2.x package under a 0.206 CLI, so pi never switched to the daemon).
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -234,6 +235,13 @@ def test_without_a_working_ps_a_running_pi_shows_up_in_proc(monkeypatch, ps):
     monkeypatch.setattr(upgrading.subprocess, "run", no_ps)
     pi = subprocess.Popen(["pi", "30"], executable="/bin/sleep")  # a process titled `pi`
     try:
+        # Until the child has exec'd, its /proc cmdline is still this python's:
+        # scanning before then raced a busy CI runner (deploy-mcp gate, 2026-10-06).
+        cmdline = Path(f"/proc/{pi.pid}/cmdline")
+        deadline = time.monotonic() + 5
+        while cmdline.read_bytes().split(b"\0", 1)[0] != b"pi":
+            assert time.monotonic() < deadline, "the `pi` child never exec'd"
+            time.sleep(0.01)
         assert upgrading._pi_running()
     finally:
         pi.kill()

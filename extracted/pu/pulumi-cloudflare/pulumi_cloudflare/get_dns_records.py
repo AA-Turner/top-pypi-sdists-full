@@ -167,7 +167,7 @@ class GetDnsRecordsResult:
     @pulumi.getter(name="shadowedByName")
     def shadowed_by_name(self) -> Optional[_builtins.str]:
         """
-        Filters to records at or below the given NS delegation name, excluding the NS records that form the delegation itself. The value must be a subdomain of the zone; the zone apex is not accepted. Requires `include_shadow_metadata=true`. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
+        Filters the response to records at or below the specified NS delegation name. NS, DS, and NSEC records at the delegation name are excluded because they are not shadowed by that delegation. Those record types are included only when they exist below the delegation. The value must be a non-apex subdomain of the zone. Requires `include_shadow_metadata=true`. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
         """
         return pulumi.get(self, "shadowed_by_name")
 
@@ -236,19 +236,19 @@ class AwaitableGetDnsRecordsResult(GetDnsRecordsResult):
             zone_id=self.zone_id)
 
 
-def get_dns_records(comment: Optional[Union['GetDnsRecordsCommentArgs', 'GetDnsRecordsCommentArgsDict']] = None,
-                    content: Optional[Union['GetDnsRecordsContentArgs', 'GetDnsRecordsContentArgsDict']] = None,
+def get_dns_records(comment: Optional[Union['GetDnsRecordsCommentArgs', 'GetDnsRecordsCommentArgsDict', 'outputs.GetDnsRecordsCommentResult']] = None,
+                    content: Optional[Union['GetDnsRecordsContentArgs', 'GetDnsRecordsContentArgsDict', 'outputs.GetDnsRecordsContentResult']] = None,
                     direction: Optional[_builtins.str] = None,
                     include_shadow_metadata: Optional[_builtins.bool] = None,
                     match: Optional[_builtins.str] = None,
                     max_items: Optional[_builtins.int] = None,
-                    name: Optional[Union['GetDnsRecordsNameArgs', 'GetDnsRecordsNameArgsDict']] = None,
+                    name: Optional[Union['GetDnsRecordsNameArgs', 'GetDnsRecordsNameArgsDict', 'outputs.GetDnsRecordsNameResult']] = None,
                     order: Optional[_builtins.str] = None,
                     proxied: Optional[_builtins.bool] = None,
                     search: Optional[_builtins.str] = None,
                     shadowed_by_name: Optional[_builtins.str] = None,
                     shadowing_name: Optional[_builtins.str] = None,
-                    tag: Optional[Union['GetDnsRecordsTagArgs', 'GetDnsRecordsTagArgsDict']] = None,
+                    tag: Optional[Union['GetDnsRecordsTagArgs', 'GetDnsRecordsTagArgsDict', 'outputs.GetDnsRecordsTagResult']] = None,
                     tag_match: Optional[_builtins.str] = None,
                     type: Optional[_builtins.str] = None,
                     zone_id: Optional[_builtins.str] = None,
@@ -311,7 +311,7 @@ def get_dns_records(comment: Optional[Union['GetDnsRecordsCommentArgs', 'GetDnsR
            Available values: "type", "name", "content", "ttl", "proxied".
     :param _builtins.bool proxied: Whether the record is receiving the performance and security benefits of Cloudflare.
     :param _builtins.str search: Allows searching in multiple properties of a DNS record simultaneously. This parameter is intended for human users, not automation. Its exact behavior is intentionally left unspecified and is subject to change in the future. This parameter works independently of the `match` setting. For automated searches, please use the other available parameters.
-    :param _builtins.str shadowed_by_name: Filters to records at or below the given NS delegation name, excluding the NS records that form the delegation itself. The value must be a subdomain of the zone; the zone apex is not accepted. Requires `include_shadow_metadata=true`. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
+    :param _builtins.str shadowed_by_name: Filters the response to records at or below the specified NS delegation name. NS, DS, and NSEC records at the delegation name are excluded because they are not shadowed by that delegation. Those record types are included only when they exist below the delegation. The value must be a non-apex subdomain of the zone. Requires `include_shadow_metadata=true`. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
     :param _builtins.str shadowing_name: Returns NS records that shadow the given name, searching at the name itself and each of its ancestor names within the zone, excluding the zone apex. The value must be a subdomain of the zone; the zone apex is not accepted. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
     :param _builtins.str tag_match: Whether to match all tag search requirements or at least one (any). If set to `all`, acts like a logical AND between tag filters. If set to `any`, acts like a logical OR instead. Note that the regular `match` parameter is still used to combine the resulting condition with other filters that aren't related to tags.
            Available values: "any", "all".
@@ -357,19 +357,19 @@ def get_dns_records(comment: Optional[Union['GetDnsRecordsCommentArgs', 'GetDnsR
         tag_match=pulumi.get(__ret__, 'tag_match'),
         type=pulumi.get(__ret__, 'type'),
         zone_id=pulumi.get(__ret__, 'zone_id'))
-def get_dns_records_output(comment: pulumi.Input[Optional[Optional[Union['GetDnsRecordsCommentArgs', 'GetDnsRecordsCommentArgsDict']]]] = None,
-                           content: pulumi.Input[Optional[Optional[Union['GetDnsRecordsContentArgs', 'GetDnsRecordsContentArgsDict']]]] = None,
+def get_dns_records_output(comment: pulumi.Input[Optional[Optional[Union['GetDnsRecordsCommentArgs', 'GetDnsRecordsCommentArgsDict', 'outputs.GetDnsRecordsCommentResult']]]] = None,
+                           content: pulumi.Input[Optional[Optional[Union['GetDnsRecordsContentArgs', 'GetDnsRecordsContentArgsDict', 'outputs.GetDnsRecordsContentResult']]]] = None,
                            direction: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                            include_shadow_metadata: pulumi.Input[Optional[Optional[_builtins.bool]]] = None,
                            match: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                            max_items: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
-                           name: pulumi.Input[Optional[Optional[Union['GetDnsRecordsNameArgs', 'GetDnsRecordsNameArgsDict']]]] = None,
+                           name: pulumi.Input[Optional[Optional[Union['GetDnsRecordsNameArgs', 'GetDnsRecordsNameArgsDict', 'outputs.GetDnsRecordsNameResult']]]] = None,
                            order: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                            proxied: pulumi.Input[Optional[Optional[_builtins.bool]]] = None,
                            search: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                            shadowed_by_name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                            shadowing_name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                           tag: pulumi.Input[Optional[Optional[Union['GetDnsRecordsTagArgs', 'GetDnsRecordsTagArgsDict']]]] = None,
+                           tag: pulumi.Input[Optional[Optional[Union['GetDnsRecordsTagArgs', 'GetDnsRecordsTagArgsDict', 'outputs.GetDnsRecordsTagResult']]]] = None,
                            tag_match: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                            type: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                            zone_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
@@ -432,7 +432,7 @@ def get_dns_records_output(comment: pulumi.Input[Optional[Optional[Union['GetDns
            Available values: "type", "name", "content", "ttl", "proxied".
     :param _builtins.bool proxied: Whether the record is receiving the performance and security benefits of Cloudflare.
     :param _builtins.str search: Allows searching in multiple properties of a DNS record simultaneously. This parameter is intended for human users, not automation. Its exact behavior is intentionally left unspecified and is subject to change in the future. This parameter works independently of the `match` setting. For automated searches, please use the other available parameters.
-    :param _builtins.str shadowed_by_name: Filters to records at or below the given NS delegation name, excluding the NS records that form the delegation itself. The value must be a subdomain of the zone; the zone apex is not accepted. Requires `include_shadow_metadata=true`. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
+    :param _builtins.str shadowed_by_name: Filters the response to records at or below the specified NS delegation name. NS, DS, and NSEC records at the delegation name are excluded because they are not shadowed by that delegation. Those record types are included only when they exist below the delegation. The value must be a non-apex subdomain of the zone. Requires `include_shadow_metadata=true`. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
     :param _builtins.str shadowing_name: Returns NS records that shadow the given name, searching at the name itself and each of its ancestor names within the zone, excluding the zone apex. The value must be a subdomain of the zone; the zone apex is not accepted. See [Shadowed records](https://developers.cloudflare.com/dns/manage-dns-records/reference/shadowed-records).
     :param _builtins.str tag_match: Whether to match all tag search requirements or at least one (any). If set to `all`, acts like a logical AND between tag filters. If set to `any`, acts like a logical OR instead. Note that the regular `match` parameter is still used to combine the resulting condition with other filters that aren't related to tags.
            Available values: "any", "all".

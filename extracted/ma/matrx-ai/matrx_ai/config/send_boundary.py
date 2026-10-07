@@ -222,6 +222,11 @@ async def prepare_for_send(
     prep.steps.append("context_preflight")
 
     if stage == STAGE_LOOP:
+        # REFUSAL, like the pre-flight: a call with no conversational message at all
+        # is rejected by every provider ("messages: at least one message is required")
+        # after a paid round-trip. Say so here, before anything is sent.
+        _refuse_empty_conversation(config, conversation_id=conversation_id)
+        prep.steps.append("empty_conversation_check")
         _run_step(
             prep,
             "prompt_cache_key",
@@ -254,6 +259,73 @@ def _preflight(config: Any, *, stage: str, conversation_id: str | None) -> dict[
     except PromptTooLargeError as exc:
         vcprint(f"[send_boundary/{stage}] {exc}", color="red")
         raise
+
+
+@dataclass
+class _EmptyConversationErrorInfo:
+    """Classified envelope read by the streaming layer off ``exc.error_info``
+    (same convention as provider errors and ``ToolMergeError``)."""
+
+    error_type: str
+    message: str
+    user_message: str
+    status_code: int = 422
+
+
+class EmptyConversationError(ValueError):
+    """The call carries no user/assistant/tool message — only a system prompt (or
+    nothing). Raised BEFORE the provider; nothing was sent or spent."""
+
+    def __init__(self, *, step: str) -> None:
+        message = (
+            f"Send boundary REFUSED this call before the provider: {step} has no "
+            "message to send (only a system prompt, or nothing). Nothing was sent "
+            "and nothing was spent. The caller must supply a user message, or the "
+            "agent must carry one of its own."
+        )
+        super().__init__(message)
+        self.step = step
+        self.error_info = _EmptyConversationErrorInfo(
+            error_type="empty_conversation",
+            message=message,
+            user_message="There is nothing to send yet. Type a message and try again.",
+        )
+
+
+def _has_sendable_message(message: Any) -> bool:
+    if isinstance(message, dict):
+        role = str(message.get("role") or "")
+        content = message.get("content")
+        visible = message.get("is_visible_to_model", True)
+    else:
+        role = str(getattr(message, "role", "") or "")
+        content = getattr(message, "content", None)
+        visible = getattr(message, "is_visible_to_model", True)
+    if role in ("system", "developer") or visible is False:
+        return False
+    if isinstance(content, str):
+        return bool(content.strip())
+    for block in content or ():
+        text = block.get("text") if isinstance(block, dict) else getattr(block, "text", None)
+        block_type = block.get("type") if isinstance(block, dict) else getattr(block, "type", None)
+        if str(block_type or "") in ("text", "ContentType.TEXT") or text is not None:
+            if isinstance(text, str) and text.strip():
+                return True
+            continue
+        return True  # a non-text block (image, file, tool call/result) is content
+    return False
+
+
+def _refuse_empty_conversation(config: Any, *, conversation_id: str | None) -> None:
+    """Raise ``EmptyConversationError`` when no message would reach the provider."""
+    messages = getattr(config, "messages", None)
+    if messages is None:
+        return  # not a conversational config (nothing to judge)
+    if any(_has_sendable_message(m) for m in messages):
+        return
+    exc = EmptyConversationError(step=_step_name(conversation_id))
+    vcprint(f"[send_boundary/loop] {exc}", color="red")
+    raise exc
 
 
 def _step_name(conversation_id: str | None) -> str:

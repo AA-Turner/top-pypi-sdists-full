@@ -80,7 +80,7 @@ class RbacAuthorizationV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_cluster_role_binding(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -157,7 +157,7 @@ class RbacAuthorizationV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_cluster_role(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -234,7 +234,7 @@ class RbacAuthorizationV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_role_binding(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -311,7 +311,7 @@ class RbacAuthorizationV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_role(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[

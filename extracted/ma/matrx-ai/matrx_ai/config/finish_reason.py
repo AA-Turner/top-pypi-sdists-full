@@ -493,3 +493,151 @@ def output_ceiling_message(ceiling: OutputCeiling, *, what: str = "the answer") 
         f"{what}.{dropped} Split the input into smaller pieces or raise the step's "
         "output limit."
     )
+
+
+# ---------------------------------------------------------------------------
+# PROVIDER STOPS — one honest name per reason a provider ends a turn early.
+#
+# THE DEFECT THIS CLOSES (live 2026-10-07, user_request d47c434d… and
+# a642b45f…, Gemini 3.8 Flash, the Flashcard Generator): a student pasted her
+# own textbook definitions and asked for them unchanged as flashcards. Gemini
+# ended the turn with RECITATION — its "this output matches published text
+# word for word" stop — after the whole ~25k-character answer had streamed.
+# The executor lumped RECITATION in with the safety filters, so the request
+# was recorded as ``failed`` with "stopped by the provider's content-safety
+# filters ... try rephrasing" — the wrong cause, the wrong remedy, and a hard
+# failure over an answer the student had already received. LANGUAGE was in
+# the same bucket (a language the model does not support is not a safety
+# filter), and SPII / BLOCKLIST / context-window stops each had their own
+# cause hidden behind a shared sentence.
+#
+# ONE table answers "what is this stop, in words a person can act on, and does
+# the text already delivered stand as the answer?" — the executor, the stored
+# error and the stream warning all read it, so the labels can never drift.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ProviderStop:
+    """What a non-success, non-truncation finish reason means for a person."""
+
+    #: Stream WARNING ``code`` and stored ``error_type`` — one name for both.
+    code: str
+    #: The sentence a person reads (stream warning + stored request error).
+    user_message: str
+    #: Provider control flow, not a platform fault — kept out of the
+    #: human-review error queue (``system_error``).
+    expected: bool = True
+    #: When the turn already holds a visible answer, that answer stands: the
+    #: request completes WITH a warning instead of being recorded ``failed``.
+    #: True only where the provider stops AFTER generating a usable answer for
+    #: a reason unrelated to its quality (recitation: the text matched a
+    #: published source — exactly what the person asked for when they paste
+    #: their own textbook and ask for it unchanged).
+    delivered_text_stands: bool = False
+
+
+_RECITATION_STOP = ProviderStop(
+    code="provider_recitation_stop",
+    user_message=(
+        "The provider stopped this answer because it was repeating published text "
+        "word for word. Everything written before it stopped has been kept, but the "
+        "end may be missing. Asking for a summary or paraphrase avoids this stop."
+    ),
+    delivered_text_stands=True,
+)
+_SAFETY_STOP = ProviderStop(
+    code="content_safety_stop",
+    user_message=(
+        "The response was stopped by the provider's content-safety filters, so the "
+        "answer may be incomplete. Any text generated before it stopped has been "
+        "saved. Try rephrasing your request."
+    ),
+)
+
+_PROVIDER_STOPS: dict[FinishReason, ProviderStop] = {
+    FinishReason.RECITATION: _RECITATION_STOP,
+    FinishReason.IMAGE_RECITATION: ProviderStop(
+        code="provider_recitation_stop",
+        user_message=(
+            "The provider stopped this image because it too closely matched an "
+            "existing published image. Try describing something more original."
+        ),
+    ),
+    FinishReason.SAFETY: _SAFETY_STOP,
+    FinishReason.CONTENT_FILTER: _SAFETY_STOP,
+    FinishReason.PROHIBITED_CONTENT: _SAFETY_STOP,
+    FinishReason.IMAGE_SAFETY: _SAFETY_STOP,
+    FinishReason.IMAGE_PROHIBITED_CONTENT: _SAFETY_STOP,
+    FinishReason.SPII: ProviderStop(
+        code="sensitive_information_stop",
+        user_message=(
+            "The provider stopped this answer because it would have included "
+            "sensitive personal information, such as an ID or account number. Any "
+            "text generated before it stopped has been saved."
+        ),
+    ),
+    FinishReason.BLOCKLIST: ProviderStop(
+        code="blocked_term_stop",
+        user_message=(
+            "The provider stopped this answer because it contained a term on the "
+            "provider's blocked-terms list. Any text generated before it stopped "
+            "has been saved. Try rephrasing your request."
+        ),
+    ),
+    FinishReason.LANGUAGE: ProviderStop(
+        code="unsupported_language_stop",
+        user_message=(
+            "The model stopped because the answer was in a language it does not "
+            "support. Try asking for the answer in another language."
+        ),
+    ),
+    FinishReason.REFUSAL: ProviderStop(
+        code="model_refusal",
+        user_message=(
+            "The model declined to respond to this message, so nothing was done. "
+            "Sending it again often works; if it keeps happening, rephrase the request."
+        ),
+    ),
+    FinishReason.MODEL_CONTEXT_WINDOW_EXCEEDED: ProviderStop(
+        code="context_window_exceeded",
+        user_message=(
+            "This conversation is longer than the model can read at once, so it "
+            "stopped. Start a new conversation or choose a model with a larger "
+            "context window."
+        ),
+        expected=False,
+    ),
+    FinishReason.NO_IMAGE: ProviderStop(
+        code="no_image_produced",
+        user_message="The model finished without producing an image. Try again or rephrase the request.",
+        expected=False,
+    ),
+}
+
+_UNKNOWN_STOP = ProviderStop(
+    code="model_stop",
+    user_message=(
+        "The model stopped before finishing the response and the provider did not "
+        "say why. Any text generated before it stopped has been saved."
+    ),
+    expected=False,
+)
+
+
+def provider_stop(finish_reason: Any) -> ProviderStop:
+    """The honest meaning of a provider's non-success finish reason.
+
+    Accepts the enum or its string value. An unrecognised or generic reason
+    (``error``, ``other``, anything new) is reported as an unexplained stop and
+    is NOT expected — it reaches the human-review queue.
+    """
+    try:
+        reason = (
+            finish_reason
+            if isinstance(finish_reason, FinishReason)
+            else FinishReason(str(finish_reason).strip().lower().rsplit(".", 1)[-1])
+        )
+    except ValueError:
+        return _UNKNOWN_STOP
+    return _PROVIDER_STOPS.get(reason, _UNKNOWN_STOP)

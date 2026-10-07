@@ -1,5 +1,7 @@
 """Integration service implementation."""
 
+from __future__ import annotations
+
 import json
 from typing import Any, Literal
 
@@ -10,6 +12,7 @@ from ..models.integration import (
     IntegrationType,
     IntegrationTestRequest,
     TransferSettingsResponse,
+    TypeOfIntegration,
 )
 from ..utils import ApiRequestHandler, TokenSource
 
@@ -203,6 +206,8 @@ class IntegrationService:
         source_project_name: str,
         target_project_name: str,
         mode: Literal["move", "copy"] | None,
+        type_of_integration: TypeOfIntegration | dict[str, bool] | None = None,
+        integrations_list: list[str] | None = None,
     ) -> TransferSettingsResponse:
         """Move or copy every transferable integration between two projects.
 
@@ -220,6 +225,15 @@ class IntegrationService:
                 sending a JSON ``null`` -- so callers can exercise the API's
                 "field required" validation error (distinct from sending an
                 unsupported mode value).
+            type_of_integration: Which integration scopes to transfer. ``None``
+                omits the field (backend default: both ``user_integrations`` and
+                ``project_integrations`` are included). When given, only the
+                keys that were set are sent, so a partial object such as
+                ``{"user_integrations": True}`` leaves the other flag to the
+                backend default of ``False``.
+            integrations_list: Aliases of the integrations to transfer, sent as
+                ``list``. ``None`` omits the field (all integrations matching the
+                type filter are transferred).
 
         Returns:
             Summary of the transfer, including transferred and skipped items
@@ -228,7 +242,11 @@ class IntegrationService:
             requests.exceptions.HTTPError: On 422 (invalid mode/project names),
                 404 (source or target project not found), 403 (caller lacks
                 admin-or-maintainer privileges), or 409 (alias collision in the
-                target project, or a row changed concurrently).
+                target project, or a row changed concurrently). 422 is also
+                returned when both ``type_of_integration`` flags are false, when
+                ``integrations_list`` is empty, contains an alias that is unknown
+                in the source project or does not match the requested type, or
+                (copy mode) names a webhook/scheduler integration.
         """
         json_data = {
             "source_project_name": source_project_name,
@@ -236,6 +254,14 @@ class IntegrationService:
         }
         if mode is not None:
             json_data["mode"] = mode
+        if type_of_integration is not None:
+            json_data["type_of_integration"] = (
+                type_of_integration.model_dump(exclude_unset=True)
+                if isinstance(type_of_integration, TypeOfIntegration)
+                else type_of_integration
+            )
+        if integrations_list is not None:
+            json_data["list"] = integrations_list
 
         return self._api.post(
             "/v1/settings/transfer",

@@ -3,9 +3,9 @@
 WHY IT LIVES IN THE CLI AND NOT IN A HARNESS HOOK. The agent's only write path
 is this CLI -- the MCP is read-only, and SDK writes belong to the running
 script -- and the CLI already knows which conversation it runs in on every
-harness (`agent_session.session_id_from_env`: Claude Code, Codex, pi and Cursor
-all export their session id into the agent's own shell). A check here therefore
-holds everywhere, including on pi and Cursor, which have no pre-tool hook. The
+harness (`agent_session.session_id_from_env`: Claude Code, Codex and pi all
+export their session id into the agent's own shell). A check here therefore
+holds everywhere, including on pi, which has no pre-tool hook. The
 plugin's guard hook keeps doing what only a hook can (refusing MCP reads under
 `off`, the switch-flip claims, the after-the-fact notices); both read the same
 command list and the same refusals from `session_marker`.

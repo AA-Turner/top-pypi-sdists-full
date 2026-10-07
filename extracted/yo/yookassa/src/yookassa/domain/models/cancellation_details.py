@@ -51,7 +51,17 @@ class CancellationDetails(BaseObject):
         :param value: reason модели CancellationDetails.
         :type value: str
         """
-        self.__reason = str(value)
+        value = str(value)
+        valid_reason_codes = {
+            getattr(_cls, _n)
+            for _cls in (CancellationDetailsReasonCode, PayoutCancellationDetailsReasonCode,
+                         RefundCancellationDetailsReasonCode, PersonalDataCancellationDetailsReasonCode,
+                         InvoiceCancellationDetailsReasonCode)
+            for _n in dir(_cls) if not _n.startswith('_')
+        }
+        if value not in valid_reason_codes:
+            value = CancellationDetailsReasonCode.UNKNOWN
+        self.__reason = value
 
 
 class CancellationDetailsPartyCode(object):
@@ -130,6 +140,8 @@ class CancellationDetailsReasonCode(object):
     """Нельзя заплатить с номера телефона этого мобильного оператора. При новой попытке оплаты пользователю следует использовать другое платежное средство. Список поддерживаемых операторов"""  # noqa: E501
     REJECTED_BY_TIMEOUT = 'rejected_by_timeout'
     """Отклонено по таймауту"""
+    UNKNOWN = 'unknown'
+    """Неизвестная причина отмены платежа"""
 
 class PayoutCancellationDetailsReasonCode(object):
     """
@@ -162,6 +174,8 @@ class PayoutCancellationDetailsReasonCode(object):
     """Эмитент отклонил выплату по неизвестным причинам. Пользователю следует обратиться к эмитенту за уточнением подробностей или выбрать другой способ получения выплаты или другое платежное средство (например, другую банковскую карту)"""  # noqa: E501
     SELF_EMPLOYED_ANNUAL_LIMIT_EXCEEDED = 'self_employed_annual_limit_exceeded'
     """Превышен лимит на годовой доход самозанятого. Порекомендуйте получателю выплаты проверить свой доход."""
+    UNKNOWN = 'unknown'
+    """Неизвестная причина отмены выплаты"""
 
 class RefundCancellationDetailsReasonCode(object):
     """
@@ -191,6 +205,8 @@ class RefundCancellationDetailsReasonCode(object):
     """Некоторые товары уже возвращены. Откорректируйте данные и отправьте запрос еще раз с новым ключом идемпотентности."""  # noqa: E501
     REJECTED_BY_TIMEOUT = 'rejected_by_timeout'
     """Технические неполадки на стороне инициатора отмены возврата. Повторите запрос с новым ключом идемпотентности"""  # noqa: E501
+    UNKNOWN = 'unknown'
+    """Неизвестная причина отмены возврата"""
 
 class PersonalDataCancellationDetailsReasonCode(object):
     """
@@ -202,6 +218,8 @@ class PersonalDataCancellationDetailsReasonCode(object):
     """
     EXPIRED_BY_TIMEOUT = 'expired_by_timeout'
     """"Истек срок хранения или использования персональных данных"""
+    UNKNOWN = 'unknown'
+    """Неизвестная причина отмены персональных данных"""
 
 class InvoiceCancellationDetailsReasonCode:
     """Причина отмены счета.""" # noqa: E501
@@ -218,4 +236,6 @@ class InvoiceCancellationDetailsReasonCode:
     PAYMENT_CANCELED = "payment_canceled"
     """Платеж отменен по API при оплате в две стадии;"""  # noqa: E501
     PAYMENT_EXPIRED_ON_CAPTURE = "payment_expired_on_capture"
-    """Истек срок списания оплаты для платежа в две стадии."""  # noqa: E501
+    """Истек срок списания оплаты для платежа в две стадии."""
+    UNKNOWN = "unknown"
+    """Неизвестная причина отмены счета."""  # noqa: E501

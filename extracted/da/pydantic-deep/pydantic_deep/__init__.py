@@ -47,6 +47,8 @@ Example:
     ```
 """
 
+from typing import TYPE_CHECKING, Any
+
 from pydantic_ai.capabilities import LocalWorkspace
 from pydantic_ai_backends import (
     BUILTIN_RUNTIMES,
@@ -183,17 +185,12 @@ from pydantic_deep.features.liteparse import (
     LiteparseToolset,
 )
 from pydantic_deep.features.memory import (
-    DEFAULT_MAX_MEMORY_LINES,
     DEFAULT_MEMORY_DIR,
     DEFAULT_MEMORY_FILENAME,
-    DEFAULT_PIN_END_MARKER,
-    AgentMemoryToolset,
-    MemoryAccessError,
-    MemoryCapability,
-    MemoryFile,
-    format_memory_prompt,
+    MemoryNamespace,
+    build_memory_capability,
+    deprecated_memory_name,
     get_memory_path,
-    load_memory,
 )
 from pydantic_deep.features.monitoring import (
     MonitorEvent,
@@ -349,7 +346,6 @@ __all__ = [
     "BrowserCapability",
     "SkillsCapability",
     "ContextFilesCapability",
-    "MemoryCapability",
     "StuckLoopDetection",
     "StuckLoopError",
     "PeriodicReminderCapability",
@@ -405,17 +401,12 @@ __all__ = [
     "DEFAULT_CONTEXT_FILENAMES",
     "DEFAULT_MAX_CONTEXT_CHARS",
     "SUBAGENT_CONTEXT_ALLOWLIST",
-    # Memory (persistent agent memory)
-    "AgentMemoryToolset",
-    "MemoryAccessError",
-    "MemoryFile",
-    "load_memory",
+    # Memory (the harness `Memory` capability)
+    "MemoryNamespace",
+    "build_memory_capability",
     "get_memory_path",
-    "format_memory_prompt",
     "DEFAULT_MEMORY_DIR",
     "DEFAULT_MEMORY_FILENAME",
-    "DEFAULT_MAX_MEMORY_LINES",
-    "DEFAULT_PIN_END_MARKER",
     # Eviction
     "EvictionCapability",
     "create_content_preview",
@@ -535,3 +526,47 @@ __all__ = [
     "count_retry_parts",
     "count_stuck_loop_hits",
 ]
+
+
+if TYPE_CHECKING:
+    # Typed for checkers and editors; at run time they resolve, with a warning,
+    # through `__getattr__` below - which checkers then do not see, so a misspelt
+    # name is still an error.
+    from pydantic_deep.features.memory.capability import MemoryCapability as MemoryCapability
+    from pydantic_deep.features.memory.service import (
+        DEFAULT_MAX_MEMORY_LINES as DEFAULT_MAX_MEMORY_LINES,
+    )
+    from pydantic_deep.features.memory.service import (
+        DEFAULT_PIN_END_MARKER as DEFAULT_PIN_END_MARKER,
+    )
+    from pydantic_deep.features.memory.service import (
+        format_memory_prompt as format_memory_prompt,
+    )
+    from pydantic_deep.features.memory.service import (
+        load_memory as load_memory,
+    )
+    from pydantic_deep.features.memory.toolset import (
+        READ_MEMORY_DESCRIPTION as READ_MEMORY_DESCRIPTION,
+    )
+    from pydantic_deep.features.memory.toolset import (
+        UPDATE_MEMORY_DESCRIPTION as UPDATE_MEMORY_DESCRIPTION,
+    )
+    from pydantic_deep.features.memory.toolset import (
+        WRITE_MEMORY_DESCRIPTION as WRITE_MEMORY_DESCRIPTION,
+    )
+    from pydantic_deep.features.memory.toolset import (
+        AgentMemoryToolset as AgentMemoryToolset,
+    )
+    from pydantic_deep.features.memory.types import MemoryAccessError as MemoryAccessError
+    from pydantic_deep.features.memory.types import MemoryFile as MemoryFile
+else:
+
+    def __getattr__(name: str) -> Any:
+        """pydantic-deep's own memory API, deprecated in favour of the harness `Memory`."""
+        try:
+            value = deprecated_memory_name(name)
+        except AttributeError:
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
+        # Kept, so the warning is given once: `from ... import` reads the name twice.
+        globals()[name] = value
+        return value

@@ -28,6 +28,7 @@ from ..annotations import Mutability
 from ..annotations import Required
 from ..attributes import ComplexAttribute
 from ..base import BaseModel
+from ..base import _keeping_empty_values
 from ..context import Context
 from ..exceptions import InvalidPathException
 from ..exceptions import InvalidValueException
@@ -48,6 +49,7 @@ from ..policy import ScimPolicy
 from ..policy import _effective_policy
 from ..policy import _policy
 from ..resources.resource import Resource
+from ..resources.resource import _check_comparison_forms
 from ..urn import URN
 from ..utils import UNION_TYPES
 from .message import Message
@@ -127,12 +129,13 @@ class PatchOperation(ComplexAttribute, Generic[ResourceT]):
     def _scim_serializer(
         self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
     ) -> dict[str, Any]:
-        """Keep a null value the operation was given.
+        """Keep a null or empty value the operation was given.
 
-        SCIM dumps drop null values, so a replace that clears its target would
-        be sent without a value.
+        SCIM dumps drop null and empty values, so a replace that clears its
+        target would be sent without a value.
         """
-        serialized = super()._scim_serializer(handler, info)
+        with _keeping_empty_values():
+            serialized = super()._scim_serializer(handler, info)
         if (
             self.op != PatchOperation.Op.remove
             and "value" in self.model_fields_set
@@ -388,9 +391,10 @@ def _is_model(type_: Any) -> TypeGuard[type[BaseModel]]:
 
 def _as_payload(value: Any) -> Any:
     """Return the payload a value built in Python would be sent as."""
-    if isinstance(value, BaseModel):
+    if not isinstance(value, BaseModel):
+        return value
+    with _keeping_empty_values():
         return value.model_dump(scim_ctx=Context.DEFAULT)
-    return value
 
 
 def _dropped(path: Path[Any], policy: ScimPolicy) -> bool:
@@ -543,6 +547,10 @@ def _apply_operation(
         writes = list(_writes(path, operation.value, policy))
         touched = [path, *(write_path for write_path, _ in writes)]
 
+    listed = None
+    if _targets_schemas(resource, path):
+        listed = resource.schemas = _listed_schemas(resource)
+
     memo: dict[int, Any] = {}
     before = _snapshot(resource, touched, memo)
     try:
@@ -553,11 +561,67 @@ def _apply_operation(
             _write(resource, path, writes, is_add=operation.op == PatchOperation.Op.add)
     except ValidationError as exc:
         raise InvalidValueException(detail=str(exc)) from exc
+    if listed is not None:
+        _remove_unlisted_extensions(resource, listed)
     _settle(before, resource, memo)
+    _check_comparison_forms(resource, policy, _written_fields(writes))
     return not all(
         _same(getattr(before, name), getattr(resource, name))
         for name in type(resource).model_fields
     )
+
+
+def _written_fields(
+    writes: list[tuple[Path[Any], Any]],
+) -> set[tuple[type[BaseModel], str]]:
+    """Return the fields the writes of an operation assign, as models and Python names.
+
+    A write to a whole extension only ever unassigns it, so it assigns no field.
+    """
+    fields = set()
+    for path, _ in writes:
+        binding = path.resolve() if path.model is None else None
+        if binding is not None:
+            fields.add((binding.model, binding.field_name))
+    return fields
+
+
+def _targets_schemas(resource: Resource[Any], path: Path[Any]) -> bool:
+    """Whether a path reaches the 'schemas' attribute of the resource itself."""
+    binding = path.resolve()
+    return (
+        binding is not None
+        and binding.model is type(resource)
+        and binding.field_name == "schemas"
+    )
+
+
+def _listed_schemas(resource: Resource[Any]) -> list[str]:
+    """Return the schemas a dump of the resource lists.
+
+    Per RFC7644 §3.5.2, an operation on 'schemas' sees the representation of
+    the service provider: the schema of the resource, the schemas of its
+    extensions, and the other schemas a peer sent.
+    """
+    listed = [str(type(resource).__schema__)]
+    listed += [
+        urn
+        for urn, extension in type(resource).get_extension_models().items()
+        if resource[extension] is not None
+    ]
+    listed += [schema for schema in resource.schemas if schema not in listed]
+    return listed
+
+
+def _remove_unlisted_extensions(resource: Resource[Any], listed: list[str]) -> None:
+    """Remove the extensions whose schema an operation took out of 'schemas'.
+
+    Per RFC7643 §3, 'schemas' lists the schemas of the attributes present, so
+    the attributes of an extension leave with its schema.
+    """
+    for urn, extension in type(resource).get_extension_models().items():
+        if urn in listed and urn not in resource.schemas:
+            del resource[extension]
 
 
 def _write(

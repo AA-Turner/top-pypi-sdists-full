@@ -8,6 +8,7 @@ from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, REFERENCE_T
 from schemathesis.core.jsonschema.numeric import is_numeric_bound
 from schemathesis.core.jsonschema.types import JsonSchema, get_type
 from schemathesis.core.transforms import deepclone
+from schemathesis.specs.openapi.discriminator import get_implicit_discriminator_value
 from schemathesis.specs.openapi.patterns import (
     enforced_pattern,
     is_valid_jsonschema_rs_regex,
@@ -314,6 +315,9 @@ def _pin_discriminator_property(
                 original_uri = name_to_uri.get(bundled_name, "")
                 if "#" in original_uri:
                     resolved_ref = "#" + original_uri.split("#", 1)[1]
+                elif original_uri:
+                    # A whole-file reference is named after its file: `cat.json` -> `cat`.
+                    resolved_ref = get_implicit_discriminator_value(original_uri)
             allowed = _branch_tag_values(ref, property_name, bundle)
             # Without an explicit mapping, prefer the branch's own const/enum so the literal
             # tag (`"function"`) wins over the schema name (`FunctionTool`).
@@ -326,7 +330,7 @@ def _pin_discriminator_property(
                 # and pinning here would force a value none of them accept.
                 if _branch_is_polymorphic(ref, bundle):
                     continue
-                disc_value = resolved_ref.rstrip("/").rsplit("/", 1)[-1]
+                disc_value = get_implicit_discriminator_value(resolved_ref)
                 # The branch spells out which values it takes and this is not one of them;
                 # pinning it would leave the branch impossible to satisfy.
                 if allowed is not None and disc_value not in allowed:

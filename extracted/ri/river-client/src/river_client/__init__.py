@@ -34,7 +34,7 @@ Example usage:
 # the server, so it must exist on the partially-initialized module. Also the
 # version source for hatch (`[tool.hatch.version]` in pyproject.toml) and
 # the release-tag guard in `.github/workflows/river-client-release.yml`.
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 from river_client.images import ImageHandle
 from river_client.client import (
@@ -44,7 +44,9 @@ from river_client.client import (
     SessionContext,
 )
 from river_client.images import ImageStore
+from river_client.losses import BuiltinLoss, CustomLoss, Loss
 from river_client.metrics import RunMetricsLogger
+from river_client.wandb_metrics import inject_metrics
 from river_client.tokenizers import (
     MODEL_TOKENIZER_ALIASES,
     load_tokenizer,
@@ -85,6 +87,9 @@ from river_client.sampling import (
 from river_client import rl
 
 __all__ = [
+    "Loss",
+    "BuiltinLoss",
+    "CustomLoss",
     "ServerCapabilities",
     "ImageHandle",
     "ImageStore",
@@ -120,6 +125,7 @@ __all__ = [
     "SessionContext",
     "TrainingDataArtifact",
     "TrainingDataAttestation",
+    "inject_metrics",
     "load_tokenizer",
     "resolve_tokenizer_name",
 ]

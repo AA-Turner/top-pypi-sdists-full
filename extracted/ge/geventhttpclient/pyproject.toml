@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
-
 
 [project]
 name = "geventhttpclient"
-version = "2.5.1" # don't forget to update version __init__.py as well
+dynamic = ["version"]
 description = "HTTP client library for gevent"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE-MIT", "llhttp/LICENSE"]
 keywords = ["http", "gevent", "client"]
 authors = [{name = "Antonin Amand", email = "antonin.amand@gmail.com"}]
 classifiers = [
@@ -24,17 +24,16 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
 ]
 dependencies = [
-    "gevent",
+    # Single floor for all supported interpreters, verified against the
+    # full test suite on Python 3.11-3.14: gevent 25.9 is the first
+    # release shipping wheels for Python 3.14. Older gevent releases are
+    # not supported.
+    "gevent>=25.9",
     "certifi",
     "brotli",
-]
-optional-dependencies.dev = [
-    "mypy",
-    "pytest",
-    "dpkt",
-    "requests",
 ]
 optional-dependencies.benchmarks = [
     "requests",
@@ -42,16 +41,31 @@ optional-dependencies.benchmarks = [
     "urllib3",
     "httplib2",
 ]
-optional-dependencies.examples = [
-    "oauth2",
+
+[dependency-groups]
+# PEP 735 group instead of a `dev` extra: uv resolves the `dev` group on a
+# plain `uv sync`, so a fresh clone is ready for `uv run pytest` without
+# remembering a flag. Extras are distribution metadata, and nothing outside
+# this repository installs `[dev]`.
+dev = [
+    "mypy",
+    "pytest",
+    "pytest-rerunfailures",
+    "dpkt",
+    "requests",
+    "httplib2",
 ]
 
-
 [project.urls]
-homepage = "http://github.com/geventhttpclient/geventhttpclient"
-issues = "http://github.com/geventhttpclient/geventhttpclient/issues"
-download = "https://pypi.org/project/geventhttpclient/#files"
+homepage = "https://github.com/geventhttpclient/geventhttpclient"
+repository = "https://github.com/geventhttpclient/geventhttpclient"
+issues = "https://github.com/geventhttpclient/geventhttpclient/issues"
 
+[tool.uv]
+# Belt and braces: uv already defaults to the `dev` group, spelling it out
+# keeps `uv sync --no-default-groups` from quietly producing a tree without
+# the test tools.
+default-groups = ["dev"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -61,17 +75,43 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["README.md", "release.md", "LICENSE-MIT"]
+geventhttpclient = ["py.typed", "*.pyi"]
 
-[tool.setuptools.exclude-package-data]
-"*" = ["__pycache__", "*.pyc", "*.pyo"]
+# The package version is derived from git tags (bare format, e.g. "2.5.2",
+# no "v" prefix). The generated version file is created at build time and
+# must not be committed; the fallback applies to builds without git
+# metadata such as shallow CI checkouts or downloaded source trees.
+[tool.setuptools_scm]
+version_file = "src/geventhttpclient/_version.py"
+fallback_version = "0.0.0"
 
+[tool.cibuildwheel]
+# CPython 3.11-3.14, no free-threaded variants (cp3xxt) and no unreleased
+# Python versions; musllinux is included via the cp3xx-* globs.
+build = ["cp311-*", "cp312-*", "cp313-*", "cp314-*"]
+# Smoke test each built wheel: install it and import the package and the
+# C extension before upload. TOML line continuations keep the line length
+# in check; the resulting command is a single line.
+# Double quotes, not single: cibuildwheel runs this through a shell, and
+# cmd.exe (Windows) does not treat single quotes as quoting, so the -c
+# argument would be split at spaces and python would see `'import`.
+# /bin/sh (Linux, macOS) handles the double quotes just as well.
+test-command = """\
+python -c "import geventhttpclient, \
+geventhttpclient._parser; \
+print(geventhttpclient.__version__)"\
+"""
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64", "ppc64le"]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "universal2", "arm64"]
 
 [tool.pytest.ini_options]
 markers = [
     "network: tests which require internet access"
 ]
-
 
 [tool.ruff]
 fix = false
@@ -85,18 +125,6 @@ files = ["src"]
 ignore_missing_imports = true
 disallow_untyped_defs = true
 
-# Modules not fully typed yet. Remove the override as soon as the module
-# is annotated.
-[[tool.mypy.overrides]]
-module = [
-    "geventhttpclient.api",
-    "geventhttpclient.httplib",
-    "geventhttpclient.httplib2",
-    "geventhttpclient.requests",
-    "geventhttpclient.useragent",
-]
-ignore_errors = true
-
 [tool.ruff.lint.isort]
 known-first-party = ["geventhttpclient", "tests"]
 
@@ -106,3 +134,10 @@ known-first-party = ["geventhttpclient", "tests"]
 
 [tool.codespell]
 ignore-regex = ".*codespell-ignore$"
+
+[tool.rumdl]
+line-length = 100
+exclude = ["llhttp/**", "**/llhttp/**"]
+
+[tool.rumdl.MD013]
+reflow = true

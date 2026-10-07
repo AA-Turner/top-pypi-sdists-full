@@ -5,12 +5,17 @@ from urllib.parse import urljoin
 from social_core.utils import append_slash, cache
 
 from .open_id_connect import OpenIdConnectAuth
+from .utils import load_oidc_config
 
 
 class Fence(OpenIdConnectAuth):
     name = "fence"
+    title = "Fence"
     OIDC_ENDPOINT = "https://nci-crdc.datacommons.io"
-    ID_KEY = "username"
+    ID_KEY = "sub"
+    LEGACY_ID_KEYS = ("username",)
+    MUTABLE_ID_KEYS = ("username", "preferred_username", "email")
+    EXTRA_DATA = [*(OpenIdConnectAuth.EXTRA_DATA or []), ("sub", "sub")]
     DEFAULT_SCOPE = ["openid", "user"]
     VALIDATE_AT_HASH: bool = False
 
@@ -27,7 +32,7 @@ class Fence(OpenIdConnectAuth):
 
     @cache(ttl=86400)
     def oidc_config(self):
-        return self.get_json(self._url(".well-known/openid-configuration"))
+        return load_oidc_config(self, self._url(".well-known/openid-configuration"))
 
     def get_user_details(self, response):
         return {

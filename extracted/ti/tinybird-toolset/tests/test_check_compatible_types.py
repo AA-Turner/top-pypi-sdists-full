@@ -124,7 +124,7 @@ EXISTING_TYPES = [
     # '{"name":"SimpleAggregateFunction","case_insensitive":0,"alias_to":""}',
     '{"name":"String","case_insensitive":0,"alias_to":""}',
     '{"name":"TEXT","case_insensitive":1,"alias_to":"String"}',
-    '{"name":"TIME","case_insensitive":1,"alias_to":"Int64"}',
+    '{"name":"TIME","case_insensitive":1,"alias_to":""}',
     '{"name":"TIMESTAMP","case_insensitive":1,"alias_to":"DateTime"}',
     '{"name":"TINYBLOB","case_insensitive":1,"alias_to":"String"}',
     '{"name":"TINYINT","case_insensitive":1,"alias_to":"Int8"}',

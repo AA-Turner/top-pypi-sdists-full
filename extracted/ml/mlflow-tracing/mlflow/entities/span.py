@@ -1,9 +1,10 @@
 import ast
 import base64
+import copy
 import json
 import logging
 from functools import cached_property
-from typing import Any, Union
+from typing import Any, NoReturn, Union
 
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -219,6 +220,11 @@ class Span:
         return SpanLogLevel(raw)
 
     @property
+    def description(self) -> str | None:
+        """The description of the span."""
+        return self.get_attribute(SpanAttributeKey.DESCRIPTION)
+
+    @property
     def model_name(self) -> str | None:
         """The model name used in the span."""
         return self.get_attribute(SpanAttributeKey.MODEL)
@@ -296,6 +302,46 @@ class Span:
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
 
+    # `__getitem__` alone would enable the legacy sequence protocol, making
+    # `iter(span)` and `"x" in span` appear to work and then fail confusingly.
+    __iter__ = None
+
+    def __getitem__(self, item: Any) -> NoReturn:
+        """Span objects do not support indexing via subscript syntax."""
+        hint = ""
+        if isinstance(item, str):
+            if item.isidentifier() and not item.startswith("_") and item in dir(self):
+                hint = f" Use attribute access instead, e.g. `span.{item}`."
+            else:
+                try:
+                    attrs = getattr(self, "attributes", None)
+                    if isinstance(attrs, dict) and item in attrs:
+                        hint = (
+                            f" To access span attributes, use `span.get_attribute({item!r})` "
+                            f"or `span.attributes[{item!r}]`."
+                        )
+                except Exception:
+                    pass
+
+        if not hint:
+            hint = (
+                " Use attribute access instead, e.g. `span.inputs`, `span.outputs`, "
+                "or `span.attributes`."
+            )
+
+        raise TypeError(f"'{type(self).__name__}' object is not subscriptable.{hint}")
+
+    def __getattr__(self, name: str) -> NoReturn:
+        # Only reached when normal lookup fails. Keeps `hasattr(span, "get")`
+        # False and makes `span.get` itself raise, unlike defining a real method.
+        if name == "get":
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute 'get'; a span is not a dict. "
+                "Use attribute access such as `span.name`, `span.inputs`, `span.outputs`, "
+                "or `span.attributes`, or `span.get_attribute(key)` for a span attribute."
+            )
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
     def get_attribute(self, key: str) -> Any | None:
         """
         Get a single attribute value from the span.
@@ -340,6 +386,22 @@ class Span:
             "attributes": dict(self._span.attributes),
             "links": [link.to_dict() for link in self.links],
         }
+
+    def __reduce__(self):
+        return (_reconstruct_span, (self.to_dict(), self._attachments))
+
+    def __copy__(self) -> "Span":
+        # Shallow copies keep sharing the underlying OTel span, as they did
+        # before the copy protocol was defined.
+        new_span = type(self).__new__(type(self))
+        new_span.__dict__.update(self.__dict__)
+        return new_span
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "Span":
+        new_span = Span.from_dict(copy.deepcopy(self.to_dict(), memo))
+        new_span._attachments = copy.deepcopy(self._attachments, memo)
+        memo[id(self)] = new_span
+        return new_span
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
@@ -683,9 +745,25 @@ class LiveSpan(Span):
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
 
+    def __reduce__(self) -> NoReturn:
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be pickled while active. "
+            "Call `span.to_immutable_span()` to serialize finished span data."
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> NoReturn:
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be deepcopied while active. "
+            "Call `span.to_immutable_span()` to copy finished span data."
+        )
+
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
+
+    def set_description(self, description: str):
+        """Set the description of the span."""
+        self.set_attribute(SpanAttributeKey.DESCRIPTION, description)
 
     def set_log_level(self, level: SpanLogLevel | str):
         """
@@ -1067,10 +1145,11 @@ class LiveSpan(Span):
             exception: The exception to record. Can be an Exception instance or a string
                 describing the exception.
         """
+        if isinstance(exception, str):
+            exception = Exception(exception)
+
         if isinstance(exception, Exception):
             self.add_event(SpanEvent.from_exception(exception))
-        elif isinstance(exception, str):
-            self.add_event(SpanEvent.from_exception(Exception(exception)))
         else:
             raise MlflowException(
                 "The `exception` parameter must be an Exception instance or a string.",
@@ -1307,16 +1386,41 @@ class LazySpan(Span):
     from the store avoids an eager ``json.loads`` → ``Span.from_dict`` →
     ``to_dict``/``to_otel_proto`` round-trip when the consumer only needs the
     dict (for example ``get-trace-artifact`` or ``TraceData.to_dict``).
+
+    When ``raw_json`` is provided and load-time translation did not modify the
+    payload, artifact responses can emit that string directly and skip
+    ``json.dumps``.
     """
 
-    def __init__(self, span_dict: dict[str, Any]):
+    def __init__(self, span_dict: dict[str, Any], *, raw_json: str | None = None):
         # Skip Span.__init__: we intentionally avoid constructing an OTel span
         # until a caller needs property access or OTLP conversion.
         self.__dict__["_span_dict"] = span_dict
+        self.__dict__["_raw_json"] = raw_json
         self.__dict__["_materialized"] = False
 
+    @classmethod
+    def from_stored_content(cls, content: str) -> "LazySpan":
+        """Build a ``LazySpan`` from a TRACKING_STORE ``spans.content`` value."""
+        # Deferred to avoid a circular import with mlflow.tracing.otel.translation.
+        from mlflow.tracing.otel.translation import translate_loaded_span_with_status
+
+        span_dict = json.loads(content)
+        modified = translate_loaded_span_with_status(span_dict)
+        return cls(span_dict, raw_json=None if modified else content)
+
     def to_dict(self) -> dict[str, Any]:
+        # to_dict() returns the live mutable dict. Once a caller can mutate it,
+        # raw JSON passthrough is no longer safe for subsequent exports.
+        self.__dict__["_raw_json"] = None
         return self.__dict__["_span_dict"]
+
+    def json_for_export(self) -> str:
+        """Return JSON text for artifact export without an unnecessary re-dump."""
+        raw_json = self.__dict__["_raw_json"]
+        if raw_json is not None:
+            return raw_json
+        return json.dumps(self.__dict__["_span_dict"], separators=(",", ":"))
 
     def _ensure_materialized(self) -> None:
         if self.__dict__["_materialized"]:
@@ -1330,7 +1434,22 @@ class LazySpan(Span):
 
     def __getattr__(self, name: str):
         self._ensure_materialized()
-        return object.__getattribute__(self, name)
+        try:
+            return object.__getattribute__(self, name)
+        except AttributeError:
+            return super().__getattr__(name)
+
+    def __reduce__(self):
+        # Rebuild from the stored dict; the copy materializes on first access.
+        return (LazySpan, (self.__dict__["_span_dict"],))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "LazySpan":
+        new_lazy = LazySpan(
+            copy.deepcopy(self.__dict__["_span_dict"], memo),
+            raw_json=self.__dict__["_raw_json"],
+        )
+        memo[id(self)] = new_lazy
+        return new_lazy
 
     def __repr__(self):
         if self.__dict__.get("_materialized"):
@@ -1350,6 +1469,12 @@ class LazySpan(Span):
             f"span_id={span_dict.get('span_id')!r}, "
             f"parent_id={span_dict.get('parent_span_id')!r})"
         )
+
+
+def _reconstruct_span(span_dict: dict[str, Any], attachments: dict[str, Any]) -> Span:
+    span = Span.from_dict(span_dict)
+    span._attachments = attachments
+    return span
 
 
 class NoOpSpan(Span):
@@ -1376,6 +1501,14 @@ class NoOpSpan(Span):
         self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
         self._links = []
+
+    def __reduce__(self):
+        return (NoOpSpan, (self._span,))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "NoOpSpan":
+        new_noop = NoOpSpan(copy.deepcopy(self._span, memo))
+        memo[id(self)] = new_noop
+        return new_noop
 
     @property
     def trace_id(self):
@@ -1426,6 +1559,9 @@ class NoOpSpan(Span):
         pass
 
     def set_attribute(self, key: str, value: Any):
+        pass
+
+    def set_description(self, description: str):
         pass
 
     def set_log_level(self, level: SpanLogLevel | int | str):

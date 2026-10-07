@@ -55,7 +55,29 @@ pub fn raw_dialect() -> Dialect {
         "JDBC",
     ]);
 
+    starrocks.update_bracket_sets(
+        "angle_bracket_pairs",
+        vec![(
+            "angle",
+            "StartAngleBracketSegment",
+            "EndAngleBracketSegment",
+            false,
+        )],
+    );
+
     starrocks.add([
+        (
+            "StartAngleBracketSegment".into(),
+            StringParser::new("<", SyntaxKind::StartAngleBracket)
+                .to_matchable()
+                .into(),
+        ),
+        (
+            "EndAngleBracketSegment".into(),
+            StringParser::new(">", SyntaxKind::EndAngleBracket)
+                .to_matchable()
+                .into(),
+        ),
         (
             "EngineTypeSegment".into(),
             one_of(vec![
@@ -313,6 +335,71 @@ pub fn raw_dialect() -> Dialect {
     ]);
 
     starrocks.replace_grammar(
+        "ArrayTypeSegment",
+        Sequence::new(vec![
+            Ref::keyword("ARRAY").to_matchable(),
+            Bracketed::new(vec![Ref::new("DatatypeSegment").to_matchable()])
+                .config(|this| {
+                    this.bracket_type = "angle";
+                    this.bracket_pairs_set = "angle_bracket_pairs";
+                })
+                .to_matchable(),
+        ])
+        .to_matchable(),
+    );
+
+    let datatype_grammar = starrocks
+        .grammar("DatatypeSegment")
+        .as_node_matcher_ref()
+        .unwrap()
+        .match_grammar(&starrocks);
+    starrocks.replace_grammar(
+        "DatatypeSegment",
+        datatype_grammar.copy(
+            Some(vec![
+                Ref::new("ArrayTypeSegment").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("MAP").to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![Ref::new("DatatypeSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .config(|this| {
+                        this.bracket_type = "angle";
+                        this.bracket_pairs_set = "angle_bracket_pairs";
+                    })
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("STRUCT").to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![
+                            Sequence::new(vec![
+                                Ref::new("SingleIdentifierGrammar").to_matchable(),
+                                Ref::new("DatatypeSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .config(|this| {
+                        this.bracket_type = "angle";
+                        this.bracket_pairs_set = "angle_bracket_pairs";
+                    })
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ]),
+            Some(0),
+            None,
+            None,
+            vec![],
+            false,
+        ),
+    );
+
+    starrocks.replace_grammar(
         "ColumnConstraintSegment",
         Sequence::new(vec![
             Sequence::new(vec![
@@ -492,6 +579,98 @@ pub fn raw_dialect() -> Dialect {
 
     starrocks.add([
         (
+            "LoadLabelPropertySegment".into(),
+            NodeMatcher::new(SyntaxKind::LoadLabelProperty, |_| {
+                Sequence::new(vec![
+                    Ref::new("QuotedLiteralSegment").to_matchable(),
+                    Ref::new("EqualsSegment").to_matchable(),
+                    Ref::new("QuotedLiteralSegment").to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "LoadDataDescSegment".into(),
+            NodeMatcher::new(SyntaxKind::LoadDataDesc, |_| {
+                Sequence::new(vec![
+                    Ref::keyword("DATA").to_matchable(),
+                    Ref::keyword("INFILE").to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![Ref::new("QuotedLiteralSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Ref::keyword("INTO").to_matchable(),
+                    Ref::keyword("TABLE").to_matchable(),
+                    Ref::new("TableReferenceSegment").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("FORMAT").to_matchable(),
+                        Ref::keyword("AS").to_matchable(),
+                        Ref::new("QuotedLiteralSegment").to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![Ref::new("ColumnReferenceSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "LoadLabelStatementSegment".into(),
+            NodeMatcher::new(SyntaxKind::LoadLabelStatement, |_| {
+                Sequence::new(vec![
+                    Ref::keyword("LOAD").to_matchable(),
+                    Ref::keyword("LABEL").to_matchable(),
+                    one_of(vec![
+                        Sequence::new(vec![
+                            Ref::new("DatabaseReferenceSegment").to_matchable(),
+                            Ref::new("DotSegment").to_matchable(),
+                            Ref::new("ObjectReferenceSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Ref::new("ObjectReferenceSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![Ref::new("LoadDataDescSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Ref::keyword("WITH").to_matchable(),
+                    Ref::keyword("BROKER").to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![Ref::new("LoadLabelPropertySegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("PROPERTIES").to_matchable(),
+                        Bracketed::new(vec![
+                            Delimited::new(vec![
+                                Ref::new("LoadLabelPropertySegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
             "CreateRoutineLoadStatementSegment".into(),
             NodeMatcher::new(SyntaxKind::CreateRoutineLoadStatement, |_| {
                 Sequence::new(vec![
@@ -623,6 +802,13 @@ pub fn raw_dialect() -> Dialect {
                     ])
                     .config(|this| this.optional())
                     .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("WITH").to_matchable(),
+                        Ref::keyword("LABEL").to_matchable(),
+                        Ref::new("SingleIdentifierGrammar").to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
                     Ref::new("SelectableGrammar").to_matchable(),
                 ])
                 .to_matchable()
@@ -640,6 +826,7 @@ pub fn raw_dialect() -> Dialect {
             .unwrap()
             .copy(
                 Some(vec![
+                    Ref::new("LoadLabelStatementSegment").to_matchable(),
                     Ref::new("CreateRoutineLoadStatementSegment").to_matchable(),
                     Ref::new("StopRoutineLoadStatementSegment").to_matchable(),
                     Ref::new("PauseRoutineLoadStatementSegment").to_matchable(),
@@ -658,7 +845,6 @@ pub fn raw_dialect() -> Dialect {
         "UnorderedSelectStatementSegment",
         Sequence::new(vec![
             Ref::new("SelectClauseSegment").to_matchable(),
-            MetaSegment::dedent().to_matchable(),
             Ref::new("IntoClauseSegment").optional().to_matchable(),
             Ref::new("FromClauseSegment").optional().to_matchable(),
             Ref::new("SelectPartitionClauseSegment")
@@ -695,7 +881,6 @@ pub fn raw_dialect() -> Dialect {
         "SelectStatementSegment",
         Sequence::new(vec![
             Ref::new("SelectClauseSegment").to_matchable(),
-            MetaSegment::dedent().to_matchable(),
             Ref::new("IntoClauseSegment").optional().to_matchable(),
             Ref::new("FromClauseSegment").optional().to_matchable(),
             Ref::new("SelectPartitionClauseSegment")

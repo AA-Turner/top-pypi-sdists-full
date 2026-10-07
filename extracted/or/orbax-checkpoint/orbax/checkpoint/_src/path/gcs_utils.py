@@ -44,7 +44,7 @@ def parse_gcs_path(path: epath.PathLike) -> tuple[str, str]:
 @functools.lru_cache(maxsize=32)
 def get_bucket(bucket_name: str):
   # pylint: disable=g-import-not-at-top
-  from google.cloud import storage  # pytype: disable=import-error
+  from google.cloud import storage
 
   client = storage.Client()
   return client.get_bucket(bucket_name)
@@ -66,7 +66,7 @@ def is_hierarchical_namespace_enabled(path: epath.PathLike) -> bool:
 def cleanup_hns_folders(path: epath.Path) -> None:
   """For a hierarchical namespace bucket, delete empty folders recursively."""
   # pylint: disable=g-import-not-at-top
-  from google.cloud import storage_control_v2  # pytype: disable=import-error
+  from google.cloud import storage_control_v2  # pyrefly: ignore[missing-module-attribute]
 
   bucket, prefix = parse_gcs_path(path)
 
@@ -116,6 +116,11 @@ def rmtree(path: epath.Path, *, missing_ok: bool = False) -> None:
 
   try:
     path.rmtree()
+
+    # When having directory placeholder, rmtree will fail to
+    # delete the files inside the directory, so do another round of deletion.
+    # TODO: b/570544727 - resolve double rmtree required on GCS.
+    path.rmtree(missing_ok=True)
   except FileNotFoundError:
     if not missing_ok:
       raise

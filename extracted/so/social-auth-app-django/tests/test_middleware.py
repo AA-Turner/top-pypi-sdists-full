@@ -1,14 +1,32 @@
 import logging
+from http import HTTPStatus
 from unittest import mock
+from urllib.parse import parse_qs, urlsplit
 
 from asgiref.sync import iscoroutinefunction
+from django.conf import settings
 from django.contrib.messages import MessageFailure
 from django.http import HttpResponse, HttpResponseRedirect
-from django.test import AsyncRequestFactory, RequestFactory, TestCase, override_settings
+from django.shortcuts import render as django_render
+from django.test import AsyncRequestFactory, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
-from social_core.exceptions import AuthCanceled
+from social_core.exceptions import (
+    AuthAssociationError,
+    AuthCanceled,
+    AuthConfigurationError,
+    AuthCredentialError,
+    AuthException,
+    AuthInputError,
+    AuthPolicyError,
+    AuthProviderError,
+    AuthResponseError,
+    AuthSessionError,
+    AuthUnknownError,
+    SocialAuthBaseException,
+)
 
 from social_django.middleware import ErrorTransport, SocialAuthExceptionMiddleware
+from social_django.utils import load_strategy
 
 
 class MockAuthCanceled(AuthCanceled):
@@ -54,6 +72,7 @@ class TestMiddleware(TestCase):
         self.assertIs(resp, expected)
         get_response.assert_awaited_once_with(request)
 
+    @override_settings(SOCIAL_AUTH_RAISE_EXCEPTIONS=True)
     def test_exception(self, mocked):
         with self.assertRaises(MockAuthCanceled):
             self.client.get(self.complete_url)
@@ -350,3 +369,304 @@ class TestMiddleware(TestCase):
         request = rf.get("/")
         middleware = SocialAuthExceptionMiddleware(mock.Mock())
         self.assertIsNone(middleware.get_redirect_uri(request, Exception("error")))
+
+
+class MetadataTransportTest(TestCase):
+    def make_request(self, include_metadata, **settings):
+        request = RequestFactory().get("/")
+        request.backend = mock.Mock(name="backend")
+        request.backend.name = "test"
+        request.social_strategy = mock.Mock()
+        values = {
+            "RAISE_EXCEPTIONS": False,
+            "LOGIN_ERROR_URL": "/login?other=1#form",
+            "ERROR_TRANSPORT": "query",
+            "ERROR_INCLUDE_METADATA": include_metadata,
+        }
+        values.update(settings)
+        request.social_strategy.setting.side_effect = lambda name, default=None, **_kwargs: values.get(name, default)
+        return request
+
+    def test_metadata_is_opt_in_and_diagnostics_are_private(self):
+        middleware = SocialAuthExceptionMiddleware(mock.Mock())
+        error = AuthResponseError(
+            None, "secret-token", code="nonce_mismatch", stage="token_validation", context={"uid": "private-user"}
+        )
+        for include_metadata in (False, True):
+            with self.subTest(include_metadata=include_metadata):
+                response = middleware.process_exception(self.make_request(include_metadata), error)
+                query = parse_qs(urlsplit(response.url).query)
+                self.assertEqual(query["other"], ["1"])
+                self.assertEqual(urlsplit(response.url).fragment, "form")
+                self.assertEqual("error_code" in query, include_metadata)
+                if include_metadata:
+                    self.assertEqual(query["error_code"], ["nonce_mismatch"])
+                    self.assertEqual(query["error_recovery"], ["restart_login"])
+                self.assertNotIn("secret-token", response.url)
+                self.assertNotIn("private-user", response.url)
+
+    def test_metadata_fallback_and_stale_values(self):
+        request = self.make_request(True)
+        request.social_strategy.setting.side_effect = lambda name, default=None, **_kwargs: {
+            "RAISE_EXCEPTIONS": False,
+            "LOGIN_ERROR_URL": "/login?error_code=old",
+            "ERROR_TRANSPORT": "messages",
+            "ERROR_INCLUDE_METADATA": True,
+        }.get(name, default)
+        middleware = SocialAuthExceptionMiddleware(mock.Mock())
+        with mock.patch("social_django.middleware.messages.error", side_effect=MessageFailure):
+            response = middleware.process_exception(request, AuthProviderError(code="timeout", stage="user_info"))
+        self.assertEqual(parse_qs(urlsplit(response.url).query)["error_code"], ["timeout"])
+
+    def test_metadata_collisions_preserve_configured_parameters(self):
+        middleware = SocialAuthExceptionMiddleware(mock.Mock())
+        error = AuthProviderError(code="timeout", stage="user_info")
+        for name, value in (("ERROR_PARAM_NAME", str(error)), ("BACKEND_PARAM_NAME", "test")):
+            for key in error.public_metadata():
+                with self.subTest(name=name, key=key):
+                    request = self.make_request(
+                        True, **{name: key, "LOGIN_ERROR_URL": f"/login?{key}=old&other=1#form"}
+                    )
+                    response = middleware.process_exception(request, error)
+                    query = parse_qs(urlsplit(response.url).query)
+                    self.assertEqual(query[key], [value])
+                    self.assertEqual(query["other"], ["1"])
+                    self.assertEqual(urlsplit(response.url).fragment, "form")
+                    for metadata_key, metadata_value in error.public_metadata().items():
+                        if metadata_key != key:
+                            self.assertEqual(query[metadata_key], [metadata_value])
+
+    def test_absent_metadata_keys_remove_stale_redirect_values(self):
+        middleware = SocialAuthExceptionMiddleware(mock.Mock())
+        error = AuthProviderError(code="timeout", stage="user_info")
+        url = "/login?error_code=old&error_source=old&error_stage=old&error_recovery=old&other=1#form"
+        for enabled in (False, True):
+            for metadata in ({}, {"error_code": "timeout"}):
+                with self.subTest(enabled=enabled, metadata=metadata):
+                    request = self.make_request(enabled, LOGIN_ERROR_URL=url)
+                    with mock.patch.object(error, "public_metadata", return_value=metadata):
+                        response = middleware.process_exception(request, error)
+                    query = parse_qs(urlsplit(response.url).query)
+                    for key in ("error_code", "error_source", "error_stage", "error_recovery"):
+                        if enabled:
+                            self.assertEqual(query.get(key), [metadata[key]] if key in metadata else None)
+                        else:
+                            self.assertEqual(query[key], ["old"])
+                    self.assertEqual(query["other"], ["1"])
+                    self.assertEqual(urlsplit(response.url).fragment, "form")
+
+
+@override_settings(SOCIAL_AUTH_RAISE_EXCEPTIONS=False, SOCIAL_AUTH_LOGIN_ERROR_URL=None)
+class ErrorFallbackTest(SimpleTestCase):
+    def setUp(self):
+        self.request = RequestFactory().get("/")
+        self.request.session = {}
+        self.request.social_strategy = load_strategy(self.request)
+        self.middleware = SocialAuthExceptionMiddleware(mock.Mock())
+
+    @mock.patch("social_django.middleware.social_logger.log")
+    def test_statuses_and_reporting(self, log):
+        cases = (
+            (AuthInputError(), 400),
+            (AuthSessionError(), 403),
+            (AuthCredentialError(), 403),
+            (AuthPolicyError(), 403),
+            (AuthCanceled(), 403),
+            (AuthAssociationError(), 409),
+            (AuthResponseError(), 502),
+            (AuthProviderError(), 502),
+            (AuthProviderError(code="connection_failed"), 503),
+            (AuthProviderError(code="unavailable"), 503),
+            (AuthProviderError(code="rate_limited"), 503),
+            (AuthProviderError(code="timeout"), 504),
+            (AuthProviderError(code="tls_error"), 502),
+            (AuthResponseError(code="response_expired"), 403),
+            (AuthResponseError(code="nonce_mismatch"), 403),
+            (AuthResponseError(code="invalid_expiry"), 500),
+            (AuthConfigurationError(), 500),
+            (AuthUnknownError(), 500),
+            (AuthException(), 500),
+            (SocialAuthBaseException(), 500),
+            (AuthInputError(code="custom.invalid_input"), 400),
+            (AuthProviderError(code="custom.unavailable"), 503),
+        )
+        for error, expected_status in cases:
+            with self.subTest(error=type(error).__name__, code=error.code):
+                response = self.middleware.process_exception(self.request, error)
+                self.assertEqual(response.status_code, expected_status)
+                self.assertContains(response, str(error), status_code=expected_status)
+                self.assertEqual(
+                    log.call_args.args[0],
+                    logging.ERROR if expected_status >= HTTPStatus.INTERNAL_SERVER_ERROR else logging.WARNING,
+                )
+                if expected_status >= HTTPStatus.INTERNAL_SERVER_ERROR:
+                    self.assertIs(log.call_args.kwargs["exc_info"][1], error)
+                else:
+                    self.assertIsNone(log.call_args.kwargs["exc_info"])
+                self.assertIn("no-store", response.headers["Cache-Control"])
+                self.assertIn("no-cache", response.headers["Cache-Control"])
+                self.assertIn("Expires", response.headers)
+
+    def test_server_error_logs_preserve_original_tracebacks(self):
+        for error in (AuthConfigurationError(), AuthUnknownError(), AuthProviderError(code="timeout")):
+            with self.subTest(error=type(error).__name__):
+                try:
+                    raise error
+                except SocialAuthBaseException:
+                    pass
+
+                # Render outside the except block to verify the logger receives
+                # this exception's traceback rather than the active exception.
+                with self.assertLogs("social", level="ERROR") as captured:
+                    response = self.middleware.process_exception(self.request, error)
+
+                record = captured.records[0]
+                self.assertIs(record.exc_info[1], error)
+                self.assertIs(record.exc_info[2], error.__traceback__)
+                self.assertIsNotNone(record.exc_info[2])
+                self.assertIn("Traceback (most recent call last)", captured.output[0])
+                self.assertContains(response, str(error), status_code=response.status_code)
+                self.assertNotContains(response, "Traceback", status_code=response.status_code)
+
+    def test_client_error_logs_omit_tracebacks(self):
+        error = AuthSessionError()
+        try:
+            raise error
+        except AuthSessionError:
+            pass
+
+        with self.assertLogs("social", level="WARNING") as captured:
+            self.middleware.process_exception(self.request, error)
+        self.assertEqual(captured.records[0].levelno, logging.WARNING)
+        self.assertIsNone(captured.records[0].exc_info)
+        self.assertNotIn("Traceback", captured.output[0])
+
+    @mock.patch("social_django.middleware.social_logger.log")
+    def test_provider_status_is_not_forwarded(self, log):
+        response = self.middleware.process_exception(self.request, AuthProviderError(code="timeout", status_code=401))
+        self.assertEqual(response.status_code, 504)
+
+    def test_recovery_guidance(self):
+        cases = (
+            (AuthSessionError(), "start login again"),
+            (AuthCredentialError(), "authenticate with your provider again"),
+            (AuthInputError(), "Check the information you entered"),
+            (AuthProviderError(code="timeout"), "Please try again later"),
+            (AuthResponseError(code="profile_email_missing"), "Check your profile"),
+            (AuthAssociationError(), "account you already have"),
+            (AuthConfigurationError(), "contact the site administrator"),
+        )
+        with mock.patch("social_django.middleware.social_logger.log"):
+            for error, guidance in cases:
+                with self.subTest(recovery=error.recovery):
+                    response = self.middleware.process_exception(self.request, error)
+                    self.assertContains(response, guidance, status_code=response.status_code)
+
+    def test_cookie_hint_only_for_missing_session_context(self):
+        with mock.patch("social_django.middleware.social_logger.log"):
+            for code in ("session_context_missing", "state_mismatch", "user_mismatch"):
+                with self.subTest(code=code):
+                    response = self.middleware.process_exception(self.request, AuthSessionError(code=code))
+                    self.assertEqual(b"cookies are enabled" in response.content, code == "session_context_missing")
+
+    @override_settings(
+        TEMPLATES=[
+            {
+                "BACKEND": "django.template.backends.django.DjangoTemplates",
+                "OPTIONS": {
+                    "loaders": [
+                        (
+                            "django.template.loaders.locmem.Loader",
+                            {
+                                "social_django/error.html": (
+                                    "Custom page: {{ message }} {{ error_code }} {{ detail }} {{ exception }}"
+                                )
+                            },
+                        )
+                    ]
+                },
+            }
+        ]
+    )
+    def test_template_and_message_overrides_keep_diagnostics_private(self):
+        error = AuthResponseError("backend", "secret-token", context={"uid": "private-user"})
+        with (
+            mock.patch.object(self.middleware, "get_message", return_value="<script>example</script>"),
+            mock.patch("social_django.middleware.render", wraps=django_render) as render,
+            mock.patch("social_django.middleware.social_logger.log") as log,
+        ):
+            response = self.middleware.process_exception(self.request, error)
+        self.assertContains(
+            response, "Custom page: &lt;script&gt;example&lt;/script&gt; malformed_response", status_code=502
+        )
+        context = render.call_args.args[2]
+        self.assertEqual(set(context), {"message", "error_code", "error_source", "error_stage", "error_recovery"})
+        for private in ("secret-token", "private-user"):
+            self.assertNotIn(private.encode(), response.content)
+            self.assertNotIn(private, str(log.call_args))
+
+    def test_rendering_does_not_use_error_transports(self):
+        with (
+            mock.patch.object(self.middleware, "dispatch_error") as dispatch,
+            mock.patch("social_django.middleware.social_logger.log"),
+        ):
+            response = self.middleware.process_exception(self.request, AuthCanceled())
+        self.assertEqual(response.status_code, 403)
+        dispatch.assert_not_called()
+
+    def test_missing_and_empty_error_urls(self):
+        with mock.patch("social_django.middleware.social_logger.log"):
+            with self.settings():
+                del settings.SOCIAL_AUTH_LOGIN_ERROR_URL
+                response = self.middleware.process_exception(self.request, AuthSessionError())
+                self.assertEqual(response.status_code, 403)
+            with self.settings(SOCIAL_AUTH_LOGIN_ERROR_URL=""):
+                response = self.middleware.process_exception(self.request, AuthSessionError())
+                self.assertEqual(response.status_code, 403)
+
+    def test_status_override(self):
+        with (
+            mock.patch.object(self.middleware, "get_error_status", return_value=400) as get_status,
+            mock.patch("social_django.middleware.social_logger.log"),
+        ):
+            error = AuthCanceled()
+            response = self.middleware.process_exception(self.request, error)
+        self.assertEqual(response.status_code, 400)
+        get_status.assert_called_once_with(self.request, error)
+
+    @override_settings(SOCIAL_AUTH_LOGIN_ERROR_URL="/error/", SOCIAL_AUTH_ERROR_TRANSPORT="query")
+    def test_redirect_precedes_rendering(self):
+        with mock.patch.object(self.middleware, "render_error") as render_error:
+            response = self.middleware.process_exception(self.request, AuthSessionError())
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/error/?"))
+        render_error.assert_not_called()
+
+    @override_settings(SOCIAL_AUTH_RAISE_EXCEPTIONS=True)
+    def test_explicit_raise_precedes_rendering(self):
+        with mock.patch.object(self.middleware, "render_error") as render_error:
+            self.assertIsNone(self.middleware.process_exception(self.request, AuthSessionError()))
+        render_error.assert_not_called()
+
+    def test_unrelated_exceptions_and_missing_strategy(self):
+        self.assertIsNone(self.middleware.process_exception(self.request, ValueError("unrelated")))
+        del self.request.social_strategy
+        self.assertIsNone(self.middleware.process_exception(self.request, AuthSessionError()))
+
+    @override_settings(
+        AUTHENTICATION_BACKENDS=("social_core.backends.mediawiki.MediaWiki",),
+        SESSION_ENGINE="django.contrib.sessions.backends.signed_cookies",
+    )
+    def test_callback_without_session_cookie(self):
+        with (
+            mock.patch("social_core.backends.base.BaseAuth.request") as provider_request,
+            mock.patch("social_django.middleware.social_logger.log"),
+        ):
+            response = self.client.get(
+                reverse("social:complete", kwargs={"backend": "mediawiki"}),
+                {"oauth_token": "example", "redirect_state": "example"},
+            )
+        self.assertContains(response, "cookies are enabled", status_code=403)
+        self.assertTemplateUsed(response, "social_django/error.html")
+        self.assertEqual(response.context["error_code"], "session_context_missing")
+        provider_request.assert_not_called()

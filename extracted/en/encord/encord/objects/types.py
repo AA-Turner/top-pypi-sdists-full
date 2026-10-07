@@ -156,7 +156,6 @@ class BaseFrameObject(BaseFrameObjectRequired, total=False):
     createdBy: Optional[str]  # This is optional because we set the default to the current user on the BE
     lastEditedBy: Optional[str]  # This is optional because we set the default to the current user on the BE
     lastEditedAt: str
-    objectId: int
     confidence: float
     manualAnnotation: bool
     reviews: list[Any]  # TODO: Remove this as its deprecated
@@ -307,7 +306,6 @@ class ClassificationAnswer(ClassificationAnswerRequired, total=False):
 class ObjectAnswerForGeometric(TypedDict):
     objectHash: str
     classifications: List[AttributeDict]
-    objectId: NotRequired[int]
 
 
 class SpaceHtmlData(TypedDict):

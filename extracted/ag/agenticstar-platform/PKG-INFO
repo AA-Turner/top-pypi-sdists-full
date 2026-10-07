@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.0.11
+Version: 3.0.14
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -186,8 +186,13 @@ Note that `emit_event()` only enqueues. In setups that do not run `consume_event
 An agent function that works locally can be passed to `run_marketplace_agent` as-is to run it
 with the Marketplace-compatible terminal lifecycle. Receiving and validating the identity
 (`EXECUTION_ID` etc.), fetching the input message, persisting the result to the DB, webhook
-notification, the terminal event (**exactly once, whatever happens**) and cleanup are all
-handled by the runner — none of it is written in your agent.
+notification, the terminal event (**exactly once, whatever happens** — the one exception is a cycle
+execution whose started fence below is refused or cannot be taken, which sends no events) and cleanup are all
+handled by the runner — none of it is written in your agent. For a cycle execution
+(`execution_data.runtime_protocol` = `mp-chat/1`) the runner also takes a started fence in the DB
+before calling your agent, so a recreated Pod does not run the same execution again (3.0.12). If you
+replay a cycle execution locally against a real DB with the same `CONVERSATION_ID` / `MESSAGE_ID`,
+the second run is refused with `MarketplaceRunnerFenceTaken`.
 
 `marketplace_agent.py`:
 
@@ -229,6 +234,75 @@ If you need the low-level API (to compose handlers yourself), pass
 `create_marketplace_handler(data_access, webhook_url, user_id, conversation_id, message_id)`
 (a composite handler for DB persistence + webhook notification; requires the `[db]` + `[webhook]`
 extras) directly to `EventEmitter`, as before.
+
+### 2.4 Report completion for a cycle execution (SDK >= 3.0.14, `mp-chat/1`)
+
+A cycle execution (`execution_data.runtime_protocol` = `mp-chat/1`) that just exits 0 is recorded as
+"the run finished, whether it achieved its goal is **not measured**" (`outcome` NULL,
+`outcome_reason_code` = `runner_exited`), so it is counted neither as a success nor as a failure.
+To have it counted, **your agent reports whether it completed its goal** — the platform never infers
+it from the process exiting cleanly. `report_completion` needs the `[db]` extra; the example below also
+uses the runner, so install `[runner]` (or `[all]`), which includes it.
+
+The runner does not hand its connection pool to the agent function, so build the `DataAccess`
+yourself, pass it to the runner and report through its pool:
+
+```python
+import asyncio
+import os
+
+from agenticstar_platform import arun_marketplace_agent, report_completion
+from agenticstar_platform.db import DataAccess, PostgreSQLConfig, PostgreSQLManager
+
+
+async def main() -> None:
+    manager = PostgreSQLManager(PostgreSQLConfig.from_env())
+    async with DataAccess(manager) as data_access:
+
+        async def my_agent(emitter, message: str) -> str:
+            reply = message.upper()  # your processing
+            await report_completion(
+                manager.pool,                       # asyncpg pool (PostgreSQLManager.pool)
+                user_id=os.environ["USER_ID"],
+                conversation_id=os.environ["CONVERSATION_ID"],
+                message_id=os.environ["MESSAGE_ID"],
+                execution_id=os.environ["EXECUTION_ID"],
+                outcome="completed",                # one of the 7 saved values
+                reason="completed",                 # short snake_case code; defaults to the outcome
+                had_mutating_success=False,         # wrote something outside? None if unknown
+                summary="posted the daily digest",  # optional, for people reading the record
+            )
+            return reply
+
+        await arun_marketplace_agent(my_agent, data_access=data_access)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+- `outcome` is one of `completed` / `incomplete` / `failed` / `timeout` / `stopped` / `denied` /
+  `skipped`. Anything else raises `ValueError`
+- `reason` is a reason code, not a message: lowercase snake_case of at most 32 characters
+  (`^[a-z][a-z0-9_]{0,31}$`; `-` and spaces become `_`, upper case becomes lower case). Any other value
+  (a sentence, an exception string) is replaced by the outcome and a warning is logged. Put free text in
+  `summary`
+- The platform uses only `outcome` and `reason` for the execution's result. `had_mutating_success` and
+  `summary` are kept in the report row
+- **Reporting is optional.** Without a report the execution stays unmeasured, exactly as before
+- **Report once, when the result is final.** A second report for the same execution — also one made at
+  the same time — is not written and returns `False` (the first one is kept)
+- **Reporting is best effort and never fails your agent.** A database failure (including waiting more
+  than 30 seconds for a connection) is logged and returns `False`; then the execution stays unmeasured.
+  `False` after a lost commit acknowledgement can still mean the report was saved
+- The executor adopts the report **only when it sees the container exit 0**. `run_marketplace_agent`
+  exits 0 even when your agent raises, so a report made before the exception is adopted. When the
+  executor closes the execution otherwise — a non-zero exit or a lost Pod (failed, effects unknown), a
+  cancellation (`stopped/cancelled`) or the deadline passing while the agent is still running
+  (`timeout/execution_timeout`) — the report is not used
+- Reporting goes through the DB because a cycle agent has no runtime API (the same reason the started
+  fence uses the DB). No DDL is involved: the report is one row in `execution_messages`. In a normal
+  (chat) execution the report is written but not read
 
 ### 2.5 Local Integration Lab (DB / RAG / storage without credentials)
 
@@ -572,13 +646,21 @@ async def run(context):
 python -c "from agenticstar_platform.workflow import run; run('my_agent.main:run')"
 ```
 
+Write the start command in **exec form** so that the runner is PID 1:
+`CMD ["python", "-c", "from agenticstar_platform.workflow import run; run('my_agent.main:run')"]`.
+The runner keeps `ASTER_RUNTIME_TOKEN` away from your agent's processes: the child does not inherit it, and
+from 3.0.13 `run()` also makes the runner process unreadable through `/proc/<pid>/environ` (Linux). A shell
+form (`CMD python -c ...`, `sh -c "..."`) or an init process in front of the runner keeps another process
+holding the token, which commands run by your agent can read; the runner logs a warning when PID 1 holds it.
+
 What the runner (parent process) does: validates the env → fetches the context and input artifacts
 from the platform runtime API (verifying digest / size) → stages them read-only in `/workspace/input` →
 copies them to `/workspace/work` → generates settings files from `from_parameters` → waits for the
 `context.manifest` audit acknowledgement → runs your agent entrypoint in a child process → collects
 declared outputs and edited files (rejecting symlinks, path traversal and oversized files) → saves the
 artifacts → saves the `completion_envelope` (version 2) under a stable `completion_id` (a 409 for an
-already-terminal run is not retried). Exit codes: 0 = terminal saved, 2 = could not be saved,
+already-terminal run is not retried). Exit codes: 0 = terminal saved (or the run was cancelled and the
+platform refused the completion; the platform closes it as stopped), 2 = could not be saved,
 3 = invalid configuration. Other failures may end with a non-zero exit and the exception (the SDK
 does not guarantee exit codes; the platform closes a non-zero exit without a saved terminal as
 `failed/agent_exit_nonzero` with the effect unknown, and holds the run for human review).
@@ -589,7 +671,8 @@ What `context` provides: correlation (`execution_id` / `run_id` / `operation_key
 do not start an external write without that acknowledgement), `is_cancel_requested()` /
 `ensure_can_act()` / `deadline_remaining()`, `skip(reason)` (a step with nothing to do: `no_target` /
 `not_applicable` / `nothing_to_do` → `skipped`), `policy_unavailable()` (the policy could not be
-checked before any external action → `skipped/policy_unavailable`), `log(message)`,
+checked before any external action → `skipped/policy_unavailable`), `log(message)` (written to the runner's
+log; `run()` sends SDK logs at INFO to stderr when the process has not configured logging),
 `gate_decision` (SDK ≥ 3.0.9: the review decision that started this run — `None` unless the run follows a
 review; otherwise a read-only mapping `{gate_id, decision, decided_by, note, decided_at}` where `decision` is
 `send_back` or `proceed` and `note` is the reason or comment the reviewer wrote), and
@@ -857,6 +940,31 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.0.14 (2026-10-06) — cycle executions: the agent can report whether it completed its goal (`report_completion`)
+
+- **New `report_completion()`** (`from agenticstar_platform import report_completion`, also exported from `agenticstar_platform.db`; requires the `[db]` extra). A cycle execution (`execution_data.runtime_protocol` = `mp-chat/1`) that exits 0 was always recorded as `outcome` NULL / `runner_exited` (finished, completion not measured), so cycle agents never counted as a success. The agent can now report one of the 7 saved outcomes (`completed` / `incomplete` / `failed` / `timeout` / `stopped` / `denied` / `skipped`) with an optional reason code (short snake_case, defaults to the outcome). The platform adopts the outcome and the reason code only when the container exits 0; `had_mutating_success` and `summary` are kept in the report row. See section 2.4 for a complete example.
+- **Optional and best effort.** Agents that do not report behave exactly as before (unmeasured). The report is written once per execution: concurrent calls are serialized with a transaction-scoped advisory lock, and a later call writes nothing and returns `False`. A database failure (including a 30-second wait for a connection) is logged and returns `False` instead of raising, so the agent's own work is never failed by reporting. Only an outcome outside the 7 values raises `ValueError`; a reason that is not a short snake_case code is replaced by the outcome with a warning.
+- The report is one row in `execution_messages` (`content_data.kind` = `sdk.runner.completion`, keyed by `CONVERSATION_ID` / `MESSAGE_ID` like the started fence of 3.0.12). No DDL.
+- **Platform requirement**: the marketplace executor must read the report. Against an older one the row is written and ignored, and the execution stays unmeasured.
+- Nothing else changes: the runner does not report on the agent's behalf, and workflow runs keep using the completion envelope.
+
+### 3.0.13 (2026-10-06) — workflow: the runtime token is unreadable from the agent's processes / cancellation after start is a stop, not a failure / `context.log` reaches the pod log
+
+- **The agent can no longer read the runner's token through `/proc`.** The child never received `ASTER_RUNTIME_TOKEN`, but it runs as the same user, so it could read the runner's `/proc/<pid>/environ`. `run()` now marks the runner process non-dumpable (`prctl(PR_SET_DUMPABLE, 0)`, Linux) before starting the agent; the agent's own `/proc` is unaffected. Start the image in exec form so that the runner is PID 1 (see the workflow section); the runner logs a warning when PID 1 still holds the token. `arun()` / `WorkflowRunner` do not change the process unless you pass `protect_token=True`.
+- **Cancellation, a closed run or the deadline after start ends as a stop.** After cancellation the platform refuses every write of the run, including audits, artifacts and the completion (409 `cancelled` / `run_closed` / `deadline_exceeded`). Up to 3.0.12 a refused audit counted as an audit persistence failure (`failed/audit_persist_failed`) and a refused completion ended with exit code 2; the start fence refused before start was logged as an error. They now map to the stop reason as the input fetch already did (`stopped/cancelled`, `timeout/execution_timeout`), the agent is not started, and a completion refused because of cancellation exits with 0 (the platform closes the run as stopped regardless). `run_closed` and `deadline_exceeded` keep exit code 2 so the platform closes the run without waiting for the collection deadline.
+- **`context.log` reaches the pod log.** The SDK configured no log output, so with the recommended start command `context.log()` and the runner's INFO messages were dropped. `run()` adds a stderr handler to the `agenticstar_platform` logger when the process has not configured logging (the root logger and other libraries are not touched).
+- **Audit metadata that cannot be sent no longer crashes the runner.** NaN / Infinity passed the metadata filter and made the send raise, which ended the runner without a completion. The SDK now drops them, and logs the names of dropped metadata keys (only `str` / `int` / finite `float` / `bool` are sent; values are not logged). The runner also rejects malformed events written directly to the control channel as unsaved audits instead of failing, and ignores a non-string `error_class`.
+- **`run(stop_on_sigterm=...)`.** `run(exit_process=False)` also turned off the cooperative stop on SIGTERM. The new argument sets it separately (default: the value of `exit_process`, as before).
+
+### 3.0.12 (2026-10-06) — runner: a recreated Pod does not run a cycle execution's agent twice (started fence)
+
+- **For cycle executions, `run_marketplace_agent` / `arun_marketplace_agent` take a started fence before calling the agent.** A cycle execution is one whose `execution_data.runtime_protocol` is `mp-chat/1` (scheduled by the platform; its contract is that an execution is never run again after its Pod is lost). In one short transaction (READ COMMITTED) the runner takes `pg_advisory_xact_lock` on the execution's (`CONVERSATION_ID`, `MESSAGE_ID`), checks `execution_messages` for any row of that pair, and writes one marker row (`chunk_type` `progress_message`, `content_data.kind` `sdk.runner.started`). If a row already exists — the Pod was recreated and a previous runner had already started the agent — the runner does not call the agent, sends no events and raises the new `MarketplaceRunnerFenceTaken`; the process exits non-zero and the platform closes the execution as failed with unknown effects. Up to 3.0.11 the agent could run again in the new Pod before the platform noticed the lost Pod (its reconcile interval, 30 seconds by default), repeating external writes.
+- **Fail closed.** When the fence cannot be taken (lock wait over 10 seconds, a query or commit failure), the agent is not called, no events are sent (a runner that cannot prove it owns the execution must not send a terminal event — a previous runner may already have sent one) and the error is raised. For a normal conversation whose execution row cannot be read either (a database outage), the failure therefore shows only when the platform closes the execution.
+- **Other conversations are unchanged.** For a normal conversation (the execution row says it is not a cycle execution) the runner does not look at or write the marker, so a container that restarts after a crash runs the agent again as before. When the execution row cannot be read, the runner treats the execution as a cycle execution and takes the fence (the first run of a normal conversation still passes it); with a `data_access` that has no pool it behaves as before.
+- **New `started_fence` argument (default `True`).** The fence uses the direct PostgreSQL pool (`PostgreSQLManager.pool`). For a cycle execution with a `data_access` that has no pool (HTTP-API mode or your own implementation), the runner raises `MarketplaceRunnerConfigError` unless you pass `started_fence=False`; then a recreated Pod may run the agent again.
+- Admin dashboards that aggregate `execution_messages` count the marker as one chunk of the execution (its start time becomes the marker's time). The execution trace, which is built from the run record, does not show it.
+- Rebuild your agent image with 3.0.12 to get the fence. Images built with older versions keep the previous behavior.
 
 ### 3.0.11 (2026-10-06) — policy: which rule layer decided a forbid (`Decision.layer`)
 
@@ -1216,4 +1324,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.0.11
+3.0.14

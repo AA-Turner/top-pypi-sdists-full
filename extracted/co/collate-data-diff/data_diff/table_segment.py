@@ -248,8 +248,14 @@ class TableSegment:
         duration = time.monotonic() - start
         if duration > RECOMMENDED_CHECKSUM_DURATION:
             logger.warning(
-                "Checksum is taking longer than expected (%.2f). "
-                "We recommend increasing --bisection-factor or decreasing --threads.",
+                "Checksum of %s rows in %s table %s at key-range %s..%s took %.2fs. Slow checksums usually mean "
+                "the key columns aren't indexed, many columns are compared, or the database is busy; "
+                "CLI users can also use a larger --bisection-factor or fewer --threads.",
+                count,
+                self.database.name,
+                ".".join(self.table_path),
+                self.min_key,
+                self.max_key,
                 duration,
             )
 

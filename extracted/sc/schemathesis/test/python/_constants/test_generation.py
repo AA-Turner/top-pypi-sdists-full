@@ -234,6 +234,24 @@ def test_constants_respect_codec(ctx):
         )
 
 
+@pytest.mark.parametrize(("codec", "substituted"), [("ascii", False), (None, True)], ids=["ascii", "no-codec"])
+def test_constants_substituted_only_when_codec_admits_them(ctx, codec, substituted):
+    schema = _unlock_schema(ctx, _CODE_BODY)
+    schema.config.generation.codec = codec
+    strategy = schema["/unlock"]["POST"].as_strategy(
+        generation_mode=GenerationMode.POSITIVE, constants_value_source=_source("string", "café")
+    )
+
+    def has_constant(case):
+        return isinstance(case.body, dict) and case.body.get("code") == "café"
+
+    if substituted:
+        assert has_constant(find(strategy, has_constant, settings=_FIND))
+    else:
+        with pytest.raises(NoSuchExample):
+            find(strategy, has_constant, settings=_FIND)
+
+
 def test_constants_overlay_keeps_non_object_body(ctx):
     schema = _unlock_schema(
         ctx, {"type": ["object", "string"], "properties": {"code": {"type": "string"}}}, version="3.1.0"
@@ -986,6 +1004,23 @@ def test_substitution_reverted_when_it_breaks_container_validation(data):
     blob = _draw(
         data,
         _source("string", "TOOLONG"),
+        schema_properties={"blob": {"type": "string"}},
+        container_schema=container,
+    )
+    assert blob == "placeholder"
+
+
+@given(data=st.data())
+@settings(max_examples=5)
+def test_substitution_reverted_when_container_not_constraint_rejects_it(data):
+    container = {
+        "type": "object",
+        "properties": {"blob": {"type": "string"}},
+        "not": {"required": ["blob"], "properties": {"blob": {"enum": ["FORBIDDEN"]}}},
+    }
+    blob = _draw(
+        data,
+        _source("string", "FORBIDDEN"),
         schema_properties={"blob": {"type": "string"}},
         container_schema=container,
     )

@@ -1,4 +1,3 @@
-import git
 import json
 import os
 import shutil
@@ -13,10 +12,17 @@ from typing import Optional, List, TYPE_CHECKING
 
 from datetime import datetime, timezone
 
+try:
+    import git
+except ImportError:
+    # GitPython raises ImportError when it cannot find a git executable.
+    git = None
+
 import siliconcompiler
 
-from siliconcompiler.utils import get_file_template
-from siliconcompiler.utils.curation import collect
+from siliconcompiler import Project
+from siliconcompiler.utils import get_file_template, mask_credentials
+from siliconcompiler.utils.curation import collect, filter_collection_keys
 from siliconcompiler.schema_support.record import RecordSchema
 from siliconcompiler.scheduler import SchedulerNode
 from siliconcompiler.schema import __version__ as schema_version
@@ -25,7 +31,6 @@ from siliconcompiler.utils.paths import workdir, jobdir, collectiondir
 from siliconcompiler.utils.logging import console_quiet
 
 if TYPE_CHECKING:
-    from siliconcompiler.project import Project
     from siliconcompiler import Task
 
 
@@ -64,75 +69,44 @@ def generate_testcase(project: "Project",
                     missing_ok=True,
                     step=key_step, index=key_index)
 
+    # The testcase is handed to someone else, so no manifest in it carries a credential
     manifest_path = os.path.join(issue_dir.name, 'orig_manifest.json')
-    project.write_manifest(manifest_path)
+    mask_credentials(project).write_manifest(manifest_path)
 
     flow = project.get_flow()
     node = flow.get_graph_node(step, index)
     tool = node.get('tool')
     task = node.get('task')
 
-    task_requires: List[str] = project.get('tool', tool, 'task', task, 'require',
-                                           step=step, index=index)
+    task_class: "Task" = project.get("tool", tool, "task", task, field="schema")
+    with task_class.runtime(SchedulerNode(project, step, index)) as task_obj:
+        task_keys = set(task_obj.get_digest_keys())
 
-    def determine_copy(*keypath: str, in_require: bool, in_library: bool = False):
-        copy = in_require
-
+    def determine_copy(*keypath: str):
         if keypath[0] == 'library':
             # only copy libraries if selected
-            if include_specific_libraries and keypath[1] in include_specific_libraries:
-                copy = True
-            else:
-                copy = include_libraries
+            include_library = (include_specific_libraries
+                               and keypath[1] in include_specific_libraries) \
+                or include_libraries
+            return include_library and keypath in task_keys
 
-            copy = copy and determine_copy(*keypath[2:],
-                                           in_require=in_require,
-                                           in_library=True)
-        elif keypath[0] == 'history':
-            # Skip history
-            copy = False
-        elif keypath[0] == 'tool':
-            if in_library:
-                # A library / PDK tool section is owned by the library, not by the
-                # running task, so it can never match the tool / task keypath below.
-                # Defer to the require list, which the task uses to declare the
-                # library files it actually reads.
-                copy = in_require
-            else:
-                # Only grab tool / tasks
-                copy = False
-                if list(keypath[0:4]) == ['tool', tool, 'task', task]:
-                    # Get files associated with testcase tool / task
-                    copy = True
-                    if len(keypath) >= 5:
-                        if keypath[4] in ('output', 'input', 'report'):
-                            # Skip input, output, and report files
-                            copy = False
-        elif keypath[0] == 'option':
-            if keypath[1] == 'builddir':
-                # Avoid build directory
-                copy = False
-            elif keypath[1] == 'cachedir':
-                # Avoid cache directory
-                copy = False
-            elif keypath[1] == 'credentials':
-                # Exclude credentials file
-                copy = False
+        if keypath[0] == 'tool':
+            if list(keypath[0:4]) != ['tool', tool, 'task', task]:
+                return False
+            return keypath in task_keys
 
-        return copy
+        return keypath in task_keys
 
+    collect_keys = []
     for keypath in project.allkeys():
-        if 'default' in keypath:
-            continue
-
         if not project.get(*keypath, field=None).is_path:
             continue
 
-        project.set(
-            *keypath,
-            determine_copy(*keypath,
-                           in_require=','.join(keypath) in task_requires),
-            field='copy')
+        if determine_copy(*keypath):
+            param = project.get(*keypath, field=None)
+            collect_keys.extend((keypath, key_step, key_index)
+                                for _, key_step, key_index in
+                                param.getvalues(return_values=False))
 
     # Collect files
     work_dir = workdir(project, step=step, index=index)
@@ -156,16 +130,22 @@ def generate_testcase(project: "Project",
 
     # Copy in issue run files
     shutil.copytree(work_dir, new_work_dir, dirs_exist_ok=True)
+    for subdir in ("inputs", "outputs"):
+        node_manifest = os.path.join(new_work_dir, subdir, f"{project.name}.pkg.json")
+        if os.path.isfile(node_manifest):
+            mask_credentials(Project.from_manifest(filepath=node_manifest)) \
+                .write_manifest(node_manifest)
     # Copy in source files
-    collect(project, directory=collection_dir, verbose=verbose_collect)
+    collect(project,
+            keys=filter_collection_keys(collect_keys),
+            directory=collection_dir,
+            verbose=verbose_collect)
 
     # Set relative path to generate runnable files
     project._Project__cwd = issue_dir.name
 
     current_work_dir = os.getcwd()
     os.chdir(new_work_dir)
-
-    task_class: "Task" = project.get("tool", tool, "task", task, field="schema")
 
     with task_class.runtime(SchedulerNode(project, step, index), relpath=new_work_dir) as task_obj:
         # Rewrite replay.sh
@@ -186,40 +166,43 @@ def generate_testcase(project: "Project",
                 '.',
                 include_path=False)
 
-        # Rewrite tool manifest
-        task_obj.write_task_manifest('.')
+        # Rewrite tool manifest; the original run's, kept as a backup, could hold a credential
+        task_obj.write_task_manifest('.', backup=False)
 
     # Restore current directory
     project._Project__cwd = original_cwd
     os.chdir(current_work_dir)
 
     git_data = {}
-    try:
-        # Check git information
-        repo = git.Repo(path=os.path.join(os.path.dirname(siliconcompiler.__file__), '..'))
-        commit = repo.head.commit
-        git_data['commit'] = commit.hexsha
-        git_data['date'] = time.strftime('%Y-%m-%d %H:%M:%S',
-                                         time.gmtime(commit.committed_date))
-        git_data['author'] = f'{commit.author.name} <{commit.author.email}>'
-        git_data['msg'] = commit.message
-        # Count number of commits ahead of version
-        version_tag = repo.tag(f'v{siliconcompiler.__version__}')
-        count = 0
-        for c in commit.iter_parents():
-            count += 1
-            if c == version_tag.commit:
-                break
-        git_data['count'] = count
-    except git.InvalidGitRepositoryError:
-        pass
-    except Exception as e:
-        git_data['failed'] = str(e)
-        pass
+    if git is not None:
+        try:
+            # Check git information
+            repo = git.Repo(path=os.path.join(os.path.dirname(siliconcompiler.__file__), '..'))
+            commit = repo.head.commit
+            git_data['commit'] = commit.hexsha
+            git_data['date'] = time.strftime('%Y-%m-%d %H:%M:%S',
+                                             time.gmtime(commit.committed_date))
+            git_data['author'] = f'{commit.author.name} <{commit.author.email}>'
+            git_data['msg'] = commit.message
+            # Count number of commits ahead of version
+            version_tag = repo.tag(f'v{siliconcompiler.__version__}')
+            count = 0
+            for c in commit.iter_parents():
+                count += 1
+                if c == version_tag.commit:
+                    break
+            git_data['count'] = count
+        except git.InvalidGitRepositoryError:
+            pass
+        except Exception as e:
+            git_data['failed'] = str(e)
 
     issue_time = datetime.now(timezone.utc).timestamp()
     issue_information = {}
-    issue_information['environment'] = {key: value for key, value in os.environ.items()}
+    # A testcase is handed to someone else, so leave out what may be a credential
+    issue_information['environment'] = {
+        key: value for key, value in os.environ.items()
+        if not any(word in key.upper() for word in ("TOKEN", "KEY", "PASS", "SECRET"))}
     issue_information['python'] = {"path": sys.path,
                                    "version": sys.version}
     issue_information['date'] = datetime.fromtimestamp(issue_time).strftime('%Y-%m-%d %H:%M:%S')

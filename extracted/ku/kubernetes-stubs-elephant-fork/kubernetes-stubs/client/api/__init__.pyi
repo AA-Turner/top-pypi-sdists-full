@@ -24,8 +24,6 @@ from kubernetes.client.api.batch_api import BatchApi
 from kubernetes.client.api.batch_v1_api import BatchV1Api
 from kubernetes.client.api.certificates_api import CertificatesApi
 from kubernetes.client.api.certificates_v1_api import CertificatesV1Api
-from kubernetes.client.api.certificates_v1alpha1_api import \
-    CertificatesV1alpha1Api
 from kubernetes.client.api.certificates_v1beta1_api import \
     CertificatesV1beta1Api
 from kubernetes.client.api.coordination_api import CoordinationApi
@@ -48,10 +46,11 @@ from kubernetes.client.api.flowcontrolApiserver_v1_api import \
 from kubernetes.client.api.internalApiserver_api import InternalApiserverApi
 from kubernetes.client.api.internalApiserver_v1alpha1_api import \
     InternalApiserverV1alpha1Api
+from kubernetes.client.api.lifecycle_api import LifecycleApi
+from kubernetes.client.api.lifecycle_v1alpha1_api import LifecycleV1alpha1Api
 from kubernetes.client.api.logs_api import LogsApi
 from kubernetes.client.api.networking_api import NetworkingApi
 from kubernetes.client.api.networking_v1_api import NetworkingV1Api
-from kubernetes.client.api.networking_v1beta1_api import NetworkingV1beta1Api
 from kubernetes.client.api.node_api import NodeApi
 from kubernetes.client.api.node_v1_api import NodeV1Api
 from kubernetes.client.api.openid_api import OpenidApi
@@ -67,14 +66,15 @@ from kubernetes.client.api.resource_v1beta1_api import ResourceV1beta1Api
 from kubernetes.client.api.resource_v1beta2_api import ResourceV1beta2Api
 from kubernetes.client.api.scheduling_api import SchedulingApi
 from kubernetes.client.api.scheduling_v1_api import SchedulingV1Api
-from kubernetes.client.api.scheduling_v1alpha2_api import SchedulingV1alpha2Api
+from kubernetes.client.api.scheduling_v1alpha3_api import SchedulingV1alpha3Api
+from kubernetes.client.api.scheduling_v1beta1_api import SchedulingV1beta1Api
 from kubernetes.client.api.storage_api import StorageApi
 from kubernetes.client.api.storage_v1_api import StorageV1Api
-from kubernetes.client.api.storage_v1beta1_api import StorageV1beta1Api
 from kubernetes.client.api.storagemigration_api import StoragemigrationApi
+from kubernetes.client.api.storagemigration_v1_api import StoragemigrationV1Api
 from kubernetes.client.api.storagemigration_v1beta1_api import \
     StoragemigrationV1beta1Api
 from kubernetes.client.api.version_api import VersionApi
 from kubernetes.client.api.WellKnown_api import WellKnownApi
 
-__all__ = ["CoreApi", "CoreV1Api", "ApisApi", "AdmissionregistrationApi", "AdmissionregistrationV1Api", "AdmissionregistrationV1alpha1Api", "AdmissionregistrationV1beta1Api", "ApiextensionsApi", "ApiextensionsV1Api", "ApiregistrationApi", "ApiregistrationV1Api", "AppsApi", "AppsV1Api", "AuthenticationApi", "AuthenticationV1Api", "AuthorizationApi", "AuthorizationV1Api", "AutoscalingApi", "AutoscalingV1Api", "AutoscalingV2Api", "BatchApi", "BatchV1Api", "CertificatesApi", "CertificatesV1Api", "CertificatesV1alpha1Api", "CertificatesV1beta1Api", "CoordinationApi", "CoordinationV1Api", "CoordinationV1alpha2Api", "CoordinationV1beta1Api", "DiscoveryApi", "DiscoveryV1Api", "EventsApi", "EventsV1Api", "FlowcontrolApiserverApi", "FlowcontrolApiserverV1Api", "InternalApiserverApi", "InternalApiserverV1alpha1Api", "NetworkingApi", "NetworkingV1Api", "NetworkingV1beta1Api", "NodeApi", "NodeV1Api", "PolicyApi", "PolicyV1Api", "RbacAuthorizationApi", "RbacAuthorizationV1Api", "ResourceApi", "ResourceV1Api", "ResourceV1alpha3Api", "ResourceV1beta1Api", "ResourceV1beta2Api", "SchedulingApi", "SchedulingV1Api", "SchedulingV1alpha2Api", "StorageApi", "StorageV1Api", "StorageV1beta1Api", "StoragemigrationApi", "StoragemigrationV1beta1Api", "LogsApi", "VersionApi", "CustomObjectsApi", "WellKnownApi", "OpenidApi"]
+__all__ = ["CoreApi", "CoreV1Api", "ApisApi", "AdmissionregistrationApi", "AdmissionregistrationV1Api", "AdmissionregistrationV1alpha1Api", "AdmissionregistrationV1beta1Api", "ApiextensionsApi", "ApiextensionsV1Api", "ApiregistrationApi", "ApiregistrationV1Api", "AppsApi", "AppsV1Api", "AuthenticationApi", "AuthenticationV1Api", "AuthorizationApi", "AuthorizationV1Api", "AutoscalingApi", "AutoscalingV1Api", "AutoscalingV2Api", "BatchApi", "BatchV1Api", "CertificatesApi", "CertificatesV1Api", "CertificatesV1beta1Api", "CoordinationApi", "CoordinationV1Api", "CoordinationV1alpha2Api", "CoordinationV1beta1Api", "DiscoveryApi", "DiscoveryV1Api", "EventsApi", "EventsV1Api", "FlowcontrolApiserverApi", "FlowcontrolApiserverV1Api", "InternalApiserverApi", "InternalApiserverV1alpha1Api", "LifecycleApi", "LifecycleV1alpha1Api", "NetworkingApi", "NetworkingV1Api", "NodeApi", "NodeV1Api", "PolicyApi", "PolicyV1Api", "RbacAuthorizationApi", "RbacAuthorizationV1Api", "ResourceApi", "ResourceV1Api", "ResourceV1alpha3Api", "ResourceV1beta1Api", "ResourceV1beta2Api", "SchedulingApi", "SchedulingV1Api", "SchedulingV1alpha3Api", "SchedulingV1beta1Api", "StorageApi", "StorageV1Api", "StoragemigrationApi", "StoragemigrationV1Api", "StoragemigrationV1beta1Api", "LogsApi", "VersionApi", "CustomObjectsApi", "WellKnownApi", "OpenidApi"]

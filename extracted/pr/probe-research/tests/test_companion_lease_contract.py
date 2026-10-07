@@ -71,30 +71,11 @@ def test_the_written_bytes_match_the_documented_shape(writer):
     assert session_marker.read_lease(SID) == data
 
 
-def test_the_tap_reads_the_inline_marker_the_cli_writes(writer):
-    """`<sid>.inline` is a contract between the CLI (`session_marker.enter_inline`)
-    and the tap's supervisor (`companion_lease.inline`): written with one, read
-    with the other, so the supervisor keeps the worker exactly while the CLI
-    says the agent holds Probe."""
-    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
-    assert set(writer.INLINE_FROM) == set(session_marker.INLINE_FROM)
-    assert writer.INLINE_SUFFIX == session_marker.INLINE_SUFFIX
-    for start in session_marker.INLINE_FROM:
-        session_marker.set_session_state(SID, start)
-        assert not writer.inline(SID)
-        assert session_marker.enter_inline(SID) is None
-        assert writer.inline(SID)
-        assert session_marker.leave_inline(SID) == (start, None)
-        assert not writer.inline(SID)
-    assert session_marker.enter_inline(SID) is None
-    session_marker.set_session_state(SID, session_marker.STATE_OFF)
-    assert not writer.inline(SID)
+def test_the_tap_tells_its_workers_it_follows_inline():
+    """Tap 0.9.12 sets it on every worker it spawns; the worker reads the same
+    name to choose a plain exit over EXIT_DO_NOT_RESPAWN when inline starts."""
+    from probe.daemon import worker
 
-
-def test_the_tap_and_the_cli_refuse_the_same_malformed_markers(writer):
-    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
-    session_marker.set_session_state(SID, session_marker.STATE_FULL)
-    for body in ('{"from": "daemon", "since": 1.5}', '{"from": "daemon"}', '{"from": "daemon", "since": "1"}',
-                 '{"from": "daemon", "since": true}', '{"from": "off", "since": 1}', "not json"):
-        session_marker.inline_path(SID).write_text(body)
-        assert writer.inline(SID) == session_marker.is_inline(SID), body
+    # The name both sides read; the tap's own tests prove every spawn carries it.
+    source = (TAP / "companion_supervisor.py").read_text()
+    assert f'FOLLOWS_INLINE_ENV = "{worker.SUPERVISOR_FOLLOWS_INLINE_ENV}"' in source

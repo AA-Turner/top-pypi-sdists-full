@@ -383,16 +383,14 @@ class KubeConfigLoader:
         config = Configuration()
 
         if 'idp-certificate-authority-data' in provider['config']:
-            ca_cert = tempfile.NamedTemporaryFile(delete=True)
-
             cert = base64.b64decode(
                 provider['config']['idp-certificate-authority-data']
             ).decode('utf-8')
 
-            with open(ca_cert.name, 'w') as fh:
-                fh.write(cert)
-
-            config.ssl_ca_cert = ca_cert.name
+            # Use the shared temp-file helper instead of reopening a
+            # NamedTemporaryFile by name, which fails with PermissionError
+            # on Windows while the original handle is still open.
+            config.ssl_ca_cert = _create_temp_file_with_content(cert)
 
         elif 'idp-certificate-authority' in provider['config']:
             config.ssl_ca_cert = provider['config']['idp-certificate-authority']
@@ -402,11 +400,12 @@ class KubeConfigLoader:
 
         client = ApiClient(configuration=config)
 
-        response = client.request(
+        response = client.call_api(
             method="GET",
             url="%s/.well-known/openid-configuration"
             % provider['config']['idp-issuer-url']
         )
+        response.read()
 
         if response.status != 200:
             return
@@ -524,6 +523,8 @@ class KubeConfigLoader:
             self.verify_ssl = not self._cluster['insecure-skip-tls-verify']
         if 'tls-server-name' in self._cluster:
             self.tls_server_name = self._cluster['tls-server-name']
+        if 'proxy-url' in self._cluster:
+            self.proxy = self._cluster['proxy-url']
 
     def _set_config(self, client_configuration):
         if 'token' in self.__dict__:
@@ -535,7 +536,8 @@ class KubeConfigLoader:
                 self._set_config(client_configuration)
             client_configuration.refresh_api_key_hook = _refresh_api_key
         # copy these keys directly from self to configuration object
-        keys = ['host', 'ssl_ca_cert', 'cert_file', 'key_file', 'verify_ssl','tls_server_name']
+        keys = ['host', 'ssl_ca_cert', 'cert_file', 'key_file', 'verify_ssl',
+                'tls_server_name', 'proxy']
         for key in keys:
             if key in self.__dict__:
                 setattr(client_configuration, key, getattr(self, key))

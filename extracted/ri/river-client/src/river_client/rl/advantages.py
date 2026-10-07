@@ -9,6 +9,15 @@ from .config import Truncation
 
 @dataclass(frozen=True)
 class GroupCentered:
+    """Subtract each reward group's mean before training.
+
+    Attributes:
+        standardize: ``False`` keeps centered rewards; ``True`` divides by
+            each group's standard deviation; ``"batch"`` divides all centered
+            rewards by their shared batch standard deviation.
+        eps: Lower bound on a standard deviation used for division.
+    """
+
     standardize: bool | str = False
     eps: float = 1e-8
 
@@ -45,6 +54,13 @@ class GroupCentered:
 
 @dataclass(frozen=True)
 class Batchwise:
+    """Subtract one mean across the complete training batch.
+
+    Attributes:
+        standardize: Divide by the batch standard deviation when true.
+        eps: Lower bound on that standard deviation.
+    """
+
     standardize: bool = False
     eps: float = 1e-8
 
@@ -95,6 +111,7 @@ def build_batch(
     max_staleness,
     defer_normalization=False,
     advantages=None,
+    include_loss_mask=False,
 ):
     if normalize not in {"token", "sequence", "batch", "sum"}:
         raise ValueError(
@@ -128,6 +145,9 @@ def build_batch(
             masks = traj.to_data(
                 1.0, current_step=current_step, max_staleness=max_staleness
             )
+            if include_loss_mask:
+                for datum, mask in zip(data, masks, strict=True):
+                    datum["loss_mask"] = mask["advantages"]
             n_tokens = sum(sum(d["advantages"]) for d in masks)
             if n_tokens:
                 records.append((data, n_tokens))
@@ -144,7 +164,8 @@ def build_batch(
         )
         for datum in data:
             datum["advantages"] = [a / denominator for a in datum["advantages"]]
-    data = [d for datums, count in records for d in datums if any(d["advantages"])]
+    signal = "loss_mask" if include_loss_mask else "advantages"
+    data = [d for datums, count in records for d in datums if any(d[signal])]
     flat_rewards = [t.reward for group in groups for t in group]
     flat = [t for group in groups for t in group]
     metrics = {
@@ -180,11 +201,16 @@ def build_batch(
 
 
 def decouple_ppo(data, proximal_logprobs, *, max_importance_weight: float):
-    """Exact reduction to River PPO with A' = A * pi_prox / pi_behavior.
+    """Correct PPO advantages for the policy used in an async update.
 
-    See AReaL's decoupled objective: https://areal-ai.io/docs/en/algorithms/async.html
-    Positive scaling commutes with PPO's min, preserving both advantage signs.
-    The declared cap is a truncated importance-sampling correction.
+    Scales each advantage by the proximal-to-behavior policy ratio, capped
+    by ``max_importance_weight``. See AReaL's decoupled objective:
+    https://areal-ai.io/docs/en/algorithms/async.html
+
+    Args:
+        data: Training records containing behavior logprobs and advantages.
+        proximal_logprobs: Logprobs from the policy used for this update.
+        max_importance_weight: Upper bound on the correction ratio.
     """
     if not np.isfinite(max_importance_weight) or max_importance_weight <= 0:
         raise ValueError("max_importance_weight must be finite and positive")

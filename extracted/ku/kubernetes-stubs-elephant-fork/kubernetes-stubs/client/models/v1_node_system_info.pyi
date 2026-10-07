@@ -13,10 +13,11 @@ class V1NodeSystemInfo:
     machine_id: str
     operating_system: str
     os_image: str
+    running_in_user_namespace: typing.Optional[bool]
     swap: typing.Optional[kubernetes.client.V1NodeSwapStatus]
     system_uuid: str
     
-    def __init__(self, *, architecture: str, boot_id: str, container_runtime_version: str, kernel_version: str, kube_proxy_version: str, kubelet_version: str, machine_id: str, operating_system: str, os_image: str, swap: typing.Optional[kubernetes.client.V1NodeSwapStatus] = ..., system_uuid: str) -> None:
+    def __init__(self, *, architecture: str, boot_id: str, container_runtime_version: str, kernel_version: str, kube_proxy_version: str, kubelet_version: str, machine_id: str, operating_system: str, os_image: str, running_in_user_namespace: typing.Optional[bool] = ..., swap: typing.Optional[kubernetes.client.V1NodeSwapStatus] = ..., system_uuid: str) -> None:
         ...
     def to_dict(self) -> V1NodeSystemInfoDict:
         ...
@@ -30,5 +31,6 @@ class V1NodeSystemInfoDict(typing.TypedDict, total=False):
     machineID: str
     operatingSystem: str
     osImage: str
+    runningInUserNamespace: typing.Optional[bool]
     swap: typing.Optional[kubernetes.client.V1NodeSwapStatusDict]
     systemUUID: str

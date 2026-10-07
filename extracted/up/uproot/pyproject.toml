@@ -21,13 +21,18 @@ extra = [
 test = [
   "aiohttp",
   "deflate",
+  "graphed[awkward,parquet]>=0.0.5; python_version >= '3.11'",
+  "graphed-executors>=0.0.3; python_version >= '3.11'",
   "isal",
   "moto[s3,server]",
   "paramiko",
+  "pytest-cov",
   "pytest-rerunfailures",
+  "pytest-xdist",
   "rangehttpserver",
   "requests",
   "s3fs",
+  "vector; python_version >= '3.11'",
   {include-group = "test-core"}
 ]
 test-core = [
@@ -205,4 +210,4 @@ write_to = "src/uproot/_version.py"
 
 [tool.uv]
 exclude-newer = "7 days"
-exclude-newer-package = {awkward = false, awkward-cpp = false, scikit-hep-testdata = false}
+exclude-newer-package = {awkward = false, awkward-cpp = false, scikit-hep-testdata = false, graphed = false, graphed-executors = false}

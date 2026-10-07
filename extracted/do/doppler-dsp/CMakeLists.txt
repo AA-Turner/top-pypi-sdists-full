@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(doppler VERSION 0.62.0 LANGUAGES C)
+project(doppler VERSION 0.63.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -1440,6 +1440,23 @@ if(TARGET stream_core_obj)
         VERSION   ${PROJECT_VERSION}
         SOVERSION ${DOPPLER_SOVERSION})
     set_target_properties(doppler_stream_static PROPERTIES EXPORT_NAME stream-static)
+    # An installed tree resolves its own siblings. libdoppler_stream NEEDs
+    # libdoppler.so.<series> and neither said where to look, so a consumer on a
+    # prefix that is on nobody's loader path (the release tarball, ~/.local)
+    # found libdoppler_stream through ITS rpath but not the core one level down:
+    # RUNPATH is not searched for a dependency's dependencies, and gcc on
+    # Debian/Ubuntu drops a -ldoppler the consumer never calls (--as-needed), so
+    # a pub/sub-only program died at start with `libdoppler.so.0.62: cannot open
+    # shared object file`. $ORIGIN (@loader_path on macOS) is the library's own
+    # directory, wherever the tree was extracted. Inert for a package install,
+    # where the core is on the default path anyway; the static form needs none.
+    if(APPLE)
+        set_target_properties(doppler_stream PROPERTIES
+                              INSTALL_RPATH "@loader_path")
+    elseif(NOT WIN32)
+        set_target_properties(doppler_stream PROPERTIES
+                              INSTALL_RPATH "$ORIGIN")
+    endif()
     # The stream component calls INTO the core: tlm_sink.c's dp_tlm_read
     # (telemetry_core) and stream_core.c's dp_stream_interrupt* wrappers
     # over the core's interrupt API (dp_interrupt, dp_resume, ...). The
@@ -1604,15 +1621,28 @@ install(FILES
 # Windows, where it stopped the configure outright.
 string(REGEX REPLACE "[^/]+" ".." DOPPLER_PC_TO_PREFIX
        "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
-configure_file(cmake/doppler.pc.in doppler.pc @ONLY)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/doppler.pc"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+# The .pc files are filled in when they are INSTALLED, not here: a system
+# prefix (/usr, the .deb/.rpm) and a relocatable one (the tarball, ~/.local)
+# want different files, and only the install knows which it is doing. See
+# cmake/install_pc.cmake. Same dev component the plain install(FILES) had.
+function(doppler_install_pc name)
+    install(CODE "
+        set(PC_NAME [[${name}.pc]])
+        set(PC_TEMPLATE [[${CMAKE_CURRENT_SOURCE_DIR}/cmake/${name}.pc.in]])
+        set(PC_TMPDIR [[${CMAKE_CURRENT_BINARY_DIR}/pc-install]])
+        set(PC_LIBDIR [[${CMAKE_INSTALL_LIBDIR}]])
+        set(PC_INCLUDEDIR [[${CMAKE_INSTALL_INCLUDEDIR}]])
+        set(PC_TO_PREFIX [[${DOPPLER_PC_TO_PREFIX}]])
+        set(PC_VERSION [[${PROJECT_VERSION}]])
+        set(PC_FEATURE_CFLAGS [[${DOPPLER_PC_FEATURE_CFLAGS}]])
+        include([[${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_pc.cmake]])
+    " COMPONENT dev)
+endfunction()
+doppler_install_pc(doppler)
 if(TARGET doppler_stream)
     # One pkg-config name for the whole streaming link line:
     # `pkg-config --cflags --libs doppler_stream` (Requires: doppler).
-    configure_file(cmake/doppler_stream.pc.in doppler_stream.pc @ONLY)
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/doppler_stream.pc"
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    doppler_install_pc(doppler_stream)
 endif()
 
 # ── App ───────────────────────────────────────────────────────────

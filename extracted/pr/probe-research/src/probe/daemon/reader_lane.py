@@ -289,6 +289,13 @@ class ReaderLane:
             return None
         if self.store.waiting_read_asks():
             return "ask"
+        paused = getattr(self.w, "paused", None)
+        if paused is not None and paused():
+            # The ML gate paused the daemon (not ML work): no unasked turn. The
+            # cursor follows the current turn's start, so an ask -- or the end of
+            # the pause -- reads this turn, never the paused backlog.
+            self._skip_to_turn_start()
+            return None
         events = self.store.events_between(self.cursor() + 1)[:READ_MAX_EVENTS]
         if not events:
             return None
@@ -297,6 +304,12 @@ class ReaderLane:
         if self.clock() - self.last_turn_at >= READ_EVERY_S:
             return "events"
         return None
+
+    def _skip_to_turn_start(self) -> None:
+        start = self.store.first_seq_of_turn(self.store.current_turn())
+        if start is not None and start - 1 > self.cursor():
+            with self.store.tx():
+                self.store.set_fact("read_cursor", start - 1)
 
     # -- a turn -----------------------------------------------------------------
     def _fingerprint(self, instructions: str) -> str:

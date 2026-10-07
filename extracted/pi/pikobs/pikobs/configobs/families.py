@@ -742,3 +742,79 @@ def level_summary(famille: str) -> str:
         return f"{famille}: {kind}, every observation on one level"
     except ValueError:
         return f"{famille}: {kind}, grouped by {expr}"
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A family outside the catalogue
+# ─────────────────────────────────────────────────────────────────────────────
+# Pikobs Web lets a user type a family the catalogue does not hold yet.
+# When the name is a family of the catalogue followed by '_' and anything
+# (ro_dbase, ai_qc: the names of a family along the chain), it is read with
+# that family's configuration -- the longest such family, so
+# to_amsua_allsky_dbase is to_amsua_allsky, not to_amsua. Any other name
+# is read with a generic configuration: every varno of the file (ELEM is the
+# column itself, so "varno IN (varno)" keeps every row in every module's
+# query), the vertical coordinate as it is, no vertical criterion. A typo is
+# still caught: the input check stops when the files <cycle>_<family> do not
+# exist. A name that is not a plain name is refused, since it ends up in
+# file names.
+
+import re as _re
+import sys as _sys
+
+_PLAIN_NAME = _re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.+-]*$')
+_GENERIC_SAID: set = set()
+_family_known = family
+_family_varnos_known = family_varnos
+
+
+def is_known_family(famille: str) -> bool:
+    """True when the family is in the catalogue."""
+    return str(famille).lower() in _BY_NAME
+
+
+def known_base(famille: str):
+    """The family of the catalogue a name stands for: the name itself, or the
+    longest family of the catalogue it starts with, followed by '_'
+    (ro_dbase -> ro); None when there is none."""
+    name = str(famille).lower()
+    if name in _BY_NAME:
+        return name
+    bases = [k for k in _BY_NAME if name.startswith(f"{k}_")]
+    return max(bases, key=len) if bases else None
+
+
+def family(famille: str) -> Tuple[str, str, str, str, str, str]:  # noqa: F811
+    """Configuration of a family: FAM, VCOORD, VCOCRIT, STATB, ELEM, VCOTYP.
+
+    A family outside the catalogue is read as the family of the catalogue
+    its name starts with (ro_dbase as ro), or else with the generic
+    configuration above; a name that is not a plain name raises ValueError.
+    """
+    if is_known_family(famille):
+        return _family_known(famille)
+    name = str(famille)
+    if not _PLAIN_NAME.match(name):
+        raise ValueError(f"invalid family name '{famille}'")
+    base = known_base(name)
+    if base is not None:
+        if name not in _GENERIC_SAID:
+            _GENERIC_SAID.add(name)
+            print(f"[pikobs] family '{name}' is not in the catalogue: read as "
+                  f"'{base}'", file=_sys.stderr, flush=True)
+        return _family_known(base)
+    if name not in _GENERIC_SAID:
+        _GENERIC_SAID.add(name)
+        print(f"[pikobs] family '{name}' is not in the catalogue: every varno "
+              f"of the file, vcoord as it is", file=_sys.stderr, flush=True)
+    return (name, 'vcoord', '', '', 'varno', '')
+
+
+def family_varnos(famille: str) -> List[int]:  # noqa: F811
+    """The varnos of a family; those of the family it stands for (ro_dbase:
+    ro), or [] -- every varno of the file -- when it stands for none."""
+    base = known_base(famille)
+    if base is None:
+        return []
+    return _family_varnos_known(base)

@@ -47,6 +47,11 @@ class RiverServiceStub(object):
                 request_serializer=river__pb2.GetServerCapabilitiesRequest.SerializeToString,
                 response_deserializer=river__pb2.GetServerCapabilitiesResponse.FromString,
                 _registered_method=True)
+        self.PrepareLoss = channel.unary_unary(
+                '/river.api.v1.RiverService/PrepareLoss',
+                request_serializer=river__pb2.PrepareLossRequest.SerializeToString,
+                response_deserializer=river__pb2.PrepareLossResponse.FromString,
+                _registered_method=True)
         self.CreateSession = channel.unary_unary(
                 '/river.api.v1.RiverService/CreateSession',
                 request_serializer=river__pb2.CreateSessionRequest.SerializeToString,

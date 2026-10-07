@@ -23,10 +23,13 @@ fn has_untemplated_newline(point: &ReflowPoint) -> bool {
         return false;
     }
     point.segments().iter().any(|segment| {
-        segment.is_type(SyntaxKind::Newline)
-            && (segment
+        (segment.is_type(SyntaxKind::Newline)
+            && segment
                 .get_position_marker()
                 .is_none_or(|position_marker| position_marker.is_literal()))
+            || (segment.is_type(SyntaxKind::Placeholder)
+                && segment.block_type() == Some(BlockType::Literal)
+                && segment.source_str().contains('\n'))
     })
 }
 
@@ -192,7 +195,16 @@ impl std::fmt::Display for IndentLine {
     }
 }
 
-fn revise_comment_lines(lines: &mut [IndentLine], elements: &ReflowSequenceType) {
+fn revise_comment_lines(
+    lines: &mut Vec<IndentLine>,
+    elements: &ReflowSequenceType,
+    ignore_comment_lines: bool,
+) {
+    if ignore_comment_lines {
+        lines.retain(|line| !line.is_all_comments(elements));
+        return;
+    }
+
     let mut comment_line_buffer = Vec::new();
     let mut changes = Vec::new();
 
@@ -563,10 +575,78 @@ fn revise_templated_lines(lines: &mut Vec<IndentLine>, elements: &ReflowSequence
     }
 }
 
+/// Align suppressed loop renderings with the rendered copies of the same
+/// source line. Otherwise a conditional trailing comma can alternate between
+/// two indentation depths on successive fix passes.
+fn revise_loop_repeated_lines(lines: &mut [IndentLine], elements: &ReflowSequenceType) {
+    let mut groups: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    for (idx, line) in lines.iter().enumerate() {
+        let Some(first_block) = line.blocks(elements).next() else {
+            continue;
+        };
+        let Some(marker) = first_block.segment().get_position_marker() else {
+            continue;
+        };
+        let source = &marker.source_slice;
+        groups
+            .entry((source.start, source.end))
+            .or_default()
+            .push(idx);
+    }
+
+    for group in groups.values() {
+        if group.len() < 2 {
+            continue;
+        }
+        let mut rendered = Vec::new();
+        let mut unrendered = Vec::new();
+        for &idx in group {
+            if lines[idx].is_all_templates(elements) {
+                unrendered.push(idx);
+            } else {
+                rendered.push(idx);
+            }
+        }
+        align_suppressed_loop_balances(lines, &rendered, &unrendered);
+    }
+}
+
+fn align_suppressed_loop_balances(
+    lines: &mut [IndentLine],
+    rendered: &[usize],
+    unrendered: &[usize],
+) {
+    if unrendered.is_empty() || rendered.is_empty() {
+        return;
+    }
+    let mut counts: HashMap<isize, usize> = HashMap::new();
+    for &idx in rendered {
+        *counts.entry(lines[idx].initial_indent_balance).or_default() += 1;
+    }
+    // Most common rendered balance, with the larger balance winning ties.
+    let target = counts
+        .into_iter()
+        .max_by_key(|(balance, count)| (*count, *balance))
+        .unwrap()
+        .0;
+    for &idx in unrendered {
+        lines[idx].initial_indent_balance = target;
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IndentUnit {
     Tab,
     Space(usize),
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum ImplicitIndents {
+    #[default]
+    Forbid,
+    Allow,
+    Require,
 }
 
 impl Default for IndentUnit {
@@ -641,7 +721,7 @@ fn update_crawl_balances(
 
 fn crawl_indent_points(
     elements: &ReflowSequenceType,
-    allow_implicit_indents: bool,
+    implicit_indents: ImplicitIndents,
 ) -> Vec<IndentPoint> {
     let mut acc = Vec::new();
 
@@ -659,7 +739,7 @@ fn crawl_indent_points(
             if !indent_stats.implicit_indents.is_empty() {
                 let mut unclosed_bracket = false;
 
-                if allow_implicit_indents
+                if implicit_indents != ImplicitIndents::Forbid
                     && elements[idx + 1]
                         .class_types()
                         .contains(SyntaxKind::StartBracket)
@@ -690,7 +770,7 @@ fn crawl_indent_points(
                     }
                 }
 
-                if unclosed_bracket || !allow_implicit_indents {
+                if unclosed_bracket || implicit_indents == ImplicitIndents::Forbid {
                     indent_stats.implicit_indents = Default::default();
                 }
             }
@@ -756,7 +836,10 @@ fn crawl_indent_points(
                 last_line_break_idx = idx.into();
             }
 
-            if elements[idx + 1].class_types().intersects(
+            // Delay indentation across comments and invisible template markers: neither
+            // represents source text that can be meaningfully indented before.
+            let next_element = &elements[idx + 1];
+            if next_element.class_types().intersects(
                 const {
                     &SyntaxSet::new(&[
                         SyntaxKind::Comment,
@@ -764,7 +847,9 @@ fn crawl_indent_points(
                         SyntaxKind::BlockComment,
                     ])
                 },
-            ) {
+            ) || (next_element.class_types().contains(SyntaxKind::Placeholder)
+                && next_element.segments()[0].source_str().is_empty())
+            {
                 cached_indent_stats = indent_stats.clone().into();
                 cached_point = indent_point.clone().into();
 
@@ -788,25 +873,34 @@ fn crawl_indent_points(
 
 fn map_line_buffers(
     elements: &ReflowSequenceType,
-    allow_implicit_indents: bool,
-) -> (Vec<IndentLine>, Vec<usize>) {
+    implicit_indents: ImplicitIndents,
+) -> (Vec<IndentLine>, Vec<usize>, HashSet<usize>) {
     let mut lines = Vec::new();
     let mut point_buffer = Vec::new();
     let mut previous_points = HashMap::new();
     let mut untaken_indent_locs = HashMap::new();
     let mut imbalanced_locs = Vec::new();
+    let mut implicit_indent_locs = HashSet::new();
 
-    for indent_point in crawl_indent_points(elements, allow_implicit_indents) {
+    for indent_point in crawl_indent_points(elements, implicit_indents) {
         point_buffer.push(indent_point.clone());
         previous_points.insert(indent_point.idx, indent_point.clone());
 
-        if !indent_point.is_line_break {
-            let indent_stats = elements[indent_point.idx]
-                .as_point()
-                .unwrap()
-                .indent_impulse();
+        let indent_stats = elements[indent_point.idx]
+            .as_point()
+            .unwrap()
+            .indent_impulse();
 
-            if (indent_stats.implicit_indents.is_empty() || !allow_implicit_indents)
+        if implicit_indents == ImplicitIndents::Require
+            && !indent_stats.implicit_indents.is_empty()
+            && indent_point.is_line_break
+        {
+            implicit_indent_locs.insert(indent_point.idx);
+        }
+
+        if !indent_point.is_line_break {
+            if (indent_stats.implicit_indents.is_empty()
+                || implicit_indents == ImplicitIndents::Forbid)
                 && indent_point.indent_impulse > indent_point.indent_trough
             {
                 untaken_indent_locs.insert(
@@ -887,7 +981,7 @@ fn map_line_buffers(
         lines.push(IndentLine::from_points(point_buffer));
     }
 
-    (lines, imbalanced_locs)
+    (lines, imbalanced_locs, implicit_indent_locs)
 }
 
 fn deduce_line_current_indent(
@@ -931,7 +1025,7 @@ fn deduce_line_current_indent(
     };
 
     if indent_seg.is_type(SyntaxKind::Placeholder) {
-        unimplemented!()
+        indent_seg.source_str().rsplit('\n').next().unwrap().into()
     } else if indent_seg.get_position_marker().is_none() || !indent_seg.is_templated() {
         indent_seg.raw().clone()
     } else {
@@ -945,6 +1039,7 @@ fn lint_line_starting_indent(
     indent_line: &IndentLine,
     single_indent: &str,
     forced_indents: &[usize],
+    starting_indent_compensation_spaces: usize,
 ) -> Vec<LintResult> {
     let indent_points = &indent_line.indent_points;
     // Set up the default anchor
@@ -956,9 +1051,11 @@ fn lint_line_starting_indent(
         deduce_line_current_indent(elements, indent_points.last().unwrap().last_line_break_idx);
     let initial_point = elements[initial_point_idx].as_point().unwrap();
     let desired_indent_units = indent_line.desired_indent_units(forced_indents);
-    let desired_starting_indent = desired_indent_units
-        .try_into()
-        .map_or(String::new(), |n| single_indent.repeat(n));
+    let desired_starting_indent = calculate_desired_starting_indent(
+        desired_indent_units,
+        single_indent,
+        starting_indent_compensation_spaces,
+    );
 
     if current_indent == desired_starting_indent {
         return Vec::new();
@@ -1032,16 +1129,53 @@ fn lint_line_starting_indent(
     new_results
 }
 
+fn calculate_desired_starting_indent(
+    desired_indent_units: isize,
+    single_indent: &str,
+    starting_indent_compensation_spaces: usize,
+) -> String {
+    let mut desired_starting_indent = desired_indent_units
+        .try_into()
+        .map_or(String::new(), |n| single_indent.repeat(n));
+
+    if starting_indent_compensation_spaces == 0 {
+        return desired_starting_indent;
+    }
+
+    // At indent level zero (for example, leading commas between top-level
+    // CTEs), there is no indentation to compensate. This is expected and
+    // should be a silent no-op rather than a warning.
+    if desired_indent_units == 0 {
+        log::debug!("No indentation at indent level zero. Skipping indentation compensation.");
+        return desired_starting_indent;
+    }
+
+    if desired_starting_indent.len() < starting_indent_compensation_spaces {
+        log::warn!(
+            "Not enough space to compensate indentation. Ignoring indentation compensation."
+        );
+        return desired_starting_indent;
+    }
+
+    log::debug!(
+        "Compensating the starting indent by {starting_indent_compensation_spaces} spaces."
+    );
+    desired_starting_indent
+        .truncate(desired_starting_indent.len() - starting_indent_compensation_spaces);
+    desired_starting_indent
+}
+
 fn lint_line_untaken_positive_indents(
     tables: &Tables,
     elements: &mut [ReflowElement],
     indent_line: &IndentLine,
     single_indent: &str,
     imbalanced_indent_locs: &[usize],
+    implicit_indent_locs: &HashSet<usize>,
 ) -> (Vec<LintResult>, Vec<usize>) {
     // First check whether this line contains any of the untaken problem points.
     for ip in &indent_line.indent_points {
-        if imbalanced_indent_locs.contains(&ip.idx) {
+        if imbalanced_indent_locs.contains(&ip.idx) && !implicit_indent_locs.contains(&ip.idx) {
             // Force it at the relevant position.
             let desired_indent = single_indent.repeat(
                 (ip.closing_indent_balance() - ip.untaken_indents.len() as isize).max(0) as usize,
@@ -1199,6 +1333,21 @@ fn lint_line_untaken_negative_indents(
             continue;
         }
 
+        // Template blocks can sit in unusual places in the parse tree. Do not
+        // introduce a forced line break immediately before one.
+        if elements.get(ip.idx + 1).is_some_and(|element| {
+            element.class_types().contains(SyntaxKind::Placeholder)
+                && element.segments().iter().any(|segment| {
+                    segment.is_type(SyntaxKind::Placeholder)
+                        && matches!(
+                            segment.block_type(),
+                            Some(BlockType::BlockStart | BlockType::BlockMid | BlockType::BlockEnd)
+                        )
+                })
+        }) {
+            continue;
+        }
+
         let desired_indent = single_indent.repeat(
             (ip.closing_indent_balance() - ip.untaken_indents.len() as isize
                 + forced_indents.len() as isize)
@@ -1221,13 +1370,19 @@ fn lint_line_untaken_negative_indents(
     results
 }
 
+struct LineIndentContext<'a> {
+    single_indent: &'a str,
+    imbalanced_indent_locs: &'a [usize],
+    starting_indent_compensation_spaces: usize,
+    implicit_indent_locs: &'a HashSet<usize>,
+}
+
 fn lint_line_buffer_indents(
     tables: &Tables,
     elements: &mut ReflowSequenceType,
     indent_line: IndentLine,
-    single_indent: &str,
     forced_indents: &mut Vec<usize>,
-    imbalanced_indent_locs: &[usize],
+    context: LineIndentContext<'_>,
 ) -> Vec<LintResult> {
     let mut results = Vec::new();
 
@@ -1235,8 +1390,9 @@ fn lint_line_buffer_indents(
         tables,
         elements,
         &indent_line,
-        single_indent,
+        context.single_indent,
         forced_indents,
+        context.starting_indent_compensation_spaces,
     );
     results.append(&mut new_results);
 
@@ -1244,8 +1400,9 @@ fn lint_line_buffer_indents(
         tables,
         elements,
         &indent_line,
-        single_indent,
-        imbalanced_indent_locs,
+        context.single_indent,
+        context.imbalanced_indent_locs,
+        context.implicit_indent_locs,
     );
 
     if !new_results.is_empty() {
@@ -1258,7 +1415,7 @@ fn lint_line_buffer_indents(
         tables,
         elements,
         &indent_line,
-        single_indent,
+        context.single_indent,
         forced_indents,
     ));
 
@@ -1267,14 +1424,64 @@ fn lint_line_buffer_indents(
     results
 }
 
+fn convert_newlines_to_spaces(
+    tables: &Tables,
+    elem_buffer: &ReflowSequenceType,
+    implicit_indent_locs: &HashSet<usize>,
+) -> Vec<LintResult> {
+    let mut results = Vec::new();
+
+    for &idx in implicit_indent_locs {
+        let Some(elem) = elem_buffer.get(idx).and_then(ReflowElement::as_point) else {
+            continue;
+        };
+
+        if elem.num_newlines() == 0 || elem.segments().is_empty() {
+            continue;
+        }
+
+        let mut replacement_segments = elem
+            .segments()
+            .iter()
+            .filter(|seg| seg.is_type(SyntaxKind::Implicit))
+            .cloned()
+            .collect_vec();
+        replacement_segments.push(SegmentBuilder::whitespace(tables.next_id(), " "));
+
+        let mut fixes = vec![LintFix::replace(
+            elem.segments()[0].clone(),
+            replacement_segments,
+            None,
+        )];
+        fixes.extend(elem.segments()[1..].iter().cloned().map(LintFix::delete));
+
+        results.push(LintResult::new(
+            elem.segments()[0].clone().into(),
+            fixes,
+            Some("Removed line break in favor of implicit indentation.".into()),
+            Some("reflow.indent.require_implicit".into()),
+        ));
+    }
+
+    results
+}
+
+pub struct IndentationExclusions<'a> {
+    pub indentation: &'a SyntaxSet,
+    pub implicit_indents: &'a SyntaxSet,
+}
+
 pub fn lint_indent_points(
     tables: &Tables,
     elements: ReflowSequenceType,
     single_indent: &str,
-    _skip_indentation_in: HashSet<String>,
-    allow_implicit_indents: bool,
+    exclusions: IndentationExclusions<'_>,
+    implicit_indents: ImplicitIndents,
+    ignore_comment_lines: bool,
+    indentation_align_following: &HashMap<SyntaxKind, usize>,
 ) -> (ReflowSequenceType, Vec<LintResult>) {
-    let (mut lines, imbalanced_indent_locs) = map_line_buffers(&elements, allow_implicit_indents);
+    let (mut lines, imbalanced_indent_locs, mut implicit_indent_locs) =
+        map_line_buffers(&elements, implicit_indents);
 
     let mut results = Vec::new();
     let mut elem_buffer = elements.clone();
@@ -1282,26 +1489,86 @@ pub fn lint_indent_points(
 
     revise_skipped_source_lines(&mut lines, &elements);
     revise_templated_lines(&mut lines, &elements);
-    revise_comment_lines(&mut lines, &elements);
+    revise_loop_repeated_lines(&mut lines, &elements);
+    revise_comment_lines(&mut lines, &elements, ignore_comment_lines);
+
+    lines.retain(|line| {
+        !line.blocks(&elements).any(|block| {
+            block
+                .depth_info()
+                .stack_class_types
+                .iter()
+                .any(|class_types| exclusions.indentation.intersects(class_types))
+        })
+    });
 
     for line in lines {
         if line.is_source_only_template_line(&elements) {
             continue;
         }
 
+        let starting_indent_compensation_spaces =
+            calculate_indent_compensation(&elements, &line, indentation_align_following);
+
         let line_results = lint_line_buffer_indents(
             tables,
             &mut elem_buffer,
             line,
-            single_indent,
             &mut forced_indents,
-            &imbalanced_indent_locs,
+            LineIndentContext {
+                single_indent,
+                imbalanced_indent_locs: &imbalanced_indent_locs,
+                starting_indent_compensation_spaces,
+                implicit_indent_locs: &implicit_indent_locs,
+            },
         );
 
         results.extend(line_results);
     }
 
+    if implicit_indents == ImplicitIndents::Require && !implicit_indent_locs.is_empty() {
+        implicit_indent_locs.retain(|idx| {
+            let Some(block) = elem_buffer.get(idx + 1).and_then(ReflowElement::as_block) else {
+                return true;
+            };
+
+            !block
+                .depth_info()
+                .stack_class_types
+                .iter()
+                .any(|class_types| exclusions.implicit_indents.intersects(class_types))
+        });
+
+        let mut implicit_results =
+            convert_newlines_to_spaces(tables, &elem_buffer, &implicit_indent_locs);
+        implicit_results.extend(results);
+        results = implicit_results;
+    }
+
     (elem_buffer, results)
+}
+
+fn calculate_indent_compensation(
+    elements: &ReflowSequenceType,
+    line: &IndentLine,
+    indentation_align_following: &HashMap<SyntaxKind, usize>,
+) -> usize {
+    let Some(block) = line.blocks(elements).next() else {
+        return 0;
+    };
+    let segment = block.segment();
+    let Some(spaces_after) = indentation_align_following.get(&segment.get_type()) else {
+        return 0;
+    };
+
+    let compensation = segment.raw().chars().count() + spaces_after;
+    log::debug!(
+        "Compensating line starting with {:?}: token width {}, following spaces {}.",
+        segment.get_type(),
+        segment.raw().chars().count(),
+        spaces_after
+    );
+    compensation
 }
 
 fn source_char_len(elements: &[ReflowElement]) -> usize {
@@ -1438,11 +1705,11 @@ fn match_indents(
     line_elements: ReflowSequenceType,
     rebreak_priorities: HashMap<usize, usize>,
     newline_idx: usize,
-    allow_implicit_indents: bool,
+    implicit_indents: ImplicitIndents,
 ) -> MatchedIndentsType {
     let mut balance = 0;
     let mut matched_indents: MatchedIndentsType = HashMap::new();
-    let mut implicit_indents = HashMap::new();
+    let mut implicit_indent_dict = HashMap::new();
 
     for (idx, e) in enumerate(&line_elements) {
         let ReflowElement::Point(point) = e else {
@@ -1455,7 +1722,7 @@ fn match_indents(
             (newline_idx as isize - line_elements.len() as isize + idx as isize + 1) as usize;
 
         if !indent_stats.implicit_indents.is_empty() {
-            implicit_indents.insert(e_idx, indent_stats.implicit_indents.clone());
+            implicit_indent_dict.insert(e_idx, indent_stats.implicit_indents.clone());
         }
 
         let nmi;
@@ -1474,7 +1741,7 @@ fn match_indents(
 
     matched_indents.retain(|_key, value| value != &[newline_idx]);
 
-    if allow_implicit_indents {
+    if implicit_indents != ImplicitIndents::Forbid {
         let keys: Vec<_> = matched_indents.keys().copied().collect();
         for indent_level in keys {
             let major_points: HashSet<_> = matched_indents[&indent_level]
@@ -1484,7 +1751,7 @@ fn match_indents(
                 .difference(&HashSet::from([newline_idx]))
                 .copied()
                 .collect::<HashSet<_>>()
-                .difference(&implicit_indents.keys().copied().collect::<HashSet<_>>())
+                .difference(&implicit_indent_dict.keys().copied().collect::<HashSet<_>>())
                 .copied()
                 .collect();
 
@@ -1579,10 +1846,12 @@ fn fix_long_line_with_comment(
     let prev_elems: Vec<ReflowElement>;
 
     if let Some(idx) = last_indent_idx {
-        new_point = ReflowPoint::new(vec![
-            SegmentBuilder::newline(tables.next_id(), "\n"),
-            SegmentBuilder::whitespace(tables.next_id(), current_indent),
-        ]);
+        // Always a newline, only whitespace if there's a non zero indent.
+        let mut new_segments = vec![SegmentBuilder::newline(tables.next_id(), "\n")];
+        if !current_indent.is_empty() {
+            new_segments.push(SegmentBuilder::whitespace(tables.next_id(), current_indent));
+        }
+        new_point = ReflowPoint::new(new_segments);
         prev_elems = elements[..=idx].to_vec();
 
         // Use the last segment of the indent point as anchor for create_after.
@@ -1718,13 +1987,31 @@ fn fix_long_line_with_integer_targets(
     line_results
 }
 
+fn is_templated_safe_break(elements: &[ReflowElement], e_idx: usize) -> bool {
+    let before_literal = e_idx == 0
+        || elements[e_idx - 1]
+            .segments()
+            .last()
+            .and_then(|segment| segment.get_position_marker())
+            .is_none_or(|position_marker| position_marker.is_literal());
+
+    let after_literal = e_idx + 1 >= elements.len()
+        || elements[e_idx + 1]
+            .segments()
+            .first()
+            .and_then(|segment| segment.get_position_marker())
+            .is_none_or(|position_marker| position_marker.is_literal());
+
+    before_literal || after_literal
+}
+
 pub fn lint_line_length(
     tables: &Tables,
     elements: &ReflowSequenceType,
     root_segment: &ErasedSegment,
     single_indent: &str,
     line_length_limit: usize,
-    allow_implicit_indents: bool,
+    implicit_indents: ImplicitIndents,
     trailing_comments: TrailingComments,
 ) -> (ReflowSequenceType, Vec<LintResult>) {
     if line_length_limit == 0 {
@@ -1782,7 +2069,7 @@ pub fn lint_line_length(
             let rebreak_priorities = rebreak_priorities(spans, combined_elements.len());
 
             let matched_indents =
-                match_indents(line_elements, rebreak_priorities, i, allow_implicit_indents);
+                match_indents(line_elements, rebreak_priorities, i, implicit_indents);
 
             let desc = format!("Line is too long ({line_len} > {line_length_limit}).");
 
@@ -1825,7 +2112,12 @@ pub fn lint_line_length(
                     target_breaks.remove(pos);
                 }
 
-                let line_results = if target_balance % 1.0 == 0.0 {
+                target_breaks.retain(|&e_idx| is_templated_safe_break(&elem_buffer, e_idx));
+
+                let line_results = if target_breaks.is_empty() {
+                    log::debug!("No safe templated break points found. Leaving line unmodified.");
+                    Vec::new()
+                } else if target_balance % 1.0 == 0.0 {
                     fix_long_line_with_integer_targets(
                         tables,
                         &mut elem_buffer,
@@ -1942,9 +2234,32 @@ impl Iterator for Range {
 mod tests {
     use pretty_assertions::assert_eq;
     use sqruff_lib::core::test_functions::parse_ansi_string;
+    use sqruff_lib_core::dialects::syntax::SyntaxKind;
+    use sqruff_lib_core::parser::segments::{BlockType, SegmentBuilder, TemplateInfo};
 
-    use super::{IndentLine, IndentPoint};
+    use super::{
+        ImplicitIndents, IndentLine, IndentPoint, align_suppressed_loop_balances,
+        calculate_desired_starting_indent, crawl_indent_points,
+    };
+    use crate::utils::reflow::config::ReflowConfig;
+    use crate::utils::reflow::depth_map::DepthInfo;
+    use crate::utils::reflow::elements::{ReflowBlock, ReflowPoint};
     use crate::utils::reflow::sequence::ReflowSequence;
+
+    #[test]
+    fn test_align_suppressed_loop_balances_prefers_rendered_majority_and_larger_ties() {
+        let mut lines = [1, 2, 2, 3, 0].map(|initial_indent_balance| IndentLine {
+            initial_indent_balance,
+            indent_points: Vec::new(),
+        });
+
+        align_suppressed_loop_balances(&mut lines, &[0, 1, 2, 3], &[4]);
+        assert_eq!(lines[4].initial_indent_balance, 2);
+
+        lines[4].initial_indent_balance = 0;
+        align_suppressed_loop_balances(&mut lines, &[0, 3], &[4]);
+        assert_eq!(lines[4].initial_indent_balance, 3);
+    }
 
     #[test]
     fn test_reflow_point_get_indent() {
@@ -1962,6 +2277,58 @@ mod tests {
 
             assert_eq!(indent_out, elem.get_indent().as_deref());
         }
+    }
+
+    #[test]
+    fn test_desired_starting_indent_compensation() {
+        assert_eq!(calculate_desired_starting_indent(1, "    ", 2), "  ");
+        assert_eq!(calculate_desired_starting_indent(1, "  ", 4), "  ");
+        assert_eq!(calculate_desired_starting_indent(1, "    ", 0), "    ");
+        assert_eq!(calculate_desired_starting_indent(0, "    ", 2), "");
+    }
+
+    #[test]
+    fn test_crawl_indent_points_delays_empty_source_template_placeholder() {
+        let config = ReflowConfig::default();
+        let depth_info = DepthInfo {
+            stack_depth: 0,
+            stack_hashes: Vec::new(),
+            stack_hash_set: Default::default(),
+            stack_class_types: Vec::new(),
+            stack_positions: Default::default(),
+        };
+        let block = |segment| ReflowBlock::from_config(segment, &config, depth_info.clone()).into();
+
+        let invisible_marker = SegmentBuilder::token(3, "", SyntaxKind::Placeholder)
+            .with_template_info(TemplateInfo {
+                block_type: BlockType::Templated,
+                block_uuid: None,
+                source_str: "".into(),
+                is_template: false,
+            })
+            .finish();
+
+        let elements = vec![
+            ReflowPoint::new(Vec::new()).into(),
+            block(SegmentBuilder::keyword(1, "SELECT")),
+            ReflowPoint::new(vec![
+                SegmentBuilder::token(2, "", SyntaxKind::Indent).finish(),
+            ])
+            .into(),
+            block(invisible_marker),
+            ReflowPoint::new(Vec::new()).into(),
+            block(SegmentBuilder::keyword(4, "1")),
+            ReflowPoint::new(Vec::new()).into(),
+            block(SegmentBuilder::token(5, "", SyntaxKind::EndOfFile).finish()),
+        ];
+
+        let points = crawl_indent_points(&elements, ImplicitIndents::Forbid);
+        let point_impulses = points
+            .iter()
+            .map(|point| (point.idx, point.indent_impulse))
+            .collect::<Vec<_>>();
+
+        assert_eq!(point_impulses, vec![(0, 0), (2, 0), (4, 1), (6, 0)]);
     }
 
     #[test]
@@ -2111,5 +2478,70 @@ mod tests {
                 v.desc()
             );
         }
+    }
+
+    #[test]
+    fn test_skip_indentation_in_with_comma_whitespace() {
+        use crate::core::config::FluffConfig;
+        use crate::core::linter::core::Linter;
+
+        let sql = "SELECT\n1\n";
+        let mut default_linter = Linter::new(
+            FluffConfig::from_source("[sqruff]\nrules = LT02\n", None),
+            None,
+            None,
+            true,
+        )
+        .unwrap();
+        assert!(
+            !default_linter
+                .lint_string_wrapped(sql, false)
+                .unwrap()
+                .violations()
+                .is_empty()
+        );
+
+        let config = FluffConfig::from_source(
+            "[sqruff]\nrules = LT02\n\
+             [sqruff:indentation]\nskip_indentation_in = script_content, statement\n",
+            None,
+        );
+        let mut configured_linter = Linter::new(config, None, None, true).unwrap();
+
+        assert!(
+            configured_linter
+                .lint_string_wrapped(sql, false)
+                .unwrap()
+                .violations()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn test_rf01_lt09_segment_copy_isolation() {
+        use crate::core::config::FluffConfig;
+        use crate::core::linter::core::Linter;
+
+        let config = FluffConfig::from_source(
+            r#"
+[sqruff]
+dialect = mysql
+rules = RF01,LT09
+"#,
+            None,
+        );
+        let mut linter = Linter::new(config, None, None, true).unwrap();
+        let linted = linter
+            .lint_string_wrapped("SELECT\n    DISTINCT `FIELD`\nFROM `TABLE`;\n", false)
+            .unwrap();
+
+        assert!(
+            linted
+                .violations()
+                .iter()
+                .all(|violation| !violation.desc().contains("Unexpected exception"))
+        );
+        assert_eq!(linted.violations().len(), 1);
+        assert_eq!(linted.violations()[0].rule_code(), "LT09");
     }
 }

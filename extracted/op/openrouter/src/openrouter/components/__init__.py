@@ -964,7 +964,7 @@ if TYPE_CHECKING:
         BulkUnassignMembersResponse,
         BulkUnassignMembersResponseTypedDict,
     )
-    from .byokkey import BYOKKey, BYOKKeyTypedDict
+    from .byokkey import BYOKKey, BYOKKeyDeclaredRegion, BYOKKeyTypedDict
     from .byokproviderslug import BYOKProviderSlug
     from .capabilitydescriptor import (
         CapabilityDescriptor,
@@ -1400,6 +1400,7 @@ if TYPE_CHECKING:
     from .costdetails import CostDetails, CostDetailsTypedDict
     from .createbyokkeyrequest import (
         CreateBYOKKeyRequest,
+        CreateBYOKKeyRequestDeclaredRegion,
         CreateBYOKKeyRequestTypedDict,
     )
     from .createbyokkeyresponse import (
@@ -3826,6 +3827,7 @@ if TYPE_CHECKING:
         ShellServerToolEnvironment,
         ShellServerToolEnvironmentTypedDict,
     )
+    from .speechinput import SpeechInput, SpeechInputTypedDict
     from .speechinputreference import (
         SpeechInputReference,
         SpeechInputReferenceTypedDict,
@@ -3861,6 +3863,7 @@ if TYPE_CHECKING:
         SpeechRequestResponseFormat,
         SpeechRequestTypedDict,
     )
+    from .speechturn import SpeechTurn, SpeechTurnTypedDict
     from .stopservertoolswhencondition import (
         StopServerToolsWhenCondition,
         StopServerToolsWhenConditionTypedDict,
@@ -4106,6 +4109,7 @@ if TYPE_CHECKING:
     )
     from .updatebyokkeyrequest import (
         UpdateBYOKKeyRequest,
+        UpdateBYOKKeyRequestDeclaredRegion,
         UpdateBYOKKeyRequestTypedDict,
     )
     from .updatebyokkeyresponse import (
@@ -4775,6 +4779,7 @@ __all__ = [
     "AutoRouterPluginTypedDict",
     "BYOK",
     "BYOKKey",
+    "BYOKKeyDeclaredRegion",
     "BYOKKeyTypedDict",
     "BYOKProviderSlug",
     "BadGatewayResponseErrorData",
@@ -5291,6 +5296,7 @@ __all__ = [
     "CostDetails",
     "CostDetailsTypedDict",
     "CreateBYOKKeyRequest",
+    "CreateBYOKKeyRequestDeclaredRegion",
     "CreateBYOKKeyRequestTypedDict",
     "CreateBYOKKeyResponse",
     "CreateBYOKKeyResponseTypedDict",
@@ -7015,6 +7021,7 @@ __all__ = [
     "SourceContent",
     "SourceContentTypedDict",
     "SourceType",
+    "SpeechInput",
     "SpeechInputReference",
     "SpeechInputReferenceAudio",
     "SpeechInputReferenceAudioInput",
@@ -7030,12 +7037,15 @@ __all__ = [
     "SpeechInputReferenceTextType",
     "SpeechInputReferenceTextTypedDict",
     "SpeechInputReferenceTypedDict",
+    "SpeechInputTypedDict",
     "SpeechRequest",
     "SpeechRequestDataCollection",
     "SpeechRequestProvider",
     "SpeechRequestProviderTypedDict",
     "SpeechRequestResponseFormat",
     "SpeechRequestTypedDict",
+    "SpeechTurn",
+    "SpeechTurnTypedDict",
     "Speed",
     "Stance",
     "StanceTypedDict",
@@ -7323,6 +7333,7 @@ __all__ = [
     "UnprocessableEntityResponseErrorData",
     "UnprocessableEntityResponseErrorDataTypedDict",
     "UpdateBYOKKeyRequest",
+    "UpdateBYOKKeyRequestDeclaredRegion",
     "UpdateBYOKKeyRequestTypedDict",
     "UpdateBYOKKeyResponse",
     "UpdateBYOKKeyResponseTypedDict",
@@ -8157,6 +8168,7 @@ _dynamic_imports: dict[str, str] = {
     "BulkUnassignMembersResponse": ".bulkunassignmembersresponse",
     "BulkUnassignMembersResponseTypedDict": ".bulkunassignmembersresponse",
     "BYOKKey": ".byokkey",
+    "BYOKKeyDeclaredRegion": ".byokkey",
     "BYOKKeyTypedDict": ".byokkey",
     "BYOKProviderSlug": ".byokproviderslug",
     "CapabilityDescriptor": ".capabilitydescriptor",
@@ -8465,6 +8477,7 @@ _dynamic_imports: dict[str, str] = {
     "CostDetails": ".costdetails",
     "CostDetailsTypedDict": ".costdetails",
     "CreateBYOKKeyRequest": ".createbyokkeyrequest",
+    "CreateBYOKKeyRequestDeclaredRegion": ".createbyokkeyrequest",
     "CreateBYOKKeyRequestTypedDict": ".createbyokkeyrequest",
     "CreateBYOKKeyResponse": ".createbyokkeyresponse",
     "CreateBYOKKeyResponseTypedDict": ".createbyokkeyresponse",
@@ -10283,6 +10296,8 @@ _dynamic_imports: dict[str, str] = {
     "ShellServerToolEngine": ".shellservertoolengine",
     "ShellServerToolEnvironment": ".shellservertoolenvironment",
     "ShellServerToolEnvironmentTypedDict": ".shellservertoolenvironment",
+    "SpeechInput": ".speechinput",
+    "SpeechInputTypedDict": ".speechinput",
     "SpeechInputReference": ".speechinputreference",
     "SpeechInputReferenceTypedDict": ".speechinputreference",
     "SpeechInputReferenceAudio": ".speechinputreferenceaudio",
@@ -10304,6 +10319,8 @@ _dynamic_imports: dict[str, str] = {
     "SpeechRequestProviderTypedDict": ".speechrequest",
     "SpeechRequestResponseFormat": ".speechrequest",
     "SpeechRequestTypedDict": ".speechrequest",
+    "SpeechTurn": ".speechturn",
+    "SpeechTurnTypedDict": ".speechturn",
     "StopServerToolsWhenCondition": ".stopservertoolswhencondition",
     "StopServerToolsWhenConditionTypedDict": ".stopservertoolswhencondition",
     "StopServerToolsWhenFinishReasonIs": ".stopservertoolswhenfinishreasonis",
@@ -10480,6 +10497,7 @@ _dynamic_imports: dict[str, str] = {
     "UnprocessableEntityResponseErrorData": ".unprocessableentityresponseerrordata",
     "UnprocessableEntityResponseErrorDataTypedDict": ".unprocessableentityresponseerrordata",
     "UpdateBYOKKeyRequest": ".updatebyokkeyrequest",
+    "UpdateBYOKKeyRequestDeclaredRegion": ".updatebyokkeyrequest",
     "UpdateBYOKKeyRequestTypedDict": ".updatebyokkeyrequest",
     "UpdateBYOKKeyResponse": ".updatebyokkeyresponse",
     "UpdateBYOKKeyResponseTypedDict": ".updatebyokkeyresponse",

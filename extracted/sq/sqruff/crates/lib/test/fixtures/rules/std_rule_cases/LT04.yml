@@ -281,6 +281,12 @@ leading_comma_move_past_several_comment_lines:
           line_position: leading
 
 leading_comma_with_templated_column_1:
+  # Requires the jinja templater to render the `{{ ... }}` column. Under the raw
+  # templater the literal `{{ ... }}` is trailing unparsable content after the
+  # last select target, so following SQLFluff #5294 (which relocates the select
+  # clause Dedent inside the select_clause) the Dedent lands before that content
+  # and the comma is no longer rebroken.
+  ignored: "requires jinja templater"
   fail_str: |
     SELECT
         c1,
@@ -368,3 +374,65 @@ trailing_comma_fix_mixed_indent:
       type:
         comma:
           line_position: leading
+
+trailing_comma_no_space_comment:
+  fail_str: |
+    SELECT a--comment
+        , b
+    FROM t
+  fix_str: |
+    SELECT a,--comment
+        b
+    FROM t
+
+trailing_comma_strict_tsql_exec:
+  # trailing:strict moves a mid-line comma to the end of the line.
+  # (This T-SQL EXEC input previously raised NotImplementedError.)
+  fail_str: |
+    EXEC admin.usp_update_default_dimension_member
+        @schema = 'dbo', @table = 'dim_territory';
+  fix_str: |
+    EXEC admin.usp_update_default_dimension_member
+        @schema = 'dbo',
+        @table = 'dim_territory';
+  configs:
+    core:
+      dialect: tsql
+    layout:
+      type:
+        comma:
+          line_position: trailing:strict
+
+leading_comma_align_following_pass:
+  # Ensure leading:align-following doesn't crash on comma placement.
+  pass_str: |
+    select
+        a
+        , b
+        , c
+    from foo
+  configs:
+    layout:
+      type:
+        comma:
+          line_position: "leading:align-following"
+
+leading_comma_align_following_fail:
+  # Trailing commas should be fixed to leading with align-following.
+  fail_str: |
+    select
+        a,
+        b,
+        c
+    from foo
+  fix_str: |
+    select
+        a
+        , b
+        , c
+    from foo
+  configs:
+    layout:
+      type:
+        comma:
+          line_position: "leading:align-following"

@@ -526,6 +526,128 @@ class TestEosAclsModule(TestEosModule):
         )
         self.execute_module(changed=False, commands=[], filename="eos_acls_idempotent.cfg")
 
+    def test_eos_acls_replaced_multi_acl_ordering(self):
+        """Test that state:replaced puts ACEs under the correct ACL when a new
+        ACL sorts alphabetically before an existing ACL (issue #643)."""
+        set_module_args(
+            dict(
+                config=[
+                    dict(
+                        afi="ipv4",
+                        acls=[
+                            dict(
+                                name="aaa-new-acl",
+                                aces=[
+                                    dict(
+                                        sequence="10",
+                                        grant="permit",
+                                        protocol="ip",
+                                        source=dict(any="true"),
+                                        destination=dict(any="true"),
+                                    ),
+                                ],
+                            ),
+                            dict(
+                                name="existing-acl",
+                                aces=[
+                                    dict(
+                                        sequence="10",
+                                        grant="deny",
+                                        protocol="ip",
+                                        source=dict(any="true"),
+                                        destination=dict(any="true"),
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+                state="replaced",
+            ),
+        )
+        commands = [
+            "ip access-list existing-acl",
+            "no 10",
+            "10 deny ip any any",
+            "ip access-list aaa-new-acl",
+            "10 permit ip any any",
+        ]
+        self.execute_module(
+            changed=True,
+            commands=commands,
+            sort=False,
+            filename="eos_acls_replaced_multi.cfg",
+        )
+
+    def test_eos_acls_replaced_ordering(self):
+        """Test that state:replaced preserves correct command ordering even
+        when sort=False (existing test used sorted comparison)."""
+        set_module_args(
+            dict(
+                config=[
+                    dict(
+                        afi="ipv4",
+                        acls=[
+                            dict(
+                                name="test1",
+                                aces=[
+                                    dict(
+                                        sequence="10",
+                                        grant="permit",
+                                        protocol="ospf",
+                                        source=dict(
+                                            subnet_address="30.2.0.0/8",
+                                        ),
+                                        destination=dict(any="true"),
+                                        log="true",
+                                    ),
+                                    dict(
+                                        sequence="20",
+                                        grant="permit",
+                                        protocol="ospf",
+                                        source=dict(
+                                            subnet_address="40.2.0.0/8",
+                                        ),
+                                        destination=dict(
+                                            any="true",
+                                            port_protocol=dict(eq="50000"),
+                                        ),
+                                        log="true",
+                                    ),
+                                ],
+                            ),
+                            dict(
+                                name="test3",
+                                aces=[
+                                    dict(
+                                        sequence="50",
+                                        grant="permit",
+                                        protocol="ospf",
+                                        source=dict(
+                                            subnet_address="70.2.0.0/8",
+                                        ),
+                                        destination=dict(any="true"),
+                                        log="true",
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+                state="replaced",
+            ),
+        )
+        commands = [
+            "ip access-list test1",
+            "no 35",
+            "no 45",
+            "10 permit ospf 30.2.0.0/8 any log",
+            "20 permit ospf 40.2.0.0/8 any eq 50000 log",
+            "ip access-list test3",
+            "50 permit ospf 70.2.0.0/8 any log",
+        ]
+        self.execute_module(changed=True, commands=commands, sort=False)
+
     def test_eos_acls_gathered(self):
         set_module_args(dict(config=[], state="gathered"))
         result = self.execute_module(

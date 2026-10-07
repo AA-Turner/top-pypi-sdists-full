@@ -1,16 +1,29 @@
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping
-from typing import Any
+from collections.abc import (
+    Callable,
+    ItemsView,
+    Iterable,
+    Iterator,
+    KeysView,
+    Mapping,
+    ValuesView,
+)
+from typing import Any, Self, cast, overload
 
-_dict_setitem = dict.__setitem__
-_dict_getitem = dict.__getitem__
-_dict_delitem = dict.__delitem__
-_dict_contains = dict.__contains__
-_dict_setdefault = dict.setdefault
-_dict_items = dict.items
-_dict_values = dict.values
+_dict_setitem = cast("Callable[[Headers, str, _StoredEntry], None]", dict.__setitem__)
+_dict_getitem = cast("Callable[[Headers, str], _StoredEntry]", dict.__getitem__)
+_dict_delitem = cast("Callable[[Headers, str], None]", dict.__delitem__)
+_dict_contains = cast("Callable[[Headers, str], bool]", dict.__contains__)
+_dict_setdefault = cast("Callable[[Headers, str, _StoredEntry], _StoredEntry]", dict.setdefault)
+_dict_items = cast("Callable[[Headers], ItemsView[str, _StoredEntry]]", dict.items)
+_dict_values = cast("Callable[[Headers], ValuesView[_StoredEntry]]", dict.values)
 
 
-class Headers(dict):
+# the raw storage: per lowercased field the (original field, value) pair,
+# or the list of the pairs of a multi line field
+_StoredEntry = tuple[str, str] | list[tuple[str, str]]
+
+
+class Headers(dict[str, _StoredEntry]):
     """
     :param headers:
         An iterable of field-value pairs.
@@ -35,8 +48,14 @@ class Headers(dict):
     of matching header fields and .add() and .extend() for appending header
     lines instead of overwriting them.
 
-    Note: b"asdf" and "asdf" are separate things. This class tries not to
-    enforce the one or the other.
+    A list or tuple value is stored as one field line per element (RFC 9110
+    section 5.2): ``Headers({'X-Multi': ['a', 'b']})`` sends
+    ``X-Multi: a`` and ``X-Multi: b`` as two lines, which recipients combine
+    to ``a, b`` (section 5.3). It never ends up on the wire as a Python
+    ``str`` of the list.
+
+    Field names and values are plain str: the parser decodes the bytes of
+    the wire as latin-1, and bytes passed in here are not handled.
 
     >>> headers = Headers()
     >>> headers.add('Set-Cookie', 'foo=bar')
@@ -52,8 +71,8 @@ class Headers(dict):
 
     def __init__(
         self,
-        headers: "Headers | Mapping[str, Any] | Iterable[tuple[str, Any]] | None" = None,
-        **kwargs: Any,
+        headers: "Headers | Mapping[str, str | list[str] | tuple[str, ...]] | Iterable[tuple[str, str]] | None" = None,
+        **kwargs: str,
     ) -> None:
         dict.__init__(self)
         if headers is not None:
@@ -64,19 +83,26 @@ class Headers(dict):
         if kwargs:
             self.extend(kwargs)
 
-    def __setitem__(self, field: str | bytes, value: Any) -> None:
-        return _dict_setitem(self, field.lower(), (field, value))
+    # the raw storage takes tuples and lists of tuples, the public surface
+    # only takes and speaks str
+    def __setitem__(self, field: str, value: str | list[str] | tuple[str, ...]) -> None:  # type: ignore[override]
+        field_lower = field.lower()
+        if isinstance(value, (list, tuple)):
+            # one field line per element, see the class docstring
+            _dict_setitem(self, field_lower, [(field, item) for item in value])
+            return
+        return _dict_setitem(self, field_lower, (field, value))
 
-    def __getitem__(self, field: str | bytes) -> Any:
+    def __getitem__(self, field: str) -> str | list[str]:  # type: ignore[override]
         vals = _dict_getitem(self, field.lower())
         if isinstance(vals, tuple):
             return vals[1]
         return [val[1] for val in vals]
 
-    def __delitem__(self, field: str | bytes) -> None:
+    def __delitem__(self, field: str) -> None:
         return _dict_delitem(self, field.lower())
 
-    def __contains__(self, field: str | bytes) -> bool:  # type: ignore[override]
+    def __contains__(self, field: str) -> bool:  # type: ignore[override]
         return _dict_contains(self, field.lower())
 
     def __eq__(self, other: object) -> bool:
@@ -89,12 +115,22 @@ class Headers(dict):
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    # MutableMapping.values dispatches through self[field] and therefore returns
-    # the header values instead of the raw stored field/value tuples.
-    values = MutableMapping.values  # type: ignore[assignment]
-    keys = MutableMapping.keys  # type: ignore[assignment]
+    # Both views dispatch through our accessors: values() reads the decoded
+    # header values instead of the raw stored field/value tuples, and the keys
+    # view keeps the case-insensitive membership of "field in headers".
+    def values(self) -> ValuesView[str | list[str]]:  # type: ignore[override]
+        return ValuesView(self)
 
-    def get(self, field: str | bytes, default: Any = None) -> Any:
+    def keys(self) -> KeysView[str]:  # type: ignore[override]
+        return KeysView(self)
+
+    @overload  # type: ignore[override]
+    def get(self, field: str) -> str | list[str] | None: ...
+
+    @overload
+    def get(self, field: str, default: str) -> str | list[str]: ...
+
+    def get(self, field: str, default: str | None = None) -> str | list[str] | None:
         try:
             return self[field]
         except KeyError:
@@ -102,7 +138,18 @@ class Headers(dict):
 
     __marker = object()
 
-    def pop(self, field: str | bytes, default: Any = __marker) -> Any:
+    @overload  # type: ignore[override]
+    def pop(self, field: str) -> str | list[str]: ...
+
+    @overload
+    def pop(self, field: str, default: str) -> str | list[str]: ...
+
+    @overload
+    def pop(self, field: str, default: str | list[str] | None) -> str | list[str] | None: ...
+
+    def pop(
+        self, field: str, default: str | list[str] | None | object = __marker
+    ) -> str | list[str] | None:
         """D.pop(field[,default]) -> value, remove specified field and return the corresponding value.
         If field is not found, d is returned if given, otherwise KeyError is raised.
         """
@@ -114,25 +161,50 @@ class Headers(dict):
         except KeyError:
             if default is self.__marker:
                 raise
-            return default
+            return default  # type: ignore[return-value]
         del self[field]
         return value
 
-    def discard(self, field: str | bytes) -> None:
+    def discard(self, field: str) -> None:
         try:
             del self[field]
         except KeyError:
             pass
 
-    def add(self, field: str | bytes, value: Any) -> None:
+    def setdefault(self, field: str, default: str = "") -> str | list[str]:  # type: ignore[override]
+        """dict.setdefault, but reading and writing through the accessors,
+        so the key is lowercased and the default is a header value."""
+        try:
+            return self[field]
+        except KeyError:
+            self[field] = default
+            return default
+
+    def __or__(self, other: Any) -> "Headers":  # type: ignore[override]
+        merged = self.copy()
+        merged.update(other)
+        return merged
+
+    def __ior__(self, other: Any) -> Self:  # type: ignore[override]
+        self.update(other)
+        return self
+
+    def add(self, field: str, value: str | list[str] | tuple[str, ...]) -> None:
         """Add a (field, value) pair without overwriting the value if it already
         exists.
+
+        A list or tuple value is added as one field line per element, in
+        order, after any existing lines of the field.
 
         >>> headers = Headers(foo='bar')
         >>> headers.add('Foo', 'baz')
         >>> headers['foo']
         'bar, baz'
         """
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                self.add(field, item)
+            return
         field_lower = field.lower()
         new_vals = field, value
         # Keep the common case aka no item present as fast as possible
@@ -148,7 +220,7 @@ class Headers(dict):
             else:
                 raise TypeError("invalid vals stored")
 
-    def extend(self, *args: Any, **kwargs: Any) -> None:
+    def extend(self, *args: Any, **kwargs: str) -> None:
         """Generic import function for any type of header-like object.
         Adapted version of MutableMapping.update in order to insert items
         with self.add instead of self.__setitem__
@@ -170,7 +242,7 @@ class Headers(dict):
         for field, value in kwargs.items():
             self.add(field, value)
 
-    def update(self, *args: Any, **kwargs: Any) -> None:
+    def update(self, *args: Any, **kwargs: str) -> None:  # type: ignore[override]
         """Generic import function for any type of header-like object.
         Adapted version of MutableMapping.update in order to overwrite items
         while preserving case-sensitive header fields.
@@ -180,8 +252,11 @@ class Headers(dict):
         other = args[0] if len(args) >= 1 else ()
 
         if isinstance(other, type(self)):
-            for field, value in other.items():
-                self[field] = value
+            for field in other:
+                # copy the raw storage entry: items() yields multi line fields
+                # line by line, and the per-line overwrite would keep only the
+                # last line of the field
+                _dict_setitem(self, field, _dict_getitem(other, field))
         elif isinstance(other, Mapping) or hasattr(other, "keys"):
             for field in other:
                 self[field] = other[field]
@@ -192,7 +267,7 @@ class Headers(dict):
         for field, value in kwargs.items():
             self[field] = value
 
-    def getlist(self, field: str | bytes) -> list[Any]:
+    def getlist(self, field: str) -> list[str]:
         """Returns a list of all the values for the named field. Returns an
         empty list if the field doesn't exist.
         """
@@ -204,7 +279,13 @@ class Headers(dict):
             return [vals[1]]
         return [val[1] for val in vals]
 
-    def get_all(self, field: str | bytes, failobj: Any = None) -> Any:
+    @overload
+    def get_all(self, field: str) -> list[str] | None: ...
+
+    @overload
+    def get_all(self, field: str, failobj: str) -> list[str]: ...
+
+    def get_all(self, field: str, failobj: str | None = None) -> list[str] | str | None:
         values = self.getlist(field)
         if not values:
             return failobj
@@ -235,7 +316,7 @@ class Headers(dict):
         """
         return "\n".join(f"{field}: {value}" for field, value in self.items())
 
-    def itermerged(self) -> Iterator[tuple[Any, Any]]:
+    def itermerged(self) -> Iterator[tuple[str, str]]:
         """Iterate over all headers, merging lines with duplicate header
         fields together into one item. The case of the first header field
         is preserved.
@@ -244,18 +325,16 @@ class Headers(dict):
             if isinstance(vals, tuple):
                 yield vals
             else:
-                # this should preserve either binary or string type
-                sep = ", " if isinstance(vals[0][0], str) else b", "
-                yield vals[0][0], sep.join(val[1] for val in vals)
+                yield vals[0][0], ", ".join(val[1] for val in vals)
 
-    def compatible_dict(self) -> dict[Any, Any]:
+    def compatible_dict(self) -> dict[str, str]:
         """Create a dictionary. Header lines with duplicate field names are
         merged into one line. This can be used for exchange with other
         libraries.
         """
         return dict(self.itermerged())
 
-    def iterlower(self) -> Iterator[tuple[str, Any]]:
+    def iterlower(self) -> Iterator[tuple[str, str]]:
         """Iterate over all header lines, including duplicate ones.
         The header fields are all lowered.
         """
@@ -266,7 +345,7 @@ class Headers(dict):
                 for val in vals:
                     yield field, val[1]
 
-    def items(self) -> Iterator[tuple[str, Any]]:  # type: ignore[override]
+    def items(self) -> Iterator[tuple[str, str]]:  # type: ignore[override]
         """Iterate over all header lines, including duplicate ones."""
         for field, vals in _dict_items(self):
             if isinstance(vals, tuple):
@@ -278,24 +357,23 @@ class Headers(dict):
     getheaders = getlist
     getallmatchingheaders = getlist
 
-    def iteroriginal(self) -> Iterator[tuple[str, Any]]:
-        import warnings
 
-        warnings.warn(
-            "This is deprecated and will be removed in version v2.3.0. "
-            "Use Headers.items() instead.",
-            DeprecationWarning,
-            2,
-        )
-        return self.items()
+# the header input the request surfaces accept: our own multimap or any
+# plain mapping with str fields and str or str list values
+HeadersDataType = Headers | Mapping[str, str | list[str]]
 
-    def iget(self, field: str | bytes) -> list[tuple[str | bytes, Any]]:
-        import warnings
 
-        warnings.warn(
-            "This is deprecated and will be removed in version v2.3.0. "
-            "Use Headers.getlist() instead.",
-            DeprecationWarning,
-            2,
-        )
-        return self.getlist(field)
+def parse_content_type_charset(content_type: str) -> str | None:
+    """Extract the charset parameter of a Content-Type header value.
+
+    Returns None when the header carries no (or an empty) charset. The
+    parameter name match is case-insensitive, surrounding whitespace and
+    quotes are stripped; the returned codec name is lowercased, codec lookups
+    are case-insensitive anyway.
+    """
+    for parameter in content_type.split(";"):
+        parameter = parameter.strip().lower()
+        if parameter.startswith("charset="):
+            charset = parameter[len("charset=") :].strip().strip("\"'")
+            return charset or None
+    return None

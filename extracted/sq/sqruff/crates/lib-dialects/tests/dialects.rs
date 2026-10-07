@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use configparser::ini::Ini;
@@ -10,12 +11,37 @@ use sqruff_lib_core::dialects::Dialect;
 use sqruff_lib_core::dialects::init::DialectKind;
 use sqruff_lib_core::dialects::syntax::SyntaxKind;
 use sqruff_lib_core::helpers;
-use sqruff_lib_core::parser::Parser;
+use sqruff_lib_core::helpers::ToMatchable;
+use sqruff_lib_core::parser::context::ParseContext;
 use sqruff_lib_core::parser::lexer::Lexer;
+use sqruff_lib_core::parser::match_algorithms::{
+    skip_start_index_forward_to_code, skip_stop_index_backward_to_code, trim_to_terminator,
+};
+use sqruff_lib_core::parser::parsers::StringParser;
 use sqruff_lib_core::parser::segments::{ErasedSegment, Tables};
+use sqruff_lib_core::parser::{IndentationConfig, Parser};
 use sqruff_lib_core::value::Value;
 use sqruff_lib_dialects::kind_to_dialect;
 use strum::IntoEnumIterator;
+
+fn absolute_path(path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        path
+    } else {
+        std::env::current_dir().unwrap().join(path)
+    }
+}
+
+fn manifest_dir() -> PathBuf {
+    if let Some(manifest) = std::env::var_os("SQRUFF_TEST_MANIFEST") {
+        return absolute_path(PathBuf::from(manifest))
+            .parent()
+            .unwrap()
+            .to_path_buf();
+    }
+
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
 
 fn check_no_unparsable_segments(tree: &ErasedSegment) -> Vec<String> {
     tree.recursive_crawl_all(false)
@@ -87,28 +113,24 @@ fn known_missing_references(dialect: DialectKind) -> &'static [&'static str] {
     match dialect {
         DialectKind::Bigquery => &[
             "ACTION",
-            "ASSIGNMENT",
             "BEFORE",
+            "CATALOG",
             "CONSTRUCTOR",
             "DEFERRABLE",
             "DEFERRED",
             "EACH",
+            "FORMATS",
             "FUNCTIONS",
-            "IMMEDIATE",
             "INITIALLY",
             "INSTANCE",
             "INSTEAD",
-            "MATCH",
             "METHOD",
-            "NEXT",
             "OLD",
-            "ONLY",
-            "PARTIAL",
+            "POLICIES",
             "PROCEDURES",
             "REFERENCING",
             "ROUTINES",
             "SEQUENCES",
-            "SIMPLE",
             "SPECIFIC",
             "STAGES",
             "STATEMENT",
@@ -119,10 +141,8 @@ fn known_missing_references(dialect: DialectKind) -> &'static [&'static str] {
             "VIEWS",
         ],
         DialectKind::Duckdb | DialectKind::Greenplum | DialectKind::Postgres => &["EXECUTION"],
-        DialectKind::Materialize => &["EXECUTION", "VARIADIC"],
         DialectKind::Oracle => &[
             "AUTHENTICATION",
-            "CREDENTIAL",
             "EXCEPTIONS",
             "HASH",
             "METADATA",
@@ -133,25 +153,33 @@ fn known_missing_references(dialect: DialectKind) -> &'static [&'static str] {
         ],
         DialectKind::Redshift => &[
             "ALLOW_CONNECTIONS",
+            "COMMUTATOR",
+            "CORRELATION",
             "DEPENDENCIES",
+            "FORMATS",
+            "HASHES",
             "ICU",
             "IS_TEMPLATE",
             "LC_COLLATE",
             "LC_CTYPE",
+            "LEFTARG",
             "LIBC",
             "LOCALE",
             "MCV",
+            "MERGES",
             "NDISTINCT",
+            "NEGATOR",
             "PERMISSIVE",
+            "POLICIES",
             "PROVIDER",
             "RESTRICTIVE",
+            "RIGHTARG",
             "SKIP_LOCKED",
             "SUMMARY",
             "TIMING",
             "WAL",
         ],
         DialectKind::Snowflake => &[
-            "ACTION",
             "ASSIGNMENT",
             "CONSTRUCTOR",
             "EACH",
@@ -160,24 +188,23 @@ fn known_missing_references(dialect: DialectKind) -> &'static [&'static str] {
             "METHOD",
             "NEW",
             "OLD",
-            "PARTIAL",
-            "QuotedLiteralGrammar",
             "REFERENCING",
-            "SIMPLE",
             "SPECIFIC",
             "STATIC",
         ],
-        DialectKind::Sqlite => &[
-            "BINDING", "DATA", "INTERVAL", "MATCHED", "PARTIAL", "SCHEMA", "SIMPLE",
-        ],
+        DialectKind::Sqlite => &["BINDING", "DATA", "MATCHED", "PARTIAL", "SCHEMA", "SIMPLE"],
+        // Inherited MySQL reference absent from the upstream Doris keyword sets.
+        DialectKind::Doris => &["OPTIMIZER_COSTS"],
         DialectKind::Starrocks => &["BITMAP", "OPTIMIZER_COSTS"],
         DialectKind::Trino => &["BINDING", "LANGUAGE", "RETURNS"],
         _ => &[],
     }
 }
 
-fn validate_dialect_reference_baseline() {
-    for dialect_kind in DialectKind::iter() {
+fn validate_dialect_reference_baseline(arg_dialect: Option<DialectKind>) {
+    for dialect_kind in
+        DialectKind::iter().filter(|dialect| arg_dialect.is_none_or(|arg| arg == *dialect))
+    {
         let Some(dialect) = kind_to_dialect(&dialect_kind, None) else {
             continue;
         };
@@ -202,16 +229,15 @@ fn validate_dialect_reference_baseline() {
     }
 }
 
-fn main() {
-    validate_dialect_reference_baseline();
+#[test]
+fn dialects() {
+    // Set SQRUFF_TEST_DIALECT to run the fixtures for a single dialect.
+    let arg_dialect = std::env::var("SQRUFF_TEST_DIALECT").ok().map(|dialect| {
+        DialectKind::from_str(&dialect)
+            .unwrap_or_else(|_| panic!("unknown dialect in SQRUFF_TEST_DIALECT: {dialect}"))
+    });
 
-    let args = std::env::args().skip(1).collect::<Vec<String>>();
-
-    let mut arg_dialect = None;
-
-    if args.len() == 1 {
-        arg_dialect = Some(DialectKind::from_str(&args[0]).unwrap());
-    }
+    validate_dialect_reference_baseline(arg_dialect);
 
     let dialects = DialectKind::iter()
         .filter(|dialect| arg_dialect.is_none() || &arg_dialect.unwrap() == dialect)
@@ -220,7 +246,7 @@ fn main() {
     println!("{dialects:?}");
 
     // list folders in the dialects directory
-    let dialects_dir = std::path::Path::new("test/fixtures/dialects");
+    let dialects_dir = manifest_dir().join("test/fixtures/dialects");
     let dialects_dirs = dialects_dir
         .read_dir()
         .unwrap()
@@ -231,7 +257,7 @@ fn main() {
             }
             Some(entry.unwrap().path())
         })
-        .collect::<HashSet<std::path::PathBuf>>();
+        .collect::<HashSet<PathBuf>>();
     println!("{dialects_dirs:?}");
 
     // check if all dialects have a corresponding folder
@@ -252,8 +278,11 @@ fn main() {
             continue;
         }
 
-        let path = format!("test/fixtures/dialects/{dialect_name}/*/*.sql");
-        let files = glob::glob(&path).unwrap().flatten().collect_vec();
+        let path = dialects_dir.join(dialect_name).join("*").join("*.sql");
+        let files = glob::glob(path.to_str().unwrap())
+            .unwrap()
+            .flatten()
+            .collect_vec();
         let dialects_by_fixture_dir = files
             .iter()
             .map(|file| file.parent().unwrap())
@@ -279,7 +308,11 @@ fn main() {
                 let tables = Tables::default();
                 let dialect = dialects_by_fixture_dir.get(file.parent().unwrap()).unwrap();
                 let lexer = Lexer::from(dialect);
-                let parser = Parser::from(dialect);
+                let parser = if file.ends_with("ansi/sqlfluff/expression_recursion.sql") {
+                    Parser::new_with_max_parse_depth(dialect, IndentationConfig::default(), 2000)
+                } else {
+                    Parser::from(dialect)
+                };
                 let tokens = lexer.lex(&tables, sql);
                 assert!(tokens.1.is_empty());
 
@@ -296,12 +329,551 @@ fn main() {
                     );
                 }
 
-                let tree = tree.to_serialised(true, true);
+                let tree = tree.to_serialised(true, true, false, false);
 
                 serde_yaml::to_string(&tree).unwrap()
             };
 
             expect_file![yaml].assert_eq(&actual);
         });
+    }
+}
+
+#[test]
+fn sparksql_set_config_values() {
+    for dialect_kind in [DialectKind::Sparksql, DialectKind::Databricks] {
+        let dialect = kind_to_dialect(&dialect_kind, None).unwrap();
+        let tables = Tables::default();
+        let lexer = Lexer::from(&dialect);
+        let parser = Parser::from(&dialect);
+
+        for (sql, expected_value) in [
+            ("SET c_date = CURRENT_DATE();", "CURRENT_DATE()"),
+            (
+                "SET path = s3a://bucket/path/to/data;",
+                "s3a://bucket/path/to/data",
+            ),
+            ("SET key = a-b;", "a-b"),
+            (
+                "SET spark.sql.sources.partitionOverwriteMode = dynamic,static;",
+                "dynamic,static",
+            ),
+            ("SET key = foo bar;", "foo bar"),
+            ("SET key = values;", "values"),
+            ("SET key = comment;", "comment"),
+            ("SET key = declare;", "declare"),
+        ] {
+            let (tokens, lex_errors) = lexer.lex(&tables, sql);
+            assert!(lex_errors.is_empty(), "{dialect_kind:?}: {sql}");
+            let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+            assert!(
+                check_no_unparsable_segments(&tree).is_empty(),
+                "{dialect_kind:?}: {sql}"
+            );
+            let values = tree
+                .recursive_crawl_all(false)
+                .into_iter()
+                .filter(|segment| segment.is_type(SyntaxKind::SetConfigValue))
+                .map(|segment| segment.raw().to_string())
+                .collect::<Vec<_>>();
+            assert_eq!(values, [expected_value], "{dialect_kind:?}: {sql}");
+        }
+
+        let sql = "SET key = 200; DROP TABLE t;";
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{dialect_kind:?}: {sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(
+            check_no_unparsable_segments(&tree).is_empty(),
+            "{dialect_kind:?}: {sql}"
+        );
+        let values = tree
+            .recursive_crawl_all(false)
+            .into_iter()
+            .filter(|segment| segment.is_type(SyntaxKind::SetConfigValue))
+            .map(|segment| segment.raw().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(values, ["200"], "{dialect_kind:?}: {sql}");
+    }
+}
+
+#[test]
+fn bigquery_cast_as_float_is_unparsable() {
+    let dialect = kind_to_dialect(&DialectKind::Bigquery, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+    let (tokens, lex_errors) = lexer.lex(&tables, "SELECT CAST('4.0' AS FLOAT)");
+
+    assert!(lex_errors.is_empty());
+
+    let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+    assert!(
+        !check_no_unparsable_segments(&tree).is_empty(),
+        "BigQuery only supports FLOAT64, so FLOAT must not parse as a data type",
+    );
+}
+
+#[test]
+fn bigquery_semi_structured_wildcard_is_terminal() {
+    let dialect = kind_to_dialect(&DialectKind::Bigquery, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "SELECT x.y.*.z FROM t",
+        "SELECT results[0].*.z FROM t",
+        "SELECT testFunction(a).b.*.z FROM t",
+        "SELECT testFunction(a).*.z FROM t",
+        "SELECT testFunction(a)[0].b.*.z FROM t",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn bigquery_semi_structured_wildcard_accepts_except_replace() {
+    let dialect = kind_to_dialect(&DialectKind::Bigquery, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "SELECT results[0].* FROM t",
+        "SELECT results[0].* EXCEPT (cola) FROM t",
+        "SELECT results[0].* REPLACE (1 AS cola) FROM t",
+        "SELECT s.arr[0].field.* EXCEPT (cola) FROM t",
+        "SELECT testFunction(a).b.* FROM t",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn clickhouse_regexp_rejects_not_and_escape() {
+    let dialect = kind_to_dialect(&DialectKind::Clickhouse, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "SELECT 'string' NOT REGEXP '[0-9]'",
+        "SELECT 'string' REGEXP '[0-9]' ESCAPE '|'",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn databricks_materialized_view_rejects_invalid_constraint_order() {
+    let dialect = kind_to_dialect(&DialectKind::Databricks, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "CREATE MATERIALIZED VIEW bad_mv (CONSTRAINT c EXPECT (value > 0), value INT) AS SELECT 1 AS value;",
+        "CREATE MATERIALIZED VIEW bad_mv (value INT, CONSTRAINT pk PRIMARY KEY (value), CONSTRAINT c EXPECT (value > 0)) AS SELECT 1 AS value;",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn teradata_rejects_duplicate_data_type_attributes() {
+    let dialect = kind_to_dialect(&DialectKind::Teradata, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "CREATE TABLE t (c VARCHAR(10) UPPERCASE UPPERCASE);",
+        "CREATE TABLE t (c VARCHAR(10) CHARACTER SET LATIN CHARACTER SET UNICODE);",
+        "CREATE TABLE t (c VARCHAR(10) CS NOT CS);",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn mysql_rejects_mariadb_alter_table_conditions() {
+    let dialect = kind_to_dialect(&DialectKind::Mysql, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "ALTER TABLE t DROP INDEX IF EXISTS idx;",
+        "ALTER TABLE t ADD INDEX IF NOT EXISTS idx (a);",
+        "ALTER TABLE t ALTER KEY IF EXISTS idx NOT IGNORED;",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn redshift_rejects_postgres_merge_extensions() {
+    let dialect = kind_to_dialect(&DialectKind::Redshift, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN DO NOTHING;",
+        "MERGE INTO t USING s ON t.id = s.id WHEN NOT MATCHED THEN DO NOTHING;",
+        "MERGE INTO t USING s ON t.id = s.id WHEN NOT MATCHED BY TARGET THEN INSERT VALUES (s.id);",
+        "MERGE INTO t USING s ON t.id = s.id WHEN NOT MATCHED BY SOURCE THEN DELETE;",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn mariadb_delete_history_rejects_delete_modifiers() {
+    let dialect = kind_to_dialect(&DialectKind::Mariadb, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "DELETE LOW_PRIORITY HISTORY FROM t BEFORE SYSTEM_TIME '2020-01-01';",
+        "DELETE QUICK HISTORY FROM t BEFORE SYSTEM_TIME '2020-01-01';",
+        "DELETE IGNORE HISTORY FROM t BEFORE SYSTEM_TIME '2020-01-01';",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn mariadb_sequence_value_for_requires_for_and_sequence_name() {
+    let dialect = kind_to_dialect(&DialectKind::Mariadb, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in ["SELECT NEXT VALUE OF s;", "SELECT NEXT VALUE FOR;"] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn snowflake_materialized_view_rejects_invalid_cluster_and_unset_tag() {
+    let dialect = kind_to_dialect(&DialectKind::Snowflake, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "CREATE MATERIALIZED VIEW mv CLUSTER BY a AS SELECT a FROM t;",
+        "ALTER MATERIALIZED VIEW mv UNSET TAG my_tag = 'old value';",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn ansi_partial_greedy_select_preserves_keyword() {
+    let dialect = kind_to_dialect(&DialectKind::Ansi, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+    let (tokens, lex_errors) = lexer.lex(&tables, "SELECT CASE");
+
+    assert!(lex_errors.is_empty());
+
+    let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+    let segments = tree.recursive_crawl_all(false);
+    assert!(segments.iter().any(|segment| {
+        segment.raw().eq_ignore_ascii_case("SELECT") && segment.is_type(SyntaxKind::Keyword)
+    }));
+    assert!(
+        segments
+            .iter()
+            .any(|segment| segment.is_type(SyntaxKind::Unparsable))
+    );
+}
+
+#[test]
+fn stray_closing_bracket_aborts_greedy_terminator_search() {
+    for (dialect_kind, sql, terminator) in [
+        (DialectKind::Ansi, "SELECT 1) FROM t", "FROM"),
+        (
+            DialectKind::Ansi,
+            "SELECT a FROM t) UNION SELECT c",
+            "UNION",
+        ),
+        (DialectKind::Snowflake, "SELECT 1 -} FROM t", "FROM"),
+    ] {
+        let dialect = kind_to_dialect(&dialect_kind, None).unwrap();
+        let tables = Tables::default();
+        let lexer = Lexer::from(&dialect);
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+
+        let mut context = ParseContext::new(&dialect, IndentationConfig::default());
+        let term = StringParser::new(terminator, SyntaxKind::Keyword).to_matchable();
+        let stop = trim_to_terminator(&tokens, 0, &[term], &mut context).unwrap();
+        assert_eq!(
+            stop,
+            skip_stop_index_backward_to_code(&tokens, tokens.len() as u32, 0),
+            "{sql}"
+        );
+    }
+
+    let dialect = kind_to_dialect(&DialectKind::Ansi, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let (tokens, lex_errors) = lexer.lex(&tables, "SELECT (1) FROM t");
+    assert!(lex_errors.is_empty());
+    let mut context = ParseContext::new(&dialect, IndentationConfig::default());
+    let from = StringParser::new("FROM", SyntaxKind::Keyword).to_matchable();
+    let stop = trim_to_terminator(&tokens, 0, &[from], &mut context).unwrap();
+    let next_code = skip_start_index_forward_to_code(&tokens, stop, tokens.len() as u32);
+    assert_eq!(tokens[next_code as usize].raw(), "FROM");
+}
+
+#[test]
+fn greedy_bracketed_unparsable_excludes_trailing_trivia() {
+    let dialect = kind_to_dialect(&DialectKind::Ansi, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "SELECT a FROM t WHERE a IN (1, )",
+        "SELECT a FROM t WHERE a IN (1, -- trailing comment\n)",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        let unparsable = tree
+            .recursive_crawl_all(false)
+            .into_iter()
+            .find(|segment| segment.is_type(SyntaxKind::Unparsable))
+            .unwrap_or_else(|| panic!("expected an unparsable segment: {sql}"));
+        assert!(unparsable.raw().contains(','), "{sql}");
+        assert_eq!(unparsable.raw().trim_end(), unparsable.raw(), "{sql}");
+        assert!(!unparsable.raw().contains("--"), "{sql}");
+    }
+}
+
+#[test]
+fn ansi_mismatched_bracket_reports_unexpected_closer() {
+    let dialect = kind_to_dialect(&DialectKind::Ansi, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+    let (tokens, lex_errors) = lexer.lex(&tables, "SELECT a[)");
+    assert!(lex_errors.is_empty());
+
+    let error = parser.parse(&tables, &tokens).unwrap_err();
+    assert!(
+        error.description.contains("Found unexpected end bracket"),
+        "{error}"
+    );
+    assert_eq!(error.segment.unwrap().raw(), ")");
+
+    let (tokens, lex_errors) = lexer.lex(&tables, "SELECT a[");
+    assert!(lex_errors.is_empty());
+    let error = parser.parse(&tables, &tokens).unwrap_err();
+    assert!(
+        error.description.contains("Couldn't find closing bracket"),
+        "{error}"
+    );
+}
+
+#[test]
+fn ansi_and_hive_reject_trailing_comma_after_final_cte() {
+    for dialect_kind in [DialectKind::Ansi, DialectKind::Hive] {
+        let dialect = kind_to_dialect(&dialect_kind, None).unwrap();
+        let tables = Tables::default();
+        let lexer = Lexer::from(&dialect);
+        let parser = Parser::from(&dialect);
+        let (tokens, lex_errors) =
+            lexer.lex(&tables, "WITH cte AS (SELECT 1 AS x),\nSELECT x FROM cte;");
+
+        assert!(lex_errors.is_empty());
+
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(
+            !check_no_unparsable_segments(&tree).is_empty(),
+            "{} must reject a trailing comma after the final CTE",
+            dialect_kind.as_ref(),
+        );
+    }
+}
+
+#[test]
+fn mysql_family_rejects_schema_qualified_dual() {
+    for dialect_kind in [DialectKind::Mysql, DialectKind::Mariadb] {
+        let dialect = kind_to_dialect(&dialect_kind, None).unwrap();
+        let tables = Tables::default();
+        let lexer = Lexer::from(&dialect);
+        let parser = Parser::from(&dialect);
+        let (tokens, lex_errors) = lexer.lex(&tables, "SELECT 1 FROM schema.DUAL");
+
+        assert!(lex_errors.is_empty());
+
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(
+            !check_no_unparsable_segments(&tree).is_empty(),
+            "{} must not accept schema-qualified DUAL",
+            dialect_kind.as_ref(),
+        );
+    }
+}
+
+#[test]
+fn tsql_cursor_rejects_disallowed_select_clauses() {
+    let dialect = kind_to_dialect(&DialectKind::Tsql, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "DECLARE cur_into CURSOR FOR SELECT 1 INTO dbo.t;",
+        "DECLARE cur_browse CURSOR FOR SELECT 1 FOR BROWSE;",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(
+            !check_no_unparsable_segments(&tree).is_empty(),
+            "cursor must reject disallowed SELECT clause: {sql}",
+        );
+    }
+}
+
+#[test]
+fn tsql_cursor_accepts_json_and_xml_for_clauses() {
+    let dialect = kind_to_dialect(&DialectKind::Tsql, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "DECLARE cur_json CURSOR FOR SELECT 1 FOR JSON AUTO;",
+        "DECLARE cur_xml CURSOR FOR SELECT 1 FOR XML AUTO;",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(
+            check_no_unparsable_segments(&tree).is_empty(),
+            "cursor should accept a SELECT with FOR JSON/XML: {sql}",
+        );
+    }
+}
+
+#[test]
+fn oracle_rejects_duplicate_physical_attributes() {
+    let dialect = kind_to_dialect(&DialectKind::Oracle, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for sql in [
+        "CREATE TABLE t (c NUMBER) PCTFREE 10 PCTFREE 20;",
+        "CREATE TABLE t (c NUMBER) PCTUSED 40 PCTUSED 60;",
+        "CREATE TABLE t (c NUMBER) INITRANS 2 INITRANS 4;",
+        "CREATE TABLE t (c NUMBER) MAXTRANS 255 MAXTRANS 100;",
+        "CREATE TABLE t (c NUMBER) LOGGING NOLOGGING;",
+        "CREATE TABLE t (c NUMBER) MONITORING NOMONITORING;",
+        "CREATE TABLE t (c NUMBER) ROWDEPENDENCIES NOROWDEPENDENCIES;",
+        "CREATE TABLE t (c NUMBER) CACHE NOCACHE;",
+        "CREATE TABLE t (c NUMBER) STORAGE (INITIAL 256K INITIAL 512K);",
+        "CREATE TABLE t (c NUMBER) STORAGE (NEXT 64K NEXT 128K);",
+        "CREATE TABLE t (c NUMBER) STORAGE (MAXEXTENTS 100 MAXEXTENTS 200);",
+        "CREATE TABLE t (c NUMBER) STORAGE (PCTINCREASE 0 PCTINCREASE 10);",
+        "CREATE TABLE t (c NUMBER) STORAGE (BUFFER_POOL DEFAULT BUFFER_POOL KEEP);",
+        "CREATE TABLE t (c NUMBER) INMEMORY PRIORITY LOW PRIORITY HIGH;",
+        "CREATE INDEX i ON t (c) PCTFREE 10 PCTFREE 20;",
+        "CREATE INDEX i ON t (c) LOGGING NOLOGGING;",
+        "CREATE INDEX i ON t (c) NOSORT REVERSE;",
+        "CREATE INDEX i ON t (c) VISIBLE INVISIBLE;",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(
+            !check_no_unparsable_segments(&tree).is_empty(),
+            "expected duplicate or mutually exclusive Oracle attributes to be rejected: {sql}",
+        );
+    }
+}
+
+#[test]
+fn bracketed_matching_modes() {
+    use sqruff_lib_core::helpers::ToMatchable;
+    use sqruff_lib_core::parser::context::ParseContext;
+    use sqruff_lib_core::parser::grammar::sequence::Bracketed;
+    use sqruff_lib_core::parser::matchable::MatchableTrait;
+    use sqruff_lib_core::parser::parsers::StringParser;
+    use sqruff_lib_core::parser::types::ParseMode;
+
+    let dialect = kind_to_dialect(&DialectKind::Ansi, None).unwrap();
+    for (sql, mode, gaps, content, expected) in [
+        ("(a", ParseMode::Strict, true, true, 0),
+        ("(a", ParseMode::Greedy, true, true, -1),
+        ("( )", ParseMode::Greedy, false, false, -1),
+        ("( )", ParseMode::Strict, false, false, 0),
+        ("(a)", ParseMode::Strict, true, true, 1),
+        ("( a )", ParseMode::Strict, true, true, 1),
+        ("(a b)", ParseMode::Strict, true, true, 0),
+        ("(a b)", ParseMode::Greedy, true, true, 1),
+    ] {
+        let tables = Tables::default();
+        let (segments, errors) = Lexer::from(&dialect).lex(&tables, sql);
+        assert!(errors.is_empty());
+        let elements = if content {
+            vec![StringParser::new("a", SyntaxKind::Keyword).to_matchable()]
+        } else {
+            vec![]
+        };
+        let mut grammar = Bracketed::new(elements).allow_gaps(gaps);
+        grammar.parse_mode(mode);
+        let mut context = ParseContext::new(&dialect, Default::default());
+        let result = grammar.match_segments(&segments, 0, &mut context);
+        match expected {
+            -1 => assert!(result.is_err(), "{sql}: {result:?}"),
+            0 => assert!(!result.unwrap().has_match(), "{sql}"),
+            _ => {
+                let result = result.unwrap();
+                assert!(result.has_match(), "{sql}");
+                assert_eq!(result.span.end, segments.len() as u32 - 1, "{sql}");
+            }
+        }
     }
 }

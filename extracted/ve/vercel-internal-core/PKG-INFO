@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: vercel-internal-core
-Version: 0.2.0
+Version: 0.2.1
 Summary: Shared internal runtime for Vercel Python packages
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
-Requires-Dist: anyio<5,>=4.0.0
+Requires-Dist: anyio<5,>=4.11.0
 Requires-Dist: httpx2>=2
 Requires-Dist: typing-extensions<5,>=4.6.0; python_version < '3.12'
 Description-Content-Type: text/markdown

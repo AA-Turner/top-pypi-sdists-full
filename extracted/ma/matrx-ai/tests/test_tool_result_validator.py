@@ -35,7 +35,7 @@ from matrx_ai.tools.models import ToolError, ToolOutputContractError, ToolResult
 
 class TestToolOutputValidatorRejectsStringifiedStructures:
     def test_python_repr_of_error_envelope_is_rejected(self):
-        """The exact bug from the 2026-05-16 usertable_create incident."""
+        """The exact bug from the 2026-05-16 table-create incident (the old create tool)."""
         error_dict = {
             "error": "column \"authenticated_read\" does not exist",
             "success": False,

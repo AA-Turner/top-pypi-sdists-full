@@ -30,6 +30,12 @@ from ansible_collections.vmware.vmware.plugins.module_utils.facts._converters im
     flatten_dict
 )
 
+try:
+    from pyVmomi import vmodl
+except ImportError:
+    # Already handled in base class
+    pass
+
 
 DISPLAY = Display()
 
@@ -60,7 +66,7 @@ class VmwareInventoryHost(ABC):
         return host
 
     @classmethod
-    def create_from_vcenter_object(cls, vmware_object, properties_to_gather, pyvmomi_client, prop_set=None):
+    def create_from_vcenter_object(cls, vmware_object, properties_to_gather, pyvmomi_client, prop_set=None, gather_path=True):
         """
         Create the class from a vCenter object reference.
 
@@ -69,7 +75,8 @@ class VmwareInventoryHost(ABC):
         """
         host = cls()
         host.object = vmware_object
-        host.path = get_folder_path_of_vsphere_object(vmware_object)
+        if gather_path:
+            host.path = get_folder_path_of_vsphere_object(vmware_object)
         host._set_inventory_properties(properties_to_gather, pyvmomi_client, prop_set)
         return host
 
@@ -82,7 +89,8 @@ class VmwareInventoryHost(ABC):
             self.properties = properties_from_collector(prop_set)
         else:
             self.properties = vmware_obj_to_json(self.object, properties_to_gather)
-        self.properties['path'] = self.path
+        if self.path:
+            self.properties['path'] = self.path
         self.properties['moid'] = self.object._GetMoId()
         self._add_custom_values_to_properties(properties_to_gather, pyvmomi_client)
 
@@ -113,6 +121,14 @@ class VmwareInventoryHost(ABC):
 
 
 class VmwareInventoryBase(BaseInventoryPlugin, Constructable, Cacheable):
+
+    @property
+    def vim_class(self):
+        raise NotImplementedError("Inventory plugin classes must define the vim_class property.")
+
+    @property
+    def rest_class(self):
+        raise NotImplementedError("Inventory plugin classes must define the rest_class property.")
 
     def parse(self, inventory, loader, path, cache=True):
         """
@@ -307,19 +323,48 @@ class VmwareInventoryBase(BaseInventoryPlugin, Constructable, Cacheable):
 
         return results
 
-    def iter_inventory_sources(self, vim_type, properties_to_gather):
+    def iter_inventory_sources(self, properties_to_gather):
         """
         Yield (vmware_object, prop_set) pairs for inventory construction.
 
         prop_set is None when all properties should be read from the object.
         """
         if properties_to_gather:
-            for obj_content in self.get_property_collector_results_by_type(vim_type, properties_to_gather):
+            for obj_content in self.get_property_collector_results_by_type(self.vim_class, properties_to_gather):
                 yield obj_content.obj, obj_content.propSet
             return
 
-        for vmware_object in self.get_objects_by_type(vim_type=[vim_type]):
+        for vmware_object in self.get_objects_by_type(vim_type=[self.vim_class]):
             yield vmware_object, None
+
+    def add_tags_from_bulk_result(self, vmware_host_object, moid_to_tags):
+        """
+        Assign tags and tags_by_category to a host object using a pre-fetched bulk result.
+
+        Args:
+            vmware_host_object: VmwareInventoryHost subclass instance
+            moid_to_tags: dict mapping MOID strings to lists of tag objects,
+                          as returned by get_tags_for_vm_moids_bulk / get_tags_for_host_moids_bulk
+        Returns:
+            None
+        """
+        if not hasattr(self, '_known_tag_category_ids_to_name'):
+            self._known_tag_category_ids_to_name = {}
+
+        moid = vmware_host_object.object._GetMoId()
+        tags = {}
+        tags_by_category = {}
+        for tag in moid_to_tags.get(moid, []):
+            tags[tag.id] = tag.name
+            if tag.category_id not in self._known_tag_category_ids_to_name:
+                self._known_tag_category_ids_to_name[tag.category_id] = (
+                    self.rest_client.tag_category_service.get(tag.category_id).name
+                )
+            category_name = self._known_tag_category_ids_to_name[tag.category_id]
+            tags_by_category.setdefault(category_name, []).append({tag.id: tag.name})
+
+        vmware_host_object.properties['tags'] = tags
+        vmware_host_object.properties['tags_by_category'] = tags_by_category
 
     def add_tags_to_object_properties(self, vmware_host_object):
         """
@@ -335,7 +380,6 @@ class VmwareInventoryBase(BaseInventoryPlugin, Constructable, Cacheable):
 
         tags = {}
         tags_by_category = {}
-        property_prefix = 'vmware_inventory_'
         for tag in vmware_host_object.get_tags(self.rest_client):
             tags[tag.id] = tag.name
             try:
@@ -502,3 +546,104 @@ class VmwareInventoryBase(BaseInventoryPlugin, Constructable, Cacheable):
               vmware_host_object: The host object that should be used. The type will be dependent on the plugin type.
         """
         raise NotImplementedError('ansible_host should be defined in the inventory plugin class.')
+
+    def _handle_managed_object_not_found_error(self, vmware_object, object_name=None):
+        """
+            Handles the situation where an object could no longer be found mid flight. This is a common situation in large
+            environments where VMs are moving or being created/destroyed.
+            The user can choose if these issues are critical or not.
+            Args:
+                vmware_object: The object that is missing. We will try to get the moid/name from the object in case it was
+                               cached somewhere along the way, but that may not be possible.
+        """
+        try:
+            moid = vmware_object._GetMoId()
+        except vmodl.fault.ManagedObjectNotFound:
+            moid = "unknown"
+
+        try:
+            name = object_name or vmware_object.name
+        except (vmodl.fault.ManagedObjectNotFound, AttributeError):
+            name = "unknown"
+
+        message = (
+            "While attempting to read a vSphere object (name: %s, moid: %s), "
+            "the object was unable to be found. This can be due to the object being "
+            "moved, renamed, or deleted."
+        ) % (name, moid)
+
+        if self.get_option('strict'):
+            raise AnsibleError(message)
+        else:
+            DISPLAY.warning(message)
+
+    def populate_from_vcenter(self):
+        """
+        Populate inventory data from vCenter.
+        """
+        hostvars = {}
+        properties_to_gather = self.parse_properties_param()
+        gather_tags = self.get_option("gather_tags")
+        self.initialize_pyvmomi_client()
+        if gather_tags:
+            self.initialize_rest_client()
+
+        sources = list(self.iter_inventory_sources(properties_to_gather))
+        moid_to_tags = self.rest_client._get_tags_for_moids_bulk(
+            [obj._GetMoId() for obj, _ in sources], self.rest_class  # pylint: disable=disallowed-name
+        ) if gather_tags else {}
+
+        for vmware_object, prop_set in sources:
+            try:
+                inven_object = self._hydrate_inventory_host_from_vsphere_props(
+                    vmware_object=vmware_object,
+                    prop_set=prop_set,
+                    properties_to_gather=properties_to_gather
+                )
+            except vmodl.fault.ManagedObjectNotFound:
+                self._handle_managed_object_not_found_error(vmware_object=vmware_object)
+                continue
+
+            if not inven_object:
+                continue
+
+            if gather_tags:
+                self.add_tags_from_bulk_result(inven_object, moid_to_tags)
+            self.set_inventory_hostname(inven_object)
+            self.add_host_object_from_vcenter_to_inventory(new_host=inven_object, hostvars=hostvars)
+
+        return hostvars
+
+    def parse_properties_param(self):
+        """
+        The properties option can be a variety of inputs from the user and we need to
+        manipulate it into a list of properties that can be used later.
+        This method may be extended by plugin classes, for custom property parsing.
+        Returns:
+          A list of property names that should be returned in the inventory. An empty
+          list means all properties should be collected
+        """
+        properties_param = self.get_option("properties")
+        if not isinstance(properties_param, list):
+            properties_param = [properties_param]
+
+        if "all" in properties_param:
+            return []
+
+        if "name" not in properties_param:
+            properties_param.append("name")
+
+        return properties_param
+
+    def _hydrate_inventory_host_from_vsphere_props(self, vmware_object, prop_set, properties_to_gather):
+        """
+            Create an object that represents an inventory host using a vmware object and properties from vCenter.
+
+            This method should be where class specific logic for mapping properties from vSphere objects
+            to inventory hosts should be kept. This method is wrapped in a try/except to protect against
+            objects being moved or deleted in vSphere. So implementation should focus on performing all
+            property hydration within this method.
+            Returns:
+                Host object if one was able to be created, else None
+        """
+        raise NotImplementedError("Inventory plugin classes must define this method.")

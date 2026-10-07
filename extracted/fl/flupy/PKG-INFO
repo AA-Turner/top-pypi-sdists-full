@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: flupy
-Version: 1.2.4
+Version: 1.2.5
 Summary: Fluent data processing in Python - a chainable stream processing library for expressive data manipulation using method chaining
 Project-URL: Repository, https://github.com/olirice/flupy
 Project-URL: Documentation, https://flupy.readthedocs.io

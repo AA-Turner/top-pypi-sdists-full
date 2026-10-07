@@ -35,14 +35,17 @@ from __future__ import annotations
 from typing import Any, cast
 from uuid import UUID
 
-from social_core.exceptions import AuthMissingParameter, AuthTokenError
+from social_core.exceptions import AuthResponseError
 
 from .azuread import AzureADOAuth2
 
 
 class AzureADTenantOAuth2(AzureADOAuth2):
     name = "azuread-tenant-oauth2"
+    title = "Microsoft"
+    icon = "microsoft.svg"
     ID_KEY = "sub"
+    LEGACY_ID_KEYS: tuple[str, ...] = ()
     OPENID_CONFIGURATION_URL = "{base_url}/.well-known/openid-configuration{appid}"
     JWKS_URL = "{base_url}/discovery/keys{appid}"
 
@@ -50,10 +53,8 @@ class AzureADTenantOAuth2(AzureADOAuth2):
     def tenant_id(self) -> str:
         return cast("str", self.setting("TENANT_ID", "common"))
 
-    def openid_configuration_url(self):
-        return self.OPENID_CONFIGURATION_URL.format(
-            base_url=self.base_url, appid=self._appid()
-        )
+    def get_openid_configuration_url_format(self) -> dict[str, str]:
+        return {**super().get_openid_configuration_url_format(), "appid": self._appid()}
 
     def jwks_url(self):
         return self.JWKS_URL.format(base_url=self.base_url, appid=self._appid())
@@ -76,7 +77,9 @@ class AzureADTenantOAuth2(AzureADOAuth2):
 
         tenant_id = claims.get("tid")
         if not isinstance(tenant_id, str) or not tenant_id:
-            raise AuthMissingParameter(self, "tid")
+            raise AuthResponseError(
+                self, claim="tid", code="missing_claim", stage="token_validation"
+            )
 
         try:
             token_tenant_uuid = UUID(tenant_id)
@@ -84,12 +87,22 @@ class AzureADTenantOAuth2(AzureADOAuth2):
             token_tenant_uuid = None
 
         if configured_tenant_uuid != token_tenant_uuid:
-            raise AuthTokenError(self, "Token tenant does not match configured tenant")
+            raise AuthResponseError(
+                self,
+                "Token tenant does not match configured tenant",
+                code="invalid_claim",
+                claim="tid",
+                stage="token_validation",
+            )
 
 
 class AzureADV2TenantOAuth2(AzureADTenantOAuth2):
     name = "azuread-v2-tenant-oauth2"
-    ID_KEY = "preferred_username"
+    title = "Microsoft"
+    icon = "microsoft.svg"
+    ID_KEY = "sub"
+    LEGACY_ID_KEYS: tuple[str, ...] = ("preferred_username",)
+    MUTABLE_ID_KEYS = ("upn", "preferred_username")
     OPENID_CONFIGURATION_URL = "{base_url}/v2.0/.well-known/openid-configuration{appid}"
     AUTHORIZATION_URL = "{base_url}/oauth2/v2.0/authorize"
     ACCESS_TOKEN_URL = "{base_url}/oauth2/v2.0/token"

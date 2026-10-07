@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: mkdocs-llmstxt
-Version: 0.5.0
+Version: 0.5.1
 Summary: MkDocs plugin to generate an /llms.txt file.
-Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
+Author-Email: Timothée Mazzucotelli <dev@pawamoy.fr>
 License-Expression: ISC
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -10,7 +10,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -27,7 +26,7 @@ Project-URL: Issues, https://github.com/pawamoy/mkdocs-llmstxt/issues
 Project-URL: Discussions, https://github.com/pawamoy/mkdocs-llmstxt/discussions
 Project-URL: Gitter, https://gitter.im/mkdocs-llmstxt/community
 Project-URL: Funding, https://github.com/sponsors/pawamoy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: markdownify>=0.14
 Requires-Dist: mdformat>=0.7.21
@@ -36,8 +35,11 @@ Description-Content-Type: text/markdown
 
 # mkdocs-llmstxt
 
+> [!WARNING]
+> This project is in maintenance mode. I'm now dedicating my time to [Zensical](https://zensical.org/). Feel free to reach out for a responsible transfer of maintainership.
+
 [![ci](https://github.com/pawamoy/mkdocs-llmstxt/workflows/ci/badge.svg)](https://github.com/pawamoy/mkdocs-llmstxt/actions?query=workflow%3Aci)
-[![documentation](https://img.shields.io/badge/docs-mkdocs-708FCC.svg?style=flat)](https://pawamoy.github.io/mkdocs-llmstxt/)
+[![documentation](https://img.shields.io/badge/docs-zensical-FF9100.svg?style=flat)](https://pawamoy.github.io/mkdocs-llmstxt/)
 [![pypi version](https://img.shields.io/pypi/v/mkdocs-llmstxt.svg)](https://pypi.org/project/mkdocs-llmstxt/)
 [![gitter](https://img.shields.io/badge/matrix-chat-4DB798.svg?style=flat)](https://app.gitter.im/#/room/#mkdocs-llmstxt:gitter.im)
 
@@ -98,6 +100,8 @@ plugins:
       - index.md: Main documentation page
       - usage/*.md
 ```
+
+Section patterns use Python's [`fnmatch`](https://docs.python.org/3/library/fnmatch.html) rules. In these patterns, `*` matches directory separators such as `/`. Thus, `usage/*.md` matches files at every depth, including `usage/page.md` and `usage/guides/page.md`. Do not use `usage/**/*.md` to match all files under `usage`. That pattern excludes files directly in `usage`.
 
 ## Override `site_url`
 

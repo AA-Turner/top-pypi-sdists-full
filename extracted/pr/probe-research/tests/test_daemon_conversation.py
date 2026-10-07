@@ -422,7 +422,6 @@ def test_conversation_mode_without_compaction_runs_as_bites(tmp_path, monkeypatc
 def _compacting(monkeypatch) -> None:
     """Compaction on a tiny budget: every request past the first summarizes."""
     monkeypatch.setattr(agent_mod, "CONTEXT_TOKENS", 50)
-    monkeypatch.setattr(agent_mod, "KEEP_MESSAGES", 2)
 
 
 def test_compaction_keeps_the_instructions_and_the_status_stays_one_call_away(tmp_path, monkeypatch):

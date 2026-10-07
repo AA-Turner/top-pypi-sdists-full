@@ -1,4 +1,4 @@
-use std::fmt::{from_fn, Display, Formatter, Result};
+use std::fmt::{Display, Formatter, Result, from_fn};
 
 /// Turns AST nodes back into the markdown that they came from.
 ///
@@ -83,7 +83,7 @@ mod test {
 
 	use static_assertions::assert_impl_all;
 
-	use super::{unparse, Unparse, UnparseDisplay};
+	use super::{Unparse, UnparseDisplay, unparse};
 	use crate::{context::Options, error::Error, node::SpannedNodes, parse};
 
 	struct Test;

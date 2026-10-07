@@ -55,6 +55,8 @@ namespace wrtc::interfaces {
         std::unique_ptr<webrtc::SdpPayloadTypeSuggester> payload_type_suggester_;
         webrtc::LocalAudioSinkAdapter audio_sink_;
         media::LocalVideoAdapter video_sink_;
+        std::vector<webrtc::scoped_refptr<webrtc::AudioTrackInterface>> outgoing_audio_tracks_;
+        std::vector<webrtc::scoped_refptr<webrtc::VideoTrackInterface>> outgoing_video_tracks_;
         std::weak_ptr<media::RemoteAudioSink> remote_audio_sink_;
         std::weak_ptr<media::RemoteVideoSink> remote_video_sink_;
         std::weak_ptr<media::RemoteVideoSink> remote_screen_cast_sink_;
@@ -113,6 +115,8 @@ namespace wrtc::interfaces {
         void add_incoming_smart_source(const std::string& endpoint, const models::MediaContent& media_content, bool force = false);
 
         void remove_incoming_audio(const std::string& endpoint);
+
+        void update_audio_source_count();
 
     public:
         void close() override;

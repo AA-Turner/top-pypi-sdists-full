@@ -64,7 +64,20 @@ class ConfigMapLock:
                 self.configmap_reference = api_response
                 return True, None
 
-            lock_record = self.get_lock_object(json.loads(annotations[self.leader_electionrecord_annotationkey]))
+            # A corrupted annotation must not take the elector down: treat it
+            # like a missing one so the next update rewrites a clean record.
+            try:
+                annotation_record = json.loads(
+                    annotations[self.leader_electionrecord_annotationkey])
+            except ValueError:
+                logger.warning(
+                    "Leader election annotation on ConfigMap {}/{} is not valid "
+                    "JSON; treating the lock as unheld".format(name, namespace))
+                api_response.metadata.annotations = {self.leader_electionrecord_annotationkey: ''}
+                self.configmap_reference = api_response
+                return True, None
+
+            lock_record = self.get_lock_object(annotation_record)
 
             self.configmap_reference = api_response
             return True, lock_record
@@ -73,7 +86,7 @@ class ConfigMapLock:
 
     def create(self, name, namespace, election_record):
         """
-        :param electionRecord: Annotation string
+        :param election_record: Annotation string
         :param name: Name of the configmap object to be created
         :param namespace: Namespace in which the configmap object is to be created
         :return: 'True' if object is created else 'False' if failed
@@ -83,7 +96,7 @@ class ConfigMapLock:
                       "annotations": {self.leader_electionrecord_annotationkey: json.dumps(self.get_lock_dict(election_record))}})
 
         try:
-            api_response = self.api_instance.create_namespaced_config_map(namespace, body, pretty=True)
+            self.api_instance.create_namespaced_config_map(namespace, body)
             return True
         except ApiException as e:
             logger.info("Failed to create lock as {}".format(e))

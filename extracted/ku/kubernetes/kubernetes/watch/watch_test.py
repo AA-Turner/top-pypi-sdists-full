@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import time
+from types import SimpleNamespace
+from typing import Any, Optional
 import unittest
 from unittest.mock import Mock, call
 
@@ -27,6 +30,31 @@ class WatchTests(unittest.TestCase):
     def setUp(self):
         # counter for a test that needs test global state
         self.callcount = 0
+
+    def test_generated_api_streams_raw_response(self):
+        fake_resp = Mock()
+        fake_resp.stream.return_value = [
+            '{"type": "ADDED", "object": {"metadata": {"name": "test"}}}\n'
+        ]
+        api = client.CoreV1Api()
+        api.api_client.call_api = Mock(
+            return_value=SimpleNamespace(response=fake_resp, status=200)
+        )
+
+        events = list(Watch().stream(api.list_namespace, timeout_seconds=1))
+
+        self.assertEqual('test', events[0]['object'].metadata.name)
+        api.api_client.call_api.assert_called_once()
+
+    def test_typing_annotation_falls_back_to_documented_model(self):
+        def list_pods() -> Optional[client.V1PodList]:
+            """:rtype: V1PodList"""
+
+        def list_any() -> Any:
+            """:rtype: V1PodList"""
+
+        self.assertEqual('V1Pod', Watch().get_return_type(list_pods))
+        self.assertEqual('V1Pod', Watch().get_return_type(list_any))
 
     def test_watch_with_decode(self):
         fake_resp = Mock()
@@ -586,45 +614,49 @@ class WatchTests(unittest.TestCase):
             self.api.delete_namespaced_pod(name=pod_name, namespace=self.namespace)
             self.api.delete_namespaced_pod.assert_called_once_with(name=pod_name, namespace=self.namespace)
 
-#    Comment out the test below, it does not work currently.
-#    def test_watch_with_deserialize_param(self):
-#        """test watch.stream() deserialize param"""
-#        # prepare test data
-#        test_json = '{"type": "ADDED", "object": {"metadata": {"name": "test1", "resourceVersion": "1"}, "spec": {}, "status": {}}}'
-#        fake_resp = Mock()
-#        fake_resp.close = Mock()
-#        fake_resp.release_conn = Mock()
-#        fake_resp.stream = Mock(return_value=[test_json + '\n'])
-#    
-#        fake_api = Mock()
-#        fake_api.get_namespaces = Mock(return_value=fake_resp)
-#        fake_api.get_namespaces.__doc__ = ':rtype: V1NamespaceList'
-#    
-#        # test case with deserialize=True
-#        w = Watch()
-#        for e in w.stream(fake_api.get_namespaces, deserialize=True):
-#            self.assertEqual("ADDED", e['type'])
-#            # Verify that the object is deserialized correctly
-#            self.assertTrue(hasattr(e['object'], 'metadata'))
-#            self.assertEqual("test1", e['object'].metadata.name)
-#            self.assertEqual("1", e['object'].metadata.resource_version)
-#            # Verify that the original object is saved
-#            self.assertEqual(json.loads(test_json)['object'], e['raw_object'])
-#    
-#        # test case with deserialize=False
-#        w = Watch()
-#        for e in w.stream(fake_api.get_namespaces, deserialize=False):
-#            self.assertEqual("ADDED", e['type'])
-#            # The validation object remains in the original dictionary format
-#            self.assertIsInstance(e['object'], dict)
-#            self.assertEqual("test1", e['object']['metadata']['name'])
-#            self.assertEqual("1", e['object']['metadata']['resourceVersion'])
-#    
-#        # verify the api is called twice
-#        fake_api.get_namespaces.assert_has_calls([
-#            call(_preload_content=False, watch=True),
-#            call(_preload_content=False, watch=True)
-#        ])
+    def test_watch_with_deserialize_param(self):
+        """test watch.stream() deserialize param"""
+        # prepare test data
+        test_json = '{"type": "ADDED", "object": {"metadata": {"name": "test1", "resourceVersion": "1"}, "spec": {}, "status": {}}}'
+        fake_resp = Mock()
+        fake_resp.close = Mock()
+        fake_resp.release_conn = Mock()
+        fake_resp.stream = Mock(return_value=[test_json + '\n'])
+    
+        fake_api = Mock()
+        fake_api.get_namespaces = Mock(return_value=fake_resp)
+        fake_api.get_namespaces.__doc__ = ':rtype: V1NamespaceList'
+    
+        # test case with deserialize=True
+        w = Watch()
+        count = 0
+        for e in w.stream(fake_api.get_namespaces, deserialize=True):
+            self.assertEqual("ADDED", e['type'])
+            # Verify that the object is deserialized correctly
+            self.assertTrue(hasattr(e['object'], 'metadata'))
+            self.assertEqual("test1", e['object'].metadata.name)
+            self.assertEqual("1", e['object'].metadata.resource_version)
+            # Verify that the original object is saved
+            self.assertEqual(json.loads(test_json)['object'], e['raw_object'])
+            count += 1
+            if count == 1:
+                w.stop()
+        self.assertEqual(1, count)
+    
+        # test case with deserialize=False
+        w = Watch()
+        for e in w.stream(fake_api.get_namespaces, deserialize=False):
+            self.assertEqual("ADDED", e['type'])
+            # The validation object remains in the original dictionary format
+            self.assertIsInstance(e['object'], dict)
+            self.assertEqual("test1", e['object']['metadata']['name'])
+            self.assertEqual("1", e['object']['metadata']['resourceVersion'])
+    
+        # verify the api is called twice
+        fake_api.get_namespaces.assert_has_calls([
+            call(_preload_content=False, watch=True),
+            call(_preload_content=False, watch=True)
+        ])
     
 
 if __name__ == '__main__':

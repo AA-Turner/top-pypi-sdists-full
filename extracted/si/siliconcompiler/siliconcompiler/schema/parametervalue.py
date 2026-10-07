@@ -1,11 +1,13 @@
 import copy
 import os
 import pathlib
+import posixpath
 import sys
 
 import os.path
 
 from typing import Dict, List, Tuple, Union, Optional
+from urllib.parse import quote
 
 from .parametertype import NodeType
 
@@ -783,15 +785,22 @@ class PathNodeValue(NodeValue):
         return super().set(value, field=field)
 
     def __resolve_collection_path(self, path: Union[str, pathlib.Path],
-                                  collection_dir: str) -> Optional[str]:
-        try:
-            collected_paths = os.listdir(collection_dir)
-            if not collected_paths:
-                return None
-        except FileNotFoundError:
+                                  collection_dir: str,
+                                  dataroot_id: Optional[str]) -> Optional[str]:
+        if not os.path.isdir(collection_dir):
             return None
 
-        path_paths = pathlib.PurePosixPath(path).parts
+        if dataroot_id is None:
+            dataroot_id = self.__dataroot
+
+        import_path = PathNodeValue.generate_hashed_collection_path(path, dataroot_id)
+        if import_path:
+            abspath = os.path.abspath(os.path.join(collection_dir, import_path))
+            if os.path.exists(abspath):
+                return abspath
+
+        normalized_path = pathlib.PurePosixPath(pathlib.PureWindowsPath(path).as_posix())
+        path_paths = normalized_path.parts
         for n in range(len(path_paths)):
             # Search through the path elements to see if any of the previous path parts
             # have been imported
@@ -800,21 +809,21 @@ class PathNodeValue(NodeValue):
             basename = str(pathlib.PurePosixPath(*path_paths[0:n]))
             endname = str(pathlib.PurePosixPath(*path_paths[n:]))
 
-            import_name = PathNodeValue.generate_hashed_path(basename, self.__dataroot)
-            if import_name not in collected_paths:
-                continue
-
-            abspath = os.path.join(collection_dir, import_name)
-            if endname:
-                abspath = os.path.join(abspath, endname)
-            abspath = os.path.abspath(abspath)
-            if os.path.exists(abspath):
-                return abspath
+            import_path = PathNodeValue.generate_hashed_collection_path(
+                basename, dataroot_id)
+            if import_path:
+                abspath = os.path.join(collection_dir, import_path)
+                if endname:
+                    abspath = os.path.join(abspath, endname)
+                abspath = os.path.abspath(abspath)
+                if os.path.exists(abspath):
+                    return abspath
 
         return None
 
     def resolve_path(self, search: Optional[List[str]] = None,
-                     collection_dir: Optional[str] = None) -> Optional[str]:
+                     collection_dir: Optional[str] = None,
+                     dataroot_id: Optional[str] = None) -> Optional[str]:
         """
         Resolve the path of this value.
 
@@ -823,6 +832,8 @@ class PathNodeValue(NodeValue):
         Args:
             search (list of paths): list of paths to search to check for the path.
             collection_dir (path): path to collection directory.
+            dataroot_id (str): what this value's dataroot is collected as, its
+                resolver's ``collection_id``. Defaults to the dataroot's name.
         """
         value: Optional[Union[str, pathlib.Path]] = self.get()
         if value is None:
@@ -830,7 +841,7 @@ class PathNodeValue(NodeValue):
 
         # Check collections path
         if collection_dir:
-            collect_path = self.__resolve_collection_path(value, collection_dir)
+            collect_path = self.__resolve_collection_path(value, collection_dir, dataroot_id)
             if collect_path:
                 return str(pathlib.Path(collect_path))
 
@@ -850,51 +861,44 @@ class PathNodeValue(NodeValue):
         raise FileNotFoundError(value)
 
     @staticmethod
-    def generate_hashed_path(path: Optional[Union[str, pathlib.Path]],
-                             dataroot: Optional[str]) -> Optional[str]:
-        '''
-        Utility to map file to an unambiguous name based on its path.
+    def __generate_collection_hash(path_parts: Tuple[str, ...],
+                                   dataroot: Optional[str]) -> str:
+        import hashlib
+        import json
 
-        The mapping looks like:
-        path/to/file.ext => file_<hash('path/to')>.ext
+        payload = json.dumps(
+            [dataroot or '', *path_parts], ensure_ascii=False, separators=(',', ':'))
+        return hashlib.sha1(payload.encode('utf-8')).hexdigest()
+
+    @staticmethod
+    def generate_hashed_collection_path(path: Optional[Union[str, pathlib.Path]],
+                                        dataroot: Optional[str]) -> Optional[str]:
+        """
+        Map a collected path to a component-hashed parent bucket and basename.
 
         Args:
-            path (str): path to directory or file
-            dataroot (str): name of dataroot this file belongs to
-        '''
+            path (path): the value's path.
+            dataroot (str): what the value's dataroot is collected as, its
+                resolver's ``collection_id``, or None if it has none. A dataroot's
+                name is unique only within the schema that defines it, so a
+                collection does not use it.
+        """
         if path is None:
             return None
 
-        pure_path = pathlib.PurePosixPath(path)
-        ext = ''.join(pure_path.suffixes)
-
-        # strip off all file suffixes to get just the bare name
-        barepath = pure_path
-        while barepath.suffix:
-            barepath = pathlib.PurePosixPath(barepath.stem)
-        filename = str(barepath.parts[-1])
-
-        if not dataroot:
-            dataroot = ''
-        else:
-            dataroot = f'{dataroot}:'
-
-        path_to_hash = f'{dataroot}{str(pure_path.parent)}'
-
-        import hashlib
-
-        pathhash = hashlib.sha1(path_to_hash.encode('utf-8')).hexdigest()
-
-        return f'{filename}_{pathhash}{ext}'
-
-    def get_hashed_filename(self) -> Optional[str]:
-        '''
-        Utility to map file to an unambiguous name based on its path.
-
-        The mapping looks like:
-        path/to/file.ext => file_<hash('path/to')>.ext
-        '''
-        return PathNodeValue.generate_hashed_path(self.get(), self.__dataroot)
+        normalized_path = posixpath.normpath(pathlib.PureWindowsPath(path).as_posix())
+        pure_path = pathlib.PurePosixPath(normalized_path)
+        parent = pure_path.parent
+        parent_name = parent.name or 'root'
+        parent_hash = PathNodeValue.__generate_collection_hash(parent.parts, dataroot)
+        safe_parent_name = quote(parent_name, safe='-_~')
+        while safe_parent_name.endswith('.'):
+            safe_parent_name = safe_parent_name[:-1] + '%2E'
+        max_label_length = 255 - len(parent_hash) - 1
+        bucket = f'{safe_parent_name[:max_label_length]}_{parent_hash}'
+        if not pure_path.name:
+            return bucket
+        return str(pathlib.PurePosixPath(bucket) / pure_path.name)
 
     def hash(self, function: str, **kwargs) -> Optional[str]:
         """
@@ -939,7 +943,6 @@ class PathNodeValue(NodeValue):
         for root, _, files in os.walk(dirname):
             all_files.extend([os.path.join(root, f) for f in files])
         dirhash = None
-        hashobj = hashfunc()
         for file in sorted(all_files):
             # Cast everything to a windows path and convert to posix.
             # https://stackoverflow.com/questions/73682260
@@ -976,10 +979,8 @@ class PathNodeValue(NodeValue):
                                    f"hash function: {hashfunction}")
             hashobj = hashfunc()
 
-        with open(filename, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
-                hashobj.update(byte_block)
-        return hashobj.hexdigest()
+        from siliconcompiler.utils import file_digest
+        return file_digest(filename, lambda: hashobj).hexdigest()
 
     @property
     def fields(self) -> Tuple[Optional[str], ...]:

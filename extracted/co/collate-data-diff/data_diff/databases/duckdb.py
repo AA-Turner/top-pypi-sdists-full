@@ -6,6 +6,7 @@ from packaging.version import parse as parse_version
 from data_diff.schema import RawColumnInfo
 from data_diff.utils import match_regexps
 from data_diff.abcs.database_types import (
+    Date,
     Timestamp,
     TimestampTZ,
     DbPath,
@@ -54,6 +55,7 @@ class Dialect(BaseDialect):
         # Timestamps
         "TIMESTAMP WITH TIME ZONE": TimestampTZ,
         "TIMESTAMP": Timestamp,
+        "DATE": Date,
         # Numbers
         "DOUBLE": Float,
         "FLOAT": Float,
@@ -103,6 +105,9 @@ class Dialect(BaseDialect):
         return f"md5({s})"
 
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
+        if isinstance(coltype, Date):
+            return f"strftime({value}, '%Y-%m-%d')"  # As the other dialects render dates
+
         # It's precision 6 by default. If precision is less than 6 -> we remove the trailing numbers.
         if coltype.rounds and coltype.precision > 0:
             return f"CONCAT(SUBSTRING(STRFTIME({value}::TIMESTAMP, '%Y-%m-%d %H:%M:%S.'),1,23), LPAD(((ROUND(strftime({value}::timestamp, '%f')::DECIMAL(15,7)/100000,{coltype.precision - 1})*100000)::INT)::VARCHAR,6,'0'))"

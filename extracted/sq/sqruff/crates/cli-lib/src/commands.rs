@@ -12,6 +12,12 @@ use crate::github_action::is_in_github_action;
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
+    /// Output without ANSI color codes.
+    #[arg(short = 'n', long, global = true, overrides_with = "color")]
+    pub nocolor: bool,
+    /// Force color output, even when redirected or NO_COLOR is set.
+    #[arg(long, global = true, overrides_with = "nocolor")]
+    pub color: bool,
     /// Path to a configuration file.
     #[arg(long, global = true)]
     pub config: Option<String>,
@@ -23,9 +29,18 @@ pub struct Cli {
     /// configuration files or inline directives.
     #[arg(long, global = true)]
     pub library_path: Option<String>,
+    /// Load configuration for stdin as if it came from this file.
+    #[arg(long, global = true)]
+    pub stdin_filename: Option<PathBuf>,
     /// Show parse errors.
     #[arg(long, global = true, default_value = "false")]
     pub parsing_errors: bool,
+    /// Ignore all but the listed rules in inline `noqa` comments.
+    #[arg(long, global = true)]
+    pub disable_noqa_except: Option<String>,
+    /// Disable all inline `noqa` comments.
+    #[arg(long, global = true, default_value = "false")]
+    pub disable_noqa: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -63,6 +78,16 @@ pub enum Commands {
 
 #[derive(Debug, Parser)]
 pub struct LintArgs {
+    /// Suppress routine status output while preserving diagnostics and results.
+    #[arg(short, long, conflicts_with = "verbose")]
+    pub quiet: bool,
+    /// Show more detail about processed files. Repeat for higher verbosity.
+    #[arg(short, long, action = clap::ArgAction::Count, conflicts_with = "quiet")]
+    pub verbose: u8,
+    /// Perform the operation regardless of .sqruffignore and .sqlfluffignore configurations.
+    #[arg(long, visible_alias = "disregard-sqlfluffignores")]
+    pub disregard_sqruffignores: bool,
+
     /// Files or directories to fix. Use `-` to read from stdin.
     pub paths: Vec<PathBuf>,
     #[arg(default_value_t, short, long)]
@@ -71,6 +96,16 @@ pub struct LintArgs {
 
 #[derive(Debug, Parser)]
 pub struct FixArgs {
+    /// Suppress routine status output while preserving diagnostics and results.
+    #[arg(short, long, conflicts_with = "verbose")]
+    pub quiet: bool,
+    /// Show more detail about processed files. Repeat for higher verbosity.
+    #[arg(short, long, action = clap::ArgAction::Count, conflicts_with = "quiet")]
+    pub verbose: u8,
+    /// Perform the operation regardless of .sqruffignore and .sqlfluffignore configurations.
+    #[arg(long, visible_alias = "disregard-sqlfluffignores")]
+    pub disregard_sqruffignores: bool,
+
     /// Files or directories to fix. Use `-` to read from stdin.
     pub paths: Vec<PathBuf>,
     /// The output format for the results.
@@ -85,6 +120,9 @@ pub struct ParseArgs {
     /// The output format for the parse tree.
     #[arg(default_value_t, short, long)]
     pub format: ParseFormat,
+    /// Include meta segments and source position information in JSON or YAML output.
+    #[arg(long)]
+    pub include_meta: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, Display)]
@@ -93,6 +131,7 @@ pub enum Format {
     Human,
     GithubAnnotationNative,
     Json,
+    Sarif,
     /// Produce no output. Used mostly for testing.
     None,
 }
@@ -101,6 +140,7 @@ pub enum Format {
 #[strum(serialize_all = "kebab-case")]
 pub enum ParseFormat {
     Json,
+    Yaml,
     #[default]
     Pretty,
     /// Produce no output. Used mostly for testing.
@@ -113,6 +153,40 @@ impl Default for Format {
             Format::GithubAnnotationNative
         } else {
             Format::Human
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_disable_noqa_except() {
+        let cli =
+            Cli::try_parse_from(["sqruff", "lint", "--disable-noqa-except", "CP01", "-"]).unwrap();
+
+        assert_eq!(cli.disable_noqa_except.as_deref(), Some("CP01"));
+    }
+}
+
+#[cfg(test)]
+mod color_option_tests {
+    use super::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn color_flags_are_global_and_last_one_wins() {
+        for (args, nocolor, color) in [
+            (vec!["sqruff", "rules"], false, false),
+            (vec!["sqruff", "-n", "rules"], true, false),
+            (vec!["sqruff", "rules", "--nocolor"], true, false),
+            (vec!["sqruff", "--color", "rules"], false, true),
+            (vec!["sqruff", "rules", "--nocolor", "--color"], false, true),
+            (vec!["sqruff", "rules", "--color", "-n"], true, false),
+        ] {
+            let cli = Cli::try_parse_from(args).unwrap();
+            assert_eq!((cli.nocolor, cli.color), (nocolor, color));
         }
     }
 }

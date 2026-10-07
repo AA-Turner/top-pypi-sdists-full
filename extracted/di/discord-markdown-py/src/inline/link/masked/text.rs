@@ -1,18 +1,18 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use nom::{character::complete::char, combinator::verify, sequence::delimited, Parser};
+use nom::{Parser, character::complete::char, combinator::verify, sequence::delimited};
 use tracing::Level;
 
 use crate::{
+	Input,
 	context::Context,
 	error::ParseError,
 	inline::{self, link::is_suspicious_whitespace},
 	node::SpannedNodes,
 	span::{Span, TraceOk, TraceParse},
-	Input,
 };
 
-use super::{has_no_link, Grammar};
+use super::{Grammar, has_no_link};
 
 /// Whether the parsed text segment of a masked link is free of anything that reads as a link.
 ///

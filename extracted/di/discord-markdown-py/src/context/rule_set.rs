@@ -4,15 +4,15 @@ use nom::{OutputMode, PResult, Parser};
 use tracing::Level;
 
 use crate::{
+	Input,
 	error::ParseError,
 	node::Node,
 	rule::RuleSet,
 	span::{Span, TraceOk, TraceParse},
 	util::iter_alt,
-	Input,
 };
 
-use super::{rule::ContextualRule, Context};
+use super::{Context, rule::ContextualRule};
 
 /// [`RuleSet`] with [`Context`], enabling parsing.
 #[derive(Clone)]

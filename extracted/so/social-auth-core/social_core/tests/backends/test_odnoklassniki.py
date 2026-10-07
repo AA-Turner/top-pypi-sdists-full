@@ -3,7 +3,7 @@ import json
 import responses
 
 from social_core.backends.odnoklassniki import odnoklassniki_sig
-from social_core.exceptions import AuthFailed
+from social_core.exceptions import AuthInputError, AuthResponseError
 from social_core.utils import get_querystring
 
 from .base import BaseBackendTest
@@ -39,6 +39,23 @@ class OdnoklassnikiAppTest(BaseBackendTest):
             "apiconnection": "1",
             "auth_sig": auth_sig or self.auth_sig(logged_user_id),
         }
+
+    def test_missing_signature_fields_fail_before_provider_request(self) -> None:
+        for parameter in ("logged_user_id", "session_key", "auth_sig"):
+            data = self.request_data()
+            del data[parameter]
+            self.strategy.set_request_data(data, self.backend)
+            self.strategy.remove_from_request_data(parameter)
+            with (
+                self.subTest(parameter=parameter),
+                self.assertRaises(AuthInputError) as caught,
+            ):
+                self.backend.complete()
+            self.assertEqual(caught.exception.code, "missing_parameter")
+            self.assertEqual(caught.exception.parameter, parameter)
+            self.assertEqual(caught.exception.stage, "callback")
+            self.assertEqual(caught.exception.source, "request")
+        self.assertEqual(len(responses.calls), 0)
 
     def add_user_response(self, uid: str = "12345", body: object | None = None) -> None:
         if body is None:
@@ -76,22 +93,48 @@ class OdnoklassnikiAppTest(BaseBackendTest):
         self.strategy.set_request_data(self.request_data(), self.backend)
         self.add_user_response(uid="67890")
 
-        with self.assertRaises(AuthFailed):
+        with self.assertRaises(AuthResponseError):
             self.backend.complete()
 
     def test_rejects_malformed_user_details_response(self) -> None:
         self.strategy.set_request_data(self.request_data(), self.backend)
         self.add_user_response(body={"uid": "12345"})
 
-        with self.assertRaises(AuthFailed):
+        with self.assertRaises(AuthResponseError):
             self.backend.complete()
 
     def test_rejects_invalid_auth_sig_before_api_request(self) -> None:
+        for signature in (self.auth_sig("67890"), "é"):
+            self.strategy.set_request_data(
+                self.request_data(auth_sig=signature), self.backend
+            )
+            with (
+                self.subTest(signature=signature),
+                self.assertRaises(AuthResponseError) as caught,
+            ):
+                self.backend.complete()
+            self.assertEqual(caught.exception.code, "invalid_signature")
+            self.assertEqual(caught.exception.stage, "callback")
+
+        self.assertEqual(len(responses.calls), 0)
+
+    def test_accepts_uppercase_auth_sig(self) -> None:
         self.strategy.set_request_data(
-            self.request_data(auth_sig=self.auth_sig("67890")), self.backend
+            self.request_data(auth_sig=self.auth_sig().upper()), self.backend
         )
+        self.backend.verify_auth_sig()
 
-        with self.assertRaises(AuthFailed):
-            self.backend.complete()
-
+    def test_rejects_non_string_auth_sig(self) -> None:
+        for signature in (["sig"], {"sig": "value"}, True, 123, b"sig"):
+            data: dict[str, object] = dict(self.request_data())
+            data["auth_sig"] = signature
+            self.strategy.set_request_data(data, self.backend)
+            with (
+                self.subTest(signature=signature),
+                self.assertRaises(AuthInputError) as caught,
+            ):
+                self.backend.complete()
+            self.assertEqual(caught.exception.parameter, "auth_sig")
+            self.assertEqual(caught.exception.code, "invalid_parameter")
+            self.assertEqual(caught.exception.stage, "callback")
         self.assertEqual(len(responses.calls), 0)

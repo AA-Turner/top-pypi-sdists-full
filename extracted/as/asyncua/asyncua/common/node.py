@@ -42,7 +42,7 @@ def _check_results(results: list[ua.StatusCode], reqlen: int = 1) -> None:
 
 def _to_nodeid(nodeid: Node | ua.NodeId | str | int) -> ua.NodeId:
     if isinstance(nodeid, int):
-        return ua.TwoByteNodeId(nodeid)
+        return ua.NodeId(nodeid)
     if isinstance(nodeid, Node):
         return nodeid.nodeid
     if isinstance(nodeid, ua.NodeId):
@@ -701,12 +701,17 @@ class Node:
         history = []
         continuation_point = None
         while True:
+            previous_continuation_point = continuation_point
             result = await self.history_read(details, continuation_point)
             result.StatusCode.check()
             continuation_point = result.ContinuationPoint
             history.extend(result.HistoryData.DataValues)  # type: ignore[attr-defined]
             # No more data available
             if continuation_point is None:
+                break
+            # Server is not making progress: it returned the same continuation
+            # point again, so continuing would loop forever
+            if continuation_point == previous_continuation_point:
                 break
             # No more data needed
             if numvalues > 0:
@@ -730,6 +735,17 @@ class Node:
         params.ReleaseContinuationPoints = False
         params.NodesToRead.append(valueid)
         return (await self.session.history_read(params))[0]
+
+    async def history_update(self, details: ua.HistoryUpdateDetails) -> ua.HistoryUpdateResult:
+        """
+        Update history of a node, low-level function
+        result code from server is checked and an exception is raised in case of error
+        """
+        params = ua.HistoryUpdateParameters()
+        params.HistoryUpdateDetails.append(details)
+        result = (await self.session.history_update(params))[0]
+        result.StatusCode.check()
+        return result
 
     async def read_event_history(
         self,

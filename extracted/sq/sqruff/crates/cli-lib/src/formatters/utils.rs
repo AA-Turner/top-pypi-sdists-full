@@ -2,8 +2,20 @@ use anstyle::Style;
 use std::borrow::Cow;
 use std::io::IsTerminal;
 
-pub(crate) fn should_produce_plain_output(nocolor: bool) -> bool {
-    nocolor || !std::io::stdout().is_terminal()
+pub(crate) fn should_produce_plain_output(nocolor: Option<bool>) -> bool {
+    plain_output_policy(
+        nocolor,
+        std::io::stdout().is_terminal(),
+        std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty()),
+    )
+}
+
+fn plain_output_policy(nocolor: Option<bool>, is_terminal: bool, env_nocolor: bool) -> bool {
+    match nocolor {
+        Some(true) => true,
+        Some(false) => false,
+        None => !is_terminal || env_nocolor,
+    }
 }
 
 pub(crate) fn colorize_helper(nocolor: bool, s: &str, style: Style) -> Cow<'_, str> {
@@ -41,4 +53,35 @@ pub(crate) fn split_string_on_spaces(s: &str, line_length: usize) -> Vec<&str> {
     }
 
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain_output_policy;
+
+    #[test]
+    fn no_color_environment_and_explicit_options() {
+        for (nocolor, is_terminal, env, has_color) in [
+            (None, true, None, true),
+            (None, false, None, false),
+            (Some(true), true, None, false),
+            (Some(true), false, None, false),
+            (Some(false), true, None, true),
+            (Some(false), false, None, true),
+            (Some(false), false, Some("1"), true),
+            (None, true, Some("1"), false),
+            (None, true, Some("true"), false),
+            (None, true, Some("True"), false),
+            (None, true, Some("False"), false),
+            (None, true, Some("anything"), false),
+            (None, true, Some(""), true),
+        ] {
+            let env_nocolor = env.is_some_and(|value| !value.is_empty());
+            assert_eq!(
+                !plain_output_policy(nocolor, is_terminal, env_nocolor),
+                has_color,
+                "nocolor={nocolor:?}, is_terminal={is_terminal}, NO_COLOR={env:?}"
+            );
+        }
+    }
 }

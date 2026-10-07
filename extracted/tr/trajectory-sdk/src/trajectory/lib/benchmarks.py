@@ -41,7 +41,11 @@ def ImageRef(ref: str) -> RuntimeSpec:
 
 
 def DockerfileBuild(dockerfile_path: str = "Dockerfile") -> RuntimeSpec:
-  """Author a runtime built from a Dockerfile within the benchmark root."""
+  """Build from the Dockerfile's directory, filtered by the root .dockerignore.
+
+  All files in that directory are packaged, not just COPY sources. Use task-level
+  runtimes with separate directories when tasks need different context files.
+  """
   return RuntimeSpec(source=ImageSpec(dockerfile_path=dockerfile_path))
 
 
@@ -166,19 +170,19 @@ class _BenchmarkPackage:
       raise ValueError(f"Benchmark root {self._root} is not a directory")
     self._ignore = self._load_dockerignore()
     self._tree_cache: dict[Path, set[Path]] = {}
-    self._paths_by_task = self._validate_and_collect()
+    self._validate_and_collect()
 
   def files(self) -> list[UploadFile]:
-    paths = sorted({path for paths in self._paths_by_task.values() for path in paths})
+    paths = sorted({path for paths in self._tree_cache.values() for path in paths})
     return [self._upload_file(path) for path in paths]
 
-  def _validate_and_collect(self) -> dict[str, set[Path]]:
+  def _validate_and_collect(self) -> None:
     default_runtime = self.manifest.runtime
-    paths_by_task: dict[str, set[Path]] = {}
+    task_names: set[str] = set()
     for task in self.manifest.tasks:
       if not task.name.strip():
         raise ValueError("Every benchmark task must have a non-empty name")
-      if task.name in paths_by_task:
+      if task.name in task_names:
         raise ValueError(f"Benchmark task names must be unique: {task.name!r}")
       if task.runtime is None and default_runtime is not None:
         task.runtime = default_runtime.model_copy(deep=True)
@@ -187,9 +191,8 @@ class _BenchmarkPackage:
       if not isinstance(task.run_command, str) or not task.run_command.strip():
         raise ValueError(f"Task {task.name!r} must have a non-empty run_command")
       self._validate_task_fields(task)
-      task_paths = self._runtime_paths(task.name, task.runtime)
-      paths_by_task[task.name] = task_paths
-    return paths_by_task
+      self._collect_runtime(task.name, task.runtime)
+      task_names.add(task.name)
 
   @staticmethod
   def _validate_task_fields(task: TaskSpec) -> None:
@@ -206,13 +209,13 @@ class _BenchmarkPackage:
         "Docker image and re-ingest the benchmark"
       )
 
-  def _runtime_paths(self, task_name: str, runtime: RuntimeSpec) -> set[Path]:
+  def _collect_runtime(self, task_name: str, runtime: RuntimeSpec) -> None:
     has_runtime_id = isinstance(runtime.runtime_id, str) and bool(runtime.runtime_id.strip())
     has_source = runtime.source is not None
     if has_runtime_id == has_source:
       raise ValueError(f"Task {task_name!r} runtime must set exactly one of runtime_id or source")
     if has_runtime_id:
-      return set()
+      return
 
     assert runtime.source is not None
     source = runtime.source
@@ -233,20 +236,18 @@ class _BenchmarkPackage:
         raise ValueError(
           f"Task {task_name!r} image_ref must be digest-pinned, a bpt_ blueprint id, or an im- Modal image id"
         )
-      return set()
+      return
 
     assert source.dockerfile_path is not None
     dockerfile = self._resolve_declared_path(task_name, source.dockerfile_path)
     if not dockerfile.is_file():
       raise ValueError(f"Task {task_name!r} Dockerfile {source.dockerfile_path!r} is not a file")
-    context_files = self._collect_tree(task_name, dockerfile.parent)
-    context_files.add(dockerfile)
-    return context_files
+    self._collect_tree(task_name, dockerfile.parent).add(dockerfile)
 
   def _collect_tree(self, task_name: str, directory: Path) -> set[Path]:
     key = directory
     if key in self._tree_cache:
-      return self._tree_cache[key].copy()
+      return self._tree_cache[key]
     collected: set[Path] = set()
     for candidate in sorted(directory.rglob("*")):
       relative_path = candidate.relative_to(self._root).as_posix()
@@ -260,7 +261,7 @@ class _BenchmarkPackage:
         raise ValueError(f"Task {task_name!r} path {candidate} resolves outside benchmark root")
       if candidate.is_file():
         collected.add(candidate)
-    self._tree_cache[key] = collected.copy()
+    self._tree_cache[key] = collected
     return collected
 
   def _resolve_declared_path(self, task_name: str, value: str) -> Path:

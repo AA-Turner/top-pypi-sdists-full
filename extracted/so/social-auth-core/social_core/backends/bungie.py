@@ -9,6 +9,7 @@ from social_core.backends.oauth import BaseOAuth2
 
 class BungieOAuth2(BaseOAuth2):
     name = "bungie"
+    title = "Bungie"
     ID_KEY = "membership_id"
     AUTHORIZATION_URL = "https://www.bungie.net/en/oauth/authorize/"
     ACCESS_TOKEN_URL = "https://www.bungie.net/platform/app/oauth/token/"
@@ -48,9 +49,8 @@ class BungieOAuth2(BaseOAuth2):
             auth=self.auth_complete_credentials(),
             method=self.ACCESS_TOKEN_METHOD,
         )
-        self.process_error(response)
         return self.do_auth(
-            response["access_token"], *args, response=response, **kwargs
+            self.get_access_token(response), *args, response=response, **kwargs
         )
 
     def do_auth(self, access_token, *args, **kwargs):

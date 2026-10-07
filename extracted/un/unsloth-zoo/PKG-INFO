@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2026.9.9
+Version: 2026.10.1
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -42,6 +42,7 @@ Requires-Dist: regex
 Requires-Dist: msgspec
 Requires-Dist: typing_extensions
 Requires-Dist: filelock
+Requires-Dist: requests
 Provides-Extra: mlx
 Requires-Dist: mlx==0.32.3; extra == "mlx"
 Requires-Dist: mlx-lm==0.31.3; extra == "mlx"
@@ -68,6 +69,7 @@ Requires-Dist: regex; extra == "core"
 Requires-Dist: msgspec; extra == "core"
 Requires-Dist: typing_extensions; extra == "core"
 Requires-Dist: filelock; extra == "core"
+Requires-Dist: requests; extra == "core"
 Provides-Extra: huggingface
 Requires-Dist: unsloth_zoo[core]; extra == "huggingface"
 Requires-Dist: triton-windows; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "huggingface"

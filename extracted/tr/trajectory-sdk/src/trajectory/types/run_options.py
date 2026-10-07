@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
-
 from trajectory._models import BaseModel
-
-TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "reinforce_plus_plus"]
+from trajectory.types.training_algorithm import TrainingAlgorithm
 
 
 class RunOptions(BaseModel):
+  retries: int | None = None
+  """Fresh attempts after failure; defaults to 0. Set 3 to retry three times."""
+
+  intelligent_density_training: bool | None = None
+  """Enable intelligent density training."""
+
   algorithm: TrainingAlgorithm | None = None
   """Training algorithm; omit to preserve the model default."""
 
@@ -20,6 +23,10 @@ class RunOptions(BaseModel):
   """Include otherwise eligible trajectories without a recorded reward."""
 
   evaluation_max_samples: int | None = None
+  """
+    Maximum distinct tasks per evaluation. Standalone evals run every task in the selected
+    scope when omitted.
+    """
 
   evaluation_samples_per_task: int | None = None
 
@@ -47,7 +54,7 @@ class RunOptions(BaseModel):
   """Disable model thinking during training or evaluation."""
 
   num_steps: int | None = None
-  """Number of optimizer steps to run."""
+  """Total optimizer step target, including steps restored from a checkpoint."""
 
   train_batch_size: int | None = None
   """Eligible task-instance groups per optimizer update."""

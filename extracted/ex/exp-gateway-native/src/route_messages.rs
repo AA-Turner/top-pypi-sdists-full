@@ -4,6 +4,7 @@
 //! paths. The Anthropic protocol defines no idempotency header, so this
 //! surface never joins the keyed replay stores, matching the python engine.
 
+use crate::guardrails::input::acquire_guarded_attempt;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
@@ -24,7 +25,7 @@ use crate::encode::compact_json;
 use crate::encode_messages::{anthropic_error_body, AggregatedMessage, MessagesSseEncoder};
 use crate::errors::{Failure, FailureClass, PublicError};
 use crate::events::{Event, Usage};
-use crate::guardrails::{released_events, StreamRedactor};
+use crate::guardrails::StreamGuardrails;
 use crate::metrics::{classify_escalation, METRICS};
 use crate::reasoning_display::ReasoningOutput;
 use crate::relay::{collect_committed, collection_public_error, track_event};
@@ -42,8 +43,8 @@ use crate::tool_search::{
     disclose_after_collection,
 };
 use crate::waterfall::{
-    acquire_attempt, billed_empty_completion, unreported_empty_completion, CommittedAttempt,
-    Served, SettledAttempt, WaterfallContext, Won,
+    billed_empty_completion, unreported_empty_completion, CommittedAttempt, Served, SettledAttempt,
+    WaterfallContext, Won,
 };
 
 /// Anthropic-enveloped variant of `error_response` for the Messages surface,
@@ -228,8 +229,15 @@ pub(crate) async fn messages(
         output_less_retention: None,
         output_token_cap: admission.maximum_output_tokens,
         tool_search: admission.tool_search.as_ref(),
+        output_guardrails: admission.output_guardrail.enforces().then_some(
+            crate::waterfall::OutputGuardrailContext {
+                web_search: admission.web_search.as_ref(),
+                responses: false,
+            },
+        ),
     };
-    let mut won = acquire_attempt(&context, &mut guard).await;
+    let mut won =
+        acquire_guarded_attempt(&context, &mut guard, admission.guardrail_input_pending).await;
     adopt_outcome(&mut admission, &mut won);
     won = checkpoint_winner(
         state.capture.as_ref(),
@@ -594,7 +602,8 @@ async fn guarded_messages(
         }
     };
     disclose_after_collection(&mut admission, &committed);
-    let events = match apply_output_guardrail(&state, &admission, collected, deadline).await {
+    let events = match apply_output_guardrail(&state, &admission, collected, deadline, false).await
+    {
         Ok(events) => events,
         Err(failure) => {
             guard
@@ -653,7 +662,7 @@ async fn stream_messages(
         let mut terminal: Option<Event> = None;
         // Deterministic output redaction as bytes flow: only the trailing
         // window the detector cannot yet decide about is withheld.
-        let mut redactor = incremental_guardrail.then(|| StreamRedactor::new(&request_id));
+        let mut output_guardrails = StreamGuardrails::new(&request_id, incremental_guardrail);
         let mut empty_completion = false;
 
         macro_rules! fail_stream {
@@ -742,13 +751,9 @@ async fn stream_messages(
             let outward = outward_event(&event, &mut visible_refusal);
             // A byte that reaches the caller has already been through the
             // detector, and a terminal flushes whatever is still buffered.
-            let outward_events = match released_events(
-                redactor.as_mut(),
-                &guard.bridge,
-                outward,
-                event.is_terminal(),
-            )
-            .await
+            let outward_events = match output_guardrails
+                .release(&guard.bridge, outward, event.is_terminal())
+                .await
             {
                 Ok(events) => events,
                 Err(failure) => fail_stream!(failure),

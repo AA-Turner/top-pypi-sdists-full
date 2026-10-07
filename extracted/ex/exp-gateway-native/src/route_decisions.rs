@@ -1,4 +1,10 @@
-//! Native `POST /v1/systemone`: buffered TypeSafe decisions, not chat.
+//! Native decisions: `POST /v1/systemone` (TypeSafe SystemOne wire) and
+//! `POST /v1/decisions` (OpenAI Decisions API wire), buffered, not chat.
+//!
+//! Both wires share admission authority, the attempt ladder, settlement and
+//! billing evidence; they differ only in the admission bridge method, the
+//! upstream dialect, and how a provider answer is validated against the
+//! admitted questions.
 //!
 //! Admission builds the exact provider payload and owns authorization and
 //! reservations. Each physical dispatch uses the shared attempt lifecycle;
@@ -28,12 +34,13 @@ use crate::respond::{
 };
 use crate::server::AppState;
 use crate::settlement::AttemptGuard;
-use crate::upstream::open_stream;
+use crate::upstream::open_decision_stream;
 use crate::waterfall::{successor_possible, DeploymentWire, RoutePolicy, StartResponse};
+use openai::{openai_decision_usage, public_openai_decisions};
 
 const PROBABILITY_TOLERANCE: f64 = 1e-6;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct DecisionsAdmission {
     request_id: String,
     alias: String,
@@ -41,9 +48,28 @@ struct DecisionsAdmission {
     exact_model_id: String,
     route_reason: String,
     route: Vec<DeploymentWire>,
+    /// SystemOne question definitions keyed by question ID.
+    #[serde(default)]
     questions: Map<String, Value>,
+    /// Which decisions wire this admission dispatches; required, so a stale
+    /// or malformed producer fails closed as wire drift.
+    wire: DecisionWire,
+    /// OpenAI question definitions, in request order (OpenAI wire only).
+    #[serde(default)]
+    openai_questions: Vec<Value>,
     maximum_total_attempts: u32,
     maximum_same_deployment_attempts: u32,
+}
+
+/// The upstream decisions wire an admission dispatches.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum DecisionWire {
+    /// TypeSafe SystemOne (`/v1/systemone`).
+    #[default]
+    Systemone,
+    /// OpenAI Decisions API (`/v1/decisions`).
+    Openai,
 }
 
 impl DecisionsAdmission {
@@ -65,9 +91,33 @@ struct Served {
     usage: Usage,
 }
 
+/// `POST /v1/systemone`: the TypeSafe SystemOne decisions wire.
 pub(crate) async fn decisions(
     State(state): State<AppState>,
     request: axum::extract::Request,
+) -> Response {
+    serve(state, request, "admit_decisions", DecisionWire::Systemone).await
+}
+
+/// `POST /v1/decisions`: the OpenAI Decisions API wire.
+pub(crate) async fn openai_decisions(
+    State(state): State<AppState>,
+    request: axum::extract::Request,
+) -> Response {
+    serve(
+        state,
+        request,
+        "admit_openai_decisions",
+        DecisionWire::Openai,
+    )
+    .await
+}
+
+async fn serve(
+    state: AppState,
+    request: axum::extract::Request,
+    admission_method: &'static str,
+    expected_wire: DecisionWire,
 ) -> Response {
     state.handled_requests.fetch_add(1, Ordering::Relaxed);
     let started = Instant::now();
@@ -93,7 +143,7 @@ pub(crate) async fn decisions(
     };
     let client_request_id = latin1_header(&headers, "x-client-request-id");
     let argument = admission_argument(&raw_key, &body_text, &headers);
-    let admission_text = match state.bridge.call("admit_decisions", argument).await {
+    let admission_text = match state.bridge.call(admission_method, argument).await {
         Ok(text) => text,
         Err(error) => return error_response(&error),
     };
@@ -105,9 +155,9 @@ pub(crate) async fn decisions(
         METRICS.record_escalation(classify_escalation(reason.as_str().unwrap_or_default()));
         return error_response(&escalation_error());
     }
-    let admission: DecisionsAdmission = match serde_json::from_value(admission_value.clone()) {
-        Ok(admission) => admission,
-        Err(_) => return wire_drift_response(&state, &admission_value, started).await,
+    let admission = match serde_json::from_value::<DecisionsAdmission>(admission_value.clone()) {
+        Ok(admission) if admission.wire == expected_wire => admission,
+        _ => return wire_drift_response(&state, &admission_value, started).await,
     };
     let mut guard = new_guard(&state, admission.request_id.clone(), started);
     let _permit = match acquire_permit(&state, &mut guard, deadline).await {
@@ -300,7 +350,16 @@ async fn dispatch(
     admission: &DecisionsAdmission,
     guard: &mut AttemptGuard,
 ) -> Result<(Value, Usage), Failure> {
-    if wire.dialect != "typesafe_systemone" || !wire.timeout_seconds.is_finite() {
+    let dialect = match admission.wire {
+        DecisionWire::Systemone if wire.dialect == "typesafe_systemone" => {
+            Dialect::TypesafeSystemone
+        }
+        // Direct OpenAI connections speak the Responses dialect for chat; the
+        // decisions endpoint shares their OpenAI error envelope.
+        DecisionWire::Openai if wire.dialect == "openai_responses" => Dialect::OpenAiCompatible,
+        _ => return Err(wire_failure()),
+    };
+    if !wire.timeout_seconds.is_finite() {
         return Err(wire_failure());
     }
     if remaining(deadline).is_zero() {
@@ -308,15 +367,14 @@ async fn dispatch(
     }
     let phase_timeout =
         Duration::try_from_secs_f64(wire.timeout_seconds.max(0.001)).map_err(|_| wire_failure())?;
-    let response = open_stream(
+    let response = open_decision_stream(
         http,
         &wire.url,
         &wire.headers,
         &wire.idempotency_key,
         &wire.upstream_payload,
-        None,
         remaining(deadline).min(phase_timeout),
-        Dialect::TypesafeSystemone,
+        dialect,
     )
     .await?;
     collect_response(response, deadline, phase_timeout, admission, guard).await
@@ -344,10 +402,17 @@ async fn collect_response(
     let payload = strict_json(&bytes)?;
     // Billing evidence is independent of decision validity. Keep it on the
     // attempt guard before any error or cancellation can discard the answer.
-    if let Ok(usage) = decision_usage(&payload) {
+    let usage = match admission.wire {
+        DecisionWire::Systemone => decision_usage(&payload),
+        DecisionWire::Openai => openai_decision_usage(&payload),
+    };
+    if let Ok(usage) = usage {
         guard.record_decision_usage(usage);
     }
-    let served = public_decisions(payload, admission)?;
+    let served = match admission.wire {
+        DecisionWire::Systemone => public_decisions(payload, admission)?,
+        DecisionWire::Openai => public_openai_decisions(payload, admission)?,
+    };
     if remaining(deadline).is_zero() {
         return Err(timeout_failure());
     }
@@ -562,6 +627,17 @@ fn public_decisions(
     ))
 }
 
+/// Require a unit total, allowing only the hundredth-rounding envelope.
+fn unit_total(values: &[f64]) -> Result<(), Failure> {
+    let sum: f64 = values.iter().sum();
+    if (sum - 1.0).abs() > PROBABILITY_TOLERANCE
+        && !rounding_bounds(values).is_some_and(|bounds| admits_unit_total(&bounds))
+    {
+        return Err(malformed("decision probabilities do not sum to one"));
+    }
+    Ok(())
+}
+
 /// Validate the provider's billing evidence without trusting the decision answers.
 fn decision_usage(payload: &Value) -> Result<Usage, Failure> {
     let input_tokens = token_count(&payload["usage"]["input_tokens"])?;
@@ -764,5 +840,10 @@ fn served_headers(
     headers
 }
 
+#[path = "route_decisions/openai.rs"]
+mod openai;
+#[cfg(test)]
+#[path = "route_decisions/openai_tests.rs"]
+mod openai_tests;
 #[cfg(test)]
 mod tests;

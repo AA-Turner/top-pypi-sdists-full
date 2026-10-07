@@ -80,7 +80,7 @@ class NetworkingV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_ingress_class(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -168,7 +168,7 @@ class NetworkingV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_ip_address(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -245,7 +245,7 @@ class NetworkingV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_ingress(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -355,7 +355,7 @@ class NetworkingV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_network_policy(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -443,7 +443,7 @@ class NetworkingV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_service_cidr(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[

@@ -120,7 +120,7 @@ class AwaitableGetZonesResult(GetZonesResult):
             types=self.types)
 
 
-def get_zones(account: Optional[Union['GetZonesAccountArgs', 'GetZonesAccountArgsDict']] = None,
+def get_zones(account: Optional[Union['GetZonesAccountArgs', 'GetZonesAccountArgsDict', 'outputs.GetZonesAccountResult']] = None,
               direction: Optional[_builtins.str] = None,
               match: Optional[_builtins.str] = None,
               max_items: Optional[_builtins.int] = None,
@@ -147,7 +147,8 @@ def get_zones(account: Optional[Union['GetZonesAccountArgs', 'GetZonesAccountArg
         direction="desc",
         name="name",
         order="status",
-        status="initializing")
+        status="initializing",
+        types=["full"])
     ```
     """
     __args__ = dict()
@@ -172,7 +173,7 @@ def get_zones(account: Optional[Union['GetZonesAccountArgs', 'GetZonesAccountArg
         results=pulumi.get(__ret__, 'results'),
         status=pulumi.get(__ret__, 'status'),
         types=pulumi.get(__ret__, 'types'))
-def get_zones_output(account: pulumi.Input[Optional[Optional[Union['GetZonesAccountArgs', 'GetZonesAccountArgsDict']]]] = None,
+def get_zones_output(account: pulumi.Input[Optional[Optional[Union['GetZonesAccountArgs', 'GetZonesAccountArgsDict', 'outputs.GetZonesAccountResult']]]] = None,
                      direction: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                      match: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                      max_items: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
@@ -199,7 +200,8 @@ def get_zones_output(account: pulumi.Input[Optional[Optional[Union['GetZonesAcco
         direction="desc",
         name="name",
         order="status",
-        status="initializing")
+        status="initializing",
+        types=["full"])
     ```
     """
     __args__ = dict()

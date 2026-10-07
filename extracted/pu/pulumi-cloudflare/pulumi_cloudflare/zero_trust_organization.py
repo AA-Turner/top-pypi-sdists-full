@@ -35,7 +35,9 @@ class ZeroTrustOrganizationArgs:
                  mfa_required_for_all_apps: pulumi.Input[Optional[_builtins.bool]] = None,
                  mfa_ssh_piv_key_requirements: pulumi.Input[Optional['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs']] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_token_inactivity: pulumi.Input[Optional['ZeroTrustOrganizationServiceTokenInactivityArgs']] = None,
                  session_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 strict_service_token_auth: pulumi.Input[Optional[_builtins.bool]] = None,
                  ui_read_only_toggle_reason: pulumi.Input[Optional[_builtins.str]] = None,
                  user_seat_expiration_inactive_time: pulumi.Input[Optional[_builtins.str]] = None,
                  warp_auth_non_browser401: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -56,7 +58,9 @@ class ZeroTrustOrganizationArgs:
         :param pulumi.Input[_builtins.bool] mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed*authenticators' cannot contain only the infrastructure SSH authenticators ('piv*key' and 'ssh*fido2*key') if the organization has any non-infrastructure applications.
         :param pulumi.Input['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs'] mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
+        :param pulumi.Input['ZeroTrustOrganizationServiceTokenInactivityArgs'] service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
+        :param pulumi.Input[_builtins.bool] strict_service_token_auth: Enables new behaviors for requests made with Access service tokens. Unauthorized requests emit audit logs, and return a 401 or 403 status code in the response instead of redirecting to the login page. Successful requests no longer receive a CF_Authorization cookie in the response. Zero Trust organizations created on or after October 5, 2026 will have this setting enabled by default, and cannot disable it.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
         :param pulumi.Input[_builtins.str] user_seat_expiration_inactive_time: The amount of time a user seat is inactive before it expires. When the user seat exceeds the set time of inactivity, the user is removed as an active seat and no longer counts against your Teams seat count.  Minimum value for this setting is 1 month (730h). Must be in the format `300ms` or `2h45m`. Valid time units are: `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
         :param pulumi.Input[_builtins.bool] warp_auth_non_browser401: When enabled, unsuccessful WARP authentication requests with a non-HTML Accept header return a 401 response instead of redirecting to the login page.
@@ -91,8 +95,12 @@ class ZeroTrustOrganizationArgs:
             pulumi.set(__self__, "mfa_ssh_piv_key_requirements", mfa_ssh_piv_key_requirements)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if service_token_inactivity is not None:
+            pulumi.set(__self__, "service_token_inactivity", service_token_inactivity)
         if session_duration is not None:
             pulumi.set(__self__, "session_duration", session_duration)
+        if strict_service_token_auth is not None:
+            pulumi.set(__self__, "strict_service_token_auth", strict_service_token_auth)
         if ui_read_only_toggle_reason is not None:
             pulumi.set(__self__, "ui_read_only_toggle_reason", ui_read_only_toggle_reason)
         if user_seat_expiration_inactive_time is not None:
@@ -267,6 +275,18 @@ class ZeroTrustOrganizationArgs:
         pulumi.set(self, "name", value)
 
     @_builtins.property
+    @pulumi.getter(name="serviceTokenInactivity")
+    def service_token_inactivity(self) -> pulumi.Input[Optional['ZeroTrustOrganizationServiceTokenInactivityArgs']]:
+        """
+        Configures automatic enforcement for inactive service tokens. A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
+        """
+        return pulumi.get(self, "service_token_inactivity")
+
+    @service_token_inactivity.setter
+    def service_token_inactivity(self, value: pulumi.Input[Optional['ZeroTrustOrganizationServiceTokenInactivityArgs']]):
+        pulumi.set(self, "service_token_inactivity", value)
+
+    @_builtins.property
     @pulumi.getter(name="sessionDuration")
     def session_duration(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -277,6 +297,18 @@ class ZeroTrustOrganizationArgs:
     @session_duration.setter
     def session_duration(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "session_duration", value)
+
+    @_builtins.property
+    @pulumi.getter(name="strictServiceTokenAuth")
+    def strict_service_token_auth(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Enables new behaviors for requests made with Access service tokens. Unauthorized requests emit audit logs, and return a 401 or 403 status code in the response instead of redirecting to the login page. Successful requests no longer receive a CF_Authorization cookie in the response. Zero Trust organizations created on or after October 5, 2026 will have this setting enabled by default, and cannot disable it.
+        """
+        return pulumi.get(self, "strict_service_token_auth")
+
+    @strict_service_token_auth.setter
+    def strict_service_token_auth(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "strict_service_token_auth", value)
 
     @_builtins.property
     @pulumi.getter(name="uiReadOnlyToggleReason")
@@ -356,7 +388,10 @@ class _ZeroTrustOrganizationState:
                  mfa_required_for_all_apps: pulumi.Input[Optional[_builtins.bool]] = None,
                  mfa_ssh_piv_key_requirements: pulumi.Input[Optional['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs']] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_token_inactivity: pulumi.Input[Optional['ZeroTrustOrganizationServiceTokenInactivityArgs']] = None,
                  session_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 strict_service_token_auth: pulumi.Input[Optional[_builtins.bool]] = None,
+                 trusted_accounts: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  ui_read_only_toggle_reason: pulumi.Input[Optional[_builtins.str]] = None,
                  user_seat_expiration_inactive_time: pulumi.Input[Optional[_builtins.str]] = None,
                  warp_auth_non_browser401: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -377,7 +412,10 @@ class _ZeroTrustOrganizationState:
         :param pulumi.Input[_builtins.bool] mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed*authenticators' cannot contain only the infrastructure SSH authenticators ('piv*key' and 'ssh*fido2*key') if the organization has any non-infrastructure applications.
         :param pulumi.Input['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs'] mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
+        :param pulumi.Input['ZeroTrustOrganizationServiceTokenInactivityArgs'] service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
+        :param pulumi.Input[_builtins.bool] strict_service_token_auth: Enables new behaviors for requests made with Access service tokens. Unauthorized requests emit audit logs, and return a 401 or 403 status code in the response instead of redirecting to the login page. Successful requests no longer receive a CF_Authorization cookie in the response. Zero Trust organizations created on or after October 5, 2026 will have this setting enabled by default, and cannot disable it.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] trusted_accounts: The account tags of organizations trusted by this organization for policy and device posture sharing.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
         :param pulumi.Input[_builtins.str] user_seat_expiration_inactive_time: The amount of time a user seat is inactive before it expires. When the user seat exceeds the set time of inactivity, the user is removed as an active seat and no longer counts against your Teams seat count.  Minimum value for this setting is 1 month (730h). Must be in the format `300ms` or `2h45m`. Valid time units are: `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
         :param pulumi.Input[_builtins.bool] warp_auth_non_browser401: When enabled, unsuccessful WARP authentication requests with a non-HTML Accept header return a 401 response instead of redirecting to the login page.
@@ -412,8 +450,14 @@ class _ZeroTrustOrganizationState:
             pulumi.set(__self__, "mfa_ssh_piv_key_requirements", mfa_ssh_piv_key_requirements)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if service_token_inactivity is not None:
+            pulumi.set(__self__, "service_token_inactivity", service_token_inactivity)
         if session_duration is not None:
             pulumi.set(__self__, "session_duration", session_duration)
+        if strict_service_token_auth is not None:
+            pulumi.set(__self__, "strict_service_token_auth", strict_service_token_auth)
+        if trusted_accounts is not None:
+            pulumi.set(__self__, "trusted_accounts", trusted_accounts)
         if ui_read_only_toggle_reason is not None:
             pulumi.set(__self__, "ui_read_only_toggle_reason", ui_read_only_toggle_reason)
         if user_seat_expiration_inactive_time is not None:
@@ -588,6 +632,18 @@ class _ZeroTrustOrganizationState:
         pulumi.set(self, "name", value)
 
     @_builtins.property
+    @pulumi.getter(name="serviceTokenInactivity")
+    def service_token_inactivity(self) -> pulumi.Input[Optional['ZeroTrustOrganizationServiceTokenInactivityArgs']]:
+        """
+        Configures automatic enforcement for inactive service tokens. A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
+        """
+        return pulumi.get(self, "service_token_inactivity")
+
+    @service_token_inactivity.setter
+    def service_token_inactivity(self, value: pulumi.Input[Optional['ZeroTrustOrganizationServiceTokenInactivityArgs']]):
+        pulumi.set(self, "service_token_inactivity", value)
+
+    @_builtins.property
     @pulumi.getter(name="sessionDuration")
     def session_duration(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -598,6 +654,30 @@ class _ZeroTrustOrganizationState:
     @session_duration.setter
     def session_duration(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "session_duration", value)
+
+    @_builtins.property
+    @pulumi.getter(name="strictServiceTokenAuth")
+    def strict_service_token_auth(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Enables new behaviors for requests made with Access service tokens. Unauthorized requests emit audit logs, and return a 401 or 403 status code in the response instead of redirecting to the login page. Successful requests no longer receive a CF_Authorization cookie in the response. Zero Trust organizations created on or after October 5, 2026 will have this setting enabled by default, and cannot disable it.
+        """
+        return pulumi.get(self, "strict_service_token_auth")
+
+    @strict_service_token_auth.setter
+    def strict_service_token_auth(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "strict_service_token_auth", value)
+
+    @_builtins.property
+    @pulumi.getter(name="trustedAccounts")
+    def trusted_accounts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        The account tags of organizations trusted by this organization for policy and device posture sharing.
+        """
+        return pulumi.get(self, "trusted_accounts")
+
+    @trusted_accounts.setter
+    def trusted_accounts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "trusted_accounts", value)
 
     @_builtins.property
     @pulumi.getter(name="uiReadOnlyToggleReason")
@@ -670,17 +750,19 @@ class ZeroTrustOrganization(pulumi.CustomResource):
                  allow_authenticate_via_warp: pulumi.Input[Optional[_builtins.bool]] = None,
                  auth_domain: pulumi.Input[Optional[_builtins.str]] = None,
                  auto_redirect_to_identity: pulumi.Input[Optional[_builtins.bool]] = None,
-                 custom_pages: pulumi.Input[Optional[Union['ZeroTrustOrganizationCustomPagesArgs', 'ZeroTrustOrganizationCustomPagesArgsDict']]] = None,
+                 custom_pages: pulumi.Input[Optional[Union['ZeroTrustOrganizationCustomPagesArgs', 'ZeroTrustOrganizationCustomPagesArgsDict', 'outputs.ZeroTrustOrganizationCustomPages']]] = None,
                  deny_unmatched_requests: pulumi.Input[Optional[_builtins.bool]] = None,
                  deny_unmatched_requests_exempted_zone_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  is_ui_read_only: pulumi.Input[Optional[_builtins.bool]] = None,
-                 login_design: pulumi.Input[Optional[Union['ZeroTrustOrganizationLoginDesignArgs', 'ZeroTrustOrganizationLoginDesignArgsDict']]] = None,
-                 mfa_config: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict']]] = None,
+                 login_design: pulumi.Input[Optional[Union['ZeroTrustOrganizationLoginDesignArgs', 'ZeroTrustOrganizationLoginDesignArgsDict', 'outputs.ZeroTrustOrganizationLoginDesign']]] = None,
+                 mfa_config: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict', 'outputs.ZeroTrustOrganizationMfaConfig']]] = None,
                  mfa_configuration_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
                  mfa_required_for_all_apps: pulumi.Input[Optional[_builtins.bool]] = None,
-                 mfa_ssh_piv_key_requirements: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict']]] = None,
+                 mfa_ssh_piv_key_requirements: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict', 'outputs.ZeroTrustOrganizationMfaSshPivKeyRequirements']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_token_inactivity: pulumi.Input[Optional[Union['ZeroTrustOrganizationServiceTokenInactivityArgs', 'ZeroTrustOrganizationServiceTokenInactivityArgsDict', 'outputs.ZeroTrustOrganizationServiceTokenInactivity']]] = None,
                  session_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 strict_service_token_auth: pulumi.Input[Optional[_builtins.bool]] = None,
                  ui_read_only_toggle_reason: pulumi.Input[Optional[_builtins.str]] = None,
                  user_seat_expiration_inactive_time: pulumi.Input[Optional[_builtins.str]] = None,
                  warp_auth_non_browser401: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -744,7 +826,13 @@ class ZeroTrustOrganization(pulumi.CustomResource):
             },
             mfa_required_for_all_apps=False,
             name="Widget Corps Internal Applications",
+            service_token_inactivity={
+                "action": "disable",
+                "enabled": True,
+                "inactivity_threshold_days": 30,
+            },
             session_duration="24h",
+            strict_service_token_auth=True,
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
             user_seat_expiration_inactive_time="730h",
             warp_auth_non_browser401=False,
@@ -753,7 +841,9 @@ class ZeroTrustOrganization(pulumi.CustomResource):
 
         ## Import
 
-        > This resource does not currently support `pulumi import`.
+        ```sh
+        $ pulumi import cloudflare:index/zeroTrustOrganization:ZeroTrustOrganization example '<account_id>'
+        ```
 
 
         :param str resource_name: The name of the resource.
@@ -765,12 +855,14 @@ class ZeroTrustOrganization(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] deny_unmatched_requests: Determines whether to deny all requests to Cloudflare-protected resources that lack an associated Access application. If enabled, you must explicitly configure an Access application and policy to allow traffic to your Cloudflare-protected resources. For domains you want to be public across all subdomains, add the domain to the `deny_unmatched_requests_exempted_zone_names` array.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] deny_unmatched_requests_exempted_zone_names: Contains zone names to exempt from the `deny_unmatched_requests` feature. Requests to a subdomain in an exempted zone will block unauthenticated traffic by default if there is a configured Access application and policy that matches the request.
         :param pulumi.Input[_builtins.bool] is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
-        :param pulumi.Input[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict']] mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
+        :param pulumi.Input[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict', 'outputs.ZeroTrustOrganizationMfaConfig']] mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
         :param pulumi.Input[_builtins.bool] mfa_configuration_allowed: Indicates if this organization can enforce multi-factor authentication (MFA) requirements at the application and policy level.
         :param pulumi.Input[_builtins.bool] mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed*authenticators' cannot contain only the infrastructure SSH authenticators ('piv*key' and 'ssh*fido2*key') if the organization has any non-infrastructure applications.
-        :param pulumi.Input[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict']] mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
+        :param pulumi.Input[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict', 'outputs.ZeroTrustOrganizationMfaSshPivKeyRequirements']] mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
+        :param pulumi.Input[Union['ZeroTrustOrganizationServiceTokenInactivityArgs', 'ZeroTrustOrganizationServiceTokenInactivityArgsDict', 'outputs.ZeroTrustOrganizationServiceTokenInactivity']] service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
+        :param pulumi.Input[_builtins.bool] strict_service_token_auth: Enables new behaviors for requests made with Access service tokens. Unauthorized requests emit audit logs, and return a 401 or 403 status code in the response instead of redirecting to the login page. Successful requests no longer receive a CF_Authorization cookie in the response. Zero Trust organizations created on or after October 5, 2026 will have this setting enabled by default, and cannot disable it.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
         :param pulumi.Input[_builtins.str] user_seat_expiration_inactive_time: The amount of time a user seat is inactive before it expires. When the user seat exceeds the set time of inactivity, the user is removed as an active seat and no longer counts against your Teams seat count.  Minimum value for this setting is 1 month (730h). Must be in the format `300ms` or `2h45m`. Valid time units are: `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
         :param pulumi.Input[_builtins.bool] warp_auth_non_browser401: When enabled, unsuccessful WARP authentication requests with a non-HTML Accept header return a 401 response instead of redirecting to the login page.
@@ -840,7 +932,13 @@ class ZeroTrustOrganization(pulumi.CustomResource):
             },
             mfa_required_for_all_apps=False,
             name="Widget Corps Internal Applications",
+            service_token_inactivity={
+                "action": "disable",
+                "enabled": True,
+                "inactivity_threshold_days": 30,
+            },
             session_duration="24h",
+            strict_service_token_auth=True,
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
             user_seat_expiration_inactive_time="730h",
             warp_auth_non_browser401=False,
@@ -849,7 +947,9 @@ class ZeroTrustOrganization(pulumi.CustomResource):
 
         ## Import
 
-        > This resource does not currently support `pulumi import`.
+        ```sh
+        $ pulumi import cloudflare:index/zeroTrustOrganization:ZeroTrustOrganization example '<account_id>'
+        ```
 
 
         :param str resource_name: The name of the resource.
@@ -871,17 +971,19 @@ class ZeroTrustOrganization(pulumi.CustomResource):
                  allow_authenticate_via_warp: pulumi.Input[Optional[_builtins.bool]] = None,
                  auth_domain: pulumi.Input[Optional[_builtins.str]] = None,
                  auto_redirect_to_identity: pulumi.Input[Optional[_builtins.bool]] = None,
-                 custom_pages: pulumi.Input[Optional[Union['ZeroTrustOrganizationCustomPagesArgs', 'ZeroTrustOrganizationCustomPagesArgsDict']]] = None,
+                 custom_pages: pulumi.Input[Optional[Union['ZeroTrustOrganizationCustomPagesArgs', 'ZeroTrustOrganizationCustomPagesArgsDict', 'outputs.ZeroTrustOrganizationCustomPages']]] = None,
                  deny_unmatched_requests: pulumi.Input[Optional[_builtins.bool]] = None,
                  deny_unmatched_requests_exempted_zone_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  is_ui_read_only: pulumi.Input[Optional[_builtins.bool]] = None,
-                 login_design: pulumi.Input[Optional[Union['ZeroTrustOrganizationLoginDesignArgs', 'ZeroTrustOrganizationLoginDesignArgsDict']]] = None,
-                 mfa_config: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict']]] = None,
+                 login_design: pulumi.Input[Optional[Union['ZeroTrustOrganizationLoginDesignArgs', 'ZeroTrustOrganizationLoginDesignArgsDict', 'outputs.ZeroTrustOrganizationLoginDesign']]] = None,
+                 mfa_config: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict', 'outputs.ZeroTrustOrganizationMfaConfig']]] = None,
                  mfa_configuration_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
                  mfa_required_for_all_apps: pulumi.Input[Optional[_builtins.bool]] = None,
-                 mfa_ssh_piv_key_requirements: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict']]] = None,
+                 mfa_ssh_piv_key_requirements: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict', 'outputs.ZeroTrustOrganizationMfaSshPivKeyRequirements']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_token_inactivity: pulumi.Input[Optional[Union['ZeroTrustOrganizationServiceTokenInactivityArgs', 'ZeroTrustOrganizationServiceTokenInactivityArgsDict', 'outputs.ZeroTrustOrganizationServiceTokenInactivity']]] = None,
                  session_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 strict_service_token_auth: pulumi.Input[Optional[_builtins.bool]] = None,
                  ui_read_only_toggle_reason: pulumi.Input[Optional[_builtins.str]] = None,
                  user_seat_expiration_inactive_time: pulumi.Input[Optional[_builtins.str]] = None,
                  warp_auth_non_browser401: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -910,12 +1012,15 @@ class ZeroTrustOrganization(pulumi.CustomResource):
             __props__.__dict__["mfa_required_for_all_apps"] = mfa_required_for_all_apps
             __props__.__dict__["mfa_ssh_piv_key_requirements"] = mfa_ssh_piv_key_requirements
             __props__.__dict__["name"] = name
+            __props__.__dict__["service_token_inactivity"] = service_token_inactivity
             __props__.__dict__["session_duration"] = session_duration
+            __props__.__dict__["strict_service_token_auth"] = strict_service_token_auth
             __props__.__dict__["ui_read_only_toggle_reason"] = ui_read_only_toggle_reason
             __props__.__dict__["user_seat_expiration_inactive_time"] = user_seat_expiration_inactive_time
             __props__.__dict__["warp_auth_non_browser401"] = warp_auth_non_browser401
             __props__.__dict__["warp_auth_session_duration"] = warp_auth_session_duration
             __props__.__dict__["zone_id"] = zone_id
+            __props__.__dict__["trusted_accounts"] = None
         alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="cloudflare:index/accessOrganization:AccessOrganization")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ZeroTrustOrganization, __self__).__init__(
@@ -932,17 +1037,20 @@ class ZeroTrustOrganization(pulumi.CustomResource):
             allow_authenticate_via_warp: pulumi.Input[Optional[_builtins.bool]] = None,
             auth_domain: pulumi.Input[Optional[_builtins.str]] = None,
             auto_redirect_to_identity: pulumi.Input[Optional[_builtins.bool]] = None,
-            custom_pages: pulumi.Input[Optional[Union['ZeroTrustOrganizationCustomPagesArgs', 'ZeroTrustOrganizationCustomPagesArgsDict']]] = None,
+            custom_pages: pulumi.Input[Optional[Union['ZeroTrustOrganizationCustomPagesArgs', 'ZeroTrustOrganizationCustomPagesArgsDict', 'outputs.ZeroTrustOrganizationCustomPages']]] = None,
             deny_unmatched_requests: pulumi.Input[Optional[_builtins.bool]] = None,
             deny_unmatched_requests_exempted_zone_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             is_ui_read_only: pulumi.Input[Optional[_builtins.bool]] = None,
-            login_design: pulumi.Input[Optional[Union['ZeroTrustOrganizationLoginDesignArgs', 'ZeroTrustOrganizationLoginDesignArgsDict']]] = None,
-            mfa_config: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict']]] = None,
+            login_design: pulumi.Input[Optional[Union['ZeroTrustOrganizationLoginDesignArgs', 'ZeroTrustOrganizationLoginDesignArgsDict', 'outputs.ZeroTrustOrganizationLoginDesign']]] = None,
+            mfa_config: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict', 'outputs.ZeroTrustOrganizationMfaConfig']]] = None,
             mfa_configuration_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
             mfa_required_for_all_apps: pulumi.Input[Optional[_builtins.bool]] = None,
-            mfa_ssh_piv_key_requirements: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict']]] = None,
+            mfa_ssh_piv_key_requirements: pulumi.Input[Optional[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict', 'outputs.ZeroTrustOrganizationMfaSshPivKeyRequirements']]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
+            service_token_inactivity: pulumi.Input[Optional[Union['ZeroTrustOrganizationServiceTokenInactivityArgs', 'ZeroTrustOrganizationServiceTokenInactivityArgsDict', 'outputs.ZeroTrustOrganizationServiceTokenInactivity']]] = None,
             session_duration: pulumi.Input[Optional[_builtins.str]] = None,
+            strict_service_token_auth: pulumi.Input[Optional[_builtins.bool]] = None,
+            trusted_accounts: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             ui_read_only_toggle_reason: pulumi.Input[Optional[_builtins.str]] = None,
             user_seat_expiration_inactive_time: pulumi.Input[Optional[_builtins.str]] = None,
             warp_auth_non_browser401: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -962,12 +1070,15 @@ class ZeroTrustOrganization(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] deny_unmatched_requests: Determines whether to deny all requests to Cloudflare-protected resources that lack an associated Access application. If enabled, you must explicitly configure an Access application and policy to allow traffic to your Cloudflare-protected resources. For domains you want to be public across all subdomains, add the domain to the `deny_unmatched_requests_exempted_zone_names` array.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] deny_unmatched_requests_exempted_zone_names: Contains zone names to exempt from the `deny_unmatched_requests` feature. Requests to a subdomain in an exempted zone will block unauthenticated traffic by default if there is a configured Access application and policy that matches the request.
         :param pulumi.Input[_builtins.bool] is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
-        :param pulumi.Input[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict']] mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
+        :param pulumi.Input[Union['ZeroTrustOrganizationMfaConfigArgs', 'ZeroTrustOrganizationMfaConfigArgsDict', 'outputs.ZeroTrustOrganizationMfaConfig']] mfa_config: Configures multi-factor authentication (MFA) settings for an organization.
         :param pulumi.Input[_builtins.bool] mfa_configuration_allowed: Indicates if this organization can enforce multi-factor authentication (MFA) requirements at the application and policy level.
         :param pulumi.Input[_builtins.bool] mfa_required_for_all_apps: Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed*authenticators' cannot contain only the infrastructure SSH authenticators ('piv*key' and 'ssh*fido2*key') if the organization has any non-infrastructure applications.
-        :param pulumi.Input[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict']] mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
+        :param pulumi.Input[Union['ZeroTrustOrganizationMfaSshPivKeyRequirementsArgs', 'ZeroTrustOrganizationMfaSshPivKeyRequirementsArgsDict', 'outputs.ZeroTrustOrganizationMfaSshPivKeyRequirements']] mfa_ssh_piv_key_requirements: Configures SSH PIV key requirements for MFA using hardware security keys.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
+        :param pulumi.Input[Union['ZeroTrustOrganizationServiceTokenInactivityArgs', 'ZeroTrustOrganizationServiceTokenInactivityArgsDict', 'outputs.ZeroTrustOrganizationServiceTokenInactivity']] service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
+        :param pulumi.Input[_builtins.bool] strict_service_token_auth: Enables new behaviors for requests made with Access service tokens. Unauthorized requests emit audit logs, and return a 401 or 403 status code in the response instead of redirecting to the login page. Successful requests no longer receive a CF_Authorization cookie in the response. Zero Trust organizations created on or after October 5, 2026 will have this setting enabled by default, and cannot disable it.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] trusted_accounts: The account tags of organizations trusted by this organization for policy and device posture sharing.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
         :param pulumi.Input[_builtins.str] user_seat_expiration_inactive_time: The amount of time a user seat is inactive before it expires. When the user seat exceeds the set time of inactivity, the user is removed as an active seat and no longer counts against your Teams seat count.  Minimum value for this setting is 1 month (730h). Must be in the format `300ms` or `2h45m`. Valid time units are: `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
         :param pulumi.Input[_builtins.bool] warp_auth_non_browser401: When enabled, unsuccessful WARP authentication requests with a non-HTML Accept header return a 401 response instead of redirecting to the login page.
@@ -992,7 +1103,10 @@ class ZeroTrustOrganization(pulumi.CustomResource):
         __props__.__dict__["mfa_required_for_all_apps"] = mfa_required_for_all_apps
         __props__.__dict__["mfa_ssh_piv_key_requirements"] = mfa_ssh_piv_key_requirements
         __props__.__dict__["name"] = name
+        __props__.__dict__["service_token_inactivity"] = service_token_inactivity
         __props__.__dict__["session_duration"] = session_duration
+        __props__.__dict__["strict_service_token_auth"] = strict_service_token_auth
+        __props__.__dict__["trusted_accounts"] = trusted_accounts
         __props__.__dict__["ui_read_only_toggle_reason"] = ui_read_only_toggle_reason
         __props__.__dict__["user_seat_expiration_inactive_time"] = user_seat_expiration_inactive_time
         __props__.__dict__["warp_auth_non_browser401"] = warp_auth_non_browser401
@@ -1107,12 +1221,36 @@ class ZeroTrustOrganization(pulumi.CustomResource):
         return pulumi.get(self, "name")
 
     @_builtins.property
+    @pulumi.getter(name="serviceTokenInactivity")
+    def service_token_inactivity(self) -> pulumi.Output[Optional['outputs.ZeroTrustOrganizationServiceTokenInactivity']]:
+        """
+        Configures automatic enforcement for inactive service tokens. A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
+        """
+        return pulumi.get(self, "service_token_inactivity")
+
+    @_builtins.property
     @pulumi.getter(name="sessionDuration")
     def session_duration(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
         The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
         """
         return pulumi.get(self, "session_duration")
+
+    @_builtins.property
+    @pulumi.getter(name="strictServiceTokenAuth")
+    def strict_service_token_auth(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Enables new behaviors for requests made with Access service tokens. Unauthorized requests emit audit logs, and return a 401 or 403 status code in the response instead of redirecting to the login page. Successful requests no longer receive a CF_Authorization cookie in the response. Zero Trust organizations created on or after October 5, 2026 will have this setting enabled by default, and cannot disable it.
+        """
+        return pulumi.get(self, "strict_service_token_auth")
+
+    @_builtins.property
+    @pulumi.getter(name="trustedAccounts")
+    def trusted_accounts(self) -> pulumi.Output[Sequence[_builtins.str]]:
+        """
+        The account tags of organizations trusted by this organization for policy and device posture sharing.
+        """
+        return pulumi.get(self, "trusted_accounts")
 
     @_builtins.property
     @pulumi.getter(name="uiReadOnlyToggleReason")

@@ -8,10 +8,10 @@ class V1DeploymentCondition:
     last_update_time: typing.Optional[datetime.datetime]
     message: typing.Optional[str]
     reason: typing.Optional[str]
-    status: str
-    type: str
+    status: typing.Optional[str]
+    type: typing.Optional[str]
     
-    def __init__(self, *, last_transition_time: typing.Optional[datetime.datetime] = ..., last_update_time: typing.Optional[datetime.datetime] = ..., message: typing.Optional[str] = ..., reason: typing.Optional[str] = ..., status: str, type: str) -> None:
+    def __init__(self, *, last_transition_time: typing.Optional[datetime.datetime] = ..., last_update_time: typing.Optional[datetime.datetime] = ..., message: typing.Optional[str] = ..., reason: typing.Optional[str] = ..., status: typing.Optional[str] = ..., type: typing.Optional[str] = ...) -> None:
         ...
     def to_dict(self) -> V1DeploymentConditionDict:
         ...
@@ -20,5 +20,5 @@ class V1DeploymentConditionDict(typing.TypedDict, total=False):
     lastUpdateTime: typing.Optional[datetime.datetime]
     message: typing.Optional[str]
     reason: typing.Optional[str]
-    status: str
-    type: str
+    status: typing.Optional[str]
+    type: typing.Optional[str]

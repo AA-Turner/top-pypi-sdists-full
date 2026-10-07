@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trafilatura
-Version: 2.3.0
+Version: 2.3.1
 Summary: Python & Command-line tool to gather text and metadata on the Web: Crawling, scraping, extraction, output as CSV, JSON, HTML, MD, TXT, XML.
 Author: Adrien Barbaresi
 License-Expression: Apache-2.0

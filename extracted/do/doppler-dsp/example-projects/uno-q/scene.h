@@ -2,8 +2,8 @@
  *
  * One definition of the test scene: the receiver's self-test builds it
  * locally, and `uno_q_pub --synthetic` publishes the same bytes over NATS, so
- * `uno_q --check` can hold data that crossed the transport to exactly the
- * predictions the self-test uses.
+ * `uno_q_shared --check` can hold data that crossed the transport to exactly
+ * the predictions the self-test uses.
  */
 #ifndef UNO_Q_SCENE_H
 #define UNO_Q_SCENE_H
@@ -30,7 +30,8 @@ uint8_t scene_rtl_code (float v);
 /**
  * @brief `n` complex samples of the scene as interleaved cu8 (2n bytes):
  * a tone at `offset` Hz plus AWGN, through scene_rtl_code(). Built with the
- * library's own LO and AWGN sources. Returns a malloc'd buffer, or NULL.
+ * library's waveform synthesizer (the engine behind wfmgen). Returns a
+ * malloc'd buffer, or NULL.
  */
 uint8_t *scene_cu8 (double fs, double offset, size_t n);
 

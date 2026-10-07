@@ -48,6 +48,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Capture relies on the tested torch.export IR.
+custom-loss = ["sympy", "torch>=2.4,<2.12"]
+hf-export = ["torch>=2.6", "safetensors>=0.5"]
 examples = [
     "datasets>=2.14.0",
     "pydantic>=2.12,<3",

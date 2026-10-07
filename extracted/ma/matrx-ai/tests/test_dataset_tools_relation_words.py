@@ -1,6 +1,6 @@
 """A `relation` cell reaches the model as a NAME, or the seam says so out loud.
 
-``usertable_get_data`` / ``usertable_search_data`` read a table's rows, where a ``relation``
+``dataset_get_data`` / ``dataset_search_data`` read a table's rows, where a ``relation``
 column STORES a record's id and MEANS that record's name. The resolver lives in matrx-records
 and matrx-records depends on matrx-ai, so the host injects it
 (``matrx_ai.configure(relation_words_resolver=...)``).
@@ -32,7 +32,7 @@ class _Ctx(ToolContext):
 
 
 def _ctx() -> _Ctx:
-    return _Ctx(call_id="call-1", tool_name="usertable_get_data")
+    return _Ctx(call_id="call-1", tool_name="dataset_get_data")
 
 
 _PAGE = [
@@ -77,9 +77,9 @@ async def _resolver(table_id, rows, *, user_id):
 @pytest.mark.parametrize(
     "tool, args",
     [
-        (datasets_tools.usertable_get_data, {"table_id": _TABLE_ID}),
+        (datasets_tools.dataset_get_data, {"table_id": _TABLE_ID}),
         (
-            datasets_tools.usertable_search_data,
+            datasets_tools.dataset_search_data,
             {"table_id": _TABLE_ID, "search_term": "green"},
         ),
     ],
@@ -95,7 +95,7 @@ async def test_relation_cell_reaches_the_model_as_words(tool, args):
 @pytest.mark.asyncio
 async def test_unwired_host_gets_the_page_unchanged_and_is_told(caplog):
     with caplog.at_level(logging.WARNING, logger=relation_words_seam.__name__):
-        result = await datasets_tools.usertable_get_data({"table_id": _TABLE_ID}, _ctx())
+        result = await datasets_tools.dataset_get_data({"table_id": _TABLE_ID}, _ctx())
 
     assert result.success, result.error
     assert result.output["rows"][0]["data"]["account"] == _CUSTOMER_ID
@@ -115,7 +115,7 @@ async def test_a_raising_resolver_never_breaks_the_tool_and_is_announced(caplog)
 
     matrx_ai.configure(relation_words_resolver=_boom)
     with caplog.at_level(logging.WARNING, logger=relation_words_seam.__name__):
-        result = await datasets_tools.usertable_get_data({"table_id": _TABLE_ID}, _ctx())
+        result = await datasets_tools.dataset_get_data({"table_id": _TABLE_ID}, _ctx())
 
     assert result.success, result.error
     assert result.output["rows"][0]["data"]["account"] == _CUSTOMER_ID

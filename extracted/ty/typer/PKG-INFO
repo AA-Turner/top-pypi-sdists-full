@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: typer
-Version: 0.27.2
+Version: 0.27.3
 Summary: Typer, build great CLIs. Easy to code. Based on Python type hints.
-Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
+Author-Email: Sebastián Ramírez <tiangolo@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Classifier: Intended Audience :: Information Technology

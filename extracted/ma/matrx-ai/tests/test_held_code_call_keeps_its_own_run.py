@@ -157,3 +157,14 @@ async def test_held_call_keeps_a_more_specific_internal_type(monkeypatch):
     )
 
     assert seen["conversation_type"] == "workflow"
+
+
+@pytest.mark.asyncio
+async def test_held_call_inside_a_workflow_step_names_no_phantom_parent(monkeypatch):
+    """A workflow node's minted invocation id has no row; linking to it fired
+    ``conversation_parent_lineage_unavailable`` on every held call in a step."""
+    step = _ctx(store=True).fork_for_workflow_step(PERSON_CONVERSATION)
+    seen, _finished, _after = await _run(monkeypatch, step)
+
+    assert seen["conversation_id"] != PERSON_CONVERSATION
+    assert seen["parent"] is None

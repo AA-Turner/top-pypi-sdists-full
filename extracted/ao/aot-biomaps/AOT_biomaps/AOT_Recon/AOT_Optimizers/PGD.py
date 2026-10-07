@@ -71,7 +71,7 @@ import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, get_device_context, get_ground_truth, forward_projection, backward_projection, check_stopping_criterion, estimate_lipschitz_constant
+from AOT_biomaps.AOT_Recon.ReconTools import ensure_device, get_array_module, get_device_context, get_ground_truth, forward_projection, backward_projection, check_stopping_criterion, estimate_lipschitz_constant
 from AOT_biomaps.AOT_Recon.ReconEnums import StopCriterionType
 from AOT_biomaps.AOT_Recon.AOT_Preconditioner.PreconditionerEnums import PreconditionerType
 from AOT_biomaps.AOT_Recon.AOT_Preconditioner.NoPreconditioner import NoPreconditioner
@@ -113,7 +113,7 @@ def calculate_step_size_PGD(SMatrix, preconditioner, num_iters, show_logs):
         - show_logs : Print information.
     """
 
-    L = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters)
+    L = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters, show_logs=show_logs)
 
     alpha = 1.0 / L if L > 0 else 1.0
 
@@ -133,6 +133,7 @@ def PGD(
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
     stop_window_size: int = 5,
+    device: Optional[str] = None,
     isSavingEachIteration: bool = True,
     isCostFunction: bool = False,
     withTumor: bool = True,
@@ -170,6 +171,7 @@ def PGD(
         stop_criterion: Criterion for stopping the iterations
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
         stop_window_size: Window size (used to avoid early stop due to oscillations)
+        device: Device to use ('cpu' or 'gpu'), if None, uses SMatrix.device
         isSavingEachIteration: If True, saves intermediate results
         isCostFunction: If True, computes and saves cost function history
         withTumor: Boolean for description only
@@ -183,6 +185,7 @@ def PGD(
         - saved_indices: List of saved iteration indices (None if not saving)
         - cost_history: List of cost function values (None if not requested)
     """   
+    ensure_device(SMatrix, device,show_logs=show_logs)
     xp = get_array_module(SMatrix)
     is_gpu = (xp.__name__ == 'cupy')
 
@@ -224,7 +227,7 @@ def PGD(
 
         prec_str = preconditioner.get_name()
         cplx_str = "COMPLEX (4-phases quadrature) " if SMatrix.isComplexSMatrix else "REAL "
-        description = f"[AOT-biomaps] {cplx_str} PGD 4-phases ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
+        description = f"[AOT-biomaps] {cplx_str} PGD ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
         iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
         for it in iterator:

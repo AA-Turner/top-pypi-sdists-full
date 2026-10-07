@@ -14,8 +14,7 @@ ONLY agents whose transcripts are actually captured are reported. Claude Code
 ships with capture support. Codex is reported only when its tap has a local
 credential, which is the durable evidence that this device completed pairing;
 merely running under Codex must not create a transcript link that can never
-resolve. pi ships with capture support like Claude Code. Cursor remains
-detectable but uncaptured.
+resolve. pi ships with capture support like Claude Code.
 """
 
 from __future__ import annotations
@@ -96,7 +95,6 @@ class AgentSpec:
 #   AI_AGENT=pi, deliberately NOT used: a variable named for "any AI agent" is
 #   exactly the one some other harness will export next, and misdetecting that
 #   harness as pi is this table's worst failure.
-# - Cursor is detected but never captured.
 def _agents() -> tuple[AgentSpec, ...]:
     from probe.harness import get_registry
 
@@ -174,8 +172,8 @@ def adopt_harness_process_session() -> dict[str, str]:
     ``os.environ`` under the registry's ``session_env`` for that harness, so this
     process AND everything it starts (a training script, a launcher forwarding
     the session to a remote job) resolve it the ordinary way. The markers of
-    other agents that P inherited (Kimi run from a Claude Code shell or a Cursor
-    terminal) are dropped: P is the agent driving this process. Runs once per
+    other agents that P inherited (Kimi run from a Claude Code or pi shell) are
+    dropped: P is the agent driving this process. Runs once per
     process. Never raises. Returns what it set ({} when nothing)."""
     global _ADOPTED
     if _ADOPTED:
@@ -317,8 +315,7 @@ def session_id_from_env(env: Mapping[str, str] | None = None) -> str | None:
     stamped on a run. The tracking switch asks a different question -- WHICH
     conversation am I -- and a session nobody captures is still a session whose
     tracking the researcher may turn off. Gating this on capture is what made
-    ``probe session status`` unreadable under pi, and it would have refused
-    Cursor too.
+    ``probe session status`` unreadable under pi.
 
     The env-var-per-agent knowledge stays in ``AGENTS`` and nowhere else: the
     CLI used to hardcode Claude Code's and Codex's own variables, so pi's
@@ -436,6 +433,7 @@ def default_authorship(env: Mapping[str, str] | None = None) -> str | None:
 
     `detect_agent` rather than `resolve_agent_session`: the latter's extra gates
     (captured transcripts, a paired Codex tap) exist for ATTRIBUTION, and an
-    uncaptured agent -- Cursor -- is still a program composing a name.
+    agent whose session is not attributed (an unpaired Codex) is still a program
+    composing a name.
     """
     return AUTHORSHIP_AGENT if detect_agent(env) is not None else None

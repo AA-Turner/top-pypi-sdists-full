@@ -50,6 +50,7 @@ from sqlbuild.executor.scenario.models import (
     ScenarioSnapshotCaptureRunResult,
 )
 from sqlbuild.executor.scenario.types import ScenarioLocalRunStatus
+from sqlbuild.executor.testing.main.resource_id import sql_test_resource_id
 from sqlbuild.executor.testing.models import (
     SqlTestDifferenceSample,
     SqlTestExecutionResult,
@@ -471,6 +472,7 @@ def format_scenario_execution_json(
     local: bool = False,
     run_namespace: str | None = None,
     namespace_source: str = "unset",
+    duration_ms: float | None = None,
 ) -> str:
     """Format scenario test command execution results as JSON."""
 
@@ -494,11 +496,14 @@ def format_scenario_execution_json(
         assets=tuple(assets),
         checks=tuple(checks),
         scenarios=tuple(_format_scenario_result(result) for result in results),
-        summary={
-            "pass_count": len(results) - fail_count,
-            "fail_count": fail_count,
-            "total_count": len(results),
-        },
+        summary=_drop_none(
+            {
+                "pass_count": len(results) - fail_count,
+                "fail_count": fail_count,
+                "total_count": len(results),
+                "duration_ms": None if duration_ms is None else round(duration_ms),
+            }
+        ),
     )
 
 
@@ -623,6 +628,8 @@ def _format_model_assets(
                     else None
                 ),
                 "warnings": result.warning_messages,
+                "empty_cursor_inputs": list(result.empty_cursor_inputs) or None,
+                "waiting_on_empty_inputs": result.waiting_on_empty_inputs or None,
                 "future_cursor_safety": serialize_future_cursor_safety(result.future_cursor_safety),
                 "maximum_start_safety": serialize_maximum_start_safety(result.maximum_start_safety),
                 "microbatch": _format_microbatch_result(result),
@@ -819,6 +826,7 @@ def _format_sql_test_checks(
                     **_sql_test_case_metadata(result),
                     "passed": result.outcome == SqlTestOutcome.PASS,
                     "status": result.outcome.value,
+                    "duration_ms": _result_duration(result=result, fallback=None),
                     "asset_name": _sql_test_asset_name(result),
                     "error_code": result.error_code,
                     "error_help": result.error_help,
@@ -831,9 +839,12 @@ def _format_sql_test_checks(
 
 
 def _sql_test_check_id(result: SqlTestExecutionResult) -> str:
-    if result.case_name is None or result.source_path is None or result.block_index is None:
-        return f"sql_test:{result.test_name}"
-    return f"sql_test:{result.source_path.as_posix()}:{result.block_index}:{result.case_name}"
+    return sql_test_resource_id(
+        test_name=result.test_name,
+        source_path=result.source_path,
+        block_index=result.block_index,
+        case_name=result.case_name,
+    )
 
 
 def _sql_test_case_metadata(result: SqlTestExecutionResult) -> dict[str, object]:
@@ -1042,6 +1053,7 @@ def _format_scenario_result(result: ScenarioRunResult) -> dict[str, object]:
         {
             "name": result.scenario_name,
             "status": result.status.value,
+            "duration_ms": None if result.duration_ms is None else round(result.duration_ms),
             "local_status": result.local_status.value if result.local_status else None,
             "retained": result.retained,
             "local_duckdb_path": (
@@ -1173,7 +1185,7 @@ def _result_resource_identity(*, result: object) -> tuple[str | None, str | None
         resource_id = f"check:{result.node_name}"
     elif isinstance(result, SqlTestExecutionResult):
         resource_name = result.test_name
-        resource_id = f"sql_test:{result.test_name}"
+        resource_id = _sql_test_check_id(result)
     elif isinstance(result, AuditExecutionResult):
         resource_name = result.audit_name
         resource_id = _audit_check_id(result)

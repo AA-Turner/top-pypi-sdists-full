@@ -1,23 +1,23 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use nom::{
+	Check, Mode, OutputM, OutputMode, PResult, Parser,
 	branch::alt,
 	combinator::{fail, not},
 	sequence::preceded,
-	Check, Mode, OutputM, OutputMode, PResult, Parser,
 };
 use tracing::Level;
 
 use crate::{
+	Input,
 	context::matched_pairs,
 	error::ParseError,
-	grammar::{global_terminals, GrammarSet},
+	grammar::{GrammarSet, global_terminals},
 	span::{TraceOk, TraceParse},
 	util::iter_alt,
-	Input,
 };
 
-use super::{super::grammar::Grammar, rule_set::ContextualRules, Context};
+use super::{super::grammar::Grammar, Context, rule_set::ContextualRules};
 
 pub(super) struct TerminalSequence<'ctx, F, E> {
 	pub context: &'ctx Context,

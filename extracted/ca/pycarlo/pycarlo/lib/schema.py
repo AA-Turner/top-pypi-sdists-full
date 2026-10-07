@@ -17300,6 +17300,23 @@ class PineconeUpdateConnectionDetails(sgqlc.types.Input):
     """API key for Pinecone project."""
 
 
+class PlanAgentInput(sgqlc.types.Input):
+    """One AI agent a generated monitoring plan keeps."""
+
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """The agent's `agentName` from `getAgentMetadataV2`."""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """The agent's `traceTableMcon` from `getAgentMetadataV2`. Agent
+    names are not unique, so an agent is identified by its name and
+    this MCON together.
+    """
+
+
 class PlanCorrectionInput(sgqlc.types.Input):
     """One correction a user made to a proposed monitoring plan."""
 
@@ -30778,6 +30795,7 @@ class Connection(sgqlc.types.Type):
         "icon_url",
         "terminology",
         "sql_job_timeout_maximum",
+        "allowed_dbt_cloud_environments",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -30901,6 +30919,14 @@ class Connection(sgqlc.types.Type):
     sql_job_timeout_maximum = sgqlc.types.Field(Int, graphql_name="sqlJobTimeoutMaximum")
     """The maximum timeout for SQL jobs that can be set for this
     connection
+    """
+
+    allowed_dbt_cloud_environments = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+        graphql_name="allowedDbtCloudEnvironments",
+    )
+    """dbt Cloud webhook only: the dbt environment names whose events are
+    kept. Null when no environment allow-list is set.
     """
 
 
@@ -44783,6 +44809,7 @@ class JobMonitor(sgqlc.types.Type):
         "description",
         "notes",
         "priority",
+        "alert_grouping",
         "integration_type",
         "integration_uuid",
         "asset_selection",
@@ -44811,6 +44838,12 @@ class JobMonitor(sgqlc.types.Type):
     notes = sgqlc.types.Field(String, graphql_name="notes")
 
     priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration. Null means legacy per-
+    type grouping; a non-null value enables monitor-based alert
+    grouping.
+    """
 
     integration_type = sgqlc.types.Field(
         sgqlc.types.non_null(JobMonitorIntegrationType), graphql_name="integrationType"
@@ -48199,9 +48232,9 @@ class MonitorTuningAutoApply(sgqlc.types.Type):
     """
 
     snapshot_version = sgqlc.types.Field(Int, graphql_name="snapshotVersion")
-    """Format revision of the captured configuration. Null when the
-    capture produced nothing, which is what makes the apply
-    irreversible.
+    """Format revision of the captured configuration. Null when no
+    snapshot was captured. A dispatched apply without a snapshot
+    cannot be undone.
     """
 
     snapshot_captured_time = sgqlc.types.Field(DateTime, graphql_name="snapshotCapturedTime")
@@ -48213,8 +48246,10 @@ class MonitorTuningAutoApply(sgqlc.types.Type):
     snapshot_unavailable_reason = sgqlc.types.Field(
         String, graphql_name="snapshotUnavailableReason"
     )
-    """Why no configuration was captured, so this apply cannot be undone.
-    Null when a snapshot exists.
+    """Why no configuration was captured. Set when skipReason is
+    SNAPSHOT_FAILED, and on a dispatched apply that has no snapshot
+    and so cannot be undone. Null otherwise; skipReason says why a
+    skipped apply did not run.
     """
 
     is_revertible = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRevertible")
@@ -49546,6 +49581,7 @@ class Mutation(sgqlc.types.Type):
         "set_job_generates_incidents",
         "set_job_generates_alerts",
         "set_dbt_cloud_event_filter",
+        "set_dbt_cloud_environment_filter",
         "snooze_dbt_node",
         "unsnooze_dbt_node",
         "update_dbt_project_info",
@@ -52399,6 +52435,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "asset_selection",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(JobAssetSelectionInput),
@@ -52494,6 +52534,12 @@ class Mutation(sgqlc.types.Type):
       job events to alert on. At least one is required.
       getJobAlertConditions lists the conditions of each integration
       type.
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `asset_selection` (`JobAssetSelectionInput!`): Rules that select
       jobs of the integration. Project and table filters apply to dbt
       monitors only. Takes the full set of rules; an empty selection
@@ -61779,6 +61825,39 @@ class Mutation(sgqlc.types.Type):
       that don't belong to this connection's warehouse
     """
 
+    set_dbt_cloud_environment_filter = sgqlc.types.Field(
+        "SetDbtCloudEnvironmentFilter",
+        graphql_name="setDbtCloudEnvironmentFilter",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "allowed_dbt_cloud_environments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="allowedDbtCloudEnvironments",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set the dbt environment allow-list for a dbt Cloud
+    webhook connection
+
+    Arguments:
+
+    * `allowed_dbt_cloud_environments` (`[String!]`): dbt environment
+      names to keep, matched case-insensitively. Events without an
+      environment name are dropped.
+    * `connection_id` (`UUID!`): dbt Cloud webhook connection id
+    """
+
     snooze_dbt_node = sgqlc.types.Field(
         "SnoozeDbtNode",
         graphql_name="snoozeDbtNode",
@@ -67538,6 +67617,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "plan_agents",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(PlanAgentInput)),
+                        graphql_name="planAgents",
+                        default=None,
+                    ),
+                ),
+                (
                     "plan_corrections",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(PlanCorrectionInput)),
@@ -67593,6 +67680,14 @@ class Mutation(sgqlc.types.Type):
       pipeline. Unknown labels are ignored by the agent.
     * `domain_uuid` (`UUID!`): UUID of the metadata domain to run
       monitoring for.
+    * `plan_agents` (`[PlanAgentInput!]`): The AI agents a generated
+      plan keeps. The build analyzes only these agents. Pass it with
+      `planSelection`, or alone for a plan that keeps only agents. A
+      build that omits it or passes an empty list analyzes no agents.
+      The plan must keep at least one table or agent. Each
+      `traceTableMcon` must belong to your account. At most 200
+      agents. Cannot be combined with `planCorrections` or an agent
+      scope.
     * `plan_corrections` (`[PlanCorrectionInput!]`): The user's
       corrections to the plan named by `revisesPlanUuid` — the
       structured half of per-run steering, applied deterministically
@@ -67605,8 +67700,9 @@ class Mutation(sgqlc.types.Type):
       from a planning session: an object mapping each table MCON to
       its depth (`deep_dive` or `table_monitor`). The run builds
       exactly these tables and skips its own table selection.
-      Forwarded to the agent as is. Must be a non-empty object. Cannot
-      be combined with `planCorrections` or an agent scope.
+      Forwarded to the agent as is. May be empty when `planAgents` is
+      not, since a plan can keep only agents. Cannot be combined with
+      `planCorrections` or an agent scope.
     * `revises_plan_uuid` (`UUID`): planUuid of the plan this run
       should revise. Recorded on the new run so the resulting plan
       links back to the one it revises (see
@@ -71918,6 +72014,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "allowed_dbt_cloud_environments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="allowedDbtCloudEnvironments",
+                        default=None,
+                    ),
+                ),
+                (
                     "connection_name",
                     sgqlc.types.Arg(String, graphql_name="connectionName", default=None),
                 ),
@@ -71971,6 +72075,10 @@ class Mutation(sgqlc.types.Type):
       only: explicit allow-list of dbt connection ids/names; a run is
       kept only if its environment connection id or name is listed.
       Only valid when filterDbtCloudEvents is true.
+    * `allowed_dbt_cloud_environments` (`[String!]`): dbt Cloud
+      webhook only: dbt environment names to keep. When non-empty,
+      events from other environments, or without an environment name,
+      are dropped.
     * `connection_name` (`String`): Provide a friendly name for the
       connection when creating
     * `connection_type` (`String!`): The type of connection to add
@@ -79941,6 +80049,7 @@ class Query(sgqlc.types.Type):
         "get_pii_filter_metrics",
         "get_dbt_connections",
         "get_dbt_connection_details",
+        "get_dbt_cloud_environment_names",
         "get_dbt_projects",
         "get_dbt_jobs",
         "get_dbt_nodes",
@@ -88640,6 +88749,30 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `connection_id` (`String!`): dbt connection id
+    """
+
+    get_dbt_cloud_environment_names = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="getDbtCloudEnvironmentNames",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Distinct dbt environment names seen on a dbt Cloud
+    webhook connection. Use them as suggestions for the environment
+    allow-list. An environment appears only after one of its runs is
+    collected.
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): dbt Cloud webhook connection id
     """
 
     get_dbt_projects = sgqlc.types.Field(
@@ -107719,14 +107852,18 @@ class RunMonitoringForDomain(sgqlc.types.Type):
     rather than every agent in the domain. Both are required together
     — agent names are not unique, so an agent is identified by the
     pair — and both must come from ``getAgentMetadataV2``. Passing one
-    without the other is rejected.  Passing ``planSelection`` builds
-    exactly the plan the user chose in a planning session, instead of
-    letting the agent select tables.  Passing ``revisesPlanUuid``
-    (with or without ``planCorrections``) makes the run a *revision*
-    of that plan. A plan is a view over one run's output, so a
-    revision is always a new plan linked to its predecessor — the plan
-    being revised is never edited in place. Corrections are per-run
-    only and are never replayed into a later scheduled run.
+    without the other is rejected.  Passing ``planSelection``,
+    ``planAgents``, or both builds exactly the plan the user chose in
+    a planning session, instead of letting the agent select tables and
+    agents. If the domain is already running, a build returns that run
+    only when it builds the same tables and agents. Any other in-
+    flight run is rejected with ``MONITORING_RUN_IN_PROGRESS``.
+    Passing ``revisesPlanUuid`` (with or without ``planCorrections``)
+    makes the run a *revision* of that plan. A plan is a view over one
+    run's output, so a revision is always a new plan linked to its
+    predecessor — the plan being revised is never edited in place.
+    Corrections are per-run only and are never replayed into a later
+    scheduled run.
     """
 
     __schema__ = schema
@@ -107736,8 +107873,9 @@ class RunMonitoringForDomain(sgqlc.types.Type):
     )
     """The monitoring-run execution. A freshly created RUNNING row, or
     the domain's already-running execution when one is still in flight
-    — at most one run per domain runs at a time, whoever started it,
-    so poll the returned execution and re-run once it finishes.
+    (for a build, only when it builds the same plan) — at most one run
+    per domain runs at a time, whoever started it, so poll the
+    returned execution and re-run once it finishes.
     """
 
 
@@ -109199,6 +109337,17 @@ class SetDataLakeCatalogMappings(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Whether the mutation succeeded."""
+
+
+class SetDbtCloudEnvironmentFilter(sgqlc.types.Type):
+    """Set the dbt environment allow-list on a dbt Cloud webhook
+    connection. When the list is non-empty, webhook events from other
+    environments are dropped. An empty or omitted list clears it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field(Connection, graphql_name="connection")
 
 
 class SetDbtCloudEventFilter(sgqlc.types.Type):

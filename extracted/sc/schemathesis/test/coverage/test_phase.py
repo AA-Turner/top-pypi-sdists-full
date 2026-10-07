@@ -672,6 +672,15 @@ def test_default_wrong_type_is_not_used(ctx):
     )
 
 
+@pytest.mark.parametrize("declared_type", ["integer", ["integer", "null"]], ids=["single", "list"])
+def test_non_numeric_default_of_integer_is_not_sent(ctx, declared_type):
+    parameters = [{"name": "q", "in": "query", "schema": {"type": declared_type, "default": b"y"}}]
+    operation = load_schema(ctx, parameters)["/foo"]["post"]
+    cases = collect_cases(operation, GenerationMode.POSITIVE)
+    assert cases
+    assert all(case.query.get("q") != b"y" for case in cases)
+
+
 BINARY_KEYWORDS_SCHEMA = """
 openapi: 3.0.2
 info: {title: t, version: "1"}
@@ -3813,6 +3822,34 @@ def test_negative_body_for_any_of_with_only_a_false_branch(ctx, app_runner):
     ]
 
 
+def test_negative_bodies_when_a_required_property_admits_nothing(ctx, app_runner):
+    raw_schema = build_schema(
+        ctx,
+        body={"type": "object", "required": ["a"], "properties": {"a": {"not": {}}, "b": {"type": "string"}}},
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
+    assert described_bodies(cases) == [
+        ("b: Incorrect type", {"b": {}}),
+        ("b: Incorrect type", {"b": [None, None]}),
+        ("b: Incorrect type", {"b": None}),
+        ("b: Incorrect type", {"b": False}),
+        ("b: Incorrect type", {"b": 0}),
+        ("a: Value is not allowed", {"b": "", "a": {}}),
+        ("a: Value is not allowed", {"b": "", "a": [None, None]}),
+        ("a: Value is not allowed", {"b": "", "a": 0}),
+        ("a: Value is not allowed", {"b": "", "a": ""}),
+        ("a: Value is not allowed", {"b": "", "a": False}),
+        ("a: Value is not allowed", {"b": "", "a": True}),
+        ("a: Value is not allowed", {"b": "", "a": None}),
+        ("Missing required property: a", {"b": ""}),
+        ("Incorrect type", [None, None]),
+        ("Incorrect type", "AAA"),
+        ("Incorrect type", None),
+        ("Incorrect type", False),
+        ("Incorrect type", 0),
+    ]
+
+
 def test_no_item_negatives_when_items_admit_everything(ctx, app_runner):
     raw_schema = build_schema(ctx, body={"type": "array", "items": True, "maxItems": 1}, version="3.1.0")
     cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
@@ -3823,6 +3860,36 @@ def test_no_item_negatives_when_items_admit_everything(ctx, app_runner):
         ("Incorrect type", None),
         ("Incorrect type", False),
         ("Incorrect type", 0),
+    ]
+
+
+def test_negative_additional_property_values_next_to_explicit_true(ctx, app_runner):
+    raw_schema = build_schema(
+        ctx,
+        body={
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {"o": {"type": "object", "additionalProperties": {"type": "integer"}}},
+        },
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
+    assert [description for description, _ in described_bodies(cases)] == [
+        "o -> Object with invalid additional property: Incorrect type",
+        "o -> Object with invalid additional property: Incorrect type",
+        "o -> Object with invalid additional property: Incorrect type",
+        "o -> Object with invalid additional property: Incorrect type",
+        "o -> Object with invalid additional property: Incorrect type",
+        "o -> Object with invalid additional property: Incorrect type",
+        "o: Incorrect type",
+        "o: Incorrect type",
+        "o: Incorrect type",
+        "o: Incorrect type",
+        "o: Incorrect type",
+        "Incorrect type",
+        "Incorrect type",
+        "Incorrect type",
+        "Incorrect type",
+        "Incorrect type",
     ]
 
 
@@ -3861,6 +3928,24 @@ def test_query_enum_intersection_with_binary_entry(ctx, app_runner):
     assert [case.query for case in cases] == [{"q": "x"}]
 
 
+def test_only_required_case_skipped_when_optional_parameter_is_unsatisfiable(ctx, app_runner):
+    raw_schema = build_schema(
+        ctx,
+        parameters=[
+            {"name": "a", "in": "query", "required": True, "schema": {"type": "string"}},
+            {"name": "b", "in": "query", "required": False, "schema": {"not": {}}},
+            {"name": "X-H", "in": "header", "required": True, "schema": {"type": "string"}},
+            {"name": "X-K", "in": "header", "required": False, "schema": {"type": "string"}},
+        ],
+        method="get",
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
+    assert [(case.meta.phase.data.description, case.query, case.headers) for case in cases] == [
+        ("Only required properties", {"a": ""}, {"X-H": ""}),
+        ("Default positive test case", {"a": ""}, {"X-H": "", "X-K": ""}),
+    ]
+
+
 def test_query_binary_default_is_the_positive_value(ctx, app_runner):
     # YAML `!!binary` values load as bytes.
     raw_schema = build_schema(
@@ -3870,6 +3955,26 @@ def test_query_binary_default_is_the_positive_value(ctx, app_runner):
     )
     cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
     assert [case.query for case in cases] == [{"q": b"zz"}]
+
+
+def test_format_negative_with_binary_keyword_values(ctx, app_runner):
+    raw_schema = build_schema(
+        ctx,
+        parameters=[
+            {
+                "name": "q",
+                "in": "query",
+                "required": True,
+                "schema": {"type": "string", "format": "date", "default": b"zz"},
+            },
+            {"name": "r", "in": "query", "required": True, "schema": {"type": "string", "format": "date"}},
+        ],
+        body={"type": "object", "required": ["a"], "properties": {"a": {"type": "string", "example": b"x"}}},
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
+    assert [
+        (case.query, case.body) for case in cases if case.meta.phase.data.scenario == CoverageScenario.INVALID_FORMAT
+    ] == [({"q": "0", "r": ""}, {"a": b"x"})]
 
 
 def test_positive_string_example_not_repeated_as_near_boundary_length(ctx, app_runner):
@@ -9568,6 +9673,17 @@ def test_positive_body_string_longer_than_a_pattern_can_draw(ctx):
         "required": ["a"],
     }
     operation = body_operation(ctx, body)
+    assert [len(body["a"]) for body in coverage_bodies(operation, GenerationMode.POSITIVE)] == [9000]
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+
+
+def test_positive_body_string_longer_than_a_unicode_flag_pattern_can_draw(ctx):
+    body = {
+        "type": "object",
+        "properties": {"a": {"type": "string", "pattern": "(?u)^a+$", "minLength": 9000}},
+        "required": ["a"],
+    }
+    operation = body_operation(ctx, body, version="3.1.0")
     assert [len(body["a"]) for body in coverage_bodies(operation, GenerationMode.POSITIVE)] == [9000]
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
 

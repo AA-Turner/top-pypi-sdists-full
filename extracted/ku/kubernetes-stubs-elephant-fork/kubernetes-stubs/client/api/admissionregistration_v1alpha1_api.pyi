@@ -80,7 +80,7 @@ class AdmissionregistrationV1alpha1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_mutating_admission_policy(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -157,7 +157,7 @@ class AdmissionregistrationV1alpha1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_mutating_admission_policy_binding(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[

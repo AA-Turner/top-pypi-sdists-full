@@ -6,7 +6,6 @@
 //! tests verify the fix against local rustfs.
 
 use std::{
-    collections::HashMap,
     num::{NonZeroU16, NonZeroUsize},
     panic::AssertUnwindSafe,
     sync::Arc,
@@ -121,18 +120,15 @@ async fn create_repo_with_one_chunk(
     spec_version: SpecVersionBin,
     value: i8,
 ) -> Result<Repository, Box<dyn std::error::Error>> {
-    let repo = Repository::create(
-        Some(RepositoryConfig {
+    let repo = Repository::create(storage)
+        .config(RepositoryConfig {
             // force chunks to be written as separate objects (not inlined)
             inline_chunk_threshold_bytes: Some(0),
             ..Default::default()
-        }),
-        storage,
-        HashMap::new(),
-        Some(spec_version),
-        true,
-    )
-    .await?;
+        })
+        .spec_version(spec_version)
+        .execute()
+        .await?;
     write_one_chunk(&repo, value).await?;
     Ok(repo)
 }
@@ -155,8 +151,10 @@ async fn write_one_chunk(
         let shape = ArrayShape::new(vec![(2, 1)]).unwrap();
         ds.add_array(array_path.clone(), shape, None, Bytes::new()).await?;
     }
-    let payload =
-        ds.get_chunk_writer()?(Bytes::copy_from_slice(&value.to_be_bytes())).await?;
+    let payload = ds.get_chunk_writer(&array_path, &ChunkIndices(vec![0]))?(
+        Bytes::copy_from_slice(&value.to_be_bytes()),
+    )
+    .await?;
     ds.set_chunk_ref(array_path.clone(), ChunkIndices(vec![0]), Some(payload)).await?;
     ds.commit(format!("write {value}")).execute().await?;
     Ok(())
@@ -220,9 +218,7 @@ async fn empty_prefix_roundtrips() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
         // Re-open with a fresh storage (forces the detection probe to run again).
-        let repo =
-            Repository::open(None, root_storage(&bucket, None, false), HashMap::new())
-                .await?;
+        let repo = Repository::open(root_storage(&bucket, None, false)).execute().await?;
         assert_eq!(read_chunk0(&repo).await?, 7);
     }
     Ok(())
@@ -244,8 +240,7 @@ async fn empty_prefix_roundtrips_on_normalizing_store()
     .await?;
 
     // A fresh storage forces the detection probe to run on reopen.
-    let repo = Repository::open(None, root_storage(&bucket, None, false), HashMap::new())
-        .await?;
+    let repo = Repository::open(root_storage(&bucket, None, false)).execute().await?;
     assert_eq!(read_chunk0(&repo).await?, 13);
     Ok(())
 }
@@ -261,15 +256,11 @@ async fn empty_prefix_create_refuses_over_existing_repo()
         create_repo_with_one_chunk(root_storage(&bucket, Some(""), false), existing, 1)
             .await?;
 
-        let err = Repository::create(
-            None,
-            root_storage(&bucket, Some(""), false),
-            HashMap::new(),
-            Some(new),
-            true,
-        )
-        .await
-        .unwrap_err();
+        let err = Repository::create(root_storage(&bucket, Some(""), false))
+            .spec_version(new)
+            .execute()
+            .await
+            .unwrap_err();
         assert!(
             matches!(
                 err,
@@ -288,10 +279,10 @@ async fn empty_prefix_create_refuses_over_existing_repo()
 #[tokio_test]
 async fn empty_prefix_nonexistent_repo() -> Result<(), Box<dyn std::error::Error>> {
     let bucket = fresh_bucket().await;
-    let err =
-        Repository::open(None, root_storage(&bucket, Some(""), false), HashMap::new())
-            .await
-            .unwrap_err();
+    let err = Repository::open(root_storage(&bucket, Some(""), false))
+        .execute()
+        .await
+        .unwrap_err();
     assert!(
         matches!(
             err,
@@ -324,14 +315,18 @@ async fn empty_prefix_gc_actually_deletes_chunks()
     // forget the second commit, making its chunk garbage
     repo.reset_branch("main", &first, None).await?;
 
-    let now = Utc::now();
+    let now = common::cutoff_after_all_listed(&repo).await?;
     let gc_config = GCConfig::clean_all(
         now,
         now,
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     let summary =
@@ -380,29 +375,25 @@ async fn rooted_roundtrip_body(
     // Create a rooted repo (empty prefix + forced legacy layout). check_clean_root
     // is false because the bucket is shared with other integration tests' objects
     // (which live under non-slash prefixes, a disjoint key space).
-    let repo = Repository::create(
-        Some(RepositoryConfig {
+    let repo = Repository::create(store.rooted_storage(true)?)
+        .config(RepositoryConfig {
             inline_chunk_threshold_bytes: Some(0),
             ..Default::default()
-        }),
-        store.rooted_storage(true)?,
-        HashMap::new(),
-        Some(SpecVersionBin::V2),
-        false,
-    )
-    .await?;
+        })
+        .spec_version(SpecVersionBin::V2)
+        .check_clean_root(false)
+        .execute()
+        .await?;
     write_one_chunk(&repo, 42).await?;
 
     // Reopen with auto-detection (a fresh storage forces the probe). On a
     // leading-slash-preserving store this resolves to LegacyRoot and reads back.
-    let repo =
-        Repository::open(None, store.rooted_storage(false)?, HashMap::new()).await?;
+    let repo = Repository::open(store.rooted_storage(false)?).execute().await?;
     assert_eq!(read_chunk0(&repo).await?, 42);
 
     // Append through the reopened repo, then reopen + read again (write path).
     write_one_chunk(&repo, 7).await?;
-    let repo =
-        Repository::open(None, store.rooted_storage(false)?, HashMap::new()).await?;
+    let repo = Repository::open(store.rooted_storage(false)?).execute().await?;
     assert_eq!(read_chunk0(&repo).await?, 7);
 
     // GC must run cleanly under the detected (rooted) layout.
@@ -413,7 +404,11 @@ async fn rooted_roundtrip_body(
         None,
         NonZeroU16::new(50).unwrap(),
         NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroUsize::new(4 * 1024 * 1024 * 1024).unwrap(),
         NonZeroU16::new(500).unwrap(),
+        NonZeroU16::new(10).unwrap(),
+        NonZeroU16::new(50).unwrap(),
+        None,
         false,
     );
     garbage_collect(Arc::clone(repo.asset_manager()), &gc_config, None, 100).await?;

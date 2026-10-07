@@ -1391,6 +1391,21 @@ class KeyIndex:
         out[ok] = key_of[canon[ok]]
         return out.reshape(r.shape)
 
+    def drop_index(self):
+        """Forget a key table built lazily (`ids`), returning to the state
+        before it: the next lookup indexes its queries or builds the table
+        again, the same ids either way (momwire#1335). The crossing fill's
+        fused end loops make their lookups before the tiles run; at razor's
+        inverted L x32 the table is ~0.37 GB that would otherwise stand
+        through the whole tile pass. A table built eagerly (no hash kernel)
+        is kept."""
+        if (
+            self._index is not None
+            and self._index is not _LAZY_CODES
+            and getattr(self, "_key_zl", None) is not None
+        ):
+            self._index = _LAZY_CODES
+
     def take_r_classes(self):
         """`np.unique(key_r, return_inverse=True)` (the inverse flat), from
         the construction the first time and formed again after that."""
@@ -1412,7 +1427,8 @@ class KeyIndex:
                     np.asarray(self._key_zl, dtype=float),
                 ]
             )
-            self._key_zl = None
+            # `key_zl` is kept (the plan and the product hold the same
+            # array anyway): `drop_index` can return to the lazy state.
         if self._index is not None:
             r, zl = np.broadcast_arrays(np.asarray(r, float), np.asarray(zl, float))
             kj = self._index.find([r.ravel(), zl.ravel()], cancel_flag=_cancel.ptr())
@@ -1663,6 +1679,11 @@ class ProductMemo(TripleMemo):
     def __init__(self):
         super().__init__()
         self.product = None
+        # Set by a caller that has PROVED every row it is about to look up
+        # misses the product (the crossing fill's fused slow-end prepass,
+        # momwire#1335): the product is then not asked, which answers the
+        # same misses without a pass over its keys.
+        self.misses_proven = False
 
     def set_product(self, product):
         if self.product is not None or TripleMemo.__len__(self):
@@ -1686,7 +1707,7 @@ class ProductMemo(TripleMemo):
             block = np.empty((rows.shape[0], N_KEYS), dtype=np.complex128)
             self.stats["lookups"] += rows.shape[0]
         todo = np.flatnonzero(~hit)
-        if todo.size:
+        if todo.size and not self.misses_proven:
             v = self.product.value_rows(rows[todo] + 0.0)
             ok = v >= 0
             # A product still being evaluated, or one whose values were not

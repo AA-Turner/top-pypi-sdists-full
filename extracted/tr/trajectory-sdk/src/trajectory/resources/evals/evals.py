@@ -14,8 +14,9 @@ from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
 from trajectory.resources.evals.rewards import Rewards, RewardsWithRawResponse
 from trajectory.resources.evals.runs import Runs, RunsWithRawResponse
-from trajectory.types.create_run_params import CreateRunParams, RunOptionsParam
+from trajectory.types.evals.evals_create_params import EvalsCreateParams
 from trajectory.types.list_supported_models_response import ListSupportedModelsResponse
+from trajectory.types.run_options_param import RunOptionsParam
 from trajectory.types.run_options_response import RunOptionsResponse
 from trajectory.types.start_eval_response import StartEvalResponse
 
@@ -69,12 +70,14 @@ class Evals(APIResource):
     options: RunOptionsParam | None | Omit = omit,
     parent_checkpoint_id: str | None | Omit = omit,
     display_name: str | None | Omit = omit,
+    task_split: Literal["test", "all"] | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx.Timeout | None | NotGiven = not_given,
   ) -> StartEvalResponse:
-    """Start Eval Route
+    """Evaluate the test split by default. Set task_split to all to evaluate test and train
+    tasks.
 
     Args:
       base_model_slug: Registered base model for the run, distinct from a deployment model slug.
@@ -91,6 +94,8 @@ class Evals(APIResource):
 
       parent_checkpoint_id: Checkpoint to resume training from or evaluate; must match the selected base
         model.
+
+      task_split: Evaluate test tasks by default; all includes both test and train tasks.
 
       extra_headers: Send extra headers
 
@@ -114,8 +119,9 @@ class Evals(APIResource):
           "options": options,
           "parent_checkpoint_id": parent_checkpoint_id,
           "display_name": display_name,
+          "task_split": task_split,
         },
-        CreateRunParams,
+        EvalsCreateParams,
       ),
       options=make_request_options(
         headers={

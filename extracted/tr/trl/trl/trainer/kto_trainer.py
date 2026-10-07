@@ -48,6 +48,7 @@ from transformers.utils import is_peft_available
 from ..data_utils import (
     _tokenize,
     apply_chat_template,
+    common_prefix_length,
     extract_prompt,
     is_conversational,
     prepare_multimodal_messages,
@@ -919,10 +920,11 @@ class KTOTrainer(_BaseTrainer):
 
         # Reference model
         if ref_model is None:
-            if is_peft_model(self.model) or args.precompute_ref_log_probs:
+            if is_peft_model(self.model) or (args.precompute_ref_log_probs and not self.is_fsdp_enabled):
                 # If PEFT is used, the reference model is not needed since the adapter can be disabled to revert to the
                 # initial model. If precompute_ref_log_probs is True, the reference model does not need to be kept in
-                # memory during training.
+                # memory during training. Under FSDP, the policy isn't sharded until `train`, so the precompute still
+                # loads a reference model, freed once it is done.
                 self.ref_model = None
             else:
                 ref_model_init_kwargs = dict(args.model_init_kwargs or {})  # copy to avoid mutating model_init_kwargs
@@ -962,6 +964,9 @@ class KTOTrainer(_BaseTrainer):
 
         # Add tags to the model
         self.model.add_model_tags(self._tag_names)
+
+        # Hash before the reference model is sharded, since DTensor parameters can't be hashed
+        self._precompute_model_hash = hash_module(self.ref_model or self.model) if self.precompute_ref_logps else None
 
         if self.ref_model is not None:
             if self.is_deepspeed_enabled:
@@ -1017,6 +1022,8 @@ class KTOTrainer(_BaseTrainer):
                         "eval",
                         self.args.precompute_ref_batch_size or self.args.per_device_eval_batch_size,
                     )
+            if self.is_fsdp_enabled and ref_model is None:
+                self.ref_model = None
 
     def _prepare_dataset(
         self,
@@ -1084,16 +1091,25 @@ class KTOTrainer(_BaseTrainer):
                         "input_ids"
                     ]
 
-                if not prompt_completion_ids[: len(prompt_ids)] == prompt_ids:
-                    logger.warning(
-                        "Mismatch between tokenized prompt and the start of tokenized prompt+completion. "
-                        "This may be due to unexpected tokenizer behavior, whitespace issues, or special "
-                        "token handling. Verify that the tokenizer is processing text consistently."
+                # The completion starts where the tokenized prompt and prompt+completion diverge, which is not always
+                # after the prompt (see `common_prefix_length`)
+                prompt_len = common_prefix_length(prompt_ids, prompt_completion_ids)
+                if prompt_len < len(prompt_ids):
+                    logger.warning_once(
+                        "The tokenized prompt is not a prefix of the tokenized prompt+completion, usually because the "
+                        "chat template renders the prompt alone differently or because tokens merge across the "
+                        "boundary. The completion starts where they diverge, and this end of the prompt is left out "
+                        "of the training sequence: "
+                        f"{processing_class.decode(prompt_ids[prompt_len:])!r}"
+                        ". The model is trained on a context that differs from the one it sees at inference. To avoid "
+                        "it, use a chat template that renders the prompt the same way in both cases, or end the "
+                        "prompt on a token boundary. This warning is shown once, but it likely applies to every "
+                        "example in the dataset."
                     )
 
                 return {
-                    "prompt_ids": prompt_ids,
-                    "completion_ids": prompt_completion_ids[len(prompt_ids) :],
+                    "prompt_ids": prompt_ids[:prompt_len],
+                    "completion_ids": prompt_completion_ids[prompt_len:],
                 }
 
             dataset = dataset.map(tokenize_fn, fn_kwargs={"processing_class": processing_class}, **map_kwargs)
@@ -1191,7 +1207,7 @@ class KTOTrainer(_BaseTrainer):
                 "`precompute_ref_log_probs=True` is not supported with IterableDataset. Please use a map-style "
                 "Dataset or set `precompute_ref_log_probs=False`."
             )
-        model_hash = hash_module(self.ref_model or self.model)
+        model_hash = self._precompute_model_hash
         # Both inputs are rank-dependent under distributed training (ZeRO-3 shards the model), so broadcast rank 0's
         # value so all ranks share one cache file.
         fingerprint = [Hasher.hash((dataset._fingerprint, model_hash, self.calculate_KL))]

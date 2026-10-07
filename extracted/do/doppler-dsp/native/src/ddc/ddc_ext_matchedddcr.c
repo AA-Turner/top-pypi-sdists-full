@@ -1,8 +1,10 @@
+/* jm:generated ddc_ext_matchedddcr.c */
 /*
  * ddc_ext_matchedddcr.c — MatchedDdcr type for the ddc module.
  *
  * Included by ddc_ext.c (the module aggregator).
- * Hand-patches to this file are preserved across jm commands.
+ * jm regenerates this file on every apply; do not edit it.
+ * Hand-written code belongs in ddc_ext_matchedddcr_extra.c.
  * Do NOT compile this file directly — only ddc_ext.c is compiled.
  */
 /* ======================================================== */
@@ -27,6 +29,9 @@ MatchedDdcrObj_dealloc (MatchedDdcrObject *self)
 static PyObject *
 MatchedDdcrObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
+  /* tp_new allocates only; __init__ reads the arguments. */
+  (void)args;
+  (void)kwds;
   MatchedDdcrObject *self = (MatchedDdcrObject *)type->tp_alloc (type, 0);
   if (self)
     self->handle = NULL;
@@ -118,8 +123,7 @@ MatchedDdcrObj_execute (MatchedDdcrObject *self, PyObject *args,
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &x_obj,
                                     &out_obj))
     return NULL;
-  x_arr = (PyArrayObject *)PyArray_FROM_OTF (x_obj, NPY_FLOAT,
-                                             NPY_ARRAY_C_CONTIGUOUS);
+  x_arr = jm_array_arg (x_obj, NPY_FLOAT, NPY_ARRAY_C_CONTIGUOUS, "x");
   if (!x_arr)
     return NULL;
   if (out_obj && out_obj != Py_None)
@@ -137,9 +141,9 @@ MatchedDdcrObj_execute (MatchedDdcrObject *self, PyObject *args,
           Py_DECREF (x_arr);
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_COMPLEX64,
-          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_COMPLEX64,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           Py_DECREF (x_arr);
@@ -170,6 +174,15 @@ MatchedDdcrObj_execute (MatchedDdcrObject *self, PyObject *args,
         n_out = dp_ddcr_execute (self->handle, _ng0, _ng1, _ng2, _cap);
       Py_END_ALLOW_THREADS
       Py_DECREF (x_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (
+              PyExc_RuntimeError,
+              "MatchedDdcr.execute: wrote %zu elements into a buffer of %zu",
+              (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
                                                     PyArray_DATA (out_arr));
@@ -191,7 +204,16 @@ MatchedDdcrObj_execute (MatchedDdcrObject *self, PyObject *args,
   size_t _cap  = dp_ddcr_execute_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (x_arr);
+      PyErr_Format (PyExc_OverflowError,
+                    "MatchedDdcr.execute: output of %zu elements is too large",
+                    _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -210,6 +232,15 @@ MatchedDdcrObj_execute (MatchedDdcrObject *self, PyObject *args,
     n_out = dp_ddcr_execute (self->handle, _ng0, _ng1, _d0, _cap);
   Py_END_ALLOW_THREADS
   Py_DECREF (x_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "MatchedDdcr.execute: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -227,6 +258,18 @@ MatchedDdcrObj_execute (MatchedDdcrObject *self, PyObject *args,
 }
 
 static PyObject *
+MatchedDdcrObj_execute_ctrl_max_out (MatchedDdcrObject *self,
+                                     PyObject          *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (dp_ddcr_execute_ctrl_max_out (self->handle));
+}
+
+static PyObject *
 MatchedDdcrObj_execute_ctrl (MatchedDdcrObject *self, PyObject *args,
                              PyObject *kwds)
 {
@@ -235,23 +278,108 @@ MatchedDdcrObj_execute_ctrl (MatchedDdcrObject *self, PyObject *args,
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char   *_kwlist[] = { "x", "rate_ctrl", "freq_ctrl", NULL };
+  static char   *_kwlist[] = { "x", "rate_ctrl", "freq_ctrl", "out", NULL };
   PyObject      *x_obj     = NULL;
   PyArrayObject *x_arr     = NULL;
   double         rate_ctrl = 0;
   double         freq_ctrl = 0;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Odd", _kwlist, &x_obj,
-                                    &rate_ctrl, &freq_ctrl))
+  PyObject      *out_obj   = NULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Odd|O", _kwlist, &x_obj,
+                                    &rate_ctrl, &freq_ctrl, &out_obj))
     return NULL;
-  x_arr = (PyArrayObject *)PyArray_FROM_OTF (x_obj, NPY_FLOAT,
-                                             NPY_ARRAY_C_CONTIGUOUS);
+  x_arr = jm_array_arg (x_obj, NPY_FLOAT, NPY_ARRAY_C_CONTIGUOUS, "x");
   if (!x_arr)
     return NULL;
+  if (out_obj && out_obj != Py_None)
+    {
+      /* Require the exact dtype AND C-contiguity — either mismatch makes
+       * the marshal write into a temp copy, not the caller's buffer. */
+      if (!PyArray_Check (out_obj)
+          || PyArray_TYPE ((PyArrayObject *)out_obj) != NPY_COMPLEX64
+          || !PyArray_IS_C_CONTIGUOUS ((PyArrayObject *)out_obj)
+          || !PyArray_ISWRITEABLE ((PyArrayObject *)out_obj))
+        {
+          PyErr_SetString (PyExc_TypeError,
+                           "out must be a writable, C-contiguous"
+                           " ndarray of the output dtype");
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_COMPLEX64,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
+      if (!out_arr)
+        {
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
+      size_t _omax    = dp_ddcr_execute_ctrl_max_out (self->handle);
+      size_t _min_cap = _omax > (size_t)PyArray_SIZE (x_arr)
+                            ? _omax
+                            : ((size_t)PyArray_SIZE (x_arr));
+      if (_cap < _min_cap)
+        {
+          PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
+                        _cap, _min_cap);
+          Py_DECREF (out_arr);
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      /* nogil: GIL released across the pure-C kernel — sound only when
+       * this object is not shared across threads concurrently (one
+       * object per stream); the kernel touches only this object's
+       * state/buffers and the caller's input. */
+      const float    *_ng0 = (const float *)PyArray_DATA (x_arr);
+      size_t          _ng1 = (size_t)PyArray_SIZE (x_arr);
+      float _Complex *_ng2 = (float _Complex *)PyArray_DATA (out_arr);
+      size_t          n_out;
+      Py_BEGIN_ALLOW_THREADS
+        n_out = dp_ddcr_execute_ctrl (self->handle, _ng0, _ng1, rate_ctrl,
+                                      freq_ctrl, _ng2, _cap);
+      Py_END_ALLOW_THREADS
+      Py_DECREF (x_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "MatchedDdcr.execute_ctrl: wrote %zu elements into a "
+                        "buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
+      npy_intp  _odim  = (npy_intp)n_out;
+      PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
+                                                    PyArray_DATA (out_arr));
+      if (!_oview)
+        {
+          Py_DECREF (out_arr);
+          return NULL;
+        }
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
+      return _oview;
+    }
   size_t _need = (size_t)PyArray_SIZE (x_arr);
   size_t _cap  = dp_ddcr_execute_ctrl_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (x_arr);
+      PyErr_Format (
+          PyExc_OverflowError,
+          "MatchedDdcr.execute_ctrl: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -271,6 +399,15 @@ MatchedDdcrObj_execute_ctrl (MatchedDdcrObject *self, PyObject *args,
                                   freq_ctrl, _d0, _cap);
   Py_END_ALLOW_THREADS
   Py_DECREF (x_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "MatchedDdcr.execute_ctrl: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -330,9 +467,9 @@ MatchedDdcrObj_execute_ctrl_push (MatchedDdcrObject *self, PyObject *args,
                            " ndarray of the output dtype");
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_COMPLEX64,
-          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_COMPLEX64,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           return NULL;
@@ -353,6 +490,15 @@ MatchedDdcrObj_execute_ctrl_push (MatchedDdcrObject *self, PyObject *args,
       size_t n_out = dp_ddcr_execute_ctrl_push (
           self->handle, x, rate_ctrl, freq_ctrl,
           (float _Complex *)PyArray_DATA (out_arr), _cap);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "MatchedDdcr.execute_ctrl_push: wrote %zu elements "
+                        "into a buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
                                                     PyArray_DATA (out_arr));
@@ -374,7 +520,16 @@ MatchedDdcrObj_execute_ctrl_push (MatchedDdcrObject *self, PyObject *args,
   size_t _cap  = dp_ddcr_execute_ctrl_push_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      PyErr_Format (
+          PyExc_OverflowError,
+          "MatchedDdcr.execute_ctrl_push: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -383,6 +538,15 @@ MatchedDdcrObj_execute_ctrl_push (MatchedDdcrObject *self, PyObject *args,
   float _Complex *_d0 = (float _Complex *)PyArray_DATA ((PyArrayObject *)arr0);
   size_t n_out        = dp_ddcr_execute_ctrl_push (self->handle, x, rate_ctrl,
                                                    freq_ctrl, _d0, _cap);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (PyExc_RuntimeError,
+                    "MatchedDdcr.execute_ctrl_push: wrote %zu elements into a "
+                    "buffer of %zu",
+                    (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -545,7 +709,7 @@ static PyGetSetDef MatchedDdcr_getset[]
         { "narrow_pulse", (getter)MatchedDdcr_getprop_narrow_pulse, NULL,
           "Is this object's rectangular matched filter degenerately narrow?\n",
           NULL },
-        { NULL } };
+        { NULL, NULL, NULL, NULL, NULL } };
 
 static PyObject *
 MatchedDdcrObj_destroy (MatchedDdcrObject *self, PyObject *Py_UNUSED (ignored))
@@ -625,7 +789,7 @@ static PyMethodDef MatchedDdcrObj_methods[] = {
     "    Output.\n" },
   { "execute_ctrl", (PyCFunction)(void *)MatchedDdcrObj_execute_ctrl,
     METH_VARARGS | METH_KEYWORDS,
-    "execute_ctrl(x, rate_ctrl, freq_ctrl) -> ndarray\n"
+    "execute_ctrl(x, rate_ctrl, freq_ctrl, out) -> ndarray\n"
     "\n"
     "Process a real block, steering both control ports.\n"
     "\n"
@@ -644,6 +808,8 @@ static PyMethodDef MatchedDdcrObj_methods[] = {
     "    INTERMEDIATE rate (fs_in/2) — the halfband has already decimated by\n"
     "    two by the time the mix happens, so a discriminator working in\n"
     "    cycles per ADC sample must be doubled before it lands here.\n"
+    "out : npt.NDArray[np.complex64] | None\n"
+    "    CF32 output buffer.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -662,6 +828,16 @@ static PyMethodDef MatchedDdcrObj_methods[] = {
     "(1024,)\n"
     ">>> round(float(abs(y[100:].mean())), 2)    # real tone -> DC, amp 1.0\n"
     "1.0\n" },
+  { "execute_ctrl_max_out", (PyCFunction)MatchedDdcrObj_execute_ctrl_max_out,
+    METH_NOARGS,
+    "execute_ctrl_max_out() -> int\n"
+    "\n"
+    "As dp_ddcr_execute_max_out(), for the block control-port form.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Output.\n" },
   { "execute_ctrl_push", (PyCFunction)(void *)MatchedDdcrObj_execute_ctrl_push,
     METH_VARARGS | METH_KEYWORDS,
     "execute_ctrl_push(x, rate_ctrl, freq_ctrl, out) -> ndarray\n"
@@ -822,11 +998,11 @@ static PyMethodDef MatchedDdcrObj_methods[] = {
     "    Exception instance, or None. Ignored.\n"
     "tb : object | None\n"
     "    Traceback object, or None. Ignored.\n" },
-  { NULL }
+  { NULL, NULL, 0, NULL }
 };
 
 static PyTypeObject MatchedDdcrObjType = {
-  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "ddc.MatchedDdcr",
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "doppler.ddc.MatchedDdcr",
   .tp_basicsize                           = sizeof (MatchedDdcrObject),
   .tp_dealloc                             = (destructor)MatchedDdcrObj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,

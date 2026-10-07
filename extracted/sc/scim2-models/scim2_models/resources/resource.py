@@ -19,6 +19,7 @@ from pydantic import SerializerFunctionWrapHandler
 from pydantic import ValidationInfo
 from pydantic import ValidatorFunctionWrapHandler
 from pydantic import WrapSerializer
+from pydantic import model_serializer
 from pydantic import model_validator
 from pydantic_core import PydanticCustomError
 
@@ -36,6 +37,7 @@ from ..exceptions import InvalidValueException
 from ..path import Path
 from ..policy import ScimPolicy
 from ..policy import _policy
+from ..policy import default_comparison_key
 from ..scim_object import ScimObject
 from ..utils import UNION_TYPES
 
@@ -375,6 +377,28 @@ class Resource(ScimObject, Generic[AnyExtension]):
         """List the base schema and the schemas of the declared extensions."""
         return super()._model_schemas() + list(self.get_extension_models())
 
+    @model_serializer(mode="wrap")
+    def _scim_serializer(
+        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+    ) -> dict[str, Any]:
+        """Leave out of 'schemas' the extensions the dump does not carry.
+
+        Per RFC7643 §3, 'schemas' lists the schemas of the attributes present
+        in the representation.
+        """
+        serialized = super()._scim_serializer(handler, info)
+        if not info.context or not info.context.get("scim"):
+            return serialized
+        schemas = serialized.get("schemas")
+        if schemas is None:
+            return serialized
+        for extension_field in self.__scim_info__.extensions:
+            urn = self.__scim_info__.attribute_urns[extension_field]
+            key = urn if info.by_alias else extension_field
+            if key not in serialized and urn in schemas:
+                schemas.remove(urn)
+        return serialized
+
     @model_validator(mode="wrap")
     @classmethod
     def _validate_extension_schemas(
@@ -427,6 +451,18 @@ class Resource(ScimObject, Generic[AnyExtension]):
 
         return self
 
+    @model_validator(mode="after")
+    def _validate_comparison_forms(self, info: ValidationInfo) -> Self:
+        """Refuse the strings a request writes and the policy cannot compare."""
+        scim_ctx = info.context.get("scim") if info.context else None
+        if scim_ctx not in _WRITING_CONTEXTS:
+            return self
+        try:
+            _check_comparison_forms(self, _policy(info))
+        except InvalidValueException as exc:
+            raise exc.as_pydantic_error() from exc
+        return self
+
     @classmethod
     def to_schema(cls) -> "Schema":
         """Build a :class:`~scim2_models.Schema` from the current resource class."""
@@ -441,6 +477,43 @@ class Resource(ScimObject, Generic[AnyExtension]):
 
 
 AnyResource = TypeVar("AnyResource", bound="Resource[Any]")
+
+_WRITING_CONTEXTS = (
+    Context.RESOURCE_CREATION_REQUEST,
+    Context.RESOURCE_REPLACEMENT_REQUEST,
+    Context.BULK_REQUEST,
+)
+"""The contexts of the requests that write a whole resource."""
+
+
+def _check_comparison_forms(
+    resource: Resource[Any],
+    policy: ScimPolicy,
+    fields: set[tuple[type[BaseModel], str]] | None = None,
+) -> None:
+    """Refuse a resource holding a string the policy cannot compare.
+
+    Every string attribute is checked, or only the ones in ``fields``, given as
+    the model and the Python name of the field. The default comparison key
+    prepares every string, so the check is skipped under it.
+    """
+    if policy.comparison_key is default_comparison_key:
+        return
+
+    for path in Path[type(resource)].iter_paths(target_type=[str]):  # type: ignore[misc]
+        binding = path.resolve()
+        if fields is not None and (binding.model, binding.field_name) not in fields:
+            continue
+        values = path.get(resource, strict=False)
+        for value in values if isinstance(values, list) else [values]:
+            if not isinstance(value, str):
+                continue
+            try:
+                binding.comparable(value, policy)
+            except ValueError as exc:
+                raise InvalidValueException(
+                    detail=f"'{binding.urn}' holds a value that cannot be compared: {exc}"
+                ) from exc
 
 
 def _unordered(value: Any) -> Any:

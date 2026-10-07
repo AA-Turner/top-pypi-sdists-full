@@ -8,8 +8,9 @@ class V1DownwardAPIVolumeFile:
     mode: typing.Optional[int]
     path: str
     resource_field_ref: typing.Optional[kubernetes.client.V1ResourceFieldSelector]
+    user: typing.Optional[int]
     
-    def __init__(self, *, field_ref: typing.Optional[kubernetes.client.V1ObjectFieldSelector] = ..., mode: typing.Optional[int] = ..., path: str, resource_field_ref: typing.Optional[kubernetes.client.V1ResourceFieldSelector] = ...) -> None:
+    def __init__(self, *, field_ref: typing.Optional[kubernetes.client.V1ObjectFieldSelector] = ..., mode: typing.Optional[int] = ..., path: str, resource_field_ref: typing.Optional[kubernetes.client.V1ResourceFieldSelector] = ..., user: typing.Optional[int] = ...) -> None:
         ...
     def to_dict(self) -> V1DownwardAPIVolumeFileDict:
         ...
@@ -18,3 +19,4 @@ class V1DownwardAPIVolumeFileDict(typing.TypedDict, total=False):
     mode: typing.Optional[int]
     path: str
     resourceFieldRef: typing.Optional[kubernetes.client.V1ResourceFieldSelectorDict]
+    user: typing.Optional[int]

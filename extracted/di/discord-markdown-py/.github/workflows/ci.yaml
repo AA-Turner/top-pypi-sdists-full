@@ -26,6 +26,19 @@ jobs:
       - name: Test wasm profiler
         run: cargo test --release -p discord-markdown-wasm --features profile
 
+  bench_rust:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+      # Installs Valgrind and the gungraun-runner matching the gungraun version in Cargo.toml.
+      - name: Setup gungraun
+        uses: gungraun/setup-gungraun@v1
+      - name: Bench
+        run: cargo bench
+
   # The fuzz_rust_* jobs treat honggfuzz as a source of candidates, not of verdicts: it finds
   # inputs inside a ptraced, coverage-instrumented, persistent-mode process, so neither its timing
   # nor the fuzz targets' wall-clock guards are trustworthy on their own. Each saved input is

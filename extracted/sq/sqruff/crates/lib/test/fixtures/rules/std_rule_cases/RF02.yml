@@ -39,6 +39,30 @@ test_pass_qualified_references_multi_table_statements_subquery_mix:
     ) AS foo
     LEFT JOIN vee ON vee.a = foo.a
 
+test_pass_from_clause_subquery:
+  pass_str: |
+    SELECT
+        a.id AS a_id,
+        b.id AS b_id
+    FROM
+        (
+            SELECT id
+            FROM foo
+        ) AS a
+    INNER JOIN bar AS b ON a.id = b.ib;
+
+test_pass_join_clause_subquery:
+  pass_str: |
+    SELECT
+        a.id AS a_id,
+        b.id AS b_id
+    FROM bar AS b
+    JOIN (
+            SELECT id
+            FROM foo
+        ) AS a
+    ON a.id = b.id;
+
 test_fail_unreferenced_subquery_column:
   fail_str: |
     SELECT a
@@ -213,6 +237,48 @@ test_allow_unqualified_references_in_sparksql_lambdas:
     core:
       dialect: sparksql
 
+test_allow_unqualified_references_in_vertica_lambdas:
+  pass_str: |
+    select
+        hit_code,
+        array_find(
+            hit_categories_array,
+            e -> e not in (
+                'Apple', 'Banana', 'Cherry', 'Durian', 'Elderberry', 'Fig'
+            )
+        ) > -1 as is_unknown_category_flg
+    from hits
+  configs:
+    core:
+      dialect: vertica
+
+test_pass_databricks_lambdas:
+  pass_str: |
+    select
+        i.*,
+        aggregate(i.some_column, 0, (acc, x) -> acc + x) as y
+    from some_table as o
+    inner join some_other_table as i
+        on o.id = i.id;
+  configs:
+    core:
+      dialect: databricks
+
+test_allow_unqualified_references_in_snowflake_lambdas:
+  pass_str: |
+    select
+        t.v,
+        o.v,
+        transform(t.arr1, x int -> x + 1) as f1,
+        filter(t.arr2, y -> y:value > 0) as f2,
+        reduce(o.arr, 0, (acc, val) -> acc + val) as f3
+    from some_table as t
+    inner join some_other_table as o
+        on t.id = o.id;
+  configs:
+    core:
+      dialect: snowflake
+
 test_allow_unqualified_references_in_athena_lambdas:
   pass_str: |
     select
@@ -291,6 +357,28 @@ test_fail_unqualified_references_multi_table_statements_mysql:
     core:
       dialect: mysql
 
+test_pass_bigquery_normalized_whole_row_alias_references:
+  pass_str: |
+    SELECT FORMAT('%t', s1), s2.id
+    FROM main AS S1
+    JOIN secondary AS s2 ON S1.id = s2.id;
+
+    SELECT FORMAT('%t', `s1`), s2.id
+    FROM main AS `s1`
+    JOIN secondary AS s2 ON `s1`.id = s2.id
+  configs:
+    core:
+      dialect: bigquery
+
+test_fail_mysql_alias_named_unqualified_column:
+  fail_str: |
+    SELECT o, s.id
+    FROM orders AS o
+    JOIN shipments AS s ON o.id = s.order_id
+  configs:
+    core:
+      dialect: mysql
+
 test_fail_column_and_alias_same_name_mysql:
   # See issue #2169
   fail_str: |
@@ -328,7 +416,6 @@ test_pass_column_and_alias_same_name_2_mysql:
       dialect: mysql
 
 test_pass_variable_reference_in_where_clause_mysql:
-  ignored: "not working with mysql"
   pass_str: |
     SET @someVar = 1;
     SELECT
@@ -488,6 +575,20 @@ test_pass_ignore_words_regex_bigquery_declare_example:
       references.qualification:
         ignore_words_regex: ^_
 
+test_pass_declared_bigquery_variable:
+  pass_str: |
+    DECLARE run_time TIMESTAMP DEFAULT '2020-01-01 00:00:00';
+
+    SELECT table_a.age FROM table_a
+    INNER JOIN
+        table_b
+        ON
+            table_a.id = table_b.id
+    WHERE table_a.start_date <= run_time;
+  configs:
+    core:
+      dialect: bigquery
+
 test_pass_redshift:
   # This was failing in issue 3380.
   pass_str:
@@ -547,3 +648,162 @@ test_pass_redshift_convert:
   configs:
     core:
       dialect: redshift
+
+test_pass_redshift_object_unpivot:
+  # Redshift SUPER type object unpivoting introduces standalone aliases.
+  # Unqualified references to unpivot output aliases should be allowed.
+  # See: https://github.com/sqlfluff/sqlfluff/issues/6765
+  pass_str: |
+    SELECT
+        x.json,
+        key1,
+        value2.field2
+    FROM table1 AS x,
+        UNPIVOT x.json AS value1 AT key1,
+        value1.field1 AS value2 AT key2
+  configs:
+    core:
+      dialect: redshift
+
+test_pass_redshift_from_unpivot_output_aliases:
+  # Redshift UNPIVOT introduces standalone output aliases.
+  # Unqualified references to the generated output columns should be allowed.
+  pass_str: |
+    SELECT
+        color,
+        cnt
+    FROM count_by_color UNPIVOT (
+        cnt FOR color IN (red, green, blue)
+    )
+  configs:
+    core:
+      dialect: redshift
+
+test_pass_snowflake_from_unpivot_output_aliases:
+  # Snowflake UNPIVOT introduces standalone output aliases.
+  pass_str: |
+    SELECT
+        col_name,
+        val
+    FROM my_tbl
+    UNPIVOT (val FOR col_name IN (a, b))
+  configs:
+    core:
+      dialect: snowflake
+
+test_pass_bigquery_single_column_unpivot_output_aliases:
+  # BigQuery single-column UNPIVOT introduces standalone output aliases.
+  pass_str: |
+    SELECT
+        quarter,
+        sales
+    FROM Produce
+    UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+  configs:
+    core:
+      dialect: bigquery
+
+test_pass_duckdb_single_key_unpivot_output_aliases:
+  # DuckDB single-key UNPIVOT introduces standalone output aliases.
+  pass_str: |
+    SELECT
+        month,
+        sales
+    FROM monthly_sales UNPIVOT (
+        sales
+        FOR month IN (jan, feb, mar, apr, may, jun)
+    )
+  configs:
+    core:
+      dialect: duckdb
+
+test_pass_redshift_array_unnest:
+  # Redshift array unnesting introduces standalone aliases.
+  # Unqualified references to unnest output aliases should be allowed.
+  pass_str: |
+    SELECT
+        ed.shop_id,
+        key,
+        value
+    FROM example_data AS ed,
+        ed.inventory AS value AT key
+  configs:
+    core:
+      dialect: redshift
+
+test_pass_databricks_star_except:
+  # Excluded column names do not need qualification.
+  pass_str: |
+    SELECT
+        test.* EXCEPT (test_column),
+        test_2.*
+    FROM test
+    LEFT JOIN test_2 ON test.test_column = test_2.test_column
+  configs:
+    core:
+      dialect: databricks
+
+test_pass_sparksql_star_except:
+  pass_str: |
+    SELECT a.* EXCEPT (col_one, col_two)
+    FROM table_a AS a
+    JOIN table_b AS b ON a.id = b.id
+  configs:
+    core:
+      dialect: sparksql
+
+test_pass_clickhouse_star_except:
+  pass_str: |
+    SELECT a.* EXCEPT (col_one, col_two)
+    FROM table_a AS a
+    JOIN table_b AS b ON a.id = b.id
+  configs:
+    core:
+      dialect: clickhouse
+
+test_fail_unqualified_reference_with_star_except:
+  # Only references inside EXCEPT are exempt.
+  fail_str: |
+    SELECT
+        a.* EXCEPT (col_one),
+        col_two
+    FROM table_a AS a
+    JOIN table_b AS b ON a.id = b.id
+  configs:
+    core:
+      dialect: databricks
+
+test_pass_sparksql_broadcast_hint:
+  # The hint argument names a table alias, not a select-list column.
+  pass_str: |
+    SELECT /*+ BROADCAST(a) */
+        a.col_one,
+        b.col_two
+    FROM table_a AS a
+    JOIN table_b AS b ON a.id = b.id
+  configs:
+    core:
+      dialect: sparksql
+
+test_pass_sparksql_merge_hint_multiple_tables:
+  pass_str: |
+    SELECT /*+ MERGE(a, b) */
+        a.col_one,
+        b.col_two
+    FROM table_a AS a
+    JOIN table_b AS b ON a.id = b.id
+  configs:
+    core:
+      dialect: sparksql
+
+test_fail_unqualified_reference_with_hint:
+  # Only the reference inside the hint is exempt.
+  fail_str: |
+    SELECT /*+ BROADCAST(a) */
+        col_one,
+        b.col_two
+    FROM table_a AS a
+    JOIN table_b AS b ON a.id = b.id
+  configs:
+    core:
+      dialect: sparksql

@@ -75,7 +75,7 @@ from sqlbuild.compiler.source_freshness.types import SourceFreshnessAgeStatus
 from sqlbuild.cost.types import CostStatus
 from sqlbuild.executor.build.models import BuildExecutionResult, SeedExecutionResult
 from sqlbuild.executor.clone.models import CloneExecutionResult
-from sqlbuild.executor.diff.models import DiffExecutionResult
+from sqlbuild.executor.diff.models import DiffExecutionResult, FullDiffSizeLimits
 from sqlbuild.executor.janitor.models import JanitorPlan
 from sqlbuild.executor.load.models import LoadExecutionResult
 from sqlbuild.executor.python_nodes.models import PythonNodeExecutionResult
@@ -523,6 +523,7 @@ class DirectDiffPreparation:
     connection_config: dict[str, object]
     effective_max_column_examples: int
     effective_max_row_only_examples: int
+    full_size_limits: FullDiffSizeLimits | None = None
 
 
 @dataclass(frozen=True)
@@ -765,23 +766,14 @@ class LineageSelectionAnchors:
 
 
 @dataclass(frozen=True)
-class ParsedLineageSelector:
-    """One parsed non-path lineage selector."""
+class LineageTarget:
+    """One positional target, `[kind:]<name>` or `[kind:]<model>.<column>`, resolved by name."""
 
-    kind: str
-    value: str
-    upstream: bool = False
-    downstream: bool = False
-
-
-@dataclass(frozen=True)
-class ParsedLineagePathSelector:
-    """One parsed path-between lineage selector."""
-
-    start_name: str
-    end_name: str
-    upstream: bool = False
-    downstream: bool = False
+    kind: str | None
+    name: str
+    key: CompiledObjectKey | None
+    column_name: str | None
+    kind_matches: bool
 
 
 @dataclass(frozen=True)
@@ -958,6 +950,16 @@ class ScenarioRunOutputContext:
 
 
 @dataclass(frozen=True)
+class ScenarioRunPresentation:
+    """Live status and timing shared by one scenario test run's progress output."""
+
+    scenario_status: TransientStatusReporter
+    status_is_tty: bool
+    activity: str
+    started: float
+
+
+@dataclass(frozen=True)
 class ScenarioSnapshotLimitInputs:
     """CLI snapshot capture-limit overrides for one scenario run."""
 
@@ -981,6 +983,7 @@ class ScenarioTestCommandRequest:
     retain: bool = False
     local: bool = False
     strict: bool = False
+    concurrency: int | None = None
     sync_snapshots: bool = False
     refresh: bool = False
     limit_inputs: ScenarioSnapshotLimitInputs = ScenarioSnapshotLimitInputs()

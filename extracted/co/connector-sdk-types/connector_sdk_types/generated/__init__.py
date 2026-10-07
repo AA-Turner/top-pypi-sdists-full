@@ -40,6 +40,8 @@ from .models.application_entitlement_association import ApplicationEntitlementAs
 from .models.application_entitlement_data import ApplicationEntitlementData
 from .models.application_resource_data import ApplicationResourceData
 from .models.application_status import ApplicationStatus
+from .models.arbitrary_request_method import ArbitraryRequestMethod
+from .models.arbitrary_response import ArbitraryResponse
 from .models.assign_application import AssignApplication
 from .models.assign_application200_response import AssignApplication200Response
 from .models.assign_application_entitlement import AssignApplicationEntitlement
@@ -135,6 +137,10 @@ from .models.found_account_data import FoundAccountData
 from .models.found_entitlement_association import FoundEntitlementAssociation
 from .models.found_entitlement_data import FoundEntitlementData
 from .models.found_resource_data import FoundResourceData
+from .models.fulfill_arbitrary_endpoint import FulfillArbitraryEndpoint
+from .models.fulfill_arbitrary_endpoint200_response import FulfillArbitraryEndpoint200Response
+from .models.fulfill_arbitrary_endpoint_request import FulfillArbitraryEndpointRequest
+from .models.fulfill_arbitrary_endpoint_response import FulfillArbitraryEndpointResponse
 from .models.get_account import GetAccount
 from .models.get_account200_response import GetAccount200Response
 from .models.get_account_entitlement_associations import GetAccountEntitlementAssociations
@@ -392,6 +398,8 @@ __all__ = [
     "ApplicationEntitlementData",
     "ApplicationResourceData",
     "ApplicationStatus",
+    "ArbitraryRequestMethod",
+    "ArbitraryResponse",
     "AssignApplication",
     "AssignApplication200Response",
     "AssignApplicationEntitlement",
@@ -487,6 +495,10 @@ __all__ = [
     "FoundEntitlementAssociation",
     "FoundEntitlementData",
     "FoundResourceData",
+    "FulfillArbitraryEndpoint",
+    "FulfillArbitraryEndpoint200Response",
+    "FulfillArbitraryEndpointRequest",
+    "FulfillArbitraryEndpointResponse",
     "GetAccount",
     "GetAccount200Response",
     "GetAccountEntitlementAssociations",

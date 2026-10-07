@@ -43,6 +43,7 @@ options:
     required: false
     env:
       - name: COBBLER_PASSWORD
+    secret: true
   cache_fallback:
     description: Fallback to cached results if connection to cobbler fails.
     type: boolean
@@ -146,14 +147,25 @@ except ImportError:
     HAS_XMLRPC_CLIENT = False
 
 
-class TimeoutTransport(xmlrpc_client.SafeTransport):
+class TimeoutTransport(xmlrpc_client.Transport):
+    def __init__(self, timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
+        super().__init__()
+        self._timeout = timeout
+
+    def make_connection(self, host):
+        conn = super().make_connection(host)
+        conn.timeout = self._timeout
+        return conn
+
+
+class TimeoutSafeTransport(xmlrpc_client.SafeTransport):
     def __init__(self, timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
         super().__init__()
         self._timeout = timeout
         self.context = None
 
     def make_connection(self, host):
-        conn = xmlrpc_client.SafeTransport.make_connection(self, host)
+        conn = super().make_connection(host)
         conn.timeout = self._timeout
         return conn
 
@@ -183,6 +195,12 @@ class InventoryModule(BaseInventoryPlugin, Cacheable):
         if self.cache_key not in self._cache:
             self._cache[self.cache_key] = {}
 
+    def _store_result(self, key, data):
+        if self.use_cache:
+            self._init_cache()
+            self._cache[self.cache_key][key] = data
+        return data
+
     def _reload_cache(self):
         if self.get_option("cache_fallback"):
             self.display.vvv("Cannot connect to server, loading cache\n")
@@ -198,10 +216,11 @@ class InventoryModule(BaseInventoryPlugin, Cacheable):
                 else:
                     data = self.cobbler.get_profiles()
             except (socket.gaierror, OSError, xmlrpc_client.ProtocolError):
+                if not self.use_cache:
+                    raise
                 self._reload_cache()
             else:
-                self._init_cache()
-                self._cache[self.cache_key]["profiles"] = data
+                return self._store_result("profiles", data)
 
         return self._cache[self.cache_key]["profiles"]
 
@@ -222,10 +241,11 @@ class InventoryModule(BaseInventoryPlugin, Cacheable):
                         else:
                             data[i] = self.cobbler.get_system_as_rendered(host["name"])
             except (socket.gaierror, OSError, xmlrpc_client.ProtocolError):
+                if not self.use_cache:
+                    raise
                 self._reload_cache()
             else:
-                self._init_cache()
-                self._cache[self.cache_key]["systems"] = data
+                return self._store_result("systems", data)
 
         return self._cache[self.cache_key]["systems"]
 
@@ -253,11 +273,13 @@ class InventoryModule(BaseInventoryPlugin, Cacheable):
         self.cobbler_url = self.get_option("url")
         self.display.vvvv(f"Connecting to {self.cobbler_url}\n")
 
-        if "connection_timeout" in self._options:
+        connection_timeout = self.get_option("connection_timeout")
+        if connection_timeout is not None:
+            transport_cls = TimeoutSafeTransport if self.cobbler_url.lower().startswith("https:") else TimeoutTransport
             self.cobbler = xmlrpc_client.Server(
                 self.cobbler_url,
                 allow_none=True,
-                transport=TimeoutTransport(timeout=self.get_option("connection_timeout")),
+                transport=transport_cls(timeout=connection_timeout),
             )
         else:
             self.cobbler = xmlrpc_client.Server(self.cobbler_url, allow_none=True)

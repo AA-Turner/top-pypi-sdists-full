@@ -1,4 +1,5 @@
 use hashbrown::HashMap;
+use sqruff_lib_core::dialects::init::DialectKind;
 use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use sqruff_lib_core::lint_fix::LintFix;
 
@@ -11,6 +12,7 @@ use crate::core::rules::{Erased, ErasedRule, LintResult, Rule, RuleGroups};
 pub struct RuleLT15 {
     maximum_empty_lines_between_statements: usize,
     maximum_empty_lines_inside_statements: usize,
+    maximum_empty_lines_between_batches: usize,
 }
 
 impl Default for RuleLT15 {
@@ -18,6 +20,7 @@ impl Default for RuleLT15 {
         Self {
             maximum_empty_lines_between_statements: 2,
             maximum_empty_lines_inside_statements: 1,
+            maximum_empty_lines_between_batches: 1,
         }
     }
 }
@@ -35,6 +38,11 @@ impl Rule for RuleLT15 {
                 .and_then(Value::as_int)
                 .map(|v| v as usize)
                 .unwrap_or(self.maximum_empty_lines_inside_statements),
+            maximum_empty_lines_between_batches: config
+                .get("maximum_empty_lines_between_batches")
+                .and_then(Value::as_int)
+                .map(|v| v as usize)
+                .unwrap_or(self.maximum_empty_lines_between_batches),
         }
         .erased())
     }
@@ -90,45 +98,49 @@ LIMIT 5
             .parent_stack
             .iter()
             .any(|seg| seg.is_type(SyntaxKind::Statement));
+        let inside_batch = context
+            .parent_stack
+            .iter()
+            .any(|seg| seg.is_type(SyntaxKind::Batch));
 
         let maximum_empty_lines = if inside_statement {
-            self.maximum_empty_lines_inside_statements
+            if context
+                .parent_stack
+                .last()
+                .is_some_and(|seg| seg.is_type(SyntaxKind::WithCompoundStatement))
+            {
+                self.maximum_empty_lines_between_statements
+            } else {
+                self.maximum_empty_lines_inside_statements
+            }
+        } else if inside_batch {
+            self.maximum_empty_lines_between_statements
+        } else if context.dialect.name == DialectKind::Tsql {
+            self.maximum_empty_lines_between_batches
         } else {
             self.maximum_empty_lines_between_statements
         };
 
-        let Some(parent) = context.parent_stack.last() else {
+        if context.raw_stack.len() < maximum_empty_lines {
             return Vec::new();
-        };
+        }
 
-        let siblings = parent.segments();
-        let Some(current_idx) = siblings.iter().position(|s| s == &context.segment) else {
-            return Vec::new();
-        };
-
-        // Count consecutive newlines including this one
-        let mut consecutive_newlines = 1;
-
-        // Count backwards from current position
-        for i in (0..current_idx).rev() {
-            if siblings[i].is_type(SyntaxKind::Newline) {
-                consecutive_newlines += 1;
-            } else {
-                break;
+        let start = context
+            .raw_stack
+            .len()
+            .saturating_sub(maximum_empty_lines + 1);
+        for raw_segment in &context.raw_stack[start..] {
+            if raw_segment.is_templated() || !raw_segment.is_type(SyntaxKind::Newline) {
+                return Vec::new();
             }
         }
 
-        // Too many consecutive newlines means too many empty lines
-        if consecutive_newlines > maximum_empty_lines + 1 {
-            return vec![LintResult::new(
-                context.segment.clone().into(),
-                vec![LintFix::delete(context.segment.clone())],
-                None,
-                None,
-            )];
-        }
-
-        Vec::new()
+        vec![LintResult::new(
+            context.segment.clone().into(),
+            vec![LintFix::delete(context.segment.clone())],
+            None,
+            None,
+        )]
     }
 
     fn is_fix_compatible(&self) -> bool {
@@ -136,6 +148,8 @@ LIMIT 5
     }
 
     fn crawl_behaviour(&self) -> Crawler {
-        SegmentSeekerCrawler::new(const { SyntaxSet::new(&[SyntaxKind::Newline]) }).into()
+        SegmentSeekerCrawler::new(const { SyntaxSet::new(&[SyntaxKind::Newline]) })
+            .provide_raw_stack()
+            .into()
     }
 }

@@ -25,6 +25,7 @@ except ImportError:
     HAS_DB_DRIVER = False
 
 VALID_IDENTIFIER_PATTERN = re.compile(r'^[^`\\]+$')
+POSSIBLE_SIZE_PATTERN = re.compile(r'^([\d]+)(K|M|G|T|Ki|Mi|Gi|Ti)$')
 
 
 def client_common_argument_spec():
@@ -101,7 +102,7 @@ def connect_to_db_via_client(module, main_conn_kwargs, client_kwargs):
 
     # Display warning about using unsuporrted server version.
     server_version = get_server_version(module, client)
-    if server_version['year'] < 24 or server_version['year'] == 24 and server_version['feature'] < 8:
+    if server_version['year'] < 25 or server_version['year'] == 25 and server_version['feature'] < 3:
         module.warn("Used server version is not activately maintained with this collection. Some features may not work properly.")
     return client
 
@@ -189,3 +190,19 @@ def normalize_db_table(module, client, database, table):
     else:
         validate_identifier(module, table)
     return f"`{database}`.`{table}`"
+
+
+def to_bytes_data(value):
+    units = {
+        'Ki': 1024**1,
+        'Mi': 1024**2,
+        'Gi': 1024**3,
+        'Ti': 1024**4,
+        'K': 1000**1,
+        'M': 1000**2,
+        'G': 1000**3,
+        'T': 1000**4,
+    }
+    match = POSSIBLE_SIZE_PATTERN.match(value)
+
+    return int(match.group(1)) * units[match.group(2)]

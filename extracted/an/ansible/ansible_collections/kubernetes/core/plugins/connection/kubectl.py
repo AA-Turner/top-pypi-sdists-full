@@ -196,6 +196,7 @@ EXAMPLES = r"""
     # and requires python to be installed in the image
     - name: Run a command in a pod
       ansible.builtin.command: echo "Hello, World!"
+      changed_when: false
 
 - name: Run a command in a pod using local kubectl with inventory variables
   # Example inventory:
@@ -220,6 +221,7 @@ EXAMPLES = r"""
     # and requires python to be installed in the image
     - name: Run a command in a pod
       ansible.builtin.command: echo "Hello, World!"
+      changed_when: false
 
 - name: Run a command in a pod using dynamic inventory
   hosts: localhost
@@ -253,6 +255,7 @@ EXAMPLES = r"""
       # be aware that the command is executed as the user that started the container
       # and requires python to be installed in the image
       ansible.builtin.command: echo "Hello, World!"
+      changed_when: false
       delegate_to: "{{ my_app_pod_name }}"
 """
 
@@ -262,11 +265,11 @@ import os.path
 import shutil
 import subprocess
 import tempfile
+from shlex import quote as shlex_quote
 
 from ansible.errors import AnsibleError, AnsibleFileNotFound
 from ansible.module_utils.common.text.converters import to_bytes
 from ansible.module_utils.parsing.convert_bool import boolean
-from ansible.module_utils.six.moves import shlex_quote
 from ansible.parsing.yaml.loader import AnsibleLoader
 from ansible.plugins.connection import BUFSIZE, ConnectionBase
 from ansible.utils.display import Display

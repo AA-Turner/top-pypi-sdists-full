@@ -20,8 +20,8 @@
 停止: SIGTERM（Pod 停止）は asyncio の signal handler で **停止要求を記録するだけ**。watchdog が停止理由 `stopped` に変換し、
 取消 / 期限と同じ協調停止経路（子プロセス群の停止 → 回収 → `failed/runner_stopped` の completion。効果不明）で終端する。
 
-終了コード（00 §7「非0終了と効果不明の扱い」）: 0 = terminal 保存済み（または既に terminal）、2 = terminal を保存できなかった
-（所有権を取れなかった / 保存 API が失敗した）、3 = 設定不正（Agent は呼ばれていない）。それ以外の障害（signal、ワークスペース
+終了コード（00 §7「非0終了と効果不明の扱い」）: 0 = terminal 保存済み（または既に terminal / 取消済みで front が保存を拒んだ）、
+2 = terminal を保存できなかった（所有権を取れなかった / 保存 API が失敗した）、3 = 設定不正（Agent は呼ばれていない）。それ以外の障害（signal、ワークスペース
 破損、想定外の例外）は例外のまま非0 で終わってよい: **SDK はプロセスの終了コードを保証しない**。terminal 未保存の非0 終了は
 executor が `failed/agent_exit_nonzero`（効果不明）で終端し、front は人の確認（hold）へ回す。exit 0 で terminal 未保存なら
 回収猶予後に `failed/completion_missing`（同じく hold）。
@@ -29,6 +29,7 @@ executor が `failed/agent_exit_nonzero`（効果不明）で終端し、front �
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import json
 import logging
 import os
@@ -83,8 +84,10 @@ COLLECTION_MARGIN_MIN = 30.0          # 停止（SIGTERM 猶予 + SIGKILL 猶予
 DEFAULT_EXECUTION_TIMEOUT = 900       # context に期限がまだ無い間のローカル上限（00 §6 既定）。server の期限が来たら短い方
 DEFAULT_COLLECTION_GRACE = 300
 _UUID_RE_HEX = "0123456789abcdef-"
-# front は取消 / run の終端 / 期限の後の live な読み取り（入力 artifact / 接続 token）を 409 で拒否する。その code → 停止理由
+# front は取消 / run の終端 / 期限の後の live な読み取り（入力 artifact / 接続 token）と書き込み（監査 / 成果物 / completion）を
+# 409 で拒否する。その code → 停止理由
 _LIVE_REJECT_STOP_REASONS = {"cancelled": "cancel", "run_closed": "cancel", "deadline_exceeded": "deadline"}
+PR_SET_DUMPABLE = 4
 
 
 @dataclass
@@ -112,10 +115,80 @@ def _parse_ts(raw: Any) -> Optional[datetime]:
         return None
 
 
-def _exit_code(saved: bool, already: bool) -> int:
+def _exit_code(saved: bool, already: bool, refused: Optional[str] = None) -> int:
     """0 = terminal 保存済み（または既に terminal）、2 = 保存できなかった。executor はどちらも効果不明として
-    hold に収束させる（exit 0 + 未保存 = 回収猶予後 completion_missing、非0 = agent_exit_nonzero）。"""
-    return 0 if (saved or already) else 2
+    hold に収束させる（exit 0 + 未保存 = 回収猶予後 completion_missing、非0 = agent_exit_nonzero）。
+    取消の後は front が completion も 409 `cancelled` で拒み、executor が終了コードに関係なく stopped で閉じるので 0。
+    `run_closed`（取消の無い run の終端もある）/ `deadline_exceeded` は 2 のまま（executor が待たずに閉じる）。"""
+    return 0 if (saved or already or refused == "cancelled") else 2
+
+
+def _protect_token_from_children() -> None:
+    """runner の env にある ASTER_RUNTIME_TOKEN を、同じ uid で動く Agent（子・孫）から `/proc/<pid>/environ` や
+    `/proc/<pid>/mem` で読めなくする（dumpable = 0）。子は exec で dumpable に戻るので、Agent 自身の /proc は普通に使える。
+    守れるのは runner のプロセスだけ: image の起動がシェル形式で PID 1 が別のプロセスなら、そちらにも token が残る。
+    Linux 以外・失敗は warning で続ける（実行は止めない）。"""
+    if not sys.platform.startswith("linux"):
+        logger.warning("process hardening skipped: not Linux (the runtime token stays readable by the agent's processes)")
+        return
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        if libc.prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0:
+            logger.warning("process hardening failed: prctl(PR_SET_DUMPABLE) errno %s", ctypes.get_errno())
+            return
+    except (OSError, AttributeError) as e:
+        logger.warning("process hardening failed: %s", type(e).__name__)
+        return
+    if os.getpid() != 1:
+        try:
+            with open("/proc/1/environ", "rb") as f:
+                pid1_holds_token = (ENV_TOKEN + "=").encode() in f.read()
+        except OSError:
+            return   # 読めない = 別 uid か dumpable = 0（Agent からも読めない）
+        if pid1_holds_token:
+            logger.warning("PID 1 also holds %s and the agent can read it; start the runner in exec form "
+                           "(CMD [\"python\", \"-c\", ...]) so that it is PID 1", ENV_TOKEN)
+
+
+def _ensure_log_output() -> None:
+    """推奨の起動（`python -c "...run(...)"`）ではログの出力先が無く、INFO（`context.log` / completion の保存）が捨てられる。
+    呼び出し側がログを設定していなければ、SDK の logger にだけ stderr の出力先を付ける（root には付けない =
+    httpx などの INFO は増やさない）。"""
+    sdk_logger = logging.getLogger("agenticstar_platform")
+    if sdk_logger.handlers or logging.getLogger().handlers:
+        return
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    sdk_logger.addHandler(handler)
+    if sdk_logger.level == logging.NOTSET:
+        sdk_logger.setLevel(logging.INFO)
+
+
+def _sendable(value: Any) -> bool:
+    """front へ JSON で送れるか。httpx と同じ encode を試す（NaN / Infinity・孤立したサロゲート・深すぎる入れ子は
+    送信時に例外になり、runner ごと落ちる）。"""
+    try:
+        json.dumps(value, allow_nan=False, ensure_ascii=False).encode("utf-8")
+    except (ValueError, TypeError, RecursionError):   # UnicodeEncodeError は ValueError
+        return False
+    return True
+
+
+def _valid_audit_event(event: Any) -> bool:
+    """子から届いた監査 event の形（制御チャネルは Agent のプロセスが書けるので、SDK を通らない値も来うる）。"""
+    return (isinstance(event, dict) and isinstance(event.get("event_id"), str) and bool(event["event_id"])
+            and isinstance(event.get("event_type"), str) and isinstance(event.get("metadata") or {}, dict)
+            and (event.get("reason") is None or isinstance(event.get("reason"), str)) and _sendable(event))
+
+
+def _error_class(value: Any) -> Optional[str]:
+    """子の done の error_class（envelope に載る）。front は 128 文字（JS の length = UTF-16）を超えると completion ごと拒む。"""
+    if not isinstance(value, str) or not value:
+        return None
+    value = value[:128]
+    while len(value.encode("utf-16-le", "surrogatepass")) > 256:   # BMP 外の文字は 2 単位
+        value = value[:-1]
+    return value if _sendable(value) else None
 
 
 GATE_DECISIONS = ("proceed", "send_back")
@@ -183,7 +256,7 @@ class WorkflowRunner:
     def __init__(self, *, entrypoint: str, env: Mapping[str, str], workspace: Optional[str] = None,
                  transport: Optional[httpx.AsyncBaseTransport] = None, python: Optional[str] = None,
                  cancel_poll_seconds: float = CANCEL_POLL_SECONDS, child_grace_seconds: float = CHILD_GRACE_SECONDS,
-                 stop_on_sigterm: bool = False):
+                 stop_on_sigterm: bool = False, protect_token: bool = False):
         self._entrypoint = entrypoint
         self._env = validate_env(env)
         self._workspace = Path(workspace or env.get("ASTER_WORKSPACE") or DEFAULT_WORKSPACE)
@@ -192,6 +265,8 @@ class WorkflowRunner:
         self._cancel_poll = cancel_poll_seconds
         self._grace = child_grace_seconds
         self._stop_on_sigterm = stop_on_sigterm   # プロセス全体の副作用なので、プロセスを所有する呼び出し（run()）だけが有効にする
+        self._protect_token = protect_token       # 同上（dumpable = 0 はプロセス全体に効く）
+        self._completion_refused: Optional[str] = None   # completion を拒んだ 409 の code（取消 / run の終端 / 期限）
         self.execution_id = self._env[ENV_EXECUTION_ID]
         self._client: Optional[RuntimeClient] = None
         self._ctx: dict[str, Any] = {}
@@ -225,6 +300,8 @@ class WorkflowRunner:
             logger.warning("[%s] stop requested; finishing the terminal steps", self.execution_id)
 
     async def run(self) -> WorkflowResult:
+        if self._protect_token:
+            _protect_token_from_children()   # Agent（子）を起動する前に
         self._client = RuntimeClient(self._env[ENV_BASE_URL], self.execution_id, self._env[ENV_TOKEN],
                                      transport=self._transport, deadline=self._seconds_left)
         loop = asyncio.get_running_loop()
@@ -276,6 +353,13 @@ class WorkflowRunner:
         manifest = self._manifest(ctx)
         try:
             owner = await self._persist_manifest(state, manifest)
+        except RuntimeApiError as e:
+            # 起動前に取消 / run の終端 / 期限が来た（_persist_manifest は停止理由に写した live な拒否だけを外へ出す）。
+            # Agent は起動していない。所有権を証明していなければ completion を送らない（送っても front は同じ 409 で拒む）
+            logger.info("[%s] start refused (%s); not starting the agent", eid, e.code)
+            if not self._owns(state):
+                return WorkflowResult(eid, None, None, None, False, False, _exit_code(False, False, e.code))
+            return await self._finish(state, ctx, {}, agent_error=None)
         except AuditNotPersisted as e:
             logger.error("[%s] manifest audit not persisted: %s", eid, e)
             self._tally.persist_failures += 1
@@ -358,8 +442,11 @@ class WorkflowRunner:
             except ExecutionTerminal:
                 return WorkflowResult(eid, None, None, None, False, True, 0)
             except (RuntimeApiError, WorkflowError) as e:
-                logger.error("[%s] artifact save failed: %s", eid, e)
-                upload_failed = True
+                if isinstance(e, RuntimeApiError) and self._stop_on_live_reject(e):
+                    logger.info("[%s] artifact save refused (%s)", eid, e.code)   # 取消 / 期限が先に決まった
+                else:
+                    logger.error("[%s] artifact save failed: %s", eid, e)
+                    upload_failed = True
 
         outcome, reason, had = decide_outcome(
             tally=self._tally, agent_error=agent_error, stop_reason=self._stop_reason,
@@ -385,7 +472,8 @@ class WorkflowRunner:
         envelope = build_envelope(outcome=outcome, reason=reason, had_mutating_success=had, tally=self._tally,
                                   error_class=error_class, runner=runner_state)
         saved, already = await self._complete(state, envelope, [a["artifact_id"] for a in artifacts])
-        return WorkflowResult(eid, outcome, reason, had, saved, already, _exit_code(saved, already), artifacts)
+        return WorkflowResult(eid, outcome, reason, had, saved, already,
+                              _exit_code(saved, already, self._completion_refused), artifacts)
 
     async def _recover(self, state: _State, ctx: dict[str, Any]) -> WorkflowResult:
         """runner 再起動後: 保存済み completion payload があれば **同じ内容を** 再送（新しい envelope を作らない = front の記録と
@@ -398,7 +486,7 @@ class WorkflowRunner:
             logger.warning("[%s] runner restarted after building the completion; resending it (outcome=%s)", eid, env.get("outcome"))
             saved, already = await self._complete(state, env, list(payload.get("output_artifact_ids") or []))
             return WorkflowResult(eid, env.get("outcome"), env.get("outcome_reason_code"), env.get("had_mutating_success"),
-                                  saved, already, _exit_code(saved, already))
+                                  saved, already, _exit_code(saved, already, self._completion_refused))
         logger.warning("[%s] runner restarted before completion; the agent will not be re-executed", eid)
         await self._stop_previous_group(state)
         roots = {} if self._cleanup_uncertain else self._open_roots(*self._prepare_dirs())  # 止め切れていないなら回収しない
@@ -601,6 +689,8 @@ class WorkflowRunner:
         try:
             res = await self._client.post_audit(events)
         except RuntimeApiError as e:
+            if self._stop_on_live_reject(e):
+                raise   # 取消 / run の終端 / 期限: 保存の失敗ではない（呼び出し側が停止として扱う）
             raise AuditNotPersisted(str(e))
         accepted, duplicates = set(res.get("accepted") or []), set(res.get("duplicates") or [])
         if base_id in accepted:
@@ -716,9 +806,9 @@ class WorkflowRunner:
                         break
                     try:
                         msg = json.loads(line.decode("utf-8"))
-                    except ValueError:
+                    except (ValueError, RecursionError):   # 壊れた行・深すぎる入れ子は読まない
                         continue
-                    if not isinstance(msg, dict) or "id" not in msg:
+                    if not isinstance(msg, dict) or type(msg.get("id")) is not int:   # id は応答にそのまま返す（SDK は整数）
                         continue
                     reply = await self._answer(msg)
                     reply["id"] = msg["id"]
@@ -728,7 +818,7 @@ class WorkflowRunner:
                         break
                     if msg.get("op") == "done":
                         status = str(msg.get("status") or "error")
-                        error_class = msg.get("error_class")
+                        error_class = _error_class(msg.get("error_class"))
                         break
                 else:
                     line_task.cancel()
@@ -831,7 +921,12 @@ class WorkflowRunner:
         """子の監査を front へ保存し、ack（accepted / duplicates）だけを成功として返す。
         tool.invoked は ack の前後で取消 / 期限を確認する（期限後の write を承認しない）。観測は journal が durable に
         なってから承認する（journal に失敗したら承認しない = 監査保存失敗と同じ扱い）。"""
-        etype = str(event.get("event_type") or "")
+        if not _valid_audit_event(event):
+            # 送れない形（NaN / Infinity・文字列でない ID 等）。runner は落とさず、保存できなかった監査として扱う
+            self._tally.persist_failures += 1
+            await self._journal_tally()
+            return {"accepted": False, "error": "invalid audit event"}
+        etype = event["event_type"]
         if etype == "tool.invoked":
             await self._refresh_control(force=False)
             if self._stop_reason:
@@ -842,6 +937,10 @@ class WorkflowRunner:
             self._stop_reason = self._stop_reason or "terminal"
             return {"accepted": False, "error": "execution terminal"}
         except (RuntimeApiError, WorkflowError) as e:
+            if isinstance(e, RuntimeApiError) and self._stop_on_live_reject(e):
+                # 取消 / run の終端 / 期限の後の監査: 保存の失敗ではなく停止（completion も同じ 409 で拒まれ、
+                # 終端は executor が決める）。tool.invoked なら Agent は外部への書き込みを始めない
+                return {"accepted": False, "error": f"execution {self._stop_reason}"}
             self._tally.persist_failures += 1  # 必須監査の保存失敗 = 正常成功を出さない
             await self._journal_tally()
             return {"accepted": False, "error": str(e)[:200]}
@@ -877,7 +976,7 @@ class WorkflowRunner:
             return False
 
     def _stop_on_live_reject(self, e: RuntimeApiError) -> bool:
-        """live な読み取りの 409（取消 / run の終端 / 期限）を停止理由に写す。写したら True。"""
+        """live な読み取り・書き込みの 409（取消 / run の終端 / 期限）を停止理由に写す。写したら True。"""
         stop = _LIVE_REJECT_STOP_REASONS.get(e.code) if e.status == 409 else None
         if stop is None:
             return False
@@ -1041,6 +1140,11 @@ class WorkflowRunner:
             logger.warning("[%s] completion rejected: execution already terminal (kept the existing result)", self.execution_id)
             return False, True
         except (RuntimeApiError, WorkflowError) as e:
+            if isinstance(e, RuntimeApiError) and e.status == 409 and e.code in _LIVE_REJECT_STOP_REASONS:
+                # 取消 / run の終端 / 期限の後は front が completion も拒む。終端は executor が決める（取消なら stopped）
+                self._completion_refused = e.code
+                logger.info("[%s] completion refused (%s); the executor closes the execution", self.execution_id, e.code)
+                return False, False
             logger.error("[%s] completion could not be saved: %s", self.execution_id, e)
             return False, False
         logger.info("[%s] completion saved (existing=%s)", self.execution_id, bool(res.get("existing")))
@@ -1054,14 +1158,21 @@ async def arun(entrypoint: str, *, env: Optional[Mapping[str, str]] = None, work
 
 
 def run(entrypoint: str, *, env: Optional[Mapping[str, str]] = None, workspace: Optional[str] = None,
-        exit_process: bool = True) -> WorkflowResult:
+        exit_process: bool = True, stop_on_sigterm: Optional[bool] = None) -> WorkflowResult:
     """顧客 image の起動 command から呼ぶ入口: `python -c "from agenticstar_platform.workflow import run; run('my_agent.main:run')"`。
+    exec 形式（`CMD ["python", "-c", ...]`）で起動して runner を PID 1 にする（シェルを挟むとシェルの env に token が残る）。
     設定不正は Agent を呼ばずに終了コード 3、terminal を保存できなければ 2。SIGTERM（Pod 停止）は協調停止
     （`failed/runner_stopped` の completion）に変換する。それ以外の障害は例外のまま非0 で終わる
-    （executor が効果不明 = `failed/agent_exit_nonzero` として hold に収束させる。SDK は終了コードを保証しない）。"""
+    （executor が効果不明 = `failed/agent_exit_nonzero` として hold に収束させる。SDK は終了コードを保証しない）。
+    `stop_on_sigterm` の既定は `exit_process` と同じ（`exit_process=False` だと SIGTERM の協調停止も入らないので、
+    要るなら `stop_on_sigterm=True` を渡す）。runner の token を Agent のプロセスから読めなくする処理と、ログの出力先
+    （呼び出し側が未設定のときだけ stderr）は、プロセスを所有するこの入口だけが入れる。"""
     env_map = env if env is not None else os.environ
+    _ensure_log_output()
     try:
-        result = asyncio.run(arun(entrypoint, env=env_map, workspace=workspace, stop_on_sigterm=exit_process))
+        result = asyncio.run(arun(entrypoint, env=env_map, workspace=workspace,
+                                  stop_on_sigterm=exit_process if stop_on_sigterm is None else stop_on_sigterm,
+                                  protect_token=True))
     except WorkflowConfigError as e:
         logger.error("workflow config error: %s", e)
         if exit_process:

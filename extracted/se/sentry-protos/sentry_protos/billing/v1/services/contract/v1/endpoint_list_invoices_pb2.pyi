@@ -20,6 +20,7 @@ class ListInvoicesRequest(google.protobuf.message.Message):
     ORGANIZATION_ID_FIELD_NUMBER: builtins.int
     MAX_ITEMS_FIELD_NUMBER: builtins.int
     OFFSET_FIELD_NUMBER: builtins.int
+    CUSTOMER_RECEIPTS_ONLY_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     """Only invoices owned by this organization are returned."""
     max_items: builtins.int
@@ -31,15 +32,20 @@ class ListInvoicesRequest(google.protobuf.message.Message):
     """Zero-based offset into the result set. Pair with max_items to page
     through results.
     """
+    customer_receipts_only: builtins.bool
+    """When true, omit invoices with hide_from_customer_receipts=true so the
+    response (and total) match what customers should see on receipts.
+    """
     def __init__(
         self,
         *,
         organization_id: builtins.int = ...,
         max_items: builtins.int = ...,
         offset: builtins.int | None = ...,
+        customer_receipts_only: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_offset", b"_offset", "offset", b"offset"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_offset", b"_offset", "max_items", b"max_items", "offset", b"offset", "organization_id", b"organization_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_offset", b"_offset", "customer_receipts_only", b"customer_receipts_only", "max_items", b"max_items", "offset", b"offset", "organization_id", b"organization_id"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_offset", b"_offset"]) -> typing.Literal["offset"] | None: ...
 
 global___ListInvoicesRequest = ListInvoicesRequest

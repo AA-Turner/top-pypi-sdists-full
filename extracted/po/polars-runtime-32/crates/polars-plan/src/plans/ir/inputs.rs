@@ -1,5 +1,6 @@
 use std::iter;
 
+use polars_buffer::Buffer;
 use polars_utils::itertools::Itertools;
 
 use super::*;
@@ -43,7 +44,6 @@ impl IR {
             | MapFunction { .. }
             | DataFrameScan { .. }
             | HConcat { .. }
-            | ExtContext { .. }
             | SimpleProjection { .. }
             | SinkMultiple { .. }
             | Gather { .. } => Exprs::Empty,
@@ -66,7 +66,7 @@ impl IR {
 
             Sort { by_column, .. } => Exprs::slice(by_column),
             Select { expr, .. } => Exprs::slice(expr),
-            HStack { exprs, .. } => Exprs::slice(exprs),
+            HStack { exprs, .. } | Window { exprs, .. } => Exprs::slice(exprs),
 
             GroupBy { keys, aggs, .. } => Exprs::double_slice(keys, aggs),
 
@@ -91,6 +91,7 @@ impl IR {
             },
 
             UnoptimizedDispatch { .. } => Exprs::Empty,
+            Resolver { filters, .. } => Exprs::slice(filters),
             Invalid => unreachable!(),
         }
     }
@@ -105,7 +106,6 @@ impl IR {
             | MapFunction { .. }
             | DataFrameScan { .. }
             | HConcat { .. }
-            | ExtContext { .. }
             | SimpleProjection { .. }
             | SinkMultiple { .. }
             | Gather { .. } => ExprsMut::Empty,
@@ -127,7 +127,7 @@ impl IR {
 
             Sort { by_column, .. } => ExprsMut::slice(by_column),
             Select { expr, .. } => ExprsMut::slice(expr),
-            HStack { exprs, .. } => ExprsMut::slice(exprs),
+            HStack { exprs, .. } | Window { exprs, .. } => ExprsMut::slice(exprs),
 
             GroupBy { keys, aggs, .. } => ExprsMut::double_slice(keys, aggs),
 
@@ -152,6 +152,13 @@ impl IR {
             },
 
             UnoptimizedDispatch { .. } => ExprsMut::Empty,
+            Resolver { filters, .. } => {
+                if filters.get_mut_slice().is_none() {
+                    *filters = Buffer::from_iter(filters.iter().cloned());
+                }
+
+                ExprsMut::slice(filters.get_mut_slice().unwrap())
+            },
             Invalid => unreachable!(),
         }
     }
@@ -184,17 +191,10 @@ impl IR {
             } => Inputs::double(*input_left, *input_right),
             Gather { input, idxs, .. } => Inputs::double(*input, *idxs),
             HStack { input, .. } => Inputs::single(*input),
+            Window { input, .. } => Inputs::single(*input),
             Distinct { input, .. } => Inputs::single(*input),
             MapFunction { input, .. } => Inputs::single(*input),
             Sink { input, .. } => Inputs::single(*input),
-            ExtContext {
-                input, contexts, ..
-            } => Inputs::DoubleSlice(
-                std::slice::from_ref(input)
-                    .iter()
-                    .chain(contexts.iter())
-                    .copied(),
-            ),
             Scan { .. } => Inputs::Empty,
             DataFrameScan { .. } => Inputs::Empty,
             #[cfg(feature = "python")]
@@ -206,6 +206,7 @@ impl IR {
                 ..
             } => Inputs::double(*input_left, *input_right),
             UnoptimizedDispatch { inputs, .. } => Inputs::slice(inputs),
+            Resolver { resolved_ir, .. } => Inputs::Slice(resolved_ir.as_slice().iter().copied()),
             Invalid => unreachable!(),
         }
     }
@@ -230,15 +231,10 @@ impl IR {
             } => InputsMut::double(input_left, input_right),
             Gather { input, idxs, .. } => InputsMut::double(input, idxs),
             HStack { input, .. } => InputsMut::single(input),
+            Window { input, .. } => InputsMut::single(input),
             Distinct { input, .. } => InputsMut::single(input),
             MapFunction { input, .. } => InputsMut::single(input),
             Sink { input, .. } => InputsMut::single(input),
-            ExtContext {
-                input, contexts, ..
-            } => InputsMut::DoubleSlice(std::iter::chain(
-                std::slice::from_mut(input).iter_mut(),
-                contexts.iter_mut(),
-            )),
             Scan { .. } => InputsMut::Empty,
             DataFrameScan { .. } => InputsMut::Empty,
             #[cfg(feature = "python")]
@@ -250,6 +246,7 @@ impl IR {
                 ..
             } => InputsMut::double(input_left, input_right),
             UnoptimizedDispatch { inputs, .. } => InputsMut::slice(inputs),
+            Resolver { resolved_ir, .. } => InputsMut::slice(resolved_ir.as_mut_slice()),
             Invalid => unreachable!(),
         }
     }
@@ -278,7 +275,6 @@ pub enum Inputs<'a> {
     Single(iter::Once<Node>),
     Double(std::array::IntoIter<Node, 2>),
     Slice(iter::Copied<std::slice::Iter<'a, Node>>),
-    DoubleSlice(iter::Copied<iter::Chain<std::slice::Iter<'a, Node>, std::slice::Iter<'a, Node>>>),
 }
 
 impl<'a> Inputs<'a> {
@@ -304,7 +300,6 @@ impl<'a> Iterator for Inputs<'a> {
             Self::Single(it) => it.next(),
             Self::Double(it) => it.next(),
             Self::Slice(it) => it.next(),
-            Self::DoubleSlice(it) => it.next(),
         }
     }
 
@@ -314,7 +309,6 @@ impl<'a> Iterator for Inputs<'a> {
             Self::Single(it) => it.nth(n),
             Self::Double(it) => it.nth(n),
             Self::Slice(it) => it.nth(n),
-            Self::DoubleSlice(it) => it.nth(n),
         }
     }
 }
@@ -324,7 +318,6 @@ pub enum InputsMut<'a> {
     Single(iter::Once<&'a mut Node>),
     Double(std::array::IntoIter<&'a mut Node, 2>),
     Slice(std::slice::IterMut<'a, Node>),
-    DoubleSlice(iter::Chain<std::slice::IterMut<'a, Node>, std::slice::IterMut<'a, Node>>),
 }
 
 impl<'a> InputsMut<'a> {
@@ -350,7 +343,6 @@ impl<'a> Iterator for InputsMut<'a> {
             Self::Single(it) => it.next(),
             Self::Double(it) => it.next(),
             Self::Slice(it) => it.next(),
-            Self::DoubleSlice(it) => it.next(),
         }
     }
 
@@ -360,7 +352,6 @@ impl<'a> Iterator for InputsMut<'a> {
             Self::Single(it) => it.nth(n),
             Self::Double(it) => it.nth(n),
             Self::Slice(it) => it.nth(n),
-            Self::DoubleSlice(it) => it.nth(n),
         }
     }
 }
@@ -408,6 +399,22 @@ impl<'a> Exprs<'a> {
                 .map(pair_lhs as _)
                 .chain(on.iter().map(pair_rhs as _)),
         )
+    }
+
+    /// [`Self::pair_sides`], then `extra` if there is one.
+    pub(crate) fn pair_sides_then(on: &'a [(ExprIR, ExprIR)], extra: Option<&'a ExprIR>) -> Self {
+        if extra.is_none() {
+            return Self::pair_sides(on);
+        }
+        Self::Boxed(Box::new(
+            on.iter()
+                .map(pair_lhs as fn(&'a (ExprIR, ExprIR)) -> &'a ExprIR)
+                .chain(
+                    on.iter()
+                        .map(pair_rhs as fn(&'a (ExprIR, ExprIR)) -> &'a ExprIR),
+                )
+                .chain(extra),
+        ))
     }
 }
 
@@ -461,8 +468,17 @@ impl<'a> ExprsMut<'a> {
     /// Collects the borrows because two disjoint `&mut` iterators over one slice of pairs
     /// cannot be built in safe Rust.
     pub(crate) fn pair_sides(on: &'a mut [(ExprIR, ExprIR)]) -> Self {
+        Self::pair_sides_then(on, None)
+    }
+
+    /// [`Self::pair_sides`], then `extra` if there is one. Must match
+    /// [`Exprs::pair_sides_then`].
+    pub(crate) fn pair_sides_then(
+        on: &'a mut [(ExprIR, ExprIR)],
+        extra: Option<&'a mut ExprIR>,
+    ) -> Self {
         let (lhs, rhs): (Vec<_>, Vec<_>) = on.iter_mut().map(|(l, r)| (l, r)).unzip();
-        Self::Boxed(Box::new(lhs.into_iter().chain(rhs)))
+        Self::Boxed(Box::new(lhs.into_iter().chain(rhs).chain(extra)))
     }
 }
 

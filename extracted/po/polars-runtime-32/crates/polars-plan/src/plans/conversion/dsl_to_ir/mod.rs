@@ -1,13 +1,16 @@
+use std::pin::Pin;
 use std::sync::LazyLock;
 
-use arrow::datatypes::ArrowSchemaRef;
 use either::Either;
 use expr_expansion::rewrite_projections;
 use futures::stream::FuturesUnordered;
 use hive::hive_partitions_from_paths;
+use polars_arrow::datatypes::ArrowSchemaRef;
 use polars_core::chunked_array::cast::CastOptions;
 use polars_core::config::verbose;
 use polars_core::runtime::ASYNC;
+#[cfg(feature = "dynamic_group_by")]
+use polars_defs::time::group_by::dynamic_boundary_dtype;
 use polars_error::feature_gated;
 use polars_io::ExternalCompression;
 use polars_utils::format_pl_smallstr;
@@ -21,6 +24,7 @@ use super::stack_opt::ConversionOptimizer;
 use super::*;
 use crate::constants::get_pl_element_name;
 use crate::dsl::PartitionedSinkOptions;
+use crate::dsl::dsl_resolver::DslResolverTrait;
 use crate::dsl::file_provider::{FileProviderType, HivePathProvider};
 use crate::dsl::functions::{all_horizontal, col};
 use crate::plans::conversion::dsl_to_ir::scans::SourcesToFileInfo;
@@ -32,7 +36,9 @@ mod expr_to_ir;
 mod functions;
 mod join;
 mod scans;
+mod sql;
 mod utils;
+pub(crate) use expr_expansion::needs_expansion;
 pub use expr_expansion::{expand_expression, is_regex_projection, prepare_projection};
 pub use expr_to_ir::{ExprToIRContext, to_expr_ir};
 use expr_to_ir::{to_expr_ir_materialized_lit, to_expr_irs};
@@ -115,23 +121,19 @@ async fn fetch_metadata(
 ) -> PolarsResult<()> {
     use futures::stream::StreamExt;
     #[cfg(feature = "python")]
-    let py_scan_resolve_threadpool: Arc<
-        LazyLock<PyScanResolveThreadPool, fn() -> PyScanResolveThreadPool>,
-    > = Arc::new(LazyLock::new(PyScanResolveThreadPool::new));
+    let py_scan_resolve_threadpool = Arc::new(LazyLock::new(
+        (|| Arc::new(PyScanResolveThreadPool::new_scan_resolve_thread_pool())) as fn() -> _,
+    ));
 
     let mut futures = lp
         .into_iter()
-        .filter_map(|dsl| {
-            let DslPlan::Scan {
+        .filter_map(|dsl| match dsl {
+            DslPlan::Scan {
                 sources,
                 unified_scan_args,
                 scan_type,
                 cached_ir,
-            } = dsl
-            else {
-                return None;
-            };
-            Some(scans::dsl_to_ir(
+            } => Some(Box::pin(scans::dsl_to_ir(
                 sources.clone(),
                 unified_scan_args.clone(),
                 scan_type.clone(),
@@ -141,6 +143,34 @@ async fn fetch_metadata(
                 Arc::clone(&py_scan_resolve_threadpool),
                 verbose,
             ))
+                as Pin<Box<dyn Future<Output = PolarsResult<()>>>>),
+            DslPlan::Resolver {
+                resolver,
+                resolver_schema,
+                resolved_cache: _,
+            } => {
+                let resolver = Arc::clone(resolver);
+                let resolver_schema = Arc::clone(resolver_schema);
+
+                if resolver_schema.lock().unwrap().is_none() {
+                    Some(
+                        match resolver.schema(
+                            #[cfg(feature = "python")]
+                            Arc::clone(&*py_scan_resolve_threadpool),
+                        ) {
+                            Ok(fut) => Box::pin(async move {
+                                let schema = fut.await?;
+                                *resolver_schema.lock().unwrap() = Some(schema);
+                                Ok(())
+                            }),
+                            Err(e) => Box::pin(std::future::ready(Err(e))),
+                        },
+                    )
+                } else {
+                    None
+                }
+            },
+            _ => None,
         })
         .collect::<FuturesUnordered<_>>();
 
@@ -184,6 +214,8 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                 python_source,
                 validate_schema,
                 is_pure,
+                explain_name,
+                explain_detail,
             } = options;
 
             IR::PythonScan {
@@ -197,6 +229,8 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                     n_rows: Default::default(),
                     predicate: Default::default(),
                     is_pure,
+                    explain_name,
+                    explain_detail,
                 },
             }
         },
@@ -387,8 +421,15 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                 .context(failed_here!(select))?;
 
             if exprs.is_empty() {
-                ctxt.lp_arena.replace(input, utils::empty_df());
-                return Ok(input);
+                return Ok(if options.maintain_dataframe_height {
+                    ctxt.lp_arena.add(IR::SimpleProjection {
+                        input,
+                        columns: Default::default(),
+                    })
+                } else {
+                    ctxt.lp_arena.replace(input, utils::empty_df());
+                    input
+                });
             }
 
             let eirs = to_expr_irs(
@@ -645,7 +686,7 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                     schema,
                     apply,
                     maintain_order,
-                    options,
+                    options: Arc::new(GroupbyOptionsIR::from(Arc::unwrap_or_clone(options))),
                 }
             };
 
@@ -675,9 +716,15 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
             let input = to_alp_impl(owned(input), ctxt).context(failed_here!(gather))?;
             let idxs = to_alp_impl(owned(idxs), ctxt).context(failed_here!(gather))?;
             let idxs_schema = ctxt.lp_arena.get(idxs).schema(ctxt.lp_arena);
-            polars_ensure!(idxs_schema.len() == 1, InvalidOperation: "'gather' indices DataFrame should have a single column");
+            polars_ensure!(
+                idxs_schema.len() == 1,
+                InvalidOperation: "`gather` indices DataFrame should have a single column, got {} columns", idxs_schema.len()
+            );
             let idx_dtype = &idxs_schema.get_at_index(0).unwrap().1;
-            polars_ensure!(idx_dtype.is_integer(), InvalidOperation: "'gather' indices must have integer dtype");
+            polars_ensure!(
+                idx_dtype.is_integer(),
+                InvalidOperation: "`gather` indices must have integer dtype, got `{}`", idx_dtype
+            );
             IR::Gather {
                 input,
                 idxs,
@@ -689,20 +736,6 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
             exprs,
             options,
         } => {
-            // The (0, 0) DataFrame is an exception - with_columns on it acts like select.
-            if let DslPlan::DataFrameScan { df, schema: _ } = input.as_ref() {
-                if df.shape() == (0, 0) {
-                    return to_alp_impl(
-                        DslPlan::Select {
-                            expr: exprs,
-                            input,
-                            options,
-                        },
-                        ctxt,
-                    );
-                }
-            }
-
             let input = to_alp_impl(owned(input), ctxt).context(failed_here!(with_columns))?;
             let (exprs, schema) =
                 resolve_with_columns(exprs, input, ctxt.lp_arena, ctxt.expr_arena, ctxt.opt_flags)
@@ -845,9 +878,31 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                     run_parallel: true,
                     duplicate_check: false,
                     should_broadcast: true,
+                    maintain_dataframe_height: false,
                 },
             };
             return run_conversion(lp, ctxt, "match_to_schema");
+        },
+        DslPlan::SQL {
+            query,
+            relations,
+            cached_stmt,
+        } => {
+            let resolver = crate::dsl::get_sql_resolver().ok_or_else(|| {
+                polars_err!(
+                    ComputeError:
+                    "cannot resolve SQL: no SQL resolver registered; \
+                     build polars with the 'sql' feature"
+                )
+            })?;
+            let resolved = resolver.resolve(
+                &query,
+                relations,
+                cached_stmt.get(),
+                ctxt.lp_arena,
+                ctxt.expr_arena,
+            )?;
+            return to_alp_impl(resolved, ctxt);
         },
         DslPlan::PipeWithSchema { input, callback } => {
             // Derive the schema from the input
@@ -1070,6 +1125,7 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                             run_parallel: false,
                             duplicate_check: false,
                             should_broadcast: true,
+                            maintain_dataframe_height: false,
                         },
                     });
                     (
@@ -1311,6 +1367,7 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                             run_parallel: false,
                             duplicate_check: false,
                             should_broadcast: false,
+                            maintain_dataframe_height: false,
                         },
                     }
                 },
@@ -1318,30 +1375,6 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                     let function = function.into_function_ir(&input_schema)?;
                     IR::MapFunction { input, function }
                 },
-            }
-        },
-        DslPlan::ExtContext { input, contexts } => {
-            let input = to_alp_impl(owned(input), ctxt).context(failed_here!(with_context))?;
-            let contexts = contexts
-                .into_iter()
-                .map(|lp| to_alp_impl(lp, ctxt))
-                .collect::<PolarsResult<Vec<_>>>()
-                .context(failed_here!(with_context))?;
-
-            let mut schema = (**ctxt.lp_arena.get(input).schema(ctxt.lp_arena)).clone();
-            for input in &contexts {
-                let other_schema = ctxt.lp_arena.get(*input).schema(ctxt.lp_arena);
-                for fld in other_schema.iter_fields() {
-                    if schema.get(fld.name()).is_none() {
-                        schema.with_column(fld.name, fld.dtype);
-                    }
-                }
-            }
-
-            IR::ExtContext {
-                input,
-                contexts,
-                schema: Arc::new(schema),
             }
         },
         DslPlan::Sink { input, payload } => {
@@ -1372,6 +1405,8 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                             (py_lf,),
                         )
                     })?;
+
+                    let state = Python::attach(|py| py_sink_state.extract(py))?;
 
                     let mut plan: Box<DslPlan> = (reg.from_py.dsl_plan)(out)?.downcast().unwrap();
 
@@ -1593,6 +1628,23 @@ pub fn to_alp_impl(lp: DslPlan, ctxt: &mut DslConversionContext) -> PolarsResult
                 _ => to_alp_impl(owned(dsl), ctxt),
             };
         },
+        DslPlan::Resolver {
+            resolver,
+            resolver_schema,
+            resolved_cache,
+        } => IR::Resolver {
+            resolver,
+            resolver_schema: { resolver_schema.lock().unwrap().clone() }
+                .expect("DslPlan::Resolver schema should be resolved before to_alp_impl()"),
+
+            projection: Default::default(),
+            slice: Default::default(),
+            filters: Default::default(),
+            filter_drop_columns_idx: Default::default(),
+
+            resolved_dsl: resolved_cache,
+            resolved_ir: None,
+        },
     };
     Ok(ctxt.lp_arena.add(v))
 }
@@ -1671,8 +1723,9 @@ fn resolve_group_by(
             pop_keys = true;
             let dtype = input_schema.try_get(name.as_str())?;
             if options.include_boundaries {
-                output_schema.with_column("_lower_boundary".into(), dtype.clone());
-                output_schema.with_column("_upper_boundary".into(), dtype.clone());
+                let bound_dtype = dynamic_boundary_dtype(dtype);
+                output_schema.with_column("_lower_boundary".into(), bound_dtype.clone());
+                output_schema.with_column("_upper_boundary".into(), bound_dtype);
             }
             output_schema.with_column(name.clone(), dtype.clone());
         }

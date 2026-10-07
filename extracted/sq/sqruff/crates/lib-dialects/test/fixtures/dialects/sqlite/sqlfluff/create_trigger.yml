@@ -20,14 +20,14 @@ file:
       - set_clause_list:
         - keyword: SET
         - set_clause:
-          - column_reference:
-            - naked_identifier: address
+          - naked_identifier: address
           - comparison_operator:
             - raw_comparison_operator: =
-          - column_reference:
-            - naked_identifier: new
-            - dot: .
-            - naked_identifier: address
+          - expression:
+            - column_reference:
+              - naked_identifier: new
+              - dot: .
+              - naked_identifier: address
       - where_clause:
         - keyword: WHERE
         - expression:
@@ -65,14 +65,14 @@ file:
       - set_clause_list:
         - keyword: SET
         - set_clause:
-          - column_reference:
-            - naked_identifier: cust_addr
+          - naked_identifier: cust_addr
           - comparison_operator:
             - raw_comparison_operator: =
-          - column_reference:
-            - naked_identifier: NEW
-            - dot: .
-            - naked_identifier: cust_addr
+          - expression:
+            - column_reference:
+              - naked_identifier: NEW
+              - dot: .
+              - naked_identifier: cust_addr
       - where_clause:
         - keyword: WHERE
         - expression:
@@ -264,7 +264,7 @@ file:
         - dot: .
         - naked_identifier: z
       - keyword: IS
-      - keyword: 'NULL'
+      - null_literal: 'NULL'
     - keyword: BEGIN
     - update_statement:
       - keyword: UPDATE
@@ -273,11 +273,11 @@ file:
       - set_clause_list:
         - keyword: SET
         - set_clause:
-          - column_reference:
-            - naked_identifier: z
+          - naked_identifier: z
           - comparison_operator:
             - raw_comparison_operator: =
-          - boolean_literal: 'TRUE'
+          - expression:
+            - boolean_literal: 'TRUE'
       - where_clause:
         - keyword: WHERE
         - expression:

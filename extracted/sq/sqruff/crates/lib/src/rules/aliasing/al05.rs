@@ -251,10 +251,36 @@ impl RuleAL05 {
                     .extend(table_aliases);
 
                 for r in reference_buffer.into_iter().chain(table_reference_buffer) {
-                    for tr in
-                        r.extract_possible_references(ObjectReferenceLevel::Table, dialect.name)
+                    let table_refs =
+                        r.extract_possible_references(ObjectReferenceLevel::Table, dialect.name);
+                    for tr in &table_refs {
+                        self.resolve_and_mark_reference(query.clone(), tr, dialect.name, payloads);
+                    }
+                    // PostgreSQL and Redshift permit a table alias as a whole-row
+                    // value. A single-part reference has no table-level component,
+                    // but may still refer to an alias in this or a parent query.
+                    if table_refs.is_empty()
+                        && matches!(dialect.name, DialectKind::Postgres | DialectKind::Redshift)
                     {
-                        self.resolve_and_mark_reference(query.clone(), &tr, dialect.name, payloads);
+                        let raw_refs = r.iter_raw_references();
+                        if let [reference] = raw_refs.as_slice()
+                            && reference.segments.len() == 1
+                            && const {
+                                SyntaxSet::new(&[
+                                    SyntaxKind::Identifier,
+                                    SyntaxKind::NakedIdentifier,
+                                    SyntaxKind::QuotedIdentifier,
+                                ])
+                            }
+                            .contains(reference.segments[0].get_type())
+                        {
+                            self.resolve_and_mark_reference(
+                                query.clone(),
+                                reference,
+                                dialect.name,
+                                payloads,
+                            );
+                        }
                     }
                 }
             }
@@ -302,6 +328,49 @@ impl RuleAL05 {
             .iter_segments(const { &SyntaxSet::new(&[SyntaxKind::Bracketed]) }, false)
         {
             if segment.is_type(SyntaxKind::TableExpression) {
+                if dialect_name == DialectKind::Tsql
+                    && segment
+                        .child(const { &SyntaxSet::single(SyntaxKind::OpenrowsetSegment) })
+                        .is_some_and(|openrowset| {
+                            openrowset
+                                .recursive_crawl(
+                                    const { &SyntaxSet::single(SyntaxKind::Keyword) },
+                                    false,
+                                    &SyntaxSet::EMPTY,
+                                    true,
+                                )
+                                .iter()
+                                .any(|seg| seg.is_keyword("BULK"))
+                        })
+                {
+                    return true;
+                }
+
+                // T-SQL's XML .nodes() method returns a rowset that requires a
+                // correlation name, even when the alias is never referenced.
+                // Other datatype methods can be scalar, so keep this an allowlist.
+                if dialect_name == DialectKind::Tsql
+                    && segment
+                        .recursive_crawl(
+                            const { &SyntaxSet::single(SyntaxKind::DatatypeMethod) },
+                            false,
+                            &SyntaxSet::EMPTY,
+                            true,
+                        )
+                        .iter()
+                        .any(|method| {
+                            method
+                                .child(
+                                    const {
+                                        &SyntaxSet::single(SyntaxKind::DatatypeMethodNameIdentifier)
+                                    },
+                                )
+                                .is_some_and(|name| name.raw().eq_ignore_ascii_case("nodes"))
+                        })
+                {
+                    return true;
+                }
+
                 return if segment
                     .child(const { &SyntaxSet::new(&[SyntaxKind::ValuesClause]) })
                     .is_some()
@@ -312,6 +381,7 @@ impl RuleAL05 {
                             | DialectKind::Snowflake
                             | DialectKind::Tsql
                             | DialectKind::Postgres
+                            | DialectKind::Mariadb
                     )
                 } else {
                     segment
@@ -626,5 +696,42 @@ dialect = postgres
             .unwrap();
 
         assert_eq!(linted.fix_string(), POSTGRES_JSON_ALIAS_REPRODUCER);
+    }
+
+    #[test]
+    fn test_al05_postgres_wildcard_row_uses_table_alias() {
+        let sql = "SELECT to_jsonb(mot.*) FROM my_table JOIN my_other_table AS mot ON (TRUE)";
+        let mut linter = postgres_al05_linter();
+        let linted = linter.lint_string_wrapped(sql, false).unwrap();
+
+        assert_eq!(linted.violations(), &[]);
+    }
+
+    #[test]
+    fn test_al05_mariadb_values_derived_table_alias_is_required() {
+        let sql = r#"INSERT INTO test
+(col1, col2)
+SELECT *
+FROM (
+    VALUES
+    (1, "a"),
+    (2, "b")
+) AS temp(col1, col2) WHERE NOT EXISTS (
+        SELECT NULL FROM test
+    );
+"#;
+        let config = FluffConfig::from_source(
+            r#"
+[sqruff]
+rules = AL05
+dialect = mariadb
+"#,
+            None,
+        );
+        let mut linter = Linter::new(config, None, None, true).unwrap();
+        let linted = linter.lint_string_wrapped(sql, true).unwrap();
+
+        assert_eq!(linted.violations(), &[]);
+        assert_eq!(linted.fix_string(), sql);
     }
 }

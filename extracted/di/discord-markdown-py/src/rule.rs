@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash};
 
-use enumset::{enum_set, enum_set_union, EnumSet, EnumSetType};
+use enumset::{EnumSet, EnumSetType, enum_set, enum_set_union};
 
 #[cfg(doc)]
 use super::node::Node;
@@ -77,7 +77,7 @@ impl Rule {
 			Self::Strikethrough => enum_set!(Grammar::Strikethrough),
 			Self::Underline => enum_set!(Grammar::Underline),
 			Self::Spoiler => enum_set!(Grammar::Spoiler),
-			Self::Code => enum_set!(Grammar::Code),
+			Self::Code => enum_set!(Grammar::Code | Grammar::DoubleCode),
 			Self::CodeBlock => enum_set!(Grammar::CodeBlock),
 			Self::Timestamp => enum_set!(Grammar::Timestamp),
 			Self::Emoji => enum_set!(Grammar::CustomEmoji | Grammar::ColonDelimitedEmoji),
@@ -147,7 +147,7 @@ pub type RuleSet = EnumSet<Rule>;
 mod test {
 	use crate::grammar::{Grammar, GrammarSet};
 
-	use super::{RuleSet, BLOCK_RULES, INLINE_RULES, MODIFIER_RULES};
+	use super::{BLOCK_RULES, INLINE_RULES, MODIFIER_RULES, RuleSet};
 
 	#[test]
 	fn every_grammar() {

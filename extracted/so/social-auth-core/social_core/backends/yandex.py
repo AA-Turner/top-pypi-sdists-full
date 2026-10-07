@@ -18,11 +18,14 @@ class YandexOpenId(OpenIdAuth):
     """Yandex OpenID authentication backend"""
 
     name = "yandex-openid"
-    ID_KEY = "email"
+    title = "Yandex"
+    ID_KEY = "identity_url"
+    LEGACY_ID_KEYS = ("email",)
+    MUTABLE_ID_KEYS = ("email",)
     URL = "https://openid.yandex.ru"
 
     def get_user_id(self, details, response):
-        return details.get(self.id_key()) or response.identity_url
+        return self.get_user_id_for_key(details, response, self.id_key())
 
     def get_user_details(self, response):
         """Generate username from identity url"""
@@ -38,14 +41,15 @@ class YandexOAuth2(BaseOAuth2):
     """Legacy Yandex OAuth2 authentication backend"""
 
     name = "yandex-oauth2"
+    title = "Yandex"
     AUTHORIZATION_URL = "https://oauth.yandex.com/authorize"
     ACCESS_TOKEN_URL = "https://oauth.yandex.com/token"
     REDIRECT_STATE = False
 
     def get_user_details(self, response):
-        fullname, first_name, last_name = self.get_user_names(
-            response.get("real_name") or response.get("display_name") or ""
-        )
+        fullname = response.get("real_name") or response.get("display_name") or ""
+        first_name = ""
+        last_name = ""
         email = response.get("default_email")
         if not email:
             emails = response.get("emails")
@@ -67,14 +71,15 @@ class YandexOAuth2(BaseOAuth2):
 
 class YaruOAuth2(BaseOAuth2):
     name = "yaru"
+    title = "Я.ру"  # noqa: RUF001 - original service branding
     AUTHORIZATION_URL = "https://oauth.yandex.com/authorize"
     ACCESS_TOKEN_URL = "https://oauth.yandex.com/token"
     REDIRECT_STATE = False
 
     def get_user_details(self, response):
-        fullname, first_name, last_name = self.get_user_names(
-            response.get("real_name") or response.get("display_name") or ""
-        )
+        fullname = response.get("real_name") or response.get("display_name") or ""
+        first_name = ""
+        last_name = ""
         email = response.get("default_email")
         if not email:
             emails = response.get("emails")

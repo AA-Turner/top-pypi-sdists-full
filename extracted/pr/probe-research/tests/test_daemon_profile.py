@@ -17,7 +17,7 @@ def _body(name: str) -> str:
 
 def test_the_daemon_blurb_is_the_approved_text():
     assert agent_rules.DAEMON_POINTER_BODY == _body("agent-facing/managed-block.PROPOSED.md")
-    # 1,131 approved 09-27; + the `probe session inline` line 10-05 (Richard).
+    # 1,131 approved 09-27; the `probe session inline` line (10-05) out again 10-06.
     assert len(agent_rules.DAEMON_POINTER_BODY) < 1400
 
 
@@ -64,6 +64,10 @@ SID = "11111111-2222-3333-4444-555555555555"
 
 def test_the_guard_refusal_is_the_approved_text():
     assert session_marker.DAEMON_PROFILE_DENY == _body("agent-facing/guard-refusal.NEW.md").rstrip("\n")
+
+
+def test_the_switch_refusal_is_the_approved_text():
+    assert session_marker.RESEARCHER_SWITCH_DENY == _body("agent-facing/switch-refusal.NEW.md").rstrip("\n")
 
 
 def _guard(tmp_path, command: str, *, state: str = "daemon", tool: str = "Bash", profile: str = "daemon"):

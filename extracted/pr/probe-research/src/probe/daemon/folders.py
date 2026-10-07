@@ -337,7 +337,7 @@ def _apply(store: Store, seen: list[Seen], *, emit: bool) -> int:
                                                               lineterm="", n=1))
                         what += "\n" + diff[:MAX_DIFF_CHARS]
                 # Stamped with the file's own mtime, so a change the agent made while it
-                # held Probe (`probe session inline`) is placed like any of its turns.
+                # held Probe (`/probe inline`) is placed like any of its turns.
                 events.append(Event(kind=Kind.FILE_CHANGE, stream="folders", offset=store.next_offset(), text=what,
                                     ts=_mtime_stamp(s.mtime)))
             store.set_file(s.path, s.size, s.mtime, s.text)
@@ -367,9 +367,9 @@ async def baseline(store: Store, cwd: Path, home: Path) -> None:
 
 
 def _mtime_stamp(mtime: float) -> "str | None":
-    """A file's mtime as an event's ISO stamp (UTC, microseconds: a takeover's
-    times keep theirs, and a change a millisecond after one must not round to
-    before it)."""
+    """A file's mtime as an event's ISO stamp (UTC, microseconds: an inline
+    stretch's times keep theirs, and a change a millisecond after one must not
+    round to before it)."""
     from datetime import datetime, timezone
 
     try:

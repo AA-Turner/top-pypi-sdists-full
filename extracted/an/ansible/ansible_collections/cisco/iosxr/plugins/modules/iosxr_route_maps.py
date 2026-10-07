@@ -379,17 +379,23 @@ options:
                 description: MPLS traffic-eng attributeset name-string
                 type: str
               med:
-                description: Metric for Equal-Cost Multi-Path
+                description:
+                  - Metric for Equal-Cost Multi-Path
+                  - "Note: increment and decrement are mutually exclusive"
                 type: dict
                 suboptions:
                   value:
                     description: Metric value
                     type: int
                   increment:
-                    description: Increment the metric value
+                    description:
+                      - Increment the metric value
+                      - Mutually exclusive with decrement
                     type: int
                   decrement:
-                    description: Decrement the metric value
+                    description:
+                      - Decrement the metric value
+                      - Mutually exclusive with increment
                     type: int
                   igp_cost:
                     description: Use IGP metric
@@ -619,6 +625,56 @@ EXAMPLES = """
 #
 # viosxr#show running-config | include route-policy
 #
+
+- name: Configure route-policy with MED (Metric for Equal-Cost Multi-Path)
+  cisco.iosxr.iosxr_route_maps:
+    state: merged
+    config:
+      - name: MED_INCREMENT_POLICY
+        global:
+          set:
+            med:
+              increment: 50  # Increment MED by 50
+              value: 50
+      - name: MED_DECREMENT_POLICY
+        global:
+          set:
+            med:
+              decrement: 25  # Decrement MED by 25
+              value: 25
+      - name: MED_STATIC_POLICY
+        global:
+          set:
+            med:
+              value: 100  # Set MED to static value 100
+      - name: MED_IGP_COST_POLICY
+        global:
+          set:
+            med:
+              igp_cost: true  # Set MED to IGP cost
+
+# Note: increment and decrement are mutually exclusive.
+# The following would result in an error:
+#   med:
+#     increment: 50
+#     decrement: 50  # ERROR: Cannot specify both increment and decrement
+
+# Task Output
+# -----------
+#
+# commands:
+# - route-policy MED_INCREMENT_POLICY
+# - set med +50
+# - end-policy
+# - route-policy MED_DECREMENT_POLICY
+# - set med -25
+# - end-policy
+# - route-policy MED_STATIC_POLICY
+# - set med 100
+# - end-policy
+# - route-policy MED_IGP_COST_POLICY
+# - set med igp-cost
+# - end-policy
 
 - name: Merge route-policy configuration
   cisco.iosxr.iosxr_route_maps:

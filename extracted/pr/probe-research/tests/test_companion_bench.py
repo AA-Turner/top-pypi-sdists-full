@@ -482,12 +482,47 @@ def test_no_answer_key_requires_file_notes():
 
 def test_a_round_is_priced_with_its_cache_reads_and_one_without_a_count_read_none():
     prices = bench.load_prices()
-    assert prices["gemini-3.8-flash"] == pytest.approx((0.75, 3.75, 0.075))  # from the LiteLLM chart
+    # From the LiteLLM chart; Google bills no separate write, so a write is input.
+    assert prices["gemini-3.8-flash"] == pytest.approx((0.75, 3.75, 0.075, 0.75))
     rnd = {"model": "gemini/gemini-3.8-flash", "input_tokens": 1_000_000, "output_tokens": 100_000,
            "cached_tokens": None}
     assert bench.round_cost(rnd, prices) == pytest.approx(0.75 + 0.375)
     assert bench.round_cost(dict(rnd, cached_tokens=800_000), prices) == pytest.approx(0.15 + 0.06 + 0.375)
     assert bench.round_cost(dict(rnd, model="no-such-model"), prices) is None
+
+
+@pytest.mark.parametrize(
+    "model,expected",
+    [
+        # 1M prompt = 600K read + 300K written + 100K fresh, plus 100K output, per MTok:
+        # Opus 5.5 read 0.20 / write 5 / input 4 / output 20
+        ("claude-opus-5-5", 0.6 * 0.20 + 0.3 * 5.00 + 0.1 * 4.00 + 0.1 * 20.00),
+        # Opus 5 read 0.50 / write 6.25 / input 5 / output 25
+        ("claude-opus-5", 0.6 * 0.50 + 0.3 * 6.25 + 0.1 * 5.00 + 0.1 * 25.00),
+        # Sonnet 5 read 0.20 / write 2.50 / input 2 / output 10
+        ("claude-sonnet-5", 0.6 * 0.20 + 0.3 * 2.50 + 0.1 * 2.00 + 0.1 * 10.00),
+    ],
+)
+def test_a_claude_round_prices_its_cache_writes_at_the_write_rate(model, expected):
+    """The model arms of the daemon-model bench: a round on each Claude model is
+    priced with its cache writes at the write rate (#2381 reports them as
+    `prompt_tokens_details.cache_write_tokens`), not as plain input."""
+    prices = bench.load_prices()
+    rnd = {"model": model, "input_tokens": 1_000_000, "output_tokens": 100_000,
+           "cached_tokens": 600_000, "cache_write_tokens": 300_000}
+    assert bench.round_cost(rnd, prices) == pytest.approx(expected)
+    # An older route that reports no writes prices the same tokens as input.
+    old_route = dict(rnd, cache_write_tokens=None)
+    assert bench.round_cost(old_route, prices) == pytest.approx(
+        expected - 0.3 * (prices[model][3] - prices[model][0]))
+
+
+def test_the_fake_records_the_cache_writes_the_route_reports():
+    body = json.dumps({"model": "claude-sonnet-5", "choices": [],
+                       "usage": {"prompt_tokens": 1000, "completion_tokens": 10,
+                                 "prompt_tokens_details": {"cached_tokens": 600, "cache_write_tokens": 300}}}).encode()
+    rec = fp._round_record("/v1/companion/chat/completions", b"{}", 200, body, 0.0, 0.0, "write")
+    assert (rec["cached_tokens"], rec["cache_write_tokens"]) == (600, 300)
 
 
 def test_a_generic_key_scores_any_session():
@@ -576,3 +611,275 @@ def test_a_superseding_edge_into_the_run_flags_it():
     generic = {"facts": [], "flagged": [{"name": "old run replaced", "run": OLD_RUN}]}
     edge = {"source_id": PCA_RUN, "relation": "supersedes", "target_id": OLD_RUN}
     assert score.score(_final(edges=[edge]), generic, READS)["checks"]["old run replaced"]
+
+
+# ---------------------------------------------------------------------------
+# Edges: the fake refuses what the server refuses (app/lineage/schemas.py
+# `EdgeCreate`, app/lineage/service.py `create_edge`), no more and no less.
+# ---------------------------------------------------------------------------
+
+PAPER = "88888888-8888-4888-8888-888888888888"
+LATER = "2026-09-23T09:00:00Z"
+
+
+def _edge_reads() -> dict:
+    reads = _reads()
+    reads[f"/v1/projects/{PCA_EXP}"] = {"id": PCA_EXP, "slug": "pca-ablation", "name": "PCA", "kind": "experiment",
+                                        "description": "Does PCA help?", "parent_project_id": PROJECT, "tags": [],
+                                        "notes": None, "notes_version": 0, "created_at": "2026-09-23T08:04:00Z"}
+    reads[f"/v1/projects/{PROJECT}/papers"] = {"items": [{"id": PAPER, "title": "A paper",
+                                                          "created_at": "2026-09-23T08:00:30Z"}]}
+    reads[f"/v1/runs/{OLD_RUN}"] = {"id": OLD_RUN, "slug": "old-run-001", "name": "old", "status": "failed",
+                                    "project_id": PROJECT, "experiment_id": SVM, "parent_run_id": PCA_RUN,
+                                    "tags": [], "notes": None, "notes_version": 0,
+                                    "created_at": "2026-09-23T08:06:00Z", "ended_at": "2026-09-23T08:07:00Z"}
+    reads[f"/v1/runs/{CHOSEN}/edges"] = [
+        {"id": "e0000000-0000-4000-8000-000000000001", "customer_id": "probe", "source_type": "run",
+         "source_id": CHOSEN, "relation": "derived_from", "target_type": "run", "target_id": PCA_RUN,
+         "meta": {}, "provenance": "human", "reason": None, "created_at": "2026-09-23T08:05:40Z", "derived": False}]
+    return reads
+
+
+def _edge_fake() -> "fp.FakeProbe":
+    return fp.FakeProbe(_edge_reads(), clock=fp.ManualClock(fp.parse_ts(LATER)), token="bench-fake-t")
+
+
+def _post_edge(fake, st, sid, relation, tt, tid, **extra):
+    return _call(fake, "POST", "/v1/edges", {"source_type": st, "source_id": sid, "relation": relation,
+                                             "target_type": tt, "target_id": tid, **extra})
+
+
+@pytest.mark.parametrize("st, sid, relation, tt, tid, extra, status", [
+    # experiment and project ends (0278): derived_from / supersedes / informed_by only
+    ("project", PCA_EXP, "derived_from", "project", SVM, {}, 201),
+    ("project", PCA_EXP, "supersedes", "project", SVM, {}, 201),
+    ("project", PCA_EXP, "derived_from", "run", CHOSEN, {}, 201),
+    ("experiment", PCA_EXP, "supersedes", "run", CHOSEN, {}, 422),  # EdgeCreate has no `experiment` type
+    ("project", PCA_EXP, "informed_by", "paper", PAPER, {"provenance": "inferred"}, 201),
+    ("project", PCA_EXP, "branched_from", "project", SVM, {}, 422),
+    ("project", PCA_EXP, "retried_from", "run", CHOSEN, {}, 422),
+    ("project", PCA_EXP, "consumes", "artifact", FILE_ID, {}, 422),
+    # run ends
+    ("run", PCA_RUN, "supersedes", "run", CHOSEN, {}, 201),
+    ("run", PCA_RUN, "informed_by", "paper", PAPER, {"provenance": "inferred"}, 201),
+    ("run", PCA_RUN, "informed_by", "paper", PAPER, {}, 422),  # a paper edge needs a provenance
+    ("run", PCA_RUN, "derived_from", "paper", PAPER, {"provenance": "inferred"}, 422),
+    ("run", PCA_RUN, "supersedes", "artifact", FILE_ID, {}, 422),
+    ("run", PCA_RUN, "forked_from", "artifact", FILE_ID, {}, 201),  # no genealogy-shape rule on the server
+    ("run", PCA_RUN, "derived_from", "run", CHOSEN, {"provenance": "provider_citation"}, 422),
+    ("run", CHOSEN, "retried_from", "run", CHOSEN, {}, 422),  # an entity to itself
+    ("run", PCA_RUN, "branched_from", "run", OLD_RUN, {}, 422),  # OLD's frozen parent is PCA: a cycle
+    ("run", CHOSEN, "derived_from", "run", PCA_RUN, {}, 409),  # a frozen stored edge already says it
+    ("run", PCA_RUN, "derived_from", "run", "99999999-9999-4999-8999-999999999999", {}, 404),
+    ("project", "99999999-9999-4999-8999-999999999999", "derived_from", "project", SVM, {}, 404),
+])
+def test_the_fakes_edge_rules_are_the_servers(st, sid, relation, tt, tid, extra, status):
+    answer = _post_edge(_edge_fake(), st, sid, relation, tt, tid, **extra)
+    assert answer.status == status, answer.body
+    if status == 201:
+        assert answer.body["source_type"] == st
+
+
+def test_a_frozen_edge_from_later_in_the_session_does_not_exist_yet():
+    """Every read hides a frozen edge until the clock reaches it, so a write of
+    it before then is the replay's own (201), and it closes no cycle yet."""
+    reads = _edge_reads()
+    reads[f"/v1/runs/{PCA_RUN}/edges"] = [
+        {"id": "e0000000-0000-4000-8000-0000000000f1", "source_type": "run", "source_id": PCA_RUN,
+         "relation": "derived_from", "target_type": "run", "target_id": CHOSEN, "derived": False,
+         "created_at": "2026-09-23T10:00:00Z"},
+        {"id": "e0000000-0000-4000-8000-0000000000f2", "source_type": "run", "source_id": CHOSEN,
+         "relation": "retried_from", "target_type": "run", "target_id": PCA_RUN, "derived": False,
+         "created_at": "2026-09-23T10:00:00Z"}]
+    fake = fp.FakeProbe(reads, clock=fp.ManualClock(fp.parse_ts(LATER)), token="bench-fake-t")
+    assert _post_edge(fake, "run", PCA_RUN, "derived_from", "run", CHOSEN).status == 201
+    assert _post_edge(fake, "run", PCA_RUN, "branched_from", "run", CHOSEN).status == 201
+    assert len(fake.final_state()["edges"]) == 2
+
+
+def test_a_genealogy_link_fills_the_runs_parent_and_its_origin_like_the_server():
+    """create_edge mirrors the first genealogy parent into the run's column, and
+    the lineage read derives the run's origin from it; deleting the edge clears it."""
+    from probe._generated.models import ProjectLineageOut
+
+    fake = _edge_fake()
+    made = _post_edge(fake, "run", CHOSEN, "branched_from", "run", PCA_RUN).body
+    row = _call(fake, "GET", f"/v1/runs/{CHOSEN}").body
+    assert (row["parent_run_id"], row["parent_relation"]) == (PCA_RUN, "branch")
+    nodes = ProjectLineageOut.model_validate(_call(fake, "GET", f"/v1/projects/{SVM}/lineage").body).nodes
+    origin = {str(n.id): n.origin for n in nodes}[CHOSEN]
+    assert (str(origin.id), origin.via, origin.relation) == (PCA_RUN, "lineage", "branched_from")
+    second = _post_edge(fake, "run", CHOSEN, "retried_from", "run", OLD_RUN).body
+    _post_edge(fake, "run", CHOSEN, "forked_from", "artifact", FILE_ID)  # a file is never a run's origin
+    assert _call(fake, "DELETE", f"/v1/edges/{made['id']}").status == 204
+    row = _call(fake, "GET", f"/v1/runs/{CHOSEN}").body  # the next parent moves up, as delete_edge does
+    assert (row["parent_run_id"], row["parent_relation"]) == (OLD_RUN, "retry")
+    assert _call(fake, "DELETE", f"/v1/edges/{second['id']}").status == 204
+    assert _call(fake, "GET", f"/v1/runs/{CHOSEN}").body["parent_run_id"] is None
+    nodes = ProjectLineageOut.model_validate(_call(fake, "GET", f"/v1/projects/{SVM}/lineage").body).nodes
+    origin = {str(n.id): n.origin for n in nodes}[CHOSEN]  # with no parent left: what it was built on
+    assert (str(origin.id), origin.via, origin.relation) == (PCA_RUN, "lineage", "derived_from")
+
+
+def test_a_group_filed_under_a_project_is_its_child():
+    reads = _edge_reads()
+    group = "abababab-abab-4bab-8bab-abababababab"
+    reads[f"/v1/projects/{PROJECT}/groups"] = [{"id": group, "project_id": PROJECT, "experiment_id": None,
+                                                "name": "sweep", "created_at": "2026-09-23T08:01:30Z"}]
+    fake = fp.FakeProbe(reads, clock=fp.ManualClock(fp.parse_ts(LATER)), token="bench-fake-t")
+    nodes = _call(fake, "GET", f"/v1/projects/{PROJECT}/lineage").body["nodes"]
+    assert {(n["type"], n["id"]) for n in nodes} == {("experiment", SVM), ("experiment", PCA_EXP), ("group", group)}
+
+
+def test_an_end_in_the_trash_answers_410_like_the_server():
+    fake = _edge_fake()
+    assert _call(fake, "DELETE", f"/v1/runs/{CHOSEN}").status in (200, 204)
+    answer = _post_edge(fake, "run", PCA_RUN, "derived_from", "run", CHOSEN)
+    assert answer.status == 410 and answer.body["detail"] == "in_trash"
+
+
+def test_a_duplicate_answers_like_the_server_so_the_cli_prints_already_linked():
+    """`{"detail": {"message", "existing_id"}}` is what `edge add` reads as
+    already-linked (exit 0); a bare string reads as a refusal (exit 1)."""
+    fake = _edge_fake()
+    first = _post_edge(fake, "project", PCA_EXP, "supersedes", "project", SVM)
+    again = _post_edge(fake, "project", PCA_EXP, "supersedes", "project", SVM)
+    frozen = _post_edge(fake, "run", CHOSEN, "derived_from", "run", PCA_RUN)
+    assert again.status == 409 and again.body["detail"] == {"message": "lineage edge already exists",
+                                                             "existing_id": first.body["id"]}
+    assert frozen.body["detail"]["existing_id"] == "e0000000-0000-4000-8000-000000000001"
+
+
+def test_an_experiments_own_lineage_is_served_in_the_servers_shape():
+    from probe._generated.models import ProjectLineageOut
+
+    reads = _edge_reads()
+    seen = {"id": "e0000000-0000-4000-8000-000000000002", "customer_id": "probe", "source_type": "project",
+            "source_id": SVM, "relation": "derived_from", "target_type": "run", "target_id": CHOSEN, "meta": {},
+            "provenance": "human", "reason": "built on the C=10 run", "created_at": "2026-09-23T08:04:30Z",
+            "derived": False}
+    future = dict(seen, id="e0000000-0000-4000-8000-000000000003", relation="supersedes",
+                  created_at="2026-09-23T10:00:00Z")
+    derived = dict(seen, id=None, derived=True, provenance="observed_call", created_at="2026-09-23T08:04:40Z")
+    # A frozen origin and node list are not served as they are: both are derived now.
+    reads[f"/v1/projects/{SVM}/lineage"] = {"project_id": SVM, "kind": "experiment", "edges": [future, seen, derived],
+                                            "nodes": [{"type": "run", "id": OLD_RUN}],
+                                            "origin": {"type": "project", "id": PROJECT, "via": "container"}}
+    fake = fp.FakeProbe(reads, clock=fp.ManualClock(fp.parse_ts(LATER)), token="bench-fake-t")
+    made = _post_edge(fake, "project", PCA_EXP, "supersedes", "project", SVM).body
+    for path in (f"/v1/projects/{PROJECT}/experiments/{SVM}/lineage", f"/v1/projects/{SVM}/lineage",
+                 "/v1/projects/svm-vs-logreg/lineage"):
+        answer = _call(fake, "GET", path)
+        assert answer.status == 200, (path, answer.body)
+        body = ProjectLineageOut.model_validate(answer.body)
+        # Stored newest first (the replay's write, then the frozen one; the 10:00 one not yet), then derived.
+        assert [(str(e.id) if e.id else None, e.derived) for e in body.edges] == [
+            (made["id"], False), (seen["id"], False), (None, True)], path
+        # Its origin is its oldest link out (to the run), not the frozen container.
+        assert (body.kind, str(body.origin.id), body.origin.via, body.origin.relation) == (
+            "experiment", CHOSEN, "lineage", "derived_from")
+        # Its children are the runs filed at it, each from where it came.
+        assert {str(n.id) for n in body.nodes} == {CHOSEN, PCA_RUN, OLD_RUN}
+        assert {str(n.id): str(n.origin.id) for n in body.nodes}[OLD_RUN] == PCA_RUN  # its parent run
+    top = ProjectLineageOut.model_validate(_call(fake, "GET", f"/v1/projects/{PROJECT}/lineage").body)
+    # A project lists its experiments, never the runs filed in them; the replay's
+    # write is PCA_EXP's origin now.
+    assert {str(n.id) for n in top.nodes} == {SVM, PCA_EXP} and top.origin is None
+    assert {str(n.id): (str(n.origin.id), n.origin.via) for n in top.nodes}[PCA_EXP] == (SVM, "lineage")
+    assert _call(fake, "GET", f"/v1/projects/{PROJECT}/experiments/{PROJECT}/lineage").status == 404
+    assert not fake.unmapped
+
+
+# ---------------------------------------------------------------------------
+# Fixtures: the live v2 daemon's own links never reach a replay.
+# ---------------------------------------------------------------------------
+
+
+def _v2_store(state: Path, session: str, writes: list[tuple[float, list[str], str, str, str]]) -> None:
+    """The live daemon's store, written by the daemon's own `Store`."""
+    from probe.daemon.store import Store
+
+    clock = {"now": 0.0}
+    store = Store(state / "probe" / "daemon" / f"{session}.sqlite", clock=lambda: clock["now"])
+    for at, argv, head, status, output in writes:
+        clock["now"] = at
+        store.log_write(bite=None, op_id="o", argv=argv, head=head, status=status, output=output)
+
+
+def test_the_live_daemons_edges_are_scrubbed_from_every_frozen_listing(tmp_path):
+    fixtures = _load("fixtures")
+    at = fp.parse_ts("2026-09-23T08:10:00Z")
+    by_id = "e0000000-0000-4000-8000-0000000000aa"
+    run_edge = {"id": by_id, "source_type": "run", "source_id": PCA_RUN, "relation": "branched_from",
+                "target_type": "run", "target_id": CHOSEN, "derived": False, "created_at": "2026-09-23T08:09:59Z"}
+    exp_edge = {"id": "e0000000-0000-4000-8000-0000000000bb", "source_type": "project", "source_id": PCA_EXP,
+                "relation": "derived_from", "target_type": "run", "target_id": CHOSEN, "derived": False,
+                "created_at": "2026-09-23T08:09:58Z"}
+    queued_edge = {"id": "e0000000-0000-4000-8000-0000000000cc", "source_type": "experiment", "source_id": PCA_EXP,
+                   "relation": "supersedes", "target_type": "project", "target_id": SVM, "derived": False,
+                   "created_at": "2026-09-23T08:12:00Z"}
+    # A person's link the daemon tried to write again: `already_linked`, never scrubbed.
+    persons = {"id": "e0000000-0000-4000-8000-0000000000ee", "source_type": "run", "source_id": PCA_RUN,
+               "relation": "derived_from", "target_type": "run", "target_id": CHOSEN, "derived": False,
+               "created_at": "2026-09-23T08:06:00Z", "provenance": "human"}
+    # The same key as a ran write with no id, but made long before it: not the daemon's.
+    older = dict(exp_edge, id="e0000000-0000-4000-8000-0000000000dd", created_at="2026-09-23T08:00:30Z",
+                 source_id=PCA_EXP, target_id=CHOSEN)
+    derived = dict(exp_edge, id=None, derived=True)
+    edge = ["probe", "edge", "add"]
+    _v2_store(tmp_path, "s1", [
+        (at, [*edge, "--source", f"run:{PCA_RUN}", "--relation", "branched_from", "--target", f"run:{CHOSEN}"],
+         "edge add", "ran", json.dumps({"id": by_id}) + "\nprobe: a note on stderr\n"),
+        (at, [*edge, "--source", "experiment:pca-ablation", "--relation=derived_from",
+              "--target", "run:fortunate-quail-346"], "edge add", "ran", "not json"),
+        (at, ["probe", "--sync", *edge, "--source", f"experiment:id:{PCA_EXP}", "--relation", "supersedes",
+              "--target", "project:svm-vs-logreg"], "edge add", "queued", ""),
+        (at, [*edge, "--source", f"run:{PCA_RUN}", "--relation", "derived_from", "--target", f"run:{CHOSEN}",
+              "--reason", "again"], "edge add", "ran",
+         json.dumps({"already_linked": True, "id": persons["id"], "applied": False}) + "\nprobe: --reason not applied\n"),
+        (at, [*edge, "--source", f"experiment:{PCA_EXP}", "--relation", "supersedes", "--target", f"run:{CHOSEN}"],
+         "edge add", "failed", "error: ..."),
+        # Cut short: it MAY have landed, but a same-key edge may be someone else's.
+        (at, [*edge, "--source", f"run:{PCA_RUN}", "--relation", "derived_from", "--target", f"run:{CHOSEN}"],
+         "edge add", "cancelled", None),
+        (at, ["probe", "notes", "push"], "notes push", "ran", "{}"),
+    ])
+    writes = fixtures.daemon_edge_writes("s1", state=tmp_path)
+    assert [(w["status"], w["id"]) for w in writes] == [("ran", by_id), ("ran", None), ("queued", None)]
+    reads = _edge_reads()
+    reads[f"/v1/runs/{PCA_RUN}"] = dict(reads[f"/v1/runs/{PCA_RUN}"], parent_run_id=CHOSEN, parent_relation="branch")
+    reads[f"/v1/runs/{PCA_RUN}/edges"] = [run_edge, persons]
+    reads[f"/v1/projects/{PCA_EXP}/lineage"] = {"project_id": PCA_EXP, "edges": [exp_edge, queued_edge, older,
+                                                                                 derived]}
+    assert fixtures.scrub_daemon_edges(reads, writes) == 3
+    assert reads[f"/v1/runs/{PCA_RUN}/edges"] == [persons]
+    assert reads[f"/v1/projects/{PCA_EXP}/lineage"]["edges"] == [older, derived]
+    # The genealogy write had filled the run's parent: put back what is left (none).
+    assert (reads[f"/v1/runs/{PCA_RUN}"]["parent_run_id"], reads[f"/v1/runs/{PCA_RUN}"]["parent_relation"]) == (
+        None, None)
+    assert fixtures.daemon_edge_writes("no-such-session", state=tmp_path) == []
+
+
+def test_a_slug_two_rows_share_is_not_guessed(tmp_path):
+    fixtures = _load("fixtures")
+    reads = _edge_reads()
+    twin = "99999999-9999-4999-8999-999999999990"
+    reads[f"/v1/projects/{twin}"] = dict(reads[f"/v1/projects/{PCA_EXP}"], id=twin)  # same slug, other project
+    edge = {"id": "e0000000-0000-4000-8000-0000000000ab", "source_type": "project", "source_id": PCA_EXP,
+            "relation": "derived_from", "target_type": "run", "target_id": CHOSEN, "derived": False,
+            "created_at": "2026-09-23T08:09:58Z"}
+    reads[f"/v1/projects/{PCA_EXP}/lineage"] = {"edges": [edge]}
+    writes = [{"source": "experiment:pca-ablation", "relation": "derived_from", "target": f"run:{CHOSEN}",
+               "id": None, "at": fp.parse_ts("2026-09-23T08:10:00Z"), "status": "ran"}]
+    assert fixtures.scrub_daemon_edges(reads, writes) == 0
+
+
+def test_worker_env_takes_only_daemon_and_reader_tuning():
+    """`--worker-env` passes daemon/reader tuning only: never a key, an outbox,
+    telemetry, or a setting the bench sets itself (which would mislabel an arm)."""
+    bench = _load("bench")
+    for name in ("PROBE_DAEMON_CONTEXT_TOKENS", "PROBE_READER_CONTEXT_TOKENS"):
+        assert name.startswith(bench.WORKER_ENV_PREFIXES) and name not in bench.WORKER_ENV_REFUSED
+    for name in ("PROBE_OUTBOX_DIR", "PROBE_TELEMETRY_HOST", "PROBE_DAEMON_KEY", "PROBE_DAEMON_READS",
+                 "PROBE_COMPANION_MODEL"):
+        assert not name.startswith(bench.WORKER_ENV_PREFIXES) or name in bench.WORKER_ENV_REFUSED

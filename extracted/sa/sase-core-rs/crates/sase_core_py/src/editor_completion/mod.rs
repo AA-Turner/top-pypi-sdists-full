@@ -109,6 +109,12 @@ fn py_validate_snippet_trigger(
 }
 
 #[pyfunction]
+#[pyo3(name = "editor_snippet_catalog_wire_schema_version")]
+fn py_editor_snippet_catalog_wire_schema_version() -> u32 {
+    sase_core::EDITOR_SNIPPET_CATALOG_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
 #[pyo3(name = "load_editor_snippet_catalog")]
 #[pyo3(signature = (project = None, root_dir = None, accept_legacy_xprompt_names = true))]
 fn py_load_editor_snippet_catalog(
@@ -118,7 +124,7 @@ fn py_load_editor_snippet_catalog(
     accept_legacy_xprompt_names: bool,
 ) -> PyResult<PyObject> {
     let request = EditorSnippetCatalogRequestWire {
-        schema_version: 1,
+        schema_version: sase_core::EDITOR_SNIPPET_CATALOG_WIRE_SCHEMA_VERSION,
         project,
     };
     let options = MacroCatalogLoadOptions::new(root_dir.map(PathBuf::from))
@@ -136,23 +142,18 @@ fn default_py_accept_legacy() -> bool {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PyMacroCatalogOptions {
     #[serde(default)]
     root_dir: Option<PathBuf>,
-    #[serde(default)]
-    package_xprompts_dir: Option<PathBuf>,
     #[serde(default)]
     package_macros_dir: Option<PathBuf>,
     #[serde(default)]
     package_skills_dir: Option<PathBuf>,
     #[serde(default)]
-    default_xprompts_dir: Option<PathBuf>,
-    #[serde(default)]
     default_macros_dir: Option<PathBuf>,
     #[serde(default)]
     default_config_path: Option<PathBuf>,
-    #[serde(default)]
-    plugin_xprompt_dirs: Option<BTreeMap<String, PathBuf>>,
     #[serde(default)]
     plugin_macro_dirs: Option<BTreeMap<String, PathBuf>>,
     #[serde(default)]
@@ -167,13 +168,10 @@ impl Default for PyMacroCatalogOptions {
     fn default() -> Self {
         Self {
             root_dir: None,
-            package_xprompts_dir: None,
             package_macros_dir: None,
             package_skills_dir: None,
-            default_xprompts_dir: None,
             default_macros_dir: None,
             default_config_path: None,
-            plugin_xprompt_dirs: None,
             plugin_macro_dirs: None,
             plugin_skill_dirs: None,
             plugin_config_paths: None,
@@ -191,37 +189,16 @@ fn macro_catalog_options_from_py(
         )
         .map_err(|error| {
             PyValueError::new_err(format!(
-                "xprompt catalog options are invalid: {error}"
+                "macro catalog options are invalid: {error}"
             ))
         })?,
         None => PyMacroCatalogOptions::default(),
     };
-    if raw.package_xprompts_dir.is_some() && raw.package_macros_dir.is_some() {
-        return Err(PyValueError::new_err(
-            "xprompt catalog options are invalid: supply only one of \
-             `package_xprompts_dir` or `package_macros_dir`",
-        ));
-    }
-    if raw.default_xprompts_dir.is_some() && raw.default_macros_dir.is_some() {
-        return Err(PyValueError::new_err(
-            "xprompt catalog options are invalid: supply only one of \
-             `default_xprompts_dir` or `default_macros_dir`",
-        ));
-    }
-    if raw.plugin_xprompt_dirs.is_some() && raw.plugin_macro_dirs.is_some() {
-        return Err(PyValueError::new_err(
-            "xprompt catalog options are invalid: supply only one of \
-             `plugin_xprompt_dirs` or `plugin_macro_dirs`",
-        ));
-    }
     let resource_paths = MacroCatalogResourcePaths {
-        package_xprompts_dir: raw.package_xprompts_dir,
         package_macros_dir: raw.package_macros_dir,
         package_skills_dir: raw.package_skills_dir,
-        default_xprompts_dir: raw.default_xprompts_dir,
         default_macros_dir: raw.default_macros_dir,
         default_config_path: raw.default_config_path,
-        plugin_xprompt_dirs: raw.plugin_xprompt_dirs.unwrap_or_default(),
         plugin_macro_dirs: raw.plugin_macro_dirs.unwrap_or_default(),
         plugin_skill_dirs: raw.plugin_skill_dirs.unwrap_or_default(),
         plugin_config_paths: raw.plugin_config_paths.unwrap_or_default(),
@@ -548,11 +525,54 @@ fn py_frontmatter_field_schema(py: Python<'_>) -> PyResult<PyObject> {
     json_value_to_py(py, &value)
 }
 
+fn input_type_registry_from_py(
+    registry: Option<&Bound<'_, PyDict>>,
+) -> PyResult<sase_core::macro_input_types::InputTypeRegistry> {
+    match registry {
+        None => Ok(sase_core::macro_input_types::InputTypeRegistry::builtin()),
+        Some(request) => {
+            let value = py_to_json_value(request.as_any())?;
+            // Accept either `{registry: {...}}` or a bare snapshot.
+            match serde_json::from_value::<
+                sase_core::macro_input_types::InputTypeRegistry,
+            >(value.clone())
+            {
+                Ok(snapshot) => Ok(snapshot),
+                Err(_) => {
+                    #[derive(Debug, serde::Deserialize)]
+                    struct Wrapper {
+                        #[serde(default)]
+                        registry: Option<
+                            sase_core::macro_input_types::InputTypeRegistry,
+                        >,
+                    }
+                    match serde_json::from_value::<Wrapper>(value) {
+                        Ok(wrapper) if wrapper.registry.is_some() => {
+                            Ok(wrapper.registry.unwrap())
+                        }
+                        _ => Ok(
+                            sase_core::macro_input_types::InputTypeRegistry::builtin(
+                            ),
+                        ),
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Return the supported `input` type catalog as a list of dicts.
 #[pyfunction]
 #[pyo3(name = "frontmatter_input_type_schema")]
-fn py_frontmatter_input_type_schema(py: Python<'_>) -> PyResult<PyObject> {
-    let schema = sase_core::editor_frontmatter_input_type_schema();
+#[pyo3(signature = (registry=None))]
+fn py_frontmatter_input_type_schema(
+    py: Python<'_>,
+    registry: Option<&Bound<'_, PyDict>>,
+) -> PyResult<PyObject> {
+    let registry = input_type_registry_from_py(registry)?;
+    let schema = sase_core::editor::frontmatter_input_type_schema_with_registry(
+        &registry,
+    );
     let value = serde_json::to_value(&schema).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
@@ -562,8 +582,15 @@ fn py_frontmatter_input_type_schema(py: Python<'_>) -> PyResult<PyObject> {
 /// Validate a whole frontmatter block. Returns LSP-shape diagnostic dicts.
 #[pyfunction]
 #[pyo3(name = "validate_frontmatter")]
-fn py_validate_frontmatter(py: Python<'_>, text: &str) -> PyResult<PyObject> {
-    let diagnostics = sase_core::editor_validate_frontmatter(text);
+#[pyo3(signature = (text, registry=None))]
+fn py_validate_frontmatter(
+    py: Python<'_>,
+    text: &str,
+    registry: Option<&Bound<'_, PyDict>>,
+) -> PyResult<PyObject> {
+    let registry = input_type_registry_from_py(registry)?;
+    let diagnostics =
+        sase_core::editor::validate_frontmatter_with_registry(text, &registry);
     let value = serde_json::to_value(&diagnostics).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
@@ -574,13 +601,18 @@ fn py_validate_frontmatter(py: Python<'_>, text: &str) -> PyResult<PyObject> {
 /// dicts. `value` is the YAML text that would follow `field:`.
 #[pyfunction]
 #[pyo3(name = "validate_frontmatter_field")]
+#[pyo3(signature = (field, value, registry=None))]
 fn py_validate_frontmatter_field(
     py: Python<'_>,
     field: &str,
     value: &str,
+    registry: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<PyObject> {
+    let registry = input_type_registry_from_py(registry)?;
     let diagnostics =
-        sase_core::editor_validate_frontmatter_field(field, value);
+        sase_core::editor::validate_frontmatter_field_with_registry(
+            field, value, &registry,
+        );
     let json = serde_json::to_value(&diagnostics).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
@@ -1102,6 +1134,10 @@ pub(crate) fn register_editor_completion(
     m.add_function(wrap_pyfunction!(py_compose_snippet_catalog, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_snippet_trigger, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_editor_snippet_catalog, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_editor_snippet_catalog_wire_schema_version,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_resolve_macro_skill_definition, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_macro_skill_definition_wire_schema_version,

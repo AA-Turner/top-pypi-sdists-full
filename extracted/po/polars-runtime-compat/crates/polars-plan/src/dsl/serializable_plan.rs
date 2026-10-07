@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 #[cfg(feature = "pivot")]
 use polars_core::frame::PivotColumnNaming;
 use polars_utils::unique_id::UniqueId;
@@ -6,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use slotmap::{SecondaryMap, SlotMap, new_key_type};
 
 use super::*;
+use crate::dsl::dsl_resolver::DslResolver;
 
 new_key_type! {
     /// A key type for identifying DataFrame nodes in a serialized DSL plan.
@@ -133,10 +136,6 @@ pub(crate) enum SerializableDslPlanNode {
         inputs: Vec<SerializableDslPlanNode>,
         options: HConcatOptions,
     },
-    ExtContext {
-        input: DslPlanKey,
-        contexts: Vec<SerializableDslPlanNode>,
-    },
     Sink {
         input: DslPlanKey,
         payload: SinkType,
@@ -151,9 +150,18 @@ pub(crate) enum SerializableDslPlanNode {
         key: Arc<[PlSmallStr]>,
         maintain_order: bool,
     },
+    #[allow(clippy::upper_case_acronyms)]
+    SQL {
+        query: Arc<String>,
+        relations: Vec<(PlSmallStr, DslPlanKey)>,
+    },
     IR {
         dsl: DslPlanKey,
         version: u32,
+    },
+    Resolver {
+        resolver: Arc<DslResolver>,
+        resolver_schema: Option<SchemaRef>,
     },
 }
 
@@ -347,13 +355,6 @@ fn convert_dsl_plan_to_serializable_plan(
                 .collect(),
             options: *options,
         },
-        DP::ExtContext { input, contexts } => SP::ExtContext {
-            input: dsl_plan_key(input, arenas),
-            contexts: contexts
-                .iter()
-                .map(|p| convert_dsl_plan_to_serializable_plan(p, arenas))
-                .collect(),
-        },
         DP::Sink { input, payload } => SP::Sink {
             input: dsl_plan_key(input, arenas),
             payload: payload.clone(),
@@ -376,12 +377,31 @@ fn convert_dsl_plan_to_serializable_plan(
             key: key.clone(),
             maintain_order: *maintain_order,
         },
+        DP::SQL {
+            query,
+            relations,
+            cached_stmt: _,
+        } => SP::SQL {
+            query: query.clone(),
+            relations: relations
+                .iter()
+                .map(|(name, plan)| (name.clone(), dsl_plan_key_from_ref(plan, arenas)))
+                .collect(),
+        },
         DP::IR {
             dsl,
             version: _,
             node: _,
             opt_flags: _,
         } => convert_dsl_plan_to_serializable_plan(dsl.as_ref(), arenas),
+        DP::Resolver {
+            resolver,
+            resolver_schema,
+            resolved_cache: _,
+        } => SP::Resolver {
+            resolver: Arc::clone(resolver),
+            resolver_schema: { resolver_schema.lock().unwrap().clone() },
+        },
     }
 }
 
@@ -603,13 +623,6 @@ fn try_convert_serializable_plan_to_dsl_plan(
                 .collect::<Result<Vec<_>, _>>()?,
             options: *options,
         }),
-        SP::ExtContext { input, contexts } => Ok(DP::ExtContext {
-            input: get_dsl_plan(*input, ser_dsl_plan, arenas)?,
-            contexts: contexts
-                .iter()
-                .map(|node| try_convert_serializable_plan_to_dsl_plan(node, ser_dsl_plan, arenas))
-                .collect::<Result<Vec<_>, _>>()?,
-        }),
         SP::Sink { input, payload } => Ok(DP::Sink {
             input: get_dsl_plan(*input, ser_dsl_plan, arenas)?,
             payload: payload.clone(),
@@ -632,10 +645,29 @@ fn try_convert_serializable_plan_to_dsl_plan(
             key: key.clone(),
             maintain_order: *maintain_order,
         }),
+        SP::SQL { query, relations } => Ok(DP::SQL {
+            query: query.clone(),
+            relations: relations
+                .iter()
+                .map(|(name, key)| {
+                    let plan = get_dsl_plan(*key, ser_dsl_plan, arenas)?;
+                    Ok((name.clone(), Arc::unwrap_or_clone(plan)))
+                })
+                .collect::<PolarsResult<Vec<_>>>()?,
+            cached_stmt: Default::default(),
+        }),
         SP::IR {
             dsl: dsl_key,
             version: _,
         } => get_dsl_plan(*dsl_key, ser_dsl_plan, arenas).map(Arc::unwrap_or_clone),
+        SP::Resolver {
+            resolver,
+            resolver_schema,
+        } => Ok(DP::Resolver {
+            resolver: Arc::clone(resolver),
+            resolver_schema: Arc::new(Mutex::new(resolver_schema.clone())),
+            resolved_cache: Default::default(),
+        }),
     }
 }
 
@@ -743,9 +775,13 @@ mod tests {
     #[test]
     fn test_dsl_plan_serialization() {
         let name = || "a".into();
+        let other_name = || "b".into();
         let df = Arc::new(
-            DataFrame::new_infer_height(vec![Column::new(name(), Series::new(name(), &[1, 2, 3]))])
-                .unwrap(),
+            DataFrame::new_infer_height(vec![
+                Column::new(name(), vec![1, 2, 3]),
+                Column::new(other_name(), vec![4, 5, 6]),
+            ])
+            .unwrap(),
         );
         let dfscan = Arc::new(DslPlan::DataFrameScan {
             df: df.clone(),
@@ -760,7 +796,8 @@ mod tests {
             input_left: dfscan.clone(),
             input_right: dfscan,
             condition: JoinCondition::Equi {
-                on: vec![(Expr::Column(name()), Expr::Column(name()))],
+                left_on: vec![Expr::Selector(Selector::Wildcard)],
+                right_on: vec![Expr::Column(name()), Expr::Column(other_name())],
             },
             options: Arc::new(join_options),
         };

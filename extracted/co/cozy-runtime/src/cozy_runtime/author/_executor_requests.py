@@ -34,6 +34,9 @@ class DeviceRoom(_Request, frozen=True, kw_only=True, tag="device_room"):
     """Idle co-tenants of the executor's devices give `free_bytes` back."""
 
     free_bytes: int
+    #: what this process holds on its GPU now (context, torch's segments, plane maps), by its
+    #: own count: its last report to the machine may be its load's; -1 when unknown
+    holding_bytes: int = -1
 
 
 class ChildEvents(_Request, frozen=True, kw_only=True, tag="child_events"):
@@ -166,12 +169,119 @@ class HostTier(_Request, frozen=True, kw_only=True, tag="host_tier"):
     memfd: int = -1
 
 
+class SharedRegion(msgspec.Struct, frozen=True, kw_only=True):
+    """One plane region of shared GPU memory: its chunks' bytes, in address order. One fd per
+    chunk crosses the seam after the frame, in the same order."""
+
+    region: int
+    chunks: tuple[int, ...]
+
+
+class DeviceTier(_Request, frozen=True, kw_only=True, tag="device_tier"):
+    """One weight set's GPU memory the machine keeps across executors (`weights.attach/1`): an
+    ask names the layout (the machine answers with what it holds); an offer hands over the
+    regions this executor filled and exported (`fds` follow the frame)."""
+
+    name: str
+    #: the plane's layout digest: the same bytes at the same offsets
+    layout: str
+    #: the GPU's UUID
+    device: str
+    offer: bool = False
+    regions: tuple[SharedRegion, ...] = ()
+    #: what the regions' bytes hold beside the layout's stored ones: "" (nothing), a baked
+    #: LoRA variant's digest, or in an ask "*": the layout's most recent baked variant
+    variant: str = ""
+    #: the fds that go with an offer, in `regions` order; never on the wire
+    fds: tuple[int, ...] = ()
+
+
+class SealedPlan(msgspec.Struct, frozen=True, kw_only=True):
+    """What one weight set's sealed host layout holds (`host_tiers.sealed/1`): the TensorFS
+    read plan and region grouping the model code chose. The machine builds the same plan from
+    its own copy of `manifest`'s header and fills it once; the layout digest must match."""
+
+    manifest: str
+    #: the weight set's key and region digest, as `HostTier` names them
+    name: str
+    layout: str
+    window: int
+    traversal: tuple[tuple[str, str], ...]
+    components: tuple[str, ...]
+    regions: tuple[tuple[str, ...], ...]
+    #: the stored parts the code builds, when it skips some (all of them when empty)
+    parts: tuple[str, ...] = ()
+
+
+class SealedTier(_Request, frozen=True, kw_only=True, tag="sealed_tier"):
+    """One weight set's sealed host layout from the machine, which fills it once and keeps
+    it across executors. The canonical `SealedPlan` follows in a sealed memfd (a plan is
+    larger than a control frame); `Tier` answers, the layout's memfd following when `held`."""
+
+    manifest: str
+    name: str
+    layout: str
+    sha256: str
+    length: Annotated[int, msgspec.Meta(ge=0)]
+    #: the plan's memfd; never on the wire
+    memfd: int = -1
+    #: The regions to stage (`host_tiers.staged/1`): the rest are holes this executor reads
+    #: from the object files (`ObjectFiles`). Unset: every region (older executors).
+    stage_regions: tuple[int, ...] | UnsetType = UNSET
+
+
+class SealedStage(_Request, frozen=True, kw_only=True, tag="sealed_stage"):
+    """More of a layout staged in part: the regions this executor now streams every step (its
+    plan in a sealed memfd after the request). `Staged` names those staged or staging; the
+    rest stay holes, read from the object files."""
+
+    sha256: str
+    length: Annotated[int, msgspec.Meta(ge=0)]
+    stage_regions: tuple[int, ...] = ()
+    #: the plan's memfd; never on the wire
+    memfd: int = -1
+
+
+class ObjectFiles(_Request, frozen=True, kw_only=True, tag="object_files"):
+    """The verified object files behind a plan (in a sealed memfd after the request), for the
+    holes of its layout: one read-only fd per object follows `ObjectFilesAnswer`, in SHA-256
+    order of the plan's objects."""
+
+    sha256: str
+    length: Annotated[int, msgspec.Meta(ge=0)]
+    #: the plan's memfd; never on the wire
+    memfd: int = -1
+
+
+class ModelSource(_Request, frozen=True, kw_only=True, tag="model_source"):
+    """One model file from the machine (`Load.model_sources`): the CozyTensors header (`name`
+    empty) or one header-declared asset. `SourceBytes` answers, a sealed memfd of exactly
+    those bytes following: the executor reads no store."""
+
+    manifest: str
+    name: str = ""
+
+
+class SealedPrefetch(_Request, frozen=True, kw_only=True, tag="sealed_prefetch"):
+    """Every component's `SealedPlan` of one construction at once (a canonical JSON list in a
+    sealed memfd after the request): the machine starts filling them all, and each later
+    `SealedTier` ask waits only for its own. An older machine refuses; nothing changes."""
+
+    sha256: str
+    length: Annotated[int, msgspec.Meta(ge=0)]
+    #: the plans' memfd; never on the wire
+    memfd: int = -1
+
+
 class BudgetCell(_Request, frozen=True, kw_only=True, tag="budget_cell"):
     """The executor's plane budget cell (`internal/budget_cell.py`; its memfd follows this
     request): the Worker lowers a running call's budget through it, at a block boundary."""
 
     #: the memfd the worker received; never on the wire
     memfd: int = -1
+    #: Which GPU of a group the cell caps (`RANK_CELLS`): rank 0 hands its owner one cell per
+    #: follower at formation, the follower reads it. 0 is rank 0's own (every older executor).
+    rank: int = 0
 
 
 class StageEnter(_Request, frozen=True, kw_only=True, tag="stage_enter"):
@@ -202,6 +312,12 @@ class StageExit(_Request, frozen=True, kw_only=True, tag="stage_exit"):
 type _Tagged = (
     DeviceRoom
     | HostTier
+    | DeviceTier
+    | SealedTier
+    | SealedPrefetch
+    | SealedStage
+    | ObjectFiles
+    | ModelSource
     | BudgetCell
     | StageEnter
     | StageExit
@@ -254,6 +370,53 @@ class Tier(Answer, frozen=True, kw_only=True):
     descriptor: int = -1
 
 
+class SourceBytes(Tier, frozen=True, kw_only=True):
+    """The machine's answer to `ModelSource`: the sealed memfd follows (`held`), holding
+    `length` bytes whose SHA-256 is `sha256`."""
+
+    sha256: str = ""
+    length: Annotated[int, msgspec.Meta(ge=0)] = 0
+
+
+class Staged(Answer, frozen=True, kw_only=True):
+    """The machine's answer to `SealedStage`: the regions staged or staging."""
+
+    staged: tuple[int, ...] = ()
+
+
+class ObjectFilesAnswer(Answer, frozen=True, kw_only=True):
+    """The machine's answer to `ObjectFiles`: the read-only fds follow, one per object of the
+    plan in SHA-256 order. The list itself would not fit a control frame (SDXL's UNet: about
+    1,700 objects), so the answer names its digest: SHA-256 of `<sha256>:<length>\n` lines."""
+
+    objects_sha256: str = ""
+    #: the fds that followed the answer; never on the wire
+    fds: tuple[int, ...] = ()
+
+
+class DeviceTierAnswer(Answer, frozen=True, kw_only=True):
+    """The machine's answer to a `DeviceTier` exchange. An ask that is `held` is followed by
+    one fd per chunk of `regions`; `duplicate` answers an offer another executor's won. With
+    `lease` one socket follows the chunks: the reader's lease, held open while it maps the
+    holding and closed once it let the bytes go (a crash closes it too)."""
+
+    held: bool = False
+    generation: int = 0
+    #: the holding's layout digest, which the attaching plane verifies before it maps
+    layout: str = ""
+    regions: tuple[SharedRegion, ...] = ()
+    duplicate: bool = False
+    lease: bool = False
+    #: the machine keys holdings by variant (an older one keeps only stored bytes), and the
+    #: variant of the holding it answered an ask with
+    variants: bool = False
+    variant: str = ""
+    #: the fds that followed the answer, in `regions` order; never on the wire
+    fds: tuple[int, ...] = ()
+    #: the lease socket that followed them, -1 when none; never on the wire
+    lease_fd: int = -1
+
+
 class StageGo(Answer, frozen=True, kw_only=True):
     """The turn is the attempt's. `budget_bytes` is the plane's device budget for this rank;
     -1 keeps the one it has (the same tenant ran the previous turn here)."""
@@ -263,6 +426,8 @@ class StageGo(Answer, frozen=True, kw_only=True):
 
 class Room(Answer, frozen=True, kw_only=True):
     authorized_device_limit_bytes: int | UnsetType = UNSET
+    #: The process cap once room was made (`process_cap/1`); -1 keeps the one it has
+    cap_bytes: int = -1
 
 
 class CheckpointReceipt(Answer, frozen=True, kw_only=True):
@@ -423,6 +588,8 @@ def respond(
     if isinstance(request, HostTier | BudgetCell):
         # The descriptor is only ever the one that arrived: a number on the wire is not.
         request = msgspec.structs.replace(request, memfd=-1 if received is None else received)
+    elif isinstance(request, DeviceTier):
+        request = msgspec.structs.replace(request, fds=())
     elif received is not None:
         os.close(received)
         request, reply = None, refuse("seam_descriptor", "unexpected memfd with a request")

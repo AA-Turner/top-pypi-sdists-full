@@ -599,11 +599,7 @@ class FutureHolding(QuantConnect.Securities.SecurityHolding):
 
     @property
     def settled_profit(self) -> float:
-        """The cash settled profit for the current open position"""
-        ...
-
-    @settled_profit.setter
-    def settled_profit(self, value: float) -> None:
+        """The cash settled profit for the current open position in units of the account's currency"""
         ...
 
     @property
@@ -617,6 +613,23 @@ class FutureHolding(QuantConnect.Securities.SecurityHolding):
         
         :param security: The future security being held
         :param currency_converter: A currency converter instance
+        """
+        ...
+
+    def add_settled_profit(self, settled_profit: float) -> None:
+        """
+        Adds a settlement to the running total of settled profit in units of the quote currency.
+        
+        :param settled_profit: The cash the settlement moved into the quote currency cash
+        """
+        ...
+
+    def get_settled_profit_amount(self) -> QuantConnect.Securities.ConvertibleCashAmount:
+        """
+        Gets the cash settled profit for the current open position in units of the quote currency,
+        which is the cash amount the daily settlements moved into the quote currency cash
+        
+        :returns: The settled profit in the quote currency.
         """
         ...
 

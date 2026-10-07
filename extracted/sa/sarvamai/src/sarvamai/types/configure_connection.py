@@ -16,7 +16,8 @@ class ConfigureConnection(UniversalBaseModel):
 
     **Model-Specific Notes:**
     - **bulbul:v2:** Supports pitch, loudness, pace (0.3-3.0). Default sample rate: 22050 Hz.
-    - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature. Default sample rate: 24000 Hz.
+    - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature (0.01–1.0). Default sample rate: 22050 Hz when omitted.
+    - **bulbul:v4-flash:** Same request/response contract as bulbul:v3, with 200+ persona voices. Default sample rate: 22050 Hz when omitted.
     """
 
     type: typing.Literal["config"] = "config"

@@ -24,7 +24,7 @@
  * dp_f32_create requires the byte count to be page-aligned, which varies
  * by OS (4 KiB on Linux/Windows, 16 KiB on macOS).  We start at the
  * smallest power-of-2 >= cap_min and double until create succeeds. */
-static dp_f32_t *
+static inline dp_f32_t *
 det_ring_create (size_t cap_min)
 {
   size_t cap = dp_next_pow_two (cap_min > 1 ? cap_min : 1);
@@ -51,26 +51,26 @@ det_cmp_f32_asc (const void *a, const void *b)
 }
 
 /**
- * @brief Aggregate |corr| over bins &#91;lo, hi&#93; using the selected mode.
+ * @brief The per-chunk noise aggregates -- MEAN, MIN, MAX -- over bins
+ *        &#91;lo, hi&#93;, needing no scratch buffer.
  *
- * Returns 0 if lo > hi (empty range) — the caller maps that to test_stat=0.
+ * MEDIAN has no per-chunk form (it must sort the whole range), so it is not
+ * computed here and returns 0; use det_noise_estimate() for it. A caller that
+ * works a chunk at a time (acq's parallel tiles) calls THIS, so it cannot
+ * even ask for a median without a scratch buffer: the invariant is in the
+ * signature, not in a NULL passed to something that would dereference it.
  *
- * @param mag     Magnitude vector (length >= hi+1).
- * @param lo      First bin, inclusive.
- * @param hi      Last bin, inclusive.
- * @param scratch Caller-allocated buffer of length >= (hi-lo+1) floats;
- *                used only for DET_NOISE_MEDIAN (avoids a heap alloc per
- *                push).
- * @param mode    Aggregation mode.
- * @return        Aggregated noise estimate, or 0 if lo > hi.
+ * @param mag   Magnitude vector (length >= hi+1).
+ * @param lo    First bin, inclusive.
+ * @param hi    Last bin, inclusive.
+ * @param mode  DET_NOISE_MEAN, DET_NOISE_MIN or DET_NOISE_MAX.
+ * @return      The aggregate; 0 if lo > hi or mode is DET_NOISE_MEDIAN.
  */
-static float
-det_noise_estimate (const float *mag, size_t lo, size_t hi, float *scratch,
-                 det_noise_mode_t mode)
+static inline float
+det_noise_chunk (const float *mag, size_t lo, size_t hi, det_noise_mode_t mode)
 {
   if (lo > hi)
     return 0.0f;
-  size_t count = hi - lo + 1;
   switch (mode)
     {
     case DET_NOISE_MEAN:
@@ -78,12 +78,8 @@ det_noise_estimate (const float *mag, size_t lo, size_t hi, float *scratch,
         float s = 0.0f;
         for (size_t i = lo; i <= hi; i++)
           s += mag[i];
-        return s / (float)count;
+        return s / (float)(hi - lo + 1);
       }
-    case DET_NOISE_MEDIAN:
-      memcpy (scratch, mag + lo, count * sizeof (float));
-      qsort (scratch, count, sizeof (float), det_cmp_f32_asc);
-      return scratch[count / 2];
     case DET_NOISE_MIN:
       {
         float m = mag[lo];
@@ -100,8 +96,38 @@ det_noise_estimate (const float *mag, size_t lo, size_t hi, float *scratch,
             m = mag[i];
         return m;
       }
+    case DET_NOISE_MEDIAN:
+      break; /* no per-chunk form: see above */
     }
-  return 0.0f; /* unreachable */
+  return 0.0f;
+}
+
+/**
+ * @brief Aggregate |corr| over bins &#91;lo, hi&#93; using the selected mode.
+ *
+ * Returns 0 if lo > hi (empty range) — the caller maps that to test_stat=0.
+ *
+ * @param mag     Magnitude vector (length >= hi+1).
+ * @param lo      First bin, inclusive.
+ * @param hi      Last bin, inclusive.
+ * @param scratch Caller-allocated buffer of length >= (hi-lo+1) floats;
+ *                used only for DET_NOISE_MEDIAN (avoids a heap alloc per
+ *                push).
+ * @param mode    Aggregation mode.
+ * @return        Aggregated noise estimate, or 0 if lo > hi.
+ */
+static inline float
+det_noise_estimate (const float *mag, size_t lo, size_t hi, float *scratch,
+                    det_noise_mode_t mode)
+{
+  if (mode != DET_NOISE_MEDIAN)
+    return det_noise_chunk (mag, lo, hi, mode);
+  if (lo > hi)
+    return 0.0f;
+  const size_t count = hi - lo + 1;
+  memcpy (scratch, mag + lo, count * sizeof (float));
+  qsort (scratch, count, sizeof (float), det_cmp_f32_asc);
+  return scratch[count / 2];
 }
 
 /* det_peak_t (one listed peak) is public in detector2d_core.h; the 1-D
@@ -158,7 +184,7 @@ typedef struct
  * @param max_peaks Capacity of `out`.
  * @return          Peaks listed (0 when nothing exceeds the gate).
  */
-static size_t
+static inline size_t
 det_peak_list (const float *surf, size_t ny, size_t nx, float gate,
                size_t excl_rows, size_t excl_cols, uint8_t *mask,
                det_peak_t *out, size_t max_peaks);
@@ -218,7 +244,7 @@ det_peak_zone (uint8_t *mask, size_t ny, size_t nx, size_t r, size_t c,
     }
 }
 
-static size_t
+static inline size_t
 det_peak_list (const float *surf, size_t ny, size_t nx, float gate,
                size_t excl_rows, size_t excl_cols, uint8_t *mask,
                det_peak_t *out, size_t max_peaks)

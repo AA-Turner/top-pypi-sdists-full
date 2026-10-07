@@ -58,12 +58,9 @@ SELECT a, b FROM table_2
         // TODO: add ansi, hive, mysql
         // TODO This feels wrong and should bneed fixing
         &[
-            DialectKind::Bigquery,
-            DialectKind::Clickhouse,
             DialectKind::Duckdb,
             DialectKind::Exasol,
             DialectKind::Postgres,
-            DialectKind::Snowflake,
             DialectKind::Sparksql,
         ]
     }
@@ -117,5 +114,26 @@ SELECT a, b FROM table_2
 
     fn crawl_behaviour(&self) -> Crawler {
         SegmentSeekerCrawler::new(const { SyntaxSet::new(&[SyntaxKind::SetOperator]) }).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enabled_for_upstream_dialects() {
+        let skipped = RuleAM02.dialect_skip();
+
+        for dialect in [
+            DialectKind::Bigquery,
+            DialectKind::Clickhouse,
+            DialectKind::Databricks,
+            DialectKind::Db2,
+            DialectKind::Snowflake,
+            DialectKind::Trino,
+        ] {
+            assert!(!skipped.contains(&dialect));
+        }
     }
 }

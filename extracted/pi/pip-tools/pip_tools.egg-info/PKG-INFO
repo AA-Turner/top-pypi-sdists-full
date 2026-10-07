@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pip-tools
-Version: 7.6.1
+Version: 7.6.2
 Summary: pip-tools keeps your pinned dependencies fresh.
 Author-email: Vincent Driessen <me@nvie.com>
-License: BSD
+License-Expression: BSD-3-Clause
 Project-URL: homepage, https://github.com/jazzband/pip-tools/
 Project-URL: documentation, https://pip-tools.readthedocs.io/en/latest/
 Project-URL: repository, https://github.com/jazzband/pip-tools
@@ -13,7 +13,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3

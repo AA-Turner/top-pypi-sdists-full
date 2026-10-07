@@ -3,6 +3,7 @@ from __future__ import annotations
 import _thread
 import gc
 import json
+import math
 import platform
 import sys
 import threading
@@ -783,6 +784,38 @@ def test_malformed_server_url_template(ctx):
     assert "'servers[0].url' is not a valid URL template" in str(stream.find(events.NonFatalError).info)
 
 
+def test_identical_schema_errors_across_generation_modes_reported_once(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "integer", "maximum": "x"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    stream = EventStream(schema, max_examples=1, phases=[PhaseName.FUZZING]).execute()
+
+    assert [(event.info.title, event.label, str(event.value)) for event in stream.find_all(events.NonFatalError)] == [
+        (
+            "Schema Error",
+            "GET /items",
+            "Invalid `maximum` definition\n\nLocation:\n    properties -> q -> maximum\n\nProblematic definition:\n"
+            '    "x"\n\nError details:\n    "x" is not of type "number"\n\nEnsure that the definition complies '
+            "with the OpenAPI specification",
+        )
+    ]
+
+
 def test_max_failures(ctx):
     api = ctx.openapi.apps.failure_multiple_failures_unsatisfiable()
     schema = schemathesis.openapi.from_url(api.schema_url)
@@ -810,7 +843,11 @@ def test_max_time_reaches_every_operation(ctx, workers):
     # never dispatched, which makes the tested set depend on schema order.
     api = ctx.openapi.apps.users_crud()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    stream = execute(schema, max_time=3, max_examples=2000, workers=workers, phases=[PhaseName.FUZZING])
+    # Work before an operation's first case cannot be interrupted, so scale the budget to the runner's speed.
+    started = time.monotonic()
+    execute(schema, max_examples=1, workers=workers, phases=[PhaseName.FUZZING])
+    max_time = max(3, math.ceil(3 * (time.monotonic() - started)))
+    stream = execute(schema, max_time=max_time, max_examples=2000, workers=workers, phases=[PhaseName.FUZZING])
     tested = {event.label for event in stream.find_all(events.ScenarioFinished)}
     assert tested == {"POST /users/", "GET /users/{user_id}", "PATCH /users/{user_id}"}
 
@@ -842,9 +879,12 @@ def test_stateful_cycles_release_their_state_machines(ctx):
     # finished ones are released, memory grows for as long as the run lasts.
     api = ctx.openapi.apps.users_crud()
     schema = schemathesis.openapi.from_url(api.schema_url)
-    # Slow runners must still fit two cycles in the budget, so each cycle is kept to a single example.
-    stream = execute(schema, max_time=5, max_examples=1, phases=[PhaseName.STATEFUL_TESTING])
-    cycles = stream.find_all(events.PhaseStarted, phase=lambda phase: phase.name == PhaseName.STATEFUL_TESTING)
+    cycles = [
+        execute(schema, max_examples=1, phases=[PhaseName.STATEFUL_TESTING]).find(
+            events.PhaseFinished, phase=lambda phase: phase.name == PhaseName.STATEFUL_TESTING
+        )
+        for _ in range(2)
+    ]
     gc.collect()
     # `isinstance` reads `__class__`, which lazy proxies such as Django's unconfigured settings resolve and fail on.
     machines = [
@@ -852,7 +892,7 @@ def test_stateful_cycles_release_their_state_machines(ctx):
         for obj in gc.get_objects()
         if issubclass(type(obj), type) and issubclass(obj, APIStateMachine) and getattr(obj, "schema", None) is schema
     ]
-    assert (len(cycles) > 1, machines) == (True, [])
+    assert ([cycle.status for cycle in cycles], machines) == ([Status.SUCCESS, Status.SUCCESS], [])
 
 
 def test_max_time_keeps_operation_errors_visible(ctx, restore_checks):

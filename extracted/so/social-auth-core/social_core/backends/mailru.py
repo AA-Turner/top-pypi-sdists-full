@@ -14,6 +14,7 @@ class MailruOAuth2(BaseOAuth2):
     """Mail.ru authentication backend"""
 
     name = "mailru-oauth2"
+    title = "Mail.ru"
     ID_KEY = "uid"
     AUTHORIZATION_URL = "https://connect.mail.ru/oauth/authorize"
     ACCESS_TOKEN_URL = "https://connect.mail.ru/oauth/token"
@@ -21,10 +22,9 @@ class MailruOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from Mail.ru request"""
-        fullname, first_name, last_name = self.get_user_names(
-            first_name=unquote(response["first_name"]),
-            last_name=unquote(response["last_name"]),
-        )
+        fullname = ""
+        first_name = unquote(response["first_name"])
+        last_name = unquote(response["last_name"])
         return {
             "username": unquote(response["nick"]),
             "email": unquote(response["email"]),
@@ -50,10 +50,17 @@ class MailruOAuth2(BaseOAuth2):
 
 class MRGOAuth2(BaseOAuth2):
     name = "mailru"
-    ID_KEY = "email"
+    title = "Mail.ru"
+    ID_KEY = "id"
+    LEGACY_ID_KEYS = ("email",)
+    MUTABLE_ID_KEYS = ("email",)
     AUTHORIZATION_URL = "https://oauth.mail.ru/login"
     ACCESS_TOKEN_URL = "https://oauth.mail.ru/token"
-    EXTRA_DATA = [("refresh_token", "refresh_token"), ("expires_in", "expires_in")]
+    EXTRA_DATA = [
+        ("id", "id"),
+        ("refresh_token", "refresh_token"),
+        ("expires_in", "expires_in"),
+    ]
     REDIRECT_STATE = False
 
     def get_user_details(self, response):

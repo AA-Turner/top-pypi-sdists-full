@@ -80,11 +80,11 @@ async def test_dataset_create_without_an_organization_is_held(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_picklist_create_without_an_organization_is_the_same_hold(monkeypatch):
-    from matrx_ai.tools.implementations.picklists_tools import picklist
+    from matrx_ai.tools.implementations.pick_list_tools import pick_list
 
     ctx = _ctx(monkeypatch, None)
-    result = await picklist(
-        {"action": "create", "picklist_name": "Carriers we verify",
+    result = await pick_list(
+        {"action": "create", "pick_list_name": "Carriers we verify",
          "items": ["Blue Shield PPO", "Delta Dental", "Aetna DMO"]},
         ctx,
     )

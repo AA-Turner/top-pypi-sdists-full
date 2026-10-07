@@ -15,6 +15,7 @@ use crate::slice_helpers::zero_slice;
 pub enum TemplateSliceKind {
     Literal,
     Templated,
+    Escaped,
     Comment,
     BlockStart,
     BlockMid,
@@ -26,6 +27,7 @@ impl TemplateSliceKind {
         match self {
             Self::Literal => "literal",
             Self::Templated => "templated",
+            Self::Escaped => "escaped",
             Self::Comment => "comment",
             Self::BlockStart => "block_start",
             Self::BlockMid => "block_mid",
@@ -44,6 +46,7 @@ impl TemplateSliceKind {
         match value {
             "literal" => Ok(Self::Literal),
             "templated" => Ok(Self::Templated),
+            "escaped" => Ok(Self::Escaped),
             "comment" => Ok(Self::Comment),
             "block_start" => Ok(Self::BlockStart),
             "block_mid" => Ok(Self::BlockMid),
@@ -548,18 +551,17 @@ impl TemplatedFileInner {
             stop_slices.last().unwrap().source_slice.end
         };
 
-        let source_slice;
-        if source_start > source_stop.try_into().unwrap() {
+        let source_slice = if source_start > source_stop.try_into().unwrap() {
             let mut source_start = usize::MAX;
             let mut source_stop = 0;
             for elem in subslices {
                 source_start = usize::min(source_start, elem.source_slice.start);
                 source_stop = usize::max(source_stop, elem.source_slice.end);
             }
-            source_slice = source_start..source_stop;
+            source_start..source_stop
         } else {
-            source_slice = source_start.try_into().unwrap()..source_stop;
-        }
+            source_start.try_into().unwrap()..source_stop
+        };
 
         Ok(source_slice)
     }
@@ -651,6 +653,12 @@ pub struct RawFileSlice {
     slice_subtype: Option<RawFileSliceType>,
     /// Block index, incremented on start or end block tags, e.g. "if", "for"
     block_idx: usize,
+    /// Optional semantic tag supplied by the templater.
+    #[cfg_attr(
+        feature = "stringify",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    tag: Option<String>,
 }
 
 impl RawFileSlice {
@@ -667,6 +675,7 @@ impl RawFileSlice {
             source_idx,
             slice_subtype,
             block_idx: block_idx.unwrap_or(0),
+            tag: None,
         }
     }
 
@@ -679,11 +688,16 @@ impl RawFileSlice {
     ) -> Self {
         Self::new(raw, slice_type, source_idx, slice_subtype, block_idx)
     }
+
+    pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
+        self.tag = Some(tag.into());
+        self
+    }
 }
 
 impl RawFileSlice {
     /// Return the closing index of this slice.
-    fn end_source_idx(&self) -> usize {
+    pub fn end_source_idx(&self) -> usize {
         self.source_idx + self.raw.len()
     }
 
@@ -699,6 +713,10 @@ impl RawFileSlice {
 
     pub const fn block_idx(&self) -> usize {
         self.block_idx
+    }
+
+    pub fn tag(&self) -> Option<&str> {
+        self.tag.as_deref()
     }
 
     /// Return the slice type (e.g., literal, templated, comment).
@@ -1483,6 +1501,10 @@ mod tests {
             TemplateSliceKind::from_slice_type("block_start").unwrap(),
             TemplateSliceKind::BlockStart
         );
+        assert_eq!(
+            TemplateSliceKind::from_slice_type("escaped").unwrap(),
+            TemplateSliceKind::Escaped
+        );
     }
 
     #[test]
@@ -1501,8 +1523,11 @@ mod tests {
             None,
             None,
         );
+        let escaped =
+            RawFileSlice::new_typed("{{".to_string(), TemplateSliceKind::Escaped, 0, None, None);
 
         assert!(comment.is_source_only_slice());
         assert!(!literal.is_source_only_slice());
+        assert!(!escaped.is_source_only_slice());
     }
 }

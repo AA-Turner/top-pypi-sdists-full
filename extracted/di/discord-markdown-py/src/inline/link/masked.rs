@@ -10,25 +10,25 @@ use std::{fmt::Debug, marker::PhantomData, sync::LazyLock};
 
 use aho_corasick::{AhoCorasick, Match};
 use discord_confusables::skeleton;
-use enumset::{enum_set, enum_set_difference, EnumSet};
+use enumset::{EnumSet, enum_set, enum_set_difference};
 use nom::{
+	Check, Complete, Finish, Mode, OutputM, Parser,
 	combinator::{map, not},
 	error::ErrorKind,
 	sequence::pair,
-	Check, Complete, Finish, Mode, OutputM, Parser,
 };
 use tracing::Level;
 
 use crate::{
+	Input,
 	context::Context,
 	error::ParseError,
 	grammar::ByteHint,
 	rule::{Rule, RuleSet},
 	span::Span,
-	Input,
 };
 
-use super::{auto, detection, is_suspicious_whitespace, scheme, verify_url, Grammar, Link};
+use super::{Grammar, Link, auto, detection, is_suspicious_whitespace, scheme, verify_url};
 
 mod link;
 mod text;
@@ -236,6 +236,25 @@ mod test {
 	}
 
 	/// Reading every depth must not reject ordinary markup.
+	/// The `)` closing a masked link's URL is not trailing text, so punctuation before it stays in
+	/// the URL instead of leaving the link unclosed.
+	#[test]
+	fn punctuation_before_closing_paren_stays_in_url() {
+		for s in [
+			r"[text](https://good.com.)",
+			r"[text](https://good.com/a..)",
+		] {
+			let (rem, res) = masked::<(), _>(&Context::default())
+				.parse_complete(s.into())
+				.finish()
+				.map_err(handle_nom_err(s))
+				.expect("unable to parse");
+			assert_eq!(rem, "", "{s}");
+			let inner = &s[s.find('(').unwrap() + 1..s.len() - 1];
+			assert_eq!(res.url.as_str(), Url::parse(inner).unwrap().as_str(), "{s}");
+		}
+	}
+
 	#[test]
 	fn nested_markup_without_a_link_is_allowed() {
 		for s in [

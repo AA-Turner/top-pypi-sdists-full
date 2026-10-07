@@ -1,8 +1,10 @@
+/* jm:generated arith_ext_acc_q8.c */
 /*
  * arith_ext_acc_q8.c — AccQ8 type for the arith module.
  *
  * Included by arith_ext.c (the module aggregator).
- * Hand-patches to this file are preserved across jm commands.
+ * jm regenerates this file on every apply; do not edit it.
+ * Hand-written code belongs in arith_ext_acc_q8_extra.c.
  * Do NOT compile this file directly — only arith_ext.c is compiled.
  */
 /* ======================================================== */
@@ -27,6 +29,9 @@ AccQ8_dealloc (AccQ8Object *self)
 static PyObject *
 AccQ8_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
+  /* tp_new allocates only; __init__ reads the arguments. */
+  (void)args;
+  (void)kwds;
   AccQ8Object *self = (AccQ8Object *)type->tp_alloc (type, 0);
   if (self)
     self->handle = NULL;
@@ -80,19 +85,20 @@ AccQ8_step (AccQ8Object *self, PyObject *args)
 }
 
 static PyObject *
-AccQ8_steps (AccQ8Object *self, PyObject *args)
+AccQ8_steps (AccQ8Object *self, PyObject *args, PyObject *kwds)
 {
   if (!self->handle)
     {
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  PyObject *in_obj = NULL;
-  if (!PyArg_ParseTuple (args, "O", &in_obj))
+  static char *kwlist[] = { "x", NULL };
+  PyObject    *in_obj   = NULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O", kwlist, &in_obj))
     return NULL;
 
-  PyArrayObject *in_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      in_obj, NPY_INT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *in_arr = (PyArrayObject *)jm_array_arg (
+      in_obj, NPY_INT8, NPY_ARRAY_C_CONTIGUOUS, "x");
   if (!in_arr)
     return NULL;
 
@@ -165,16 +171,16 @@ AccQ8_madd (AccQ8Object *self, PyObject *args, PyObject *kwds)
   PyObject    *b_obj     = NULL;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "OO", _kwlist, &a_obj, &b_obj))
     return NULL;
-  PyArrayObject *a_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      a_obj, NPY_INT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *a_arr
+      = jm_array_arg (a_obj, NPY_INT8, NPY_ARRAY_C_CONTIGUOUS, "a");
   if (!a_arr)
     {
       return NULL;
     }
   const int8_t  *a     = (const int8_t *)PyArray_DATA (a_arr);
   size_t         a_len = (size_t)PyArray_SIZE (a_arr);
-  PyArrayObject *b_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      b_obj, NPY_INT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *b_arr
+      = jm_array_arg (b_obj, NPY_INT8, NPY_ARRAY_C_CONTIGUOUS, "b");
   if (!b_arr)
     {
       Py_DECREF (a_arr);
@@ -306,8 +312,8 @@ static PyMethodDef AccQ8_methods[] = {
     ">>> obj.get()\n"
     "30\n"
     "\n" },
-  { "steps", (PyCFunction)AccQ8_steps, METH_VARARGS,
-    "steps(x[, out]) -> ndarray\n"
+  { "steps", (PyCFunction)(void *)AccQ8_steps, METH_VARARGS | METH_KEYWORDS,
+    "steps(x)\n"
     "\n"
     "Accumulate a contiguous block of Q8 samples. Equivalent to calling\n"
     "step() n times; the single loop is more amenable to auto-vectorisation\n"
@@ -478,11 +484,11 @@ static PyMethodDef AccQ8_methods[] = {
     "    Exception instance, or None. Ignored.\n"
     "tb : object | None\n"
     "    Traceback object, or None. Ignored.\n" },
-  { NULL }
+  { NULL, NULL, 0, NULL }
 };
 
 static PyTypeObject AccQ8Type = {
-  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "arith.AccQ8",
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "doppler.arith.AccQ8",
   .tp_basicsize                           = sizeof (AccQ8Object),
   .tp_dealloc                             = (destructor)AccQ8_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,

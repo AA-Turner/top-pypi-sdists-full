@@ -1,23 +1,92 @@
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use pyo3::types::PySlice;
+#[cfg(feature = "python")]
 use pyo3::{Borrowed, Py, PyAny, Python};
+#[cfg(feature = "python")]
 use sqruff_lib_core::errors::SQLFluffUserError;
+#[cfg(feature = "python")]
 use sqruff_lib_core::templaters::{
     RawFileSlice, TemplateSliceKind, TemplatedFile, TemplatedFileSlice, char_idx_to_byte_idx,
     char_to_byte_indices,
 };
 
+#[cfg(feature = "python")]
 use super::Templater;
+use super::TemplaterDocumentation;
+#[cfg(feature = "python")]
 use crate::Formatter;
+#[cfg(feature = "python")]
 use crate::core::config::FluffConfig;
+#[cfg(feature = "python")]
 use crate::templaters::ProcessingMode;
+#[cfg(feature = "python")]
 use crate::templaters::TemplaterKind;
+#[cfg(feature = "python")]
 use crate::templaters::python_shared::PythonFluffConfig;
+#[cfg(feature = "python")]
 use std::sync::Arc;
 
 #[derive(Default)]
 pub struct PythonTemplater;
 
+impl TemplaterDocumentation for PythonTemplater {
+    fn name(&self) -> &'static str {
+        "python"
+    }
+
+    fn description(&self) -> &'static str {
+        r#"**Note:** This templater currently does not work by default in the CLI and needs custom set up to work.
+
+The Python templater uses native Python f-strings. An example would be as follows:
+
+```sql
+SELECT * FROM {blah}
+```
+
+With the following config:
+
+```
+[sqruff]
+templater = python
+
+[sqruff:templater:python:context]
+blah = foo
+```
+
+Before parsing the sql will be transformed to:
+
+```sql
+SELECT * FROM foo
+```
+
+### Complex Python variable templating
+
+[Python string formatting](https://docs.python.org/3/library/string.html#format-string-syntax)
+supports accessing object attributes through dot notation, such as `{foo.bar}`.
+Because Python objects cannot be created in configuration files, sqruff interprets
+any variable containing a `.` as a dictionary lookup on the magic fixed context key
+`sqlfluff`:
+
+```sql
+-- This SQL...
+SELECT * FROM {foo.bar}
+
+-- ...is interpreted as this.
+SELECT * FROM {sqlfluff[foo.bar]}
+```
+
+Populate that lookup with the following configuration:
+
+```ini
+[sqruff:templater:python:context]
+sqlfluff = {"foo.bar": "abc"}
+```"#
+    }
+}
+
+#[cfg(feature = "python")]
 impl PythonTemplater {
     fn process_single(
         &self,
@@ -51,39 +120,8 @@ impl PythonTemplater {
     }
 }
 
+#[cfg(feature = "python")]
 impl Templater for PythonTemplater {
-    fn name(&self) -> &'static str {
-        "python"
-    }
-
-    fn description(&self) -> &'static str {
-        r"**Note:** This templater currently does not work by default in the CLI and needs custom set up to work.
-
-The Python templater uses native Python f-strings. An example would be as follows:
-
-```sql
-SELECT * FROM {blah}
-```
-
-With the following config:
-
-```
-[sqruff]
-templater = python
-
-[sqruff:templater:python:context]
-blah = foo
-```
-
-Before parsing the sql will be transformed to:
-
-```sql
-SELECT * FROM foo
-```
-
-At the moment, dot notation is not supported in the templater."
-    }
-
     fn processing_mode(&self) -> ProcessingMode {
         ProcessingMode::Sequential
     }
@@ -101,6 +139,7 @@ At the moment, dot notation is not supported in the templater."
     }
 }
 
+#[cfg(feature = "python")]
 #[derive(Debug)]
 struct PythonTemplatedFileSlice {
     slice_type: String,
@@ -108,6 +147,7 @@ struct PythonTemplatedFileSlice {
     templated_slice: std::ops::Range<usize>,
 }
 
+#[cfg(feature = "python")]
 impl<'a, 'py> FromPyObject<'a, 'py> for PythonTemplatedFileSlice {
     type Error = PyErr;
 
@@ -148,14 +188,17 @@ impl<'a, 'py> FromPyObject<'a, 'py> for PythonTemplatedFileSlice {
     }
 }
 
+#[cfg(feature = "python")]
 #[derive(Debug)]
 struct PythonRawFileSlice {
     raw: String,
     slice_tpe: String,
     source_idx: usize,
     block_idx: usize,
+    tag: Option<String>,
 }
 
+#[cfg(feature = "python")]
 impl<'a, 'py> FromPyObject<'a, 'py> for PythonRawFileSlice {
     type Error = PyErr;
 
@@ -164,16 +207,19 @@ impl<'a, 'py> FromPyObject<'a, 'py> for PythonRawFileSlice {
         let slice_tpe = ob.getattr("slice_type")?.extract::<String>()?;
         let source_idx = ob.getattr("source_idx")?.extract::<usize>()?;
         let block_idx = ob.getattr("block_idx")?.extract::<usize>()?;
+        let tag = ob.getattr("tag")?.extract::<Option<String>>()?;
 
         Ok(PythonRawFileSlice {
             raw,
             slice_tpe,
             source_idx,
             block_idx,
+            tag,
         })
     }
 }
 
+#[cfg(feature = "python")]
 #[derive(FromPyObject, Debug)]
 pub struct PythonTemplatedFile {
     source_str: String,
@@ -183,6 +229,7 @@ pub struct PythonTemplatedFile {
     raw_sliced: Option<Vec<PythonRawFileSlice>>,
 }
 
+#[cfg(feature = "python")]
 impl PythonTemplatedFile {
     pub fn to_templated_file(&self) -> PyResult<TemplatedFile> {
         // Python uses character-based indices, but Rust uses byte-based indices.
@@ -241,13 +288,17 @@ impl PythonTemplatedFile {
                         .map(|s| {
                             let slice_type = TemplateSliceKind::from_slice_type(&s.slice_tpe)
                                 .map_err(pyo3::exceptions::PyValueError::new_err)?;
-                            Ok(RawFileSlice::new(
+                            let raw_slice = RawFileSlice::new(
                                 s.raw.to_string(),
                                 slice_type,
                                 char_idx_to_byte_idx(&source_char_to_byte, s.source_idx),
                                 None,
                                 Some(s.block_idx),
-                            ))
+                            );
+                            Ok(match &s.tag {
+                                Some(tag) => raw_slice.with_tag(tag.clone()),
+                                None => raw_slice,
+                            })
                         })
                         .collect()
                 })
@@ -258,7 +309,7 @@ impl PythonTemplatedFile {
 }
 
 // Working on tests
-#[cfg(test)]
+#[cfg(all(test, feature = "python"))]
 mod tests {
     use super::*;
 
@@ -308,6 +359,7 @@ blah = foo
                 slice_tpe: TemplateSliceKind::Literal.as_str().to_string(),
                 source_idx: 0,
                 block_idx: 0,
+                tag: None,
             }]),
         };
 
@@ -345,12 +397,14 @@ blah = foo
                     slice_tpe: TemplateSliceKind::Literal.as_str().to_string(),
                     source_idx: 0, // Python char index 0
                     block_idx: 0,
+                    tag: None,
                 },
                 PythonRawFileSlice {
                     raw: "b".to_string(),
                     slice_tpe: TemplateSliceKind::Literal.as_str().to_string(),
                     source_idx: 2, // Python char index 2 (should become byte index 4)
                     block_idx: 0,
+                    tag: None,
                 },
             ]),
         };
@@ -379,5 +433,25 @@ noblah = foo
         let templated_file = results.into_iter().next().unwrap();
 
         assert!(templated_file.is_err())
+    }
+
+    #[test]
+    fn templater_python_ignore_templating() {
+        let source = r#"
+[sqruff]
+templater = python
+ignore = templating
+"#;
+        let config = FluffConfig::from_source(source, None);
+        let templater = PythonTemplater;
+
+        let results = templater.process(
+            &[("SELECT * FROM {start_date}", "test.sql")],
+            &config,
+            &None,
+        );
+        let templated_file = results.into_iter().next().unwrap().unwrap();
+
+        assert_eq!(templated_file.templated(), "SELECT * FROM start_date");
     }
 }

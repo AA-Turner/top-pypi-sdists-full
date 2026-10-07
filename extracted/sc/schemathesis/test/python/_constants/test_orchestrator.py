@@ -54,6 +54,25 @@ def test_orchestrator_survives_subpackage_that_exits_during_walk():
     assert "exitpkg_ok" in pool_values(result, "string")
 
 
+def test_orchestrator_extracts_from_packages_with_and_without_submodules(tmp_path, monkeypatch):
+    bare = tmp_path / "bare_pkg"
+    bare.mkdir()
+    (bare / "__init__.py").write_text('GREETING = "bare_value"\n')
+    nested = tmp_path / "nested_pkg"
+    nested.mkdir()
+    (nested / "__init__.py").write_text("")
+    (nested / "child.py").write_text('GREETING = "child_value"\n')
+    monkeypatch.syspath_prepend(str(tmp_path))
+    registry = SourceRegistry()
+
+    @registry.register
+    def from_packages():
+        return ["bare_pkg", "nested_pkg"]
+
+    result = extract_all(registry=registry, adapters=[])
+    assert sorted(pool_values(result, "string")) == ["bare_value", "child_value"]
+
+
 def test_orchestrator_runs_sources_and_builds_pool():
     registry = SourceRegistry()
 
@@ -130,6 +149,17 @@ def test_pool_failures_convert_to_schema_warnings():
     assert "boom" in warnings[0].message
 
 
+def test_constants_extraction_warning_is_not_grouped():
+    registry = SourceRegistry()
+
+    @registry.register
+    def boom():
+        raise RuntimeError("bad")
+
+    pool = extract_all(registry=registry, adapters=[])
+    assert iter_constants_warnings(pool)[0].group is None
+
+
 def test_orchestrator_falls_back_to_app_module():
     # Niche framework: no adapter matches. The module defining the app still gets harvested.
     class NicheApp:
@@ -144,6 +174,20 @@ def test_orchestrator_falls_back_to_app_module():
         return NicheApp()
 
     assert "active" in pool_values(extract_all(registry=registry, adapters=[]), "string")
+
+
+def test_adapter_failing_to_list_handlers_is_recorded():
+    app = Flask("test.python._constants.fixtures.dep_pkg")
+    app.view_functions = None
+    registry = SourceRegistry()
+
+    @registry.register
+    def from_app():
+        return app
+
+    result = extract_all(registry=registry, adapters=[FlaskAdapter()])
+    assert result.is_empty()
+    assert [f.source for f in result.failures] == ["from_app"]
 
 
 def test_orchestrator_fallback_does_not_walk_the_apps_package():
@@ -290,6 +334,31 @@ def test_orchestrator_follows_handler_module_local_imports():
 
     result = extract_all(registry=registry, adapters=[FlaskAdapter()])
     assert "zx9secreta3f9c1e7" in pool_values(result, "string")
+
+
+def test_constants_extracted_from_a_list_of_apps(tmp_path):
+    class HandlerWithoutModule:
+        __module__ = None
+
+        def __call__(self):
+            return "ok"
+
+    (tmp_path / "namespace_pkg").mkdir()
+    sys.path.insert(0, str(tmp_path))
+    try:
+        registry = SourceRegistry()
+
+        @registry.register
+        def from_apps():
+            namespace_app = Flask("namespace_pkg")
+            namespace_app.add_url_rule("/x", "x", HandlerWithoutModule())
+            return [namespace_app, flask_app.app]
+
+        result = extract_all(registry=registry, adapters=[FlaskAdapter()])
+    finally:
+        sys.path.remove(str(tmp_path))
+    assert "zx9secreta3f9c1e7" in pool_values(result, "string")
+    assert result.failures == ()
 
 
 def test_orchestrator_does_not_walk_package_named_by_flask_import_name():

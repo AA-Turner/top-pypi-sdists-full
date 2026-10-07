@@ -2,17 +2,17 @@ use std::marker::PhantomData;
 
 use enumset::enum_set;
 use nom::{
+	Parser,
 	branch::alt,
 	character::complete::{char, line_ending, one_of},
 	combinator::{eof, peek, recognize, success, value},
-	Parser,
 };
 
 use crate::{
+	Input,
 	block::quote,
 	error::ParseError,
 	grammar::{Grammar, GrammarSet},
-	Input,
 };
 
 pub const LINE_PREFIX_GRAMMARS: GrammarSet = enum_set!(Grammar::Quote);
@@ -63,7 +63,7 @@ where
 mod test {
 	use enumset::enum_set;
 
-	use crate::grammar::{line_prefix::LINE_PREFIX_GRAMMARS, Grammar};
+	use crate::grammar::{Grammar, line_prefix::LINE_PREFIX_GRAMMARS};
 
 	#[test]
 	fn set_consistency() {

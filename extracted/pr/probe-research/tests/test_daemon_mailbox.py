@@ -203,14 +203,14 @@ def _ask(*args):
     return CliRunner().invoke(app, ["ask", *args])
 
 
-def test_ask_is_answered_while_the_agent_holds_probe(daemon_session):
-    """`on (inline)`: the agent took Probe over, and the daemon's reader still
-    answers it (review: `probe ask` refused every state but daemon/read only)."""
+def test_ask_is_refused_while_probe_is_inline(daemon_session):
+    """`/probe inline` stops the daemon (Richard 2026-10-06): nothing would
+    answer, and the agent searches with the CLI itself. Nothing is queued."""
     session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
-    assert session_marker.enter_inline(SID) is None
+    assert session_marker.switch_to_inline(SID)
     res = _ask("what lr did we use?")
-    assert daemon_cli.ASK_NO_DAEMON not in res.output
-    assert res.exit_code == 0
+    assert res.exit_code == 1 and daemon_cli.ASK_SESSION_INLINE in res.output
+    assert mailbox.pending_asks(SID) == []
 
 
 def test_ask_refuses_before_writing_anything(monkeypatch):

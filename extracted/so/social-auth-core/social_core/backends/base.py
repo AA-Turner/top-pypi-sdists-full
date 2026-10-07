@@ -1,21 +1,39 @@
 from __future__ import annotations
 
 import base64
+import inspect
 import time
+import warnings
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import requests
 
 from social_core.exceptions import (
-    AuthConnectionError,
-    AuthMissingParameter,
-    AuthUnknownError,
+    AuthConfigurationError,
+    AuthInputError,
+    AuthPolicyError,
+    AuthProviderError,
+    AuthResponseError,
+    AuthSessionError,
+    ErrorStage,
+    SocialAuthBaseException,
 )
 from social_core.registry import REGISTRY
-from social_core.utils import module_member, parse_qs, social_logger, user_agent
+from social_core.utils import (
+    constant_time_compare,
+    http_error,
+    module_member,
+    normalize_user_names,
+    parse_qs,
+    social_logger,
+    user_agent,
+    user_is_authenticated,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
 
     from requests import Response
     from requests.auth import AuthBase
@@ -26,16 +44,28 @@ if TYPE_CHECKING:
 
 class BaseAuth:
     """A authentication backend that authenticates the user based on
-    the provider response"""
+    the provider response.
+
+    Set ``ASSOCIATION_ONLY`` to connect provider access to an authenticated local
+    user without updating their profile. Browser flows must start through
+    ``do_auth(user=...)`` and validate callbacks with
+    ``validate_association_state()`` before processing provider credentials.
+    Authentication and disconnect partials remain bound to that local user.
+    """
 
     name = ""  # provider name, it's stored in database
+    title: str | None = None  # human-readable sign-in label
+    icon: str | None = None  # filename in static/social_auth/icons
     supports_inactive_user = False  # Django auth
     ID_KEY: str = ""
+    LEGACY_ID_KEYS: tuple[str, ...] = ()
+    MUTABLE_ID_KEYS: tuple[str, ...] = ()
     EXTRA_DATA: list[str | tuple[str, str] | tuple[str, str, bool]] | None = None
     GET_ALL_EXTRA_DATA = False
     REQUIRES_EMAIL_VALIDATION = False
     REQUIRES_USER_ID: bool = False
     SEND_USER_AGENT = True
+    ASSOCIATION_ONLY = False
 
     def __init__(
         self, strategy: BaseStrategy | None = None, redirect_uri: str | None = None
@@ -44,6 +74,10 @@ class BaseAuth:
             strategy if strategy is not None else REGISTRY.default_strategy
         )
         self.redirect_uri = redirect_uri
+        self._pipeline_type: ContextVar[str] = ContextVar(
+            "pipeline_type", default="authentication"
+        )
+        self._mutable_id_key_warned = False
         self.data = self.strategy.request_data()
         self.redirect_uri = self.strategy.absolute_uri(self.redirect_uri)
 
@@ -58,9 +92,91 @@ class BaseAuth:
         return self.strategy.setting(name, default=default, backend=self)
 
     def prepare_auth(self, user: UserProtocol | None = None) -> None:
-        """Prepare backend-specific validation or state before authentication starts."""
+        """Bind association-only authorization to an authenticated local user."""
+        if self.ASSOCIATION_ONLY:
+            user = self.require_association_user(user, stage="begin")
+            self.strategy.session_set(
+                f"{self.name}_state",
+                {"state": self.strategy.random_string(32), "user_id": str(user.id)},
+            )
+
+    def require_association_user(
+        self, user: UserProtocol | None, *, stage: ErrorStage = "user_info"
+    ) -> UserProtocol:
+        """Require an authenticated local user for an association-only flow."""
+        if user is None or not user_is_authenticated(user):
+            raise AuthSessionError(
+                self,
+                "Association requires an authenticated user",
+                code="session_context_missing",
+                stage=stage,
+            )
+        return user
+
+    def get_association_state(self) -> str:
+        """Return the token from a prepared, user-bound authorization context."""
+        context = self.strategy.session_get(f"{self.name}_state")
+        if not isinstance(context, dict):
+            raise AuthSessionError(
+                self, "state", code="session_context_missing", stage="callback"
+            )
+        state = context.get("state")
+        if not isinstance(state, str) or not state:
+            raise AuthSessionError(
+                self, "state", code="session_context_missing", stage="callback"
+            )
+        return state
+
+    def validate_association_state(
+        self, request_state: Any, user: UserProtocol | None = None
+    ) -> str:
+        """Validate and consume authorization state bound to the current user."""
+        if not request_state:
+            raise AuthInputError(
+                self, parameter="state", code="missing_parameter", stage="callback"
+            )
+        state = self.get_association_state()
+        if not isinstance(request_state, (str, bytes)) or not constant_time_compare(
+            request_state, state
+        ):
+            raise AuthSessionError(self, code="state_mismatch", stage="callback")
+        user = self.require_association_user(user, stage="callback")
+        context = self.strategy.session_get(f"{self.name}_state")
+        if context.get("user_id") != str(user.id):
+            raise AuthSessionError(
+                self,
+                "Association user mismatch",
+                code="user_mismatch",
+                stage="callback",
+            )
+        self.strategy.session_pop(f"{self.name}_state")
+        return state
+
+    def association_user_id_key(self, pipeline_type: str = "authentication") -> str:
+        """Name of the initiator binding saved in pipeline arguments."""
+        operation = "disconnect" if pipeline_type == "disconnect" else "association"
+        return f"{self.name}_{operation}_user_id"
+
+    def _bind_association_user(
+        self, kwargs: dict[str, Any], pipeline_type: str = "authentication"
+    ) -> None:
+        stage: ErrorStage = (
+            "disconnect" if pipeline_type == "disconnect" else "user_info"
+        )
+        user = self.require_association_user(kwargs.get("user"), stage=stage)
+        key = self.association_user_id_key(pipeline_type)
+        if key in kwargs and kwargs[key] != str(user.id):
+            raise AuthSessionError(
+                self,
+                "Association user mismatch",
+                code="user_mismatch",
+                stage=stage,
+            )
+        kwargs[key] = str(user.id)
 
     def start(self) -> HttpResponseProtocol:
+        if self.ASSOCIATION_ONLY:
+            self.get_association_state()
         if self.uses_redirect():
             return self.strategy.redirect(self.auth_url())
         return self.strategy.html(self.auth_html())
@@ -82,13 +198,30 @@ class BaseAuth:
         """Completes login process, must return user instance"""
         raise NotImplementedError("Implement in subclass")
 
-    def process_error(self, data) -> None:
+    def process_error(self, data, *, stage: ErrorStage = "callback") -> None:
         """Hook to process provider response errors.
 
         Default implementation is a no-op. Backends that can detect
         provider-specific error payloads should override this method and
         raise an appropriate exception when needed.
         """
+
+    def _process_error(self, data, *, stage: ErrorStage) -> None:
+        """Call the error hook, including overrides predating the stage keyword."""
+        kwargs: dict[str, ErrorStage]
+        try:
+            inspect.signature(self.process_error).bind(data, stage=stage)
+        except TypeError:
+            # Check the signature before calling so a TypeError inside the hook
+            # is propagated without invoking it twice.
+            kwargs = {}
+        else:
+            kwargs = {"stage": stage}
+        try:
+            self.process_error(data, **kwargs)
+        except SocialAuthBaseException as error:
+            error.stage = stage
+            raise
 
     def authenticate(
         self, *args, **kwargs
@@ -114,6 +247,8 @@ class BaseAuth:
         self.strategy = kwargs.get("strategy") or self.strategy
         self.redirect_uri = kwargs.get("redirect_uri") or self.redirect_uri
         self.data = self.strategy.request_data()
+        if self.ASSOCIATION_ONLY:
+            self._bind_association_user(kwargs)
         kwargs.setdefault("is_new", False)
         pipeline = self.strategy.get_pipeline(self)
         args, kwargs = self.strategy.clean_authenticate_args(*args, **kwargs)
@@ -122,7 +257,11 @@ class BaseAuth:
     def pipeline(
         self, pipeline, pipeline_index: int = 0, *args, **kwargs
     ) -> UserProtocol | HttpResponseProtocol | None:
-        out = self.run_pipeline(pipeline, pipeline_index, *args, **kwargs)
+        token = self._pipeline_type.set("authentication")
+        try:
+            out = self.run_pipeline(pipeline, pipeline_index, *args, **kwargs)
+        finally:
+            self._pipeline_type.reset(token)
         if not isinstance(out, dict):
             return cast("HttpResponseProtocol", out)
         user = cast("UserProtocol | None", out.get("user"))
@@ -133,10 +272,21 @@ class BaseAuth:
         return user
 
     def disconnect(self, *args, **kwargs) -> dict:
+        if self.ASSOCIATION_ONLY:
+            self._bind_association_user(kwargs, "disconnect")
         pipeline = self.strategy.get_disconnect_pipeline(self)
         kwargs["name"] = self.name
         kwargs["user_storage"] = self.strategy.storage.user
-        return self.run_pipeline(pipeline, *args, **kwargs)
+        token = self._pipeline_type.set("disconnect")
+        try:
+            return self.run_pipeline(pipeline, *args, **kwargs)
+        finally:
+            self._pipeline_type.reset(token)
+
+    @property
+    def pipeline_type(self) -> str:
+        """Type of the currently executing pipeline, saved with its partials."""
+        return self._pipeline_type.get()
 
     def run_pipeline(
         self, pipeline: list[str], pipeline_index=0, *args, **kwargs
@@ -144,7 +294,7 @@ class BaseAuth:
         out = kwargs.copy()
         out.setdefault("strategy", self.strategy)
         out.setdefault("backend", out.pop(self.name, None) or self)
-        out.setdefault("request", self.strategy.request_data())
+        out.pop("request", None)
         out.setdefault("details", {})
 
         if (
@@ -199,7 +349,13 @@ class BaseAuth:
             elif len(entry) == 1:
                 name = alias = entry[0]
             else:
-                raise AuthUnknownError(self, f"Invalid EXTRA_DATA item: {entry!r}")
+                raise AuthConfigurationError(
+                    self,
+                    f"Invalid EXTRA_DATA item: {entry!r}",
+                    code="invalid_setting",
+                    parameter="EXTRA_DATA",
+                    stage="pipeline",
+                )
             value = response.get(name, details.get(name, details.get(alias)))
             if discard and not value:
                 continue
@@ -227,18 +383,86 @@ class BaseAuth:
             else:
                 domain = parts[1]
                 allowed = email in emails or domain in domains
+        allow_groups = self.get_group_setting("ALLOW_GROUPS", response, [])
+        if not isinstance(allow_groups, (list, tuple, set)) or any(
+            not isinstance(group, str) or not group for group in allow_groups
+        ):
+            raise AuthConfigurationError(
+                self, code="invalid_setting", parameter="ALLOW_GROUPS", stage="pipeline"
+            )
+        if allow_groups:
+            # Backends override the default no-extraction implementation.
+            # pylint: disable-next=assignment-from-none
+            groups = self.get_user_groups(response)
+            if groups is None:
+                raise AuthConfigurationError(
+                    self,
+                    code="missing_setting",
+                    parameter="group extraction",
+                    stage="pipeline",
+                )
+            allowed = allowed and bool(set(groups).intersection(allow_groups))
         return allowed
+
+    def get_user_groups(self, response) -> list[str] | None:
+        """Return normalized external memberships, or None when disabled."""
+        return None
+
+    def get_group_setting(self, name: str, response, default=None):
+        """Resolve group configuration for this provider (or a SAML IdP)."""
+        return self.setting(name, default)
+
+    def get_group_mappings(self):
+        """Enumerate independently managed membership sources."""
+        return [("", self.setting("GROUPS_MAP", {}))]
+
+    def get_group_source(self, response) -> str:
+        """Identify the provider's active membership source."""
+        return ""
 
     def id_key(self) -> str:
         """Return the ID_KEY to use for this backend, checking settings first."""
-        return self.setting("ID_KEY") or self.ID_KEY
+        configured = self.setting("ID_KEY")
+        id_key = configured or self.ID_KEY
+        if (
+            configured
+            and id_key in self.MUTABLE_ID_KEYS
+            and not self._mutable_id_key_warned
+        ):
+            self.log_warning(
+                "configured ID_KEY %r is mutable and is unsafe as an account identifier",
+                id_key,
+            )
+            self._mutable_id_key_warned = True
+        return id_key
+
+    def get_user_id_for_key(self, details, response, id_key: str):
+        """Return a user identifier selected by an explicit response key."""
+        return self.get_user_id_from_sources(details, response, id_key=id_key)
+
+    def get_legacy_user_ids(self, details, response) -> list[str]:
+        """Return current values of identifiers used by older releases."""
+        if self.setting("ID_KEY"):
+            return []
+        identifiers = []
+        for id_key in self.LEGACY_ID_KEYS:
+            try:
+                identifier = self.get_user_id_for_key(details, response, id_key)
+            except AuthResponseError as error:
+                if error.code != "missing_claim":
+                    raise
+                continue
+            value = str(identifier)
+            if value not in identifiers:
+                identifiers.append(value)
+        return identifiers
 
     def get_user_id(self, details, response):
         """Return a unique ID for the current user, by default from server
         response or details."""
         id_key = self.id_key()
         if self.REQUIRES_USER_ID or self.setting("ID_KEY"):
-            return self.get_user_id_from_sources(details, response, id_key=id_key)
+            return self.get_user_id_for_key(details, response, id_key)
         if details:
             user_id = details.get(id_key)
             if user_id:
@@ -262,10 +486,14 @@ class BaseAuth:
                 user_id = source.get(id_key)
                 if user_id is not None and user_id != "":
                     return user_id
-        raise AuthMissingParameter(self, id_key)
+        raise AuthResponseError(
+            self, claim=id_key, code="missing_claim", stage="user_info"
+        )
 
     def get_user_details(self, response) -> dict[str, Any]:
-        """Return user details in a known internal structure.
+        """Return provider-supplied user details in a known internal structure.
+
+        Leave name conversion to the social_names pipeline step.
 
         The returned dictionary can contain:
 
@@ -282,19 +510,27 @@ class BaseAuth:
         """
         raise NotImplementedError("Implement in subclass")
 
+    def get_refresh_token(self, extra_data: dict[str, Any]) -> str | None:
+        """Select a stored renewal credential, or None when renewal is unavailable.
+
+        Backends that exchange an access token should override this method.
+        """
+        token = extra_data.get("refresh_token")
+        return token if isinstance(token, str) and token else None
+
+    def get_refresh_token_kwargs(self, extra_data: dict[str, Any]) -> dict[str, Any]:
+        """Return default refresh arguments from stored account credentials."""
+        return {}
+
     def get_user_names(self, fullname="", first_name="", last_name=""):
-        # Avoid None values
-        fullname = fullname or ""
-        first_name = first_name or ""
-        last_name = last_name or ""
-        if fullname and not (first_name or last_name):
-            try:
-                first_name, last_name = fullname.split(" ", 1)
-            except ValueError:
-                first_name = first_name or fullname or ""
-                last_name = last_name or ""
-        fullname = fullname or f"{first_name} {last_name}"
-        return fullname.strip(), first_name.strip(), last_name.strip()
+        warnings.warn(
+            "BaseAuth.get_user_names() is deprecated. Return provider-supplied "
+            "names from get_user_details() and use the "
+            "social_core.pipeline.social_auth.social_names pipeline step.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return normalize_user_names(fullname, first_name, last_name)
 
     def get_user(self, user_id):
         """
@@ -307,14 +543,50 @@ class BaseAuth:
         self, partial: PartialMixin
     ) -> UserProtocol | HttpResponseProtocol | None:
         """Continue previous halted pipeline"""
-        return self.strategy.authenticate(
-            self, *partial.args, pipeline_index=partial.next_step, **partial.kwargs
-        )
+        with self._partial_pipeline_context(partial):
+            return self.strategy.authenticate(
+                self, *partial.args, pipeline_index=partial.next_step, **partial.kwargs
+            )
+
+    def continue_disconnect_pipeline(
+        self, partial: PartialMixin
+    ) -> dict | HttpResponseProtocol:
+        """Continue a halted disconnect with its effective request data."""
+        with self._partial_pipeline_context(partial, pipeline_type="disconnect"):
+            return self.disconnect(
+                *partial.args, pipeline_index=partial.next_step, **partial.kwargs
+            )
+
+    @contextmanager
+    def _partial_pipeline_context(
+        self, partial: PartialMixin, pipeline_type: str = "authentication"
+    ) -> Iterator[None]:
+        if partial.pipeline_type != pipeline_type:
+            raise AuthPolicyError(
+                self, code="authentication_disallowed", stage="callback"
+            )
+        previous_data = self.data
+        with self.strategy.pipeline_request_data(partial.request_data):
+            self.data = self.strategy.request_data()
+            try:
+                yield
+            finally:
+                self.data = previous_data
 
     def validate_partial_pipeline(
         self, partial: PartialMixin, user: UserProtocol | None = None
     ) -> None:
         """Validate backend-specific requirements before resuming a pipeline."""
+        if self.ASSOCIATION_ONLY:
+            user = self.require_association_user(user, stage="callback")
+            key = self.association_user_id_key(partial.pipeline_type)
+            if partial.kwargs.get(key) != str(user.id):
+                raise AuthSessionError(
+                    self,
+                    "Association user mismatch",
+                    code="user_mismatch",
+                    stage="callback",
+                )
 
     def auth_extra_arguments(self) -> dict[str, str]:
         """Return extra arguments needed on auth process.
@@ -354,6 +626,7 @@ class BaseAuth:
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
         timeout: float | None = None,
+        stage: ErrorStage = "user_info",
     ) -> Response:
         headers = {} if headers is None else dict(headers)
         proxies = self.setting("PROXIES")
@@ -382,9 +655,30 @@ class BaseAuth:
                 proxies=proxies,
                 verify=verify,
             )
-        except requests.ConnectionError as err:
-            raise AuthConnectionError(self, str(err)) from err
-        response.raise_for_status()
+        except requests.exceptions.SSLError as error:
+            raise AuthProviderError(self, code="tls_error", stage=stage) from error
+        except requests.Timeout as error:
+            raise AuthProviderError(self, code="timeout", stage=stage) from error
+        except (
+            requests.exceptions.InvalidURL,
+            requests.exceptions.InvalidSchema,
+            requests.exceptions.MissingSchema,
+        ) as error:
+            raise AuthConfigurationError(
+                self, code="invalid_setting", parameter="url", stage=stage
+            ) from error
+        except requests.ConnectionError as error:
+            raise AuthProviderError(
+                self, code="connection_failed", stage=stage
+            ) from error
+        except requests.HTTPError as error:
+            raise http_error(self, error, stage=stage) from error
+        except requests.RequestException as error:
+            raise AuthProviderError(self, stage=stage) from error
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            raise http_error(self, error, stage=stage) from error
         return response
 
     def get_json(  # noqa: PLR0913, PLR0917
@@ -397,8 +691,9 @@ class BaseAuth:
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
         timeout: float | None = None,
+        stage: ErrorStage = "user_info",
     ) -> dict[Any, Any]:
-        return self.request(
+        response = self.request(
             url,
             method=method,
             headers=headers,
@@ -407,7 +702,14 @@ class BaseAuth:
             auth=auth,
             params=params,
             timeout=timeout,
-        ).json()
+            stage=stage,
+        )
+        try:
+            return response.json()
+        except ValueError as error:
+            raise AuthResponseError(
+                self, code="malformed_response", stage=stage
+            ) from error
 
     def get_querystring(self, url, *args, **kwargs) -> dict[str, str]:
         return parse_qs(self.request(url, *args, **kwargs).text)

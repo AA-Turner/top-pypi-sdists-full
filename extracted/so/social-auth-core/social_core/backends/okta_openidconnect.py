@@ -13,8 +13,12 @@ class OktaOpenIdConnect(OktaOAuth2, OpenIdConnectAuth):
     """Okta OpenID-Connect authentication backend"""
 
     name = "okta-openidconnect"
+    title = "Okta"
     REDIRECT_STATE = False
     RESPONSE_TYPE = "code"
+
+    def get_user_groups(self, response) -> list[str] | None:
+        return OpenIdConnectAuth.get_user_groups(self, response)
 
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         return self.validate_userinfo_sub(

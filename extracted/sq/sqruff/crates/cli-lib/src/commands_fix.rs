@@ -11,15 +11,34 @@ pub(crate) fn run_fix(
     ignorer: impl Fn(&Path) -> bool + Send + Sync,
     collect_parse_errors: bool,
 ) -> i32 {
-    let FixArgs { paths, format } = args;
-    let mut linter = match linter(config, format, collect_parse_errors) {
+    let FixArgs {
+        paths,
+        format,
+        quiet,
+        verbose: _,
+        disregard_sqruffignores,
+    } = args;
+    let fix_even_unparsable = config
+        .get("fix_even_unparsable", "core")
+        .as_bool()
+        .unwrap_or(false);
+    let large_file_skip_fail = config
+        .get("large_file_skip_fail", "core")
+        .as_bool()
+        .unwrap_or(false);
+    let mut linter = match linter(config, format, collect_parse_errors, quiet, true) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("{}", e);
             return 1;
         }
     };
-    let result = match linter.lint_paths(paths, true, &ignorer) {
+    let result = match linter.lint_paths_with_ignore_files(
+        paths,
+        true,
+        &ignorer,
+        !disregard_sqruffignores,
+    ) {
         Ok(result) => result,
         Err(e) => {
             eprintln!("{}", e.value);
@@ -27,17 +46,25 @@ pub(crate) fn run_fix(
         }
     };
 
-    if !result.has_violations() {
-        if !matches!(format, Format::None) {
-            println!("{} files processed, nothing to fix.", result.len());
+    let skipped_files_should_fail = large_file_skip_fail && result.files_skipped() > 0;
+    if !result.has_violations() && !result.has_fixable_violations() {
+        match format {
+            Format::Human if !quiet => {
+                println!("{} files processed, nothing to fix.", result.len())
+            }
+            Format::Json | Format::Sarif | Format::GithubAnnotationNative => {
+                linter.formatter().unwrap().completion_message(result.len());
+            }
+            _ => {}
         }
-        0
+        skipped_files_should_fail as i32
     } else {
         let any_unfixable_errors = result.has_unfixable_violations();
         let files = result.len();
 
         for mut file in result {
-            if !file.has_fixes() {
+            if !file.has_fixes() || (file.has_parse_or_templating_errors() && !fix_even_unparsable)
+            {
                 continue;
             }
             let path = std::mem::take(&mut file.path);
@@ -47,24 +74,38 @@ pub(crate) fn run_fix(
 
         linter.formatter_mut().unwrap().completion_message(files);
 
-        any_unfixable_errors as i32
+        (any_unfixable_errors || skipped_files_should_fail) as i32
     }
 }
 
 pub(crate) fn run_fix_stdin(
     config: FluffConfig,
     format: Format,
+    quiet: bool,
+    stdin_filename: Option<&Path>,
+    ignorer: &(dyn Fn(&Path) -> bool + Send + Sync),
+    disregard_ignores: bool,
     collect_parse_errors: bool,
 ) -> i32 {
     let read_in = crate::stdin::read_std_in().unwrap();
+    let fix_even_unparsable = config
+        .get("fix_even_unparsable", "core")
+        .as_bool()
+        .unwrap_or(false);
 
-    let linter = match linter(config, format, collect_parse_errors) {
+    let linter = match linter(config, format, collect_parse_errors, quiet, true) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("{}", e);
             return 1;
         }
     };
+    if crate::stdin::stdin_filename_is_ignored(stdin_filename, !disregard_ignores, ignorer) {
+        let mut stdout = io::stdout().lock();
+        stdout.write_all(read_in.as_bytes()).unwrap();
+        stdout.flush().unwrap();
+        return 0;
+    }
     let result = match linter.lint_string(&read_in, None, true) {
         Ok(result) => result,
         Err(e) => {
@@ -75,7 +116,9 @@ pub(crate) fn run_fix_stdin(
 
     let has_unfixable_errors = result.has_unfixable_violations();
 
-    let has_fixes = result.has_violations() && result.has_fixes();
+    let has_fixes = result.has_fixable_violations()
+        && result.has_fixes()
+        && (fix_even_unparsable || !result.has_parse_or_templating_errors());
     let output = if has_fixes {
         result.fix_string()
     } else {
@@ -96,7 +139,6 @@ mod tests {
     use std::path::Path;
     use std::thread::sleep;
     use std::time::Duration;
-    use tempfile::NamedTempFile;
 
     fn ignore_none(_: &Path) -> bool {
         false
@@ -104,7 +146,7 @@ mod tests {
 
     #[test]
     fn run_fix_does_not_update_mtime_when_no_changes() {
-        let mut tmp = NamedTempFile::new().unwrap();
+        let mut tmp = tempfile::Builder::new().suffix(".sql").tempfile().unwrap();
         writeln!(tmp, "SELECT 1 FROM").unwrap();
         tmp.flush().unwrap();
         let tmp = tmp.into_temp_path();
@@ -116,11 +158,61 @@ mod tests {
         let args = FixArgs {
             paths: vec![path.clone()],
             format: Format::Human,
+            quiet: false,
+            verbose: 0,
+            disregard_sqruffignores: false,
         };
         let config = FluffConfig::default();
-        run_fix(args, config, ignore_none, true);
+        assert_eq!(run_fix(args, config, ignore_none, true), 1);
 
         let after = std::fs::metadata(&path).unwrap().modified().unwrap();
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn run_fix_applies_warning_only_fixes() {
+        let mut tmp = tempfile::Builder::new().suffix(".sql").tempfile().unwrap();
+        write!(tmp, "     SELECT 1").unwrap();
+        tmp.flush().unwrap();
+
+        let args = FixArgs {
+            paths: vec![tmp.path().to_path_buf()],
+            format: Format::None,
+            quiet: false,
+            verbose: 0,
+            disregard_sqruffignores: false,
+        };
+        let config = FluffConfig::from_source(
+            "[sqruff]\ndialect = ansi\nrules = LT02\nwarnings = LT02\n",
+            None,
+        );
+
+        assert_eq!(run_fix(args, config, ignore_none, true), 0);
+        assert_eq!(std::fs::read_to_string(tmp.path()).unwrap(), "SELECT 1");
+    }
+
+    #[test]
+    fn run_fix_applies_warning_and_error_fixes() {
+        let mut tmp = tempfile::Builder::new().suffix(".sql").tempfile().unwrap();
+        write!(tmp, "     SELECT a from foo").unwrap();
+        tmp.flush().unwrap();
+
+        let args = FixArgs {
+            paths: vec![tmp.path().to_path_buf()],
+            format: Format::None,
+            quiet: false,
+            verbose: 0,
+            disregard_sqruffignores: false,
+        };
+        let config = FluffConfig::from_source(
+            "[sqruff]\ndialect = ansi\nrules = LT02,CP01\nwarnings = LT02\n",
+            None,
+        );
+
+        assert_eq!(run_fix(args, config, ignore_none, true), 0);
+        assert_eq!(
+            std::fs::read_to_string(tmp.path()).unwrap(),
+            "SELECT a FROM foo"
+        );
     }
 }

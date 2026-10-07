@@ -18,9 +18,12 @@ if TYPE_CHECKING:
 
     from requests.auth import AuthBase
 
+    from social_core.exceptions import ErrorStage
+
 
 class QQOAuth2(BaseOAuth2):
     name = "qq"
+    title = "QQ"
     ID_KEY = "openid"
     AUTHORIZE_URL = "https://graph.qq.com/oauth2.0/authorize"
     ACCESS_TOKEN_URL = "https://graph.qq.com/oauth2.0/token"
@@ -44,9 +47,9 @@ class QQOAuth2(BaseOAuth2):
         else:
             username = response.get("nickname", "")
 
-        fullname, first_name, last_name = self.get_user_names(
-            first_name=response.get("nickname", "")
-        )
+        fullname = ""
+        first_name = response.get("nickname", "")
+        last_name = ""
 
         return {
             "username": username,
@@ -74,7 +77,7 @@ class QQOAuth2(BaseOAuth2):
         response["openid"] = openid
         return response
 
-    def request_access_token(
+    def request_access_token(  # noqa: PLR0913
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
@@ -83,15 +86,20 @@ class QQOAuth2(BaseOAuth2):
         json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
+        *,
+        stage: ErrorStage = "token_exchange",
     ) -> dict[Any, Any]:
-        with wrap_access_token_error(self):
+        with wrap_access_token_error(self, stage=stage):
             response = self.request(
                 url,
                 method=method,
+                stage=stage,
                 headers=headers,
                 data=data,
                 json=json,
                 auth=auth,
                 params=params,
             )
-        return parse_qs(response.content)
+        data = parse_qs(response.text)
+        self._process_error(data, stage=stage)
+        return data

@@ -26,6 +26,7 @@ import csv
 import email.parser
 import enum
 import json
+import os
 import re
 import sysconfig
 import tomllib
@@ -40,6 +41,7 @@ import msgspec
 
 import cozy_runtime
 import cozy_runtime.internal.invocable_interface as invocable_interface
+import cozy_runtime.internal.locked_sources as locked
 import cozy_runtime.internal.package_interface as package_interface
 import cozy_runtime.internal.static_invocable as static_invocable
 from cozy_runtime import author
@@ -272,10 +274,18 @@ class ModelSpec:
 class Reader:
     """One package tree, read lazily. Every method resolves by NAME, never by execution."""
 
-    def __init__(self, project: Path, *, dependency_roots: Sequence[Path] = ()) -> None:
+    def __init__(
+        self,
+        project: Path,
+        *,
+        dependency_roots: Sequence[Path] = (),
+        wheels: Mapping[str, locked.LockedWheel] | None = None,
+    ) -> None:
         self.project = project
         self.project_roots = (project / "src", project)
         self.roots = (*self.project_roots, *dependency_roots)
+        #: published callees, read from the wheels the project's uv.lock pins when needed
+        self.wheels = locked.Wheels(wheels or {})
         self.runtime_root = Path(cozy_runtime.__file__).resolve().parent.parent
         self.installed = _installed_packages(_site_packages(self.runtime_root))
         self.modules: dict[str, Module] = {}
@@ -303,6 +313,8 @@ class Reader:
             # `trusted` is the same rule cozy_runtime.derive gets: followed for types and
             # constants, never scanned for registrations.
             return self._load(name, sibling[0], sibling[1], True)
+        if not trusted and self._fetched(parts[0]):
+            return self.module(name, where=where)
         detail = f"module {name!r} is not a file under {' or '.join(str(r) for r in roots)}"
         if where is not None:
             self.refuse(where[0], where[1], detail, "static_module")
@@ -335,6 +347,17 @@ class Reader:
                 ):
                     return path, is_package
         return None
+
+    def _fetched(self, top: str) -> bool:
+        """A published callee package, unpacked from the exact wheel the project's uv.lock
+        pins for `top` and followed as a dependency root. False: nothing pinned for it."""
+        try:
+            root = self.wheels.root(top)
+        except locked.LockedSourceRefusal as exc:
+            raise StaticRefusal(str(exc), code="static_module") from exc
+        if root is not None:
+            self.roots = (*self.roots, root)
+        return root is not None
 
     def application_module(self, name: str) -> Module:
         """The configured module, with the package `__init__`s Python would run first."""
@@ -392,7 +415,7 @@ class Reader:
         for root in self.roots:
             if (root / top).is_dir() or (root / f"{top}.py").is_file():
                 return {top}
-        return {top} if self._installed((top,)) is not None else set()
+        return {top} if self._installed((top,)) is not None or self._fetched(top) else set()
 
     def _import_base(self, module: Module, stmt: ast.ImportFrom) -> str | None:
         if stmt.level == 0:
@@ -1150,9 +1173,11 @@ def build(project: Path, *, environment_python: Path | None = None) -> dict[str,
     """The package interface from source alone. Executes nothing of the package."""
     project = project.resolve()
     application = read_application(project)
-    reader = Reader(
-        project, dependency_roots=environment_roots(environment_python, project=project)
-    )
+    # A callee package is read as source too: a local one from the directory the project's
+    # uv.lock names, a published one from the exact wheel it pins (cr-114).
+    pinned = locked.read(project)
+    roots = (*environment_roots(environment_python, project=project), *pinned.roots)
+    reader = Reader(project, dependency_roots=roots, wheels=pinned.wheels)
     return _build(reader, application, read_table(project / "package.toml"))
 
 
@@ -1200,11 +1225,10 @@ def build_installed(distribution: str, *, environment_python: Path) -> dict[str,
     metadata = matches[0]
 
     def read(name: str) -> str:
+        # uv's symlink link mode (a seeded cache) links each installed file into its cache.
         path = metadata / name
-        if metadata.is_symlink() or path.is_symlink() or not path.is_file():
-            raise StaticRefusal(
-                "installed wheel metadata is absent or linked", code="static_distribution"
-            )
+        if not path.is_file():
+            raise StaticRefusal("installed wheel metadata is absent", code="static_distribution")
         if path.stat().st_size > 8 << 20:
             raise StaticRefusal(
                 "installed wheel metadata exceeds 8 MiB", code="static_distribution"
@@ -1229,15 +1253,20 @@ def build_installed(distribution: str, *, environment_python: Path) -> dict[str,
         raise StaticRefusal("installed application export is invalid", code="static_distribution")
     reader = Reader(metadata.parent, dependency_roots=roots)
     entry = reader.application_module(application.partition(":")[0])
+
+    # Ownership is by installed path, never a link target: a linked install's targets are
+    # in uv's cache, outside site-packages.
+    def installed(path: Path) -> Path:
+        return Path(os.path.normpath(path.absolute()))
+
+    site = installed(metadata.parent)
     owned = {
-        metadata.parent.joinpath(row[0]).resolve()
+        installed(site / row[0])
         for row in csv.reader(read("RECORD").splitlines())
         if len(row) == 3 and row[0].endswith(".py")
     }
-    if (
-        not entry.path.resolve().is_relative_to(metadata.parent.resolve())
-        or entry.path.resolve() not in owned
-    ):
+    source = installed(entry.path)
+    if not source.is_relative_to(site) or source not in owned:
         raise StaticRefusal(
             "installed App source is not owned by its wheel", code="static_distribution"
         )

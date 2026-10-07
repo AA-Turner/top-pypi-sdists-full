@@ -57,7 +57,6 @@ WHERE my_table.col > 3
 
     fn eval(&self, context: &RuleContext) -> Vec<LintResult> {
         let subsegments = context.segment.segments();
-        let count_subsegments = subsegments.len();
 
         let allowable_literal_expressions = ["1 = 1", "1 = 0"];
 
@@ -73,37 +72,44 @@ WHERE my_table.col > 3
                 continue;
             }
 
-            // Check for other comparison/binary operators before this one
-            // (precedence concerns). Following SQLFluff's approach: only check
-            // segments before the current operator. This means the first
-            // comparison operator in an expression is always checked, while
-            // later ones are skipped due to precedence ambiguity.
-            let has_other_operators_before = subsegments[..idx].iter().any(|s| {
-                s.is_type(SyntaxKind::ComparisonOperator) || s.is_type(SyntaxKind::BinaryOperator)
-            });
-
-            if has_other_operators_before {
-                continue;
-            }
-
             // Find LHS: first non-whitespace segment before the operator
-            let lhs = subsegments[..idx]
+            let lhs_idx = subsegments[..idx]
                 .iter()
-                .rev()
-                .find(|s| !is_whitespace_or_newline(s));
+                .rposition(|s| !is_whitespace_or_newline(s));
 
             // Find RHS: first non-whitespace segment after the operator
-            let rhs = subsegments[idx + 1..count_subsegments]
+            let rhs_idx = subsegments[idx + 1..]
                 .iter()
-                .find(|s| !is_whitespace_or_newline(s));
+                .position(|s| !is_whitespace_or_newline(s))
+                .map(|offset| idx + 1 + offset);
 
-            let (lhs, rhs) = match (lhs, rhs) {
-                (Some(l), Some(r)) => (l, r),
+            let (lhs_idx, rhs_idx) = match (lhs_idx, rhs_idx) {
+                (Some(lhs_idx), Some(rhs_idx)) => (lhs_idx, rhs_idx),
                 _ => continue,
             };
+            let lhs = &subsegments[lhs_idx];
+            let rhs = &subsegments[rhs_idx];
 
             // Skip templated segments
             if lhs.is_templated() || rhs.is_templated() {
+                continue;
+            }
+
+            let previous_before_lhs = subsegments[..lhs_idx]
+                .iter()
+                .rev()
+                .find(|s| !is_whitespace_or_newline(s));
+            let next_after_rhs = subsegments[rhs_idx + 1..]
+                .iter()
+                .find(|s| !is_whitespace_or_newline(s));
+
+            // The pieces immediately left and right of `=` are its operands after
+            // AND or OR (e.g. `... OR 1 = 2`). After another binary operator they
+            // are not (e.g. `num % 2 = 0` or `flags = flags & @mask`), so leave
+            // those expressions alone.
+            if previous_before_lhs.is_some_and(is_non_boolean_binary_operator)
+                || next_after_rhs.is_some_and(is_non_boolean_binary_operator)
+            {
                 continue;
             }
 
@@ -144,6 +150,15 @@ WHERE my_table.col > 3
 
 fn is_whitespace_or_newline(seg: &ErasedSegment) -> bool {
     matches!(seg.get_type(), SyntaxKind::Whitespace | SyntaxKind::Newline)
+}
+
+fn is_non_boolean_binary_operator(seg: &ErasedSegment) -> bool {
+    let raw = seg.raw();
+    (seg.is_type(SyntaxKind::BinaryOperator)
+        && !matches!(raw.to_uppercase_smolstr().as_str(), "AND" | "OR"))
+        // Sqruff's bitwise operators are wrapped as comparison operators.
+        || (seg.is_type(SyntaxKind::ComparisonOperator)
+            && matches!(raw.as_str(), "&" | "|" | "<<" | ">>"))
 }
 
 fn is_literal(seg: &ErasedSegment) -> bool {

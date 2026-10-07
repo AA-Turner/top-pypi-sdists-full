@@ -194,14 +194,14 @@ namespace {
             static std::unordered_map<uintptr_t, std::unordered_map<std::string, PyObjectStorage>> type_attr_dict;
         };
         static std::unordered_map<uintptr_t, std::unordered_map<uintptr_t, PyObjectStorage>> type_allowed_code_map;
-        static std::unordered_map<uintptr_t, std::shared_ptr<std::shared_mutex>> all_type_mutex;
+        static std::unordered_map<uintptr_t, std::unique_ptr<std::shared_mutex>> all_type_mutex;
         static std::unordered_map<uintptr_t, PyObjectStorage> type_need_call;
         static std::unordered_map<uintptr_t, std::unordered_set<TwoStringTuple>> all_type_attr_set;
         namespace {
             static std::unordered_map<uintptr_t, std::unordered_map<uintptr_t,
                 std::unordered_map<std::string, PyObjectStorage>>> all_object_attr, all_type_subclass_attr;
         };
-        static std::unordered_map<uintptr_t, std::unordered_map<uintptr_t, std::shared_ptr<std::shared_mutex>>>
+        static std::unordered_map<uintptr_t, std::unordered_map<uintptr_t, std::unique_ptr<std::shared_mutex>>>
             all_object_mutex, all_type_subclass_mutex;
         static std::mutex object_creatmutex_mutex, type_createmutex_mutex, type_parenttype_createmutex_mutex;
         static std::unordered_map<uintptr_t, std::vector<uintptr_t>> all_type_parent_id;
@@ -224,7 +224,12 @@ namespace {
 
         static std::shared_mutex all_register_new_metaclass_mutex;
         static std::unordered_map<uintptr_t, PyObjectStorage> all_register_type_weak_ref;
-        static std::vector<PyObjectStorage> store_module_self;
+        // Single dict-backed strong-ref cache shared by the module itself (keyed by
+        // kModuleSelfKey) and by PrivateAttrBase (keyed by kPrivateAttrBaseKey),
+        // so clean_all_storages can release everything at interpreter shutdown.
+        static std::unordered_map<uintptr_t, PyObjectStorage> store_module_self;
+        static constexpr uintptr_t kModuleSelfKey = 0;
+        static constexpr uintptr_t kPrivateAttrBaseKey = 1;
     };
 };
 
@@ -237,11 +242,10 @@ object_create_mutex(uintptr_t final_id, uintptr_t obj_id) noexcept
         ::AllData::all_object_attr[final_id][obj_id] = {};
     }
     if (::AllData::all_object_mutex.find(final_id) == ::AllData::all_object_mutex.end()) {
-        ::AllData::all_object_mutex[final_id] = {};
+        ::AllData::all_object_mutex[final_id].clear();
     }
     if (::AllData::all_object_mutex[final_id].find(obj_id) == ::AllData::all_object_mutex[final_id].end()) {
-        std::shared_ptr<std::shared_mutex> lock(new std::shared_mutex());
-        ::AllData::all_object_mutex[final_id][obj_id] = lock;
+        ::AllData::all_object_mutex[final_id][obj_id] = std::make_unique<std::shared_mutex>();
     }
 }
 
@@ -252,8 +256,7 @@ type_create_mutex(uintptr_t typ_id) noexcept {
         ::AllData::type_attr_dict[typ_id] = {};
     }
     if (::AllData::all_type_mutex.find(typ_id) == ::AllData::all_type_mutex.end()) {
-        std::shared_ptr<std::shared_mutex> lock(new std::shared_mutex());
-        ::AllData::all_type_mutex[typ_id] = lock;
+        ::AllData::all_type_mutex[typ_id] = std::make_unique<std::shared_mutex>();
     }
 }
 
@@ -268,11 +271,10 @@ type_parenttype_create_mutex(uintptr_t final_id, uintptr_t typ_id) noexcept
         ::AllData::all_type_subclass_attr[final_id][typ_id] = {};
     }
     if (::AllData::all_type_subclass_mutex.find(final_id) == ::AllData::all_type_subclass_mutex.end()) {
-        ::AllData::all_type_subclass_mutex[final_id] = {};
+        ::AllData::all_type_subclass_mutex[final_id].clear();
     }
     if (::AllData::all_type_subclass_mutex[final_id].find(typ_id) == ::AllData::all_type_subclass_mutex[final_id].end()) {
-        std::shared_ptr<std::shared_mutex> lock(new std::shared_mutex());
-        ::AllData::all_type_subclass_mutex[final_id][typ_id] = lock;
+        ::AllData::all_type_subclass_mutex[final_id][typ_id] = std::make_unique<std::shared_mutex>();
     }
 }
 
@@ -2057,13 +2059,13 @@ static void
 PrivateAttr_object_init_private_dict(uintptr_t obj_id, uintptr_t type_id) noexcept
 {
     if (::AllData::all_object_mutex.find(type_id) == ::AllData::all_object_mutex.end()) {
-        ::AllData::all_object_mutex[type_id] = {};
+        ::AllData::all_object_mutex[type_id].clear();
     }
     if (::AllData::all_object_attr.find(type_id) == ::AllData::all_object_attr.end()) {
         ::AllData::all_object_attr[type_id] = {};
     }
     if (::AllData::all_object_mutex[type_id].find(obj_id) == ::AllData::all_object_mutex[type_id].end()) {
-        ::AllData::all_object_mutex[type_id][obj_id] = std::shared_ptr<std::shared_mutex>(new std::shared_mutex());
+        ::AllData::all_object_mutex[type_id][obj_id] = std::make_unique<std::shared_mutex>();
     }
     if (::AllData::all_object_attr[type_id].find(obj_id) == ::AllData::all_object_attr[type_id].end()) {
         ::AllData::all_object_attr[type_id][obj_id] = {};
@@ -2956,21 +2958,21 @@ PrivateAttrType_postprocess(PyObject* new_type, PrivateAttrCreationData& data) n
     ::AllData::all_type_parent_id[type_id] = mro_vector;
 
     ::AllData::type_allowed_code_map[type_id] = {};
-    ::AllData::all_object_mutex[type_id] = {};
-    ::AllData::all_type_mutex[type_id] = std::make_shared<std::shared_mutex>();
+    ::AllData::all_object_mutex[type_id].clear();
+    ::AllData::all_type_mutex[type_id] = std::make_unique<std::shared_mutex>();
     ::AllData::all_object_attr[type_id] = {};
     ::AllData::all_type_subclass_attr[type_id] = {};
-    ::AllData::all_type_subclass_mutex[type_id] = {};
+    ::AllData::all_type_subclass_mutex[type_id].clear();
 
     for (uintptr_t i: mro_vector) {
         if (::AllData::all_type_subclass_attr.find(i) == ::AllData::all_type_subclass_attr.end()) {
             ::AllData::all_type_subclass_attr[i] = {};
         }
         if (::AllData::all_type_subclass_mutex.find(i) == ::AllData::all_type_subclass_mutex.end()) {
-            ::AllData::all_type_subclass_mutex[i] = {};
+            ::AllData::all_type_subclass_mutex[i].clear();
         }
         ::AllData::all_type_subclass_attr[i][type_id] = {};
-        ::AllData::all_type_subclass_mutex[i][type_id] = std::make_shared<std::shared_mutex>();
+        ::AllData::all_type_subclass_mutex[i][type_id] = std::make_unique<std::shared_mutex>();
     }
 
     for (auto& [key, value]: data.need_remove_itself) {
@@ -2992,13 +2994,13 @@ PrivateAttrType_postprocess(PyObject* new_type, PrivateAttrCreationData& data) n
             ::AllData::all_type_subclass_attr[i] = {};
         }
         if (::AllData::all_type_subclass_mutex.find(i) == ::AllData::all_type_subclass_mutex.end()) {
-            ::AllData::all_type_subclass_mutex[i] = {};
+            ::AllData::all_type_subclass_mutex[i].clear();
         }
         if (::AllData::all_type_subclass_attr[i].find(type_id) == ::AllData::all_type_subclass_attr[i].end()) {
             ::AllData::all_type_subclass_attr[i][type_id] = {};
         }
         if (::AllData::all_type_subclass_mutex[i].find(type_id) == ::AllData::all_type_subclass_mutex[i].end()) {
-            ::AllData::all_type_subclass_mutex[i][type_id] = std::make_shared<std::shared_mutex>();
+            ::AllData::all_type_subclass_mutex[i][type_id] = std::make_unique<std::shared_mutex>();
         }
         for (auto& [key, value]: map) {
             std::string final_key;
@@ -4004,13 +4006,22 @@ PrivateModule_get_PrivateAttrType(PyObject* /*self*/, void* /*closure*/) noexcep
 static PyObject*
 PrivateModule_get_PrivateAttrBase(PyObject* /*self*/, void* /*closure*/) noexcept
 {
-    static PyObject* PrivateAttrBase = create_private_attr_base_simple();
-    if (!PrivateAttrBase) {
-        if (!PyErr_Occurred()) {
-            PyErr_SetString(PyExc_RuntimeError, "failed to create PrivateAttrBase");
+    static std::mutex base_mutex;
+    std::lock_guard<std::mutex> lock(base_mutex);
+    auto it = AllData::store_module_self.find(AllData::kPrivateAttrBaseKey);
+    if (it == AllData::store_module_self.end()) {
+        PyObject* base = create_private_attr_base_simple();
+        if (!base) {
+            if (!PyErr_Occurred()) {
+                PyErr_SetString(PyExc_RuntimeError, "failed to create PrivateAttrBase");
+            }
+            return NULL;
         }
-        return NULL;
+        AllData::store_module_self[AllData::kPrivateAttrBaseKey] = base;
+        Py_DECREF(base);
+        it = AllData::store_module_self.find(AllData::kPrivateAttrBaseKey);
     }
+    PyObject* PrivateAttrBase = it->second.get();
     Py_INCREF(PrivateAttrBase);
     return PrivateAttrBase;
 }
@@ -4259,13 +4270,25 @@ class MyClass(PrivateAttrBase):
 ```
 )";
 
+static int PrivateModule_exec(PyObject* m) noexcept;
+static PyObject* PrivateModule_create(PyObject* spec, PyModuleDef* def) noexcept;
+
+static PyModuleDef_Slot PrivateModule_slots[] = {
+    {Py_mod_create, (void*)PrivateModule_create},
+    {Py_mod_exec, (void*)PrivateModule_exec},
+#if PY_VERSION_HEX >= 0x030D0000
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+    {0, NULL}
+};
+
 static PyModuleDef def = {
     PyModuleDef_HEAD_INIT,
     "private_attribute",
     module_doc,
     0,
     NULL,
-    NULL,
+    PrivateModule_slots,
     NULL,
     NULL,
     NULL
@@ -4310,47 +4333,44 @@ atexit_register_clean_func(void) noexcept
     return 0;
 }
 
-PyMODINIT_FUNC
-PyInit_private_attribute(void) noexcept
+static PyObject*
+PrivateModule_create(PyObject* spec, PyModuleDef* /*def*/) noexcept
 {
-    // check if AllData::store_module_self has first value
-    if (AllData::store_module_self.size() >= 1) {
-        PyObject* m = AllData::store_module_self[0];
-        Py_INCREF(m);
-        return m;
-    }
-    if (init_all_slots() <0 ||
-        atexit_register_clean_func() < 0 ||
-        PyType_Ready(&PrivateWrapType) < 0 ||
-        PyType_Ready(&PrivateWrapProxyType) < 0 ||
-        PyType_Ready(&PrivateAttrType) < 0 ||
-        PyType_Ready(&PrivateModuleType) < 0 ||
-        PyType_Ready(&PrivateTempType) < 0) {
+    PyObject* name = PyObject_GetAttrString(spec, "name");
+    if (!name) {
         return NULL;
     }
+    // Instantiate the module directly as an instance of PrivateModuleType
+    // (a subclass of `module`) so that the object returned from
+    // PyInit_private_attribute is genuinely a
+    // `private_attribute.private_attribute_module` instance from the start,
+    // rather than a plain module re-typed with Py_SET_TYPE afterwards.
+    PyObject* m = PyObject_CallFunction((PyObject*)&PrivateModuleType, "O", name);
+    Py_DECREF(name);
+    return m;
+}
+
+static int
+PrivateModule_exec(PyObject* m) noexcept
+{
     // Eagerly create PrivateAttrBase so that CPython's subtype_traverse /
     // subtype_clear pointers are captured at import time (see
     // PrivateAttrCaptureGuard and ::AllData::captured_subtype_*), instead of
     // waiting for the first lazy attribute access to the module.
     PyObject* private_attr_base = PrivateModule_get_PrivateAttrBase(NULL, NULL);
     if (!private_attr_base) {
-        return NULL;
+        return -1;
     }
     PyObject* all = PyList_New(0);
     if (!all) {
         Py_DECREF(private_attr_base);
-        return NULL;
+        return -1;
     }
-    PyObject* m = PyModule_Create(&def);
-    if (!m) {
+    if (PyModule_AddObject(m, "__all__", all) < 0) {
         Py_DECREF(all);
         Py_DECREF(private_attr_base);
-        return NULL;
+        return -1;
     }
-#ifdef Py_GIL_DISABLED
-    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
-#endif
-    PyModule_AddObject(m, "__all__", all);
     /* all contains:
      * PrivateWrapProxy
      * PrivateAttrType
@@ -4369,10 +4389,31 @@ PyInit_private_attribute(void) noexcept
     PyList_AppendString(all, "register_metaclass");
     PyList_AppendString(all, "ensure_type");
     PyList_AppendString(all, "ensure_metaclass");
-    Py_SET_TYPE(m, &PrivateModuleType);
 
     Py_DECREF(private_attr_base);
-    AllData::store_module_self.push_back(m);    // store module self
+    AllData::store_module_self[AllData::kModuleSelfKey] = m;    // store module self
 
-    return m;
+    return 0;
+}
+
+PyMODINIT_FUNC
+PyInit_private_attribute(void) noexcept
+{
+    // check if AllData::store_module_self already holds the module
+    auto it = AllData::store_module_self.find(AllData::kModuleSelfKey);
+    if (it != AllData::store_module_self.end()) {
+        PyObject* m = it->second.get();
+        Py_INCREF(m);
+        return m;
+    }
+    if (init_all_slots() <0 ||
+        atexit_register_clean_func() < 0 ||
+        PyType_Ready(&PrivateWrapType) < 0 ||
+        PyType_Ready(&PrivateWrapProxyType) < 0 ||
+        PyType_Ready(&PrivateAttrType) < 0 ||
+        PyType_Ready(&PrivateModuleType) < 0 ||
+        PyType_Ready(&PrivateTempType) < 0) {
+        return NULL;
+    }
+    return PyModuleDef_Init(&def);
 }

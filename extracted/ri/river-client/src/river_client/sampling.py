@@ -4,25 +4,22 @@ from __future__ import annotations
 
 import asyncio
 import math
-import threading
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
 from concurrent.futures import Executor
-from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from typing import Any
 
 import grpc
 
-from ._proto import pb2
+from ._proto import pb2, pb2_grpc
 from .types import RiverConnectionError, RiverError, RiverTimeoutError, Sample
 
 MAX_SAMPLING_BATCH = 128
 
 
-def submit_batch(
-    session,
+def _submission_request(
     source,
     *,
     timeout: float,
@@ -31,8 +28,8 @@ def submit_batch(
     policy_selection: str = "ordered",
     retained_kv_groups: list[str] | None = None,
     kv_cache_policy: dict | None = None,
-) -> tuple[str, ...]:
-    """Retry the same immutable admission envelope, including a lost ack."""
+) -> pb2.SubmitSamplingBatchRequest:
+    """Build and validate the envelope shared by both sampling transports."""
     if not math.isfinite(timeout) or not 0 < timeout <= 24 * 3600:
         raise ValueError("sampling timeout must be positive and at most 24 hours")
     field = {
@@ -86,6 +83,31 @@ def submit_batch(
         raise ValueError(
             "Sampling submission exceeds the message limit; reduce the batch size"
         )
+    return request
+
+
+def _acknowledged_ids(response, source):
+    ids = tuple(response.request_ids)
+    if (
+        len(ids) != len(source.prompts)
+        or len(set(ids)) != len(ids)
+        or any(not id for id in ids)
+    ):
+        raise RiverError("Invalid sampling batch acknowledgement")
+    return ids
+
+
+_SUBMISSION_RETRY_CODES = {
+    "UNAVAILABLE",
+    "DEADLINE_EXCEEDED",
+    "ABORTED",
+    "RESOURCE_EXHAUSTED",
+}
+
+
+def submit_batch(session, source, *, timeout, **kwargs) -> tuple[str, ...]:
+    """Retry the same immutable admission envelope, including a lost ack."""
+    request = _submission_request(source, timeout=timeout, **kwargs)
     deadline = time.monotonic() + timeout
     delay = 0.5
     while True:
@@ -94,7 +116,10 @@ def submit_batch(
         if remaining <= 0:
             raise RiverTimeoutError("Sampling submission timed out")
         try:
-            if policy_selection == "latest_snapshot":
+            if (
+                request.policy_selection
+                == pb2.SAMPLING_POLICY_SELECTION_LATEST_SNAPSHOT
+            ):
                 session._require_latest_snapshot_sampling()
             response = session._client._rpc(
                 lambda remaining=remaining: session._live_stub.SubmitSamplingBatch(
@@ -104,21 +129,12 @@ def submit_batch(
                 ),
                 context="Submitting independent samples",
             )
-            ids = tuple(response.request_ids)
-            if (
-                len(ids) != len(source.prompts)
-                or len(set(ids)) != len(ids)
-                or any(not id for id in ids)
-            ):
-                raise RiverError("Invalid sampling batch acknowledgement")
-            return ids
+            return _acknowledged_ids(response, source)
         except RiverConnectionError as error:
-            if not session._client._enable_retries or error.status_code not in {
-                "UNAVAILABLE",
-                "DEADLINE_EXCEEDED",
-                "ABORTED",
-                "RESOURCE_EXHAUSTED",
-            }:
+            if (
+                not session._client._enable_retries
+                or error.status_code not in _SUBMISSION_RETRY_CODES
+            ):
                 raise
             time.sleep(min(delay, max(0.0, deadline - time.monotonic())))
             delay = min(5.0, delay * 2)
@@ -209,7 +225,8 @@ class SamplingResultCollector:
 
     At most max_poll_rpcs short streams run concurrently, each querying up to
     128 handles. Backpressure permits one decoded result buffered per stream.
-    Executors are caller-owned; no thread is occupied between snapshots.
+    Channels are owned by this collector; executors are caller-owned and only
+    run preparation, decoding, and synchronous hooks, never sampling RPC waits.
     """
 
     def __init__(self, *, executor: Executor | None = None, max_poll_rpcs: int = 4):
@@ -217,6 +234,9 @@ class SamplingResultCollector:
             raise ValueError("max_poll_rpcs must be positive")
         self.executor = executor
         self.max_poll_rpcs = max_poll_rpcs
+        self._channels = {}
+        self._stubs = {}
+        self._latest_snapshot_capable = set()
         self._entries: dict[str, _Entry] = {}
         self._event = asyncio.Event()
         self._task = None
@@ -224,6 +244,59 @@ class SamplingResultCollector:
         self._next_heartbeat = {}
         self.snapshot_rpcs = 0
         self.polled_handles = 0
+
+    def _stub(self, session):
+        if self._closed:
+            raise RuntimeError("sampling collector is closed")
+        client = session._client
+        if client not in self._stubs:
+            channel = client._new_async_channel()
+            self._channels[client] = channel
+            self._stubs[client] = pb2_grpc.RiverServiceStub(channel)
+        return self._stubs[client]
+
+    async def submit(self, session, source, *, timeout, **kwargs):
+        request = _submission_request(source, timeout=timeout, **kwargs)
+        stub = self._stub(session)
+        deadline = time.monotonic() + timeout
+        delay = 0.5
+        while True:
+            session._check_heartbeat_health()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RiverTimeoutError("Sampling submission timed out")
+            try:
+                if (
+                    request.policy_selection
+                    == pb2.SAMPLING_POLICY_SELECTION_LATEST_SNAPSHOT
+                    and stub not in self._latest_snapshot_capable
+                ):
+                    capabilities = await stub.GetServerCapabilities(
+                        pb2.GetServerCapabilitiesRequest(),
+                        metadata=session._live_metadata,
+                        timeout=min(30.0, remaining),
+                    )
+                    if "sampling_latest_snapshot_v1" not in capabilities.features:
+                        raise RiverError("Server requires sampling_latest_snapshot_v1")
+                    self._latest_snapshot_capable.add(stub)
+                    continue  # Recompute the remaining deadline after negotiation.
+                response = await stub.SubmitSamplingBatch(
+                    request,
+                    metadata=session._live_metadata,
+                    timeout=min(30.0, remaining),
+                )
+                return _acknowledged_ids(response, source)
+            except grpc.RpcError as error:
+                error = RiverConnectionError.from_grpc_error(
+                    error, "Submitting independent samples"
+                )
+                if (
+                    not session._client._enable_retries
+                    or error.status_code not in _SUBMISSION_RETRY_CODES
+                ):
+                    raise error from None
+                await asyncio.sleep(min(delay, max(0.0, deadline - time.monotonic())))
+                delay = min(5.0, delay * 2)
 
     def register(self, batch: PendingSamplingBatch) -> list[asyncio.Future]:
         if self._closed:
@@ -252,6 +325,10 @@ class SamplingResultCollector:
         for entry in self._entries.values():
             entry.future.cancel()
         self._entries.clear()
+        await asyncio.gather(*(channel.close() for channel in self._channels.values()))
+        self._channels.clear()
+        self._stubs.clear()
+        self._latest_snapshot_capable.clear()
 
     async def _run(self):
         active = set()
@@ -268,7 +345,11 @@ class SamplingResultCollector:
                         del self._entries[id]
                 active = {task for task in active if not task.done()}
                 eligible: dict[tuple, dict[str, _Entry]] = {}
-                for id, entry in self._entries.items():
+                # Due retries must not starve samples that have never been polled,
+                # including when a slow snapshot outlasts the polling interval.
+                for id, entry in sorted(
+                    self._entries.items(), key=lambda item: item[1].next_poll
+                ):
                     if not entry.busy and entry.next_poll <= now:
                         key = (entry.batch._session, entry.batch._model_id)
                         eligible.setdefault(key, {})[id] = entry
@@ -294,9 +375,6 @@ class SamplingResultCollector:
 
     async def _snapshot(self, entries: dict[str, _Entry]):
         loop = asyncio.get_running_loop()
-        queue = asyncio.Queue(maxsize=1)
-        stopped = threading.Event()
-        calls = []
         session = next(iter(entries.values())).batch._session
         from .client import _HEARTBEAT_POLL_INTERVAL_SECS
 
@@ -310,136 +388,95 @@ class SamplingResultCollector:
         self.snapshot_rpcs += 1
         self.polled_handles += len(entries)
 
-        def emit(item):
-            delivery = asyncio.run_coroutine_threadsafe(queue.put(item), loop)
-            while not stopped.is_set():
-                try:
-                    delivery.result(timeout=0.1)
-                    return
-                except FutureTimeout:
-                    pass
-            delivery.cancel()
+        from .client import _POLL_TERMINAL_STATUS_CODES
 
-        def pump():
-            if stopped.is_set():
-                return
-            from .client import _POLL_TERMINAL_STATUS_CODES
-
-            seen = set()
-            try:
-                first = next(iter(entries.values()))
-                session._check_heartbeat_health()
-                if heartbeat_due:
-                    session._attempt_heartbeat()
-                if session._before_poll is not None:
-                    session._before_poll()
-                remaining = (
-                    max(entry.batch._deadline for entry in entries.values())
-                    - time.monotonic()
-                )
-                if remaining <= 0:
-                    raise RiverTimeoutError(
-                        "Sampling timed out before result retrieval"
-                    )
-                request = pb2.RetrieveSamplingResultsRequest(request_ids=list(entries))
-                if first.batch._model_id is not None:
-                    request.model_id = first.batch._model_id
-                call = session._live_stub.RetrieveSamplingResults(
-                    request,
-                    metadata=session._live_metadata,
-                    timeout=min(30.0, remaining),
-                )
-                calls.append(call)
-                for item in call:
-                    if stopped.is_set():
-                        return
-                    id = item.request_id
-                    if id not in entries or id in seen:
-                        raise RiverError(
-                            "Invalid sampling snapshot: unknown or duplicate handle"
-                        )
-                    seen.add(id)
-                    kind = item.WhichOneof("response")
-                    if kind == "pending":
-                        continue
-                    try:
-                        if kind == "failed":
-                            raise RiverError(
-                                f"{item.failed.error_category}: {item.failed.message}"
-                            )
-                        if kind == "error":
-                            code = next(
-                                (
-                                    code.name
-                                    for code in grpc.StatusCode
-                                    if code.value[0] == item.error.code
-                                ),
-                                "UNKNOWN",
-                            )
-                            error = RiverConnectionError(
-                                item.error.message, status_code=code
-                            )
-                            if code not in _POLL_TERMINAL_STATUS_CODES:
-                                emit((id, None, error, True))
-                                continue
-                            raise error
-                        if kind != "inference":
-                            raise RiverError("Missing sampling result")
-                        entry = entries[id]
-                        sample = entry.batch._parse_result(entry.index, item.inference)
-                        emit((id, sample, None, False))
-                    except Exception as error:
-                        emit((id, None, error, False))
-                if len(seen) != len(entries):
-                    raise RiverError("Incomplete sampling snapshot")
-                emit((None, None, None, False))
-            except grpc.RpcError as error:
-                emit(
-                    (
-                        None,
-                        None,
-                        RiverConnectionError.from_grpc_error(
-                            error, "Retrieving samples"
-                        ),
-                        True,
-                    )
-                )
-            except Exception as error:
-                emit((None, None, error, False))
-            finally:
-                for call in calls:
-                    call.cancel()
-
-        worker = loop.run_in_executor(self.executor, pump)
-        retrying = set()
+        seen, retrying = set(), set()
+        call = None
         try:
-            while True:
-                id, sample, error, retry = await queue.get()
-                if id is None:
-                    if error is not None:
-                        for key, entry in entries.items():
-                            if not entry.future.done():
-                                self._fail_or_retry(entry, error, retry)
-                                retrying.add(key)
-                    break
+            first = next(iter(entries.values()))
+            session._check_heartbeat_health()
+            if heartbeat_due:
+                await loop.run_in_executor(self.executor, session._attempt_heartbeat)
+            if session._before_poll is not None:
+                await loop.run_in_executor(self.executor, session._before_poll)
+            remaining = (
+                max(entry.batch._deadline for entry in entries.values())
+                - time.monotonic()
+            )
+            if remaining <= 0:
+                raise RiverTimeoutError("Sampling timed out before result retrieval")
+            request = pb2.RetrieveSamplingResultsRequest(request_ids=list(entries))
+            if first.batch._model_id is not None:
+                request.model_id = first.batch._model_id
+            call = self._stub(session).RetrieveSamplingResults(
+                request,
+                metadata=session._live_metadata,
+                timeout=min(30.0, remaining),
+            )
+            async for item in call:
+                id = item.request_id
+                if id not in entries or id in seen:
+                    raise RiverError(
+                        "Invalid sampling snapshot: unknown or duplicate handle"
+                    )
+                seen.add(id)
+                kind = item.WhichOneof("response")
+                if kind == "pending":
+                    continue
                 entry = entries[id]
-                if not entry.future.done():
-                    if error is None:
+                if entry.future.done():
+                    continue
+                try:
+                    if kind == "failed":
+                        raise RiverError(
+                            f"{item.failed.error_category}: {item.failed.message}"
+                        )
+                    if kind == "error":
+                        code = next(
+                            (
+                                code.name
+                                for code in grpc.StatusCode
+                                if code.value[0] == item.error.code
+                            ),
+                            "UNKNOWN",
+                        )
+                        error = RiverConnectionError(
+                            item.error.message, status_code=code
+                        )
+                        if code not in _POLL_TERMINAL_STATUS_CODES:
+                            self._fail_or_retry(entry, error, True)
+                            retrying.add(id)
+                            continue
+                        raise error
+                    if kind != "inference":
+                        raise RiverError("Missing sampling result")
+                    # Await one decode at a time per stream to retain backpressure.
+                    sample = await loop.run_in_executor(
+                        self.executor,
+                        entry.batch._parse_result,
+                        entry.index,
+                        item.inference,
+                    )
+                    if not entry.future.done():
                         entry.future.set_result(sample)
-                    else:
-                        self._fail_or_retry(entry, error, retry)
-                        retrying.add(id)
+                except Exception as error:
+                    if not entry.future.done():
+                        entry.future.set_exception(error)
+            if len(seen) != len(entries):
+                raise RiverError("Incomplete sampling snapshot")
         except Exception as error:
-            for entry in entries.values():
+            retry = isinstance(error, grpc.RpcError)
+            if retry:
+                error = RiverConnectionError.from_grpc_error(
+                    error, "Retrieving samples"
+                )
+            for id, entry in entries.items():
                 if not entry.future.done():
-                    entry.future.set_exception(error)
+                    self._fail_or_retry(entry, error, retry)
+                    retrying.add(id)
         finally:
-            stopped.set()
-            for call in calls:
+            if call is not None:
                 call.cancel()
-            # The queue producer observes stopped even if cancellation happens
-            # while it is blocked handing a result to a consumer that has gone.
-            await asyncio.shield(worker)
             for id, entry in entries.items():
                 entry.busy = False
                 if id not in retrying:

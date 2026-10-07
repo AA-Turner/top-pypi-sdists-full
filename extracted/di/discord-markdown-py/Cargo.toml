@@ -5,6 +5,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 resolver = "2"
+rust-version = "1.93.1"
 
 [workspace]
 members = ["ffi/py", "packages/confusables", "packages/emoji", "packages/variant-struct"]
@@ -27,8 +28,8 @@ url = "2.5.0"
 variant-struct = { version = "0.1.0", path = "packages/variant-struct" }
 
 [dev-dependencies]
-criterion = "0.5.1"
 discord-markdown = { path = ".", features = ["serde"] }
+gungraun = "0.20.0"
 nom-language = "0.1.0"
 ntest = "^0.9"
 pretty_assertions = "1.4.0"
@@ -46,6 +47,10 @@ harness = false
 [profile.release]
 lto = true
 strip = "symbols"
+
+[profile.bench]
+debug = true
+strip = false
 
 [features]
 serde = ["dep:serde", "url/serde", "enumset/serde"]

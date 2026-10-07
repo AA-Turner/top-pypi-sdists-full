@@ -20,7 +20,6 @@ Alias = dict[
 ]
 
 
-###########################################################################
 class Design(DependencySchema, PathSchema, NamedSchema):
     '''
     Schema for a 'design'.
@@ -88,7 +87,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
 
         return super().add_dep(obj, clobber=clobber)
 
-    ###############################################
     def add_file(self,
                  filename: Union[List[Union[Path, str]], Set[Union[Path, str]],
                                  Tuple[Union[Path, str], ...], Path, str],
@@ -133,7 +131,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         fs = self.__get_filesetobj(fileset)
         return fs.add_file(filename=filename, filetype=filetype, clobber=clobber, dataroot=dataroot)
 
-    ###############################################
     def get_file(self,
                  fileset: Optional[str] = None,
                  filetype: Optional[str] = None) -> List[str]:
@@ -168,7 +165,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
 
         return filelist
 
-    ###############################################
     def has_file(self, fileset: Optional[str] = None, filetype: Optional[str] = None) -> bool:
         """Returns true if the fileset contains files.
 
@@ -300,7 +296,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
 
         return fileset in self.getkeys("fileset")
 
-    ############################################
     def set_topmodule(self,
                       value: str,
                       fileset: Optional[str] = None) -> str:
@@ -334,7 +329,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         fs = self.__get_filesetobj(fileset)
         return fs.get_topmodule()
 
-    ##############################################
     def add_idir(self,
                  value: str,
                  fileset: Optional[str] = None,
@@ -380,7 +374,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         """
         return self.__get_filesetobj(fileset).has_idir()
 
-    ##############################################
     def add_define(self,
                    value: str,
                    fileset: Optional[str] = None,
@@ -413,7 +406,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         fs = self.__get_filesetobj(fileset)
         return fs.get_define()
 
-    ##############################################
     def add_undefine(self,
                      value: str,
                      fileset: Optional[str] = None,
@@ -446,7 +438,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         fs = self.__get_filesetobj(fileset)
         return fs.get_undefine()
 
-    ###############################################
     def add_libdir(self,
                    value: str,
                    fileset: Optional[str] = None,
@@ -492,7 +483,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         """
         return self.__get_filesetobj(fileset).has_libdir()
 
-    ###############################################
     def add_lib(self,
                 value: str,
                 fileset: Optional[str] = None,
@@ -524,7 +514,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         fs = self.__get_filesetobj(fileset)
         return fs.get_lib()
 
-    ###############################################
     def set_param(self,
                   name: str,
                   value: str,
@@ -559,7 +548,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         fs = self.__get_filesetobj(fileset)
         return fs.get_param(name)
 
-    ###############################################
     def add_depfileset(self, dep: Union["Design", str],
                        depfileset: Optional[str] = None,
                        fileset: Optional[str] = None):
@@ -668,7 +656,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         else:
             raise ValueError(f"Unable to determine filetype of: {path}")
 
-    ###############################################
     def write_fileset(self,
                       filename: str,
                       fileset: Optional[Union[Iterable[str], str]] = None,
@@ -716,17 +703,16 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         '''
         Internal helper to read a Verilog-style file list (`.f` file).
 
-        This method parses the file list for `+incdir+`, `+define+`, and
-        source files, and populates the specified fileset in the schema.
+        This method parses the file list for `+incdir+` and `-I` include
+        directories, `+define+`, source files, `-v` library files (read as
+        source files) and nested `-f`/`-F` file lists, and populates the
+        specified fileset in the schema.
 
         Args:
             filename (str): The path to the input file list.
             fileset (str): The name of the fileset to populate.
         '''
-        # Extract information
-        rel_path = os.path.dirname(os.path.abspath(filename))
-
-        def expand_path(path):
+        def expand_path(path, rel_path):
             path = os.path.expandvars(path)
             path = os.path.expanduser(path)
             if os.path.isabs(path):
@@ -736,19 +722,41 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         include_dirs = []
         defines = []
         files = []
-        with utils.sc_open(filename) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                if line.startswith("//"):
-                    continue
-                if line.startswith("+incdir+"):
-                    include_dirs.append(expand_path(line[8:]))
-                elif line.startswith("+define+"):
-                    defines.append(os.path.expandvars(line[8:]))
-                else:
-                    files.append(expand_path(line))
+        root = os.path.dirname(os.path.abspath(filename))
+
+        def read(flist, rel_path, parents):
+            parents = parents + (os.path.realpath(flist),)
+            if parents[-1] in parents[:-1]:
+                raise ValueError(f"file list includes itself: {flist}")
+
+            with utils.sc_open(flist) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("//"):
+                        continue
+                    if line.startswith("+incdir+"):
+                        include_dirs.append(expand_path(line[8:], rel_path))
+                    elif line.startswith("-I"):
+                        include_dirs.append(expand_path(line[2:].strip(), rel_path))
+                    elif line.startswith("+define+"):
+                        defines.append(os.path.expandvars(line[8:]))
+                    elif line.startswith(("-", "+")):
+                        option, *arg = line.split(maxsplit=1)
+                        if option not in ("-f", "-F", "-v") or not arg:
+                            raise ValueError(f"unsupported option in {flist}: {line}")
+                        path = expand_path(arg[0], rel_path)
+                        if option == "-v":
+                            files.append(path)
+                        elif option == "-f":
+                            read(path, root, parents)
+                        else:
+                            read(path, os.path.dirname(path), parents)
+                    else:
+                        files.append(expand_path(line, rel_path))
+
+        read(filename, root, ())
 
         # Create dataroots
         all_paths = include_dirs + [os.path.dirname(f) for f in files]
@@ -791,7 +799,6 @@ class Design(DependencySchema, PathSchema, NamedSchema):
                         f = os.path.relpath(f, pdir)
                     self.add_file(f, dataroot=dataroot_name)
 
-    ################################################
     def read_fileset(self,
                      filename: str,
                      fileset: Optional[str] = None,
@@ -801,12 +808,21 @@ class Design(DependencySchema, PathSchema, NamedSchema):
         Currently supports Verilog `flist` format only.
         Intended to support other formats in the future.
 
+        Relative paths in a file list resolve as if the tool ran from the
+        directory of ``filename``. As in the tools, a nested `-F` list
+        resolves its own relative paths from its directory, and a nested
+        `-f` list from that same starting directory.
+
         Args:
             filename (str or Path): Input file name.
             fileset (str or list[str]): Fileset to import into. If not
                 provided, the active fileset is used.
             fileformat (str, optional): Import format. Inferred from file
                 extension if not provided.
+
+        Raises:
+            ValueError: If a file list includes itself, or has an option a
+                fileset cannot hold, such as `-y` or `+libext+`.
         """
 
         if filename is None:

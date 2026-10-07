@@ -9,13 +9,13 @@ use std::marker::PhantomData;
 
 use discord_emoji::{EMOJI_BY_SHORTNAME, EMOJI_SHORTNAME_CHARS};
 use nom::{
+	IResult, Parser,
 	branch::alt,
 	bytes::complete::{tag, take_while1},
 	character::satisfy,
 	combinator::recognize,
 	error::ParseError,
 	sequence::delimited,
-	IResult, Parser,
 };
 
 use crate::Input;

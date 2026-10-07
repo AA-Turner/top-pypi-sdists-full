@@ -489,7 +489,11 @@ class AdCampaignsResource:
         self, campaign_id: str, platform: str, *, account_id: str | None = None
     ) -> dict[str, Any]:
         """Delete a campaign"""
-        return self._client._delete(f"/v1/ads/campaigns/{campaign_id}")
+        payload = self._build_payload(
+            platform=platform,
+            account_id=account_id,
+        )
+        return self._client._delete(f"/v1/ads/campaigns/{campaign_id}", data=payload)
 
     def list_campaign_negative_keywords(
         self, campaign_id: str, *, platform: str | None = None
@@ -938,7 +942,16 @@ class AdCampaignsResource:
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove campaign assets"""
-        return self._client._delete(f"/v1/ads/campaigns/{campaign_id}/assets")
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            customer_id=customer_id,
+            asset_resource_names=asset_resource_names,
+            campaign_asset_resource_names=campaign_asset_resource_names,
+        )
+        return self._client._delete(
+            f"/v1/ads/campaigns/{campaign_id}/assets", params=params
+        )
 
     def list_ad_group_assets(
         self,
@@ -1007,7 +1020,16 @@ class AdCampaignsResource:
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove ad-group assets"""
-        return self._client._delete(f"/v1/ads/ad-sets/{ad_set_id}/assets")
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            customer_id=customer_id,
+            asset_resource_names=asset_resource_names,
+            ad_group_asset_resource_names=ad_group_asset_resource_names,
+        )
+        return self._client._delete(
+            f"/v1/ads/ad-sets/{ad_set_id}/assets", params=params
+        )
 
     def get_ad_review(self, ad_id: str) -> dict[str, Any]:
         """Read the platform's review verdict for an ad"""
@@ -1059,6 +1081,7 @@ class AdCampaignsResource:
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
         whatsapp_phone_number: str | None = None,
+        workflow_id: str | None = None,
         currency: str | None = None,
         start_date: datetime | str | None = None,
         end_date: datetime | str | None = None,
@@ -1086,6 +1109,9 @@ class AdCampaignsResource:
         dsa_payor: str | None = None,
         lead_gen_form_id: str | None = None,
         status: str | None = None,
+        campaign_status: str | None = None,
+        ad_set_status: str | None = None,
+        ad_status: Any | None = None,
         budget_level: str | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         bodies: list[str] | None = None,
@@ -1113,6 +1139,7 @@ class AdCampaignsResource:
             instagram_account_id=instagram_account_id,
             destination_type=destination_type,
             whatsapp_phone_number=whatsapp_phone_number,
+            workflow_id=workflow_id,
             currency=currency,
             start_date=start_date,
             end_date=end_date,
@@ -1140,6 +1167,9 @@ class AdCampaignsResource:
             dsa_payor=dsa_payor,
             lead_gen_form_id=lead_gen_form_id,
             status=status,
+            campaign_status=campaign_status,
+            ad_set_status=ad_set_status,
+            ad_status=ad_status,
             budget_level=budget_level,
             attribution_spec=attribution_spec,
             bodies=bodies,
@@ -1962,7 +1992,13 @@ class AdCampaignsResource:
         self, campaign_id: str, platform: str, *, account_id: str | None = None
     ) -> dict[str, Any]:
         """Delete a campaign (async)"""
-        return await self._client._adelete(f"/v1/ads/campaigns/{campaign_id}")
+        payload = self._build_payload(
+            platform=platform,
+            account_id=account_id,
+        )
+        return await self._client._adelete(
+            f"/v1/ads/campaigns/{campaign_id}", data=payload
+        )
 
     async def alist_campaign_negative_keywords(
         self, campaign_id: str, *, platform: str | None = None
@@ -2415,7 +2451,16 @@ class AdCampaignsResource:
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove campaign assets (async)"""
-        return await self._client._adelete(f"/v1/ads/campaigns/{campaign_id}/assets")
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            customer_id=customer_id,
+            asset_resource_names=asset_resource_names,
+            campaign_asset_resource_names=campaign_asset_resource_names,
+        )
+        return await self._client._adelete(
+            f"/v1/ads/campaigns/{campaign_id}/assets", params=params
+        )
 
     async def alist_ad_group_assets(
         self,
@@ -2490,7 +2535,16 @@ class AdCampaignsResource:
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove ad-group assets (async)"""
-        return await self._client._adelete(f"/v1/ads/ad-sets/{ad_set_id}/assets")
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            customer_id=customer_id,
+            asset_resource_names=asset_resource_names,
+            ad_group_asset_resource_names=ad_group_asset_resource_names,
+        )
+        return await self._client._adelete(
+            f"/v1/ads/ad-sets/{ad_set_id}/assets", params=params
+        )
 
     async def aget_ad_review(self, ad_id: str) -> dict[str, Any]:
         """Read the platform's review verdict for an ad (async)"""
@@ -2542,6 +2596,7 @@ class AdCampaignsResource:
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
         whatsapp_phone_number: str | None = None,
+        workflow_id: str | None = None,
         currency: str | None = None,
         start_date: datetime | str | None = None,
         end_date: datetime | str | None = None,
@@ -2569,6 +2624,9 @@ class AdCampaignsResource:
         dsa_payor: str | None = None,
         lead_gen_form_id: str | None = None,
         status: str | None = None,
+        campaign_status: str | None = None,
+        ad_set_status: str | None = None,
+        ad_status: Any | None = None,
         budget_level: str | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         bodies: list[str] | None = None,
@@ -2596,6 +2654,7 @@ class AdCampaignsResource:
             instagram_account_id=instagram_account_id,
             destination_type=destination_type,
             whatsapp_phone_number=whatsapp_phone_number,
+            workflow_id=workflow_id,
             currency=currency,
             start_date=start_date,
             end_date=end_date,
@@ -2623,6 +2682,9 @@ class AdCampaignsResource:
             dsa_payor=dsa_payor,
             lead_gen_form_id=lead_gen_form_id,
             status=status,
+            campaign_status=campaign_status,
+            ad_set_status=ad_set_status,
+            ad_status=ad_status,
             budget_level=budget_level,
             attribution_spec=attribution_spec,
             bodies=bodies,

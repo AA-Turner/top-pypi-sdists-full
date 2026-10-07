@@ -24,10 +24,369 @@ loops and placeholders.
 # from .python_templater import FluffConfig, Linter
 # from .python_templater import SQLFluffSkipFile, SQLFluffUserError, SQLTemplaterError
 # from .python_templater import BaseSegment, RawFileSlice, TemplatedFile
-from jinja2 import UndefinedError
+from typing import Optional
+
 import pytest
-from sqruff.templaters.jinja_templater import DummyUndefined
+from jinja2 import Environment, UndefinedError
+
+from sqruff.templaters.jinja_templater import (
+    DummyUndefined,
+    JinjaTemplater,
+    UndefinedRecorder,
+)
+from sqruff.templaters.jinja_templater_builtins_dbt import DBT_BUILTINS
+from sqruff.templaters.jinja_templater_tracers import JinjaAnalyzer
+from sqruff.templaters.python_templater import FluffConfig, SQLTemplaterError
+
 # from .jinja_templater_tracers import JinjaAnalyzer, JinjaTagConfiguration
+
+
+class ConfigAwareJinjaTemplater(JinjaTemplater):
+    """Record the config supplied when constructing an analyzer."""
+
+    analyzer_config: Optional[FluffConfig] = None
+
+    def _get_jinja_analyzer(
+        self,
+        raw_str: str,
+        env: Environment,
+        config: Optional[FluffConfig] = None,
+    ) -> JinjaAnalyzer:
+        self.analyzer_config = config
+        return super()._get_jinja_analyzer(raw_str, env, config)
+
+
+def _jinja_config(macro_paths=None, library_paths=None):
+    return FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=macro_paths or [],
+        jinja_exclude_macros_from_path=[],
+        jinja_loader_search_path=[],
+        jinja_apply_dbt_builtins=False,
+        jinja_ignore_templating=False,
+        jinja_library_paths=library_paths or [],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+    )
+
+
+def test_jinja_literal_fast_path_skips_rendering_and_variants(monkeypatch):
+    """Literal-only files do not construct a Jinja environment or extra variant."""
+    templater = JinjaTemplater()
+
+    def fail_if_rendered(**_kwargs):
+        raise AssertionError("Jinja environment should not be constructed")
+
+    monkeypatch.setattr(templater, "construct_render_func", fail_if_rendered)
+    source = "SELECT 1\n"
+    variants = list(
+        templater.process_with_variants(
+            in_str=source, fname="test.sql", config=_jinja_config()
+        )
+    )
+
+    assert len(variants) == 1
+    templated_file, violations = variants[0]
+    assert violations == []
+    assert templated_file.templated_str == source
+    assert len(templated_file.sliced_file) == 1
+    assert templated_file.sliced_file[0].slice_type == "literal"
+    assert templated_file.sliced_file[0].source_slice == slice(0, len(source))
+    assert len(templated_file.raw_sliced) == 1
+    assert templated_file.raw_sliced[0].raw == source
+
+
+def test_jinja_fully_covered_template_constructs_render_func_once(monkeypatch):
+    """No extra render function is needed when all literal slices are covered."""
+    templater = JinjaTemplater()
+    original = templater.construct_render_func
+    calls = 0
+
+    def counted_render_func(**kwargs):
+        nonlocal calls
+        calls += 1
+        return original(**kwargs)
+
+    monkeypatch.setattr(templater, "construct_render_func", counted_render_func)
+    variants = list(
+        templater.process_with_variants(
+            in_str="SELECT {{ 1 }}\n", fname="test.sql", config=_jinja_config()
+        )
+    )
+
+    assert len(variants) == 1
+    assert calls == 1
+
+
+def test_jinja_literal_macro_path_error_is_preserved(tmp_path):
+    """Configured macro loading is still validated for a literal-only file."""
+    config = _jinja_config(macro_paths=[str(tmp_path / "missing_macros")])
+
+    with pytest.raises(ValueError, match="Path does not exist"):
+        JinjaTemplater().process(in_str="SELECT 1\n", fname="test.sql", config=config)
+
+
+def test_jinja_literal_library_path_error_is_preserved(tmp_path):
+    """A broken library import must still raise for a literal-only file."""
+    library_dir = tmp_path / "libs"
+    library_dir.mkdir()
+    (library_dir / "broken.py").write_text("import this_module_does_not_exist_at_all\n")
+
+    with pytest.raises(ModuleNotFoundError):
+        JinjaTemplater().process(
+            in_str="SELECT 1\n",
+            fname="test.sql",
+            config=_jinja_config(library_paths=[str(library_dir)]),
+        )
+
+
+def test_var_emulator_magic_methods():
+    """Test the placeholder methods defined on the mocked dbt `var()` result."""
+    var = DBT_BUILTINS["var"]("foo")
+
+    assert str(var) == "item"
+    assert var == "item"
+    assert var + "_suffix" == "item_suffix"
+    assert "prefix_" + var == "prefix_item"
+    assert var.upper() == "ITEM"
+    assert var[0] == "i"
+    assert var[:2] == "it"
+    assert var.something is var
+    assert var["something"] is var
+    assert var["something"]["else"] is var
+    assert str(var.something) == "item"
+    assert str(var["something"]) == "item"
+
+
+def test_jinja_analyzer_receives_config():
+    """Derived analyzers receive the active templater configuration."""
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=[],
+        jinja_exclude_macros_from_path=[],
+        jinja_loader_search_path=[],
+        jinja_apply_dbt_builtins=False,
+        jinja_ignore_templating=False,
+        jinja_library_paths=[],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+    )
+    templater = ConfigAwareJinjaTemplater()
+
+    templater.slice_file("SELECT 1", lambda value: value, config=config)
+
+    assert templater.analyzer_config is config
+
+
+def test_dbt_builtin_function_relation():
+    """The dbt function builtin emulates qualified and unqualified functions."""
+    function = DBT_BUILTINS["function"]("my_udf")
+    assert str(function) == "my_udf"
+    assert function.something is function
+    assert str(function.database) == "this_database"
+    assert str(function.schema) == "this_schema"
+    assert str(function.name) == "my_udf"
+    assert str(function.identifier) == "my_udf"
+    assert function.is_table is True
+    assert str(function.something().something) == "my_udf"
+
+    qualified_function = DBT_BUILTINS["function"]("my_schema", "my_udf")
+    assert str(qualified_function) == "my_udf"
+    assert str(qualified_function.name) == "my_udf"
+    assert str(qualified_function.identifier) == "my_udf"
+
+
+def test_jinja_dbt_builtin_function():
+    """The Jinja templater renders dbt's function() builtin when enabled."""
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=[],
+        jinja_exclude_macros_from_path=[],
+        jinja_loader_search_path=[],
+        jinja_apply_dbt_builtins=True,
+        jinja_ignore_templating=False,
+        jinja_library_paths=[],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+    )
+    templated_file, violations = JinjaTemplater().process(
+        in_str=(
+            "SELECT {{ function('my_dataset_my_udf') }}(some_column, other_column) "
+            "AS result\nFROM {{ ref('my_model') }}\n"
+        ),
+        fname="test.sql",
+        config=config,
+    )
+
+    assert templated_file.templated_str == (
+        "SELECT my_dataset_my_udf(some_column, other_column) AS result\nFROM my_model\n"
+    )
+    assert violations == []
+
+
+def test_jinja_loader_search_path_does_not_load_macros_globally(tmp_path):
+    """Loader paths support multiple/nested imports without global macros."""
+    search_a = tmp_path / "search_a"
+    search_b = tmp_path / "search_b"
+    (search_a / "subdir").mkdir(parents=True)
+    search_b.mkdir()
+    (search_a / "search_a.sql").write_text("{% macro value() %}search_a{% endmacro %}")
+    (search_a / "subdir" / "nested.sql").write_text(
+        "{% macro value() %}nested{% endmacro %}"
+    )
+    (search_b / "search_b.sql").write_text("{% macro value() %}search_b{% endmacro %}")
+
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=[],
+        jinja_exclude_macros_from_path=[],
+        jinja_loader_search_path=[str(search_a), str(search_b)],
+        jinja_apply_dbt_builtins=False,
+        jinja_ignore_templating=False,
+        jinja_library_paths=[],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+    )
+    env = JinjaTemplater()._get_jinja_env(config)
+    template = env.from_string(
+        "{% import 'search_a.sql' as a %}"
+        "{% import 'subdir/nested.sql' as nested %}"
+        "{% import 'search_b.sql' as b %}"
+        "{{ a.value() }}/{{ nested.value() }}/{{ b.value() }}"
+    )
+
+    assert template.render() == "search_a/nested/search_b"
+    assert "value" not in env.globals
+
+
+def test_jinja_exclude_macros_from_path(tmp_path):
+    """Excluded macro files are not parsed or loaded into the global context."""
+    macros = tmp_path / "macros"
+    excluded = macros / "excluded"
+    excluded.mkdir(parents=True)
+    (macros / "included.sql").write_text(
+        "{% macro foo1() %}101{% endmacro %}{% macro foo2() %}102{% endmacro %}"
+    )
+    (excluded / "custom_tag.sql").write_text(
+        "{% materialization custom, default %}{% endmaterialization %}"
+    )
+    (excluded / "overrides.sql").write_text(
+        "{% macro foo1() %}105{% endmacro %}{% macro foo2() %}106{% endmacro %}"
+    )
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=[str(macros)],
+        jinja_exclude_macros_from_path=[str(excluded)],
+        jinja_loader_search_path=[],
+        jinja_apply_dbt_builtins=False,
+        jinja_ignore_templating=False,
+        jinja_library_paths=[],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+    )
+
+    _, _, render = JinjaTemplater().construct_render_func(config=config)
+
+    assert render("{{ foo1() }}/{{ foo2() }}") == "101/102"
+
+
+@pytest.mark.parametrize(
+    ("file_encoding", "config_encoding"),
+    [("utf-8", "utf-8"), ("utf-16", "utf-16"), ("utf-8", "autodetect")],
+)
+@pytest.mark.parametrize("macro_path_is_directory", [False, True])
+def test_jinja_macro_path_uses_configured_encoding(
+    tmp_path, monkeypatch, file_encoding, config_encoding, macro_path_is_directory
+):
+    macro_path = tmp_path / "macros" if macro_path_is_directory else tmp_path
+    macro_path.mkdir(exist_ok=True)
+    macro_file = macro_path / "macros.sql"
+    macro_file.write_text(
+        "{% macro square(n) %}-- Á\n{{ n * n }}{% endmacro %}",
+        encoding=file_encoding,
+    )
+
+    real_open = open
+
+    def cp1252_default_open(file, mode="r", *args, encoding=None, **kwargs):
+        if encoding is None and "b" not in mode:
+            encoding = "cp1252"
+        return real_open(file, mode, *args, encoding=encoding, **kwargs)
+
+    monkeypatch.setattr("builtins.open", cp1252_default_open)
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=[
+            str(macro_path if macro_path_is_directory else macro_file)
+        ],
+        jinja_exclude_macros_from_path=[],
+        jinja_loader_search_path=[],
+        jinja_apply_dbt_builtins=False,
+        jinja_ignore_templating=False,
+        jinja_library_paths=[],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+        encoding=config_encoding,
+    )
+
+    macros = JinjaTemplater()._extract_macros(config, env=Environment(), ctx={})
+    assert "square" in macros
+
+
+def test_jinja_macros_can_call_macros_from_other_files(tmp_path):
+    """Macros loaded globally can call macros defined in separate files."""
+    macros = tmp_path / "macros"
+    macros.mkdir()
+    for level in range(1, 6):
+        body = "1" if level == 1 else f"{{{{ level_{level - 1}() }}}}, {level}"
+        (macros / f"level_{level}.sql").write_text(
+            f"{{%- macro level_{level}() -%}}{body}{{%- endmacro -%}}"
+        )
+
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=[str(macros)],
+        jinja_exclude_macros_from_path=[],
+        jinja_loader_search_path=[],
+        jinja_apply_dbt_builtins=False,
+        jinja_ignore_templating=False,
+        jinja_library_paths=[],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+    )
+
+    _, _, render = JinjaTemplater().construct_render_func(config=config)
+
+    assert render("{{ level_5() }}") == "1, 2, 3, 4, 5"
+
 
 # JINJA_STRING = (
 #     "SELECT * FROM {% for c in blah %}{{c}}{% if not loop.last %}, "
@@ -1787,6 +2146,46 @@ def test_undefined_magic_methods():
     assert ud > ud
 
     assert ud + ud is ud
+
+
+def test_undefined_recorder_iter_records_name():
+    """UndefinedRecorder iteration yields one element and records its name."""
+    undefined_set: set[str] = set()
+    recorder = UndefinedRecorder("my_var", undefined_set)
+
+    assert len(list(recorder)) == 1
+    assert "my_var" in undefined_set
+
+
+def test_jinja_undefined_multivar_for_loop_user_friendly_error():
+    """Undefined multi-variable loops raise a user-facing templater error."""
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_templater_paths=[],
+        jinja_exclude_macros_from_path=[],
+        jinja_loader_search_path=[],
+        jinja_apply_dbt_builtins=False,
+        jinja_ignore_templating=False,
+        jinja_library_paths=[],
+        dbt_profile=None,
+        dbt_profiles_dir=None,
+        dbt_target=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+    )
+
+    with pytest.raises(SQLTemplaterError, match="Unrecoverable failure"):
+        JinjaTemplater().process(
+            in_str=(
+                "SELECT 1\n"
+                "{% for field, conditions in undefined_dict.items() %}\n"
+                "AND {{ field }} = '{{ conditions }}'\n"
+                "{% endfor %}\n"
+            ),
+            fname="test.sql",
+            config=config,
+        )
 
 
 # #

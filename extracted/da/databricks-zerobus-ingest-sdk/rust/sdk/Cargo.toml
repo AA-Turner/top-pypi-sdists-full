@@ -1,6 +1,6 @@
 [package]
 name = "databricks-zerobus-ingest-sdk"
-version = "2.9.0"
+version = "2.11.0"
 authors = ["Databricks"]
 edition = "2021"
 rust-version = "1.70"
@@ -19,6 +19,7 @@ all-features = true
 
 [dependencies]
 async-trait.workspace = true
+base64.workspace = true
 prost.workspace = true
 prost-types.workspace = true
 prost-reflect.workspace = true
@@ -43,7 +44,7 @@ bytes.workspace = true
 futures.workspace = true
 rand.workspace = true
 self_cell = { version = "1.2", optional = true }
-apache-avro = { version = "0.20", optional = true }
+apache-avro = { version = "0.22", optional = true }
 
 # Arrow Flight dependencies
 arrow-flight = { workspace = true, optional = true }
@@ -69,7 +70,7 @@ prost-build = { version = "0.14", optional = true }
 
 [features]
 default = []
-# Avro record format (Beta), opt-in. Requires Rust 1.85 (apache-avro 0.20).
+# Avro record format (Beta), opt-in. Requires Rust 1.88 (apache-avro 0.22).
 avro = ["dep:apache-avro"]
 # Arrow Flight support
 arrow-flight = ["dep:arrow-flight", "dep:arrow-array", "dep:arrow-schema", "dep:arrow-ipc", "dep:tonic-types"]
@@ -81,10 +82,18 @@ internal-arrow-c-data = [
 ]
 # Zero-copy protobuf parser.
 zeroparser = ["dep:self_cell", "dep:prost-build"]
+# Persistent streams with exactly-once semantics (EoS); API is in development.
+eos = []
 testing = []
 # Test-only deterministic seams (barriers/notifies) for the Arrow stream. Zero footprint
 # unless enabled; never enabled by FFI/production builds.
 test-hooks = ["arrow-flight"]
+
+[lints.clippy]
+# `async-trait` stamps `#[must_use]` on methods that already return a `#[must_use]`
+# boxed future; clippy >= 1.99's `double_must_use` flags that redundant tag in
+# generated and async-trait code we don't control. Allow it crate-wide.
+double_must_use = "allow"
 
 [[test]]
 name = "zeroparser_e2e"

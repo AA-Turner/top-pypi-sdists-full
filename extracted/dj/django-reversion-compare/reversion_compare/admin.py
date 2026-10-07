@@ -114,22 +114,14 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
     def history_view(self, request, object_id, extra_context=None):
         """Renders the history view."""
         action_list = self._get_action_list(request, object_id, extra_context=extra_context)
-
-        if len(action_list) < 2:
-            # Less than two history items aren't enough to compare ;)
-            comparable = False
-        else:
-            comparable = True
-            # for pre selecting the compare radio buttons depend on the ordering:
-            if self.history_latest_first:
-                action_list[0]["first"] = True
-                action_list[1]["second"] = True
-            else:
-                action_list[-1]["first"] = True
-                action_list[-2]["second"] = True
+        self._annotate_action_list(action_list)
 
         # Compile the context.
-        context = {"action_list": action_list, "comparable": comparable, "compare_view": True}
+        context = {
+            'action_list': action_list,
+            'comparable': len(action_list) >= 2,
+            'compare_view': True,
+        }
         context.update(extra_context or {})
         return super().history_view(request, object_id, context)
 
@@ -144,9 +136,7 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
             'obj': obj,
             'version1': version1,
             'version2': version2,
-            'changelist_url': reverse(
-                f'{self.admin_site.name}:{opts.app_label}_{opts.model_name}_changelist'
-            ),
+            'changelist_url': reverse(f'{self.admin_site.name}:{opts.app_label}_{opts.model_name}_changelist'),
             'original': obj,
             'history_url': reverse(
                 f'{self.admin_site.name}:{opts.app_label}_{opts.model_name}_history',
@@ -174,7 +164,7 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
         version2 = nav['version2']
 
         try:
-            compare_data, has_unfollowed_fields = self.compare(obj, version1, version2)
+            compare_result = self.compare(obj, version1, version2)
         except RevertError as err:
             logger.exception('Fallback compare caused')
             # A old version can't be loaded.
@@ -185,8 +175,8 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
 
         context = self._build_base_context(request, obj, version1, version2)
         context.update({
-            'compare_data': compare_data,
-            'has_unfollowed_fields': has_unfollowed_fields,
+            'compare_data': compare_result.diff,
+            'has_unfollowed_fields': compare_result.has_unfollowed_fields,
         })
         context.update(nav)  # merges next_url / prev_url if present
         context.update(extra_context or {})

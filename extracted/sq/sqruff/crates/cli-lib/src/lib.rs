@@ -5,6 +5,8 @@ use sqruff_lib::ignore::IgnoreFile;
 use sqruff_lib::{Formatter, core::config::FluffConfig, core::config::Value};
 use sqruff_lib_core::dialects::init::DialectKind;
 use std::path::Path;
+#[cfg(feature = "codegen-docs")]
+use std::path::PathBuf;
 use std::sync::Arc;
 use stdin::is_std_in_flag_input;
 
@@ -13,6 +15,7 @@ use crate::commands::{Cli, Commands};
 use crate::docs::codegen_docs;
 use crate::formatters::github_annotation_native_formatter::GithubAnnotationNativeFormatter;
 use crate::formatters::json::JsonFormatter;
+use crate::formatters::sarif::SarifFormatter;
 use crate::formatters::{NullFormatter, OutputStreamFormatter};
 
 pub mod commands;
@@ -33,8 +36,11 @@ mod stdin;
 
 #[cfg(feature = "codegen-docs")]
 pub fn run_docs_generation() {
-    #[cfg(feature = "codegen-docs")]
-    return codegen_docs();
+    let docs_dir = std::env::args_os()
+        .nth(1)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("docs/reference"));
+    codegen_docs(&docs_dir);
 }
 
 pub fn run_with_args<I, T>(args: I) -> i32
@@ -44,33 +50,58 @@ where
 {
     let _ = logger::init();
     let cli = Cli::parse_from(args);
-    let collect_parse_errors = cli.parsing_errors;
+    // `fix` must retain parser and templater errors so that it can explain why
+    // fixes were not applied to an unparsable file. Keep the explicit flag for
+    // commands such as `lint`, where collecting parse errors remains opt-in.
+    let collect_parse_errors = cli.parsing_errors || matches!(&cli.command, Commands::Fix(_));
 
-    let mut config: FluffConfig = if let Some(config) = cli.config.as_ref() {
-        if !Path::new(config).is_file() {
-            eprintln!(
-                "The specified config file '{}' does not exist.",
-                cli.config.as_ref().unwrap()
-            );
-
-            std::process::exit(1);
-        };
-        match FluffConfig::try_from_file(Path::new(config)) {
-            Ok(config) => config,
-            Err(err) => {
-                eprintln!("{err}");
-                std::process::exit(1);
-            }
+    let stdin_input = match &cli.command {
+        Commands::Lint(args) => is_std_in_flag_input(&args.paths).unwrap_or(false),
+        Commands::Fix(args) => is_std_in_flag_input(&args.paths).unwrap_or(false),
+        #[cfg(feature = "parser")]
+        Commands::Parse(args) => {
+            args.paths.is_empty() || is_std_in_flag_input(&args.paths).unwrap_or(false)
         }
+        _ => false,
+    };
+    let config_result = if stdin_input && let Some(filename) = cli.stdin_filename.as_ref() {
+        sqruff_lib::core::config::ConfigLoader {}
+            .try_load_config_up_to_path(filename, cli.config.clone(), false)
+            .map(|raw| FluffConfig::new(raw, cli.config.clone(), None))
+    } else if let Some(path) = cli.config.as_ref() {
+        if !Path::new(path).is_file() {
+            eprintln!("The specified config file '{path}' does not exist.");
+            return 1;
+        }
+        FluffConfig::try_from_file(Path::new(path))
     } else {
-        match FluffConfig::from_root(None, false, None) {
-            Ok(config) => config,
-            Err(err) => {
-                eprintln!("{err}");
-                std::process::exit(1);
-            }
+        FluffConfig::from_root(None, false, None)
+    };
+    let mut config = match config_result {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("{err}");
+            return 1;
         }
     };
+
+    let output_options = match &cli.command {
+        Commands::Lint(args) => Some((args.quiet, args.verbose)),
+        Commands::Fix(args) => Some((args.quiet, args.verbose)),
+        _ => None,
+    };
+    if let Some((quiet, verbose)) = output_options
+        && (quiet || verbose > 0)
+        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
+    {
+        core.insert("verbose".to_string(), Value::Int(i32::from(verbose)));
+    }
+
+    if (cli.nocolor || cli.color)
+        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
+    {
+        core.insert("nocolor".to_string(), Value::Bool(cli.nocolor));
+    }
 
     if let Some(dialect) = cli.dialect {
         let dialect_kind = DialectKind::try_from(dialect.as_str());
@@ -101,13 +132,38 @@ where
         }
     }
 
+    if let Some(disable_noqa_except) = cli.disable_noqa_except
+        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
+    {
+        core.insert(
+            "disable_noqa_except".to_string(),
+            Value::String(disable_noqa_except.into()),
+        );
+    }
+
+    if cli.disable_noqa
+        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
+    {
+        core.insert("disable_noqa".to_string(), Value::Bool(true));
+    }
+
+    let disregard_ignores = match &cli.command {
+        Commands::Lint(args) => args.disregard_sqruffignores,
+        Commands::Fix(args) => args.disregard_sqruffignores,
+        _ => false,
+    };
     let current_path = std::env::current_dir().unwrap();
-    let ignore_file = IgnoreFile::new_from_root(&current_path).unwrap();
+    let ignore_file = if disregard_ignores {
+        IgnoreFile::empty()
+    } else {
+        IgnoreFile::new_from_root(&current_path).unwrap()
+    };
     let ignore_file = Arc::new(ignore_file);
     let ignorer = {
         let ignore_file = Arc::clone(&ignore_file);
         move |path: &Path| ignore_file.is_ignored(path)
     };
+    let stdin_filename = cli.stdin_filename.clone();
 
     match cli.command {
         Commands::Lint(args) => match is_std_in_flag_input(&args.paths) {
@@ -116,7 +172,15 @@ where
                 1
             }
             Ok(false) => commands_lint::run_lint(args, config, ignorer, collect_parse_errors),
-            Ok(true) => commands_lint::run_lint_stdin(config, args.format, collect_parse_errors),
+            Ok(true) => commands_lint::run_lint_stdin(
+                config,
+                args.format,
+                args.quiet,
+                stdin_filename.as_deref(),
+                &ignorer,
+                args.disregard_sqruffignores,
+                collect_parse_errors,
+            ),
         },
         Commands::Fix(args) => match is_std_in_flag_input(&args.paths) {
             Err(e) => {
@@ -124,7 +188,15 @@ where
                 1
             }
             Ok(false) => commands_fix::run_fix(args, config, ignorer, collect_parse_errors),
-            Ok(true) => commands_fix::run_fix_stdin(config, args.format, collect_parse_errors),
+            Ok(true) => commands_fix::run_fix_stdin(
+                config,
+                args.format,
+                args.quiet,
+                stdin_filename.as_deref(),
+                &ignorer,
+                args.disregard_sqruffignores,
+                collect_parse_errors,
+            ),
         },
         Commands::Lsp => {
             sqruff_lsp::run();
@@ -155,14 +227,18 @@ pub(crate) fn linter(
     config: FluffConfig,
     format: Format,
     collect_parse_errors: bool,
+    quiet: bool,
+    fix_mode: bool,
 ) -> Result<Linter, String> {
     let formatter: Arc<dyn Formatter> = match format {
         Format::Human => {
             let output_stream = std::io::stderr().into();
             let formatter = OutputStreamFormatter::new(
                 output_stream,
-                config.get("nocolor", "core").as_bool().unwrap_or_default(),
+                config.get("nocolor", "core").as_bool(),
                 config.get("verbose", "core").as_int().unwrap_or_default(),
+                quiet,
+                quiet && fix_mode,
             );
             Arc::new(formatter)
         }
@@ -173,6 +249,10 @@ pub(crate) fn linter(
         }
         Format::Json => {
             let formatter = JsonFormatter::default();
+            Arc::new(formatter)
+        }
+        Format::Sarif => {
+            let formatter = SarifFormatter::default();
             Arc::new(formatter)
         }
         Format::None => {

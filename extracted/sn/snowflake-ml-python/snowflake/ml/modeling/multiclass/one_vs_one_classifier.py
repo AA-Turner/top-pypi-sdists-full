@@ -10,6 +10,7 @@ from uuid import uuid4
 import cloudpickle as cp
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 from numpy import typing as npt
 from packaging import version
 
@@ -170,7 +171,7 @@ class OneVsOneClassifier(BaseTransformer):
         self.set_sample_weight_col(sample_weight_col)
         self._use_external_memory_version = False
         self._batch_size = -1        
-        deps: Set[str] = set([f'numpy=={np.__version__}', f'scikit-learn=={sklearn.__version__}', f'cloudpickle=={cp.__version__}', f'pandas=={pd.__version__}'])
+        deps: Set[str] = set([f'numpy=={np.__version__}', f'scikit-learn=={sklearn.__version__}', f'cloudpickle=={cp.__version__}', f'pandas=={pd.__version__}', f'pyarrow=={pa.__version__}'])
         deps = deps | gather_dependencies(estimator)
         self._deps = list(deps)
         estimator = transform_snowml_obj_to_sklearn_obj(estimator)

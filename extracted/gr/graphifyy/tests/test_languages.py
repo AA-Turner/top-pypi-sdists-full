@@ -2740,6 +2740,131 @@ def test_powershell_command_call_still_resolves(tmp_path):
     assert ("Run", "Helper") in _edge_labels(r, "calls")
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_powershell_member_calls_keep_receiver_class(tmp_path, reverse):
+    classes = [
+        f"class {name} {{\n"
+        " [int] Pick() { return 1 }\n"
+        " static [int] Make() { return 1 }\n"
+        " [int] Run() { $THIS.pIcK(); return 1 }\n"
+        "}\n"
+        for name in ("Alpha", "Beta")
+    ]
+    f = tmp_path / "owners.ps1"
+    f.write_text("".join(reversed(classes) if reverse else classes)
+                 + "function Start { [aLpHa]::mAkE(); [Beta]::Make() }\n")
+    r = extract_powershell(f)
+    assert "error" not in r
+    classes_by_id = {n["id"]: n["label"] for n in r["nodes"] if n["label"] in ("Alpha", "Beta")}
+    labels = {n["id"]: n["label"] for n in r["nodes"]}
+    methods = {(classes_by_id[e["source"]], labels[e["target"]]): e["target"]
+               for e in r["edges"] if e["relation"] == "method"}
+    calls = {(e["source"], e["target"]) for e in r["edges"] if e["relation"] == "calls"}
+    start = next(n["id"] for n in r["nodes"] if n["label"] == "Start()")
+    assert calls == {
+        (methods[(name, ".Run()")], methods[(name, ".Pick()")]) for name in ("Alpha", "Beta")
+    } | {(start, methods[(name, ".Make()")]) for name in ("Alpha", "Beta")}
+
+
+@pytest.mark.parametrize("call,callee", [
+    ("$unknown.Pick()", "Pick"),
+    ("$typed.Pick()", "Pick"),
+    ("$local.Pick()", "Pick"),
+    ("$this.child.Pick()", "Pick"),
+    ("([Alpha]$this).Pick()", "Pick"),
+    ("$this.$dynamic()", "$dynamic"),
+    ("[External]::Pick()", "Pick"),
+    ("[Alpha+Nested]::Pick()", "Pick"),
+    ("[Alpha, MyAssembly]::Pick()", "Pick"),
+    ("[Beta]::Pick()", "Pick"),
+])
+def test_powershell_uncertain_receivers_remain_raw(tmp_path, call, callee):
+    f = tmp_path / "unknown.ps1"
+    f.write_text(
+        "function Pick { return 3 }\n"
+        "class Alpha {\n"
+        " [int] Pick() { return 1 }\n"
+        " [int] Run([Alpha]$typed) {\n"
+        "  $local = [Alpha]::new()\n"
+        f"  {call}\n"
+        "  return 1\n"
+        " }\n"
+        "}\n"
+        "class Beta { [int] Other() { return 1 } }\n"
+    )
+    r = extract_powershell(f)
+    assert "error" not in r
+    assert not [e for e in r["edges"] if e["relation"] == "calls"]
+    picked = [c for c in r["raw_calls"] if c["callee"] == callee]
+    assert len(picked) == 1
+    assert picked[0]["is_member_call"] is True
+    assert picked[0]["source_file"] == str(f)
+    assert picked[0]["source_location"].startswith("L")
+
+
+@pytest.mark.parametrize("receiver", ["[Alpha]", "[aLpHa]", "[ Alpha ]"])
+def test_powershell_complete_static_type_literal_resolves(tmp_path, receiver):
+    f = tmp_path / "literal.ps1"
+    f.write_text(
+        "class Alpha { static [int] Pick() { return 1 } }\n"
+        f"function Start {{ {receiver}::Pick() }}\n"
+    )
+    r = extract_powershell(f)
+    assert "error" not in r
+    caller = next(n["id"] for n in r["nodes"] if n["label"] == "Start()")
+    target = next(n["id"] for n in r["nodes"] if n["label"] == ".Pick()")
+    calls = [e for e in r["edges"] if e["relation"] == "calls"]
+    assert [(e["source"], e["target"]) for e in calls] == [(caller, target)]
+    assert not [c for c in r["raw_calls"] if c["callee"] == "Pick"]
+
+
+@pytest.mark.parametrize("second_name", ["Alpha", "alpha"])
+def test_powershell_duplicate_class_names_do_not_guess(tmp_path, second_name):
+    f = tmp_path / "duplicate.ps1"
+    f.write_text(
+        "class Alpha { [int] Pick() { return 1 } [int] Run() { return $this.Pick() } }\n"
+        f"class {second_name} {{ [int] Pick() {{ return 2 }} }}\n"
+        "function Start { [Alpha]::Pick() }\n"
+    )
+    r = extract_powershell(f)
+    assert "error" not in r
+    assert not [e for e in r["edges"] if e["relation"] == "calls"]
+    assert len([c for c in r["raw_calls"] if c["callee"] == "Pick" and c["is_member_call"]]) == 2
+
+
+def test_powershell_property_reads_and_nested_calls(tmp_path):
+    f = tmp_path / "nested.ps1"
+    f.write_text(
+        "class Alpha {\n"
+        " static [int] Make() { return 1 }\n"
+        " [int] Run() { $this.Make; [Alpha]::Make; $unknown.Pick([Alpha]::Make()); return 1 }\n"
+        "}\n"
+    )
+    r = extract_powershell(f)
+    assert _edge_labels(r, "calls") == {("Run", "Make")}
+    assert [c["callee"] for c in r["raw_calls"]] == ["Pick"]
+
+
+def test_powershell_unknown_member_stays_unresolved_in_cold_and_warm_corpus(tmp_path):
+    from graphify.extract import extract
+    f = tmp_path / "corpus.ps1"
+    f.write_text(
+        "function Pick { return 3 }\n"
+        "class Alpha { [int] Pick() { return 1 } [int] Run() { return $this.Pick() } }\n"
+        "class Beta { [int] Pick() { return 2 } }\n"
+        "function Start { $unknown.Pick() }\n"
+    )
+    cold = extract([f], cache_root=tmp_path / "cache", root=tmp_path, parallel=False)
+    warm = extract([f], cache_root=tmp_path / "cache", root=tmp_path, parallel=False)
+    for r in (cold, warm):
+        ids = {n["label"]: n["id"] for n in r["nodes"] if n["label"] in ("Alpha", "Beta", "Start()")}
+        methods = {(e["source"], next(n["label"] for n in r["nodes"] if n["id"] == e["target"])): e["target"]
+                   for e in r["edges"] if e["relation"] == "method"}
+        assert {(e["source"], e["target"]) for e in r["edges"] if e["relation"] == "calls"} == {
+            (methods[(ids["Alpha"], ".Run()")], methods[(ids["Alpha"], ".Pick()")])
+        }
+
+
 def test_powershell_class_base_type_emits_inherits_edge():
     # `class Circle : Shape` — the base type after ':' was previously dropped
     # because the handler only read the first simple_name (the class name).
@@ -3912,6 +4037,25 @@ def test_dmf_no_dangling_edges():
     for e in r["edges"]:
         assert e["source"] in node_ids
         assert e["target"] in node_ids
+
+def test_dmf_element_ids_do_not_depend_on_the_checkout_path(tmp_path):
+    """An element id was minted from its window's node id, which embeds the
+    absolute stem; extract()'s id-remap only rewrites the leading stem, so the
+    checkout path (and OS username) survived inside every element id."""
+    import shutil
+    from graphify.extract import extract
+
+    def ids_for(checkout):
+        (checkout / "ui").mkdir(parents=True)
+        shutil.copy(FIXTURES / "sample.dmf", checkout / "ui" / "skin.dmf")
+        r = extract([checkout / "ui" / "skin.dmf"], root=checkout, cache_root=checkout)
+        return {n["id"] for n in r["nodes"]}
+
+    first = ids_for(tmp_path / "clone_one")
+    second = ids_for(tmp_path / "elsewhere" / "clone_two")
+    assert any("elem" in i for i in first)
+    assert first == second
+    assert not [i for i in first if "clone_one" in i or "elsewhere" in i]
 
 
 # -- .NET project files (.sln, .csproj, .xaml, .razor) ------------------------

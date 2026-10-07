@@ -312,6 +312,11 @@ ASK_NO_WORKER = "asked ({id}) - the Probe daemon is not running; it restarts at 
 ASK_FINISHING = "asked ({id}) - the Probe daemon is finishing the previous session; it answers once that is done."
 ASK_NO_DAEMON = "not asked: the Probe daemon does not run on this machine - use the Probe MCP."
 ASK_SESSION_OFF = "not asked: Probe is off for this session."
+#: `/probe inline` (the researcher's): the daemon is off, and the agent has the whole CLI.
+ASK_SESSION_INLINE = (
+    "not asked: Probe is inline for this session, so the daemon is off - search the team's "
+    "work yourself with the `probe` CLI."
+)
 ASK_NO_SESSION = "not asked: no coding agent session found in this shell's environment."
 ASK_EMPTY = "give a question"
 #: How often a waiting `probe ask --wait` looks for its answer.
@@ -348,11 +353,12 @@ def ask_cmd(
     if state == session_marker.STATE_OFF:
         typer.echo(ASK_SESSION_OFF, err=True)
         raise typer.Exit(1)
-    # `on (daemon)`, `read only (daemon)` and `on (inline)` (the agent took Probe
-    # over): the daemon's reader answers in all three.
+    if session_marker.is_inline(sid, state):
+        typer.echo(ASK_SESSION_INLINE, err=True)
+        raise typer.Exit(1)
+    # `on (daemon)` and `read only (daemon)`: the daemon's reader answers in both.
     reads_only = state == session_marker.STATE_READ_ONLY and session_marker.daemon_session(sid, calling_agent())
-    inline = session_marker.is_inline(sid, state)
-    if (state != session_marker.STATE_DAEMON and not reads_only and not inline) or not mailbox.enabled(
+    if (state != session_marker.STATE_DAEMON and not reads_only) or not mailbox.enabled(
         source=calling_agent()
     ):
         typer.echo(ASK_NO_DAEMON, err=True)

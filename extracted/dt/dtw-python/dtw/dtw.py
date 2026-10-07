@@ -385,7 +385,7 @@ Equivalent precomputed local cost matrix:
 
 
     if y is None:
-        lm = numpy.array(x)
+        lm = numpy.ascontiguousarray(x, dtype=numpy.double)
         if lm.ndim != 2:
             _error("A 2D local distance matrix was expected")
     else:
@@ -466,10 +466,11 @@ Equivalent precomputed local cost matrix:
         gcm.__dict__.update(mapping)
 
     if open_begin:
-        gcm.index1 = gcm.index1[1:] - 1
-        gcm.index1s = gcm.index1s[1:] - 1
-        gcm.index2 = gcm.index2[1:]
-        gcm.index2s = gcm.index2s[1:]
+        if not distance_only:
+            gcm.index1 = gcm.index1[1:] - 1
+            gcm.index1s = gcm.index1s[1:] - 1
+            gcm.index2 = gcm.index2[1:]
+            gcm.index2s = gcm.index2s[1:]
         lm = lm[1:, :]
         gcm.costMatrix = gcm.costMatrix[1:, :]
         gcm.directionMatrix = gcm.directionMatrix[1:, :]
@@ -494,20 +495,29 @@ def _canonicalizeWindowFunction(window_type):
     if window_type is None:
         return noWindow
 
-    return {
+    windows = {
         "none": noWindow,
         "sakoechiba": sakoeChibaWindow,
         "itakura": itakuraWindow,
         "slantedband": slantedBandWindow
-    }.get(window_type, lambda: _error("Window function undefined"))
+    }
+    # Unique prefixes are accepted, as in R's match.arg
+    matches = [k for k in windows if k.startswith(str(window_type))]
+    if window_type in windows:
+        matches = [window_type]
+    if len(matches) != 1:
+        _error("Window function undefined or ambiguous: %s" % window_type)
+    return windows[matches[0]]
 
 
 def _canonicalizeStepPattern(s):
     """Return object by string"""
     if hasattr(s,"mx"):
         return s
-    else:
-        return getattr(sys.modules["dtw.stepPattern"], s)
+    p = getattr(sys.modules["dtw.stepPattern"], s, None)
+    if not isinstance(p, StepPattern):
+        _error("Step pattern undefined: %s" % s)
+    return p
 
 
 # Kludge because lambda: raise doesn't work

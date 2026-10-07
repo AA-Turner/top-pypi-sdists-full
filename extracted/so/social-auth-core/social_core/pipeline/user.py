@@ -3,9 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 from uuid import uuid4
 
-from social_core.exceptions import (
-    StrategyMissingBackendError,
-)
 from social_core.utils import module_member, slugify
 
 if TYPE_CHECKING:
@@ -16,6 +13,14 @@ if TYPE_CHECKING:
 USER_FIELDS = ["username", "email"]
 
 
+def sync_groups(strategy, backend, response, user=None, groups=None, **kwargs) -> None:
+    """Synchronize local memberships through the application's strategy."""
+    if user is not None and not backend.ASSOCIATION_ONLY:
+        strategy.sync_user_groups(
+            user, groups, backend=backend, response=response, **kwargs
+        )
+
+
 def get_username(
     strategy: BaseStrategy,
     details,
@@ -24,11 +29,9 @@ def get_username(
     *args,
     **kwargs,
 ):
-    if strategy.storage is None:
-        raise StrategyMissingBackendError
+    storage = strategy.get_storage(stage="pipeline")
     if "username" not in cast("set[str]", backend.setting("USER_FIELDS", USER_FIELDS)):
         return None
-    storage = strategy.storage
 
     if not user:
         email_as_username = backend.setting("USERNAME_IS_FULL_EMAIL", False)
@@ -115,9 +118,8 @@ def user_details(
     **kwargs,
 ) -> None:
     """Update user details using data from provider."""
-    if strategy.storage is None:
-        raise StrategyMissingBackendError
-    if not user:
+    storage = strategy.get_storage(stage="pipeline")
+    if not user or (backend is not None and backend.ASSOCIATION_ONLY):
         return
 
     changed = False  # flag to track changes
@@ -173,4 +175,4 @@ def user_details(
         setattr(user, name, value)
 
     if changed:
-        strategy.storage.user.changed(user)
+        storage.user.changed(user)

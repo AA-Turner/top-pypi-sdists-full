@@ -1,6 +1,6 @@
 import pytensor.tensor as pt
 
-from pytensor_distributions.helper import ppf_bounds_cont
+from pytensor_distributions.helper import isf_bounds_cont, ppf_bounds_cont
 
 
 def mean(alpha, beta):
@@ -66,7 +66,7 @@ def cdf(x, alpha, beta):
 
 
 def isf(x, alpha, beta):
-    return ppf(1 - x, alpha, beta)
+    return isf_bounds_cont(alpha + beta / pt.tan(pt.pi * x), x, -pt.inf, pt.inf)
 
 
 def pdf(x, alpha, beta):
@@ -74,7 +74,7 @@ def pdf(x, alpha, beta):
 
 
 def ppf(q, alpha, beta):
-    return ppf_bounds_cont(alpha + beta * pt.tan(pt.pi * (q - 0.5)), q, -pt.inf, pt.inf)
+    return ppf_bounds_cont(alpha - beta / pt.tan(pt.pi * q), q, -pt.inf, pt.inf)
 
 
 def sf(x, alpha, beta):
@@ -86,7 +86,12 @@ def rvs(alpha, beta, size=None, random_state=None):
 
 
 def logcdf(x, alpha, beta):
-    return pt.log(pt.clip(cdf(x, alpha, beta), 0, 1))
+    z = (x - alpha) / beta
+    return pt.switch(
+        pt.lt(z, 0),
+        pt.log(pt.arctan2(1, -z) / pt.pi),
+        pt.log1p(-pt.arctan2(1, z) / pt.pi),
+    )
 
 
 def logpdf(x, alpha, beta):
@@ -94,5 +99,9 @@ def logpdf(x, alpha, beta):
 
 
 def logsf(x, alpha, beta):
-    sf_val = 0.5 - (1 / pt.pi) * pt.arctan((x - alpha) / beta)
-    return pt.log(pt.clip(sf_val, 0, 1))
+    z = (x - alpha) / beta
+    return pt.switch(
+        pt.gt(z, 0),
+        pt.log(pt.arctan2(1, z) / pt.pi),
+        pt.log1p(-pt.arctan2(1, -z) / pt.pi),
+    )

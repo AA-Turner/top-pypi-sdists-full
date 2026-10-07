@@ -25,15 +25,15 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.contract.v1 import invoice_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_invoice__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nJsentry_protos/billing/v1/services/contract/v1/endpoint_list_invoices.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"a\n\x13ListInvoicesRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x11\n\tmax_items\x18\x02 \x01(\r\x12\x13\n\x06offset\x18\x03 \x01(\rH\x00\x88\x01\x01\x42\t\n\x07_offset\"\xac\x01\n\x14ListInvoicesResponse\x12H\n\x08invoices\x18\x01 \x03(\x0b\x32\x36.sentry_protos.billing.v1.services.contract.v1.Invoice\x12\x11\n\ttruncated\x18\x02 \x01(\x08\x12\x18\n\x0bnext_offset\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\r\n\x05total\x18\x04 \x01(\rB\x0e\n\x0c_next_offsetb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nJsentry_protos/billing/v1/services/contract/v1/endpoint_list_invoices.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"\x81\x01\n\x13ListInvoicesRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x11\n\tmax_items\x18\x02 \x01(\r\x12\x13\n\x06offset\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\x1e\n\x16\x63ustomer_receipts_only\x18\x04 \x01(\x08\x42\t\n\x07_offset\"\xac\x01\n\x14ListInvoicesResponse\x12H\n\x08invoices\x18\x01 \x03(\x0b\x32\x36.sentry_protos.billing.v1.services.contract.v1.Invoice\x12\x11\n\ttruncated\x18\x02 \x01(\x08\x12\x18\n\x0bnext_offset\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\r\n\x05total\x18\x04 \x01(\rB\x0e\n\x0c_next_offsetb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_list_invoices_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_LISTINVOICESREQUEST']._serialized_start=186
-  _globals['_LISTINVOICESREQUEST']._serialized_end=283
-  _globals['_LISTINVOICESRESPONSE']._serialized_start=286
-  _globals['_LISTINVOICESRESPONSE']._serialized_end=458
+  _globals['_LISTINVOICESREQUEST']._serialized_start=187
+  _globals['_LISTINVOICESREQUEST']._serialized_end=316
+  _globals['_LISTINVOICESRESPONSE']._serialized_start=319
+  _globals['_LISTINVOICESRESPONSE']._serialized_end=491
 # @@protoc_insertion_point(module_scope)

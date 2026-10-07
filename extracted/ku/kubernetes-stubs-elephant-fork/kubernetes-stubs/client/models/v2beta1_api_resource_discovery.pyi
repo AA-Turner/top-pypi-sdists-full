@@ -5,7 +5,7 @@ import kubernetes.client
 
 class V2beta1APIResourceDiscovery:
     resource: str
-    response_kind: typing.Optional[kubernetes.client.IoK8sApimachineryPkgApisMetaV1GroupVersionKind]
+    response_kind: typing.Optional[kubernetes.client.V1GroupVersionKind]
     scope: str
     singular_resource: str
     verbs: list[str]
@@ -13,13 +13,13 @@ class V2beta1APIResourceDiscovery:
     categories: typing.Optional[list[str]]
     subresources: typing.Optional[list[kubernetes.client.V2beta1APISubresourceDiscovery]]
     
-    def __init__(self, *, resource: str, response_kind: typing.Optional[kubernetes.client.IoK8sApimachineryPkgApisMetaV1GroupVersionKind] = ..., scope: str, singular_resource: str, verbs: list[str], short_names: typing.Optional[list[str]] = ..., categories: typing.Optional[list[str]] = ..., subresources: typing.Optional[list[kubernetes.client.V2beta1APISubresourceDiscovery]] = ...) -> None:
+    def __init__(self, *, resource: str, response_kind: typing.Optional[kubernetes.client.V1GroupVersionKind] = ..., scope: str, singular_resource: str, verbs: list[str], short_names: typing.Optional[list[str]] = ..., categories: typing.Optional[list[str]] = ..., subresources: typing.Optional[list[kubernetes.client.V2beta1APISubresourceDiscovery]] = ...) -> None:
         ...
     def to_dict(self) -> V2beta1APIResourceDiscoveryDict:
         ...
 class V2beta1APIResourceDiscoveryDict(typing.TypedDict, total=False):
     resource: str
-    responseKind: typing.Optional[kubernetes.client.IoK8sApimachineryPkgApisMetaV1GroupVersionKindDict]
+    responseKind: typing.Optional[kubernetes.client.V1GroupVersionKindDict]
     scope: str
     singularResource: str
     verbs: list[str]

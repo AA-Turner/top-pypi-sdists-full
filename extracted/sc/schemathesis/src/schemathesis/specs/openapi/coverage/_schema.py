@@ -26,6 +26,7 @@ from schemathesis.core.jsonschema import (
     make_validator,
     make_validator_for,
     make_validator_with_seed,
+    matches_pattern,
 )
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.keywords import ALL_KEYWORDS
@@ -213,6 +214,10 @@ def _extra_property_schema(schema: JsonSchemaObject) -> JsonSchema:
 def _is_strictly_valid(value: Any, schema: dict[str, Any], ctx: CoverageContext) -> bool:
     # Binary payloads cannot be validated and pass, as elsewhere in this module. Anything else fails closed,
     # so a value nothing can check is dropped rather than shipped as a valid positive.
+    declared_type = schema.get("type")
+    # Bytes go out as strings, so a schema whose `type` rules strings out cannot take them.
+    if isinstance(value, bytes) and declared_type is not None:
+        return "string" in (declared_type if isinstance(declared_type, list) else [declared_type])
     return contains_binary(value) or _admitted(value, schema, ctx, unjudged=False)
 
 
@@ -416,7 +421,7 @@ def _pattern_strategy(
     if compiled is None:
         session.pattern_strategies[key] = None
         return None
-    strategy = st.from_regex(compiled, fullmatch=True)
+    strategy = st.from_regex(compiled, fullmatch=True).filter(matches_pattern(pattern))
     if min_length is not None and max_length is not None:
         strategy = strategy.filter(lambda s: min_length <= len(s) <= max_length)
     elif min_length is not None:
@@ -775,7 +780,7 @@ class CoverageContext:
             raise Unsatisfiable
         without_pattern = {key: value for key, value in schema.items() if key != "pattern"}
         candidate = self.generate_from_schema({**without_pattern, "minLength": length, "maxLength": length})
-        if not isinstance(candidate, str) or not compiled.search(candidate):
+        if not isinstance(candidate, str) or not matches_pattern(schema["pattern"])(candidate):
             raise Unsatisfiable
         return candidate
 
@@ -3186,7 +3191,9 @@ def _positive_number(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
 
     seen = HashSet()
 
-    def _within_adjusted_bounds(value: int | float) -> bool:
+    def _within_adjusted_bounds(value: object) -> bool:
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return False
         # Read in decimal, the way the validator reads both the value and the bound: past 2**53 a
         # multiple that fits the bound's text can still compare outside the float that spells it.
         exact = _exact(value)
@@ -3753,7 +3760,7 @@ def _negative_pattern_properties(
         compiled = compile_ecma_pattern(pattern)
         if compiled is None:
             continue
-        key = ctx.generate_from(st.from_regex(compiled))
+        key = ctx.generate_from(st.from_regex(compiled).filter(matches_pattern(pattern)))
         with nctx.at(pattern):
             for value in cover_schema_iter(nctx, sub_schema):
                 yield NegativeValue(

@@ -109,6 +109,16 @@ class TransferMode(str, Enum):
     COPY = "copy"
 
 
+class TypeOfIntegration(BaseModel):
+    """Integration scopes to include in a POST /v1/settings/transfer request.
+
+    Mirrors ``codemie.rest_api.models.settings_transfer.TypeOfIntegration`` on the backend.
+    """
+
+    user_integrations: bool = False
+    project_integrations: bool = False
+
+
 class TransferItem(BaseModel):
     """Model for a single integration transferred or skipped by a settings-transfer request."""
 

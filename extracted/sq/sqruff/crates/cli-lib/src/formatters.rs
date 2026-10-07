@@ -2,12 +2,13 @@ pub(crate) mod github_annotation_native_formatter;
 pub(crate) mod json;
 pub(crate) mod json_types;
 pub(crate) mod rules;
+pub(crate) mod sarif;
 pub(crate) mod utils;
 
 use std::borrow::Cow;
 use std::io::{Stderr, Write};
 
-use anstyle::{AnsiColor, Effects, Style};
+use anstyle::{AnsiColor, Color, Effects, Style};
 use sqruff_lib::Formatter;
 use sqruff_lib::core::linter::linted_file::LintedFile;
 use sqruff_lib_core::errors::SQLBaseError;
@@ -16,29 +17,36 @@ use crate::formatters::utils::{
     colorize_helper, should_produce_plain_output, split_string_on_spaces,
 };
 
-const LIGHT_GREY: Style = AnsiColor::Black.on_default().effects(Effects::BOLD);
+const LIGHT_GREY: Style = Style::new()
+    .fg_color(Some(Color::Ansi(AnsiColor::Black)))
+    .bg_color(Some(Color::Ansi(AnsiColor::White)))
+    .effects(Effects::BOLD);
 
 pub(crate) struct OutputStreamFormatter {
     output_stream: Option<Stderr>,
     plain_output: bool,
     filter_empty: bool,
     verbosity: i32,
+    quiet: bool,
+    suppress_fixable: bool,
     output_line_length: usize,
 }
 
 impl Formatter for OutputStreamFormatter {
     fn dispatch_file_violations(&self, linted_file: &LintedFile) {
-        if self.verbosity < 0 {
-            return;
-        }
-
-        let s = self.format_file_violations(linted_file.path(), linted_file.violations());
+        let violations = linted_file
+            .violations()
+            .iter()
+            .filter(|violation| !self.suppress_fixable || !violation.fixable)
+            .cloned()
+            .collect::<Vec<_>>();
+        let s = self.format_file_violations(linted_file.path(), &violations);
 
         self.dispatch(&s);
     }
 
     fn dispatch_file_skip(&self, fname: &str, reason: &str) {
-        if self.verbosity < 0 {
+        if self.quiet {
             return;
         }
         let filename = self.colorize(fname, LIGHT_GREY);
@@ -47,6 +55,9 @@ impl Formatter for OutputStreamFormatter {
     }
 
     fn completion_message(&self, count: usize) {
+        if self.quiet {
+            return;
+        }
         self.dispatch(&format!("The linter processed {count} file(s).\n"));
         self.dispatch(if self.plain_output {
             "All Finished\n"
@@ -57,12 +68,20 @@ impl Formatter for OutputStreamFormatter {
 }
 
 impl OutputStreamFormatter {
-    pub(crate) fn new(output_stream: Option<Stderr>, nocolor: bool, verbosity: i32) -> Self {
+    pub(crate) fn new(
+        output_stream: Option<Stderr>,
+        nocolor: Option<bool>,
+        verbosity: i32,
+        quiet: bool,
+        suppress_fixable: bool,
+    ) -> Self {
         Self {
             output_stream,
             plain_output: should_produce_plain_output(nocolor),
             filter_empty: true,
             verbosity,
+            quiet,
+            suppress_fixable,
             output_line_length: 80,
         }
     }
@@ -83,9 +102,10 @@ impl OutputStreamFormatter {
         let mut text_buffer = String::new();
 
         let show = !violations.is_empty();
+        let success = violations.iter().all(|violation| violation.warning);
 
-        if self.verbosity > 0 || show {
-            let text = self.format_filename(fname, !show);
+        if (self.verbosity > 0 && !self.quiet) || show {
+            let text = self.format_filename(fname, success);
             text_buffer.push_str(&text);
             text_buffer.push('\n');
         }
@@ -123,6 +143,10 @@ impl OutputStreamFormatter {
     fn format_violation(&self, violation: &SQLBaseError, max_line_length: usize) -> String {
         let mut desc = violation.desc().to_string();
 
+        if violation.warning {
+            desc = format!("WARNING: {desc}");
+        }
+
         let line_elem = format!("{:4}", violation.line_no);
         let pos_elem = format!("{:4}", violation.line_pos);
 
@@ -133,7 +157,11 @@ impl OutputStreamFormatter {
         }
 
         let split_desc = split_string_on_spaces(&desc, max_line_length - 25);
-        let mut section_color = AnsiColor::Blue.on_default();
+        let mut section_color = if violation.warning {
+            AnsiColor::BrightBlack.on_default()
+        } else {
+            AnsiColor::Blue.on_default()
+        };
 
         let mut out_buff = String::new();
         for (idx, line) in split_desc.into_iter().enumerate() {
@@ -192,11 +220,19 @@ impl Status {
 
 #[cfg(test)]
 mod tests {
-    use anstyle::AnsiColor;
+    use anstyle::{AnsiColor, Color};
     use fancy_regex::Regex;
     use sqruff_lib_core::errors::{ErrorStructRule, SQLBaseError};
 
-    use crate::formatters::{OutputStreamFormatter, utils::split_string_on_spaces};
+    use crate::formatters::{LIGHT_GREY, OutputStreamFormatter, utils::split_string_on_spaces};
+
+    #[test]
+    fn test_light_grey_uses_white_background() {
+        assert_eq!(
+            LIGHT_GREY.get_bg_color(),
+            Some(Color::Ansi(AnsiColor::White))
+        );
+    }
 
     #[test]
     fn test_short_string() {
@@ -225,7 +261,7 @@ mod tests {
     }
 
     fn mk_formatter() -> OutputStreamFormatter {
-        OutputStreamFormatter::new(None, false, 0)
+        OutputStreamFormatter::new(None, None, 0, false, false)
     }
 
     #[test]
@@ -242,6 +278,7 @@ mod tests {
 
         let v = SQLBaseError {
             fixable: false,
+            warning: false,
             line_no: 3,
             line_pos: 3,
             description: "DESC".into(),
@@ -255,6 +292,28 @@ mod tests {
         let f = formatter.format_violation(&v, 90);
 
         assert_eq!(escape_ansi(&f), "L:   3 | P:   3 | DESC | DESC [some-name]");
+    }
+
+    #[test]
+    fn test_cli_formatters_warning() {
+        let formatter = mk_formatter();
+        let warning = SQLBaseError {
+            warning: true,
+            line_no: 4,
+            line_pos: 9,
+            description: "Expected single whitespace".into(),
+            rule: Some(ErrorStructRule {
+                name: "layout.spacing",
+                code: "LT01",
+            }),
+            ..Default::default()
+        };
+
+        let actual = formatter.format_file_violations("warning.sql", &[warning]);
+        assert_eq!(
+            escape_ansi(&actual),
+            "== [warning.sql] PASS\nL:   4 | P:   9 | LT01 | WARNING: Expected single whitespace [layout.spacing]\n"
+        );
     }
 
     #[test]

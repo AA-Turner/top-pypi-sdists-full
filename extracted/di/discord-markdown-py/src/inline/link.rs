@@ -4,29 +4,30 @@
 
 use std::{borrow::Cow, cell::Cell, fmt::Debug, marker::PhantomData};
 
-use icu_properties::{props::GeneralCategory, CodePointMapData, CodePointMapDataBorrowed};
+use icu_properties::{CodePointMapData, CodePointMapDataBorrowed, props::GeneralCategory};
 use itertools::Itertools;
 use nom::{
+	IResult, Parser,
 	branch::alt,
+	bytes::complete::take_while1,
 	character::{
 		complete::{anychar, char},
 		satisfy,
 	},
 	combinator::{map, map_opt, not, opt, peek, recognize},
 	multi::many1_count,
-	IResult, Parser,
 };
 use tracing::Level;
 use url::{SyntaxViolation, Url};
 
 use crate::{
+	Input,
 	context::{Context, TerminalOutput},
 	error::ParseError,
 	node::SpannedNodes,
 	rule::RuleSet,
 	span::{Span, TraceOk, TraceParse},
 	unparse::Unparse,
-	Input,
 };
 
 use super::Grammar;
@@ -225,9 +226,14 @@ where
 	.parse_complete(data)
 }
 
+/// Whether a character is punctuation that a link can contain but not end with.
+fn is_trailing_punctuation(ch: char) -> bool {
+	matches!(ch, '.' | ',' | ':' | ';' | '"' | '\'' | ']')
+}
+
 /// Whether a character terminates a link.
 fn is_terminal_char(ch: char) -> bool {
-	matches!(ch, '<' | '.' | ',' | ':' | ';' | '"' | '\'' | ']' | ')') || ch.is_ascii_whitespace()
+	is_trailing_punctuation(ch) || matches!(ch, '<' | ')') || ch.is_ascii_whitespace()
 }
 
 /// Parse a character that terminates a link.
@@ -235,8 +241,7 @@ fn parse_terminal_char<'data, E>(data: Input<'data>) -> IResult<Input<'data>, ch
 where
 	E: ParseError<'data>,
 {
-	nom::error::context("link::parse_terminal_char", satisfy(is_terminal_char))
-		.parse_complete(data)
+	nom::error::context("link::parse_terminal_char", satisfy(is_terminal_char)).parse_complete(data)
 }
 
 /// Parse a link character that is not terminal. A balanced `(…)` group is consumed whole by
@@ -250,7 +255,13 @@ where
 {
 	alt((
 		recognize((char(')'), peek(satisfy(|ch| !is_terminal_char(ch))))),
-		parse_non_terminal_link_chars_no_close_paren,
+		// A run of punctuation only belongs to the link if the link carries on past it:
+		// `https://discord.com.).` ends at `com`, while `https://discord.com.)x` does not.
+		recognize((
+			take_while1(is_trailing_punctuation),
+			peek(parse_non_terminal_link_chars),
+		)),
+		parse_non_terminal_char,
 	))
 	.parse_complete(data)
 }
@@ -259,9 +270,9 @@ where
 /// parentheses, where the enclosing group must find its closing paren on the first try to avoid
 /// O(n²) backtracking on URLs with many nested groups (e.g. `key=(value:(nested))`).
 ///
-/// This differs from [`parse_link_char`] by looking ahead and ensuring that the next character is
-/// also valid. Since terminal chars are a superset of link chars, this allows for skipping
-/// terminal characters if there are 2 valid link chars in a row.
+/// A run of punctuation is consumed whole, and only when a link character follows it, so the
+/// link can carry on through `foo..bar` without picking up the `..` in `foo..`. Inside a group
+/// that following character can be the group's closing `)`, which keeps `(foo.)` together.
 fn parse_non_terminal_link_chars_no_close_paren<'data, E>(
 	data: Input<'data>,
 ) -> IResult<Input<'data>, Input<'data>, E>
@@ -269,15 +280,18 @@ where
 	E: ParseError<'data>,
 {
 	alt((
-		// confirm following character can capture
-		recognize((
-			satisfy(|ch| !ch.is_ascii_whitespace() && ch != '<' && ch != ')'),
-			peek(parse_link_char),
-		)),
-		// Otherwise, make sure this character is not the terminal
-		recognize((not(peek(parse_terminal_char)), anychar)),
+		recognize((take_while1(is_trailing_punctuation), peek(parse_link_char))),
+		parse_non_terminal_char,
 	))
 	.parse_complete(data)
+}
+
+/// Parse a single character that cannot terminate a link.
+fn parse_non_terminal_char<'data, E>(data: Input<'data>) -> IResult<Input<'data>, Input<'data>, E>
+where
+	E: ParseError<'data>,
+{
+	recognize((not(peek(parse_terminal_char)), anychar)).parse_complete(data)
 }
 
 struct LinkCharsParser<'ctx, E> {
@@ -321,9 +335,11 @@ where
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
 		// Inside balanced parens, use the stricter variant so ) is never consumed as a link char.
-		// This ensures the group's closing char(')') always succeeds without backtracking.
+		// This ensures the group's closing char(')') always succeeds without backtracking. A masked
+		// link's URL is closed by `)` the same way, so punctuation right before it stays in the URL
+		// rather than leaving the masked link without its closing paren.
 		let non_terminal: fn(Input<'data>) -> IResult<Input<'data>, Input<'data>, E> =
-			if self.inside_parens {
+			if self.inside_parens || self.context.grammar == Grammar::MaskedLinkLink {
 				parse_non_terminal_link_chars_no_close_paren
 			} else {
 				parse_non_terminal_link_chars

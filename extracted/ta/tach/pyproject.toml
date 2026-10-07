@@ -1,6 +1,6 @@
 [project]
 name = "tach"
-version = "0.35.2"
+version = "0.35.3"
 authors = [
     { name = "Caelean Barnes", email = "caeleanb@gmail.com" },
     { name = "Evan Doyle", email = "evanmdoyle@gmail.com" },
@@ -28,7 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "pyyaml~=6.0",
-    "tomli>=1.2.2",
+    "tomli>=1.2.2; python_version < '3.11'",
     "tomli-w~=1.0",
     "rich>=13.0",
     "prompt-toolkit~=3.0",
@@ -60,7 +60,9 @@ dev = [
     "setuptools==84.0.0",
     "twine==7.0.0",
     "build==1.6.1",
-    "gnumake>=4.4.1 ; sys_platform != 'win32' or platform_machine != 'ARM64'", # no win_arm64 wheel, and the sdist doesn't build there
+    # no win_arm64 wheel, and the sdist doesn't build there.
+    # also https://github.com/xmake-io/gnumake-wheel/issues/1
+    "gnumake>=4.4.1 ; (sys_platform != 'win32' or platform_machine != 'ARM64') and (sys_platform != 'darwin' or platform_machine != 'x86_64')",
     # Tests
     "pytest==9.1.1",
     "pytest-mock==3.15.1",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncpg-stubs
-Version: 0.31.3
+Version: 0.32.0
 Summary: asyncpg stubs
 License-Expression: BSD-3-Clause
 License-File: LICENSE
@@ -16,9 +16,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Dist: asyncpg (>=0.31,<0.32)
-Requires-Dist: typing-extensions (>=4.13.0,<5.0.0)
+Requires-Dist: asyncpg (>=0.32,<0.33)
+Requires-Dist: typing-extensions (>=4.16.0,<5.0.0)
 Project-URL: Homepage, https://github.com/bryanforbes/asyncpg-stubs
 Description-Content-Type: text/markdown
 

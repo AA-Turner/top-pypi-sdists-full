@@ -78,6 +78,26 @@ preloader={
 			'desc':'experiment name text cooking and remembers value for last fields\'s useage'
 				},
 	f'{uuid1()}':{
+			'cmds':['legal age','lglag','legalage'],
+			'exec':legalage,
+			'desc':'return the legal age from(minus) prompted years'
+				},
+	f'{uuid1()}':{
+			'cmds':['legal date plus','legal date+','lgldt+','legal date +','lgl-dt+'],
+			'exec':legalage_dtplus,
+			'desc':'return the legal age from(plus) prompted years'
+				},
+	f'{uuid1()}':{
+			'cmds':['from legal age','flglag','fromlegalage'],
+			'exec':fromDTOE_legalage,
+			'desc':'return from legal age from(minus) prompted years'
+				},
+	f'{uuid1()}':{
+			'cmds':['from legal date plus','from legal date+','flgldt+','from legal date +','flgl-dt+'],
+			'exec':fromDTOE_legalage_dtplus,
+			'desc':'return from legal age from(plus) prompted years'
+				},
+	f'{uuid1()}':{
 			'cmds':['xp nm st','shift text'],
 			'exec':experimentName_shift_text,
 			'desc':'experiment name text shift drug_text'

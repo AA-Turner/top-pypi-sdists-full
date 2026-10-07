@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: griffe
-Version: 2.3.0
+Version: 2.3.2
 Summary: Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API.
 Project-URL: Homepage, https://mkdocstrings.github.io/griffe
 Project-URL: Documentation, https://mkdocstrings.github.io/griffe
@@ -19,27 +19,27 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
-Requires-Dist: griffecli==2.3.0
-Requires-Dist: griffelib==2.3.0
+Requires-Python: >=3.11
+Requires-Dist: griffecli==2.3.2
+Requires-Dist: griffelib==2.3.2
 Provides-Extra: pypi
-Requires-Dist: griffelib[pypi]==2.3.0; extra == 'pypi'
+Requires-Dist: griffelib[pypi]==2.3.2; extra == 'pypi'
 Description-Content-Type: text/markdown
 
 # Griffe
 
 [![ci](https://github.com/mkdocstrings/griffe/workflows/ci/badge.svg)](https://github.com/mkdocstrings/griffe/actions?query=workflow%3Aci)
-[![documentation](https://img.shields.io/badge/docs-mkdocs-708FCC.svg?style=flat)](https://mkdocstrings.github.io/griffe/)
+[![documentation](https://img.shields.io/badge/docs-zensical-FF9100.svg?style=flat)](https://mkdocstrings.github.io/griffe/)
 [![pypi version](https://img.shields.io/pypi/v/griffe.svg)](https://pypi.org/project/griffe/)
 [![gitter](https://img.shields.io/badge/matrix-chat-4db798.svg?style=flat)](https://app.gitter.im/#/room/#mkdocstrings_griffe:gitter.im)
 [![radicle](https://img.shields.io/badge/rad-clone-6666FF.svg?style=flat)](https://app.radicle.at/nodes/seed.radicle.at/rad:z4M5XTPDD4Wh1sm8iPCenF85J3z8Z)

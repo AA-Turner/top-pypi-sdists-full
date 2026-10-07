@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: krippendorff
-Version: 0.8.2
+Version: 0.9.0
 Summary: Fast computation of the Krippendorff's alpha measure.
 Keywords: Krippendorff,alpha,agreement,reliability,coding,coders,units,values
 Author: Santiago Castro
@@ -13,20 +13,20 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Dist: numpy>=1.21,<3
-Requires-Python: >=3.10
+Requires-Dist: numpy>=1.23.2,<3
+Requires-Python: >=3.11
+Project-URL: Homepage, https://github.com/pln-fing-udelar/fast-krippendorff
+Project-URL: Documentation, https://github.com/pln-fing-udelar/fast-krippendorff
+Project-URL: Repository, https://github.com/pln-fing-udelar/fast-krippendorff
 Project-URL: Bug Tracker, https://github.com/pln-fing-udelar/fast-krippendorff/issues
 Project-URL: Changelog, https://github.com/pln-fing-udelar/fast-krippendorff/releases
-Project-URL: Documentation, https://github.com/pln-fing-udelar/fast-krippendorff
-Project-URL: Homepage, https://github.com/pln-fing-udelar/fast-krippendorff
-Project-URL: Repository, https://github.com/pln-fing-udelar/fast-krippendorff
 Description-Content-Type: text/markdown
 
 [![Actions Status](https://github.com/pln-fing-udelar/fast-krippendorff/workflows/CI/badge.svg)](https://github.com/pln-fing-udelar/fast-krippendorff/actions)
@@ -50,7 +50,7 @@ import krippendorff
 krippendorff.alpha(reliability_data=...)
 ```
 
-See `sample.py` and `alpha`'s docstring for more details.
+See `example.py` and `alpha`'s docstring for more details.
 
 ## Installation
 

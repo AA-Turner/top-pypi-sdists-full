@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-slugify
-Version: 9.1.2
+Version: 9.1.3
 Summary: A Python slugify application that also handles Unicode
 Author-email: Val Neekman <info@neekware.com>
 License-Expression: MIT

@@ -11,6 +11,8 @@ from .open_id_connect import OpenIdConnectAuth
 
 class GoogleOpenIdConnect(GoogleOAuth2, OpenIdConnectAuth):
     name = "google-openidconnect"
+    title = "Google"
+    icon = "google.svg"
     OIDC_ENDPOINT = "https://accounts.google.com"
     # differs from value in discovery document
     # http://openid.net/specs/openid-connect-core-1_0.html#rfc.section.15.6.2
@@ -21,13 +23,15 @@ class GoogleOpenIdConnect(GoogleOAuth2, OpenIdConnectAuth):
             return OpenIdConnectAuth.get_user_id(self, details, response)
         if self.setting("USE_UNIQUE_USER_ID", False) and self.id_token is not None:
             return self.id_token.get("sub")
-        return super().get_user_id(details, response)
+        return OpenIdConnectAuth.get_user_id(self, details, response)
 
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Return user data from Google API"""
-        return self.validate_userinfo_sub(
+        response = self.validate_userinfo_sub(
             self.get_json(
                 "https://openidconnect.googleapis.com/v1/userinfo",
                 params={"access_token": access_token, "alt": "json"},
             )
         )
+        self.validate_email_verified(response)
+        return response

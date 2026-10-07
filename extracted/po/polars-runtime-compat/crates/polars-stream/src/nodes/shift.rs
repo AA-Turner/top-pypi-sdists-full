@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+use polars_async::executor::TaskMetricAggregator;
 use polars_async::primitives::wait_group::WaitGroup;
 use polars_core::prelude::*;
 use polars_core::schema::Schema;
@@ -149,11 +150,16 @@ impl ShiftState {
 }
 
 impl ShiftNode {
-    pub fn new(output_schema: Arc<Schema>, offset_schema: Arc<Schema>, with_fill: bool) -> Self {
+    pub fn new(
+        output_schema: Arc<Schema>,
+        offset_schema: Arc<Schema>,
+        with_fill: bool,
+        task_metrics: Option<Arc<TaskMetricAggregator>>,
+    ) -> Self {
         assert!(offset_schema.len() == 1);
         Self::GatheringParams {
-            offset: InMemorySinkNode::new(offset_schema),
-            fill: with_fill.then(|| InMemorySinkNode::new(output_schema.clone())),
+            offset: InMemorySinkNode::new(offset_schema, task_metrics.clone()),
+            fill: with_fill.then(|| InMemorySinkNode::new(output_schema.clone(), task_metrics)),
             output_schema,
         }
     }
@@ -194,19 +200,14 @@ impl ComputeNode for ShiftNode {
                 let offset_frame = offset.get_output()?.unwrap();
                 polars_ensure!(offset_frame.height() == 1, ComputeError: "got more than one value for 'n' in shift");
                 let offset_item = offset_frame.columns()[0].get(0)?;
-                let offset = if offset_item.is_null() {
-                    polars_warn!(
-                        Deprecation, // @2.0
-                        "shift value 'n' is null, which currently returns a column of null values. This will become an error in the future.",
-                    );
-                    // @2.0: Currently we still require the entire output to become null
-                    // if the shift is null, simulate this with an infinite negative shift.
-                    *fill = None;
-                    i64::MIN
-                } else {
-                    offset_item.extract::<i64>().ok_or_else(
-                        || polars_err!(ComputeError: "invalid value of 'n' in shift: {:?}", offset_item),
-                    )?
+                if offset_item.is_null() {
+                    polars_bail!(ComputeError: "shift value 'n' must not be null.");
+                }
+                let offset = match offset_item.extract::<i64>() {
+                    Some(offset) => offset,
+                    None => {
+                        polars_bail!(ComputeError: "invalid value of 'n' in shift: {:?}", offset_item)
+                    },
                 };
 
                 let fill_frame = if let Some(fill) = fill {
@@ -222,7 +223,10 @@ impl ComputeNode for ShiftNode {
                     frames: VecDeque::new(),
                     fill: fill_frame,
                     seq: MorselSeq::default(),
-                    spill_ctx: MostRecentSpillContext::new("shift".into()),
+                    spill_ctx: MostRecentSpillContext::new(
+                        "shift".into(),
+                        state.task_metrics.clone(),
+                    ),
                 })
             }
         }

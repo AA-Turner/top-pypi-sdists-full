@@ -1,4 +1,5 @@
-# Copyright 2026 Jetperch LLC
+# SPDX-FileCopyrightText: Copyright 2026 Jetperch LLC
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,16 +91,18 @@ class MemClient:
             target = self._target
         else:
             target = int(target) & 0xFF
-        self._txn_id += 1
+        self._txn_id = (self._txn_id + 1) & 0xFFFF_FFFF
+        txn_id = self._txn_id
         stdmsg_hdr = STDMSG_HDR.pack(0, MB_STDMSG_MEM, ord('h'), 0)
         mem_hdr = MEM_CMD_HDR.pack(
-            self._txn_id, target, op, 0, 0,
+            txn_id, target, op, 0, 0,
             timeout_ms, 0, offset, length, 0)
         rsp = self._driver.publish_and_wait(
             self.pub_topic,
             StdMsg(stdmsg_hdr + mem_hdr + data),
             self.rsp_topic,
-            timeout=(timeout_ms / 1000) + 5)
+            timeout=(timeout_ms / 1000) + 5,
+            match=lambda r: r.get('transaction_id') == txn_id)
         status = rsp['status']
         if status != 0:
             raise RuntimeError(

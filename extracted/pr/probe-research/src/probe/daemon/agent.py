@@ -15,8 +15,9 @@ first passes `LeaseGate`: once this process may no longer act for the session
 
 The pydantic-ai-harness capabilities it runs with (T3):
 
-    compaction          conversation mode only: near CONTEXT_TOKENS, old tool
-                        results cleared first, then older turns summarized
+    compaction          conversation mode only: past CONTEXT_TOKENS, old tool
+                        results cleared first, then older turns summarized,
+                        down to COMPACT_TO of it
     warn_on_cache_busts a collapsed prompt cache is logged
     repair_tool_arguments  malformed JSON arguments repaired before validation
 
@@ -38,7 +39,6 @@ from collections import Counter
 from dataclasses import dataclass, field
 from probe._compat import StrEnum
 from typing import Any, Callable
-from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
@@ -47,9 +47,10 @@ from pydantic_ai.exceptions import SkipToolExecution
 
 from probe.daemon import lease, tools
 from probe.daemon import trace as trace_mod
+# The Probe MCP's address, shared with the CLI's `probe mcp tools|call` (`/probe inline`).
+from probe.sdk.config import STOCK_MCP_URL, mcp_url  # noqa: F401 -- STOCK_MCP_URL re-exported
 
 log = logging.getLogger("probe.daemon")
-STOCK_MCP_URL = "https://mcp.research.prbe.ai/mcp"
 #: Conversation mode compacts once the context passes this many tokens (estimated).
 #: The writer: near its 1M window, leaving room for the 16K output and the tool
 #: schemas (Richard, 2026-09-28: "1m"). The reader: only the immediate reading
@@ -64,8 +65,16 @@ KEEP_TOOL_PAIRS = 6
 #: ...and clears nothing unless that reclaims at least this many tokens (a clear
 #: rewrites history, so the provider re-caches from there: not for a few tokens).
 MIN_CLEAR_TOKENS = 20_000
-#: The summarizing tier keeps this many recent messages as they are.
-KEEP_MESSAGES = 20
+#: Once the context passes its size, compaction brings it down to this share of
+#: it. Every compaction rewrites the history, and the provider then re-caches all
+#: of it at the write price; stopping just under the size made the next bite
+#: cross it again, so a long session compacted (and re-cached ~1M tokens) on
+#: nearly every bite (2026-10-05, "22 messages -> 22" once a minute).
+COMPACT_TO = 0.5
+#: The summarizing tier keeps the newest messages, whole, up to this share of the
+#: size: a token budget, never a message count, since one message can be a whole
+#: bite of the session. The newest message stays even when it alone is bigger.
+KEEP_SHARE = 0.25
 #: The user turn put between the summary and a kept tail that opens with the
 #: model's own message (`user_turn_first`).
 EARLIER_TURNS = "[earlier turns are summarized above]"
@@ -291,13 +300,33 @@ def user_turn_first(messages: list) -> list:
 def counted_compaction(state: RunState):
     """TieredCompaction that tells `state` each time it rewrote the history, and
     keeps a user turn first after it (`user_turn_first`). The summary prompt and
-    the size are the state's (the writer's by default, the reader's own)."""
-    from pydantic_ai_harness.compaction import ClearToolResults, SummarizingCompaction, TieredCompaction
+    the size are the state's (the writer's by default, the reader's own).
+
+    It runs once the context passes the size and compacts down to COMPACT_TO of
+    it (the harness's own target is that lower mark; the size is our gate), the
+    summary keeping the newest KEEP_SHARE of the size whole."""
+    from pydantic_ai_harness.compaction import (
+        ClearToolResults,
+        SummarizingCompaction,
+        TieredCompaction,
+        estimate_context_tokens,
+    )
+
+    size = state.context_tokens or CONTEXT_TOKENS
+    if size <= 0:
+        # Would compact before every request: refused, so the worker falls back to
+        # bites (`worker._compaction_available`), as the harness's own
+        # `target_tokens=0` refusal did before the floors below were added.
+        raise ValueError(f"a context of {size} tokens cannot be compacted to")
 
     @dataclass
     class CountedCompaction(TieredCompaction):
         async def before_model_request(self, ctx: Any, request_context: Any) -> Any:
             before = request_context.messages
+            if estimate_context_tokens(list(before), self.tokenizer,
+                                       model_request_parameters=request_context.model_request_parameters) <= size:
+                request_context.messages = user_turn_first(before)
+                return request_context
             n = len(before)
             out = await super().before_model_request(ctx, request_context)
             after = out.messages
@@ -309,11 +338,12 @@ def counted_compaction(state: RunState):
 
     return CountedCompaction(
         tiers=[ClearToolResults(max_tokens=1, keep_pairs=KEEP_TOOL_PAIRS, min_clear_tokens=MIN_CLEAR_TOKENS),
-               SummarizingCompaction(max_messages=1, keep_messages=KEEP_MESSAGES, preserve_first_user_message=False,
+               SummarizingCompaction(max_messages=1, keep_tokens=max(1, int(size * KEEP_SHARE)),
+                                     preserve_first_user_message=False,
                                      summary_prompt=state.summary_prompt or SUMMARY_PROMPT,
                                      tool_return_max_chars=1_500,
                                      summarization_capabilities=[UsageMeter(on_round=state.on_round)])],
-        target_tokens=state.context_tokens or CONTEXT_TOKENS)
+        target_tokens=max(1, int(size * COMPACT_TO)))
 
 
 def _harness(state: RunState) -> list:
@@ -436,22 +466,10 @@ def write_tools() -> frozenset[str]:
     return tools.WRITE_TOOLS
 
 
-def mcp_url(base_url: str) -> str | None:
-    """The Probe MCP for a daemon whose key belongs to `base_url`: `PROBE_MCP_URL`
-    when set, the stock MCP beside the stock API, else none -- the daemon's key must
-    never be sent to a deployment it was not minted by."""
-    explicit = os.environ.get("PROBE_MCP_URL")
-    if explicit:
-        return explicit
-    from probe.sdk.config import DEFAULT_BASE_URL
-
-    return STOCK_MCP_URL if urlparse(base_url).netloc == urlparse(DEFAULT_BASE_URL).netloc else None
-
-
 def _renew_after(deps: tools.Deps) -> None:
     """A finished tool call is progress: extend the lease (R11) -- but only one this
     process still holds while the writer still records the session (`lease.records`:
-    `daemon`, or taken over from it). Never BEFORE the tool: its
+    the switch reads `daemon`). Never BEFORE the tool: its
     own lease check must see a lease that lapsed, was released with a reason or
     went to another daemon, not one renewed a moment earlier."""
     if deps.replay is None and lease.held(deps.session_id) and lease.records(deps.session_id):

@@ -32,7 +32,7 @@ class QueueConsumerInitArgs:
 
         :param pulumi.Input[_builtins.str] account_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] queue_id: A Resource identifier.
-        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull".
+        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull", "notification".
         :param pulumi.Input[_builtins.str] script_name: Name of a Worker
         """
         pulumi.set(__self__, "account_id", account_id)
@@ -73,7 +73,7 @@ class QueueConsumerInitArgs:
     @pulumi.getter
     def type(self) -> pulumi.Input[_builtins.str]:
         """
-        Available values: "worker", "http_pull".
+        Available values: "worker", "http_pull", "notification".
         """
         return pulumi.get(self, "type")
 
@@ -131,7 +131,7 @@ class _QueueConsumerState:
         :param pulumi.Input[_builtins.str] consumer_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] queue_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] script_name: Name of a Worker
-        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull".
+        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull", "notification".
         """
         if account_id is not None:
             pulumi.set(__self__, "account_id", account_id)
@@ -240,7 +240,7 @@ class _QueueConsumerState:
     @pulumi.getter
     def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Available values: "worker", "http_pull".
+        Available values: "worker", "http_pull", "notification".
         """
         return pulumi.get(self, "type")
 
@@ -259,7 +259,7 @@ class QueueConsumer(pulumi.CustomResource):
                  dead_letter_queue: pulumi.Input[Optional[_builtins.str]] = None,
                  queue_id: pulumi.Input[Optional[_builtins.str]] = None,
                  script_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 settings: pulumi.Input[Optional[Union['QueueConsumerSettingsArgs', 'QueueConsumerSettingsArgsDict']]] = None,
+                 settings: pulumi.Input[Optional[Union['QueueConsumerSettingsArgs', 'QueueConsumerSettingsArgsDict', 'outputs.QueueConsumerSettings']]] = None,
                  type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
@@ -301,7 +301,7 @@ class QueueConsumer(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] account_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] queue_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] script_name: Name of a Worker
-        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull".
+        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull", "notification".
         """
         ...
     @overload
@@ -362,7 +362,7 @@ class QueueConsumer(pulumi.CustomResource):
                  dead_letter_queue: pulumi.Input[Optional[_builtins.str]] = None,
                  queue_id: pulumi.Input[Optional[_builtins.str]] = None,
                  script_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 settings: pulumi.Input[Optional[Union['QueueConsumerSettingsArgs', 'QueueConsumerSettingsArgsDict']]] = None,
+                 settings: pulumi.Input[Optional[Union['QueueConsumerSettingsArgs', 'QueueConsumerSettingsArgsDict', 'outputs.QueueConsumerSettings']]] = None,
                  type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -405,7 +405,7 @@ class QueueConsumer(pulumi.CustomResource):
             queue_id: pulumi.Input[Optional[_builtins.str]] = None,
             queue_name: pulumi.Input[Optional[_builtins.str]] = None,
             script_name: pulumi.Input[Optional[_builtins.str]] = None,
-            settings: pulumi.Input[Optional[Union['QueueConsumerSettingsArgs', 'QueueConsumerSettingsArgsDict']]] = None,
+            settings: pulumi.Input[Optional[Union['QueueConsumerSettingsArgs', 'QueueConsumerSettingsArgsDict', 'outputs.QueueConsumerSettings']]] = None,
             type: pulumi.Input[Optional[_builtins.str]] = None) -> 'QueueConsumer':
         """
         Get an existing QueueConsumer resource's state with the given name, id, and optional extra
@@ -418,7 +418,7 @@ class QueueConsumer(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] consumer_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] queue_id: A Resource identifier.
         :param pulumi.Input[_builtins.str] script_name: Name of a Worker
-        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull".
+        :param pulumi.Input[_builtins.str] type: Available values: "worker", "http_pull", "notification".
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -491,7 +491,7 @@ class QueueConsumer(pulumi.CustomResource):
     @pulumi.getter
     def type(self) -> pulumi.Output[_builtins.str]:
         """
-        Available values: "worker", "http_pull".
+        Available values: "worker", "http_pull", "notification".
         """
         return pulumi.get(self, "type")
 

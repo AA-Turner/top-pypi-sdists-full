@@ -300,10 +300,10 @@ options:
   state:
     description:
       - Create or delete project.
-      - Possible values are present and absent.
+      - States V(archived) and V(unarchived) are only applicable to existing projects.
     default: present
     type: str
-    choices: ["present", "absent"]
+    choices: ["present", "absent", "archived", "unarchived"]
   topics:
     description:
       - A topic or list of topics to be assigned to a project.
@@ -378,6 +378,26 @@ EXAMPLES = r"""
     api_password: "{{ initial_root_password }}"
     name: my_second_project
     group: "10481470"
+
+- name: Archive a GitLab Project
+  community.general.gitlab_project:
+    api_url: https://gitlab.example.com/
+    api_username: root
+    api_password: "{{ initial_root_password }}"
+    name: my_second_project
+    group: "10481470"
+    state: archived
+
+- name: Unarchive a GitLab Project while updating its settings
+  community.general.gitlab_project:
+    api_url: https://gitlab.example.com/
+    api_username: root
+    api_password: "{{ initial_root_password }}"
+    name: my_second_project
+    group: "10481470"
+    state: unarchived
+    wiki_enabled: false
+    issues_enabled: true
 """
 
 RETURN = r"""
@@ -399,7 +419,11 @@ error:
   sample: "400: path is already in use"
 
 project:
-  description: API object.
+  description:
+    - API object.
+    - When a new project is created while O(state=present) runs in check mode, no API call is made,
+      so this is a synthesized representation built from the module options instead of the object
+      GitLab would actually return. Treat it as an approximation in that case.
   returned: always
   type: dict
 """
@@ -478,7 +502,8 @@ class GitLabProject:
             project_options["topics"] = options["topics"]
 
         # Because we have already call userExists in main()
-        if self.project_object is None:
+        is_new_project = self.project_object is None
+        if is_new_project:
             if options["default_branch"] and not options["initialize_with_readme"]:
                 module.fail_json(msg="Param default_branch needs param initialize_with_readme set to true")
             project_options.update(
@@ -495,8 +520,9 @@ class GitLabProject:
             project_options = self.get_options_with_value(project_options)
             project = self.create_project(namespace, project_options)
 
-            # add avatar to project
-            if options["avatar_path"]:
+            # add avatar to project. Nothing is created in check mode, so there is no
+            # real project to attach the avatar to.
+            if options["avatar_path"] and not self._module.check_mode:
                 try:
                     project.avatar = open(options["avatar_path"], "rb")
                 except OSError as e:
@@ -510,15 +536,25 @@ class GitLabProject:
 
         self.project_object = project
         if changed:
-            if self._module.check_mode:
-                self._module.exit_json(changed=True, msg=f"Successfully created or updated the project {project_name}")
-
-            try:
-                project.save()
-            except Exception as e:
-                self._module.fail_json(msg=f"Failed to update project: {e} ")
+            if not self._module.check_mode:
+                try:
+                    project.save()
+                except Exception as e:
+                    self._module.fail_json(msg=f"Failed to update project: {e} ")
             return True
         return False
+
+    """
+    Returns the tracked project's attributes. For a project created while running in
+    check mode, no API call was made, so this is a synthesized dict built from the
+    module options rather than the project's real attributes - see the module's
+    RETURN documentation for `project`.
+    """
+
+    def project_attributes(self):
+        if isinstance(self.project_object, dict):
+            return self.project_object
+        return self.project_object.attributes
 
     """
     @param namespace Namespace Object (User or Group)
@@ -527,7 +563,10 @@ class GitLabProject:
 
     def create_project(self, namespace, arguments):
         if self._module.check_mode:
-            return True
+            # No API call is made in check mode, so there is no real project to
+            # report back. Synthesize one from the arguments that would have
+            # been sent, so the caller still gets a value for `project`.
+            return {"namespace_id": namespace.id, **arguments}
 
         arguments["namespace_id"] = namespace.id
         if "container_expiration_policy" in arguments:
@@ -583,6 +622,16 @@ class GitLabProject:
         project = self.project_object
 
         return project.delete()
+
+    def archive_project(self):
+        if not self._module.check_mode:
+            self.project_object.archive()
+        return True
+
+    def unarchive_project(self):
+        if not self._module.check_mode:
+            self.project_object.unarchive()
+        return True
 
     """
     @param namespace User/Group object
@@ -650,7 +699,7 @@ def main():
             shared_runners_enabled=dict(type="bool"),
             snippets_enabled=dict(default=True, type="bool"),
             squash_option=dict(type="str", choices=["never", "always", "default_off", "default_on"]),
-            state=dict(type="str", default="present", choices=["absent", "present"]),
+            state=dict(type="str", default="present", choices=["absent", "present", "archived", "unarchived"]),
             topics=dict(type="list", elements="str"),
             username=dict(type="str"),
             visibility=dict(
@@ -757,13 +806,34 @@ def main():
         module.fail_json(msg="Failed to find the namespace for the project")
     project_exists = gitlab_project.exists_project(namespace, project_path)
 
+    is_archived = project_exists.attributes.get("archived") or False
+
     if state == "absent":
         if project_exists:
             gitlab_project.delete_project()
             module.exit_json(changed=True, msg=f"Successfully deleted project {project_name}")
         module.exit_json(changed=False, msg="Project deleted or does not exist")
 
-    if state == "present":
+    archive_actions = {
+        "archived": (True, gitlab_project.archive_project, "archived"),
+        "unarchived": (False, gitlab_project.unarchive_project, "unarchived"),
+    }
+
+    archiving_states = list(archive_actions.keys())
+    if state in ["present", *archiving_states]:
+        changed = False
+        msgs = []
+
+        if state in archiving_states and not project_exists:
+            module.fail_json(msg=f"{state.capitalize()} state works only on existing projects.")
+
+        if state in archive_actions:
+            target_archived, action_func, verb = archive_actions[state]
+            if is_archived != target_archived:
+                changed = True
+                msgs.append(f"Successfully {verb} project {project_name}")
+                action_func()
+
         if gitlab_project.create_or_update_project(
             module,
             project_name,
@@ -809,15 +879,18 @@ def main():
                 "wiki_enabled": wiki_enabled,
             },
         ):
-            module.exit_json(
-                changed=True,
-                msg=f"Successfully created or updated the project {project_name}",
-                project=gitlab_project.project_object._attrs,
-            )
+            changed = True
+            msgs.append(f"Successfully created or updated the project {project_name}")
+
+        if changed:
+            msg = " - ".join(msgs)
+        else:
+            msg = f"No need to update the project {project_name}"
+
         module.exit_json(
-            changed=False,
-            msg=f"No need to update the project {project_name}",
-            project=gitlab_project.project_object._attrs,
+            changed=changed,
+            msg=msg,
+            project=gitlab_project.project_attributes(),
         )
 
 

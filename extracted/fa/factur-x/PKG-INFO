@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: factur-x
-Version: 7.3
+Version: 7.4
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
@@ -195,6 +195,10 @@ Contributors
 
 Changelog
 =========
+
+* Version 7.4 dated 2026-10-06:
+
+  * Add new method **untdid_get_label()** that replaces untdid_4451_get_label() and supports UNTDID 4451, UNTDID 5189 and UNTDID 7161
 
 * Version 7.3 dated 2026-10-04:
 

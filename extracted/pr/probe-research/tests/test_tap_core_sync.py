@@ -37,6 +37,10 @@ _SYNCED = (
     "session_journal.py",
     "session_identity.py",
     "secrets.py",
+    # Vendored from prbe-knowledge (scripts/sync_atif_fragment.py), then synced
+    # here like the rest: protocol 3's fragment builder and its renderer.
+    "atif_fragment.py",
+    "transcript_render.py",
 )
 
 
@@ -96,7 +100,10 @@ def test_plugin_copies_import_standalone_without_probe() -> None:
     probe_script = (
         "import sys; "
         "from tap import sanitize, codex_sanitize, transcript, pi_sanitize, kimi_sanitize; "
+        "from tap import atif_fragment; "
         "assert 'probe' not in sys.modules, 'plugin copy pulled in probe'; "
+        "assert atif_fragment.fragment({'line_no': 0, 'raw': {'type': 'user', "
+        "'message': {'content': 'hi'}}})['line']['text'] == 'USER: hi'; "
         "assert sanitize.sanitize_event({'type': 'ai-title'}) is None; "
         "assert codex_sanitize.sanitize_event({'type': 'world_state'}) is None; "
         "assert pi_sanitize.sanitize_event({'type': 'session', 'cwd': '/x'})"

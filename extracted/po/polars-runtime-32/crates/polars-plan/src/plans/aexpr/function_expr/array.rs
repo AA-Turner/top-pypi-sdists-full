@@ -1,7 +1,7 @@
+#[cfg(feature = "array_to_struct")]
+use polars_buffer::Buffer;
 use polars_core::utils::{slice_offsets, try_get_supertype};
-use polars_ops::chunked_array::array::*;
 
-use super::schema::function_sum_output_dtype;
 use super::*;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -25,6 +25,8 @@ pub enum IRArrayFunction {
     #[cfg(feature = "is_in")]
     Contains {
         nulls_equal: bool,
+        /// Runtime cast chosen by type coercion; inexact needles match nothing.
+        needle_cast: Option<DataType>,
     },
     #[cfg(feature = "array_count")]
     CountMatches,
@@ -33,7 +35,9 @@ pub enum IRArrayFunction {
     Concat,
     Slice(i64, i64),
     #[cfg(feature = "array_to_struct")]
-    ToStruct(Option<DslNameGenerator>),
+    ToStruct {
+        fields: Buffer<PlSmallStr>,
+    },
 }
 
 impl<'a> FieldsMapper<'a> {
@@ -97,19 +101,19 @@ impl IRArrayFunction {
                 );
                 let inner_dtype = try_get_supertype(lhs_inner, rhs_inner)?;
                 polars_ensure!(
-                    is_supported_array_dot_dtype(&inner_dtype),
+                    inner_dtype.is_supported_array_dot_input(),
                     InvalidOperation:
                     "arr.dot does not support input dtypes {} and {} with supertype {inner_dtype}",
                     args[0].dtype(), args[1].dtype()
                 );
 
-                mapper.with_dtype(function_sum_output_dtype(&inner_dtype))
+                mapper.with_dtype(sum_output_dtype(&inner_dtype))
             },
             ToList => mapper
                 .ensure_is_array()?
                 .try_map_dtype(map_array_dtype_to_list_dtype),
-            Std(_) => mapper.ensure_is_array()?.moment_dtype(),
-            Var(_) => mapper.ensure_is_array()?.var_dtype(),
+            Std(_) => mapper.ensure_is_array()?.var_dtype("std"),
+            Var(_) => mapper.ensure_is_array()?.var_dtype("var"),
             Mean => mapper.ensure_is_array()?.moment_dtype(),
             Median => mapper.ensure_is_array()?.moment_dtype(),
             Sort(_) => mapper.ensure_is_array()?.with_same_dtype(),
@@ -119,7 +123,7 @@ impl IRArrayFunction {
                 .map_to_list_and_array_inner_dtype(),
             Join(_) => mapper.ensure_is_array()?.with_dtype(DataType::String),
             #[cfg(feature = "is_in")]
-            Contains { nulls_equal: _ } => mapper.ensure_is_array()?.with_dtype(DataType::Boolean),
+            Contains { .. } => mapper.ensure_is_array()?.with_dtype(DataType::Boolean),
             #[cfg(feature = "array_count")]
             CountMatches => mapper.ensure_is_array()?.with_dtype(IDX_DTYPE),
             Shift => mapper.ensure_is_array()?.with_same_dtype(),
@@ -128,21 +132,17 @@ impl IRArrayFunction {
                 .ensure_is_array()?
                 .try_map_dtype(map_to_array_fixed_length(offset, length)),
             #[cfg(feature = "array_to_struct")]
-            ToStruct(name_generator) => mapper.ensure_is_array()?.try_map_dtype(|dtype| {
-                let DataType::Array(inner, width) = dtype else {
+            ToStruct { fields } => mapper.ensure_is_array()?.try_map_dtype(|dtype| {
+                let DataType::Array(inner, _) = dtype else {
                     polars_bail!(InvalidOperation: "expected Array type, got: {dtype}")
                 };
 
-                (0..*width)
-                    .map(|i| {
-                        let name = match name_generator {
-                            None => arr_default_struct_name_gen(i),
-                            Some(ng) => PlSmallStr::from_string(ng.call(i)?),
-                        };
-                        Ok(Field::new(name, inner.as_ref().clone()))
-                    })
-                    .collect::<PolarsResult<Vec<Field>>>()
-                    .map(DataType::Struct)
+                Ok(DataType::Struct(
+                    fields
+                        .iter()
+                        .map(|name| Field::new(name.clone(), inner.as_ref().clone()))
+                        .collect(),
+                ))
             }),
         }
     }
@@ -151,7 +151,7 @@ impl IRArrayFunction {
         use IRArrayFunction as A;
         match self {
             #[cfg(feature = "is_in")]
-            A::Contains { nulls_equal: _ } => FunctionOptions::elementwise(),
+            A::Contains { .. } => FunctionOptions::elementwise(),
             #[cfg(feature = "array_count")]
             A::CountMatches => FunctionOptions::elementwise(),
             A::Concat => FunctionOptions::elementwise()
@@ -176,7 +176,7 @@ impl IRArrayFunction {
             | A::Slice(_, _) => FunctionOptions::elementwise(),
             A::Explode { .. } => FunctionOptions::row_separable(),
             #[cfg(feature = "array_to_struct")]
-            A::ToStruct(_) => FunctionOptions::elementwise(),
+            A::ToStruct { fields: _ } => FunctionOptions::elementwise(),
         }
     }
 }
@@ -231,14 +231,14 @@ impl Display for IRArrayFunction {
             Get(_) => "get",
             Join(_) => "join",
             #[cfg(feature = "is_in")]
-            Contains { nulls_equal: _ } => "contains",
+            Contains { .. } => "contains",
             #[cfg(feature = "array_count")]
             CountMatches => "count_matches",
             Shift => "shift",
             Slice(_, _) => "slice",
             Explode { .. } => "explode",
             #[cfg(feature = "array_to_struct")]
-            ToStruct(_) => "to_struct",
+            ToStruct { fields: _ } => "to_struct",
         };
         write!(f, "arr.{name}")
     }

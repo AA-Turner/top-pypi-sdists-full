@@ -29,7 +29,7 @@ _SHORT_TOOL_NAMES = frozenset(
         "dataset",
         "document",
         "note",
-        "picklist",
+        "pick_list",
         "skill",
         "sql",
         "task",

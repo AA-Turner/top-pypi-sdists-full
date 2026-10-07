@@ -4,7 +4,8 @@ from typing import Any, Self
 
 import gevent.socket
 
-from geventhttpclient._parser import HTTPParseError, HTTPResponseParser
+from geventhttpclient._parser import HTTPParseError as HTTPParseError  # noqa: PLC0414
+from geventhttpclient._parser import HTTPResponseParser
 from geventhttpclient.connectionpool import ConnectionPool
 from geventhttpclient.header import Headers
 
@@ -27,12 +28,18 @@ class HTTPProtocolViolationError(HTTPParseError):
 
 
 class HTTPResponse(HTTPResponseParser):
+    #: the request line and headers HTTPClient.request sent us, kept for the
+    #: "REQUEST:" debug output that UserAgent prints on errors
+    _sent_request: str | None = None
+
     def __init__(self, method: str = "GET", headers_type: type[Headers] = Headers) -> None:
         super().__init__()
         self.method = method.upper()
         self.headers_complete = False
         self.message_begun = False
         self.message_complete = False
+        self._message_ended_in_skip_body = False
+        self._trailing_data_dropped = False
         self._headers_index = headers_type()
         self._header_state = HEADER_STATE_INIT
         self._current_header_field: str | None = None
@@ -41,13 +48,14 @@ class HTTPResponse(HTTPResponseParser):
         self._body_buffer = bytearray()
         self.status_message: str | None = None
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> str | list[str]:
         return self._headers_index[key]
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._headers_index.get(key, default)
+    def get(self, key: str, default: str | None = None) -> str | list[str] | None:
+        value = self._headers_index.get(key)
+        return value if value is not None else default
 
-    def items(self) -> Iterator[tuple[str, Any]]:
+    def items(self) -> Iterator[tuple[str, str]]:
         return self._headers_index.items()
 
     headers = property(items)
@@ -65,7 +73,12 @@ class HTTPResponse(HTTPResponseParser):
         It is not the opposite of should_keep_alive method. It also checks
         that the body as been consumed completely.
         """
-        return not self.message_complete or self.parser_failed() or not super().should_keep_alive()
+        return (
+            self._trailing_data_dropped
+            or not self.message_complete
+            or self.parser_failed()
+            or not super().should_keep_alive()
+        )
 
     @property
     def status_code(self) -> int:
@@ -73,8 +86,10 @@ class HTTPResponse(HTTPResponseParser):
 
     @property
     def content_length(self) -> int | None:
-        length = self.get("content-length", None)
-        if length is not None:
+        # a duplicated content length comes back as a list, that is a
+        # broken message and counts as no length
+        length = self.get("content-length")
+        if isinstance(length, str):
             return int(length)
         return None
 
@@ -111,7 +126,30 @@ class HTTPResponse(HTTPResponseParser):
         self._header_state = HEADER_STATE_DONE
         self.headers_complete = True
 
-        return self.method == "HEAD"  # SKIP BODY
+        result = self.method == "HEAD"  # SKIP BODY
+        if result:
+            # the message ends with the headers; llhttp parses any bytes
+            # beyond them as the next response on the wire
+            self._message_ended_in_skip_body = True
+        return result
+
+    def feed(self, data: str | bytes) -> None:
+        try:
+            super().feed(data)
+        except HTTPParseError:
+            # A bodyless response (HEAD) whose server sent a protocol
+            # violating body: llhttp completes the message at the header
+            # end, then restarts for the leftover bytes and rejects them.
+            # The restart also clears the parsed message state, so restore
+            # the completion here and drop the trailing data - the
+            # connection is marked for closing (should_close) instead of
+            # surfacing a parse error. Garbage before complete headers still
+            # raises.
+            if not self._message_ended_in_skip_body:
+                raise
+            self.headers_complete = True
+            self.message_complete = True
+            self._trailing_data_dropped = True
 
     def _on_header_field(self, string: str) -> None:
         if self._header_state == HEADER_STATE_FIELD:
@@ -133,7 +171,11 @@ class HTTPResponse(HTTPResponseParser):
 
     def _flush_header(self) -> None:
         if self._current_header_field is not None:
-            self._headers_index.add(self._current_header_field, self._current_header_value)
+            value = self._current_header_value
+            if value is None:
+                # a header line without a value, store the empty value
+                value = ""
+            self._headers_index.add(self._current_header_field, value)
             self._header_position += 1
             self._current_header_field = None
             self._current_header_value = None

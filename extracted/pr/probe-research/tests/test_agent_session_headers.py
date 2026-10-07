@@ -59,7 +59,6 @@ def test_child_shell_flag_does_not_change_the_session() -> None:
     "env",
     [
         pytest.param({}, id="no-agent"),
-        pytest.param({"CURSOR_TRACE_ID": "abc12345"}, id="cursor-uncaptured"),
         pytest.param({"CODEX_THREAD_ID": "th_9911223344"}, id="codex-unpaired"),
         pytest.param(
             {k: v for k, v in LIVE.items() if k != "CLAUDE_CODE_SESSION_ID"},
@@ -182,7 +181,6 @@ def test_old_client_gets_a_nudge_not_silence() -> None:
     [
         pytest.param(LIVE, id="already-attributing"),
         pytest.param({}, id="not-an-agent"),
-        pytest.param({"CURSOR_TRACE_ID": "abc12345"}, id="uncaptured-agent"),
         pytest.param(
             {k: v for k, v in LIVE.items() if k != "CLAUDE_CODE_SESSION_ID"},
             id="new-enough-but-session-missing",
@@ -196,7 +194,6 @@ def test_no_nudge_when_upgrading_would_not_help(env: dict[str, str]) -> None:
 def test_detection_recognizes_supported_agents() -> None:
     for env, label in (
         (LIVE, "claude_code"),
-        ({"CURSOR_TRACE_ID": "x" * 10}, "cursor"),
         ({"CODEX_THREAD_ID": "y" * 10}, "codex"),
         (PI_LIVE, "pi"),
     ):
@@ -249,7 +246,7 @@ def test_transport_sends_the_pi_session_header_when_present(
 def test_transport_omits_the_header_entirely_when_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    for key in (*LIVE, *PI_LIVE, "CURSOR_TRACE_ID", "CODEX_SANDBOX", "CODEX_THREAD_ID"):
+    for key in (*LIVE, *PI_LIVE, "CODEX_SANDBOX", "CODEX_THREAD_ID"):
         monkeypatch.delenv(key, raising=False)
     seen = _transport_headers(monkeypatch)
     assert AGENT_SESSION_HEADER not in seen

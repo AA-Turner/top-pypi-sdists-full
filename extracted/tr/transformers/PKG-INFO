@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.18.0
+Version: 5.19.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -42,6 +42,7 @@ Requires-Dist: torchaudio; extra == "audio"
 Requires-Dist: librosa; extra == "audio"
 Requires-Dist: pyctcdecode>=0.4.0; extra == "audio"
 Requires-Dist: phonemizer; extra == "audio"
+Requires-Dist: kenlm; extra == "audio"
 Provides-Extra: video
 Requires-Dist: av; extra == "video"
 Provides-Extra: timm
@@ -222,6 +223,7 @@ Requires-Dist: torchaudio; extra == "all"
 Requires-Dist: librosa; extra == "all"
 Requires-Dist: pyctcdecode>=0.4.0; extra == "all"
 Requires-Dist: phonemizer; extra == "all"
+Requires-Dist: kenlm; extra == "all"
 Requires-Dist: av; extra == "all"
 Requires-Dist: kernels<0.18,>=0.17.0; extra == "all"
 Requires-Dist: timm>=1.0.23; extra == "all"
@@ -241,6 +243,7 @@ Requires-Dist: torchaudio; extra == "dev"
 Requires-Dist: librosa; extra == "dev"
 Requires-Dist: pyctcdecode>=0.4.0; extra == "dev"
 Requires-Dist: phonemizer; extra == "dev"
+Requires-Dist: kenlm; extra == "dev"
 Requires-Dist: av; extra == "dev"
 Requires-Dist: kernels<0.18,>=0.17.0; extra == "dev"
 Requires-Dist: timm>=1.0.23; extra == "dev"

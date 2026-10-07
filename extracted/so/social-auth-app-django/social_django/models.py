@@ -22,6 +22,8 @@ from .storage import (
 if TYPE_CHECKING:
     from typing import ClassVar
 
+    from typing_extensions import Self
+
 USER_MODEL = (
     getattr(settings, setting_name("USER_MODEL"), None) or getattr(settings, "AUTH_USER_MODEL", None) or "auth.User"
 )
@@ -37,11 +39,12 @@ class AbstractUserSocialAuth(models.Model, DjangoUserMixin):
 
     user = models.ForeignKey(USER_MODEL, related_name="social_auth", on_delete=models.CASCADE)
     provider = models.CharField(max_length=32)
+    id_key = models.CharField(max_length=255, default="", blank=True)
     uid = models.CharField(max_length=UID_LENGTH, db_index=True)
     extra_data = models.JSONField(default=dict, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
-    objects: ClassVar[UserSocialAuthManager[AbstractUserSocialAuth]] = UserSocialAuthManager()
+    objects: ClassVar[UserSocialAuthManager[Self]] = UserSocialAuthManager()
 
     class Meta:
         constraints = [models.CheckConstraint(condition=~models.Q(uid=""), name="user_social_auth_uid_required")]
@@ -51,13 +54,16 @@ class AbstractUserSocialAuth(models.Model, DjangoUserMixin):
         return str(self.user)
 
     @classmethod
-    def get_social_auth(cls, provider: str, uid: str | int):
+    def get_social_auth(cls, provider: str, uid: str | int, id_key: str | None = None):
         if not isinstance(uid, str):
             uid = str(uid)
-        for social in cls.objects.select_related("user").filter(provider=provider, uid=uid):
+        query = cls.objects.select_related("user").filter(provider=provider, uid=uid)
+        if id_key is not None:
+            query = query.filter(id_key=id_key)
+        for social in query:
             # We need to compare to filter out case-insensitive lookups in
             # some databases (MySQL/MariaDB)
-            if social.uid == uid:
+            if social.uid == uid and (id_key is None or social.id_key == id_key):
                 return social
         return None
 
@@ -65,6 +71,9 @@ class AbstractUserSocialAuth(models.Model, DjangoUserMixin):
     def username_max_length(cls):
         username_field = cls.username_field()
         field = cls.user_model()._meta.get_field(username_field)  # noqa: SLF001
+        if isinstance(field, models.UUIDField):
+            # UUIDField's storage length is 32, but hyphenated UUID strings need 36.
+            return 36
         return field.max_length
 
     @classmethod

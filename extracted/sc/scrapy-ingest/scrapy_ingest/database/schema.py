@@ -14,14 +14,27 @@ class SchemaManager:
     def __init__(self, db_connection, settings):
         self.db = db_connection
         self.settings = settings
-        mysql = getattr(settings, "db_dialect", "postgres") == "mysql"
-        self._pk = (
-            "INT NOT NULL AUTO_INCREMENT PRIMARY KEY" if mysql else "SERIAL PRIMARY KEY"
-        )
-        self._json = "JSON" if mysql else "JSONB"
-        self._bool = "BOOLEAN"
-        self._suffix = " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4" if mysql else ""
-        self._time = "`time`" if mysql else "time"
+        dialect = getattr(settings, "db_dialect", "postgres")
+        mysql = dialect == "mysql"
+        sqlite = dialect == "sqlite"
+        if sqlite:
+            self._pk = "INTEGER PRIMARY KEY AUTOINCREMENT"
+            self._json = "TEXT"
+            self._bool = "INTEGER"
+            self._suffix = ""
+            self._time = "time"
+        elif mysql:
+            self._pk = "INT NOT NULL AUTO_INCREMENT PRIMARY KEY"
+            self._json = "JSON"
+            self._bool = "BOOLEAN"
+            self._suffix = " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            self._time = "`time`"
+        else:
+            self._pk = "SERIAL PRIMARY KEY"
+            self._json = "JSONB"
+            self._bool = "BOOLEAN"
+            self._suffix = ""
+            self._time = "time"
 
     def create_jobs_table(self):
         sql = f"""

@@ -18,22 +18,21 @@ import re
 import site
 import shutil
 import stat
-import tarfile
 import time
 import threading
 
 import os.path
 
-from typing import Optional, List, Dict, Tuple, Type, Union, TYPE_CHECKING
+from typing import Optional, List, Dict, Type, Union, TYPE_CHECKING
 
-from fasteners import InterProcessLock
 from pathlib import Path, PureWindowsPath
 
 from siliconcompiler.package.cache import PathCache, DataRootResolutionError, \
     PermanentResolutionError
-from siliconcompiler.utils import get_plugins
+from siliconcompiler.utils import get_plugins, tarfile_module
 from siliconcompiler.utils.paths import cwdirsafe, datarootdir
-from siliconcompiler.utils.multiprocessing import MPManager
+from siliconcompiler.utils.multiprocessing import MPManager, FileLockTimeout, \
+    get_file_lock
 
 if TYPE_CHECKING:
     from urllib import parse as url_parse
@@ -41,12 +40,6 @@ if TYPE_CHECKING:
     from siliconcompiler.project import Project
     from siliconcompiler.schema_support.pathschema import PathSchema
     from siliconcompiler.schema import BaseSchema
-
-
-#: The extraction filters, and so the errors they raise, only exist on Python
-#: releases carrying the PEP 706 backport.
-_TAR_FILTER_ERRORS: Tuple[Type[BaseException], ...] = \
-    (tarfile.FilterError,) if hasattr(tarfile, "FilterError") else ()
 
 
 #: Registry key marking resolver population as *complete*, written only once
@@ -101,6 +94,16 @@ class Resolver:
         self.__reference = reference
         self.__changed = False
         self.__cacheid = None
+        self.__collectionid = None
+        self.__private = False
+
+        # The marker comes off the source, which is then fetched by its plain
+        # scheme; is_private is all that keeps it, and says what it means.
+        scheme = self.urlscheme
+        if scheme.endswith("+private"):
+            self.__private = True
+            _, separator, remainder = self.__source.partition(":")
+            self.__source = f"{scheme.removesuffix('+private')}{separator}{remainder}"
 
         if self.__root and hasattr(self.__root, "logger"):
             rootlogger = self.__root.logger
@@ -114,7 +117,7 @@ class Resolver:
         Scans for and registers all available resolver plugins.
 
         This method populates the internal `_RESOLVERS` dictionary with both
-        built-in resolvers (file, key, python, http, git, github, scp) and any
+        built-in resolvers (file, key, python, http, git, github, gitlab, s3, scp) and any
         resolvers provided by external plugins. Built-ins are registered first,
         so a plugin claiming the same scheme takes precedence.
 
@@ -126,7 +129,7 @@ class Resolver:
         """
         # Imported here because each of these modules imports RemoteResolver from
         # this module.
-        from siliconcompiler.package import git, github, https, scp
+        from siliconcompiler.package import git, github, gitlab, https, s3, scp
 
         settings = MPManager().get_transient_settings()
         with settings.lock_category("resolvers"):
@@ -140,8 +143,10 @@ class Resolver:
             settings.set("resolvers", "python", PythonPathResolver)
             settings.set("resolvers", "dataroot", DatarootResolver)
 
+            settings.set("resolvers", "file+private", FileResolver)
+
             builtins = (https.get_resolver, git.get_resolver, github.get_resolver,
-                        scp.get_resolver)
+                        gitlab.get_resolver, s3.get_resolver, scp.get_resolver)
             for resolver in (*builtins, *get_plugins("path_resolver")):
                 for scheme, res in resolver().items():
                     settings.set("resolvers", scheme, res)
@@ -153,6 +158,10 @@ class Resolver:
     def find_resolver(source: str) -> Type["Resolver"]:
         """
         Finds the appropriate resolver class for a given source URI.
+
+        The resolver registered for the source's scheme is asked for the one to
+        use (:meth:`subresolver`), so a scheme can hand one host's URLs to a
+        more specific class.
 
         Args:
             source (str): The source URI (e.g., 'file:///path/to/file', 'git://...').
@@ -176,9 +185,28 @@ class Resolver:
         settings = MPManager().get_transient_settings()
         resolver = settings.get("resolvers", url.scheme, None)
         if resolver:
-            return resolver
+            return resolver.subresolver(url)
 
         raise ValueError(f"Source URI '{source}' is not supported")
+
+    @classmethod
+    def subresolver(cls, url: "url_parse.ParseResult") -> Type["Resolver"]:
+        """
+        The resolver to use for ``url``, which :meth:`find_resolver` asks the
+        resolver registered for the scheme.
+
+        The base is that resolver itself. A scheme whose URLs need handling per
+        host overrides this to hand those hosts to a more specific class: an
+        archive on ``github.com`` is still ``https``, but GitHub's resolver
+        handles it.
+
+        Args:
+            url (urllib.parse.ParseResult): The parsed source URI.
+
+        Returns:
+            type: The resolver class to use.
+        """
+        return cls
 
     @property
     def name(self) -> str:
@@ -207,6 +235,29 @@ class Resolver:
         """
         return False
 
+    @property
+    def is_private(self) -> bool:
+        """
+        True if the source was registered with a ``+private`` scheme:
+        ``file+private://``, ``git+ssh+private://``, ``github+private://`` and
+        the rest.
+
+        The marker says two things:
+
+        * Fetching the source needs the user's own access, so a resolver goes
+          straight to its authenticated route: ``github://`` skips its public
+          lookup.
+        * The source must never leave this machine. A remote run is not to
+          upload it, so the server has to supply its own copy under the same
+          names, or refuse the job.
+
+        The second is the one to decide by. A private repository that this
+        machine can fetch needs no marker: unmarked, a remote run can fetch it
+        here and send it, while marked, the run depends on the server already
+        holding it.
+        """
+        return self.__private
+
     def is_permanent_failure(self, error: BaseException) -> bool:
         """
         True if ``error`` will recur identically however many times it is retried.
@@ -223,9 +274,10 @@ class Resolver:
         * :class:`~siliconcompiler.package.cache.PermanentResolutionError`, raised
           by a resolver that has itself established the answer will not change --
           an HTTP status saying the data is not there, for instance.
-        * ``tarfile.FilterError``, raised when the extraction filter refuses a
-          member of a downloaded archive. That verdict is a property of the
-          archive's contents, so a fresh copy of the same archive earns it again.
+        * The ``FilterError`` of :func:`~siliconcompiler.utils.tarfile_module`,
+          raised when the extraction filter refuses a member of a downloaded
+          archive. That verdict is a property of the archive's contents, so a
+          fresh copy of the same archive earns it again.
 
         Anything else counts as transient, deliberately: this decides how much
         effort a failure is worth, and treating a retryable error as settled costs
@@ -238,7 +290,7 @@ class Resolver:
         Returns:
             bool: True if the source should be abandoned without further attempts.
         """
-        return isinstance(error, (PermanentResolutionError, *_TAR_FILTER_ERRORS))
+        return isinstance(error, (PermanentResolutionError, tarfile_module().FilterError))
 
     @property
     def is_indirect(self) -> bool:
@@ -283,6 +335,94 @@ class Resolver:
         """The URI or path specifying the data source."""
         return self.__source
 
+    @staticmethod
+    def _masked_query(query: str) -> str:
+        """
+        A URL query with every value replaced by ``***`` and every name kept.
+
+        A field with no ``=`` is masked whole: it may be a flag, but a bare token
+        (``?<token>``) looks the same. ``;`` separates fields as ``&`` does, since
+        some servers read it that way, and a token ahead of one would otherwise
+        pass as part of a name.
+        """
+        fields = re.split(r"([&;])", query)
+        for n, field in enumerate(fields):
+            if field in ("", "&", ";"):
+                continue
+            name, separator, _ = field.partition("=")
+            fields[n] = f"{name}=***" if separator else "***"
+        return "".join(fields)
+
+    @staticmethod
+    def _masked_uri(url: str, show_userinfo: bool = True) -> str:
+        """
+        ``url`` with its credentials masked and everything else as written: the
+        userinfo shown as ``***``, or dropped if ``show_userinfo`` is False, and
+        every query value as ``***`` (see :meth:`_masked_query`).
+        """
+        from urllib import parse as url_parse
+        parts = url_parse.urlsplit(url)
+        if "@" not in parts.netloc and not parts.query:
+            return url
+
+        auth = ""
+        if show_userinfo and (parts.username or parts.password):
+            user = "***" if parts.username else ""
+            pwd = ":***" if parts.password else ""
+            auth = f"{user}{pwd}@"
+        host = parts.netloc.rpartition("@")[2]
+
+        # Joined by hand: urlunsplit drops the '//' ahead of an empty host under
+        # a scheme it does not know, so 'source:///x' would come back 'source:/x'.
+        masked = f"{parts.scheme}:" if parts.scheme else ""
+        after_scheme = url.lstrip().partition(":")[2] if parts.scheme else url.lstrip()
+        if after_scheme.startswith("//"):
+            masked += f"//{auth}{host}"
+        masked += parts.path
+        if parts.query:
+            masked += f"?{Resolver._masked_query(parts.query)}"
+        if parts.fragment:
+            masked += f"#{parts.fragment}"
+        return masked
+
+    @property
+    def source_print(self) -> str:
+        """The source URI with sensitive information masked (e.g., tokens)."""
+        return Resolver._masked_uri(self.source)
+
+    @property
+    def safe_source(self) -> str:
+        """
+        The source URI as it is safe to send off this machine: without its
+        userinfo (``user:token@``), and with every query value masked as ``***``.
+
+        A query's values are where a presigned or tokened URL keeps its
+        credential (``?X-Amz-Signature=...``, ``?access_token=...``). Its names
+        stay, masked as :attr:`source_print` masks them for a log, so the source
+        still says what it is. It no longer says enough to be fetched from.
+
+        It is built from :attr:`source` as written, so an environment variable
+        stays a name: its value could be a secret wherever in the URL it lands.
+        """
+        return Resolver._masked_uri(self.source, show_userinfo=False)
+
+    @property
+    def _cache_source(self) -> str:
+        """
+        The source as :attr:`cache_id` identifies it: expanded, and without its
+        userinfo, which says who fetches the data rather than which data it is.
+
+        Unlike :attr:`safe_source` it keeps the query's values, so two sources
+        that differ only there keep separate caches.
+        """
+        url = self.urlparse
+        netloc = url.hostname
+        if netloc and ":" in netloc:
+            netloc = f"[{netloc}]"
+        if url.port:
+            netloc = f"{netloc}:{url.port}"
+        return url._replace(netloc=netloc).geturl()
+
     @property
     def reference(self) -> Union[None, str]:
         """A version, commit hash, or tag for the source."""
@@ -326,7 +466,7 @@ class Resolver:
             import hashlib
 
             hash_obj = hashlib.sha1()
-            hash_obj.update(self.__source.encode())
+            hash_obj.update(self._cache_source.encode())
             if self.__reference:
                 hash_obj.update(self.__reference.encode())
             else:
@@ -334,6 +474,52 @@ class Resolver:
 
             self.__cacheid = hash_obj.hexdigest()
         return self.__cacheid
+
+    @property
+    def _collection_source(self) -> str:
+        """
+        The source as :attr:`collection_id` identifies it: as written, without its
+        userinfo, which says who fetches the data rather than which data it is, and
+        with every query value masked as :attr:`safe_source` masks it.
+
+        The query is masked because a manifest sent off this machine carries the
+        source as :attr:`safe_source`, and its reader must name the collection's
+        files alike. So two sources that differ only in a query value share a
+        collection, as one object presigned twice should.
+
+        It is taken apart as a string, not by ``urllib``, whose parsing has changed
+        between Python releases.
+        """
+        scheme, sep, rest = self.source.partition("://")
+        if not sep:
+            return self.source
+        end = min([rest.find(c) for c in "/?#" if c in rest], default=len(rest))
+        tail, hash_sep, fragment = rest[end:].partition("#")
+        path, query_sep, query = tail.partition("?")
+        if query_sep:
+            path = f"{path}?{Resolver._masked_query(query)}"
+        return f"{scheme}://{rest[:end].rpartition('@')[2]}{path}{hash_sep}{fragment}"
+
+    @property
+    def collection_id(self) -> str:
+        """
+        An ID for this resolver's data that is the same on every machine, used to
+        name its files in a collection.
+
+        A collection is written on one machine and read on another: a remote
+        server, a container, wherever an issue testcase is unpacked. :attr:`cache_id`
+        identifies where the data is on this machine, so it expands environment
+        variables and a relative path, and the reader would compute another. This
+        ID is computed only from the source and reference as the manifest records
+        them.
+        """
+        if self.__collectionid is None:
+            import hashlib
+
+            payload = json.dumps([self._collection_source, self.__reference or ""],
+                                 ensure_ascii=False, separators=(',', ':'))
+            self.__collectionid = hashlib.sha1(payload.encode('utf-8')).hexdigest()
+        return self.__collectionid
 
     def set_changed(self):
         """Marks the resolved data as having been changed."""
@@ -358,7 +544,7 @@ class Resolver:
 
     def __abandoned_message(self, cache: PathCache) -> str:
         """Builds the error text used when a data source is given up on."""
-        source = self.source
+        source = self.source_print
         if self.reference:
             source = f"{source} ({self.reference})"
         if cache.is_permanent(self.cache_id):
@@ -490,15 +676,34 @@ class RemoteResolver(Resolver):
 
         # Wait a maximum of 10 minutes for other processes to finish
         self.__max_lock_wait: int = 60 * 10
+        # Give up on a remote server once it has gone a minute without answering
+        self.__request_timeout: int = 60
 
     @property
-    def timeout(self) -> int:
+    def lock_timeout(self) -> int:
         """The maximum time in seconds to wait for a lock."""
         return self.__max_lock_wait
 
-    def set_timeout(self, value: int) -> None:
+    def set_lock_timeout(self, value: int) -> None:
         """Sets the maximum time in seconds to wait for a lock."""
         self.__max_lock_wait = value
+
+    @property
+    def request_timeout(self) -> int:
+        """
+        The maximum time in seconds a request to a remote server may wait to
+        connect, or between one part of the answer and the next.
+
+        It bounds a stall, not a transfer: a large download that keeps arriving
+        takes as long as it takes. A request that times out is retried, as a
+        dropped connection is.
+        """
+        return self.__request_timeout
+
+    def set_request_timeout(self, value: int) -> None:
+        """Sets the maximum time in seconds a request to a remote server may
+        stall (see :attr:`request_timeout`)."""
+        self.__request_timeout = value
 
     @property
     def cache_dir(self) -> Path:
@@ -522,22 +727,18 @@ class RemoteResolver(Resolver):
     @property
     def lock_file(self) -> Path:
         """The path to the file used for inter-process locking."""
-        cache_dir = self.cache_dir
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir, exist_ok=True)
-
-        return self.cache_dir / f"{self.cache_name}.lock"
+        return Path(get_file_lock(self.cache_path).lock_path)
 
     @property
     def sc_lock_file(self) -> Path:
         """
         The path to a secondary lock file used as a fallback mechanism.
-        """
-        cache_dir = self.cache_dir
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir, exist_ok=True)
 
-        return self.cache_dir / f"{self.cache_name}.sc_lock"
+        Where the filesystem cannot lock :attr:`lock_file`, the lock is held by
+        creating this file instead (see
+        :attr:`~siliconcompiler.utils.multiprocessing.FileLock.fallback_path`).
+        """
+        return Path(get_file_lock(self.cache_path).fallback_path)
 
     def thread_lock(self) -> threading.Lock:
         """
@@ -558,7 +759,7 @@ class RemoteResolver(Resolver):
         lock = self.thread_lock()
         lock_acquired = False
         try:
-            timeout = self.timeout
+            timeout = self.lock_timeout
             while timeout > 0:
                 if lock.acquire_lock(timeout=1):
                     lock_acquired = True
@@ -582,38 +783,29 @@ class RemoteResolver(Resolver):
 
     @contextlib.contextmanager
     def __file_lock(self):
-        """A context manager for acquiring the inter-process file lock."""
-        data_path_lock = InterProcessLock(self.lock_file)
-        lock_acquired = False
-        sc_data_path_lock = None
-        try:
-            try:
-                lock_acquired = data_path_lock.acquire(timeout=self.timeout)
-            except (OSError, RuntimeError):
-                if not lock_acquired:
-                    sc_data_path_lock = Path(self.sc_lock_file)
-                    max_seconds = self.timeout
-                    while sc_data_path_lock.exists():
-                        if max_seconds == 0:
-                            raise RuntimeError(f'Failed to access {self.cache_path}. '
-                                               f'Lock {sc_data_path_lock} still exists.')
-                        time.sleep(1)
-                        max_seconds -= 1
-                    sc_data_path_lock.touch()
-                    lock_acquired = True
-            if lock_acquired:
-                yield
-        finally:
-            if lock_acquired:
-                if data_path_lock.acquired:
-                    data_path_lock.release()
-                if sc_data_path_lock:
-                    sc_data_path_lock.unlink(missing_ok=True)
+        """
+        A context manager for acquiring the inter-process file lock.
 
-        if not lock_acquired:
+        The process's shared lock on :attr:`lock_file` (see
+        :func:`~siliconcompiler.utils.multiprocessing.get_file_lock`), so the
+        cache sweep in another thread sees a download in progress. Where the
+        filesystem cannot lock files, it is held as :attr:`sc_lock_file`
+        instead.
+        """
+        lock = get_file_lock(self.cache_path)
+        try:
+            lock.acquire(self.lock_timeout)
+        except FileLockTimeout as e:
+            if e.fallback:
+                raise RuntimeError(f'Failed to access {self.cache_path}. '
+                                   f'Lock {e.fallback} still exists.') from None
             raise RuntimeError(f'Failed to access {self.cache_path}. '
                                f'{self.lock_file} is still locked. If this is a mistake, '
-                               'please delete the lock file.')
+                               'please delete the lock file.') from None
+        try:
+            yield
+        finally:
+            lock.release()
 
     @contextlib.contextmanager
     def lock(self):
@@ -732,7 +924,7 @@ class RemoteResolver(Resolver):
         will not create a dirty warning in git repositories.
 
         Any directory named ``.git`` is skipped so git's internal state (including
-        ``.git/lfs/tmp`` and per-submodule ``.git/modules/<name>``) stays writable —
+        ``.git/lfs/tmp`` and per-submodule ``.git/modules/<name>``) stays writable --
         otherwise routine git operations like diff/status fail on LFS-tracked repos
         because the clean filter cannot buffer through ``.git/lfs/tmp``.
 
@@ -789,6 +981,61 @@ class RemoteResolver(Resolver):
             new_mode = current_mode | stat.S_IWUSR
             os.chmod(path, new_mode)
 
+    @staticmethod
+    def _host_forge(hostname: Optional[str]) -> Optional[str]:
+        """
+        Identifies which forge a hostname belongs to.
+
+        Matches whole dot-separated labels, so a self-hosted instance
+        (``gitlab.example.com``, ``github.mycorp.com``) is recognised while an
+        unrelated host that merely contains the name (``mygithub.internal``) is
+        not. Not an ownership check: see :meth:`_saas_forge` for that.
+
+        Args:
+            hostname (str or None): The host from the source URL.
+
+        Returns:
+            str or None: The forge key, or None if the host is unrecognised.
+        """
+        if not hostname:
+            return None
+        labels = hostname.lower().split('.')
+        for forge in ("github", "gitlab", "bitbucket"):
+            if forge in labels:
+                return forge
+        return None
+
+    @staticmethod
+    def _saas_forge(hostname: Optional[str]) -> Optional[str]:
+        """
+        Identifies a forge's own hosted service, by exact domain.
+
+        This is the ownership check that decides whether a forge's own variables
+        -- ``GITHUB_TOKEN`` and the rest, set ambiently on CI runners and
+        developer machines -- may be sent to a host. It is deliberately stricter
+        than :meth:`_host_forge`. Matching a forge name in any label is fine for
+        choosing a username, or how to unpack an archive -- neither is a secret
+        -- but it is not evidence of who owns a host, and
+        ``gitlab.attacker.example`` must not be handed the ambient
+        ``GITLAB_TOKEN``. A self-hosted instance supplies its credential through
+        a generic variable, or through a username in the URL.
+
+        Args:
+            hostname (str or None): The host from the source URL.
+
+        Returns:
+            str or None: The forge key, or None if the host is not that forge's.
+        """
+        if not hostname:
+            return None
+        host = hostname.lower()
+        for forge, domain in (("github", "github.com"),
+                              ("gitlab", "gitlab.com"),
+                              ("bitbucket", "bitbucket.org")):
+            if host == domain or host.endswith(f".{domain}"):
+                return forge
+        return None
+
     def _get_auth_token(self, prefix: List[str]) -> str:
         """
         Retrieves an authentication token from environment variables.
@@ -825,25 +1072,58 @@ class RemoteResolver(Resolver):
 
 class FileResolver(Resolver):
     """
-    A resolver for local file system paths.
+    A directory on this machine.
 
-    It handles both absolute paths and paths relative to the project's CWD.
-    It normalizes the source string to a `file://` URI.
+    Format:
+        ``<path>`` or ``file://<path>``
+
+        A relative path is relative to the project's working directory. Given a
+        file -- most often ``__file__`` -- ``set_dataroot`` roots the dataroot at
+        the directory holding it, so a design's files are found wherever the
+        script defining it is run from. A path that starts with an environment
+        variable is how foundry data is referenced without committing its
+        location.
+
+    Example:
+        .. code-block:: python
+
+            design.set_dataroot("heartbeat", __file__)
+            design.set_dataroot("foundry", "$FOUNDRY_ROOT/pdk/v1")
     """
 
     def __init__(self, name: str, schema: "Project", source: str, reference: Optional[str] = None):
+        is_private = False
         if source.startswith("file://"):
             source = source[7:]
+        elif source.startswith("file+private://"):
+            is_private = True
+            source = source[15:]
+        self.__recorded = source
         if source[0] != "$" and not os.path.isabs(source):
             source = os.path.join(cwdirsafe(schema._parent(root=True)), source)
 
-        super().__init__(name, schema, f"file://{source}", None)
+        super().__init__(name, schema, f"file{'+private' if is_private else ''}://{source}", None)
 
     @property
     def urlpath(self) -> str:
         """The absolute file path, stripped of the 'file://' prefix."""
         # Rebuild URL and remove scheme prefix
         return self.urlparse.geturl()[7:]
+
+    @property
+    def safe_source(self) -> str:
+        # A path has no userinfo or query: an '@' or a '?' in it is part of a
+        # name, and a Windows drive would read as a host.
+        return self.source
+
+    @property
+    def _cache_source(self) -> str:
+        return self.urlparse.geturl()
+
+    @property
+    def _collection_source(self) -> str:
+        # As recorded: a relative path is not joined to this machine's cwd
+        return f"file://{self.__recorded}"
 
     def resolve(self) -> str:
         """Returns the absolute path to the file."""
@@ -855,11 +1135,25 @@ class FileResolver(Resolver):
 
 class PythonPathResolver(Resolver):
     """
-    A resolver for locating installed Python packages.
+    A directory inside an installed Python package.
 
-    This resolver uses Python's import machinery to find the installation
-    directory of a given Python module. It also includes helper methods to
-    determine if a package is installed in "editable" mode.
+    Format:
+        ``python://<module>`` or ``python://<module>/<path>``
+
+        ``<module>`` is imported, and stands for the directory holding it -- for
+        a package, the package's own directory -- so the data is found wherever
+        the package is installed. ``<path>`` names a directory inside it; it is
+        not imported, and need not be a package.
+
+        A package whose data does not ship in its wheel can call
+        ``PythonPathResolver.set_dataroot`` instead, which picks ``python://``
+        for an editable install and a fallback source, typically a git
+        repository keyed to the package version, for any other.
+
+    Example:
+        .. code-block:: python
+
+            design.set_dataroot("mylib", "python://mylib/data")
     """
 
     def __init__(self, name: str, schema: "Project", source: str, reference: Optional[str] = None):
@@ -967,22 +1261,37 @@ class PythonPathResolver(Resolver):
 
     def resolve(self) -> str:
         """
-        Resolves the path to the specified Python module.
+        Resolves the path to the specified Python module, or to a directory
+        inside it when the source names one, as in
+        ``python://siliconcompiler/tools/openroad``.
 
         Returns:
-            str: The absolute path to the module's directory.
+            str: The absolute path to the module's directory, or to the
+            directory named inside it.
         """
         module = importlib.import_module(self.urlpath)
         python_path = os.path.dirname(module.__file__)
-        return os.path.abspath(python_path)
+        # A path, not a submodule: it is not imported, and need not be a package
+        return os.path.abspath(os.path.join(python_path, self.urlparse.path.lstrip("/")))
 
 
 class KeyPathResolver(Resolver):
     """
-    A resolver for finding file paths stored within the project schema itself.
+    The directory another schema parameter names.
 
-    This resolver takes a keypath (e.g., 'tool,openroad,exe') and uses the
-    `find_files` method of the root project object to locate the corresponding file.
+    Format:
+        ``key://<keypath>``
+
+        ``<keypath>`` is a comma-separated keypath from the project, such as
+        ``library,<design>,fileset,rtl,idir``, and the dataroot is the first path
+        that parameter holds. A parameter set per node is read for the step and
+        index being run. The dataroot follows the parameter: change it, and the
+        files rooted here move with it.
+
+    Example:
+        .. code-block:: python
+
+            design.set_dataroot("includes", "key://library,mydesign,fileset,rtl,idir")
     """
 
     @property
@@ -1021,7 +1330,22 @@ class KeyPathResolver(Resolver):
 
 class DatarootResolver(Resolver):
     """
-    A resolver for finding file paths stored with other dataroots.
+    A directory inside another dataroot.
+
+    Format:
+        ``dataroot://<name>`` or ``dataroot://<name>/<path>``
+
+        ``<name>`` is another dataroot defined alongside this one, resolved by
+        its own scheme and ``tag``, and ``<path>`` is a directory inside it. One
+        remote source can then be split into several dataroots while its URL and
+        tag are written once. A chain of dataroots that leads back to itself is
+        an error.
+
+    Example:
+        .. code-block:: python
+
+            design.set_dataroot("pdk", "git+https://github.com/org/pdk.git", tag="v1.0")
+            design.set_dataroot("pdk-lef", "dataroot://pdk/lef")
     """
 
     @property
@@ -1037,30 +1361,21 @@ class DatarootResolver(Resolver):
         # Track visited dataroots passed from parent resolver for cycle detection
         self._parent_visited: Optional[set] = None
 
-    def resolve(self) -> str:
+    def __target(self) -> Resolver:
         """
-        Resolves a dataroot by looking up its configured path and resolving it.
-
-        This resolver looks up a dataroot by name in the dataroot registry, retrieves
-        its configured path (which may be a file://, python://, or another dataroot://),
-        and resolves that path using the appropriate resolver. This allows dataroots
-        to reference other dataroots, forming resolution chains.
-
-        Returns:
-            str: The resolved absolute path for the dataroot.
+        The resolver for the dataroot this one names.
 
         Raises:
-            RuntimeError: If the resolver does not have a root project object defined,
-                if the dataroot is not defined in the registry, or if a circular
+            RuntimeError: If the resolver does not have a schema context, if the
+                dataroot is not defined in the registry, or if a circular
                 dataroot reference is detected during resolution.
         """
-        source_schema = self.schema
-        if not source_schema:
+        if not self.schema:
             raise RuntimeError(f"A schema context is required for '{self.display_name}'")
 
-        datarootstore = self.schema._parent()
-        if not datarootstore:
-            raise RuntimeError(f"A root schema has not been defined for '{self.display_name}'")
+        # The registry the dataroot naming this one came from, wherever its
+        # schema sits: a design inside a project as well as on its own
+        datarootstore = self.schema._dataroot_section()
 
         find_root = self.urlpath
         if not datarootstore.valid('dataroot', self.urlpath):
@@ -1089,7 +1404,38 @@ class DatarootResolver(Resolver):
         if isinstance(resolver_instance, DatarootResolver):
             resolver_instance._parent_visited = visited_copy
 
-        base_path = resolver_instance.get_path()
+        return resolver_instance
+
+    @property
+    def _collection_source(self) -> str:
+        # The name means another dataroot in every schema, so the dataroot it
+        # names identifies it. One that cannot be found, as in a cycle, leaves
+        # the source as written, so a file found without it is still collected
+        try:
+            target = self.__target()
+        except RuntimeError:
+            return super()._collection_source
+        subpath = self.source.partition("://")[2].partition("/")[2]
+        return f"dataroot://{target.collection_id}/{subpath}"
+
+    def resolve(self) -> str:
+        """
+        Resolves a dataroot by looking up its configured path and resolving it.
+
+        This resolver looks up a dataroot by name in the dataroot registry, retrieves
+        its configured path (which may be a file://, python://, or another dataroot://),
+        and resolves that path using the appropriate resolver. This allows dataroots
+        to reference other dataroots, forming resolution chains.
+
+        Returns:
+            str: The resolved absolute path for the dataroot.
+
+        Raises:
+            RuntimeError: If the resolver does not have a schema context, if the
+                dataroot is not defined in the registry, or if a circular
+                dataroot reference is detected during resolution.
+        """
+        base_path = self.__target().get_path()
         # Strip leading '/' from urlparse.path to avoid os.path.join treating it as absolute
         subpath = self.urlparse.path.lstrip('/')
         return os.path.join(base_path, subpath) if subpath else base_path

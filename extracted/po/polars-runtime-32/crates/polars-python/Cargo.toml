@@ -10,10 +10,12 @@ description = "Enable running Polars workloads in Python"
 readme = "README.md"
 
 [dependencies]
+polars-arrow = { workspace = true }
 polars-buffer = { workspace = true }
 polars-compute = { workspace = true }
 polars-config = { workspace = true }
 polars-core = { workspace = true, features = ["python"] }
+polars-defs = { workspace = true }
 polars-descriptions = { workspace = true, optional = true }
 polars-dtype = { workspace = true }
 polars-error = { workspace = true }
@@ -34,7 +36,6 @@ polars-time = { workspace = true }
 polars-utils = { workspace = true, features = ["python"] }
 
 arboard = { workspace = true, optional = true }
-arrow = { workspace = true }
 bincode = { workspace = true }
 bytemuck = { workspace = true }
 bytes = { workspace = true }
@@ -64,6 +65,7 @@ workspace = true
 features = [
   "abs",
   "approx_unique",
+  "approx_quantile",
   "arg_where",
   "bitwise",
   "business",
@@ -81,6 +83,7 @@ features = [
   "dtype-categorical",
   "dtype-extension",
   "dtype-full",
+  "dtype-map",
   "dynamic_group_by",
   "ewma",
   "ewma_by",
@@ -206,6 +209,7 @@ streaming = [
 ]
 bitwise = ["polars/bitwise"]
 approx_unique = ["polars/approx_unique"]
+approx_quantile = ["polars/approx_quantile"]
 string_normalize = ["polars/string_normalize"]
 
 dtype-i8 = []
@@ -216,10 +220,12 @@ dtype-i128 = []
 dtype-u128 = []
 dtype-array = []
 dtype-f16 = []
+dtype-map = []
 object = ["polars/object"]
 
 dtypes = [
   "dtype-array",
+  "dtype-map",
   "dtype-i16",
   "dtype-i8",
   "dtype-u16",
@@ -232,6 +238,7 @@ dtypes = [
 
 operations = [
   "approx_unique",
+  "approx_quantile",
   "array_count",
   "bitwise",
   "is_in",

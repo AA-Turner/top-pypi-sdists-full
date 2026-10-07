@@ -90,7 +90,8 @@ class Dialect(BaseDialect):
             is_date = False
             is_time = False
         if isinstance(coltype, Date) or is_date:
-            return f"({value}::varchar)"
+            # Explicit, since a cast follows the session's DATE_OUTPUT_FORMAT
+            return f"TO_CHAR({value}, 'YYYY-MM-DD')"
         elif isinstance(coltype, Time) or is_time:
             microseconds = f"TIMEDIFF(microsecond, cast('00:00:00' as time), {value})"
             rounded = f"round({microseconds}, -6 + {coltype.precision})"

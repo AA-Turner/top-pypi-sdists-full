@@ -1,15 +1,15 @@
 use std::borrow::Cow;
 
 use nom::{
+	AsChar, IResult, Parser,
 	bytes::{tag, take_while1},
 	character::{char, complete::u64},
 	combinator::opt,
 	error::ParseError,
 	sequence::delimited,
-	AsChar, IResult, Parser,
 };
 
-use crate::{unparse::Unparse, Input};
+use crate::{Input, unparse::Unparse};
 
 pub const OPEN_DELIMITER: &str = "<";
 pub const CLOSE_DELIMITER: &str = ">";
@@ -64,7 +64,7 @@ where
 
 #[cfg(test)]
 mod test {
-	use nom::{combinator::all_consuming, Finish, Parser};
+	use nom::{Finish, Parser, combinator::all_consuming};
 
 	use super::parse;
 	use crate::{test_utils::handle_nom_err, unparse::Unparse};

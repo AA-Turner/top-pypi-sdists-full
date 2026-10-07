@@ -128,7 +128,9 @@ CHILD_ENV_ALLOWLIST: tuple[ProjectedVar, ...] = (
     ProjectedVar(
         "PYTORCH_CUDA_ALLOC_CONF",
         "plan.allocator_policy",
-        "the CUDA caching allocator reads this once at init; late imposition is a no-op",
+        "REPORTED, never projected: torch's allocator is set in code at the accelerator's init "
+        "(`accel.ALLOCATOR`). An older machine still imposes this name and refuses an executor "
+        "whose seal report lacks it, so the report keeps it; nothing here reads it",
     ),
     ProjectedVar(
         "OMP_NUM_THREADS",

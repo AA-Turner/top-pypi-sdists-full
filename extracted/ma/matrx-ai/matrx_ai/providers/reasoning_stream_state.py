@@ -50,6 +50,7 @@ class ReasoningStreamState:
     __slots__ = (
         "open",
         "signaled",
+        "answered",
         "started_ids",
         "signaled_ids",
         "block_text",
@@ -62,6 +63,9 @@ class ReasoningStreamState:
     def reset(self) -> None:
         self.open: bool = False
         self.signaled: bool = False
+        # Gemini: answer content (text / media / tool call) has streamed, so a
+        # later bare thought_signature is the trailing signature, not reasoning.
+        self.answered: bool = False
         self.started_ids: dict[str, bool] = {}
         self.signaled_ids: set[str] = set()
         self.block_text: dict[int, list[str]] = {}

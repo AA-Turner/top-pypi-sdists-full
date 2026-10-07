@@ -249,6 +249,14 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     ): "retiring with the experiment routes; the client reads it at the project address",
     ("POST", "/v1/sessions/{}/anchors"): "explicit dashboard session association; historical backfill keeps sessions standalone",
     ("GET", "/v1/sessions/{}/artifacts/tree"): "dashboard lazy browsing of session artifacts",
+    # The workspace canvas (dashboard home page): a drawing's worth of boxes,
+    # cards and arrows, shaped for one screen. The SDK, CLI and MCP read the
+    # same facts per entity (`/v1/projects/{}/lineage`, `/v1/runs/{}/edges`).
+    ("GET", "/v1/workspaces/{}/canvas"): "dashboard home canvas; clients read lineage per entity",
+    (
+        "GET",
+        "/v1/workspaces/{}/canvas/experiments/{}",
+    ): "dashboard home canvas; clients read lineage per entity",
     ("GET", "/v1/sessions/{}/receipts"): "authenticated operator receipt inspection; the capture producer uses the device-scoped endpoint",
     ("GET", "/ingest/v1/sessions/{}/{}/receipts"): "paired-device protocol, reached by tap_core.session_journal.Wire through urllib rather than the SDK transport",
     # PRB-011: this route is now `include_in_schema=False`, so it is absent from a
@@ -708,11 +716,19 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
 # the next backend fold that lands ahead of the client goes here, with a pointer to
 # what will close it, instead of being quietly absorbed into "not our job".
 PENDING: dict[Op, str] = {
+    # Surfaced 2026-10-06 by the `dump-openapi` that accompanied the session
+    # trajectory route: the experiment-scoped sessions list exists on the server
+    # but no client lane calls it yet.
+    ("GET", "/v1/projects/{}/experiments/{}/sessions"): "experiment sessions list; no client lane yet",
     # The companion daemon's model gateway (research-os companion-server
     # branch). The daemon that calls it is built on its own branch; when it
     # lands, `test_allowlisted_operations_are_still_unreachable` fails here
     # and this entry is deleted with it.
     ("POST", "/v1/companion/complete"): "companion daemon lane; its client ships separately",
+    # Surfaced 2026-10-06 by the `dump-openapi` that accompanied the workspace
+    # canvas reads: the daemon's ML gate (#2385) shipped on the backend while
+    # the checked-in schema sat stale. Same lane and story as `complete` above.
+    ("POST", "/v1/companion/classify"): "companion daemon ML gate (#2385); its client ships separately",
     # Surfaced 2026-09-21 by the `dump-openapi` that accompanied the
     # `summary_markdown` retirement (0220), second batch: main landed the
     # workspace/project access routes (#1769) while this branch was out. Newly

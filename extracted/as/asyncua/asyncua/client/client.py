@@ -235,6 +235,10 @@ class Client:
         """
         self._locale = locale
 
+    def set_max_concurrent_requests(self, max_concurrent_requests: int) -> None:
+        """Set the maximum number of requests sent concurrently."""
+        self.uaclient.set_max_concurrent_requests(max_concurrent_requests)
+
     async def set_security_string(self, string: str) -> None:
         """
         Set SecureConnection mode.
@@ -886,7 +890,7 @@ class Client:
             await self._wait_for_health_signal()
             if self.uaclient.state is not UaClientState.CONNECTED:
                 raise ConnectionError("transport lost")
-        except (ConnectionError, OSError, asyncio.TimeoutError, ua.UaStatusCodeError) as exc:
+        except (OSError, asyncio.TimeoutError, ua.UaStatusCodeError) as exc:
             return exc
         return None
 

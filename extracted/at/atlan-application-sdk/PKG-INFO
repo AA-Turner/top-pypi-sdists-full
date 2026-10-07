@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: atlan-application-sdk
-Version: 3.41.0
+Version: 3.42.1
 Summary: Atlan Application SDK is a Python library for developing applications on the Atlan Platform
 Project-URL: Repository, https://github.com/atlanhq/application-sdk
 Project-URL: Documentation, https://github.com/atlanhq/application-sdk/README.md
@@ -22,14 +22,14 @@ Requires-Python: >=3.11
 Requires-Dist: aiohttp<4.0.0,>=3.10.0
 Requires-Dist: azure-identity>=1.15.0
 Requires-Dist: boto3<2.0.0,>=1.38.6
-Requires-Dist: fastapi[standard]<0.142.0,>=0.141.1
+Requires-Dist: fastapi[standard]<0.143.0,>=0.142.2
 Requires-Dist: google-auth<3.0.0,>=2.0.0
 Requires-Dist: httpx-retries<0.7.0,>=0.6.0
 Requires-Dist: loguru<0.8.0,>=0.7.3
 Requires-Dist: obstore<0.12.0,>=0.11.0
-Requires-Dist: opentelemetry-exporter-otlp<2.0.0,>=1.41.1
-Requires-Dist: opentelemetry-exporter-prometheus<0.63,>=0.62b1
-Requires-Dist: opentelemetry-instrumentation-fastapi<0.63,>=0.62b1
+Requires-Dist: opentelemetry-exporter-otlp<2.0.0,>=1.45.0
+Requires-Dist: opentelemetry-exporter-prometheus<0.67,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.67,>=0.66b0
 Requires-Dist: orjson<4.0.0,>=3.11.6
 Requires-Dist: packaging>=24.0
 Requires-Dist: prometheus-client<1.0,>=0.20.0
@@ -37,8 +37,9 @@ Requires-Dist: pyatlan<12,>=11.3
 Requires-Dist: pydantic<3.0.0,>=2.10.6
 Requires-Dist: python-dotenv<2.0.0,>=1.1.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.2
+Requires-Dist: rocksdict<0.4.0,>=0.3.0
 Requires-Dist: temporalio<2.0.0,>=1.25.0
-Requires-Dist: uvloop<0.23.0,>=0.21.0; sys_platform != 'win32'
+Requires-Dist: uvloop<0.24.0,>=0.23.0; sys_platform != 'win32'
 Provides-Extra: azure
 Requires-Dist: azure-identity>=1.15.0; extra == 'azure'
 Requires-Dist: azure-storage-blob>=12.19.0; extra == 'azure'
@@ -60,7 +61,6 @@ Requires-Dist: duckdb-engine<0.18.0,>=0.17.0; extra == 'incremental'
 Requires-Dist: duckdb<1.6.0,>=1.1.3; extra == 'incremental'
 Requires-Dist: pandas<3.0.0,>=2.2.3; extra == 'incremental'
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == 'incremental'
-Requires-Dist: rocksdict>=0.3.0; extra == 'incremental'
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.36; extra == 'incremental'
 Provides-Extra: mcp
 Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == 'mcp'
@@ -79,7 +79,7 @@ Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.36; extra == 'sql'
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.36; extra == 'sqlalchemy'
 Provides-Extra: storage
-Requires-Dist: rocksdict>=0.3.0; extra == 'storage'
+Requires-Dist: rocksdict<0.4.0,>=0.3.0; extra == 'storage'
 Provides-Extra: tests
 Requires-Dist: httpx<0.29.0,>=0.27.0; extra == 'tests'
 Requires-Dist: pandera[io]<0.34.0,>=0.33.1; extra == 'tests'

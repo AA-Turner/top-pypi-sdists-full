@@ -856,7 +856,7 @@ class ResearchOSSource:
         if path_prefix:
             params["path_prefix"] = path_prefix
         if cursor:
-            params["cursor"] = cursor  # harness-literal-ok: the pagination cursor
+            params["cursor"] = cursor
         return self.client.transport.get(
             f"/v1/runs/{run_id}/sandbox-state/diff", params=params
         )
@@ -927,7 +927,7 @@ class ResearchOSSource:
         if active:
             params["active"] = "true"
         if cursor:
-            params["cursor"] = cursor  # harness-literal-ok: the pagination cursor
+            params["cursor"] = cursor
         if exclude_origin_session is not None:
             params["exclude_origin_session"] = exclude_origin_session
         page = self.client.list_runs(

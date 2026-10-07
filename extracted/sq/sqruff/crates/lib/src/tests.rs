@@ -50,6 +50,26 @@ fn test_dialect_ansi_file_lex() {
 }
 
 #[test]
+fn test_dialect_ansi_unlexable_error_message() {
+    let tables = Tables::default();
+    let linter = Linter::new(Default::default(), None, None, false).unwrap();
+    let parsed = linter
+        .parse_string(&tables, "SELECT ¡ FROM t", None)
+        .unwrap();
+
+    let lex_errors: Vec<_> = parsed
+        .violations
+        .iter()
+        .filter(|error| error.rule_code() == "LXR")
+        .collect();
+    assert_eq!(lex_errors.len(), 1);
+    assert_eq!(
+        lex_errors[0].description,
+        "Unable to lex characters: '¡ FROM t'"
+    );
+}
+
+#[test]
 fn test_dialect_ansi_specific_segment_parses() {
     let cases = [
         ("SELECT", "select"),
@@ -240,11 +260,11 @@ fn test_dialect_ansi_parse_indented_joins() {
     let cases = [
         (
             "select field_1 from my_table as alias_1",
-            [1, 5, 8, 11, 15, 16, 17].as_slice(),
+            [1, 4, 8, 11, 15, 16, 17].as_slice(),
         ),
         (
             "select field_1 from my_table as alias_1 join foo using (field_1)",
-            [1, 5, 8, 11, 15, 17, 19, 23, 24, 26, 29, 31, 33, 34, 35].as_slice(),
+            [1, 4, 8, 11, 15, 17, 19, 23, 24, 26, 29, 31, 33, 34, 35].as_slice(),
         ),
     ];
     let lnt = Linter::new(
@@ -365,6 +385,7 @@ fn test_reindent_no_false_positive_in_jinja_for_loop() {
     // module imports `sqruff_lib` as an external crate at the top of the file).
     let rendered = crate::core::linter::common::RenderedFile {
         templated_file,
+        alternate_templated_files: Vec::new(),
         templater_violations: vec![],
         filename: "a.sql".to_string(),
         source_str: source.to_string(),
@@ -619,6 +640,7 @@ fn test_lt12_reports_missing_source_newline_after_jinja_block() {
 
     let rendered = crate::core::linter::common::RenderedFile {
         templated_file,
+        alternate_templated_files: Vec::new(),
         templater_violations: vec![],
         filename: "a.sql".to_string(),
         source_str: source.to_string(),
@@ -640,6 +662,79 @@ fn test_lt12_reports_missing_source_newline_after_jinja_block() {
         .map(|v| (v.line_no, v.line_pos))
         .collect();
     assert!(!lt12.is_empty(), "expected LT12 violation");
+}
+
+/// Ports the SQLFluff regression test for the LT02/LT04 interaction where the
+/// rebreak logic previously deleted dedent markers alongside the preceding
+/// whitespace, leaving indentation adrift after the comma was relocated.
+///
+/// See <https://github.com/sqlfluff/sqlfluff/pull/6068>.
+#[test]
+fn test_rules_std_lt02_lt04_interaction_indentation_leading() {
+    let config = FluffConfig::from_source(
+        r#"
+[sqruff]
+dialect = snowflake
+rules = LT02, LT04
+
+[sqruff:layout:type:comma]
+spacing_before = touch
+line_position = leading
+"#,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+
+    let in_sql = "SELECT
+    acct_id,
+    date_x,
+    't' AS test,
+
+    CASE
+        WHEN condition_1 = '1' THEN ''
+        ELSE condition_1
+    END AS case_1,
+
+    CASE
+        WHEN condition_2 = '2' THEN ''
+        ELSE condition_2
+    END AS case_2,
+    dollar_amt,
+FROM
+    table_x";
+
+    let out_sql = "SELECT
+    acct_id
+    , date_x
+    , 't' AS test
+
+    , CASE
+        WHEN condition_1 = '1' THEN ''
+        ELSE condition_1
+    END AS case_1
+
+    , CASE
+        WHEN condition_2 = '2' THEN ''
+        ELSE condition_2
+    END AS case_2
+    , dollar_amt,
+FROM
+    table_x";
+
+    let linted = lnt.lint_string_wrapped(in_sql, true).unwrap();
+
+    let rule_codes: std::collections::HashSet<_> = linted
+        .violations()
+        .iter()
+        .map(|v| v.rule_code().to_string())
+        .collect();
+    assert_eq!(
+        rule_codes,
+        std::collections::HashSet::from(["LT04".to_string()]),
+        "only LT04 should fire once the fix skips dedent segments",
+    );
+
+    assert_eq!(linted.fix_string(), out_sql);
 }
 
 #[test]
@@ -665,6 +760,149 @@ fn test_sqlite_create_temp_view_body_indent() {
         linted.fix_string(),
         "CREATE TEMP VIEW IF NOT EXISTS view_name AS\nSELECT\n    col1,\n    col2\nFROM\n    table_name;\n"
     );
+}
+
+/// Ports the SQLFluff regression test for the ST05/LT08 interaction where
+/// safely moved CTEs must retain their ordering and duplicate aliases must
+/// remain untouched.
+///
+/// See <https://github.com/sqlfluff/sqlfluff/issues/5265>.
+#[test]
+fn test_rules_std_st05_lt08_cte_ordering() {
+    let config = FluffConfig::from_source(
+        r#"
+[sqruff]
+dialect = ansi
+rules = ST05, LT08
+"#,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql = "
+WITH
+cte1 AS (
+    SELECT COUNT(*) AS qty
+    FROM some_table AS st
+    LEFT JOIN (
+        SELECT 'first' AS id
+    ) AS oops
+    ON st.id = oops.id
+),
+cte2 AS (
+    SELECT COUNT(*) AS other_qty
+    FROM other_table AS sot
+    LEFT JOIN (
+        SELECT 'middle' AS id
+    ) AS another
+    ON sot.id = another.id
+    LEFT JOIN (
+        SELECT 'last' AS id
+    ) AS oops
+    ON sot.id = oops.id
+)
+SELECT CURRENT_DATE();
+";
+    let expected = "
+WITH oops AS (
+        SELECT 'first' AS id
+    ),
+
+cte1 AS (
+    SELECT COUNT(*) AS qty
+    FROM some_table AS st
+    LEFT JOIN oops
+    ON st.id = oops.id
+),
+
+another AS (
+        SELECT 'middle' AS id
+    ),
+
+cte2 AS (
+    SELECT COUNT(*) AS other_qty
+    FROM other_table AS sot
+    LEFT JOIN another
+    ON sot.id = another.id
+    LEFT JOIN (
+        SELECT 'last' AS id
+    ) AS oops
+    ON sot.id = oops.id
+)
+
+SELECT CURRENT_DATE();
+";
+
+    let linted = lnt.lint_string_wrapped(sql, true).unwrap();
+    assert_eq!(linted.fix_string(), expected);
+}
+
+/// Ports the SQLFluff regression test for the ST05/LT09 interaction where a
+/// moved nested table must be created before the CTE that first uses it.
+///
+/// See <https://github.com/sqlfluff/sqlfluff/issues/4137>.
+#[test]
+fn test_rules_std_st05_lt09_cte_ordering() {
+    let config = FluffConfig::from_source(
+        r#"
+[sqruff]
+dialect = ansi
+rules = ST05, LT09
+"#,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql = "
+with
+
+cte1 as (
+    select t1.x, t2.y
+    from tbl1 t1
+    join (select x, y from tbl2) t2
+        on t1.x = t2.x
+)
+
+, cte2 as (
+    select x, y from tbl2 t2
+)
+
+select x, y from cte1
+union all
+select x, y from cte2
+;
+";
+    let expected = "
+with t2 as (select
+x,
+y
+from tbl2),
+cte1 as (
+    select
+t1.x,
+t2.y
+    from tbl1 t1
+    join t2
+        on t1.x = t2.x
+),
+cte2 as (
+    select
+x,
+y
+from tbl2 t2
+)
+select
+x,
+y
+from cte1
+union all
+select
+x,
+y
+from cte2
+;
+";
+
+    let linted = lnt.lint_string_wrapped(sql, true).unwrap();
+    assert_eq!(linted.fix_string(), expected);
 }
 
 #[test]
@@ -805,6 +1043,37 @@ fn test_clickhouse_ternary_spacing_no_false_positive() {
     );
 }
 
+/// Ports SQLFluff's regression coverage for fixes generated beside an
+/// unparsable T-SQL section.
+#[test]
+fn test_rules_unparsable_tsql_does_not_crash() {
+    let config = FluffConfig::from_source(
+        r#"
+[sqruff]
+dialect = tsql
+rules = LT09, LT02, LT05
+"#,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql = concat!(
+        "SELECT\n",
+        "  Race, SELECT, Cha, Authority, Points, Gold, Bind, PX, PZ, PY, ",
+        "col2, col3, col4, col5,col6\n",
+        "FROM USERDATA",
+    );
+
+    let linted = lnt.lint_string_wrapped(sql, true).unwrap();
+
+    assert!(
+        linted
+            .violations()
+            .iter()
+            .any(|violation| violation.description.contains("Unparsable")),
+        "the reserved identifier should leave an unparsable section",
+    );
+}
+
 #[test]
 fn test_clickhouse_datetime64_rejects_timezone_without_precision() {
     let config = FluffConfig::new(
@@ -902,6 +1171,7 @@ fn test_lt12_reports_extra_rendered_newline_before_jinja_block() {
 
     let rendered = crate::core::linter::common::RenderedFile {
         templated_file,
+        alternate_templated_files: Vec::new(),
         templater_violations: vec![],
         filename: "a.sql".to_string(),
         source_str: source.to_string(),

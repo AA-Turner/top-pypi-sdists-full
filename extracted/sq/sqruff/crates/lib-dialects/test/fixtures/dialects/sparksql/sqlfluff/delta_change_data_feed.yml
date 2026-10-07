@@ -8,19 +8,22 @@ file:
     - bracketed:
       - start_bracket: (
       - column_definition:
-        - naked_identifier: id
+        - column_reference:
+          - naked_identifier: id
         - data_type:
           - primitive_type:
             - keyword: INT
       - comma: ','
       - column_definition:
-        - naked_identifier: student_name
+        - column_reference:
+          - naked_identifier: student_name
         - data_type:
           - primitive_type:
             - keyword: STRING
       - comma: ','
       - column_definition:
-        - naked_identifier: age
+        - column_reference:
+          - naked_identifier: age
         - data_type:
           - primitive_type:
             - keyword: INT
@@ -73,5 +76,6 @@ file:
       - properties_naked_identifier: enableChangeDataFeed
     - comparison_operator:
       - raw_comparison_operator: =
-    - boolean_literal: 'true'
+    - set_config_value:
+      - boolean_literal: 'true'
 - statement_terminator: ;

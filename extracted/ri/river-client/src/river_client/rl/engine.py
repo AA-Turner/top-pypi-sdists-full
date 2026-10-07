@@ -5,15 +5,22 @@ from __future__ import annotations
 import asyncio
 import copy
 import hashlib
+import heapq
 import inspect
 import math
 import time
 import uuid
 import warnings
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from functools import partial
 
+from river_client.client import (
+    _IMAGE_PAD_TOKEN_CANDIDATES,
+    _image_placeholder_token_id,
+    _submit_sampling_batch_async,
+)
 from river_client.images import ImageHandle
 from river_client.renderers import Renderer
 from river_client.sampling import MAX_SAMPLING_BATCH, SamplingResultCollector
@@ -36,8 +43,100 @@ class _RolloutStopped(Exception):
     pass
 
 
+def _image_placeholder(tokenizer):
+    """Return a multimodal tokenizer's image placeholder as ``(id, text)``.
+
+    Returns ``(None, None)`` for a text-only tokenizer, in which the client
+    resolver finds no placeholder.
+    """
+    convert = getattr(tokenizer, "convert_tokens_to_ids", None)
+    if not callable(convert):
+        return None, None
+    try:
+        token_id = _image_placeholder_token_id(tokenizer)
+    except ValueError:
+        return None, None
+    for text in _IMAGE_PAD_TOKEN_CANDIDATES:  # the candidate the resolver matched
+        try:
+            if convert(text) == token_id:
+                return token_id, text
+        except (KeyError, ValueError):
+            continue
+    return token_id, None
+
+
+def _message_texts(messages):
+    """Yield the free text of chat messages that renderers render.
+
+    String content, text parts, thinking parts and ``reasoning_content``:
+    DeepSeek V4.1's renderer refuses the image placeholder in any of them,
+    including the reasoning of past assistant turns.
+    """
+    for message in messages:
+        reasoning = message.get("reasoning_content")
+        if isinstance(reasoning, str):
+            yield reasoning
+        content = message.get("content")
+        if isinstance(content, str):
+            yield content
+        elif isinstance(content, list):
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                for key in ("text", "thinking"):
+                    if isinstance(part.get(key), str):
+                        yield part[key]
+
+
+class _PrioritySlots:
+    """Bound whole trajectories without making older reservations wait behind newer ones."""
+
+    def __init__(self, capacity):
+        self.available = capacity
+        self.waiters = []
+        self.counter = 0
+
+    def _wake(self):
+        while self.available and self.waiters:
+            future = heapq.heappop(self.waiters)[2]
+            if not future.done():
+                self.available -= 1
+                future.set_result(None)
+
+    @asynccontextmanager
+    async def hold(self, priority):
+        future = asyncio.get_running_loop().create_future()
+        heapq.heappush(self.waiters, (priority, self.counter, future))
+        self.counter += 1
+        self._wake()
+        try:
+            await future
+        except BaseException:
+            # Cancellation after a grant must return its reserved permit too.
+            if not future.cancelled():
+                self.available += 1
+            self._wake()
+            raise
+        try:
+            yield
+        finally:
+            self.available += 1
+            self._wake()
+
+
 @dataclass
 class CompletedGroup:
+    """Rollout trajectories collected for one dataset row.
+
+    Attributes:
+        id: Group identifier.
+        row: Source dataset row.
+        trajectories: Completed or truncated member trajectories.
+        final: Whether this group has no further members to emit.
+        closed_by_deadline: Whether the group's token deadline ended collection.
+        wait_seconds: Time spent waiting for the group to complete.
+    """
+
     id: str
     row: object
     trajectories: list[Trajectory]
@@ -55,6 +154,8 @@ class _Member:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     cause: str | None = None
     recovery_state: object = None
+    # Loaded from a checkpoint but not yet restored into a live environment.
+    restore_pending: bool = False
     started: float | None = None
 
 
@@ -65,12 +166,14 @@ class _Group:
     members: list[_Member]
     completion: GroupCompletion
     priority: int = 0
+    admission_order: int = 0
     changed: asyncio.Event = field(default_factory=asyncio.Event)
     elapsed: float = 0.0
     quorum_elapsed: float | None = None
     quorum_tokens: list[int] = field(default_factory=list)
     emitted: set[int] = field(default_factory=set)
     closed: bool = False
+    finished: bool = False
     task: asyncio.Task | None = None
     started: float | None = None
 
@@ -137,11 +240,11 @@ _DEFAULT_KV_CACHE = KVCache()
 
 
 class RolloutEngine:
-    """A shared ready queue across every group, turn, and generation segment.
+    """Generate multi-turn trajectories from an environment and sampling model.
 
-    Stateful environments must be passed as factories (e.g. ``env=BrowserEnv``).
-    Instances are shared and must be stateless or maintain state by trajectory id.
-    Group deadlines stop at a segment boundary; River cannot preempt a sample RPC.
+    Coordinates rollout groups, sampling concurrency, and policy/KV-cache
+    continuity. Use it directly for custom algorithms or pass it to
+    ``AsyncTrainer`` for managed training.
     """
 
     def __init__(
@@ -162,6 +265,27 @@ class RolloutEngine:
         environment_timeout: float | None = None,
         return_expert_routing: bool = False,
     ):
+        """Configure rollout generation.
+
+        Args:
+            model: Training model or checkpoint-pinned sampler.
+            env: ``Env`` instance for stateless tasks, or a factory that makes
+                one instance per trajectory for stateful tasks. A shared
+                instance must manage its own state by trajectory id.
+            renderer: Model-specific chat renderer that supports continuation.
+            budget: Per-trajectory token, turn, and image limits.
+            schedule: Client-side admission and sampling submission limits.
+            sampling_policy: ``"trajectory"`` pins one policy for every turn;
+                ``"segment"`` allows a newer policy between turns.
+            kv_cache: Maximum retained KV age and behavior at that limit.
+            temperature: Sampling temperature; training requires a positive value.
+            top_p: Nucleus sampling threshold.
+            top_k: Top-k sampling limit; -1 disables it.
+            seed: Base sampling seed.
+            sample_timeout: Timeout for one sampling request in seconds.
+            environment_timeout: Optional timeout for an environment call in seconds.
+            return_expert_routing: Request expert routing for supported models.
+        """
         if not inspect.iscoroutinefunction(getattr(model, "sample", None)) and not any(
             callable(getattr(model, name, None))
             for name in ("submit_sample", "submit_sampling_batch")
@@ -214,6 +338,14 @@ class RolloutEngine:
             raise TypeError("return_expert_routing must be a boolean")
         self.return_expert_routing = return_expert_routing
         self.model, self.env, self.renderer = model, env, renderer
+        # Only image chunks may carry the image placeholder. The API rejects a
+        # whole sampling batch over one stray placeholder, and training must not
+        # see one in text, so a sampled placeholder id, or environment text that
+        # carries the placeholder, ends only its own rollout. Text-only tokenizers
+        # resolve to None, which disables the checks.
+        self._image_placeholder_id, self._image_placeholder_text = _image_placeholder(
+            getattr(renderer, "tokenizer", None)
+        )
         self.budget, self.schedule = budget, schedule
         self.temperature, self.top_p, self.top_k = temperature, top_p, top_k
         self.seed, self.sample_timeout = seed, sample_timeout
@@ -256,7 +388,7 @@ class RolloutEngine:
                 )
         self._ready, self._completed = asyncio.PriorityQueue(), asyncio.Queue()
         self._ready_counter = 0
-        self._slots = asyncio.Semaphore(self.schedule.concurrency)
+        self._slots = _PrioritySlots(self.schedule.concurrency)
         self._operation_slots = asyncio.Semaphore(self.schedule.sample_request_limit)
         self._pool = ThreadPoolExecutor(
             max_workers=self.schedule.max_rpc_workers,
@@ -314,6 +446,13 @@ class RolloutEngine:
         id: str | None = None,
         priority: int = 0,
     ):
+        """Start a rollout group for one dataset row and return its group id.
+
+        Call inside ``async with engine``. Each member gets an independent
+        sampling seed. Lower priorities start first at both trajectory admission
+        and sampling; ties at admission follow the original group submission order.
+        Running trajectories are never preempted.
+        """
         if self._dispatcher is None:
             raise RuntimeError("use 'async with engine' before submit")
         _integer(group_size, "group_size", 1)
@@ -329,6 +468,7 @@ class RolloutEngine:
             raise ValueError("duplicate rollout group id")
         # No shared seed within a group; segment seeds also advance on resume.
         base = (self.seed + self._counter * 1000003) % (2**31)
+        admission_order = self._counter
         self._counter += 1
         group = _Group(
             group_id,
@@ -336,18 +476,42 @@ class RolloutEngine:
             [_Member((base + i) % (2**31)) for i in range(group_size)],
             completion,
             priority=priority,
+            admission_order=admission_order,
         )
         self._groups[group_id] = group
         group.task = asyncio.create_task(self._run_group(group))
         return group_id
 
+    def resubmit(self, group_id, row):
+        """Start a fresh stage of a consumed, complete group in its original queue position.
+
+        Membership size, completion policy, id and priority are retained; sampling
+        seeds are fresh. The caller must first accept all results from this group.
+        Replacement is synchronous so checkpoints cannot capture a missing group.
+        """
+        previous = self._groups[group_id]
+        if any(result.id == group_id for result in self._outbox):
+            raise RuntimeError("cannot resubmit a group with unconsumed results")
+        self.acknowledge(group_id)
+        self.submit(
+            row,
+            group_size=len(previous.members),
+            completion=previous.completion,
+            id=group_id,
+            priority=previous.priority,
+        )
+        self._groups[group_id].admission_order = previous.admission_order
+        return group_id
+
     async def next_group(self) -> CompletedGroup:
+        """Wait for the next completed group or deadline partial result."""
         result = await self._completed.get()
         if isinstance(result, Exception):
             raise result
         return result
 
     def accept(self, result):
+        """Mark a delivered result as consumed by the caller."""
         self._outbox.remove(result)
 
     def _emit(self, result):
@@ -359,7 +523,9 @@ class RolloutEngine:
         group = self._groups.get(group_id)
         if group is None:
             return
-        if not all(m.traj is not None and m.traj.done for m in group.members):
+        if not group.finished and not all(
+            m.traj is not None and m.traj.done for m in group.members
+        ):
             raise RuntimeError("cannot acknowledge an unfinished group")
         del self._groups[group_id]
 
@@ -404,7 +570,7 @@ class RolloutEngine:
         return env
 
     def progress(self):
-        """Read current client work without awaiting or making a server RPC.
+        """Return current rollout and environment activity counters.
 
         Operation seconds include in-flight work and sum across concurrent
         calls. They must not be added together as elapsed wall-clock time.
@@ -576,8 +742,8 @@ class RolloutEngine:
                 # keep its explicit pin instead of selecting newer weights.
                 kwargs["policy_selection"] = "latest_snapshot"
             if self._independent_samples:
-                pending = await asyncio.get_running_loop().run_in_executor(
-                    self._pool, partial(self.model.submit_sampling_batch, **kwargs)
+                pending = await _submit_sampling_batch_async(
+                    self.model.submit_sampling_batch, self._collector, **kwargs
                 )
                 self._sampling["submitted_requests"] += 1
                 self._sampling["submit_seconds"] += time.monotonic() - started
@@ -609,7 +775,12 @@ class RolloutEngine:
                     "sample response does not match the submitted prompt batch"
                 )
             for request, samples in zip(requests, results, strict=True):
-                self._accept_sample(request, samples[0])
+                try:
+                    self._accept_sample(request, samples[0])
+                except _RolloutStopped as stopped:
+                    # Stop only this member; the rest of the batch still completes.
+                    if not request.future.done():
+                        request.future.set_exception(stopped)
         except Exception as exc:
             for request in requests:
                 if not request.future.done():
@@ -698,8 +869,26 @@ class RolloutEngine:
                 t for c in request.prompt for t in c["tokens"]
             ]:
                 raise ValueError("sampler echoed a different token prefix")
+        if (
+            self._image_placeholder_id is not None
+            and self._image_placeholder_id in sample.tokens
+        ):
+            # A sampled placeholder can be neither continued nor trained on, so end
+            # this rollout before the sample joins it. A stop already requested
+            # (e.g. a group deadline or discard) keeps its own cause.
+            request.member.cause = request.member.cause or "sampled_image_placeholder"
+            raise _RolloutStopped
         if not request.future.done():
             request.future.set_result(sample)
+
+    def _carries_image_placeholder(self, messages):
+        """Whether environment text spells the image placeholder.
+
+        Renderers either encode it to the placeholder id or refuse the text, so
+        such a rollout ends before rendering.
+        """
+        text = self._image_placeholder_text
+        return text is not None and any(text in t for t in _message_texts(messages))
 
     def _truncate_cause(self, member):
         traj = member.traj
@@ -766,7 +955,7 @@ class RolloutEngine:
         if member.traj is not None and member.traj.done:
             group.changed.set()
             return
-        async with self._slots:
+        async with self._slots.hold((group.priority, group.admission_order)):
             started = time.monotonic()
             member.started = started
             member.env = self._env_instance()
@@ -775,12 +964,23 @@ class RolloutEngine:
                     messages = await self._environment_call(
                         member.env.reset(group.row), operation="reset"
                     )
-                    chunks = prompt_chunks(
-                        self.renderer,
-                        messages,
-                        tools=[t.spec for t in member.env.tools],
-                    )
-                    member.traj = Trajectory(chunks, messages=messages)
+                    if self._carries_image_placeholder(messages):
+                        # Never rendered or sampled: the scored, untrained
+                        # trajectory keeps only the placeholder as its prompt.
+                        member.traj = Trajectory(
+                            [{"type": "text", "tokens": [self._image_placeholder_id]}],
+                            messages=messages,
+                        )
+                        await self._finish(
+                            member, group.row, "prompt_image_placeholder"
+                        )
+                    else:
+                        chunks = prompt_chunks(
+                            self.renderer,
+                            messages,
+                            tools=[t.spec for t in member.env.tools],
+                        )
+                        member.traj = Trajectory(chunks, messages=messages)
                 elif member.env.recovery == "snapshot":
                     await self._environment_call(
                         member.env.restore(member.traj, member.recovery_state),
@@ -792,6 +992,8 @@ class RolloutEngine:
                     await self._environment_call(
                         member.env.reset(group.row), operation="reset"
                     )
+                # Checkpoints snapshot the live environment from here on.
+                member.restore_pending, member.recovery_state = False, None
                 traj = member.traj
                 while not traj.done:
                     cause = self._truncate_cause(member)
@@ -800,6 +1002,17 @@ class RolloutEngine:
                         break
                     if traj.phase == "sample":
                         prompt = traj.model_input()
+                        if self._image_placeholder_id is not None and any(
+                            chunk["type"] == "text"
+                            and self._image_placeholder_id in chunk["tokens"]
+                            for chunk in prompt
+                        ):
+                            # Context that reached the id without placeholder text
+                            # (e.g. chunks from traj.rewrite, or restored state).
+                            await self._finish(
+                                member, group.row, "prompt_image_placeholder"
+                            )
+                            break
                         if self.server_capabilities is not None and any(
                             isinstance(chunk.get("data"), ImageHandle)
                             for chunk in prompt
@@ -997,6 +1210,11 @@ class RolloutEngine:
                                     traj.metrics["tool_elisions"] = traj.metrics.get(
                                         "tool_elisions", 0
                                     ) + int(elided)
+                            if self._carries_image_placeholder(messages):
+                                await self._finish(
+                                    member, group.row, "prompt_image_placeholder"
+                                )
+                                break
                             reserve = self.budget.final_answer_reserve
                             if (
                                 reserve
@@ -1107,6 +1325,7 @@ class RolloutEngine:
                         if i not in group.emitted
                         and m.traj.truncated != "group_discard"
                     ]
+                    group.finished = True
                     self._emit(
                         CompletedGroup(
                             group.id, group.row, remaining, True, group.closed, elapsed
@@ -1125,18 +1344,24 @@ class RolloutEngine:
             group.started = None
 
     async def state_dict(self):
-        """Capture materialized segments; an in-flight RPC may replay one segment.
+        """Capture rollout state for a checkpoint.
 
-        Snapshot environments are captured only at stable boundaries. A snapshot
-        during a tool/reset call is marked unrecoverable rather than pretending
-        a partially executed side effect can be replayed safely.
+        An in-flight sample may replay one segment after restore. Stateful
+        environments are snapshotted at stable boundaries; work inside a tool
+        or reset call cannot be resumed from its partial side effects.
         """
         groups = []
         for group in list(self._groups.values()):
             members = []
             for member in group.members:
                 recoverable, env_state = True, None
-                if member.traj is not None and not member.traj.done:
+                if member.restore_pending:
+                    # Still waiting for a slot or inside Env.restore: the new
+                    # environment holds nothing to snapshot yet, so keep the
+                    # state this rollout was loaded with.
+                    env_state = member.recovery_state
+                    trajectory = member.traj.state_dict()
+                elif member.traj is not None and not member.traj.done:
                     contract = member.env.recovery if member.env else "drop"
                     recoverable = contract == "stateless" or (
                         contract == "snapshot"
@@ -1173,6 +1398,7 @@ class RolloutEngine:
                     "members": members,
                     "completion": vars(group.completion),
                     "priority": group.priority,
+                    "admission_order": group.admission_order,
                     "elapsed": group.elapsed
                     + (
                         0 if group.started is None else time.monotonic() - group.started
@@ -1181,6 +1407,7 @@ class RolloutEngine:
                     "quorum_tokens": group.quorum_tokens,
                     "emitted": sorted(group.emitted),
                     "closed": group.closed,
+                    "finished": group.finished,
                 }
             )
         return {
@@ -1192,6 +1419,7 @@ class RolloutEngine:
         }
 
     def load_state_dict(self, state):
+        """Restore saved rollout state into a fresh engine before starting it."""
         if state["version"] != 1 or self._groups:
             raise ValueError(
                 "restore requires a fresh engine and supported state version"
@@ -1201,19 +1429,27 @@ class RolloutEngine:
             dict(state["length_history"]),
         )
         for result in state.get("outbox", []):
-            self._emit(group_from_state(result, recovering=True))
+            self._emit(group_from_state(result))
         completed_ids = {g["id"] for g in state.get("outbox", []) if g["final"]}
-        for saved in state["groups"]:
-            if saved["id"] in completed_ids:
-                continue
+        returned = {
+            traj.id: traj for result in self._outbox for traj in result.trajectories
+        }
+        for admission_order, saved in enumerate(state["groups"]):
+            # Outbox serialization happens after awaited environment snapshots.
+            # A final result can therefore be newer than the saved members. It
+            # authoritatively completes even discarded/already-emitted members
+            # absent from that final result; none of this group may run again.
+            finished = saved["id"] in completed_ids or saved.get("finished", False)
             members = []
             for item in saved["members"]:
                 traj = (
                     None
                     if item["traj"] is None
-                    else Trajectory.from_state_dict(item["traj"], recovering=True)
+                    else _trajectory_from_state(item["traj"])
                 )
-                if traj is not None and not traj.done:
+                if traj is not None and traj.id in returned:
+                    traj = returned[traj.id]
+                if traj is not None and not traj.done and not finished:
                     if item["recoverable"]:
                         if self._retained_kv:
                             # Recovery may replay updates onto a sibling policy
@@ -1233,6 +1469,7 @@ class RolloutEngine:
                     traj=traj,
                     cause=item["cause"],
                     recovery_state=decode_state(item["env_state"]),
+                    restore_pending=traj is not None and not traj.done and not finished,
                 )
                 if member.cause:
                     member.stop.set()
@@ -1243,14 +1480,26 @@ class RolloutEngine:
                 members,
                 GroupCompletion(**saved["completion"]),
                 priority=saved.get("priority", 0),
+                # Older checkpoints retain their saved group order. New snapshots
+                # also retain the original position across assistance stages.
+                admission_order=saved.get("admission_order", admission_order),
                 elapsed=saved["elapsed"],
                 quorum_elapsed=saved["quorum_elapsed"],
                 quorum_tokens=saved["quorum_tokens"],
                 emitted=set(saved["emitted"]),
                 closed=saved["closed"],
+                finished=finished,
             )
             self._groups[group.id] = group
-            group.task = asyncio.create_task(self._run_group(group))
+        # Register older reservations first, before any initially free slots
+        # can be granted. Dictionary order changes when a stage is resubmitted.
+        for group in sorted(
+            self._groups.values(), key=lambda g: (g.priority, g.admission_order)
+        ):
+            # Keep completed metadata for acknowledgement or stage replacement,
+            # but the saved outbox already contains its result: do not emit twice.
+            if not group.finished:
+                group.task = asyncio.create_task(self._run_group(group))
 
 
 def group_state(group):
@@ -1264,14 +1513,19 @@ def group_state(group):
     }
 
 
-def group_from_state(state, *, recovering=False):
+def _trajectory_from_state(state):
+    trajectory = Trajectory.from_state_dict(state)
+    # Only trainer recovery opts into expiry fallback. Public trajectory
+    # roundtrips preserve the original data and routing handles unchanged.
+    trajectory._routing_recovery_start = len(trajectory.spans)
+    return trajectory
+
+
+def group_from_state(state):
     return CompletedGroup(
         state["id"],
         decode_state(state["row"]),
-        [
-            Trajectory.from_state_dict(t, recovering=recovering)
-            for t in state["trajectories"]
-        ],
+        [_trajectory_from_state(t) for t in state["trajectories"]],
         state["final"],
         state["closed_by_deadline"],
         state["wait_seconds"],

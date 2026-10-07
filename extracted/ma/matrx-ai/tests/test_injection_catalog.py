@@ -20,7 +20,7 @@ def test_collect_includes_structured_input_and_context_tools() -> None:
     by_source = collect_hardcoded_injection_tool_names()
     si = by_source["packages/matrx-ai/matrx_ai/config/structured_input_config.py"]
     ctx = by_source["aidream/services/conversation_context/context_utils.py"]
-    assert "usertable_get_all" not in si
+    assert "dataset_get_all" not in si
     assert "dataset" in si
     assert "context" in ctx
     assert "context_patch" in ctx

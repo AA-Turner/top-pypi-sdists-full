@@ -19,11 +19,6 @@ __others__ = [
     "CreateImagesProvider",
     "ProviderUtils",
     "ProviderLoader",
-    "Custom",
-    "debug",
-    "__providers__",
-    "__map__",
-    "__path__"
 ]
 
 class ProviderLoader:
@@ -62,7 +57,7 @@ class ProviderLoader:
         "HuggingFace",
         "HuggingFaceMedia",
         "HuggingSpace",
-        "LMArena",
+        "Arena",
         "Local",
         "MarkItDown",
         "MetaAI",
@@ -102,6 +97,7 @@ class ProviderLoader:
         "Anthropic",
         "GigaChat",
         "GithubCopilotAPI",
+        "CheaperInference",
         "MiniMax",
         "OpenaiAPI",
         "Cohere",
@@ -118,11 +114,30 @@ class ProviderLoader:
 
     @classmethod
     def from_name(cls, name: str) -> ProviderType:
+        if not name or not isinstance(name, str):
+            return None
         if name in cls.loaded:
             return cls.loaded[name]
-        provider = cls._load(name)
-        cls.loaded[name] = provider
-        return provider
+        norm_name = name.lower().replace("-", "").replace("_", "")
+        if norm_name in cls.loaded:
+            return cls.loaded[norm_name]
+        try:
+            provider = cls._load(name)
+            cls.loaded[name] = provider
+            cls.loaded[norm_name] = provider
+            return provider
+        except ImportError:
+            if norm_name in ("agent", "agenttools", "agent_tools"):
+                actual_name = "AgentTools"
+            else:
+                lower_map = {p.lower().replace("-", "").replace("_", ""): p for p in cls.names}
+                actual_name = lower_map.get(norm_name)
+            if actual_name and actual_name != name:
+                provider = cls._load(actual_name)
+                cls.loaded[name] = provider
+                cls.loaded[norm_name] = provider
+                return provider
+            raise ImportError(f"Provider not found: {name}")
 
     @classmethod
     def _load(cls, name: str) -> ProviderType:
@@ -133,7 +148,7 @@ class ProviderLoader:
 
             return AnyProvider
         elif name == "AIBadgr":
-            from g4f.Provider.needs_auth.AIBadgr import AIBadgr
+            from g4f.Provider.extra.AIBadgr import AIBadgr
 
             return AIBadgr
         elif name == "Anthropic":
@@ -180,6 +195,10 @@ class ProviderLoader:
             from g4f.Provider.needs_auth.Cerebras import Cerebras
 
             return Cerebras
+        elif name == "CheaperInference":
+            from g4f.Provider.extra.CheaperInference import CheaperInference
+
+            return CheaperInference
         elif name == "Claude":
             from g4f.Provider.needs_auth.Claude import Claude
 
@@ -272,7 +291,7 @@ class ProviderLoader:
 
             return GithubCopilot
         elif name == "GithubCopilotAPI":
-            from g4f.Provider.needs_auth.GithubCopilotAPI import GithubCopilotAPI
+            from g4f.Provider.extra.GithubCopilotAPI import GithubCopilotAPI
 
             return GithubCopilotAPI
         elif name == "GoogleAiMode":
@@ -311,10 +330,10 @@ class ProviderLoader:
             from g4f.Provider.hf_space import HuggingSpace
 
             return HuggingSpace
-        elif name == "LMArena":
-            from g4f.Provider.needs_auth.LMArena import LMArena
+        elif name == "Arena" or name == "LMArena":
+            from g4f.Provider.needs_auth.Arena import Arena
 
-            return LMArena
+            return Arena
         elif name == "Local":
             from g4f.Provider.local import Local
 
@@ -391,7 +410,7 @@ class ProviderLoader:
             cls.loaded[name].__name__ = name
             cls.loaded[name].url = "https://opencode.ai"
             cls.loaded[name].active_by_default = True
-            cls.loaded[name].default_model = "big-pickle"
+            cls.loaded[name].default_model = "space-bunny-free"
             cls.loaded[name].headers = {
                 "Content-Type": "application/json",
                 "User-Agent": "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14",
@@ -420,12 +439,12 @@ class ProviderLoader:
             cls.loaded[name].active_by_default = True
             cls.loaded[name].supports_native_tools = True
             return cls.loaded[name]
-        elif name == "AgentTools":
+        elif name in ("AgentTools", "agent-tools", "agent_tools", "agent"):
             from g4f.Provider.AgentTools import AgentTools
 
             return AgentTools
         elif name == "OpenaiAPI":
-            from g4f.Provider.needs_auth.OpenaiAPI import OpenaiAPI
+            from g4f.Provider.extra.OpenaiAPI import OpenaiAPI
 
             return OpenaiAPI
         elif name == "OpenaiAccount":
@@ -449,7 +468,7 @@ class ProviderLoader:
 
             return Perplexity
         elif name == "PerplexityApi":
-            from g4f.Provider.needs_auth.PerplexityApi import PerplexityApi
+            from g4f.Provider.extra.PerplexityApi import PerplexityApi
 
             return PerplexityApi
         elif name == "PhindAi":
@@ -489,7 +508,7 @@ class ProviderLoader:
 
             return Reka
         elif name == "Replicate":
-            from g4f.Provider.needs_auth.Replicate import Replicate
+            from g4f.Provider.extra.Replicate import Replicate
 
             return Replicate
         elif name == "SearXNG":
@@ -505,11 +524,11 @@ class ProviderLoader:
 
             return TeachAnything
         elif name == "ThebApi":
-            from g4f.Provider.needs_auth.ThebApi import ThebApi
+            from g4f.Provider.extra.ThebApi import ThebApi
 
             return ThebApi
         elif name == "Together":
-            from g4f.Provider.needs_auth.Together import Together
+            from g4f.Provider.extra.Together import Together
 
             return Together
         elif name == "WhiteRabbitNeo":
@@ -533,10 +552,16 @@ class ProviderLoader:
 
             return gTTS
         elif name == "xAI":
-            from g4f.Provider.needs_auth.xAI import xAI
+            from g4f.Provider.extra.xAI import xAI
 
             return xAI
         else:
+            norm_name = name.lower().replace("-", "").replace("_", "")
+            if norm_name == "agent":
+                return cls.from_name("AgentTools")
+            lower_map = {p.lower().replace("-", "").replace("_", ""): p for p in cls.names}
+            if norm_name in lower_map and lower_map[norm_name] != name:
+                return cls.from_name(lower_map[norm_name])
             raise ImportError(f"Provider '{name}' not found")
 
 __all__ = __others__ + ProviderLoader.names + ProviderLoader.extra
@@ -553,7 +578,7 @@ def __getattr__(name: str):
             except ImportError:
                 pass
         return providers_list
-    if name in __others__:
+    if name in globals().keys():
         return globals()[name]
     try:
         return ProviderLoader.from_name(name)
@@ -566,14 +591,22 @@ def __dir__():
 
 
 class _ConvertDict(dict):
+    def _normalize(self, name: str) -> str:
+        return name.lower().replace("-", "").replace("_", "")
+
     def __contains__(self, item):
-        return item in ProviderLoader.names
+        if not isinstance(item, str):
+            return False
+        try:
+            return ProviderLoader.from_name(item) is not None
+        except Exception:
+            return False
 
     def __getitem__(self, item):
         try:
-            return __getattr__(item)
-        except AttributeError:
-            raise KeyError(f"Provider '{item}' not found")
+            return ProviderLoader.from_name(item)
+        except Exception as e:
+            raise KeyError(f"Provider '{item}' not found") from e
 
     def keys(self):
         return ProviderLoader.names

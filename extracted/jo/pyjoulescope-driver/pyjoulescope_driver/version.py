@@ -1,4 +1,5 @@
-# Copyright 2022-2026 Jetperch LLC
+# SPDX-FileCopyrightText: Copyright 2022-2026 Jetperch LLC
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,7 @@
 # limitations under the License.
 
 
-__version__ = "2.4.2"
+__version__ = "2.4.3"
 
 __title__ = "pyjoulescope_driver"
 __description__ = 'Joulescope™ driver'

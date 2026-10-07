@@ -2577,6 +2577,15 @@ class Organization(QuantConnect.Api.StringRepresentation):
     """Object representation of Organization from QuantConnect Api"""
 
     @property
+    def type(self) -> str:
+        """Type of the organization's seats, like "researcher", "team", "trading firm" or "institution\""""
+        ...
+
+    @type.setter
+    def type(self, value: str) -> None:
+        ...
+
+    @property
     def data_agreement(self) -> QuantConnect.Api.DataAgreement:
         """Data Agreement information"""
         ...

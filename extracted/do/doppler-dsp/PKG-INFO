@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: doppler-dsp
-Version: 0.62.0
+Version: 0.63.0
 Summary: Practical, portable, performant digital signal processing.
 License: MIT
 Requires-Python: >=3.9
@@ -74,7 +74,7 @@ implementation, no divergence, full SIMD throughput from any language.
 **New here?** Start with [Start Here](docs/start-here.md) — a one-page map from
 "what are you trying to do" to the right doc.
 
-**Navigate** — [Quick Start](docs/quickstart.md) · [Architecture](docs/architecture.md) · [Gallery](docs/gallery/index.md) · [Examples](docs/examples/index.md) · [Guides](docs/guide/index.md) · [Waveform Generator](docs/guide/wfmgen/index.md) · [Design](docs/design/index.md) · [Contributing](docs/dev/index.md)
+**Navigate** — [Python Quick Start](docs/quickstart.md) · [Architecture](docs/architecture.md) · [Gallery](docs/gallery/index.md) · [Examples](docs/examples/index.md) · [Guides](docs/guide/index.md) · [Waveform Generator](docs/guide/wfmgen/index.md) · [Design](docs/design/index.md) · [Contributing](docs/dev/index.md)
 
 **API Reference** — [Full Python + C API index](docs/api/index.md)
 
@@ -111,11 +111,11 @@ print(f"FFT: {len(x)} samples in -> {X.shape[0]} complex64 bins out")
 > [!TIP]
 > **Using C?**
 >
-> `jbx get-doppler` gets `libdoppler.a`/`.so` and the headers in one
-> command — see [C Quick Start](docs/quickstart-c.md).
+> [`jbx get-doppler`](docs/install/c.md#get-jbx) gets `libdoppler.a`/`.so` and
+> the headers in one command — see [C Quick Start](docs/quickstart-c.md).
 
 Everything else — install options, the waveform generator, streaming,
-building from source — is in [Quick Start](docs/quickstart.md).
+building from source — is in [Python Quick Start](docs/quickstart.md).
 
 ## Docs
 

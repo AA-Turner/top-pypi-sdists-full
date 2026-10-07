@@ -14,6 +14,7 @@ pub struct LintedFile {
     patches: Vec<FixPatch>,
     templated_file: TemplatedFile,
     violations: Vec<SQLBaseError>,
+    has_parse_or_templating_errors: bool,
     #[expect(dead_code)]
     ignore_mask: Option<IgnoreMask>,
 }
@@ -24,8 +25,19 @@ impl LintedFile {
         patches: Vec<FixPatch>,
         templated_file: TemplatedFile,
         mut violations: Vec<SQLBaseError>,
+        has_parse_or_templating_errors: bool,
         ignore_mask: Option<IgnoreMask>,
     ) -> Self {
+        let mut seen = HashSet::new();
+        violations.retain(|violation| {
+            seen.insert((
+                violation.line_no,
+                violation.line_pos,
+                violation.rule_code(),
+                violation.description.clone(),
+                violation.source_slice.clone(),
+            ))
+        });
         violations.sort_by_key(|v| (v.line_no, v.line_pos));
 
         Self {
@@ -33,16 +45,23 @@ impl LintedFile {
             patches,
             templated_file,
             violations,
+            has_parse_or_templating_errors,
             ignore_mask,
         }
     }
 
     pub fn has_violations(&self) -> bool {
-        !self.violations.is_empty()
+        self.violations.iter().any(|violation| !violation.warning)
+    }
+
+    pub fn has_fixable_violations(&self) -> bool {
+        self.violations.iter().any(|violation| violation.fixable)
     }
 
     pub fn has_unfixable_violations(&self) -> bool {
-        self.violations().iter().any(|violation| !violation.fixable)
+        self.violations()
+            .iter()
+            .any(|violation| !violation.warning && !violation.fixable)
     }
 
     pub fn path(&self) -> &str {
@@ -53,12 +72,20 @@ impl LintedFile {
         !self.patches.is_empty()
     }
 
+    pub fn has_parse_or_templating_errors(&self) -> bool {
+        self.has_parse_or_templating_errors
+    }
+
     pub fn into_violations(self) -> Vec<SQLBaseError> {
         self.violations
     }
 
     pub fn violations(&self) -> &[SQLBaseError] {
         &self.violations
+    }
+
+    pub fn source_position(&self, byte_pos: usize) -> (usize, usize) {
+        self.templated_file.get_line_pos_of_char_pos(byte_pos, true)
     }
 
     ///  Use patches and raw file to fix the source file.
@@ -94,11 +121,8 @@ impl LintedFile {
     }
 
     pub fn fix_string(self) -> String {
-        // Generate patches from the fixed tree. In the process we sort
-        // and deduplicate them so that the resultant list is in the
-        //  right order for the source file without any duplicates.
-        let filtered_source_patches =
-            Self::generate_source_patches(self.patches, &self.templated_file);
+        // Patches were filtered and merged across rendered variants during linting.
+        let filtered_source_patches = self.patches;
 
         // Any Template tags in the source file are off limits, unless we're explicitly
         // fixing the source file.
@@ -119,12 +143,12 @@ impl LintedFile {
         )
     }
 
-    fn generate_source_patches(
+    pub(crate) fn generate_source_patches(
         patches: Vec<FixPatch>,
         templated_file: &TemplatedFile,
     ) -> Vec<FixPatch> {
         let mut filtered_source_patches = Vec::new();
-        let mut dedupe_buffer: HashSet<Range<usize>> = HashSet::new();
+        let mut dedupe_buffer = HashSet::new();
 
         for patch in patches {
             if !dedupe_buffer.insert(patch.dedupe_tuple()) {
@@ -156,6 +180,32 @@ impl LintedFile {
 
         filtered_source_patches.sort_by_key(|x| x.source_slice.start);
         filtered_source_patches
+    }
+
+    pub(crate) fn merge_source_patches(patch_buffers: Vec<Vec<FixPatch>>) -> Vec<FixPatch> {
+        let mut patches: Vec<_> = patch_buffers.into_iter().flatten().collect();
+        patches.sort_by_key(|patch| (patch.source_slice.start, patch.source_slice.end));
+
+        let mut merged: Vec<FixPatch> = Vec::new();
+        let mut seen = HashSet::new();
+        for patch in patches {
+            if !seen.insert(patch.dedupe_tuple()) {
+                continue;
+            }
+            if merged.iter().any(|existing| {
+                let a = &existing.source_slice;
+                let b = &patch.source_slice;
+                if a == b {
+                    existing.fixed_raw != patch.fixed_raw
+                } else {
+                    a.start.max(b.start) < a.end.min(b.end)
+                }
+            }) {
+                continue;
+            }
+            merged.push(patch);
+        }
+        merged
     }
 
     ///  Use patches to safely slice up the file before fixing.
@@ -243,6 +293,31 @@ mod test {
     use sqruff_lib_core::templaters::TemplatedFileSlice;
 
     use super::*;
+
+    #[test]
+    fn merge_source_patches_dedupes_and_skips_conflicts() {
+        let patch = |range: Range<usize>, replacement: &str| {
+            FixPatch::new(
+                range.clone(),
+                replacement.into(),
+                range,
+                String::new(),
+                String::new(),
+            )
+        };
+        let merged = LintedFile::merge_source_patches(vec![
+            vec![patch(1..2, "A"), patch(3..4, "B")],
+            vec![patch(1..2, "A"), patch(3..4, "C"), patch(5..5, "X")],
+            vec![patch(5..5, "Y")],
+        ]);
+        assert_eq!(
+            merged
+                .iter()
+                .map(|patch| (patch.source_slice.clone(), patch.fixed_raw.as_str()))
+                .collect::<Vec<_>>(),
+            vec![(1..2, "A"), (3..4, "B"), (5..5, "X")]
+        );
+    }
 
     /// Test _build_up_fixed_source_string. This is part of fix_string().
     #[test]

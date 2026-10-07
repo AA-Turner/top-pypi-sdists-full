@@ -3,7 +3,8 @@ from typing import Any
 from unittest import TestCase
 from unittest.mock import Mock
 
-from social_core.exceptions import AuthMissingParameter
+from social_core.exceptions import AuthResponseError
+from social_core.tests.exception_helpers import assert_auth_error
 from social_core.tests.models import TestStorage, TestUserSocialAuth, User
 from social_core.tests.strategy import TestStrategy
 from social_core.utils import module_member, setting_name
@@ -59,35 +60,50 @@ class ConfigurableIdKeyTest(TestCase):
     )
     explicit_default_keys = (
         ("social_core.backends.auth0.Auth0OAuth2", "user_id"),
-        ("social_core.backends.azuread.AzureADOAuth2", "upn"),
+        ("social_core.backends.azuread.AzureADOAuth2", "sub"),
+        ("social_core.backends.azuread.AzureADOAuth2V2", "sub"),
         ("social_core.backends.azuread_b2c.AzureADB2COAuth2", "sub"),
         ("social_core.backends.azuread_tenant.AzureADTenantOAuth2", "sub"),
         (
             "social_core.backends.azuread_tenant.AzureADV2TenantOAuth2",
-            "preferred_username",
+            "sub",
         ),
-        ("social_core.backends.cas.CASOpenIdConnectAuth", "username"),
+        ("social_core.backends.arcgis.ArcGISOAuth2", "id"),
+        ("social_core.backends.cas.CASOpenIdConnectAuth", "sub"),
         ("social_core.backends.cilogon.CILogonOAuth2", "sub"),
         ("social_core.backends.classlink.ClasslinkOAuth", "UserId"),
         ("social_core.backends.digitalocean.DigitalOceanOAuth", "uuid"),
-        ("social_core.backends.discourse.DiscourseAuth", "email"),
+        ("social_core.backends.deezer.DeezerOAuth2", "id"),
+        ("social_core.backends.discourse.DiscourseAuth", "external_id"),
         ("social_core.backends.drip.DripOAuth", "email"),
-        ("social_core.backends.google.GoogleOAuth2", "email"),
+        ("social_core.backends.cognito.CognitoOAuth2", "sub"),
+        ("social_core.backends.dailymotion.DailymotionOAuth2", "id"),
+        ("social_core.backends.fence.Fence", "sub"),
+        ("social_core.backends.google.GoogleOAuth", "id"),
+        ("social_core.backends.google.GoogleOAuth2", "sub"),
+        ("social_core.backends.google_onetap.GoogleOneTap", "sub"),
+        ("social_core.backends.keycloak.KeycloakOAuth2", "sub"),
         ("social_core.backends.kick.KickOAuth2", "user_id"),
         ("social_core.backends.lastfm.LastFmAuth", "name"),
         ("social_core.backends.mediawiki.MediaWiki", "userID"),
+        ("social_core.backends.mailru.MRGOAuth2", "id"),
+        ("social_core.backends.okta.OktaOAuth2", "sub"),
         ("social_core.backends.openshift.OpenshiftOAuth2", "uid"),
         ("social_core.backends.pushbullet.PushbulletOAuth2", "iden"),
-        ("social_core.backends.qiita.QiitaOAuth2", "id"),
-        ("social_core.backends.suse.OpenSUSEOpenId", "nickname"),
+        ("social_core.backends.qiita.QiitaOAuth2", "permanent_id"),
+        ("social_core.backends.scistarter.SciStarterOAuth2", "profile_id"),
+        ("social_core.backends.suse.OpenSUSEOpenId", "identity_url"),
         ("social_core.backends.twitch.TwitchOAuth2", "id"),
-        ("social_core.backends.ubuntu.UbuntuOpenId", "nickname"),
+        ("social_core.backends.tumblr.TumblrOAuth", "uuid"),
+        ("social_core.backends.trello.TrelloOAuth", "id"),
+        ("social_core.backends.ubuntu.UbuntuOpenId", "identity_url"),
         ("social_core.backends.vimeo.VimeoOAuth2", "uri"),
-        ("social_core.backends.yandex.YandexOpenId", "email"),
+        ("social_core.backends.yandex.YandexOpenId", "identity_url"),
         ("social_core.backends.zotero.ZoteroOAuth", "userID"),
     )
     required_default_id_backends = (
         "social_core.backends.classlink.ClasslinkOAuth",
+        "social_core.backends.deezer.DeezerOAuth2",
         "social_core.backends.discourse.DiscourseAuth",
         "social_core.backends.flat.FlatOAuth2",
         "social_core.backends.kakao.KakaoOAuth2",
@@ -97,6 +113,7 @@ class ConfigurableIdKeyTest(TestCase):
         "social_core.backends.mendeley.MendeleyOAuth2",
         "social_core.backends.microsoft.MicrosoftOAuth2",
         "social_core.backends.naver.NaverOAuth2",
+        "social_core.backends.scistarter.SciStarterOAuth2",
         "social_core.backends.twitch.TwitchOAuth2",
     )
 
@@ -310,12 +327,26 @@ class ConfigurableIdKeyTest(TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.backend(path).ID_KEY, expected)
 
+    def test_known_mutable_override_warns_once(self) -> None:
+        backend = self.backend(
+            "social_core.backends.azuread.AzureADOAuth2", ID_KEY="upn"
+        )
+
+        with self.assertLogs("social", level="WARNING") as logs:
+            self.assertEqual(backend.id_key(), "upn")
+            self.assertEqual(backend.id_key(), "upn")
+
+        self.assertEqual(len(logs.output), 1)
+        self.assertIn("unsafe as an account identifier", logs.output[0])
+
     def test_lookup_rejects_missing_default_id(self) -> None:
         for path in self.required_default_id_backends:
             with self.subTest(path=path):
                 backend = self.backend(path)
-                with self.assertRaisesRegex(AuthMissingParameter, backend.ID_KEY):
+                with self.assertRaises(AuthResponseError) as caught:
                     backend.get_user_id({}, {})
+                self.assertEqual(caught.exception.code, "missing_claim")
+                self.assertEqual(caught.exception.claim, backend.ID_KEY)
 
     def test_inherited_lookup_uses_normalized_details(self) -> None:
         backend = self.backend(
@@ -533,7 +564,7 @@ class ConfigurableIdKeyTest(TestCase):
         for path, response in cases:
             with self.subTest(path=path):
                 backend = self.backend(path, ID_KEY="custom_id")
-                with self.assertRaises(AuthMissingParameter):
+                with self.assertRaises(AuthResponseError):
                     backend.get_user_id({}, response)
 
     def test_mapping_overrides_reject_missing_configured_key(self) -> None:
@@ -546,7 +577,7 @@ class ConfigurableIdKeyTest(TestCase):
         for path in (*direct_backends, *details_backends):
             with self.subTest(path=path):
                 backend = self.backend(path, ID_KEY="missing_id")
-                with self.assertRaisesRegex(AuthMissingParameter, "missing_id"):
+                with assert_auth_error(self, AuthResponseError, "missing_claim"):
                     backend.get_user_id({}, {})
 
         for path, container_path in self.nested_response_backends:
@@ -555,7 +586,7 @@ class ConfigurableIdKeyTest(TestCase):
                 for container in reversed(container_path):
                     response = {container: response}
                 backend = self.backend(path, ID_KEY="missing_id")
-                with self.assertRaisesRegex(AuthMissingParameter, "missing_id"):
+                with assert_auth_error(self, AuthResponseError, "missing_claim"):
                     backend.get_user_id({}, response)
 
     def test_special_overrides_reject_missing_configured_key(self) -> None:
@@ -584,7 +615,7 @@ class ConfigurableIdKeyTest(TestCase):
         for path, details, response in cases:
             with self.subTest(path=path):
                 backend = self.backend(path, ID_KEY="missing_id")
-                with self.assertRaisesRegex(AuthMissingParameter, "missing_id"):
+                with assert_auth_error(self, AuthResponseError, "missing_claim"):
                     backend.get_user_id(details, response)
 
         backend = self.backend(
@@ -592,20 +623,18 @@ class ConfigurableIdKeyTest(TestCase):
             ID_KEY="missing_id",
         )
         backend.get_json = Mock(return_value={})
-        with self.assertRaisesRegex(AuthMissingParameter, "missing_id"):
+        with assert_auth_error(self, AuthResponseError, "missing_claim"):
             backend.get_user_id({"username": b"access-token"}, {})
 
-    def test_yandex_preserves_identity_url_fallback_for_missing_key(self) -> None:
+    def test_yandex_rejects_missing_configured_key(self) -> None:
         identity_url = "https://provider.example/users/123"
         backend = self.backend(
             "social_core.backends.yandex.YandexOpenId",
             ID_KEY="missing_id",
         )
 
-        self.assertEqual(
-            backend.get_user_id({}, SimpleNamespace(identity_url=identity_url)),
-            identity_url,
-        )
+        with assert_auth_error(self, AuthResponseError, "missing_claim"):
+            backend.get_user_id({}, SimpleNamespace(identity_url=identity_url))
 
     def test_protocol_derived_identifiers_ignore_configured_key(self) -> None:
         identity_url = "https://provider.example/users/123"

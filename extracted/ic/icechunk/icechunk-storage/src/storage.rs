@@ -11,7 +11,6 @@ use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::{max, min},
-    collections::HashSet,
     ffi::OsString,
     fmt::Display,
     iter,
@@ -29,6 +28,7 @@ use bytes::Bytes;
 use thiserror::Error;
 
 use crate::ICError;
+use crate::attribution::{AttributionLabels, RequestAttribution, UNATTRIBUTED_LABELS};
 use crate::sealed;
 
 /// Storage operation error types.
@@ -52,9 +52,19 @@ pub enum StorageErrorKind {
     },
     #[error("Redirect Storage error: {0}")]
     BadRedirect(String),
+    /// The store asked us to slow down (S3 `SlowDown` / HTTP 503 / 429). Retry with backoff.
+    #[error("storage throttled the request: {code}: {message}")]
+    Throttled { code: String, message: String },
     #[error("storage error: {0}")]
     Other(String),
 }
+
+impl StorageErrorKind {
+    pub fn is_throttled(&self) -> bool {
+        matches!(self, StorageErrorKind::Throttled { .. })
+    }
+}
+
 pub type StorageError = ICError<StorageErrorKind>;
 
 pub type StorageResult<A> = Result<A, StorageError>;
@@ -77,6 +87,17 @@ pub fn obj_not_found_res<T>() -> StorageResult<T> {
 
 pub fn other_error(s: impl Into<String>) -> StorageError {
     StorageError::capture(StorageErrorKind::Other(s.into()))
+}
+
+/// The store refused the request and asked for a lower request rate.
+pub fn throttled_error(
+    code: impl Into<String>,
+    message: impl Into<String>,
+) -> StorageError {
+    StorageError::capture(StorageErrorKind::Throttled {
+        code: code.into(),
+        message: message.into(),
+    })
 }
 
 #[derive(Debug)]
@@ -392,6 +413,36 @@ impl Settings {
     }
 }
 
+/// Everything a [`Storage`] implementation needs to know about the calling
+/// context of a single operation.
+#[derive(Debug, Clone, Copy)]
+pub struct StorageContext<'a> {
+    pub settings: &'a Settings,
+    pub attribution: RequestAttribution<'a>,
+}
+
+impl<'a> StorageContext<'a> {
+    pub fn new(settings: &'a Settings, attribution: RequestAttribution<'a>) -> Self {
+        Self { settings, attribution }
+    }
+
+    /// A context for a request that is not about any node.
+    pub fn without_node(settings: &'a Settings, labels: &'a AttributionLabels) -> Self {
+        Self::new(settings, RequestAttribution::without_node(labels))
+    }
+
+    /// A context for code that drives a [`Storage`] directly, with no
+    /// repository behind it: tests, examples, and tools that list or inspect
+    /// a bucket. Requests carry only the icechunk product token.
+    ///
+    /// Anything that goes through a repository has labels and must use the
+    /// asset manager's `storage_context` or [`StorageContext::without_node`]
+    /// instead, so that no repository request goes out unattributed.
+    pub fn unattributed(settings: &'a Settings) -> Self {
+        Self::without_node(settings, &UNATTRIBUTED_LABELS)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VersionedUpdateResult {
     Updated { new_version: VersionInfo },
@@ -472,15 +523,15 @@ pub enum RepositoryCreation {
     RefusedEmptyPrefix,
 }
 
-/// Keeps the listed objects whose id starts with a character in `first_chars`.
-pub fn filter_ids_by_first_char<'a>(
+/// Keeps the listed objects whose id starts with one of `id_prefixes`.
+pub fn filter_ids_by_id_prefix<'a>(
     listing: BoxStream<'a, StorageResult<ListInfo<String>>>,
-    first_chars: &HashSet<char>,
+    id_prefixes: &[String],
 ) -> BoxStream<'a, StorageResult<ListInfo<String>>> {
-    let first_chars = first_chars.clone();
+    let id_prefixes = id_prefixes.to_vec();
     listing
         .try_filter(move |info| {
-            ready(info.id.chars().next().is_some_and(|c| first_chars.contains(&c)))
+            ready(id_prefixes.iter().any(|p| info.id.starts_with(p.as_str())))
         })
         .boxed()
 }
@@ -516,31 +567,31 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
 
     async fn get_object(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         path: &str,
         range: Option<&Range<u64>>,
     ) -> StorageResult<(Pin<Box<dyn AsyncBufRead + Send>>, VersionInfo)> {
         if let Some(range) = range {
-            self.get_object_concurrently(settings, path, range).await
+            self.get_object_concurrently(ctx, path, range).await
         } else {
-            self.get_object_range_read(settings, path, range).await
+            self.get_object_range_read(ctx, path, range).await
         }
     }
 
     async fn get_object_range_read(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         path: &str,
         range: Option<&Range<u64>>,
     ) -> StorageResult<(Pin<Box<dyn AsyncBufRead + Send>>, VersionInfo)> {
-        let (stream, version) = self.get_object_range(settings, path, range).await?;
+        let (stream, version) = self.get_object_range(ctx, path, range).await?;
         let reader = StreamReader::new(stream.map_err(std::io::Error::other));
         Ok((Box::pin(reader), version))
     }
 
     async fn get_object_range(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         path: &str,
         range: Option<&Range<u64>>,
     ) -> StorageResult<(
@@ -550,7 +601,7 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
 
     async fn put_object(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         path: &str,
         bytes: Bytes,
         content_type: Option<&str>,
@@ -560,7 +611,7 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
 
     async fn copy_object(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         from: &str,
         to: &str,
         content_type: Option<&str>,
@@ -573,50 +624,57 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
     /// Pass an empty prefix to list all objects in the repository's storage root.
     async fn list_objects<'a>(
         &'a self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         prefix: &str,
     ) -> StorageResult<BoxStream<'a, StorageResult<ListInfo<String>>>>;
 
-    /// Like [`Storage::list_objects`], limited to ids whose first character is in `first_chars`.
-    /// Unordered. Override to list each character concurrently; the default filters.
-    async fn list_objects_with_id_first_chars<'a>(
+    /// Like [`Storage::list_objects`], limited to ids that start with one of `id_prefixes`.
+    /// Unordered. Override to list each prefix concurrently; the default filters.
+    async fn list_objects_with_id_prefixes<'a>(
         &'a self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         prefix: &str,
-        first_chars: &HashSet<char>,
+        id_prefixes: &[String],
     ) -> StorageResult<BoxStream<'a, StorageResult<ListInfo<String>>>> {
-        Ok(filter_ids_by_first_char(
-            self.list_objects(settings, prefix).await?,
-            first_chars,
-        ))
+        Ok(filter_ids_by_id_prefix(self.list_objects(ctx, prefix).await?, id_prefixes))
+    }
+
+    /// Whether `list_objects_with_id_prefixes` lists each prefix on the server
+    /// rather than filtering a full listing. Callers fan out only when true.
+    fn lists_id_prefixes_natively(&self) -> bool {
+        false
     }
 
     async fn delete_batch(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         prefix: &str,
         batch: Vec<(String, u64)>,
     ) -> StorageResult<DeleteObjectsResult>;
 
     async fn get_object_last_modified(
         &self,
+        ctx: &StorageContext<'_>,
         path: &str,
-        settings: &Settings,
     ) -> StorageResult<DateTime<Utc>>;
 
     async fn get_object_conditional(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         path: &str,
         previous_version: Option<&VersionInfo>,
     ) -> StorageResult<GetModifiedResult>;
 
     /// Delete a stream of objects, by their id string representations
     /// Input stream includes sizes to get as result the total number of bytes deleted
-    #[instrument(skip(self, settings, ids))]
+    // FIXME: fixed 10-way concurrency, and per-batch errors are logged and
+    // swallowed (the result under-counts silently). Migrations and ref
+    // deletion still use this method and should move to the new
+    // style using listing.rs
+    #[instrument(skip(self, ctx, ids))]
     async fn delete_objects(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         prefix: &str,
         ids: BoxStream<'_, (String, u64)>,
     ) -> StorageResult<DeleteObjectsResult> {
@@ -627,7 +685,7 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
                 let res = Arc::clone(&res);
                 async move {
                     let new_deletes = self
-                        .delete_batch(settings, prefix, batch)
+                        .delete_batch(ctx, prefix, batch)
                         .await
                         .unwrap_or_else(|_| {
                             // FIXME: handle error instead of skipping
@@ -644,8 +702,8 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
         Ok(res.clone())
     }
 
-    async fn root_is_clean(&self, settings: &Settings) -> StorageResult<bool> {
-        match self.list_objects(settings, "").await {
+    async fn root_is_clean(&self, ctx: &StorageContext<'_>) -> StorageResult<bool> {
+        match self.list_objects(ctx, "").await {
             Ok(mut stream) => match stream.next().await {
                 None => Ok(true),
                 Some(Ok(_)) => Ok(false),
@@ -658,24 +716,18 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
 
     async fn get_object_concurrently_multiple(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         key: &str,
         parts: Vec<Range<u64>>,
     ) -> StorageResult<(Pin<Box<dyn AsyncBufRead + Send>>, VersionInfo)> {
-        let settings2 = settings.clone();
-        let key2 = key.to_string();
+        let ctx = *ctx;
         let results = parts
             .into_iter()
-            .map(move |range| {
-                let key = key2.clone();
-                let settings = settings2.clone();
-                async move {
-                    let (stream, version) = self
-                        .get_object_range(&settings, key.as_ref(), Some(&range))
-                        .await?;
-                    let all_bytes: Vec<_> = stream.try_collect().await?;
-                    Ok::<_, StorageError>((all_bytes, version))
-                }
+            .map(move |range| async move {
+                let (stream, version) =
+                    self.get_object_range(&ctx, key, Some(&range)).await?;
+                let all_bytes: Vec<_> = stream.try_collect().await?;
+                Ok::<_, StorageError>((all_bytes, version))
             })
             .collect::<FuturesOrdered<_>>();
 
@@ -697,21 +749,21 @@ pub trait Storage: fmt::Debug + Display + sealed::Sealed + Sync + Send {
 
     async fn get_object_concurrently(
         &self,
-        settings: &Settings,
+        ctx: &StorageContext<'_>,
         key: &str,
         range: &Range<u64>,
     ) -> StorageResult<(Pin<Box<dyn AsyncBufRead + Send>>, VersionInfo)> {
         let parts = split_in_multiple_requests(
             range,
-            settings.concurrency().ideal_concurrent_request_size().get(),
-            settings.concurrency().max_concurrent_requests_for_object().get(),
+            ctx.settings.concurrency().ideal_concurrent_request_size().get(),
+            ctx.settings.concurrency().max_concurrent_requests_for_object().get(),
         )
         .collect::<Vec<_>>();
 
         let res: (Pin<Box<dyn AsyncBufRead + Send>>, VersionInfo) = match parts.len() {
             0 => (Box::pin(tokio::io::empty()), VersionInfo::for_creation()),
-            1 => self.get_object_range_read(settings, key, Some(range)).await?,
-            _ => self.get_object_concurrently_multiple(settings, key, parts).await?,
+            1 => self.get_object_range_read(ctx, key, Some(range)).await?,
+            _ => self.get_object_concurrently_multiple(ctx, key, parts).await?,
         };
         Ok(res)
     }
@@ -787,4 +839,58 @@ pub fn split_in_multiple_equal_requests(
 
 pub fn strip_quotes(s: &str) -> &str {
     s.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(s)
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use futures::executor::block_on;
+
+    use super::*;
+
+    fn listing(ids: &[&str]) -> BoxStream<'static, StorageResult<ListInfo<String>>> {
+        let infos: Vec<_> = ids
+            .iter()
+            .map(|id| {
+                Ok(ListInfo {
+                    id: (*id).to_string(),
+                    created_at: Utc::now(),
+                    size_bytes: 0,
+                })
+            })
+            .collect();
+        stream::iter(infos).boxed()
+    }
+
+    fn filtered(ids: &[&str], id_prefixes: &[&str]) -> Vec<String> {
+        let id_prefixes: Vec<String> =
+            id_prefixes.iter().map(|p| (*p).to_string()).collect();
+        block_on(filter_ids_by_id_prefix(listing(ids), &id_prefixes).try_collect())
+            .map(|infos: Vec<ListInfo<String>>| infos.into_iter().map(|i| i.id).collect())
+            .expect("listing cannot fail")
+    }
+
+    /// Only a throttle is back-pressure; every other error is a real failure.
+    #[test]
+    fn throttled_errors_are_distinguishable() {
+        assert!(throttled_error("SlowDown", "x").kind.is_throttled());
+        assert!(!other_error("x").kind.is_throttled());
+        assert!(
+            throttled_error("SlowDown", "Please reduce your request rate.")
+                .to_string()
+                .contains("SlowDown")
+        );
+    }
+
+    #[test]
+    fn filters_ids_by_prefix() {
+        let ids = ["0AB", "0AC", "0B", "ZZZ"];
+        assert_eq!(filtered(&ids, &["0"]), vec!["0AB", "0AC", "0B"]);
+        assert_eq!(filtered(&ids, &["0A"]), vec!["0AB", "0AC"]);
+        assert_eq!(filtered(&ids, &["0AB", "Z"]), vec!["0AB", "ZZZ"]);
+        // a prefix equal to an id keeps it, unlike the offset listing backends
+        assert_eq!(filtered(&ids, &["0B"]), vec!["0B"]);
+        assert!(filtered(&ids, &[]).is_empty());
+        assert!(filtered(&ids, &["1"]).is_empty());
+    }
 }

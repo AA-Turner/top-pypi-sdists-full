@@ -5,45 +5,52 @@ use sqruff_lib_core::templaters::TemplatedFile;
 
 use crate::Formatter;
 use crate::core::config::FluffConfig;
-use crate::templaters::placeholder::PlaceholderTemplater;
-use crate::templaters::raw::RawTemplater;
-
-#[cfg(feature = "python")]
+use crate::templaters::dbt::DBTTemplater;
 use crate::templaters::jinja::JinjaTemplater;
-#[cfg(feature = "python")]
+use crate::templaters::placeholder::PlaceholderTemplater;
 use crate::templaters::python::PythonTemplater;
+use crate::templaters::raw::RawTemplater;
+use crate::templaters::sqlmesh::SQLMeshTemplater;
 
-#[cfg(feature = "python")]
 pub mod dbt;
-#[cfg(feature = "python")]
 pub mod jinja;
 pub mod placeholder;
-#[cfg(feature = "python")]
 pub mod python;
 #[cfg(feature = "python")]
 pub mod python_shared;
 pub mod raw;
+pub mod sqlmesh;
 pub mod types;
 
 pub use types::{PlaceholderStyle, TemplaterKind};
 
 pub static RAW_TEMPLATER: RawTemplater = RawTemplater;
 pub static PLACEHOLDER_TEMPLATER: PlaceholderTemplater = PlaceholderTemplater;
-#[cfg(feature = "python")]
 pub static PYTHON_TEMPLATER: PythonTemplater = PythonTemplater;
-#[cfg(feature = "python")]
 pub static JINJA_TEMPLATER: JinjaTemplater = JinjaTemplater;
-#[cfg(feature = "python")]
-pub static DBT_TEMPLATER: dbt::DBTTemplater = dbt::DBTTemplater;
+pub static DBT_TEMPLATER: DBTTemplater = DBTTemplater;
+pub static SQLMESH_TEMPLATER: SQLMeshTemplater = SQLMeshTemplater;
 
-// templaters returns all the templaters that are available in the library
-#[cfg(feature = "python")]
-pub static TEMPLATERS: [&'static dyn Templater; 5] = [
+/// Documentation for every templater, including templaters whose runtime
+/// implementation requires the optional Python feature.
+pub static TEMPLATER_DOCS: [&'static dyn TemplaterDocumentation; 6] = [
     &RAW_TEMPLATER,
     &PLACEHOLDER_TEMPLATER,
     &PYTHON_TEMPLATER,
     &JINJA_TEMPLATER,
     &DBT_TEMPLATER,
+    &SQLMESH_TEMPLATER,
+];
+
+// templaters returns all the templaters that are available in the library
+#[cfg(feature = "python")]
+pub static TEMPLATERS: [&'static dyn Templater; 6] = [
+    &RAW_TEMPLATER,
+    &PLACEHOLDER_TEMPLATER,
+    &PYTHON_TEMPLATER,
+    &JINJA_TEMPLATER,
+    &DBT_TEMPLATER,
+    &SQLMESH_TEMPLATER,
 ];
 
 #[cfg(not(feature = "python"))]
@@ -64,13 +71,17 @@ pub enum ProcessingMode {
     Batch,
 }
 
-pub trait Templater: Send + Sync {
+/// Documentation that is available without compiling a templater's runtime
+/// dependencies.
+pub trait TemplaterDocumentation: Send + Sync {
     /// The name of the templater.
     fn name(&self) -> &'static str;
 
     /// Description of the templater.
     fn description(&self) -> &'static str;
+}
 
+pub trait Templater: TemplaterDocumentation {
     /// Returns the processing mode for this templater.
     fn processing_mode(&self) -> ProcessingMode;
 
@@ -88,4 +99,36 @@ pub trait Templater: Send + Sync {
         config: &FluffConfig,
         formatter: &Option<Arc<dyn Formatter>>,
     ) -> Vec<Result<TemplatedFile, SQLFluffUserError>>;
+
+    /// Process files and return every useful rendering of each source file.
+    /// Templaters without variant support return their single normal rendering.
+    fn process_with_variants(
+        &self,
+        files: &[(&str, &str)],
+        config: &FluffConfig,
+        formatter: &Option<Arc<dyn Formatter>>,
+    ) -> Vec<Result<Vec<TemplatedFile>, SQLFluffUserError>> {
+        self.process(files, config, formatter)
+            .into_iter()
+            .map(|result| result.map(|templated_file| vec![templated_file]))
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TEMPLATER_DOCS;
+
+    #[test]
+    fn documentation_lists_every_templater() {
+        let names = TEMPLATER_DOCS
+            .iter()
+            .map(|templater| templater.name())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            names,
+            ["raw", "placeholder", "python", "jinja", "dbt", "sqlmesh"]
+        );
+    }
 }

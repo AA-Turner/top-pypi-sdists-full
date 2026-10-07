@@ -1,0 +1,313 @@
+file:
+- oracle_batch:
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: RENAME
+        - keyword: COLUMN
+        - column_reference:
+          - naked_identifier: old_column_name
+        - keyword: TO
+        - column_reference:
+          - naked_identifier: new_column_name
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: ADD
+        - bracketed:
+          - start_bracket: (
+          - oracle_column_definition:
+            - naked_identifier: column_name
+            - data_type:
+              - data_type_identifier: NUMBER
+              - bracketed_arguments:
+                - bracketed:
+                  - start_bracket: (
+                  - numeric_literal: '18'
+                  - end_bracket: )
+          - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: MODIFY
+        - oracle_column_definition:
+          - naked_identifier: column_name
+          - data_type:
+            - data_type_identifier: NUMBER
+            - bracketed_arguments:
+              - bracketed:
+                - start_bracket: (
+                - numeric_literal: '18'
+                - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: DROP
+        - keyword: COLUMN
+        - column_reference:
+          - naked_identifier: column_name
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: DROP
+        - bracketed:
+          - start_bracket: (
+          - column_reference:
+            - naked_identifier: column_name_one
+          - comma: ','
+          - column_reference:
+            - naked_identifier: column_name_two
+          - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_constraint_clauses:
+        - keyword: ADD
+        - table_constraint:
+          - keyword: CONSTRAINT
+          - object_reference:
+            - naked_identifier: constraint_name
+          - keyword: FOREIGN
+          - keyword: KEY
+          - bracketed:
+            - start_bracket: (
+            - column_reference:
+              - naked_identifier: column_name
+            - end_bracket: )
+          - keyword: REFERENCES
+          - oracle_table_reference:
+            - naked_identifier: other_table_name
+          - referenced_column_list:
+            - bracketed:
+              - start_bracket: (
+              - column_reference:
+                - naked_identifier: other_column_name
+              - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_constraint_clauses:
+        - keyword: ADD
+        - bracketed:
+          - start_bracket: (
+          - table_constraint:
+            - keyword: CONSTRAINT
+            - object_reference:
+              - naked_identifier: constraint_name
+            - keyword: FOREIGN
+            - keyword: KEY
+            - bracketed:
+              - start_bracket: (
+              - column_reference:
+                - naked_identifier: column_name
+              - end_bracket: )
+            - keyword: REFERENCES
+            - oracle_table_reference:
+              - naked_identifier: other_table_name
+            - referenced_column_list:
+              - bracketed:
+                - start_bracket: (
+                - column_reference:
+                  - naked_identifier: other_column_name
+                - end_bracket: )
+          - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_constraint_clauses:
+        - keyword: ADD
+        - bracketed:
+          - start_bracket: (
+          - table_constraint:
+            - keyword: CONSTRAINT
+            - object_reference:
+              - naked_identifier: pk_name
+            - keyword: PRIMARY
+            - keyword: KEY
+            - bracketed:
+              - start_bracket: (
+              - column_reference:
+                - naked_identifier: column_name
+              - end_bracket: )
+          - comma: ','
+          - table_constraint:
+            - keyword: CONSTRAINT
+            - object_reference:
+              - naked_identifier: fk_name
+            - keyword: FOREIGN
+            - keyword: KEY
+            - bracketed:
+              - start_bracket: (
+              - column_reference:
+                - naked_identifier: column_name
+              - end_bracket: )
+            - keyword: REFERENCES
+            - oracle_table_reference:
+              - naked_identifier: other_table_name
+            - referenced_column_list:
+              - bracketed:
+                - start_bracket: (
+                - column_reference:
+                  - naked_identifier: other_column_name
+                - end_bracket: )
+          - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_constraint_clauses:
+        - keyword: RENAME
+        - keyword: CONSTRAINT
+        - object_reference:
+          - naked_identifier: source_constraint_name
+        - keyword: TO
+        - object_reference:
+          - naked_identifier: target_constraint_name
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_constraint_clauses:
+        - keyword: DROP
+        - keyword: CONSTRAINT
+        - object_reference:
+          - naked_identifier: constraint_name
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: MODIFY
+        - bracketed:
+          - start_bracket: (
+          - oracle_column_definition:
+            - naked_identifier: column_name
+            - column_constraint_segment:
+              - keyword: NOT
+              - keyword: 'NULL'
+            - keyword: ENABLE
+          - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: MODIFY
+        - bracketed:
+          - start_bracket: (
+          - oracle_column_definition:
+            - naked_identifier: column_name
+            - column_constraint_segment:
+              - keyword: DEFAULT
+              - numeric_literal: '10'
+          - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: MODIFY
+        - bracketed:
+          - start_bracket: (
+          - oracle_column_definition:
+            - naked_identifier: column_name
+            - column_constraint_segment:
+              - keyword: DEFAULT
+              - numeric_literal: '10'
+            - column_constraint_segment:
+              - keyword: NOT
+              - keyword: 'NULL'
+            - keyword: ENABLE
+          - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: employees
+      - alter_table_constraint_clauses:
+        - keyword: ADD
+        - table_constraint:
+          - keyword: CONSTRAINT
+          - object_reference:
+            - naked_identifier: salary_check
+          - keyword: CHECK
+          - bracketed:
+            - start_bracket: (
+            - expression:
+              - column_reference:
+                - naked_identifier: salary
+              - comparison_operator:
+                - raw_comparison_operator: '>'
+              - numeric_literal: '0'
+            - end_bracket: )
+  - statement_terminator: ;
+  - statement:
+    - oracle_alter_table_statement:
+      - keyword: ALTER
+      - keyword: TABLE
+      - oracle_table_reference:
+        - naked_identifier: table_name
+      - alter_table_column_clauses:
+        - keyword: ADD
+        - oracle_column_definition:
+          - naked_identifier: identity_column
+          - data_type:
+            - data_type_identifier: NUMBER
+          - keyword: GENERATED
+          - keyword: ALWAYS
+          - keyword: AS
+          - keyword: IDENTITY
+  - statement_terminator: ;

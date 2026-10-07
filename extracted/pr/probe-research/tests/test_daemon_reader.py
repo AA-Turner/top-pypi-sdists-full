@@ -163,7 +163,11 @@ def test_every_approved_reads_file_is_pinned_here():
             "researcher-facing/failure-messages.NEW.md",
             # pinned in test_skill_versions.py and test_daemon_profile.py
             "agent-facing/managed-block.PROPOSED.md",
-            "agent-facing/guard-refusal.NEW.md",
+            "agent-facing/guard-refusal.NEW.md", "agent-facing/switch-refusal.NEW.md",
+            # pinned in test_daemon_inline.py
+            "agent-facing/inline-notice.NEW.md", "agent-facing/inline-switch-refusal.NEW.md",
+            "agent-facing/inline-reads.NEW.md", "agent-facing/inline-reads-old-cli.NEW.md",
+            "agent-facing/ask-inline.NEW.md",
             "skills/track-work/RENDERED.main-agent.md", "skills/track-work/RENDERED.writer.md"}
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md")} == used
 

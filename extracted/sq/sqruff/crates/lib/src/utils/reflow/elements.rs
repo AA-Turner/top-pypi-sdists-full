@@ -7,29 +7,25 @@ use itertools::{Itertools, chain};
 use nohash_hasher::IntMap;
 use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use sqruff_lib_core::lint_fix::LintFix;
-use sqruff_lib_core::parser::segments::{ErasedSegment, SegmentBuilder, Tables};
+use sqruff_lib_core::parser::segments::fix::SourceFix;
+use sqruff_lib_core::parser::segments::{
+    BlockType, ErasedSegment, SegmentBuilder, Tables, TemplateInfo,
+};
 
 use super::config::{LinePositionConfig, ReflowConfig, Spacing};
 use super::depth_map::DepthInfo;
 use super::respace::determine_constraints;
 use crate::core::rules::LintResult;
 use crate::utils::reflow::rebreak::LinePosition;
+use crate::utils::reflow::reindent::IndentUnit;
 use crate::utils::reflow::respace::{
     handle_respace_inline_with_space, handle_respace_inline_without_space, process_spacing,
 };
 
 fn get_consumed_whitespace(segment: Option<&ErasedSegment>) -> Option<String> {
     let segment = segment?;
-
-    if segment.is_type(SyntaxKind::Placeholder) {
-        None
-    } else {
-        // match segment.block_type.as_ref() {
-        //     SyntaxKind::Literal => Some(segment.source_str),
-        //     _ => None,
-        // }
-        None
-    }
+    (segment.is_type(SyntaxKind::Placeholder) && segment.block_type() == Some(BlockType::Literal))
+        .then(|| segment.source_str().to_string())
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -135,7 +131,7 @@ impl ReflowPoint {
     pub(crate) fn get_indent_segment_vals(&self, exclude_block_indents: bool) -> Vec<isize> {
         self.segments
             .iter()
-            .filter(|seg| seg.is_type(SyntaxKind::Indent))
+            .filter(|seg| matches!(seg.get_type(), SyntaxKind::Indent | SyntaxKind::Dedent))
             .filter(|seg| !(exclude_block_indents && seg.block_uuid().is_some()))
             .map(|seg| seg.indent_val() as isize)
             .collect()
@@ -198,7 +194,67 @@ impl ReflowPoint {
             .filter(|indent_seg| indent_seg.is_type(SyntaxKind::Placeholder))
             .is_some()
         {
-            unimplemented!()
+            let indent_seg = indent_seg.unwrap();
+            let marker = indent_seg.get_position_marker().unwrap();
+            let source_text = indent_seg.source_str();
+            let current_indent = source_text.rsplit('\n').next().unwrap();
+            let source_slice =
+                marker.source_slice.end - current_indent.len()..marker.source_slice.end;
+            let source_fix = SourceFix::new(
+                desired_indent.into(),
+                source_slice,
+                marker.templated_slice.clone(),
+            );
+            let mut source_fixes = indent_seg.get_source_fixes();
+            if source_fixes.contains(&source_fix) {
+                return (Vec::new(), self.clone());
+            }
+            source_fixes.push(source_fix);
+            let new_source = format!(
+                "{}{}",
+                &source_text[..source_text.len() - current_indent.len()],
+                desired_indent
+            );
+            let new_placeholder =
+                SegmentBuilder::token(tables.next_id(), indent_seg.raw(), SyntaxKind::Placeholder)
+                    .with_position(marker.clone())
+                    .with_template_info(TemplateInfo {
+                        block_type: BlockType::Literal,
+                        block_uuid: indent_seg.block_uuid(),
+                        source_str: new_source.into(),
+                        is_template: false,
+                    })
+                    .with_source_fixes(source_fixes)
+                    .finish();
+            let new_segments = self
+                .segments
+                .iter()
+                .map(|segment| {
+                    if segment == indent_seg {
+                        new_placeholder.clone()
+                    } else {
+                        segment.clone()
+                    }
+                })
+                .collect();
+            (
+                vec![LintResult::new(
+                    indent_seg.clone().into(),
+                    vec![LintFix::replace(
+                        indent_seg.clone(),
+                        vec![new_placeholder],
+                        None,
+                    )],
+                    description
+                        .map(ToOwned::to_owned)
+                        .unwrap_or_else(|| {
+                            format!("Expected {}.", indent_description(desired_indent))
+                        })
+                        .into(),
+                    source.map(ToOwned::to_owned),
+                )],
+                ReflowPoint::new(new_segments),
+            )
         } else if self.num_newlines() != 0 {
             if let Some(indent_seg) = indent_seg {
                 if indent_seg.raw() == desired_indent {
@@ -370,7 +426,12 @@ impl ReflowPoint {
                     new_point,
                 )
             } else {
-                let new_indent = SegmentBuilder::whitespace(tables.next_id(), desired_indent);
+                // Work out the new segments. Always a newline, only whitespace if
+                // there's a non zero indent.
+                let mut new_segs = vec![new_newline];
+                if !desired_indent.is_empty() {
+                    new_segs.push(SegmentBuilder::whitespace(tables.next_id(), desired_indent));
+                }
 
                 if before.is_none() && after.is_none() {
                     unimplemented!(
@@ -379,10 +440,7 @@ impl ReflowPoint {
                         self.segments
                     );
                 } else if let Some(before) = before {
-                    let fix = LintFix::create_before(
-                        before.clone(),
-                        vec![new_newline.clone(), new_indent.clone()],
-                    );
+                    let fix = LintFix::create_before(before.clone(), new_segs.clone());
 
                     (
                         vec![LintResult::new(
@@ -395,15 +453,11 @@ impl ReflowPoint {
                             )),
                             source.map(ToOwned::to_owned),
                         )],
-                        ReflowPoint::new(vec![new_newline, new_indent]),
+                        ReflowPoint::new(new_segs),
                     )
                 } else {
                     let after = after.unwrap();
-                    let fix = LintFix::create_after(
-                        after.clone(),
-                        vec![new_newline.clone(), new_indent.clone()],
-                        None,
-                    );
+                    let fix = LintFix::create_after(after.clone(), new_segs.clone(), None);
                     let description = format!(
                         "Expected line break and {} after {:?}.",
                         indent_description(desired_indent),
@@ -417,7 +471,7 @@ impl ReflowPoint {
                             Some(description),
                             source.map(ToOwned::to_owned),
                         )],
-                        ReflowPoint::new(vec![new_newline, new_indent]),
+                        ReflowPoint::new(new_segs),
                     )
                 }
             }
@@ -434,6 +488,8 @@ impl ReflowPoint {
         lint_results: Vec<LintResult>,
         strip_newlines: bool,
         anchor_on: &'static str,
+        indent_unit: IndentUnit,
+        tab_space_size: usize,
     ) -> (Vec<LintResult>, ReflowPoint) {
         let mut existing_results = lint_results;
 
@@ -549,6 +605,8 @@ impl ReflowPoint {
                 root_segment,
                 segment_buffer,
                 last_whitespace,
+                indent_unit,
+                tab_space_size,
             );
 
             new_results.extend(results);

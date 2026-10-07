@@ -5,6 +5,7 @@ import attrs
 from data_diff.databases.base import (
     CHECKSUM_HEXDIGITS,
     CHECKSUM_OFFSET,
+    TIMESTAMP_PRECISION_POS,
     QueryError,
     ThreadedDatabase,
     import_helper,
@@ -13,7 +14,10 @@ from data_diff.databases.base import (
 )
 from data_diff.abcs.database_types import (
     JSON,
+    ColType,
+    ColType_UUID,
     NumericType,
+    StringType,
     Timestamp,
     TimestampTZ,
     DbPath,
@@ -27,8 +31,11 @@ from data_diff.abcs.database_types import (
     Date,
     Time,
 )
+from data_diff.schema import RawColumnInfo
 
 DEFAULT_ODBC_DRIVER = "ODBC Driver 18 for SQL Server"
+# Binary, so it never compares or sorts anything differently; text is only converted with it
+UTF8_COLLATION = "Latin1_General_100_BIN2_UTF8"
 
 
 @import_helper("mssql")
@@ -42,6 +49,8 @@ def import_mssql():
 class Dialect(BaseDialect):
     name = "MsSQL"
     ROUNDS_ON_PREC_LOSS = True
+    # Set on connecting: the UTF-8 collation to hash text in, or "" where the server has none (before 2019)
+    utf8_collation: Optional[str] = None
     SUPPORTS_PRIMARY_KEY: ClassVar[bool] = True
     SUPPORTS_INDEXES = True
     TYPE_CLASSES = {
@@ -56,6 +65,7 @@ class Dialect(BaseDialect):
         "float": Float,
         "real": Float,
         "decimal": Decimal,
+        "numeric": Decimal,
         "money": Decimal,
         "smallmoney": Decimal,
         # int
@@ -83,6 +93,29 @@ class Dialect(BaseDialect):
 
     def quote(self, s: str) -> str:
         return f"[{s}]"
+
+    def parse_type(self, table_path: DbPath, info: RawColumnInfo) -> ColType:
+        coltype = super().parse_type(table_path, info)
+        if info.data_type in ("char", "nchar"):
+            return attrs.evolve(coltype, padded=True)
+        return coltype
+
+    def normalize_value_by_type(self, value: str, coltype: ColType) -> str:
+        if isinstance(coltype, StringType) and not isinstance(coltype, ColType_UUID):
+            if coltype.padded:
+                # Other databases' char types drop the padding (Postgres, MySQL) or have none (Snowflake)
+                value = f"RTRIM({value})"
+            if self.utf8_collation:
+                # Text is hashed as UTF-8 elsewhere. A plain varchar takes the database's code page, which can't
+                # hold every nvarchar character ('Łukasz' became 'Lukasz') and hashes non-ASCII differently.
+                return f"CONVERT(VARCHAR(MAX), CONVERT(NVARCHAR(MAX), {value}) COLLATE {self.utf8_collation})"
+            return self.to_string(value)
+        return super().normalize_value_by_type(value, coltype)
+
+    def _convert_db_precision_to_digits(self, p: int) -> int:
+        # normalize_number casts a float to decimal from its exact binary value, so like PostgreSQL and DuckDB,
+        # compare two fewer digits than the binary precision nominally holds: REAL 100.98 is 100.9800034.
+        return max(super()._convert_db_precision_to_digits(p) - 2, 0)
 
     def set_timezone_to_utc(self) -> str:
         raise NotImplementedError("MsSQL does not support a session timezone setting.")
@@ -140,21 +173,32 @@ class Dialect(BaseDialect):
         return f"VALUES {values}"
 
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
-        if coltype.precision > 0:
-            formatted_value = (
-                f"FORMAT({value}, 'yyyy-MM-dd HH:mm:ss') + '.' + "
-                f"SUBSTRING(FORMAT({value}, 'fffffff'), 1, {coltype.precision})"
-            )
-        else:
-            formatted_value = f"FORMAT({value}, 'yyyy-MM-dd HH:mm:ss')"
+        if isinstance(coltype, Date):
+            return f"CONVERT(VARCHAR(10), {value}, 23)"  # yyyy-mm-dd, as the other dialects render dates
 
-        return formatted_value
+        if isinstance(coltype, Time):
+            # hh:mi:ss.ffffff, rounded to the column's precision like the other dialects' times
+            return f"CONVERT(VARCHAR(15), CAST(CAST({value} AS TIME({min(coltype.precision, 6)})) AS TIME(6)))"
+
+        if isinstance(coltype, TimestampTZ):
+            # There is no session time zone to set to UTC (see set_timezone_to_utc), so convert each value
+            value = f"SWITCHOFFSET({value}, '+00:00')"
+
+        # Style 121 is yyyy-mm-dd hh:mi:ss.fffffff. CONVERT rather than FORMAT(), which runs on the CLR and is
+        # far slower, and which left the fraction unpadded (".123" where the other dialects give ".123000").
+        if coltype.rounds and coltype.precision <= 6:
+            # Casting down to the precision rounds; casting back up to 6 digits pads with zeros
+            timestamp6 = f"CAST(CAST({value} AS DATETIME2({coltype.precision})) AS DATETIME2(6))"
+            return f"CONVERT(VARCHAR(26), {timestamp6}, 121)"
+
+        precision = min(coltype.precision, 6)
+        timestamp7 = f"CONVERT(VARCHAR(27), CAST({value} AS DATETIME2(7)), 121)"
+        return f"LEFT({timestamp7}, {TIMESTAMP_PRECISION_POS + precision}) + REPLICATE('0', {6 - precision})"
 
     def normalize_number(self, value: str, coltype: NumericType) -> str:
-        if coltype.precision == 0:
-            return f"CAST(FLOOR({value}) AS VARCHAR)"
-
-        return f"FORMAT({value}, 'N{coltype.precision}')"
+        # CAST rounds half away from zero, like the other dialects. FORMAT(value, 'N2') added grouping separators
+        # in the session's culture ("1,234.50"), and precision 0 went through FLOOR, which truncates.
+        return f"CONVERT(VARCHAR(40), CAST({value} AS DECIMAL(38, {coltype.precision})))"
 
     def md5_as_int(self, s: str) -> str:
         return f"convert(bigint, convert(varbinary, '0x' + RIGHT(CONVERT(NVARCHAR(32), HashBytes('MD5', {s}), 2), {CHECKSUM_HEXDIGITS}), 1)) - {CHECKSUM_OFFSET}"
@@ -206,9 +250,22 @@ class MsSQL(ThreadedDatabase):
         self._mssql = import_mssql()
         try:
             connection = self._mssql.connect(**self._args)
-            return connection
         except self._mssql.Error as error:
             raise ConnectError(*error.args) from error
+        if self.dialect.utf8_collation is None:
+            self.dialect.utf8_collation = self._find_utf8_collation(connection)
+        return connection
+
+    def _find_utf8_collation(self, connection) -> str:
+        # UTF-8 collations came with SQL Server 2019 (and Azure SQL); before that, text keeps the code page
+        cursor = connection.cursor()
+        try:
+            cursor.execute(f"SELECT CONVERT(VARCHAR(1), N'x' COLLATE {UTF8_COLLATION})").fetchall()
+        except self._mssql.Error:
+            return ""
+        finally:
+            cursor.close()
+        return UTF8_COLLATION
 
     def select_table_schema(self, path: DbPath) -> str:
         """Provide SQL for selecting the table schema as (name, type, date_prec, num_prec)"""

@@ -3,15 +3,15 @@
 use std::borrow::Cow;
 
 use nom::{
+	Parser,
 	bytes::complete::{escaped_transform, tag, take_until1, take_while1},
 	character::char,
 	combinator::{map, opt},
 	error::ParseError,
 	sequence::{delimited, terminated},
-	Parser,
 };
 
-use crate::{unparse::Unparse, Input};
+use crate::{Input, unparse::Unparse};
 
 pub const DELIMITER: &str = "```";
 
@@ -82,7 +82,7 @@ mod test {
 
 	use crate::test_utils::handle_nom_err;
 
-	use super::{code_block, CodeBlock};
+	use super::{CodeBlock, code_block};
 
 	#[test]
 	fn basic_codeblock() {

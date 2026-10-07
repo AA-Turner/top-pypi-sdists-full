@@ -223,19 +223,28 @@ def _term_pattern(term: str) -> re.Pattern[str] | None:
     return re.compile(r"(?<!\w)" + body + r"(?!\w)", re.IGNORECASE)
 
 
-def term_hits(haystack: str, terms: Iterable[str]) -> list[str]:
+def term_hits(
+    haystack: str, terms: Iterable[str], common_word_terms: Iterable[str] | None = None
+) -> list[str]:
     """The tracked terms that appear in ``haystack`` as WHOLE WORDS, case-insensitively.
 
     The one term matcher for coverage. A substring test is how a founder-name term "Arman"
-    came to match "Giorgio Armani" — word boundaries are the fix for the whole class.
+    came to match "Giorgio Armani" — word boundaries are the fix for the whole class. A name
+    that is also an everyday word ("Square", "Stream") counts only as a proper name
+    (:mod:`matrx_seo.name_matching`): "the town square" is no mention of Square.
     """
+    from .name_matching import is_flagged, proper_name_match
+
     hits: list[str] = []
     for term in terms:
+        if is_flagged(str(term), common_word_terms):
+            if proper_name_match(str(term), haystack or "") is not None:
+                hits.append(term)
+            continue
         pattern = _term_pattern(str(term))
         if pattern is not None and pattern.search(haystack or ""):
             hits.append(term)
     return hits
-
 
 
 def classify_candidate(

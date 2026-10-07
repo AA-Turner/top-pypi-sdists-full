@@ -79,6 +79,8 @@ class ConnectResource:
         profile_id: str,
         *,
         reconnect_account_id: str | None = None,
+        expected_platform_user_id: str | None = None,
+        expected_username: str | None = None,
         redirect_url: str | None = None,
         scopes: str | None = None,
         headless: bool | None = False,
@@ -93,6 +95,8 @@ class ConnectResource:
         params = self._build_params(
             profile_id=profile_id,
             reconnect_account_id=reconnect_account_id,
+            expected_platform_user_id=expected_platform_user_id,
+            expected_username=expected_username,
             redirect_url=redirect_url,
             scopes=scopes,
             headless=headless,
@@ -459,6 +463,23 @@ class ConnectResource:
             redirect_uri=redirect_uri,
         )
         return self._client._post("/v1/connect/openai-ads/credentials", data=payload)
+
+    def connect_whop_ads_credentials(
+        self,
+        api_key: str,
+        profile_id: str,
+        *,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Whop account"""
+        payload = self._build_payload(
+            api_key=api_key,
+            profile_id=profile_id,
+            state=state,
+            redirect_url=redirect_url,
+        )
+        return self._client._post("/v1/connect/whop-ads/credentials", data=payload)
 
     def connect_whats_app_credentials(
         self,
@@ -910,6 +931,8 @@ class ConnectResource:
         profile_id: str,
         *,
         reconnect_account_id: str | None = None,
+        expected_platform_user_id: str | None = None,
+        expected_username: str | None = None,
         redirect_url: str | None = None,
         scopes: str | None = None,
         headless: bool | None = False,
@@ -924,6 +947,8 @@ class ConnectResource:
         params = self._build_params(
             profile_id=profile_id,
             reconnect_account_id=reconnect_account_id,
+            expected_platform_user_id=expected_platform_user_id,
+            expected_username=expected_username,
             redirect_url=redirect_url,
             scopes=scopes,
             headless=headless,
@@ -1307,6 +1332,25 @@ class ConnectResource:
         )
         return await self._client._apost(
             "/v1/connect/openai-ads/credentials", data=payload
+        )
+
+    async def aconnect_whop_ads_credentials(
+        self,
+        api_key: str,
+        profile_id: str,
+        *,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Whop account (async)"""
+        payload = self._build_payload(
+            api_key=api_key,
+            profile_id=profile_id,
+            state=state,
+            redirect_url=redirect_url,
+        )
+        return await self._client._apost(
+            "/v1/connect/whop-ads/credentials", data=payload
         )
 
     async def aconnect_whats_app_credentials(

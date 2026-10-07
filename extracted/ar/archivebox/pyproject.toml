@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.71"
+version = "0.9.73"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [
@@ -80,10 +80,10 @@ dependencies = [
     "croniter>=6.0.0",
     "tzdata>=2024.2",
     "w3lib>=2.2.1",
-    "abxbus==2.5.70",
-    "abxpkg==1.13.21",
-    "abx-plugins[opencode]==1.13.109",
-    "abx-dl==1.13.79",
+    "abxbus==2.5.74",
+    "abxpkg==1.13.35",
+    "abx-plugins[opencode]==1.13.162",
+    "abx-dl==1.13.127",
     "uuid7>=0.1.0; python_version < '3.14'",
     "browser-cookie3>=0.20.1",
 ]
@@ -148,6 +148,7 @@ dev = [
     "pytest-httpserver>=1.1.0",
     "pytest-sugar>=1.0.0",
     "pytest-timeout>=2.3.1",
+    "pytest-xdist>=3.5.0",
     "playwright==1.63.0",
     "coverage[toml]>=7.6.0",
     "bottle>=0.13.1",
@@ -353,7 +354,7 @@ exclude = [
 ]
 
 [tool.bumpver]
-current_version = "v0.9.71"
+current_version = "v0.9.73"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"

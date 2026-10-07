@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 
 
@@ -224,3 +225,72 @@ async def run_connection_token_expiring(context):
     a = await context.connection_token("gitlab", min_ttl=3600 * 2)
     b = await context.connection_token("gitlab", min_ttl=3600 * 2)
     (context.output_dir / "reply.md").write_text(f"{a['access_token']} {b['access_token']}\n", encoding="utf-8")
+
+
+async def run_read_wait_then_effect(context):
+    """read を承認された後、効果を送る前に待つ（その間に取消 / run の終端が入る試験用）。"""
+    inv = await context.audit.tool_invoked("read_instructions", effect_kind="read", target="instructions.md")
+    (context.output_dir / "reply.md").write_text("read\n", encoding="utf-8")
+    await asyncio.sleep(1.5)
+    await context.audit.tool_effect(inv, status="ok", count=1)
+
+
+async def run_nan_metadata(context):
+    """監査の metadata に送れない値（NaN / Infinity）を入れる。SDK はキーごと捨てて警告し、残りは送る。"""
+    inv = await context.audit.tool_invoked("read_instructions", effect_kind="read", target="instructions.md",
+                                           score=float("nan"), ratio=float("inf"), note="kept")
+    await context.audit.tool_effect(inv, status="ok", count=1)
+    (context.output_dir / "reply.md").write_text("ok\n", encoding="utf-8")
+
+
+async def _raw_call(context, op, **payload):
+    """制御チャネルへ ensure_ascii=True の JSON を直接書いて応答を待つ（孤立したサロゲートも \\ud800 で書ける）。"""
+    ipc = context._ipc
+    ipc._ensure_reader()
+    rid = next(ipc._ids)
+    fut = asyncio.get_running_loop().create_future()
+    ipc._pending[rid] = fut
+    try:
+        await asyncio.get_running_loop().run_in_executor(
+            None, ipc._write_frame, json.dumps({"id": rid, "op": op, **payload}).encode("ascii") + b"\n")
+        return await fut
+    finally:
+        ipc._pending.pop(rid, None)
+
+
+def _raw_frame(context, line: bytes) -> None:
+    """応答を待たない 1 行（runner が読み捨てるはずの行）。"""
+    context._ipc._write_frame(line + b"\n")
+
+
+async def run_raw_ipc_bad_audit(context):
+    """SDK を通らずに制御チャネルへ、送れない値（NaN・孤立したサロゲート）、形の違う event、深い入れ子、
+    整数でない id、読めない深さの行を書く。runner は落ちず、送れない監査は保存できなかった監査として数える。"""
+    def ev(eid, **meta):
+        return {"event_id": eid, "event_type": "tool.invoked", "decision": "ok",
+                "metadata": {"tool": "x", "effect_kind": "read", **meta}}
+    deep: list = []
+    for _ in range(600):
+        deep = [deep]
+    await context._ipc.call("audit", event=ev("tool-invoked-nan", v=float("nan")))
+    await context._ipc.call("audit", event="not-an-object")
+    await _raw_call(context, "audit", event=ev("tool-invoked-surrogate", v="\ud800"))
+    await context._ipc.call("audit", event=ev("tool-invoked-deep", v=deep))   # 送れる（front が入れ子を捨てる）
+    _raw_frame(context, json.dumps({"id": "\ud800", "op": "check"}).encode("ascii"))
+    _raw_frame(context, b"[" * 100000 + b"]" * 100000)
+    await context.is_cancel_requested()   # 上の 2 行を読み捨てた後も応答が返る
+    (context.output_dir / "reply.md").write_text("ok\n", encoding="utf-8")
+
+
+async def run_raw_ipc_bad_done(context):
+    """制御チャネルへ直接、文字列でない error_class（NaN を含む）の done を書く。envelope には載せない。"""
+    await context._ipc.call("done", status="error", error_class={"x": float("nan")})
+    await asyncio.sleep(5)
+
+
+async def run_raw_ipc_long_done(context):
+    """front の上限（128 文字 = UTF-16 の単位）を超える error_class の done。切って載せる（超えたままだと front が
+    completion ごと拒む）。parameters の product_code が "astral" なら BMP 外の文字（1 文字 = 2 単位）で送る。"""
+    ec = "\U0001F600" * 100 if context.parameters.get("product_code") == "astral" else "E" * 150
+    await context._ipc.call("done", status="error", error_class=ec)
+    await asyncio.sleep(5)

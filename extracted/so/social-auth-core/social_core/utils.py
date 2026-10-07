@@ -20,9 +20,11 @@ from social_core.pipeline.utils import is_dict_type, to_plain_dict
 
 from .exceptions import (
     AuthCanceled,
-    AuthForbidden,
-    AuthTokenError,
-    AuthUnreachableProvider,
+    AuthConfigurationError,
+    AuthCredentialError,
+    AuthProviderError,
+    ErrorStage,
+    SocialAuthBaseException,
 )
 
 if TYPE_CHECKING:
@@ -60,6 +62,31 @@ class PartialPipelineSelection:
     token: str | None = None
     owns_token: bool = False
     pending_resume: bool = False
+
+
+def normalize_user_names(
+    fullname: str | None = "",
+    first_name: str | None = "",
+    last_name: str | None = "",
+    *,
+    firstlast_from_full: bool = True,
+    full_from_firstlast: bool = True,
+) -> tuple[str, str, str]:
+    """Fill missing name representations without replacing supplied names."""
+    fullname = (fullname or "").strip()
+    first_name = (first_name or "").strip()
+    last_name = (last_name or "").strip()
+    if firstlast_from_full and fullname and not (first_name or last_name):
+        first_name, _, last_name = fullname.partition(" ")
+        first_name, last_name = first_name.strip(), last_name.strip()
+    if full_from_firstlast and not fullname:
+        if first_name and re.search(
+            rf"(?<!\S){re.escape(first_name)}(?!\S)", last_name
+        ):
+            fullname = last_name
+        else:
+            fullname = f"{first_name} {last_name}".strip()
+    return fullname, first_name, last_name
 
 
 def module_member(name):
@@ -221,9 +248,16 @@ def drop_lists(value):
 
 
 def _partial_pipeline_matches_request(
-    backend: BaseAuth, partial: PartialMixin | None, request_data: dict[str, Any]
+    backend: BaseAuth,
+    partial: PartialMixin | None,
+    request_data: dict[str, Any],
+    pipeline_type: str,
 ) -> bool:
-    if not partial or partial.backend != backend.name:
+    if (
+        not partial
+        or partial.backend != backend.name
+        or partial.pipeline_type != pipeline_type
+    ):
         return False
 
     # Normally when resuming a pipeline, request_data will be empty. We only
@@ -247,7 +281,8 @@ def _extend_partial_pipeline(
 ) -> PartialMixin:
     if user:  # don't update user if it's None
         kwargs.setdefault("user", user)
-    kwargs["request"] = request_data
+    partial.request_data = request_data
+    kwargs.pop("request", None)
     partial.extend_kwargs(kwargs)
     return partial
 
@@ -332,12 +367,13 @@ def partial_pipeline_result(
     user: UserProtocol | None = None,
     partial_token: str | None = None,
     *args,
+    pipeline_type: str = "authentication",
     **kwargs,
 ) -> PartialPipelineResult:
-    request_data = backend.strategy.request_data()
+    request_data = backend.strategy.get_request_data()
 
-    partial_argument_name = backend.setting(
-        "PARTIAL_PIPELINE_TOKEN_NAME", "partial_token"
+    partial_argument_name = cast(
+        "str", backend.setting("PARTIAL_PIPELINE_TOKEN_NAME", "partial_token")
     )
     request_token = cast(
         "str | None", partial_token or request_data.get(partial_argument_name)
@@ -376,7 +412,7 @@ def partial_pipeline_result(
 
     partial: PartialMixin | None = backend.strategy.partial_load(selection.token)
     partial_matches = _partial_pipeline_matches_request(
-        backend, partial, effective_request_data
+        backend, partial, effective_request_data, pipeline_type
     )
     if partial and partial_matches:
         backend.validate_partial_pipeline(partial, user)
@@ -492,39 +528,111 @@ def setting_url(backend: BaseAuth, *names: str | None) -> str | None:
     return None
 
 
+def provider_error(
+    backend: BaseAuth,
+    data: object,
+    *,
+    stage: ErrorStage = "callback",
+    status_code: int | None = None,
+    retry_after: str | None = None,
+) -> SocialAuthBaseException | None:
+    """Classify structured protocol errors without inspecting descriptions."""
+    if not isinstance(data, dict):
+        return None
+    provider_code = data.get("error")
+    detail = data.get("error_description", "")
+    if isinstance(provider_code, dict):
+        detail = provider_code.get("message", provider_code.get("error_msg", ""))
+        provider_code = provider_code.get("code", provider_code.get("error_code"))
+    if not isinstance(provider_code, (str, int)) or not provider_code:
+        return None
+    fields: dict[str, Any] = {
+        "stage": stage,
+        "provider_code": provider_code,
+        "status_code": status_code,
+        "retry_after": retry_after,
+    }
+    if provider_code in {"access_denied", "user_denied", "cancelled", "canceled"}:
+        return AuthCanceled(backend, detail, **fields)
+    if provider_code in {
+        "invalid_client",
+        "unauthorized_client",
+        "unsupported_grant_type",
+        "invalid_scope",
+    }:
+        return AuthConfigurationError(backend, detail, code="invalid_setting", **fields)
+    if provider_code in {"invalid_grant", "bad_verification_code", "invalid_token"}:
+        code = (
+            "credential_rejected"
+            if provider_code == "invalid_token"
+            else "reauthentication_required"
+            if stage == "refresh"
+            else "authorization_code_rejected"
+        )
+        return AuthCredentialError(
+            backend, detail, code=code, source="provider_response", **fields
+        )
+    code = (
+        "unavailable"
+        if provider_code in {"server_error", "temporarily_unavailable"}
+        else "rate_limited"
+        if status_code == 429
+        else "unavailable"
+        if status_code is not None and status_code >= 500
+        else "http_error"
+    )
+    return AuthProviderError(backend, detail, code=code, **fields)
+
+
+def http_error(
+    backend: BaseAuth, error: requests.HTTPError, *, stage: ErrorStage = "user_info"
+) -> SocialAuthBaseException:
+    """Normalize a Requests HTTP failure, including errors without responses."""
+    response = error.response
+    status = response.status_code if response is not None else None
+    retry_after = response.headers.get("Retry-After") if response is not None else None
+    if response is not None:
+        try:
+            data = response.json()
+        except ValueError:
+            data = None
+        classified = provider_error(
+            backend, data, stage=stage, status_code=status, retry_after=retry_after
+        )
+        if classified is not None:
+            return classified
+    code = (
+        "rate_limited"
+        if status == 429
+        else "unavailable"
+        if status is not None and status >= 500
+        else "http_error"
+    )
+    return AuthProviderError(
+        backend, code=code, stage=stage, status_code=status, retry_after=retry_after
+    )
+
+
 def handle_http_errors(func):
+    """Normalize raw HTTP errors from integrations outside BaseAuth.request."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except requests.HTTPError as err:
-            social_logger.exception(
-                "Request failed with %d: %s",
-                err.response.status_code,
-                err.response.text,
-            )
-
-            if err.response.status_code == 400:
-                raise AuthCanceled(args[0], response=err.response) from err
-            if err.response.status_code in (401, 403):
-                raise AuthForbidden(args[0]) from err
-            if err.response.status_code == 503:
-                raise AuthUnreachableProvider(args[0]) from err
-            raise
+        except requests.HTTPError as error:
+            raise http_error(args[0], error, stage="callback") from error
 
     return wrapper
 
 
 @contextlib.contextmanager
-def wrap_access_token_error(backend: BaseAuth):
+def wrap_access_token_error(backend: BaseAuth, *, stage: ErrorStage = "token_exchange"):
+    """Normalize token request HTTP errors without guessing their cause."""
     try:
         yield
     except requests.HTTPError as error:
-        if error.response.status_code == 401:
-            raise AuthTokenError(
-                backend, "Invalid key/secret, perhaps expired"
-            ) from error
-        raise
+        raise http_error(backend, error, stage=stage) from error
 
 
 def append_slash(url: str) -> str:
@@ -551,6 +659,12 @@ class cache:
 
     It maintains a cache per class and method arguments, so subclasses have a
     different cache entry for the same cached method.
+
+    Call ``method.invalidate()`` to clear all entries, or
+    ``method.invalidate(instance, *args, **kwargs)`` to clear one entry.
+    Call ``method.refresh(instance, *args, **kwargs)`` to replace one entry
+    only after the underlying method succeeds. Failed refreshes propagate
+    their exception and preserve the existing value and expiry time.
     """
 
     def __init__(self, ttl: int) -> None:
@@ -560,6 +674,12 @@ class cache:
         ] = {}
 
     def __call__(self, fn):
+        def refresh(this, *args, **kwargs):
+            cached_value = fn(this, *args, **kwargs)
+            cache_key = (this.__class__, args, tuple(sorted(kwargs.items())))
+            self.cache[cache_key] = (time.time(), cached_value)
+            return cached_value
+
         def wrapped(this, *args, **kwargs):
             now = time.time()
             last_updated = None
@@ -582,7 +702,14 @@ class cache:
             return cached_value
 
         cast("Any", wrapped).invalidate = self._invalidate
+        cast("Any", wrapped).refresh = refresh
         return wrapped
 
-    def _invalidate(self) -> None:
-        self.cache.clear()
+    def _invalidate(
+        self, this: object | None = None, *args: Any, **kwargs: Any
+    ) -> None:
+        if this is None:
+            self.cache.clear()
+        else:
+            cache_key = (this.__class__, args, tuple(sorted(kwargs.items())))
+            self.cache.pop(cache_key, None)

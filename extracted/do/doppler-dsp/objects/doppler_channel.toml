@@ -7,6 +7,7 @@ no_step = "true"
 class_name = "DopplerChannel"
 serializable = "true"
 depends_on = [{ name = "resamp", link = true }]
+fragment = "generated"
 
 [[doppler_channel.init_params]]
 name = "fs"
@@ -36,6 +37,20 @@ variable_output = true
 pass_capacity = true
 nogil = true
 params = [{name = "x", type = "float _Complex[]"}]
+
+# The array form. Same two-parallel-arrays shape as Resampler.execute_ctrl,
+# which is the primitive underneath -- a profile is handed to the resampler
+# rather than reduced to fit it. jm gives each array its own length, and the
+# core uses that to ENFORCE "one Doppler value per waveform sample" instead
+# of trusting it.
+[[doppler_channel.methods]]
+name = "execute_profile"
+arg_type = "void"
+return_type = "float _Complex"
+variable_output = true
+pass_capacity = true
+nogil = true
+params = [{name = "x", type = "float _Complex[]"}, {name = "ppm", type = "double[]"}]
 
 [[doppler_channel.methods]]
 name = "reset"

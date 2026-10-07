@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: ISC
-
+#
+# ISC License
+#
 # Copyright (c) 2021, Timothée Mazzucotelli and contributors
-
+#
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -18,8 +20,7 @@
 
 from __future__ import annotations
 
-import os
-import sys
+import tomllib
 from collections import defaultdict
 from collections.abc import Iterable
 from importlib.metadata import distributions
@@ -31,13 +32,7 @@ from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 from packaging.requirements import Requirement
 
-# YORE: EOL 3.10: Replace block with line 2.
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
-
-project_dir = Path(os.getenv("MKDOCS_CONFIG_DIR", "."))
+project_dir = Path.cwd()
 with project_dir.joinpath("pyproject.toml").open("rb") as pyproject_file:
     pyproject = tomllib.load(pyproject_file)
 project = pyproject["project"]
@@ -70,7 +65,7 @@ def _extra_marker(req: Requirement) -> str | None:
     if not req.marker:
         return None
     try:
-        return next(marker[2].value for marker in req.marker._markers if getattr(marker[0], "value", None) == "extra")
+        return next(marker[2].value for marker in req.marker._markers if getattr(marker[0], "value", None) == "extra")  # ty:ignore[unresolved-attribute]
     except StopIteration:
         return None
 
@@ -79,7 +74,7 @@ def _get_metadata() -> Metadata:
     metadata = {}
     for pkg in distributions():
         name = _norm_name(pkg.name)
-        metadata[name] = _merge_fields(pkg.metadata)  # ty:ignore[invalid-argument-type]
+        metadata[name] = _merge_fields(pkg.metadata)  # ty: ignore[invalid-argument-type]
         metadata[name]["spec"] = set()
         metadata[name]["extras"] = set()
         metadata[name].setdefault("summary", "")
@@ -106,8 +101,8 @@ def _get_deps(base_deps: dict[str, Requirement], metadata: Metadata) -> Metadata
     for dep_name, dep_req in base_deps.items():
         if dep_name not in metadata or dep_name == "griffe":
             continue
-        metadata[dep_name]["spec"] |= {str(spec) for spec in dep_req.specifier}  # ty:ignore[unsupported-operator]
-        metadata[dep_name]["extras"] |= dep_req.extras  # ty:ignore[unsupported-operator]
+        metadata[dep_name]["spec"] |= {str(spec) for spec in dep_req.specifier}  # ty: ignore[unsupported-operator]
+        metadata[dep_name]["extras"] |= dep_req.extras  # ty: ignore[unsupported-operator]
         deps[dep_name] = metadata[dep_name]
 
     again = True
@@ -125,7 +120,7 @@ def _get_deps(base_deps: dict[str, Requirement], metadata: Metadata) -> Metadata
                         and dep_name != project["name"]
                         and (not extra_marker or extra_marker in deps[pkg_name]["extras"])
                     ):
-                        metadata[dep_name]["spec"] |= {str(spec) for spec in requirement.specifier}  # ty:ignore[unsupported-operator]
+                        metadata[dep_name]["spec"] |= {str(spec) for spec in requirement.specifier}  # ty: ignore[unsupported-operator]
                         deps[dep_name] = metadata[dep_name]
                         again = True
 

@@ -13,7 +13,7 @@
 from setuptools import setup, find_packages  # noqa: H301
 
 NAME = "client"
-VERSION = "36.0.3"
+VERSION = "36.0.0+snapshot"
 # To install the library, run the following
 #
 # python setup.py install

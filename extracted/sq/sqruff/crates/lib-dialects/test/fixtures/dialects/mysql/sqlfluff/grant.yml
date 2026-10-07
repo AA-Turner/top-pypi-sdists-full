@@ -1,161 +1,365 @@
 file:
 - statement:
   - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
-    - keyword: TO
-    - role_reference:
-      - naked_identifier: prj_svc
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - naked_identifier: prj_svc
 - statement_terminator: ;
 - statement:
   - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
-    - keyword: TO
-    - role_reference:
-      - quoted_identifier: '''prj_svc'''
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - quoted_identifier: '''prj_svc'''
 - statement_terminator: ;
 - statement:
   - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
-    - keyword: TO
-    - role_reference:
-      - quoted_literal: '"prj_svc"'
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - quoted_literal: '"prj_svc"'
 - statement_terminator: ;
 - statement:
   - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
-    - keyword: TO
-    - role_reference:
-      - quoted_identifier: '`prj_svc`'
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - quoted_identifier: '`prj_svc`'
 - statement_terminator: ;
 - statement:
   - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - quoted_identifier: '''prj_svc'''
+            - at_sign_literal: '@'
+            - quoted_identifier: '''%'''
+- statement_terminator: ;
+- statement:
+  - access_statement:
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - quoted_literal: '"prj_svc"'
+            - at_sign_literal: '@'
+            - quoted_literal: '"%"'
+- statement_terminator: ;
+- statement:
+  - access_statement:
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - quoted_identifier: '`prj_svc`'
+            - at_sign_literal: '@'
+            - quoted_identifier: '`%`'
+- statement_terminator: ;
+- statement:
+  - access_statement:
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - access_permissions:
+            - access_permission:
+              - access_permission:
+                - keyword: INSERT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: UPDATE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: DELETE
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: SELECT
+            - comma: ','
+            - access_permission:
+              - access_permission:
+                - keyword: REFERENCES
+          - keyword: ON
+          - access_object:
+            - access_object:
+              - object_reference:
+                - naked_identifier: prj_table
+          - keyword: TO
+          - role_reference:
+            - quoted_identifier: '`prj_svc`'
+            - at_sign_literal: '@'
+            - quoted_identifier: '`%`'
+- statement_terminator: ;
+- statement:
+  - access_statement:
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - role_reference:
+            - quoted_identifier: '''role-name'''
+            - at_sign_literal: '@'
+            - quoted_identifier: '''%'''
+          - keyword: TO
+          - role_reference:
+            - quoted_identifier: '''user_name'''
+            - at_sign_literal: '@'
+            - quoted_identifier: '''%'''
+- statement_terminator: ;
+- statement:
+  - access_statement:
+    - access_statement:
+      - grant_statement:
+        - grant_statement:
+          - keyword: GRANT
+          - role_reference:
+            - quoted_identifier: '''role-one'''
+            - at_sign_literal: '@'
+            - quoted_identifier: '''%'''
+          - comma: ','
+          - role_reference:
+            - quoted_identifier: '''role-two'''
+            - at_sign_literal: '@'
+            - quoted_identifier: '''%'''
+          - keyword: TO
+          - role_reference:
+            - quoted_identifier: '''user_name'''
+            - at_sign_literal: '@'
+            - quoted_identifier: '''%'''
+- statement_terminator: ;
+- statement:
+  - set_default_role_statement:
+    - keyword: SET
+    - keyword: DEFAULT
+    - keyword: ROLE
+    - keyword: ALL
     - keyword: TO
     - role_reference:
-      - quoted_identifier: '''prj_svc'''
+      - quoted_identifier: '''user_name'''
       - at_sign_literal: '@'
       - quoted_identifier: '''%'''
 - statement_terminator: ;
 - statement:
-  - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
+  - set_default_role_statement:
+    - keyword: SET
+    - keyword: DEFAULT
+    - keyword: ROLE
+    - keyword: NONE
     - keyword: TO
     - role_reference:
-      - quoted_literal: '"prj_svc"'
+      - quoted_identifier: '''user_name'''
       - at_sign_literal: '@'
-      - quoted_literal: '"%"'
+      - quoted_identifier: '''%'''
 - statement_terminator: ;
 - statement:
-  - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
+  - set_default_role_statement:
+    - keyword: SET
+    - keyword: DEFAULT
+    - keyword: ROLE
+    - role_reference:
+      - quoted_identifier: '''role-name'''
+      - at_sign_literal: '@'
+      - quoted_identifier: '''%'''
     - keyword: TO
     - role_reference:
-      - quoted_identifier: '`prj_svc`'
+      - quoted_identifier: '''user_name'''
       - at_sign_literal: '@'
-      - quoted_identifier: '`%`'
-- statement_terminator: ;
-- statement:
-  - access_statement:
-    - keyword: GRANT
-    - keyword: INSERT
-    - comma: ','
-    - keyword: UPDATE
-    - comma: ','
-    - keyword: DELETE
-    - comma: ','
-    - keyword: SELECT
-    - comma: ','
-    - keyword: REFERENCES
-    - keyword: ON
-    - object_reference:
-      - naked_identifier: prj_table
-    - keyword: TO
-    - role_reference:
-      - quoted_identifier: '`prj_svc`'
-      - at_sign_literal: '@'
-      - quoted_identifier: '`%`'
+      - quoted_identifier: '''%'''
 - statement_terminator: ;

@@ -236,6 +236,7 @@ class _DlpCustomProfileState:
                  data_tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  entries: pulumi.Input[Optional[Sequence[pulumi.Input['DlpCustomProfileEntryArgs']]]] = None,
+                 integration_id: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  ocr_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
                  open_access: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -286,6 +287,8 @@ class _DlpCustomProfileState:
             pulumi.log.warn("""entries is deprecated: This attribute will be sunset on 01/01/2026""")
         if entries is not None:
             pulumi.set(__self__, "entries", entries)
+        if integration_id is not None:
+            pulumi.set(__self__, "integration_id", integration_id)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if ocr_enabled is not None:
@@ -416,6 +419,15 @@ class _DlpCustomProfileState:
         pulumi.set(self, "entries", value)
 
     @_builtins.property
+    @pulumi.getter(name="integrationId")
+    def integration_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "integration_id")
+
+    @integration_id.setter
+    def integration_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "integration_id", value)
+
+    @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "name")
@@ -509,15 +521,15 @@ class DlpCustomProfile(pulumi.CustomResource):
                  ai_context_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
                  allowed_match_count: pulumi.Input[Optional[_builtins.int]] = None,
                  confidence_threshold: pulumi.Input[Optional[_builtins.str]] = None,
-                 context_awareness: pulumi.Input[Optional[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict']]] = None,
+                 context_awareness: pulumi.Input[Optional[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict', 'outputs.DlpCustomProfileContextAwareness']]] = None,
                  data_classes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  data_tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict']]]]] = None,
+                 entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict', 'outputs.DlpCustomProfileEntry']]]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  ocr_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
-                 sensitivity_levels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict']]]]] = None,
-                 shared_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict']]]]] = None,
+                 sensitivity_levels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict', 'outputs.DlpCustomProfileSensitivityLevel']]]]] = None,
+                 shared_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict', 'outputs.DlpCustomProfileSharedEntry']]]]] = None,
                  __props__=None):
         """
         Accepted Permissions
@@ -532,23 +544,29 @@ class DlpCustomProfile(pulumi.CustomResource):
         import pulumi_cloudflare as cloudflare
 
         example_zero_trust_dlp_custom_profile = cloudflare.ZeroTrustDlpCustomProfile("example_zero_trust_dlp_custom_profile",
+            account_id="account_id",
             name="name",
-            account_id="account_id",
-            description="Custom profile with entries",
-            shared_entries=[{
-                "entry_id": "56a8c060-01bb-4f89-ba1e-3ad42770a342",
-                "entry_type": "predefined",
+            ai_context_enabled=True,
+            allowed_match_count=5,
+            confidence_threshold="confidence_threshold",
+            context_awareness={
                 "enabled": True,
-            }])
-        # Custom entry that is a part of this new profile
-        example_custom_entry = cloudflare.ZeroTrustDlpCustomEntry("example_custom_entry",
-            name="custom",
-            account_id="account_id",
-            profile_id=example_zero_trust_dlp_custom_profile.id,
-            pattern={
-                "regex": "customentryregex",
+                "skip": {
+                    "files": True,
+                },
             },
-            enabled=True)
+            data_classes=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            data_tags=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            description="description",
+            ocr_enabled=True,
+            sensitivity_levels=[{
+                "group_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                "level_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            }],
+            shared_entries=[{
+                "enabled": True,
+                "entry_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            }])
         ```
 
         ## Import
@@ -561,14 +579,14 @@ class DlpCustomProfile(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.int] allowed_match_count: Related DLP policies will trigger when the match count exceeds the number set.
-        :param pulumi.Input[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict']] context_awareness: Scan the context of predefined entries to only return matches surrounded by keywords.
+        :param pulumi.Input[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict', 'outputs.DlpCustomProfileContextAwareness']] context_awareness: Scan the context of predefined entries to only return matches surrounded by keywords.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_classes: Data class IDs to associate with the profile.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_tags: Data tag IDs to associate with the profile.
         :param pulumi.Input[_builtins.str] description: The description of the profile.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict']]]] entries: Custom entries from this profile.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict', 'outputs.DlpCustomProfileEntry']]]] entries: Custom entries from this profile.
                If this field is omitted, entries owned by this profile will not be changed.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict']]]] sensitivity_levels: Sensitivity levels to associate with the profile.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict']]]] shared_entries: Entries from other profiles (e.g. pre-defined Cloudflare profiles, or your Microsoft Information Protection profiles).
+        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict', 'outputs.DlpCustomProfileSensitivityLevel']]]] sensitivity_levels: Sensitivity levels to associate with the profile.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict', 'outputs.DlpCustomProfileSharedEntry']]]] shared_entries: Entries from other profiles (e.g. pre-defined Cloudflare profiles, or your Microsoft Information Protection profiles).
         """
         ...
     @overload
@@ -589,23 +607,29 @@ class DlpCustomProfile(pulumi.CustomResource):
         import pulumi_cloudflare as cloudflare
 
         example_zero_trust_dlp_custom_profile = cloudflare.ZeroTrustDlpCustomProfile("example_zero_trust_dlp_custom_profile",
+            account_id="account_id",
             name="name",
-            account_id="account_id",
-            description="Custom profile with entries",
-            shared_entries=[{
-                "entry_id": "56a8c060-01bb-4f89-ba1e-3ad42770a342",
-                "entry_type": "predefined",
+            ai_context_enabled=True,
+            allowed_match_count=5,
+            confidence_threshold="confidence_threshold",
+            context_awareness={
                 "enabled": True,
-            }])
-        # Custom entry that is a part of this new profile
-        example_custom_entry = cloudflare.ZeroTrustDlpCustomEntry("example_custom_entry",
-            name="custom",
-            account_id="account_id",
-            profile_id=example_zero_trust_dlp_custom_profile.id,
-            pattern={
-                "regex": "customentryregex",
+                "skip": {
+                    "files": True,
+                },
             },
-            enabled=True)
+            data_classes=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            data_tags=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            description="description",
+            ocr_enabled=True,
+            sensitivity_levels=[{
+                "group_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                "level_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            }],
+            shared_entries=[{
+                "enabled": True,
+                "entry_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            }])
         ```
 
         ## Import
@@ -634,15 +658,15 @@ class DlpCustomProfile(pulumi.CustomResource):
                  ai_context_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
                  allowed_match_count: pulumi.Input[Optional[_builtins.int]] = None,
                  confidence_threshold: pulumi.Input[Optional[_builtins.str]] = None,
-                 context_awareness: pulumi.Input[Optional[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict']]] = None,
+                 context_awareness: pulumi.Input[Optional[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict', 'outputs.DlpCustomProfileContextAwareness']]] = None,
                  data_classes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  data_tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict']]]]] = None,
+                 entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict', 'outputs.DlpCustomProfileEntry']]]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  ocr_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
-                 sensitivity_levels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict']]]]] = None,
-                 shared_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict']]]]] = None,
+                 sensitivity_levels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict', 'outputs.DlpCustomProfileSensitivityLevel']]]]] = None,
+                 shared_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict', 'outputs.DlpCustomProfileSharedEntry']]]]] = None,
                  __props__=None):
         pulumi.log.warn("""DlpCustomProfile is deprecated: cloudflare.index/dlpcustomprofile.DlpCustomProfile has been deprecated in favor of cloudflare.index/zerotrustdlpcustomprofile.ZeroTrustDlpCustomProfile""")
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -671,6 +695,7 @@ class DlpCustomProfile(pulumi.CustomResource):
             __props__.__dict__["sensitivity_levels"] = sensitivity_levels
             __props__.__dict__["shared_entries"] = shared_entries
             __props__.__dict__["created_at"] = None
+            __props__.__dict__["integration_id"] = None
             __props__.__dict__["open_access"] = None
             __props__.__dict__["type"] = None
             __props__.__dict__["updated_at"] = None
@@ -690,17 +715,18 @@ class DlpCustomProfile(pulumi.CustomResource):
             ai_context_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
             allowed_match_count: pulumi.Input[Optional[_builtins.int]] = None,
             confidence_threshold: pulumi.Input[Optional[_builtins.str]] = None,
-            context_awareness: pulumi.Input[Optional[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict']]] = None,
+            context_awareness: pulumi.Input[Optional[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict', 'outputs.DlpCustomProfileContextAwareness']]] = None,
             created_at: pulumi.Input[Optional[_builtins.str]] = None,
             data_classes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             data_tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             description: pulumi.Input[Optional[_builtins.str]] = None,
-            entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict']]]]] = None,
+            entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict', 'outputs.DlpCustomProfileEntry']]]]] = None,
+            integration_id: pulumi.Input[Optional[_builtins.str]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
             ocr_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
             open_access: pulumi.Input[Optional[_builtins.bool]] = None,
-            sensitivity_levels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict']]]]] = None,
-            shared_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict']]]]] = None,
+            sensitivity_levels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict', 'outputs.DlpCustomProfileSensitivityLevel']]]]] = None,
+            shared_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict', 'outputs.DlpCustomProfileSharedEntry']]]]] = None,
             type: pulumi.Input[Optional[_builtins.str]] = None,
             updated_at: pulumi.Input[Optional[_builtins.str]] = None) -> 'DlpCustomProfile':
         """
@@ -711,16 +737,16 @@ class DlpCustomProfile(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.int] allowed_match_count: Related DLP policies will trigger when the match count exceeds the number set.
-        :param pulumi.Input[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict']] context_awareness: Scan the context of predefined entries to only return matches surrounded by keywords.
+        :param pulumi.Input[Union['DlpCustomProfileContextAwarenessArgs', 'DlpCustomProfileContextAwarenessArgsDict', 'outputs.DlpCustomProfileContextAwareness']] context_awareness: Scan the context of predefined entries to only return matches surrounded by keywords.
         :param pulumi.Input[_builtins.str] created_at: When the profile was created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_classes: Data class IDs to associate with the profile.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_tags: Data tag IDs to associate with the profile.
         :param pulumi.Input[_builtins.str] description: The description of the profile.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict']]]] entries: Custom entries from this profile.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileEntryArgs', 'DlpCustomProfileEntryArgsDict', 'outputs.DlpCustomProfileEntry']]]] entries: Custom entries from this profile.
                If this field is omitted, entries owned by this profile will not be changed.
         :param pulumi.Input[_builtins.bool] open_access: Whether this profile can be accessed by anyone.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict']]]] sensitivity_levels: Sensitivity levels to associate with the profile.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict']]]] shared_entries: Entries from other profiles (e.g. pre-defined Cloudflare profiles, or your Microsoft Information Protection profiles).
+        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSensitivityLevelArgs', 'DlpCustomProfileSensitivityLevelArgsDict', 'outputs.DlpCustomProfileSensitivityLevel']]]] sensitivity_levels: Sensitivity levels to associate with the profile.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['DlpCustomProfileSharedEntryArgs', 'DlpCustomProfileSharedEntryArgsDict', 'outputs.DlpCustomProfileSharedEntry']]]] shared_entries: Entries from other profiles (e.g. pre-defined Cloudflare profiles, or your Microsoft Information Protection profiles).
         :param pulumi.Input[_builtins.str] type: Available values: "custom", "predefined", "integration".
         :param pulumi.Input[_builtins.str] updated_at: When the profile was lasted updated.
         """
@@ -738,6 +764,7 @@ class DlpCustomProfile(pulumi.CustomResource):
         __props__.__dict__["data_tags"] = data_tags
         __props__.__dict__["description"] = description
         __props__.__dict__["entries"] = entries
+        __props__.__dict__["integration_id"] = integration_id
         __props__.__dict__["name"] = name
         __props__.__dict__["ocr_enabled"] = ocr_enabled
         __props__.__dict__["open_access"] = open_access
@@ -820,6 +847,11 @@ class DlpCustomProfile(pulumi.CustomResource):
         If this field is omitted, entries owned by this profile will not be changed.
         """
         return pulumi.get(self, "entries")
+
+    @_builtins.property
+    @pulumi.getter(name="integrationId")
+    def integration_id(self) -> pulumi.Output[_builtins.str]:
+        return pulumi.get(self, "integration_id")
 
     @_builtins.property
     @pulumi.getter

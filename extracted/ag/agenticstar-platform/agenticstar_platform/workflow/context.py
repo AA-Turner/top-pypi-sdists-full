@@ -14,6 +14,8 @@ from __future__ import annotations
 import asyncio
 import itertools
 import json
+import logging
+import math
 import os
 import threading
 import time
@@ -25,6 +27,8 @@ from typing import Any, Callable, Mapping, Optional
 
 from .envelope import PRE_ACTION_SKIP_REASONS, SKIP_REASONS
 from .errors import AuditNotPersisted, WorkflowError
+
+logger = logging.getLogger(__name__)
 
 MUTATING_EFFECT_KINDS = ("write", "create", "update", "delete", "send", "mutate")
 READ_EFFECT_KINDS = ("read", "list", "query", "fetch")
@@ -110,7 +114,18 @@ class AuditApi:
     async def _send(self, event_type: str, *, decision: str = "ok", reason: Optional[str] = None,
                     metadata: Optional[dict[str, Any]] = None) -> str:
         eid = f"{event_type.replace('.', '-')}-{uuid.uuid4()}"
-        meta = {k: v for k, v in (metadata or {}).items() if isinstance(v, (str, int, float, bool))}
+        meta: dict[str, Any] = {}
+        dropped: list[str] = []
+        for k, v in (metadata or {}).items():
+            # 送れるのは文字列・整数・有限の小数・真偽だけ（NaN / Infinity は JSON にできず送信が例外になる）
+            if isinstance(v, (str, int, bool)) or (isinstance(v, float) and math.isfinite(v)):
+                meta[k] = v
+            else:
+                dropped.append(str(k))
+        if dropped:
+            # 値は出さない（キーの名前だけ）。front も許可されていないキーを捨てる
+            logger.warning("audit %s: metadata keys dropped (only str / int / finite float / bool are sent): %s",
+                           event_type, ", ".join(sorted(dropped)[:20]))
         reply = await self._ipc.call("audit", event={"event_id": eid, "event_type": event_type, "decision": decision,
                                                      "reason": reason, "metadata": meta,
                                                      "occurred_at": datetime.now(timezone.utc).isoformat()})

@@ -57,7 +57,7 @@ def isolated(tmp_path, monkeypatch):
     }.items():
         monkeypatch.setenv(name, str(value))
     for name in ("CLAUDE_PLUGIN_ROOT", "PLUGIN_ROOT", "CLAUDECODE", "CODEX_THREAD_ID", "PROBE_KIMI_SESSION_ID",
-                 "CURSOR_TRACE_ID", "CLAUDE_CODE_SESSION_ID"):
+                 "CLAUDE_CODE_SESSION_ID"):
         # set first, so the undo restores the real value (or its absence) even
         # when code under test writes os.environ directly
         monkeypatch.setenv(name, "x")
@@ -310,7 +310,7 @@ def test_a_found_session_names_itself_in_the_environment(isolated, monkeypatch):
 
 
 @pytest.mark.parametrize("inherited", [
-    {"CURSOR_TRACE_ID": "a" * 32},  # Kimi in Cursor's terminal
+    {"CODEX_THREAD_ID": "019c2a53-b5a0-7ba1-8ac7-b27280b9f9cd"},  # from a Codex shell
     {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "11111111-1111-1111-1111-111111111111"},  # from a Claude shell
 ])
 def test_the_nearest_kimi_process_wins_over_inherited_agent_markers(isolated, monkeypatch, inherited):

@@ -24,6 +24,7 @@ result[0] = {items[{type: reasoning|message, sections[{text, annotations
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -115,13 +116,23 @@ def _mention_pattern(value: str) -> re.Pattern[str] | None:
     return re.compile(r"(?<!\w)" + separator.join(map(re.escape, tokens)) + r"(?!\w)")
 
 
-def answer_mentions_target(answer_text: str, aliases: list[str]) -> tuple[bool, list[str]]:
+def answer_mentions_target(
+    answer_text: str,
+    aliases: list[str],
+    common_word_terms: Iterable[str] | None = None,
+) -> tuple[bool, list[str]]:
     """Return whether provider prose names any canonical brand identity.
 
     The returned terms are the exact aliases considered and are persisted as
     evidence on the rank observation. Callers should supply the brand name,
     site name, explicit aliases, and domain forms.
+
+    A name that is also an everyday word ("Stream", "Square") counts only as a proper name
+    (:mod:`matrx_seo.name_matching`); ``common_word_terms`` is a register's flag list, else the
+    dictionary rule flags it.
     """
+    from matrx_seo.name_matching import is_flagged, proper_name_match
+
     accepted: list[str] = []
     seen: set[str] = set()
     for raw in aliases:
@@ -134,6 +145,10 @@ def answer_mentions_target(answer_text: str, aliases: list[str]) -> tuple[bool, 
     normalized_answer = answer_text.casefold()
     compact_answer = re.sub(r"[^\w]", "", normalized_answer, flags=re.UNICODE)
     for alias in accepted:
+        if is_flagged(alias, common_word_terms):
+            if proper_name_match(alias, answer_text) is not None:
+                return True, accepted
+            continue
         pattern = _mention_pattern(alias)
         # A short alias is matched case-sensitively against the text as written.
         haystack = answer_text if _is_short(alias) else normalized_answer

@@ -219,6 +219,7 @@ class MeshCredentialBroker:
         client: MeshCredentialClient | None = None,
         identity: Any = None,
         github_minter: Any = None,
+        server: Any = None,
     ) -> None:
         # NO ``placement`` ATTRIBUTE, on purpose (F2): a document held here is a copy
         # that a revoke in the CLI process never reaches. See :meth:`_document`.
@@ -228,6 +229,11 @@ class MeshCredentialBroker:
         self.network_id = network_id
         self.audit = audit
         self.identity = identity
+        #: The relay this broker serves, for the sync engine's member half (S3).
+        #: ``None`` when a test constructs the broker directly; only an
+        #: ``announce`` reaching this broker needs it, and that path is the
+        #: relay's (``relay_handler``) in every production construction.
+        self._server = server
         self._auth_store = auth_store
         self._client = client
         #: The github adapter's minter seam (a test injects a fake transport here)
@@ -271,6 +277,16 @@ class MeshCredentialBroker:
             # into (``broker_for_relay``).
             broker = broker_for_relay(server)
             if broker is None:
+                # THE MEMBER HALF NEEDS NO BROKER (sync engine, S3): a device that
+                # owns nothing can still be a HOLDER, and an ``announce`` is
+                # addressed to exactly that device — behind the by-name refusal
+                # below it could never receive one, and the whole cadence would
+                # be inert for every borrower-only peer. Only ``announce`` is
+                # routed here; every other kind keeps the pre-existing refusal.
+                if str((frame or {}).get("kind") or "") == "announce":
+                    from local_operator.network.credentials import sync as sync_mod
+
+                    return sync_mod.member_announce(server, link, frame)
                 return refuse(link, frame)
             return broker.on_broker(link, frame)
 
@@ -302,6 +318,10 @@ class MeshCredentialBroker:
             audit=getattr(server, "audit", None),
             identity=identity,
             client=MeshCredentialClient.for_relay(server),
+            # THE RELAY THIS BROKER SERVES (S3): the sync engine's member half
+            # needs the dial seam and the loop, and a second object holding them
+            # would hold a second set of in-flight guards.
+            server=server,
         )
 
     # -- the relay's peer handler ------------------------------------------
@@ -331,7 +351,18 @@ class MeshCredentialBroker:
                 "nothing was refreshed or lent",
             )
         kind = str(frame.get("kind") or "")
-        if kind == "grant":
+        if kind in ("announce", "copy", "ack"):
+            # THE SYNC KINDS (S3). One import for the three branches; the module
+            # is stdlib-only at import, the package's stated rule.
+            from local_operator.network.credentials import sync as sync_mod
+
+            if kind == "announce":
+                detail = sync_mod.member_announce(self._server, link, frame)
+            elif kind == "copy":
+                detail = sync_mod.owner_copy(self, link, frame)
+            else:
+                detail = sync_mod.owner_ack(self, link, frame)
+        elif kind == "grant":
             detail = self.grant(link, frame)
         elif kind == "report":
             detail = self.report(link, frame)
@@ -889,14 +920,16 @@ class MeshCredentialBroker:
         holder_scope: str,
         by: str,
     ) -> Any:
-        """Mint one installation token from the owner's GitHub App (§D3/D4).
+        """Serve one github bearer from the owner's source ladder (§3.2).
 
-        Unlike every provider path this touches no ``auth.db`` row: the bearer
-        is minted on the wire, and it is registered with the revoker BEFORE it
-        is returned, so a token whose reply never reaches the borrower is still
-        revoked at its window end. The mint is blocking HTTP and runs off this
-        loop through the broker's executor — a stuck GitHub must not stall the
-        relay (the same reason the MCP refresh leaves the loop for its lock).
+        The arm is resolved fresh at EVERY serve, so a re-login or a PAT
+        rotation on the owner is picked up by the node's next command with no
+        gesture on the node (§3.3's refresh path). Arms 2/3 return the token
+        itself with ``refreshed: false`` and NO lender registration — nothing
+        was minted here, so there is no window-end DELETE to schedule, and the
+        revocation receipt says why. A configured-but-broken arm refuses BY
+        NAME rather than falling through: falling through would silently lend a
+        wider credential than the one the operator set up.
         """
         common: dict[str, Any] = {
             "key": key,
@@ -911,17 +944,77 @@ class MeshCredentialBroker:
                 message="this key is device-scoped; the placement row that asked is not",
                 **common,
             )
+        source = github_app.resolve_source(self.root)
+        if source == github_app.SOURCE_APP:
+            return await self._serve_github_app(key=key, provider=provider, by=by, common=common)
+        if source == github_app.SOURCE_UNREADABLE:
+            # THE LADDER STOPS HERE (M1): the store exists but cannot be read, so
+            # a narrower arm may be hiding in it — serving anything wider (the gh
+            # login) would be the silent downgrade this policy forbids.
+            return BrokerError(
+                code=github_app.CODE_STORE_UNREADABLE,
+                message=(
+                    "the secret store on this device exists but could not be read, so the "
+                    "GitHub source ladder cannot be resolved — nothing was lent, and no "
+                    "wider source is substituted while it is unreadable (repair or restore "
+                    "the store on this device; the network guide has the ladder)"
+                ),
+                **common,
+            )
+        if source in (github_app.SOURCE_TOKEN, github_app.SOURCE_GH):
+            try:
+                if source == github_app.SOURCE_TOKEN:
+                    token = github_app.read_token_secret(self.root)
+                else:
+                    # OWNER-OFF-LOOP: asking gh may spawn gh, so it runs in the
+                    # broker's executor like the mint — a hung gh must not stall
+                    # the relay (and never runs on the borrower).
+                    token = await asyncio.get_running_loop().run_in_executor(
+                        None, github_app.read_gh_token
+                    )
+            except (github_app.GithubTokenError, github_app.GithubGhError) as exc:
+                if exc.kind == "absent":
+                    # A race with the presence probe (the secret or hosts file was
+                    # removed between describe and read): the honest answer is the
+                    # one an empty ladder gives.
+                    return BrokerError(
+                        code="no_local_credential",
+                        message=github_app.no_source_message(),
+                        **common,
+                    )
+                code = (
+                    github_app.CODE_TOKEN_UNUSABLE
+                    if source == github_app.SOURCE_TOKEN
+                    else github_app.CODE_GH_UNUSABLE
+                )
+                return BrokerError(code=code, message=str(exc), **common)
+            return self._grant_from_owner_token(
+                token=token, key=key, provider=provider, common=common
+            )
+        return BrokerError(
+            code="no_local_credential", message=github_app.no_source_message(), **common
+        )
+
+    async def _serve_github_app(
+        self, *, key: str, provider: str, by: str, common: dict[str, Any]
+    ) -> Any:
+        """Mint one installation token from the owner's GitHub App (§D3/D4).
+
+        The ladder's strongest arm, unchanged from before the ladder existed:
+        unlike every provider path it touches no ``auth.db`` row — the bearer
+        is minted on the wire, and it is registered with the revoker BEFORE it
+        is returned, so a token whose reply never reaches the borrower is still
+        revoked at its window end. The mint is blocking HTTP and runs off this
+        loop through the broker's executor — a stuck GitHub must not stall the
+        relay (the same reason the MCP refresh leaves the loop for its lock).
+        """
         try:
             app = github_app.read_app_key(self.root)
         except github_app.GithubAppKeyError as exc:
             if exc.kind == "absent":
                 return BrokerError(
                     code="no_local_credential",
-                    message=(
-                        "no GitHub App credential is configured on this device yet, so "
-                        "nothing can be minted for github (the network guide has the "
-                        "one-time setup; public clones and non-GitHub work are unaffected)"
-                    ),
+                    message=github_app.no_source_message(),
                     **common,
                 )
             return BrokerError(code=github_app.CODE_APP_UNUSABLE, message=str(exc), **common)
@@ -985,6 +1078,44 @@ class MeshCredentialBroker:
             token_exp_ms=minted.expires_at_ms,
         )
         return grant
+
+    def _grant_from_owner_token(
+        self, *, token: str, key: str, provider: str, common: dict[str, Any]
+    ) -> Any:
+        """The Grant arms 2/3 serve: NO registration and no server-side revoke.
+
+        ``refreshed: false`` is a fact here, not an observation — nothing was
+        minted or rotated by this serve; the value is whatever the owner's
+        source holds at this instant, re-read on every serve (§3.3).
+        ``token_expires_at_ms = 0`` is the store's own encoding for "no known
+        expiry"; a PAT can still expire at the forge, and a user token lives
+        until it is revoked there, so the revoke receipt names that end instead
+        of inventing a ceiling (``cli.py``'s per-source copy). The grant window
+        below is what lop promises about ITS OWN hand-off, not what the token
+        promises.
+        """
+        now_ms = int(time.time() * 1000)
+        ttl_ms = int(_grant_ttl_s(self.root) * 1000)
+        return Grant(
+            access_token=token,
+            kind="bearer",
+            token_expires_at_ms=0,
+            grant_expires_at_ms=now_ms + ttl_ms,
+            credential_ref=CredentialRef(
+                owner_device=self.self_device,
+                owner_device_name=self.self_device_name,
+                provider=provider or github_app.GITHUB_KEY,
+                kind=github_app.GITHUB_KIND,
+                # No row anywhere, so the credential's id is the synthetic one
+                # the borrower path already uses for "not a local row".
+                credential_id=synthetic_credential_id(key, self.self_device),
+            ),
+            served_by=self.self_device,
+            refreshed=False,
+            scope=GrantScope(kind="device", session_id=""),
+            identity={},
+            grant_id=f"g_{os.urandom(8).hex()}",
+        )
 
     # -- report -------------------------------------------------------------
 

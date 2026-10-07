@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the source collection (on issue comment)
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: "${{ env.source_dir }}"
           fetch-depth: 0
@@ -55,7 +55,7 @@ jobs:
         if: ${{ github.event_name == 'issue_comment' }}
 
       - name: Checkout the source collection (on other triggering method)
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: "${{ env.source_dir }}"
           fetch-depth: 0
@@ -80,7 +80,7 @@ jobs:
       amazon_dir: "./amazon_aws"
       all_targets: "${{ needs.splitter.outputs.targets }}"
       ansible_version: milestone
-      python_version: 3.12
+      python_version: 3.13
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -89,20 +89,20 @@ jobs:
     name: "${{ matrix.job-id }}"
     steps:
       - name: Checkout the source collection (on issue comment)
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: "${{ env.source_dir }}"
           ref: ${{ needs.retrieve-pr-info.outputs.head_ref }}
         if: ${{ github.event_name == 'issue_comment' }}
 
       - name: Checkout the source collection (on other triggering method)
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: "${{ env.source_dir }}"
         if: ${{ github.event_name != 'issue_comment' }}
 
       - name: Checkout the amazon.aws collection need to run tests.
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ansible-collections/amazon.aws
           ref: ${{ needs.retrieve-pr-info.outputs.base_ref }}
@@ -133,5 +133,5 @@ jobs:
             community.crypto
             ansible.windows
             ${{ env.amazon_dir }}
-          pre-test-cmd: |
+          pre-test-cmd: >-
             python3 -m pip install -r tests/integration/requirements.txt -r tests/integration/constraints.txt

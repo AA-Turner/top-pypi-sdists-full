@@ -1,5 +1,7 @@
 from typing import Any
 
+from social_core.exceptions import SocialAuthBaseException
+
 from .oauth import BaseOAuth2
 
 
@@ -11,6 +13,7 @@ class ClasslinkOAuth(BaseOAuth2):
     """
 
     name = "classlink"
+    title = "ClassLink"
     ID_KEY = "UserId"
     REQUIRES_USER_ID = True
     AUTHORIZATION_URL = "https://launchpad.classlink.com/oauth2/v2/auth"
@@ -21,9 +24,9 @@ class ClasslinkOAuth(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from Classlink account"""
-        fullname, first_name, last_name = self.get_user_names(
-            first_name=response.get("FirstName"), last_name=response.get("LastName")
-        )
+        fullname = ""
+        first_name = response.get("FirstName")
+        last_name = response.get("LastName")
 
         return {
             "username": response.get("Email") or response.get("LoginId"),
@@ -39,5 +42,7 @@ class ClasslinkOAuth(BaseOAuth2):
         auth_header = {"Authorization": f"Bearer {access_token}"}
         try:
             return self.get_json(url, headers=auth_header)
+        except SocialAuthBaseException:
+            raise
         except ValueError:
             return None

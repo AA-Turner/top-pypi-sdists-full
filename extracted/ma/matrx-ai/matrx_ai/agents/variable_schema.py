@@ -25,7 +25,7 @@ reference fences, media URL/file_id, toggleValues labels), the parameter
 stays string-typed and says so in its description.
 
 PROVENANCE STAYS OUT-OF-BAND: picklist bindings
-(``customComponent.structured_list``/legacy ``picklist``) and scope bindings
+(``customComponent.pick_list``/legacy ``structured_list``, ``picklist``) and scope bindings
 (``binding``) are resolved server-side from the agent row
 (``AgentVariable.picklist_binding`` / ``scope_binding``) — they shape the
 parameter's description, never a schema construct the caller could forge.
@@ -87,7 +87,7 @@ def variable_definition_to_parameter(entry: dict[str, Any]) -> dict[str, Any]:
     variable definition                             parameter
     ==============================================  =================================
     binding set (scope context item)                string (+resolved-at-runtime note)
-    picklist-bound (structured_list / picklist)     string enum from cached options
+    picklist-bound (pick_list / structured_list / picklist)     string enum from cached options
                                                     when static + single-select
                                                     (anyOf-open with allowOther),
                                                     else string + runtime note
@@ -139,7 +139,7 @@ def variable_definition_to_parameter(entry: dict[str, Any]) -> dict[str, Any]:
     options = [o for o in (cc.get("options") or []) if isinstance(o, str)]
     allow_other = bool(cc.get("allowOther"))
 
-    structured_list = cc.get("structured_list") or cc.get("picklist")
+    structured_list = cc.get("pick_list") or cc.get("structured_list") or cc.get("picklist")
     if isinstance(structured_list, dict) and structured_list.get("listId"):
         multiple = bool(structured_list.get("multiple"))
         if options and not multiple:

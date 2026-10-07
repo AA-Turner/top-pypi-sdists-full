@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import array
 import contextlib
+import fcntl
 import json
 import os
 import socket
@@ -161,15 +162,7 @@ class Channel:
     def send_memfd(self, fd: int) -> None:
         """Transfer one weight set's pinned host tier (`tensorfs.plane` memfd)."""
         _require_memfd(fd)
-        try:
-            sent = self.sock.sendmsg(
-                [b"\0"], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, array.array("i", [fd]))]
-            )
-        except OSError as exc:
-            self._raise(exc)
-        if sent != 1:
-            raise SeamError("seam_descriptor", "memfd handoff was truncated")
-        self.sent_bytes += 1
+        self._send_fd(fd, "memfd")
 
     def recv_memfd(self) -> int:
         """Receive exactly one memfd; anything else is closed and refused."""
@@ -180,6 +173,75 @@ class Channel:
             os.close(received)
             raise
         return received
+
+    def recv_file(self) -> int:
+        """Receive exactly one read-only regular file (a verified object file the machine
+        hands over); anything else is closed and refused."""
+        received = self._recv_fd()
+        try:
+            info = os.fstat(received)
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or fcntl.fcntl(received, fcntl.F_GETFL) & os.O_ACCMODE
+            ):
+                raise SeamError(
+                    "seam_descriptor", "an object file must be a read-only regular file"
+                )
+        except BaseException:
+            os.close(received)
+            raise
+        return received
+
+    def send_shared(self, fd: int) -> None:
+        """Transfer one exported GPU allocation (a CUDA POSIX fd: a character device)."""
+        _require_device(fd)
+        self._send_fd(fd, "GPU allocation")
+
+    def recv_shared(self) -> int:
+        """Receive exactly one exported GPU allocation; anything else is closed and refused."""
+        received = self._recv_fd()
+        try:
+            _require_device(received)
+        except SeamError:
+            os.close(received)
+            raise
+        return received
+
+    def send_lease(self, fd: int) -> None:
+        """Transfer one lease socket (the machine's half of a device-tier answer)."""
+        if not stat.S_ISSOCK(os.fstat(fd).st_mode):
+            raise SeamError("seam_descriptor", "a lease must be a socket")
+        self._send_fd(fd, "lease")
+
+    def recv_lease(self) -> int:
+        """Receive exactly one lease: a connected local stream socket, nothing else."""
+        received = self._recv_fd()
+        try:
+            if not stat.S_ISSOCK(os.fstat(received).st_mode):
+                raise SeamError("seam_descriptor", "a lease must be a socket")
+        except (OSError, SeamError):
+            os.close(received)
+            raise
+        return received
+
+    def pass_fd(self, to: Channel) -> None:
+        """Relay one descriptor to another seam unopened: its receiver checks what it is."""
+        fd = self._recv_fd()
+        try:
+            to._send_fd(fd, "relayed capability")
+        finally:
+            os.close(fd)
+
+    def _send_fd(self, fd: int, what: str) -> None:
+        try:
+            sent = self.sock.sendmsg(
+                [b"\0"], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, array.array("i", [fd]))]
+            )
+        except OSError as exc:
+            self._raise(exc)
+        if sent != 1:
+            raise SeamError("seam_descriptor", f"{what} handoff was truncated")
+        self.sent_bytes += 1
 
     def _recv_fd(self) -> int:
         """One descriptor after a one-byte marker, close-on-exec, and nothing else."""
@@ -322,6 +384,16 @@ def connect(path: str) -> Channel:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(path)
     return Channel(sock)
+
+
+def _require_device(fd: int) -> None:
+    """An exported GPU allocation is a descriptor of the driver's character device."""
+    try:
+        mode = os.fstat(fd).st_mode
+    except OSError as exc:
+        raise SeamError("seam_descriptor", f"GPU allocation descriptor unreadable: {exc}") from exc
+    if not stat.S_ISCHR(mode):
+        raise SeamError("seam_descriptor", "a GPU allocation must be a driver descriptor")
 
 
 def _require_memfd(fd: int) -> None:

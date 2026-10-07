@@ -6,9 +6,11 @@ Okta OAuth2 and OpenIdConnect:
 from typing import Any, cast
 from urllib.parse import urljoin, urlparse, urlunparse
 
+from social_core.groups import configured_group_key, read_groups
 from social_core.utils import append_slash
 
 from .oauth import BaseOAuth2
+from .utils import load_oidc_config
 
 
 class OktaMixin(BaseOAuth2):
@@ -40,23 +42,38 @@ class OktaMixin(BaseOAuth2):
         )
 
     def oidc_config(self):
-        return self.get_json(self.oidc_config_url())
+        return load_oidc_config(self, self.oidc_config_url())
 
 
 class OktaOAuth2(OktaMixin, BaseOAuth2):
     """Okta OAuth authentication backend"""
 
     name = "okta-oauth2"
+    title = "Okta"
     REDIRECT_STATE = False
     SCOPE_SEPARATOR = " "
-    ID_KEY = "preferred_username"
+    ID_KEY = "sub"
+    LEGACY_ID_KEYS = ("preferred_username",)
+    MUTABLE_ID_KEYS = ("preferred_username",)
 
     DEFAULT_SCOPE = ["openid", "profile", "email"]
     EXTRA_DATA = [
+        ("sub", "sub"),
         ("refresh_token", "refresh_token", True),
         ("expires_in", "expires_in"),
         ("token_type", "token_type", True),
     ]
+
+    def get_user_groups(self, response) -> list[str] | None:
+        key = configured_group_key(self)
+        if key is None:
+            return None
+        return read_groups(
+            self,
+            response,
+            key,
+            missing_as_empty=self.setting("GROUPS_MISSING_AS_EMPTY", False),
+        )
 
     def get_user_details(self, response):
         """Return user details from Okta account"""

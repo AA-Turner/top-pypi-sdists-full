@@ -132,6 +132,13 @@ from bitfab.replay_registry import (
     seed_from_registry,
 )
 from bitfab.selective_replay import ReplayNodeIdentity, SelectiveReplayOptions
+from bitfab.spans import (
+    ListedSpan,
+    SpanListField,
+    SpanListResult,
+    SpanListType,
+    SpansClient,
+)
 from bitfab.traces import (
     AssertionEvidenceError,
     AssertionEvidenceParameter,
@@ -239,6 +246,7 @@ __all__ = [
     "LabelStatus",
     "LabelUpdate",
     "LabelsClient",
+    "ListedSpan",
     "MixedTracingError",
     "MockOverride",
     "MockOverrideCtx",
@@ -279,10 +287,14 @@ __all__ = [
     "ScenarioSource",
     "ScenarioTrigger",
     "SelectiveReplayOptions",
+    "SpanListField",
+    "SpanListResult",
+    "SpanListType",
     "SpanNodeMeta",
     "SpanOccurrence",
     "SpanTarget",
     "SpanType",
+    "SpansClient",
     "TraceAssertion",
     "TraceAssertionSource",
     "TraceAssertionsResult",

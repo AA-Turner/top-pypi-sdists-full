@@ -350,6 +350,22 @@ def test_concat_new_dim():
     assert_identical(actual, expected)
 
 
+def test_concat_keeps_dim_names_and_crs():
+    index = RasterIndex.from_transform(
+        Affine(1.0, 0.0, 0.0, 0.0, -1.0, 2.0),
+        width=4,
+        height=2,
+        x_dim="x_5x",
+        y_dim="y_5x",
+        crs="EPSG:4326",
+    )
+    ds = xr.Dataset(coords=xr.Coordinates.from_xindex(index))
+    actual = xr.concat([ds.isel(x_5x=slice(0, 2)), ds.isel(x_5x=slice(2, 4))], dim="x_5x")
+    assert actual.xindexes["x_5x"].xy_dims == ("x_5x", "y_5x")
+    assert actual.xindexes["x_5x"].crs == index.crs
+    assert actual.xindexes["x_5x"].equals(index)
+
+
 def test_combine_nested_2d():
     """models 2d tiling"""
     transforms = [
@@ -454,6 +470,9 @@ def test_repr_inline() -> None:
     actual = ds2.xindexes["x"]._repr_inline_(70)
     expected = "RasterIndex (crs=EPSG:31370)"
     assert actual == expected
+
+    index3 = RasterIndex.from_transform(Affine(30, 0, -180, 0, -30, 90), width=12, height=2, x_period=360)
+    assert index3._repr_inline_(70) == "RasterIndex (crs=None, x_period=360)"
 
 
 def test_repr() -> None:
@@ -815,10 +834,30 @@ def test_assign_index_from_coords():
     # Verify the transform
     # Coordinates are centered at pixels, so we expect identity transform at pixel corners
     # x[0] = 0.5, dx = 1.0 -> c = 0.5 - 1.0/2 = 0.0
-    # y[0] = 0.5, dy = 1.0 -> f = 0.5 - 1.0/2 = 0.0 but since y increases down, f = y[-1] - dy/2 = 9.5 - 0.5 = 9.0
-    expected_affine = Affine.translation(0.0, 9.0) * Affine.scale(1.0, 1.0)
+    # y[0] = 0.5, dy = 1.0 -> f = 0.5 - 1.0/2 = 0.0
+    expected_affine = Affine.translation(0.0, 0.0) * Affine.scale(1.0, 1.0)
     actual_affine = result.xindexes["x"].transform()
     assert actual_affine == expected_affine
+    xr.testing.assert_identical(result.x.variable.to_base_variable(), da.x.variable.to_base_variable())
+    xr.testing.assert_identical(result.y.variable.to_base_variable(), da.y.variable.to_base_variable())
+
+
+@pytest.mark.parametrize("y_ascending", [True, False])
+def test_assign_index_from_coords_roundtrip(y_ascending):
+    lon = np.arange(-179.5, 180, 90.0)
+    lat = np.array([-60.0, 0.0, 60.0])
+    if not y_ascending:
+        lat = lat[::-1]
+    ds = xr.Dataset({"foo": (("lat", "lon"), np.zeros((3, 4)))}, coords={"lat": lat, "lon": lon})
+
+    result = assign_index(ds, x_dim="lon", y_dim="lat")
+
+    np.testing.assert_array_equal(result.lat.values, lat)
+    np.testing.assert_array_equal(result.lon.values, lon)
+    affine = result.xindexes["lat"].transform()
+    assert affine == Affine.translation(-224.5, lat[0] - (lat[1] - lat[0]) / 2) * Affine.scale(
+        90.0, lat[1] - lat[0]
+    )
 
 
 def test_assign_index_dataset():
@@ -1059,3 +1098,35 @@ def test_tolerance_in_concat():
 
     with set_options(transform_rtol=1e-9):
         _assert_transforms_are_compatible(a1, a2)  # passes with 1e-9
+
+
+def test_concat_bbox_tolerance_scales_with_pixel_size():
+    # non-dyadic dy: snap_grid moves the y origin by 1 ulp; the top bound is ~0, so a purely relative check fails
+    lat = np.linspace(-90, 90, 256)
+    dy = lat[1] - lat[0]
+    index = RasterIndex.from_transform(Affine(1, 0, -180, 0, dy, -90 - dy / 2), width=360, height=256)
+    da = xr.DataArray(np.zeros((256, 360)), dims=("y", "x"), coords=xr.Coordinates.from_xindex(index))
+    parts = [da.isel(y=slice(112, 128), x=slice(a, b)) for a, b in ((10, 11), (11, 12))]
+    assert xr.concat(parts, dim="x").sizes["x"] == 2
+
+
+def test_concat_bbox_tolerance_scales_with_coordinate_magnitude():
+    # many rows: round-off in the y origin scales with |coordinate|, which exceeds rtol * pixel size
+    lat = np.linspace(-90, 90, 20209)
+    dy = lat[1] - lat[0]
+    index = RasterIndex.from_transform(Affine(1, 0, -180, 0, dy, -90 - dy / 2), width=360, height=20209)
+    da = xr.DataArray(np.zeros((20209, 360)), dims=("y", "x"), coords=xr.Coordinates.from_xindex(index))
+    parts = [da.isel(y=slice(0, 10104), x=slice(a, b)) for a, b in ((0, 1), (1, 2))]
+    assert xr.concat(parts, dim="x").sizes["x"] == 2
+
+
+def test_concat_offset_near_zero_is_compatible():
+    # an offset of ~1e-14 (round-off) vs 0.0 must count as identical
+    def make(x0: float, y0: float) -> xr.DataArray:
+        index = RasterIndex.from_transform(Affine(1, 0, x0, 0, 1, y0), width=3, height=2)
+        return xr.DataArray(np.zeros((2, 3)), dims=("y", "x"), coords=xr.Coordinates.from_xindex(index))
+
+    out = xr.concat([make(0.0, 0.0), make(-3.2e-14, 2.0)], dim="y")
+    assert out.sizes == {"y": 4, "x": 3}
+    out = xr.concat([make(0.0, 0.0), make(3.0, 3e-14)], dim="x")
+    assert out.sizes == {"y": 2, "x": 6}

@@ -3,6 +3,9 @@ rule: ST12
 test_pass_single_semicolon:
   pass_str: "SELECT 1;"
 
+test_pass_single_leading_semicolon:
+  pass_str: ";SELECT 1;"
+
 test_pass_multiple_statements:
   pass_str: |
     SELECT 1;
@@ -15,6 +18,9 @@ test_fail_double_semicolon:
 test_fail_leading_semicolons:
   fail_str: ";;SELECT 2;"
   fix_str: ";SELECT 2;"
+  configs:
+    core:
+      fix_even_unparsable: true
 
 test_fail_semicolons_with_whitespace:
   fail_str: |
@@ -29,3 +35,77 @@ test_fail_triple_semicolon:
 
 test_pass_no_semicolons:
   pass_str: "SELECT 1"
+
+test_pass_comment_breaks_run:
+  pass_str: "SELECT 1; /* comment */ ; SELECT 2;"
+
+test_fail_complex_multistatement:
+  fail_str: |
+    ;;SELECT col1 FROM tbl1;
+    SELECT col2 FROM tbl2;;
+    SELECT col3 FROM tbl3;;;;SELECT col4 FROM tbl4;
+    ; ; ;SELECT col5 FROM tbl5;   ;  ;
+    SELECT col6 FROM tbl6;;;;;;
+    SELECT col6 FROM tbl6;;;
+  line_numbers: [1, 2, 3, 3, 4, 5, 6]
+
+test_fix_multiple_runs:
+  fail_str: "SELECT 1;; SELECT 2;;; SELECT 3;"
+  fix_str: "SELECT 1; SELECT 2; SELECT 3;"
+
+test_pass_templated_loop_no_false_positive:
+  pass_str: |
+    {% for i in range(3) %}
+    SELECT {{ i }};
+    {% endfor %}
+  configs:
+    core:
+      templater: jinja
+
+test_fail_templated_consecutive_semicolons:
+  fail_str: |
+    {% for _ in range(2) %}
+    ;SELECT 1;;
+    {% endfor %}
+  line_numbers: [2]
+  configs:
+    core:
+      templater: jinja
+
+test_pass_databricks_command_cell_not_terminator:
+  # A semicolon immediately before a Databricks notebook cell delimiter is not a
+  # consecutive terminator: the delimiter is its own `command_cell` segment.
+  pass_str: |
+    -- Databricks notebook source
+
+    SELECT COL1 FROM TABLE1;
+
+    -- COMMAND ----------
+
+    SELECT COL2 FROM TABLE2
+  configs:
+    core:
+      dialect: databricks
+
+test_fail_databricks_real_consecutive_semicolons:
+  # Genuine consecutive semicolons are still flagged and fixed in Databricks,
+  # while the command cell delimiter is preserved.
+  fail_str: |
+    -- Databricks notebook source
+
+    SELECT COL1 FROM TABLE1;;
+
+    -- COMMAND ----------
+
+    SELECT COL2 FROM TABLE2
+  fix_str: |
+    -- Databricks notebook source
+
+    SELECT COL1 FROM TABLE1;
+
+    -- COMMAND ----------
+
+    SELECT COL2 FROM TABLE2
+  configs:
+    core:
+      dialect: databricks

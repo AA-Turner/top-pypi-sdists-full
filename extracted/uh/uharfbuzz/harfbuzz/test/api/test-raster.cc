@@ -164,7 +164,36 @@ test_subpixel_edge (void)
 }
 
 
-/* ── Test 4: transform ───────────────────────────────────────────── */
+/* ── Test 4: wide scanline accumulators ─────────────────────────── */
+
+static void
+test_many_coincident_edges (void)
+{
+  hb_raster_draw_t *rdr = hb_raster_draw_create_or_fail ();
+
+  /* A vertical edge at x=255/256 contributes 510*256 to one area cell.
+   * 16,449 such edges exceed INT32_MAX. */
+  for (unsigned i = 0; i < 16449; i++)
+    draw_rect (rdr, 0.f, 0.f, 255.f / 256.f, 1.f);
+
+  hb_raster_image_t *img = hb_raster_draw_render (rdr);
+  g_assert_nonnull (img);
+  g_assert_cmpint (pixel_at (img, 0, 0), ==, 255);
+  hb_raster_image_destroy (img);
+
+  /* 256 coincident unit boxes overflow the narrow cover accumulator. */
+  for (unsigned i = 0; i < 256; i++)
+    draw_rect (rdr, 0.f, 0.f, 1.f, 1.f);
+
+  img = hb_raster_draw_render (rdr);
+  g_assert_nonnull (img);
+  g_assert_cmpint (pixel_at (img, 0, 0), ==, 255);
+
+  hb_raster_image_destroy (img);
+  hb_raster_draw_destroy (rdr);
+}
+
+/* ── Test 5: transform ───────────────────────────────────────────── */
 
 static void
 test_transform (void)
@@ -188,7 +217,7 @@ test_transform (void)
   hb_raster_draw_destroy (rdr);
 }
 
-/* ── Test 5: transformed glyph extents helper ───────────────────── */
+/* ── Test 6: transformed glyph extents helper ───────────────────── */
 
 static void
 test_set_glyph_extents_with_transform (void)
@@ -225,7 +254,7 @@ test_set_glyph_extents_with_transform (void)
   hb_raster_draw_destroy (rdr);
 }
 
-/* ── Test 6: image paint under an overflowing transform ──────────── */
+/* ── Test 7: image paint under an overflowing transform ──────────── */
 
 /* Nested scales, each representable, whose product overflows to infinity.
  * The inverse transform then carries NaN into the image sampler's texel
@@ -262,7 +291,7 @@ test_image_nonfinite_transform (void)
   hb_raster_paint_destroy (paint);
 }
 
-/* ── Test 7: glyph extents that overflow the int grid ────────────── */
+/* ── Test 8: glyph extents that overflow the int grid ────────────── */
 
 /* Glyph extents are int32, so a transform that scales them up puts the
  * corner coordinates far outside the int range before they are floored
@@ -286,7 +315,7 @@ test_set_glyph_extents_overflow (void)
   hb_raster_paint_destroy (paint);
 }
 
-/* ── Test 8: shared work-budget lifecycle ───────────────────────── */
+/* ── Test 9: shared work-budget lifecycle ───────────────────────── */
 
 static void
 test_budget (void)
@@ -339,7 +368,7 @@ test_budget (void)
   hb_face_destroy (face);
 }
 
-/* ── Test 9: outline budget bounds a real COLR walk, apart from pixels ─ */
+/* ── Test 10: outline budget bounds a real COLR walk, apart from pixels ─ */
 
 /* The paint session's outline and pixel budgets are separate.  A 1x1
  * surface makes the pixel budget effectively unbounded, so only the
@@ -381,6 +410,98 @@ test_budget_colr_outline (void)
   hb_face_destroy (face);
 }
 
+/* ── Test 11: background color is premultiplied before filling ─────── */
+
+/* hb_raster_paint_set_background() must store the premultiplied BGRA32
+ * pixel in the buffer, matching the format every other paint op in this
+ * file assumes (see hb-raster.hh's SRC_OVER: "premultiplied src over
+ * premultiplied dst"), not the raw unpremultiplied channel bytes. */
+static void
+test_background_premultiplied (void)
+{
+  hb_raster_paint_t *paint = hb_raster_paint_create_or_fail ();
+
+  const unsigned width = 2, height = 2;
+  hb_raster_extents_t ext = {0, 0, width, height, 0};
+  hb_raster_paint_set_extents (paint, &ext);
+
+  /* Half-alpha opaque red: blue=0, green=0, red=255, alpha=128.
+   * Premultiplied: r = div255(255*128) = 128, a stays 128. */
+  hb_raster_paint_set_background (paint, HB_COLOR (0, 0, 255, 128));
+
+  hb_paint_funcs_t *funcs = hb_raster_paint_get_funcs (paint);
+  hb_paint_push_clip_rectangle (funcs, paint, 0.f, 0.f, (float) width, (float) height);
+  hb_paint_pop_clip (funcs, paint);
+
+  hb_raster_image_t *img = hb_raster_paint_render (paint);
+  g_assert_nonnull (img);
+
+  hb_raster_extents_t out_ext;
+  hb_raster_image_get_extents (img, &out_ext);
+  const uint8_t *buf = hb_raster_image_get_buffer (img);
+
+  for (unsigned y = 0; y < out_ext.height; y++)
+  {
+    const uint32_t *row = (const uint32_t *) (buf + (size_t) y * out_ext.stride);
+    for (unsigned x = 0; x < out_ext.width; x++)
+      /* 0x80800000: alpha=0x80, premultiplied red=0x80, in BGRA memory
+       * order. The old HB_COLOR()-based reconstruction produces
+       * 0x0000ff80 instead (wrong byte layout, not premultiplied). */
+      g_assert_cmphex (row[x], ==, 0x80800000);
+  }
+
+  hb_raster_image_destroy (img);
+  hb_raster_paint_destroy (paint);
+}
+
+/* ── Test 12: background pre-fill honors a stride wider than width*4 ── */
+
+/* hb_raster_paint_set_background() must pre-fill every pixel of the
+ * output image with the premultiplied BGRA32 background color, honoring
+ * a caller-supplied stride wider than width * 4 bytes. */
+static void
+test_background_stride (void)
+{
+  hb_raster_paint_t *paint = hb_raster_paint_create_or_fail ();
+
+  const unsigned width = 2, height = 4;
+  const unsigned stride = 9; /* wider than width * 4, but not word-aligned */
+  hb_raster_extents_t ext = {0, 0, width, height, stride};
+  hb_raster_paint_set_extents (paint, &ext);
+
+  /* Opaque red: blue=0, green=0, red=255, alpha=255. */
+  hb_raster_paint_set_background (paint, HB_COLOR (0, 0, 255, 255));
+
+  /* Trigger initialization without painting any pixels directly, so the
+   * only thing that can have colored a pixel is the background fill. */
+  hb_paint_funcs_t *funcs = hb_raster_paint_get_funcs (paint);
+  hb_paint_push_clip_rectangle (funcs, paint, 0.f, 0.f, (float) width, (float) height);
+  hb_paint_pop_clip (funcs, paint);
+
+  hb_raster_image_t *img = hb_raster_paint_render (paint);
+  g_assert_nonnull (img);
+
+  hb_raster_extents_t out_ext;
+  hb_raster_image_get_extents (img, &out_ext);
+  const uint8_t *buf = hb_raster_image_get_buffer (img);
+
+  for (unsigned y = 0; y < out_ext.height; y++)
+  {
+    const uint8_t *row = buf + (size_t) y * out_ext.stride;
+    for (unsigned x = 0; x < out_ext.width; x++)
+    {
+      const uint8_t *pixel = row + x * 4;
+      g_assert_cmphex (pixel[0], ==, 0x00); /* blue */
+      g_assert_cmphex (pixel[1], ==, 0x00); /* green */
+      g_assert_cmphex (pixel[2], ==, 0xff); /* red */
+      g_assert_cmphex (pixel[3], ==, 0xff); /* alpha */
+    }
+  }
+
+  hb_raster_image_destroy (img);
+  hb_raster_paint_destroy (paint);
+}
+
 /* ── main ────────────────────────────────────────────────────────── */
 
 int
@@ -391,12 +512,15 @@ main (int argc, char **argv)
   hb_test_add (test_rectangle);
   hb_test_add (test_accumulate);
   hb_test_add (test_subpixel_edge);
+  hb_test_add (test_many_coincident_edges);
   hb_test_add (test_transform);
   hb_test_add (test_set_glyph_extents_with_transform);
   hb_test_add (test_image_nonfinite_transform);
   hb_test_add (test_set_glyph_extents_overflow);
   hb_test_add (test_budget);
   hb_test_add (test_budget_colr_outline);
+  hb_test_add (test_background_premultiplied);
+  hb_test_add (test_background_stride);
 
   return hb_test_run ();
 }

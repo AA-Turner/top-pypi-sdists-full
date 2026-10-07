@@ -33,6 +33,13 @@ UNIFIED_DIFF_ADDITION_HEADER_PREFIX: str = "+++"
 UNIFIED_DIFF_REMOVAL_PREFIX: str = "-"
 UNIFIED_DIFF_REMOVAL_HEADER_PREFIX: str = "---"
 SELECTOR_EXPANSION_MARKER: str = "+"
+SELECTOR_SUGGESTION_CUTOFF: float = 0.8
+SELECTOR_SUGGESTION_LIMIT: int = 3
+UNIT_TEST_SELECTOR_ERROR_CODE: str = "S013"
+UNKNOWN_SELECTOR_ERROR_CODE: str = "S007"
+UNIT_TEST_SELECTOR_ONLY_TEST_AND_BUILD: str = (
+    "only `sqb test` and `sqb build` accept unit-test selectors"
+)
 MODEL_CUSTOM_CONFIG_KEY: str = "config"
 MODEL_PLACEHOLDERS_CONFIG_KEY: str = "placeholders"
 MODEL_PRE_HOOKS_CONFIG_KEY: str = "pre_hooks"
@@ -88,7 +95,7 @@ SNAPSHOT_DEFAULT_VALID_TO_COLUMN: str = "valid_to"
 SOURCE_INPUT_FUNCTION: str = "__source"
 REF_INPUT_FUNCTION: str = "__ref"
 MANUAL_RENAME_HINT: str = (
-    "matched by unchanged definition; sqb rename model:<old> <new> rewrites references and "
+    "matched by unchanged definition; sqb rename <old> <new> rewrites references and "
     "declares migrate_from so the move does not depend on discovery"
 )
 HIDDEN_ORIGIN_REMEDY: str = (

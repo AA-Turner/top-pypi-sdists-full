@@ -186,7 +186,7 @@ def _no_ambient_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     `_telemetry_core.detect_agent_label()` reads `os.environ`, and both `build_batch`
     and `TelemetryContext.emit` call it with no argument. Without this scrub, an exact
     assertion on an event's properties depends on whether the developer happens to be
-    running the suite from inside Claude Code, Cursor or Codex -- green in CI, red on a
+    running the suite from inside Claude Code, Codex or pi -- green in CI, red on a
     laptop, for reasons nothing in the failure output would explain. Tests that WANT an
     agent set the marker themselves.
     """
@@ -1580,6 +1580,9 @@ class FakeApp:
         # resolve-the-agent behavior the MCP source implements.
         self.session_work: dict[str, dict] = {}
         self.session_transcripts: dict[tuple[str, str], dict] = {}
+        # Whole ATIF documents, keyed like transcripts; the route pages their
+        # steps the way the engine does.
+        self.session_trajectories: dict[tuple[str, str], dict] = {}
         self.session_digests: dict[str, dict] = {}
         # Models a backend that predates the /v1/sessions/* routes: every one
         # 404s the way a missing FastAPI route does (bare "Not Found"), so the
@@ -2912,7 +2915,7 @@ class FakeApp:
             return httpx.Response(404, json={"detail": "no such version"})
 
         # -- captured coding-agent sessions (read-only, like the real routes) --
-        m = re.match(r"^/v1/sessions/([^/]+)/(work|transcript|digest)$", path)
+        m = re.match(r"^/v1/sessions/([^/]+)/(work|transcript|trajectory|digest)$", path)
         if m and method == "GET":
             sid, leaf = m.group(1), m.group(2)
             if self.sessions_route_absent:
@@ -2932,6 +2935,31 @@ class FakeApp:
                     "artifacts": [],
                 }
                 return httpx.Response(200, json=work)
+            if leaf == "trajectory":
+                source = request.url.params.get("source", "claude_code")
+                doc = self.session_trajectories.get((sid, source))
+                if doc is None:
+                    return httpx.Response(404, json={"detail": "session not found"})
+                if doc == "not_built":  # the session exists; no trajectory yet
+                    return httpx.Response(404, json={"detail": {
+                        "error": "trajectory_unavailable", "reason": "not_built",
+                        "message": "this session has no trajectory yet"}})
+                step_from = int(request.url.params.get("step_from", 1))
+                step_limit = int(request.url.params.get("step_limit", 200))
+                steps = doc["steps"]
+                page = steps[step_from - 1 : step_from - 1 + step_limit]
+                following = step_from + len(page)
+                return httpx.Response(
+                    200,
+                    json={
+                        "session_id": sid,
+                        "agent": source,
+                        "total_steps": len(steps),
+                        "step_from": step_from,
+                        "next_step_from": following if following <= len(steps) else None,
+                        "trajectory": {**doc, "steps": page},
+                    },
+                )
             if leaf == "transcript":
                 source = request.url.params.get("source", "claude_code")
                 doc = self.session_transcripts.get((sid, source))

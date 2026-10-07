@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2018-2025 Jetperch LLC
+# SPDX-FileCopyrightText: Copyright 2018-2025 Jetperch LLC
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -125,6 +126,7 @@ extensions = [
                          sources=[
                                      'pyjoulescope_driver/binding' + ext,
                                      'src/buffer.c',
+                                     'src/buffer_params.c',
                                      'src/buffer_signal.c',
                                      'src/calibration_hash.c',
                                      'src/check32.c',
@@ -144,6 +146,7 @@ extensions = [
                                      'src/devices/js320/firmware.c',
                                      'src/devices/js320/js320_cal.c',
                                      'src/devices/js320/js320_drv.c',
+                                     'src/devices/js320/js320_params.c',
                                      'src/devices/js320/js320_fwup.c',
                                      'src/devices/js320/js320_fwup_mgr.c',
                                      'src/devices/js320/js320_jtag.c',

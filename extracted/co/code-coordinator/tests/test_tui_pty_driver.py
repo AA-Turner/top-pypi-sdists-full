@@ -43,6 +43,14 @@ came back ``cols - 1`` wide: the root cause is ``pyte``'s own
 glyph (CJK, emoji, ...) instead of padding it, fixed in
 ``VtScreen.text()`` by rendering from the raw cell buffer instead. It
 fails against the pre-fix implementation and passes against the fix.
+
+:class:`TestUnixPtyChildRealCwdContainsASpace` is the Tier-1 conformance
+scenario for #3629: a coordinator worktree on macOS always lives under
+``~/Library/Application Support/coord/worktrees/...``, so
+:func:`_wrap_launch_command`'s ``VAR=value`` → ``env VAR=value`` rewrite
+must not lose POSIX's no-word-splitting treatment for the assignment once
+``$PWD`` expands to a path containing a space. It fails against the
+pre-fix (unquoted) transform and passes once the value is re-quoted.
 """
 
 from __future__ import annotations
@@ -154,6 +162,31 @@ steps:
     def test_invalid_yaml_raises_spec_error(self) -> None:
         with pytest.raises(TuiPtySpecError, match="not valid YAML"):
             parse_smoke_spec("steps: [")
+
+    def test_type_text_and_expect_file_parse(self) -> None:
+        # #3650
+        spec = parse_smoke_spec(
+            "steps:\n"
+            "  - type: type_text\n"
+            "    text: 'hello world'\n"
+            "  - type: expect_file\n"
+            "    path: /tmp/probe.txt\n"
+            "    timeout_ms: 2000\n"
+            "    contains: 'hello'\n"
+        )
+        type_text, expect_file = spec.steps
+        assert type_text.text == "hello world"
+        assert expect_file.path == "/tmp/probe.txt"
+        assert expect_file.timeout_ms == 2000
+        assert expect_file.contains == "hello"
+
+    def test_type_text_requires_text(self) -> None:
+        with pytest.raises(TuiPtySpecError, match="missing required field"):
+            parse_smoke_spec("steps:\n  - type: type_text\n")
+
+    def test_expect_file_requires_path(self) -> None:
+        with pytest.raises(TuiPtySpecError, match="missing required field"):
+            parse_smoke_spec("steps:\n  - type: expect_file\n")
 
     def test_non_mapping_top_level_raises(self) -> None:
         with pytest.raises(TuiPtySpecError, match="mapping"):
@@ -642,6 +675,45 @@ class FakePtyChild:
         self._alive = False
 
 
+class FlickeringPtyChild(FakePtyChild):
+    """A child whose stream is *never* silent: every :meth:`read` returns
+    bytes immediately, forever — vimcode#1634's actual regression shape (a
+    terminal stuck repainting), rather than a finite script of bytes at
+    hand-picked offsets.
+
+    It exists because a scripted stream cannot prove the *failing* verdict
+    of the idle-related gates (``expect_silent``, ``wait_idle``) reliably.
+    Two independent reasons, both measured on this repo's own agent
+    machines:
+
+    * a scripted delay is measured from child construction, but the step's
+      window does not open until :meth:`SmokeRunner._do_launch`'s ~0.2s
+      startup grace plus thread-startup jitter has elapsed — anywhere in
+      0.25-0.35s — so a byte scheduled at 0.3s fell on either side of the
+      boundary at random;
+    * ``time.sleep()`` on a loaded machine overshoots badly (a nominal
+      ``sleep(0.02)`` measured ~0.13s here), so *any* sleep between
+      scripted bytes is longer than the 20-60ms idle thresholds these
+      gates grade — the "continuous" stream reads as idle.
+
+    Returning data with no sleep at all sidesteps both: it is also what a
+    real pty does when bytes are already buffered. The stream is then
+    non-silent at *every* instant, so the failing verdict is reachable on
+    every run, wherever the window happens to land — which is the whole
+    point of grading both directions (#2096).
+    """
+
+    def __init__(self, data: bytes = b"repaint") -> None:
+        super().__init__()
+        self._data = data
+
+    def read(self, timeout: float) -> bytes:
+        # No sleep — see the class docstring. `sleep(0)` only yields the
+        # GIL so the gate's own polling thread still gets scheduled.
+        time.sleep(0)
+        return self._data
+
+
 def _spec(steps: list[SmokeStep], cols: int = 80, rows: int = 24) -> SmokeSpec:
     return SmokeSpec(name="test", cols=cols, rows=rows, steps=tuple(steps))
 
@@ -744,6 +816,65 @@ class TestSmokeRunnerActions:
         assert child.resizes == [(120, 40)]
         assert (runner._cols, runner._rows) == (120, 40)
 
+    def test_type_text_step_writes_the_literal_utf8_bytes(self) -> None:
+        # #3650: unlike `key:`, `type_text:` never goes through the
+        # terminal-byte-encoding grammar — it's the literal string, as-is.
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("type_text", 1, text="hello, world! 日本語"),
+        ]))
+        assert results[1]["status"] == "pass"
+        assert "hello, world! 日本語".encode("utf-8") in child.writes
+
+    def test_type_text_before_launch_fails(self) -> None:
+        runner = SmokeRunner(lambda cols, rows: FakePtyChild())
+        results = runner.run(_spec([_step("type_text", 0, text="x")]))
+        assert results[0]["status"] == "fail"
+        assert "no child process" in results[0]["message"]
+
+
+class TestSmokeRunnerExpectFile:
+    """#3650 — delegates to :func:`coord.native_fs_wait.wait_for_file`; see
+    ``tests/test_native_fs_wait.py`` for that function's own coverage. These
+    tests only confirm the step is wired up (field plumbing + pass/fail
+    translation), not re-test the filesystem-polling logic itself."""
+
+    def test_passes_once_file_exists(self, tmp_path) -> None:
+        target = tmp_path / "probe.txt"
+        target.write_text("ready")
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_file", 1, path=str(target), timeout_ms=1000),
+        ]))
+        assert results[1]["status"] == "pass"
+
+    def test_fails_with_reason_when_file_never_appears(self, tmp_path) -> None:
+        target = tmp_path / "never.txt"
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_file", 1, path=str(target), timeout_ms=100),
+        ]))
+        assert results[1]["status"] == "fail"
+        assert "did not appear" in results[1]["message"]
+
+    def test_fails_when_content_does_not_contain_expected_substring(self, tmp_path) -> None:
+        target = tmp_path / "probe.txt"
+        target.write_text("wrong content")
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("expect_file", 1, path=str(target), timeout_ms=100, contains="right"),
+        ]))
+        assert results[1]["status"] == "fail"
+        assert "right" in results[1]["message"]
+
 
 class TestSmokeRunnerWaitIdle:
     def test_succeeds_once_stream_goes_quiet(self) -> None:
@@ -756,11 +887,19 @@ class TestSmokeRunnerWaitIdle:
         assert results[1] == {"id": "001 wait_idle", "status": "pass", "message": ""}
 
     def test_a_gate_that_never_goes_idle_can_fail(self) -> None:
-        # Continuous output every 20ms — never a clean 60ms idle window —
+        # A stream that is never silent — never a clean 60ms idle window —
         # must time out, not hang or pass. This is the "a gate must be able
         # to fail" check for wait_idle.
-        script = [(i * 0.02, b"x") for i in range(1, 20)]
-        child = FakePtyChild(script=script)
+        #
+        # The output is unbounded (:class:`FlickeringPtyChild`) rather than a
+        # finite ~0.4s script: scripted delays run from child creation, but
+        # `_do_launch`'s ~0.2s startup grace plus thread-startup jitter can
+        # consume the whole script before this step even begins, leaving the
+        # stream genuinely idle and the failing verdict unreachable. Nor can
+        # the script simply be lengthened — `time.sleep()` overshoots to
+        # ~0.13s under load here, so any sleep between scripted bytes
+        # exceeds this gate's own 60ms idle threshold.
+        child = FlickeringPtyChild(data=b"x")
         runner = SmokeRunner(lambda cols, rows: child)
         results = runner.run(_spec([
             _step("launch", 0),
@@ -820,14 +959,18 @@ class TestSmokeRunnerExpectSilent:
         assert results[1] == {"id": "idle-check", "status": "pass", "message": ""}
 
     def test_fails_when_the_stream_flickers_during_the_window(self) -> None:
-        # A byte lands mid-window — the observation must be taken AFTER the
+        # Bytes land mid-window — the observation must be taken AFTER the
         # full window elapses and re-read the counter, not merely "no
-        # exception was raised while sleeping" (#2096). The scripted delay
-        # is relative to child creation, and `_do_launch` itself blocks for
-        # a ~0.2s startup grace period before the `expect_silent` step ever
-        # starts — schedule the flicker comfortably after that so it lands
-        # inside this step's own window, not the grace period.
-        child = FakePtyChild(script=[(0.3, b"repaint")])
+        # exception was raised while sleeping" (#2096).
+        #
+        # The flicker is CONTINUOUS (:class:`FlickeringPtyChild`) rather
+        # than one byte at a scheduled offset: a scripted delay is measured
+        # from child creation, but the window's real start is `_do_launch`'s
+        # ~0.2s startup grace *plus* thread-startup jitter, so a lone byte
+        # at 0.3s straddled the boundary and this assertion was flaky. A
+        # stream that never goes quiet is observed wherever the window
+        # lands, so the failing verdict is reachable every run.
+        child = FlickeringPtyChild()
         runner = SmokeRunner(lambda cols, rows: child)
         results = runner.run(_spec([
             _step("launch", 0),
@@ -1092,7 +1235,11 @@ steps:
 @pytest.mark.skipif(os.name != "posix", reason="UnixPtyChild requires a POSIX platform")
 class TestUnixPtyChildReal:
     def test_real_process_output_is_read_back_through_a_real_pty(self, tmp_path) -> None:
-        command = f"{sys.executable} -c \"import sys; sys.stdout.write('HELLO FROM REAL PTY\\r\\n'); sys.stdout.flush(); import time; time.sleep(2)\""
+        # Interpreter path double-quoted (#3629): this repo's own worktrees
+        # live under a macOS ``Application Support`` path, so an unquoted
+        # `sys.executable` here would itself get word-split by the shell —
+        # unrelated to anything this test means to exercise.
+        command = f"\"{sys.executable}\" -c \"import sys; sys.stdout.write('HELLO FROM REAL PTY\\r\\n'); sys.stdout.flush(); import time; time.sleep(2)\""
         child = UnixPtyChild(command, str(tmp_path), cols=80, rows=24)
         try:
             collected = b""
@@ -1134,7 +1281,7 @@ class TestWrapLaunchCommand:
         # `exec HOME=x ./bin` would try (and fail) to execve a program
         # literally named `HOME=x` — `env` doesn't have that restriction.
         wrapped = _wrap_launch_command("HOME=$PWD/home ./bin arg")
-        assert wrapped == "exec env HOME=$PWD/home ./bin arg"
+        assert wrapped == 'exec env HOME="$PWD/home" ./bin arg'
 
     def test_real_production_route_shape_cd_and_inline_env(self) -> None:
         # The exact `~/.coord/coordinator.remote.yml` vimcode `tui-pty`
@@ -1143,16 +1290,67 @@ class TestWrapLaunchCommand:
             "cd .smoke && HOME=$PWD/home ../target/release/vcd sample.txt"
         )
         assert wrapped == (
-            "cd .smoke && exec env HOME=$PWD/home ../target/release/vcd sample.txt"
+            'cd .smoke && exec env HOME="$PWD/home" ../target/release/vcd sample.txt'
         )
 
     def test_multiple_compound_segments_only_the_last_is_execed(self) -> None:
         wrapped = _wrap_launch_command("cd a && cd b && HOME=x ./bin arg")
-        assert wrapped == "cd a && cd b && exec env HOME=x ./bin arg"
+        assert wrapped == 'cd a && cd b && exec env HOME="x" ./bin arg'
 
     def test_double_ampersand_inside_a_quoted_argument_is_not_a_split_point(self) -> None:
         wrapped = _wrap_launch_command("./bin 'a && b'")
         assert wrapped == "exec ./bin 'a && b'"
+
+    # ── #3629: a $VAR expansion that contains a space (every macOS
+    # worktree, under `~/Library/Application Support/...`) must not get
+    # word-split once it becomes a plain `env` argument ───────────────────
+
+    def test_env_assignment_value_is_double_quoted_so_a_space_does_not_split_it(self) -> None:
+        # Against the pre-fix transform this is `exec env HOME=$PWD/home
+        # ./bin arg` — once `$PWD` expands to a path containing a space,
+        # `env` sees TWO arguments where it expected one, and tries (and
+        # fails) to execve the stray fragment after the space.
+        wrapped = _wrap_launch_command("HOME=$PWD/home ./bin arg")
+        assert wrapped == 'exec env HOME="$PWD/home" ./bin arg'
+
+    # ── #3629 review round 1: an *already*-quoted/escaped value must be
+    # passed through unchanged, not re-quoted on top of its own quoting ──
+
+    def test_env_assignment_value_already_double_quoted_is_left_unchanged(self) -> None:
+        # The exact workaround #3629's own Evidence section says every
+        # tui-pty session on the affected host already had deployed
+        # (`HOME="$PWD/home"`) — re-quoting it would turn the value into
+        # the literal 4-char string `"$PWD/home"`, quote characters
+        # included.
+        wrapped = _wrap_launch_command('HOME="$PWD/home" ./bin arg')
+        assert wrapped == 'exec env HOME="$PWD/home" ./bin arg'
+
+    def test_env_assignment_value_already_single_quoted_is_left_unchanged(self) -> None:
+        wrapped = _wrap_launch_command("HOME='$PWD/home' ./bin arg")
+        assert wrapped == "exec env HOME='$PWD/home' ./bin arg"
+
+    def test_env_assignment_value_already_double_quoted_with_a_space_is_left_unchanged(
+        self,
+    ) -> None:
+        # A quoted value containing a literal space must be consumed as
+        # ONE shell word, not split mid-quote by a naive `\S*` scan.
+        wrapped = _wrap_launch_command('HOME="a b" ./bin arg')
+        assert wrapped == 'exec env HOME="a b" ./bin arg'
+
+    def test_env_assignment_value_with_a_backslash_escaped_space_is_left_unchanged(
+        self,
+    ) -> None:
+        wrapped = _wrap_launch_command(r"FOO=a\ b ./bin arg")
+        assert wrapped == r"exec env FOO=a\ b ./bin arg"
+
+    def test_env_assignment_value_with_an_unbalanced_quote_is_not_rewritten(self) -> None:
+        # Pathological input (already broken before #3629's fix too, in a
+        # different way): an unbalanced quote has no real "rest of the
+        # command" after it to run, so this isn't treated as an
+        # assignment-prefix at all — the tail is passed through verbatim
+        # rather than crashing or mangling it further.
+        wrapped = _wrap_launch_command('FOO=a"b ./bin')
+        assert wrapped == 'exec FOO=a"b ./bin'
 
 
 @pytest.mark.skipif(os.name != "posix", reason="UnixPtyChild requires a POSIX platform")
@@ -1170,8 +1368,13 @@ class TestUnixPtyChildRealCompoundCommand:
     def test_cd_and_inline_env_assignment_shape_still_launches(self, tmp_path) -> None:
         subdir = tmp_path / "workdir"
         subdir.mkdir()
+        # Double-quoted interpreter path (#3629): this repo's own worktrees
+        # live under a macOS ``Application Support`` path, so an unquoted
+        # ``sys.executable`` here would itself contain a space unrelated
+        # to the thing this scenario drives — the compound `cd` + inline
+        # env-var shape, not the interpreter's own path.
         command = (
-            f"cd workdir && HOME=$PWD/home {sys.executable} -c "
+            f'cd workdir && HOME=$PWD/home "{sys.executable}" -c '
             "\"import os, sys; "
             "sys.stdout.write('HOME=' + os.environ['HOME'] + '\\r\\n'); "
             "sys.stdout.flush(); import time; time.sleep(2)\""
@@ -1185,6 +1388,57 @@ class TestUnixPtyChildRealCompoundCommand:
             assert child.is_alive(), (
                 "child exited immediately — the cd+inline-env-var launch "
                 "command failed to start"
+            )
+            assert f"HOME={subdir}/home".encode() in collected
+        finally:
+            child.close()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="UnixPtyChild requires a POSIX platform")
+class TestUnixPtyChildRealCwdContainsASpace:
+    """Tier-1 conformance scenario for #3629: every coordinator worktree on
+    macOS lives under ``~/Library/Application Support/coord/worktrees/...``
+    — a path that always contains a space — and the ``tui-pty`` driver's
+    own exec-wrapping (:func:`_wrap_launch_command`) must still launch a
+    compound ``cd ... && VAR=$PWD/... bin`` command from it.
+
+    Against the pre-fix transform (an unquoted ``env VAR=$PWD/...``
+    argument) this fails: once ``$PWD`` expands to a path containing a
+    space, the shell's normal field-splitting applies (the assignment is no
+    longer in POSIX's no-split assignment-prefix position, just a bare
+    argument to ``env``), so ``env`` receives the tail of the path as a
+    second, bogus argument and tries — and fails — to execve it (``env:
+    .../No such file or directory``), and the real child never starts.
+    """
+
+    def test_cd_and_inline_env_assignment_launches_from_a_cwd_with_a_space(
+        self, tmp_path
+    ) -> None:
+        workdir_root = tmp_path / "Application Support"
+        workdir_root.mkdir()
+        subdir = workdir_root / "workdir"
+        subdir.mkdir()
+        # The interpreter path is double-quoted here deliberately: this
+        # scenario isolates the bug to the `$PWD`-derived assignment VALUE
+        # (the thing :func:`_wrap_launch_command` rewrites), not to an
+        # unrelated, already-unquoted binary path — a caller's own
+        # unquoted command text is its own responsibility either way, with
+        # or without the exec-wrap.
+        command = (
+            f'cd workdir && HOME=$PWD/home "{sys.executable}" -c '
+            "\"import os, sys; "
+            "sys.stdout.write('HOME=' + os.environ['HOME'] + '\\r\\n'); "
+            "sys.stdout.flush(); import time; time.sleep(2)\""
+        )
+        child = UnixPtyChild(command, str(workdir_root), cols=80, rows=24)
+        try:
+            collected = b""
+            deadline = time.monotonic() + 5
+            while b"HOME=" not in collected and time.monotonic() < deadline:
+                collected += child.read(0.2)
+            assert child.is_alive(), (
+                "child exited immediately — the cd+inline-env-var launch "
+                "command failed to start from a cwd containing a space"
             )
             assert f"HOME={subdir}/home".encode() in collected
         finally:

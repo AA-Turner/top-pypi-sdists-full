@@ -17,6 +17,8 @@ import platform
 import re
 import subprocess
 
+from packaging.requirements import Requirement
+
 # We use vanilla build_ext, to avoid importing Cython via
 # the setuptools version.
 import setuptools
@@ -25,13 +27,20 @@ from setuptools.command import sdist as setuptools_sdist
 from setuptools.command import build_ext as setuptools_build_ext
 
 
-CYTHON_DEPENDENCY = 'Cython(>=3.2.1,<4.0.0)'
+CYTHON_DEPENDENCY = 'Cython>=3.2.1,<4.0.0'
 
 CFLAGS = ['-O2']
 LDFLAGS = []
 
 if platform.uname().system != 'Windows':
     CFLAGS.extend(['-fsigned-char', '-Wall', '-Wsign-compare', '-Wconversion'])
+    # Link against libm (math library) for functions like log10()
+    LDFLAGS.extend(['-lm'])
+
+if platform.uname().system == 'FreeBSD':
+    # Cython's thread-safe module state lookup uses the C11 threads API on
+    # CPython 3.12+.  FreeBSD provides that API in libstdthreads.
+    LDFLAGS.extend(['-lstdthreads'])
 
 
 _ROOT = pathlib.Path(__file__).parent
@@ -186,8 +195,6 @@ class build_ext(setuptools_build_ext.build_ext):
                         need_cythonize = True
 
         if need_cythonize:
-            import pkg_resources
-
             # Double check Cython presence in case setup_requires
             # didn't go into effect (most likely because someone
             # imported Cython before setup_requires injected the
@@ -199,8 +206,8 @@ class build_ext(setuptools_build_ext.build_ext):
                     'please install {} to compile asyncpg from source'.format(
                         CYTHON_DEPENDENCY))
 
-            cython_dep = pkg_resources.Requirement.parse(CYTHON_DEPENDENCY)
-            if Cython.__version__ not in cython_dep:
+            cython_dep = Requirement(CYTHON_DEPENDENCY)
+            if Cython.__version__ not in cython_dep.specifier:
                 raise RuntimeError(
                     'asyncpg requires {}, got Cython=={}'.format(
                         CYTHON_DEPENDENCY, Cython.__version__

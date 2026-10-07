@@ -1,0 +1,27 @@
+file:
+- command_cell: -- COMMAND ----------
+- statement:
+  - magic_cell_segment:
+    - bare_magic_cell: '%python'
+    - bare_magic_cell: print("Hello world")
+- command_cell: -- COMMAND ----------
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - column_reference:
+          - naked_identifier: a
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - object_reference:
+                - naked_identifier: b
+- statement_terminator: ;
+- command_cell: -- COMMAND ----------
+- statement:
+  - magic_cell_segment:
+    - bare_magic_cell: '%run ./Notebook'

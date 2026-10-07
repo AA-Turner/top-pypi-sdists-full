@@ -70,6 +70,9 @@ class DeclaredTool:
     executor: str | None
     validate: bool
     deprecated: bool
+    #: Other names this tool answers to during a RENAME WINDOW (the old name while the DB
+    #: still says it, or the new name while the DB already does). See TOOL_RENAMES.md.
+    aliases: tuple[str, ...] = ()
 
     @property
     def function_path(self) -> str:
@@ -80,6 +83,8 @@ class DeclaredTool:
 
 
 _REGISTRY: dict[str, DeclaredTool] = {}
+#: ``{alias: canonical code name}`` — filled by ``tool(aliases=...)``.
+_ALIAS_INDEX: dict[str, str] = {}
 
 
 def tool(
@@ -90,6 +95,7 @@ def tool(
     executor: str | None = None,
     validate: bool = True,
     deprecated: bool = False,
+    aliases: tuple[str, ...] = (),
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Declare ``fn`` as the server-side implementation of tool ``name``.
 
@@ -110,6 +116,9 @@ def tool(
         validate: Set ``False`` to keep the tool registered for runtime arg
             validation but exempt it from drift checks (the code-side ignore
             switch). Mirrors ``tool_def.validation_exempt`` on the DB side.
+        aliases: Other names the DB may carry for this tool during a rename. The runtime
+            lookup and the drift gate treat a DB row under any alias as this tool, in
+            both directions. Drop an alias only after the DB rename is live everywhere.
         deprecated: Marks a tool that is being retired; the validator treats it
             as exempt and expects it to be ``is_active=false`` in the DB.
     """
@@ -125,7 +134,16 @@ def tool(
             executor=executor,
             validate=validate,
             deprecated=deprecated,
+            aliases=tuple(aliases),
         )
+        for alias in declared.aliases:
+            taken = _REGISTRY.get(alias)
+            owner = _ALIAS_INDEX.get(alias)
+            if alias == name or taken is not None or (owner is not None and owner != name):
+                raise ToolDeclarationError(
+                    f"Tool {name!r} declares alias {alias!r}, which is already a tool name "
+                    f"or another tool's alias."
+                )
         existing = _REGISTRY.get(name)
         if existing is not None and existing.function_path != declared.function_path:
             raise ToolDeclarationError(
@@ -134,6 +152,8 @@ def tool(
                 "Tool names must be globally unique."
             )
         _REGISTRY[name] = declared
+        for alias in declared.aliases:
+            _ALIAS_INDEX[alias] = name
         fn.__matrx_tool__ = declared  # type: ignore[attr-defined]
         return fn
 
@@ -145,8 +165,23 @@ def declared_tools() -> dict[str, DeclaredTool]:
     return dict(_REGISTRY)
 
 
+def code_name_for(name: str) -> str:
+    """The name this tool is declared under in code, given the name the DB (or a caller)
+    uses: the name itself when declared, its canonical name when it is an alias, else the
+    name unchanged."""
+    if name in _REGISTRY:
+        return name
+    return _ALIAS_INDEX.get(name, name)
+
+
+def tool_aliases_of(name: str) -> tuple[str, ...]:
+    """Every alias the code declares for the tool declared as ``name``."""
+    declared = _REGISTRY.get(name)
+    return declared.aliases if declared is not None else ()
+
+
 def get_declared_tool(name: str) -> DeclaredTool | None:
-    return _REGISTRY.get(name)
+    return _REGISTRY.get(code_name_for(name))
 
 
 # ── Generic tool families ──────────────────────────────────────────────────
@@ -267,7 +302,7 @@ def get_effective_declared(name: str) -> DeclaredTool | None:
     """The single funnel for "what code backs this tool name?" — an exact ``@tool``
     declaration if present, else a matching ``@tool_family`` materialised for this
     name, else ``None``."""
-    dt = _REGISTRY.get(name)
+    dt = _REGISTRY.get(code_name_for(name))
     if dt is not None:
         return dt
     fam = match_family(name)
@@ -277,4 +312,5 @@ def get_effective_declared(name: str) -> DeclaredTool | None:
 def clear_registry() -> None:
     """Test helper — wipe the registry between isolated runs."""
     _REGISTRY.clear()
+    _ALIAS_INDEX.clear()
     _FAMILY_REGISTRY.clear()

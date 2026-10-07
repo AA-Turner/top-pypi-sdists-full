@@ -9,6 +9,7 @@ import os
 import re
 import uuid
 from dataclasses import dataclass
+from itertools import chain
 from pathlib import Path
 
 import numpy as np
@@ -88,6 +89,15 @@ def training_plan_fingerprint(rows, groups_per_step, steps, *, repeat_dataset=Tr
 
 @dataclass(frozen=True)
 class Checkpointing:
+    """Store recoverable trainer and rollout state in a durable directory.
+
+    Attributes:
+        run_dir: Local or shared filesystem directory for this run's state.
+        weights_every: Optimizer updates between full weight checkpoints.
+        rollout_every: Seconds between rollout-state snapshots.
+        on_signal: Signals that request a final checkpoint before shutdown.
+    """
+
     run_dir: str | Path
     weights_every: int = 20
     rollout_every: float = 60.0
@@ -207,10 +217,24 @@ def _pack_arrays(value, stream):
             raise ValueError("checkpoint state contains reserved array metadata")
         return {key: _pack_arrays(item, stream) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
-        if len(value) >= 64:
-            kind = type(value[0])
+        shape = len(value)
+        count, items = len(value), value
+        if (
+            value
+            and isinstance(value[0], (list, tuple))
+            and value[0]
+            and all(
+                isinstance(row, (list, tuple)) and len(row) == len(value[0])
+                for row in value
+            )
+        ):
+            shape = [len(value), len(value[0])]
+            count = math.prod(shape)
+            items = chain.from_iterable(value)
+        if count >= 64:
+            kind = type(value[0][0] if isinstance(shape, list) else value[0])
             dtype = {int: "<i8", float: "<f8", bool: "|b1"}.get(kind)
-            if dtype and all(type(item) is kind for item in value):
+            if dtype and all(type(item) is kind for item in items):
                 try:
                     array = np.asarray(value, dtype=dtype)
                 except OverflowError:
@@ -227,7 +251,7 @@ def _pack_arrays(value, stream):
                     raise ValueError("checkpoint arrays must contain finite values")
                 offset = stream.tell()
                 stream.write(array.tobytes())
-                return {"__river_array__": [offset, len(value), dtype]}
+                return {"__river_array__": [offset, shape, dtype]}
         return [_pack_arrays(item, stream) for item in value]
     return value
 
@@ -235,19 +259,25 @@ def _pack_arrays(value, stream):
 def _unpack_arrays(value, payload):
     if isinstance(value, dict):
         if set(value) == {"__river_array__"}:
-            offset, count, dtype = value["__river_array__"]
+            offset, shape, dtype = value["__river_array__"]
+            dimensions = shape if isinstance(shape, list) else [shape]
+            if len(dimensions) not in {1, 2} or any(
+                type(size) is not int or size < 0 for size in dimensions
+            ):
+                raise ValueError("invalid checkpoint array shape")
+            count = math.prod(dimensions)
             if (
                 dtype not in {"<i8", "<i4", "|u1", "<f8", "|b1"}
                 or type(offset) is not int
-                or type(count) is not int
                 or offset < 0
-                or count < 0
                 or offset + count * np.dtype(dtype).itemsize > len(payload)
             ):
                 raise ValueError("invalid checkpoint array bounds or dtype")
-            return np.frombuffer(
-                payload, dtype=dtype, count=count, offset=offset
-            ).tolist()
+            return (
+                np.frombuffer(payload, dtype=dtype, count=count, offset=offset)
+                .reshape(dimensions)
+                .tolist()
+            )
         return {key: _unpack_arrays(item, payload) for key, item in value.items()}
     if isinstance(value, list):
         return [_unpack_arrays(item, payload) for item in value]

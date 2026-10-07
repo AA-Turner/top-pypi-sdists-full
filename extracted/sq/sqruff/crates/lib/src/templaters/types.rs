@@ -1,7 +1,7 @@
 use fancy_regex::Regex;
 
 #[cfg(feature = "python")]
-use super::{DBT_TEMPLATER, JINJA_TEMPLATER, PYTHON_TEMPLATER};
+use super::{DBT_TEMPLATER, JINJA_TEMPLATER, PYTHON_TEMPLATER, SQLMESH_TEMPLATER};
 use super::{PLACEHOLDER_TEMPLATER, RAW_TEMPLATER, Templater};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -14,6 +14,8 @@ pub enum TemplaterKind {
     Jinja,
     #[cfg(feature = "python")]
     Dbt,
+    #[cfg(feature = "python")]
+    Sqlmesh,
 }
 
 impl TemplaterKind {
@@ -27,6 +29,8 @@ impl TemplaterKind {
             Self::Jinja => "jinja",
             #[cfg(feature = "python")]
             Self::Dbt => "dbt",
+            #[cfg(feature = "python")]
+            Self::Sqlmesh => "sqlmesh",
         }
     }
 
@@ -40,6 +44,8 @@ impl TemplaterKind {
             Self::Jinja => &JINJA_TEMPLATER,
             #[cfg(feature = "python")]
             Self::Dbt => &DBT_TEMPLATER,
+            #[cfg(feature = "python")]
+            Self::Sqlmesh => &SQLMESH_TEMPLATER,
         }
     }
 
@@ -56,6 +62,7 @@ impl TemplaterKind {
                 Self::Python,
                 Self::Jinja,
                 Self::Dbt,
+                Self::Sqlmesh,
             ]
         }
 
@@ -75,6 +82,8 @@ impl TemplaterKind {
             "jinja" => Ok(Self::Jinja),
             #[cfg(feature = "python")]
             "dbt" => Ok(Self::Dbt),
+            #[cfg(feature = "python")]
+            "sqlmesh" => Ok(Self::Sqlmesh),
             _ => Err(format!(
                 "Unknown templater '{}'. Available templaters: {}",
                 s,
@@ -87,11 +96,13 @@ impl TemplaterKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlaceholderStyle {
     Colon,
+    ColonOptionalQuotes,
     ColonNoSpaces,
     NumericColon,
     At,
     Pyformat,
     Dollar,
+    DollarSurround,
     FlywayVar,
     QuestionMark,
     NumericDollar,
@@ -104,11 +115,13 @@ impl PlaceholderStyle {
     pub const fn all() -> &'static [Self] {
         &[
             Self::Colon,
+            Self::ColonOptionalQuotes,
             Self::ColonNoSpaces,
             Self::NumericColon,
             Self::At,
             Self::Pyformat,
             Self::Dollar,
+            Self::DollarSurround,
             Self::FlywayVar,
             Self::QuestionMark,
             Self::NumericDollar,
@@ -121,11 +134,13 @@ impl PlaceholderStyle {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Colon => "colon",
+            Self::ColonOptionalQuotes => "colon_optional_quotes",
             Self::ColonNoSpaces => "colon_nospaces",
             Self::NumericColon => "numeric_colon",
             Self::At => "at",
             Self::Pyformat => "pyformat",
             Self::Dollar => "dollar",
+            Self::DollarSurround => "dollar_surround",
             Self::FlywayVar => "flyway_var",
             Self::QuestionMark => "question_mark",
             Self::NumericDollar => "numeric_dollar",
@@ -137,12 +152,14 @@ impl PlaceholderStyle {
 
     pub const fn regex_pattern(self) -> &'static str {
         match self {
-            Self::Colon => r"(?<![:\w\\]):(?P<param_name>\w+)(?!:)",
+            Self::Colon => r"(?<![:\w\\]):(?P<param_name>\w+)",
+            Self::ColonOptionalQuotes => r#"(?<!:):(?P<quotation>['"]?)(?P<param_name>[\w_]+)\1"#,
             Self::ColonNoSpaces => r"(?<!:):(?P<param_name>\w+)",
             Self::NumericColon => r"(?<![:\w\\]):(?P<param_name>\d+)",
             Self::At => r"(?<![:\w\\])@(?P<param_name>\w+)",
             Self::Pyformat => r"(?<![:\w\\])%\((?P<param_name>[\w_]+)\)s",
             Self::Dollar => r"(?<![:\w\\])\${?(?P<param_name>[\w_]+)}?",
+            Self::DollarSurround => r"(?<![:\w\\])\$(?P<param_name>[-\w]+)\$",
             Self::FlywayVar => r#"\${(?P<param_name>\w+[:\w_]+)}"#,
             Self::QuestionMark => r"(?<![:\w\\])\?",
             Self::NumericDollar => r"(?<![:\w\\])\${?(?P<param_name>[\d]+)}?",
@@ -159,11 +176,13 @@ impl PlaceholderStyle {
     pub fn from_name(s: &str) -> Result<Self, String> {
         match s {
             "colon" => Ok(Self::Colon),
+            "colon_optional_quotes" => Ok(Self::ColonOptionalQuotes),
             "colon_nospaces" => Ok(Self::ColonNoSpaces),
             "numeric_colon" => Ok(Self::NumericColon),
             "at" => Ok(Self::At),
             "pyformat" => Ok(Self::Pyformat),
             "dollar" => Ok(Self::Dollar),
+            "dollar_surround" => Ok(Self::DollarSurround),
             "flyway_var" => Ok(Self::FlywayVar),
             "question_mark" => Ok(Self::QuestionMark),
             "numeric_dollar" => Ok(Self::NumericDollar),

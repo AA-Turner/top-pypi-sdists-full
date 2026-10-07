@@ -9,6 +9,7 @@ import inspect
 import math
 import signal
 import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ from river_client.client import (
     _ForwardBackwardNeedsSubBatches,
     _merge_forward_backward_sub_batch_results,
 )
+from river_client.losses import CustomLoss
 from river_client.types import Checkpoint
 
 from .advantages import (
@@ -43,14 +45,28 @@ from .config import (
     _integer,
     acknowledge_risk,
 )
+from .custom_loss import custom_batch, loss_contract, validate_custom_loss_inputs
 from .engine import call, group_from_state, group_state
 from .env import Env
 from .progress import Activities
+from .streaming_custom_loss import StreamingCustomLoss
 from .trajectory import Span
 
 
 @dataclass
 class Step:
+    """Result of one completed training batch.
+
+    Attributes:
+        n: Number of batches completed by this trainer.
+        model_step: Number of optimizer updates applied to the model. A batch
+            with no usable training data advances ``n`` but not ``model_step``.
+        metrics: Training metrics for this batch, plus sampling activity since
+            the previous result. Sampling metrics include work on other groups
+            admitted ahead of this batch.
+        trajectories: Trajectories selected for this batch.
+    """
+
     n: int
     model_step: int
     # Sampling metrics cover work since the preceding emitted Step, including
@@ -96,18 +112,36 @@ def _sampling_interval(current, previous):
     return metrics
 
 
+def _require_finite_update(metrics, step):
+    """Stop when the service reports a non-finite gradient norm for an update.
+
+    The service has already applied the update, so its policy is corrupt: it
+    must not be published for sampling (a non-finite adapter can crash shared
+    inference workers), evaluated, or saved as a resume point. Raising before
+    the journal records the update leaves saved trainer state at the previous
+    step, so a restart resumes from the last finite policy. Services that
+    report no gradient norm are not checked.
+    """
+    norm = metrics.get("grad_norm")
+    if metrics.get("grad_norm_finite") == 0 or (
+        isinstance(norm, (int, float)) and not math.isfinite(norm)
+    ):
+        raise FloatingPointError(
+            f"optimizer step {step} reported a non-finite gradient norm; "
+            "its policy was not published, evaluated or saved"
+        )
+
+
 _DEFAULT_TRUNCATION = Truncation()
 
 
 class AsyncTrainer:
-    """Consume completion batches while new rollouts continue on shared capacity.
+    """Train a model from rollout groups while sampling continues.
 
-    ``steps`` counts consumed batches, including reported zero-gradient skips.
-    ``Step.model_step`` counts actual optimizer updates. With max_staleness=0,
-    admission is restricted to the current batch, giving synchronous semantics.
-    The default ``stale_policy="wait"`` retains whole oversampled groups and
-    reserves training capacity through their admission step + max_staleness.
-    This trainer must be the model's only update writer.
+    Computes advantages from completed groups, submits forward/backward work,
+    and applies optimizer updates. Set ``max_staleness=0`` to train
+    synchronously or allow bounded policy lag for asynchronous training.
+    Use one trainer to update a given model.
     """
 
     def __init__(
@@ -120,7 +154,9 @@ class AsyncTrainer:
         groups_per_step: int,
         group_size: int = 16,
         advantage=None,
-        loss: str = "cispo",
+        loss: str | CustomLoss = "cispo",
+        custom_loss_inputs=None,
+        train_zero_advantage_batches: bool = False,
         max_staleness: int = 2,
         stale_policy: str = "wait",
         allow_trajectory_loss: bool = False,
@@ -135,11 +171,83 @@ class AsyncTrainer:
         repeat_dataset: bool = True,
         batch_order: str = "completion",
         validate_batch=None,
+        dataset_scheduler=None,
         forward_backward_groups: int | None = None,
         forward_backward_batch: ForwardBackwardBatch | Literal["auto"] | None = "auto",
         max_pending_forward_backward: int = 16,
         **loss_config,
     ):
+        """Configure reward processing, policy age, and optimizer updates.
+
+        Args:
+            engine: Rollout engine sharing the training model.
+            optimizer: Optimizer settings for each update.
+            completion: When a rollout group can be consumed.
+            normalize: Loss scaling: ``"token"``, ``"sequence"``, ``"batch"``,
+                or ``"sum"``. Custom losses require ``"sum"`` and own their
+                reduction; advantages are not rescaled by token/sequence counts.
+            groups_per_step: Reward groups consumed per training batch.
+            group_size: Samples requested for each dataset row.
+            advantage: Advantage estimator; defaults to ``GroupCentered()``.
+            loss: ``"cispo"``, ``"ppo"``, ``"importance_sampling"``, or
+                ``"decoupled_ppo"``, or a ``CustomLoss``. The trainer prepares
+                custom losses before rollouts.
+                Custom losses default to one logical request per update. Explicit
+                backward batching supports additive sums, optionally divided by
+                mask.sum().clamp_min(1). With batch standardization each output
+                must scale linearly with advantages (or be independent of them).
+                Streaming a policy term mixed with an advantage-independent
+                auxiliary term requires group standardization or no standardization.
+                Other formulas fail preparation before rollouts.
+                Deferred scaling changes floating-point rounding; numerically
+                sensitive objectives should be compared against full-batch runs.
+                Server microbatching and loss chunking still apply. Custom policy losses
+                must apply sampling temperature themselves (for example, CE on
+                ``logits / engine.temperature``); no implicit logit scaling occurs.
+            custom_loss_inputs: Optional custom-loss callback taking a datum with
+                loss_data (targets, old_logprobs, advantages, mask) and returning
+                the declared loss_data columns. Apply mask to every loss term;
+                it excludes prompt, image, tool and terminal positions and applies
+                the configured staleness policy. For
+                checkpointing, the callback must implement contract(), returning
+                JSON-serializable configuration/version metadata.
+                Runs on a worker thread; synchronize access to shared mutable state.
+                With streaming backward, columns must match complete-batch
+                construction, apart from batch advantage scaling. The trainer
+                checks this before the optimizer.
+            train_zero_advantage_batches: CustomLoss only: update even when every
+                advantage is zero, for objectives with auxiliary training terms.
+                Otherwise such batches skip backward and the optimizer. Mixed
+                batches retain all masked tokens to preserve global reductions.
+            max_staleness: Maximum training-policy age in optimizer steps;
+                zero gives synchronous admission.
+            stale_policy: ``"wait"`` holds complete groups within the bound;
+                ``"mask_span"`` masks old spans; ``"keep"`` ignores the bound.
+            allow_trajectory_loss: Acknowledge options that may drop or fully
+                mask trajectories.
+            allow_unbounded_staleness: Acknowledge ``stale_policy="keep"``.
+            truncation: Reward or drop policy for truncated trajectories.
+            checkpoint: Durable trainer-state checkpoint settings.
+            init_checkpoint: Optional starting weights checkpoint.
+            evaluator: Optional checkpoint-based evaluation runner.
+            run_config: Serializable recipe values checked on resume.
+            max_importance_weight: Importance-ratio limit for decoupled PPO.
+            routing_replay: Replay captured expert routing during training.
+            repeat_dataset: Cycle dataset rows when more groups are needed.
+            batch_order: Consume groups by ``"completion"`` or ``"admission"``.
+            validate_batch: Optional callback before a full batch trains.
+            dataset_scheduler: Optional durable row scheduler implementing contract(),
+                row(index, rows), commit(batch, groups), state_dict() and
+                load_state_dict(state). Commit is synchronous with batch state;
+                it must validate all inputs before mutating and perform no I/O.
+            forward_backward_groups: Submit forward/backward after this many
+                ready groups; requires group-centered training with wait policies.
+            forward_backward_batch: ``"auto"`` enables threshold-based
+                submission when eligible; set a ``ForwardBackwardBatch`` or
+                ``None`` explicitly to override.
+            max_pending_forward_backward: Limit concurrent submitted operations.
+            loss_config: Loss-specific numeric options such as ``eps_max``.
+        """
         if engine.temperature <= 0 or not math.isfinite(engine.temperature):
             raise ValueError(
                 "RL training requires a finite positive sampling temperature"
@@ -159,8 +267,31 @@ class AsyncTrainer:
             or max_staleness < 0
         ):
             raise ValueError("invalid batch size, group quorum, or staleness limit")
-        if loss not in {"cispo", "ppo", "importance_sampling", "decoupled_ppo"}:
+        self._custom_loss = isinstance(loss, CustomLoss)
+        self.custom_loss_inputs = custom_loss_inputs
+        if type(train_zero_advantage_batches) is not bool:
+            raise TypeError("train_zero_advantage_batches must be a boolean")
+        if train_zero_advantage_batches and not self._custom_loss:
+            raise ValueError("train_zero_advantage_batches requires CustomLoss")
+        self.train_zero_advantage_batches = train_zero_advantage_batches
+        if self._custom_loss:
+            if normalize != "sum":
+                raise ValueError(
+                    "CustomLoss requires normalize='sum'; reduce in the objective"
+                )
+            if loss_config:
+                raise ValueError("custom loss constants belong in the objective")
+            validate_custom_loss_inputs(loss, custom_loss_inputs)
+            if checkpoint and custom_loss_inputs is not None:
+                if not callable(getattr(custom_loss_inputs, "contract", None)):
+                    raise ValueError(
+                        "checkpointed custom_loss_inputs must implement contract()"
+                    )
+                fingerprint(custom_loss_inputs.contract())
+        elif loss not in {"cispo", "ppo", "importance_sampling", "decoupled_ppo"}:
             raise ValueError("unsupported RL loss")
+        elif custom_loss_inputs is not None:
+            raise ValueError("custom_loss_inputs is only supported with CustomLoss")
         if stale_policy not in {"wait", "mask_span", "keep"}:
             raise ValueError("stale_policy must be wait, mask_span or keep")
         for name, value in (
@@ -202,10 +333,9 @@ class AsyncTrainer:
                 raise TypeError(f"{old_name} was renamed to {new_name}")
         if forward_backward_batch == "auto":
             eligible = (
-                max_staleness == 0
+                not self._custom_loss
                 and stale_policy == "wait"
                 and completion.mode == "wait"
-                and engine.sampling_policy == "trajectory"
                 and type(self.advantage) is GroupCentered
                 # Preserve full-batch validation before worker mutations unless
                 # the caller explicitly opts into overlapped computation.
@@ -228,6 +358,7 @@ class AsyncTrainer:
         self._overlap = (
             forward_backward_groups is not None or forward_backward_batch is not None
         )
+        self._streaming_custom_loss = None
         if forward_backward_groups is not None:
             _integer(forward_backward_groups, "forward_backward_groups", 1)
             if forward_backward_groups > groups_per_step:
@@ -235,23 +366,16 @@ class AsyncTrainer:
                     "forward_backward_groups cannot exceed groups_per_step"
                 )
         if self._overlap:
-            if (
-                max_staleness != 0
-                or stale_policy != "wait"
-                or completion.mode != "wait"
-            ):
+            if stale_policy != "wait" or completion.mode != "wait":
                 raise ValueError(
-                    "streaming backward requires synchronous max_staleness=0 and wait completion/staleness"
-                )
-            if engine.sampling_policy != "trajectory":
-                raise ValueError(
-                    "streaming backward requires trajectory-pinned sampling"
+                    "streaming backward requires wait completion/staleness"
                 )
             if type(self.advantage) is not GroupCentered:
                 raise ValueError(
                     "streaming backward currently requires GroupCentered advantages"
                 )
         self.forward_backward_groups = forward_backward_groups
+        self._accumulating_groups = []
         if completion.on_stragglers == "carry_over" and not isinstance(
             self.advantage, Batchwise
         ):
@@ -309,12 +433,16 @@ class AsyncTrainer:
             )
         self.allow_trajectory_loss = allow_trajectory_loss
         self.allow_unbounded_staleness = allow_unbounded_staleness
-        allowed = {
-            "cispo": {"eps_max"},
-            "ppo": {"clip_low", "clip_high"},
-            "decoupled_ppo": {"clip_low", "clip_high"},
-            "importance_sampling": set(),
-        }[loss]
+        allowed = (
+            set()
+            if self._custom_loss
+            else {
+                "cispo": {"eps_max"},
+                "ppo": {"clip_low", "clip_high"},
+                "decoupled_ppo": {"clip_low", "clip_high"},
+                "importance_sampling": set(),
+            }[loss]
+        )
         if set(loss_config) - allowed:
             raise ValueError(
                 f"unsupported {loss} options: {sorted(set(loss_config) - allowed)}"
@@ -327,7 +455,9 @@ class AsyncTrainer:
         )
         self.loss, self.loss_config = (
             loss,
-            {"logprob_temperature": engine.temperature, **loss_config},
+            {}
+            if self._custom_loss
+            else {"logprob_temperature": engine.temperature, **loss_config},
         )
         self.max_staleness, self.stale_policy, self.truncation = (
             max_staleness,
@@ -339,6 +469,13 @@ class AsyncTrainer:
             init_checkpoint,
             evaluator,
         )
+        self.dataset_scheduler = dataset_scheduler
+        if dataset_scheduler is not None and (
+            completion.mode != "wait" or stale_policy != "wait"
+        ):
+            raise ValueError(
+                "dataset_scheduler requires complete groups and stale_policy=wait"
+            )
         self.run_config = copy.deepcopy(run_config or {})
         if not math.isfinite(max_importance_weight) or max_importance_weight <= 0:
             raise ValueError("max_importance_weight must be finite and positive")
@@ -350,20 +487,22 @@ class AsyncTrainer:
         self.max_importance_weight = max_importance_weight
         self._running = False
         self._status = "idle"
+        self._backward_group_batches = []
         self._activities = Activities()
 
     def progress(self):
-        """Snapshot client progress, safe before, during, and after a run.
+        """Return current batch, model-update, and activity counters.
 
-        `model_step` is the last acknowledged update, not Model.step's
-        submission-time counter. No server queue/allocation details are read.
+        ``model_step`` reports the last completed optimizer update, including
+        while another update is in flight.
         """
         return {
             "status": self._status,
             "batches": getattr(self, "_n", 0),
-            "backward_groups_completed": len(getattr(self, "_streamed_groups", ()))
-            - sum(
-                count for index, task, count in getattr(self, "_pending_backwards", ())
+            "backward_groups_completed": sum(
+                count
+                for count, indices in self._backward_group_batches
+                if all(self._streamed_results[i] is not None for i in indices)
             ),
             "backward_chunks": len(getattr(self, "_streamed_chunks", ())),
             "pending_backward_requests": len(getattr(self, "_pending_backwards", ())),
@@ -419,6 +558,11 @@ class AsyncTrainer:
             ),
             "routing_replay": self.routing_replay,
             "return_expert_routing": self.engine.return_expert_routing,
+            **(
+                {"dataset_scheduler": self.dataset_scheduler.contract()}
+                if self.dataset_scheduler is not None
+                else {}
+            ),
             "repeat_dataset": self.repeat_dataset,
             "batch_order": self.batch_order,
             # Checkpoint schema keys are stable across public option renames.
@@ -432,7 +576,23 @@ class AsyncTrainer:
                 "type": type(self.advantage).__qualname__,
                 **vars(self.advantage),
             },
-            "loss": self.loss,
+            "loss": loss_contract(self.loss, self.custom_loss_inputs)
+            if self._custom_loss
+            else self.loss,
+            **(
+                {
+                    "streaming_loss": loss_contract(
+                        self._streaming_custom_loss.loss, self.custom_loss_inputs
+                    )
+                }
+                if self._streaming_custom_loss is not None
+                else {}
+            ),
+            **(
+                {"train_zero_advantage_batches": self.train_zero_advantage_batches}
+                if self._custom_loss
+                else {}
+            ),
             "loss_config": self.loss_config,
             "max_staleness": self.max_staleness,
             "stale_policy": self.stale_policy,
@@ -464,7 +624,9 @@ class AsyncTrainer:
         session = getattr(model, "_session", getattr(model, "session", None))
         return session if callable(getattr(session, "restore_images", None)) else None
 
-    async def _save_state(self):
+    async def _save_state(self, *, background=False):
+        if self._state_write is not None:
+            await self._wait_state_write(self._state_write)
         state = {
             "version": 1,
             **self._fingerprints,
@@ -480,19 +642,40 @@ class AsyncTrainer:
             "finished": sorted(self._finished),
             "received": sorted(self._received),
             "pending": [group_state(g) for g in self._pending],
+            **(
+                {"accumulating_groups": self._accumulating_groups.copy()}
+                if self._overlap and self.max_staleness > 0
+                else {}
+            ),
             "engine": await self.engine.state_dict(),
+            **(
+                {"dataset_scheduler": self.dataset_scheduler.state_dict()}
+                if self.dataset_scheduler is not None
+                else {}
+            ),
             "eval_history": (
-                [] if self.evaluator is None else self.evaluator.state_dict()
+                []
+                if self.evaluator is None
+                else copy.deepcopy(self.evaluator.state_dict())
             ),
         }
         session = self._image_session()
         images = session._client._local_images if session is not None else None
-        # Cancelling to_thread cannot stop the filesystem writer. Keep the
-        # caller's checkpoint lock until that writer has finished, so shutdown
-        # cannot race its temporary file or image pruning with the final save.
-        write = asyncio.create_task(
-            self._call("checkpoint_state", self._store.save, state, images=images)
-        )
+
+        async def persist():
+            await self._call("checkpoint_state", self._store.save, state, images=images)
+            self._saved_model_step = state["model_step"]
+            self._last_state_save = time.monotonic()
+
+        self._state_write = asyncio.create_task(persist())
+        if not background:
+            await self._wait_state_write(self._state_write)
+        return self._state_write
+
+    @staticmethod
+    async def _wait_state_write(write):
+        # Cancelling an await cannot stop the filesystem writer. Drain it before
+        # another save or shutdown can replace metadata or prune its arrays.
         try:
             await asyncio.shield(write)
         except asyncio.CancelledError:
@@ -503,7 +686,12 @@ class AsyncTrainer:
         if self.engine.server_capabilities is not None:
             self.engine.server_capabilities.require("policy_versions_v1")
             if self._overlap and (
-                self.normalize != "sum" or self.advantage.standardize == "batch"
+                self.normalize != "sum"
+                or self.advantage.standardize == "batch"
+                or (
+                    self._streaming_custom_loss is not None
+                    and self._streaming_custom_loss.outputs["loss"][1]
+                )
             ):
                 self.engine.server_capabilities.require("gradient_scale_v1")
         read = getattr(self.engine.model, "get_policy_version", None)
@@ -585,7 +773,7 @@ class AsyncTrainer:
             return
         # Called before new admissions, after committed training state is
         # recoverable. Existing trajectories may keep using prior snapshots.
-        if self._store and not recovering:
+        if self._store and not recovering and self._saved_model_step != step:
             await self._save_state()
         checkpoint = await self._call(
             "sampling_snapshot",
@@ -606,76 +794,75 @@ class AsyncTrainer:
 
     async def _periodic_checkpoint(self):
         while True:
-            await asyncio.sleep(self.checkpoint.rollout_every)
+            interval = self.checkpoint.rollout_every
+            await asyncio.sleep(
+                max(0, self._last_state_save + interval - time.monotonic())
+            )
             async with self._lock:
-                await self._save_state()
+                # A required save may have completed while we waited for the lock.
+                if time.monotonic() - self._last_state_save < interval:
+                    continue
+                write = await self._save_state(background=True)
+            # The captured state owns its data. Group collection and backward
+            # submission can continue while this ordered snapshot reaches disk.
+            await self._wait_state_write(write)
 
     def _backward_kwargs(self, data, *, zero_out=True):
-        recovered = all(d.get("_rl_recovered_routing", False) for d in data)
-        if (
-            self.routing_replay
-            and not recovered
-            and any(not d.get("expert_routing_handle") for d in data)
+        if self.routing_replay and any(
+            not d.get("expert_routing_handle") and not d.get("_rl_recovered_routing")
+            for d in data
         ):
             raise ValueError(
                 "routing_replay requires a routing handle for every training datum"
             )
-        routing_options = (
-            {"force_routing_replay": True, "compute_expert_flip_metric": True}
-            if self.routing_replay
-            else {}
+        replay = self.routing_replay and all(
+            d.get("expert_routing_handle") for d in data
         )
+        if self.routing_replay and not replay:
+            warnings.warn(
+                "Recovered training data has no routing capture; this backward batch "
+                "will use trainer-computed routing.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         return {
-            "loss_fn": "ppo" if self.loss == "decoupled_ppo" else self.loss,
+            "loss_fn": (
+                self._streaming_custom_loss.loss
+                if self._streaming_custom_loss is not None
+                else "ppo"
+                if self.loss == "decoupled_ppo"
+                else self.loss
+            ),
             "zero_out": zero_out,
-            **routing_options,
-            **self.loss_config,
             **(
-                {"force_routing_replay": False, "compute_expert_flip_metric": False}
-                if recovered
+                {"force_routing_replay": replay, "compute_expert_flip_metric": replay}
+                if self.routing_replay
                 else {}
             ),
+            **self.loss_config,
             **self._policy_guard(),
+            **(
+                {"allow_routing_fallback": True}
+                if replay and any(d.get("_rl_recovered_routing") for d in data)
+                else {}
+            ),
         }
 
-    @staticmethod
-    def _routing_batches(data):
-        # Keep fresh sampler captures enabled when a batch also contains saved
-        # trajectories. Routing mode is per RPC, so split only at mode changes.
-        batches = []
-        for datum in data:
-            if not batches or bool(datum.get("_rl_recovered_routing")) != bool(
-                batches[-1][-1].get("_rl_recovered_routing")
-            ):
-                batches.append([])
-            batches[-1].append(datum)
-        return batches
-
-    @staticmethod
-    def _backward_data(data):
+    def _backward_data(self, data):
+        missing = self.routing_replay and any(
+            not d.get("expert_routing_handle") for d in data
+        )
         return [
             {
-                key: value
-                for key, value in datum.items()
-                if key != "_rl_recovered_routing"
-                and not (
-                    datum.get("_rl_recovered_routing")
-                    and key.startswith("expert_routing_")
-                )
+                k: v
+                for k, v in datum.items()
+                if k != "_rl_recovered_routing"
+                and not (missing and k.startswith("expert_routing_"))
             }
             for datum in data
         ]
 
     async def _backward(self, data, *, zero_out=True):
-        batches = self._routing_batches(data)
-        if len(batches) > 1:
-            results = [
-                await self._backward(batch, zero_out=zero_out and index == 0)
-                for index, batch in enumerate(batches)
-            ]
-            return _merge_forward_backward_sub_batch_results(
-                results, [len(b) for b in batches]
-            )
         before = self.engine.model.step
         fb = await self._call(
             "backward",
@@ -708,22 +895,52 @@ class AsyncTrainer:
 
     async def _collect_backwards(self, *, all_pending=False):
         while self._pending_backwards:
-            index, task, count = self._pending_backwards[0]
+            index, task = self._pending_backwards[0]
             if not all_pending and not task.done():
                 break
             self._streamed_results[index] = await asyncio.shield(task)
             self._pending_backwards.pop(0)
             self._check_step()
         # Surface an out-of-order failure without waiting for an earlier RPC.
-        for index, task, count in self._pending_backwards:
+        for index, task in self._pending_backwards:
             if task.done():
                 task.result()
 
-    async def _submit_backward(self, data, group_count):
-        for batch in self._routing_batches(data):
-            await self._submit_backward_chunk(batch, group_count)
+    async def _drain_backwards(self):
+        # Accepted RPCs outlive cancellation of their waiter. Drain them before
+        # closing the model, including when recovery fails before the main loop.
+        drain = asyncio.gather(
+            *(task for index, task in self._pending_backwards),
+            return_exceptions=True,
+        )
+        cancelled = None
+        while not drain.done():
+            try:
+                await asyncio.shield(drain)
+            except asyncio.CancelledError as error:
+                # Even repeated cancellation must wait for accepted work and
+                # executor cleanup before recovery can close the model.
+                cancelled = error
+        results = drain.result()
+        self._pending_backwards.clear()
+        if self._backward_executor is not None:
+            self._backward_executor.shutdown(wait=True)
+            self._backward_executor = None
+        if cancelled is not None:
+            raise cancelled
+        return next((r for r in results if isinstance(r, BaseException)), None)
 
-    async def _submit_backward_chunk(self, data, group_count):
+    async def _submit_backward(self, data, group_count):
+        first = len(self._streamed_results)
+        if data:
+            await self._submit_backward_chunk(data)
+        # Register only after successful submission. Failed or cancelled
+        # submissions cannot count their groups as completed.
+        self._backward_group_batches.append(
+            (group_count, range(first, len(self._streamed_results)))
+        )
+
+    async def _submit_backward_chunk(self, data):
         await self._collect_backwards()
         if len(self._pending_backwards) >= self.max_pending_forward_backward:
             await asyncio.shield(self._pending_backwards[0][1])
@@ -764,7 +981,7 @@ class AsyncTrainer:
             index = len(self._streamed_results)
             self._streamed_results.append(None)
             task = asyncio.create_task(self._wait_backward(pending))
-            self._pending_backwards.append((index, task, group_count))
+            self._pending_backwards.append((index, task))
         self._streamed_chunks.append(data)
         if cancelled is not None:
             raise cancelled
@@ -777,6 +994,7 @@ class AsyncTrainer:
             **optimizer_kwargs,
             **self._policy_guard(),
         )
+        _require_finite_update(optim.metrics, before + 1)
         if getattr(self, "_policy", None) is not None:
             committed = optim.policy_version
             if (
@@ -796,8 +1014,9 @@ class AsyncTrainer:
 
     async def _update(self, data, optimizer_kwargs, *, chunks=None, recovering=False):
         if recovering:
-            # The journal preserves actions/loss inputs, not durable sampler
-            # routing. Never resolve its old handles, even if files still exist.
+            self._committed_step = self.engine.model.step
+            # Journal data is restored even when its original trajectories were
+            # fresh. Reuse captures where possible, with admission-time fallback.
             if chunks is None:
                 data = [dict(d, _rl_recovered_routing=True) for d in data]
             else:
@@ -808,12 +1027,20 @@ class AsyncTrainer:
         if chunks is None:
             fb = await self._backward(data)
         else:
-            results = []
-            for index, chunk in enumerate(chunks):
-                results.append(await self._backward(chunk, zero_out=index == 0))
-            fb = _merge_forward_backward_sub_batch_results(
-                results, [len(c) for c in chunks]
-            )
+            self._streamed_groups = set()
+            self._streamed_chunks, self._streamed_results = [], []
+            self._backward_group_batches = []
+            try:
+                # Keep journal order and gradient reset, but overlap completion
+                # waits using the same bounded pipeline as live accumulation.
+                for chunk in chunks:
+                    await self._submit_backward(chunk, 0)
+                await self._collect_backwards(all_pending=True)
+                fb = _merge_forward_backward_sub_batch_results(
+                    self._streamed_results, [len(c) for c in self._streamed_chunks]
+                )
+            finally:
+                await self._drain_backwards()
         return fb, await self._optimize(optimizer_kwargs)
 
     async def _accumulate_ready(self, *, flush=False):
@@ -830,7 +1057,12 @@ class AsyncTrainer:
                 estimator = self.advantage
                 if estimator.standardize == "batch":
                     estimator = dataclasses.replace(estimator, standardize=False)
-                groups = [g for g in self._pending if g.id not in self._streamed_groups]
+                batch_groups = (
+                    self._wait_accumulation_groups()
+                    if self.max_staleness > 0
+                    else self._pending
+                )
+                groups = [g for g in batch_groups if g.id not in self._streamed_groups]
                 # Excluded members can force a group's baseline to use the
                 # whole batch. Only these groups wait for the final rewards.
                 if not flush:
@@ -847,10 +1079,16 @@ class AsyncTrainer:
                     ]
                 if not groups:
                     return
+                starting_custom = (
+                    self._streaming_custom_loss is not None
+                    and not self._streamed_chunks
+                    and not self.train_zero_advantage_batches
+                )
                 if self.forward_backward_batch is None:
                     if len(groups) < self.forward_backward_groups and not flush:
                         return
-                    groups = groups[: self.forward_backward_groups]
+                    if not starting_custom:
+                        groups = groups[: self.forward_backward_groups]
                 if any(
                     not g.final or len(g.trajectories) != self.group_size
                     for g in groups
@@ -862,13 +1100,13 @@ class AsyncTrainer:
                 if flush:
                     all_values = estimator(
                         reward_values(
-                            [g.trajectories for g in self._pending], self.truncation
+                            [g.trajectories for g in batch_groups], self.truncation
                         ),
                         min_members=self.completion.min_members,
                     )
                     by_id = {
                         g.id: values
-                        for g, values in zip(self._pending, all_values, strict=True)
+                        for g, values in zip(batch_groups, all_values, strict=True)
                     }
                 self._check_step()
                 data, selected = [], []
@@ -882,14 +1120,19 @@ class AsyncTrainer:
                         truncation=self.truncation,
                         min_members=self.completion.min_members,
                         current_step=self._committed_step,
-                        max_staleness=0,
+                        max_staleness=self.max_staleness,
                         defer_normalization=True,
                         advantages=None if by_id is None else [by_id[group.id]],
+                        include_loss_mask=self._custom_loss,
                     )
                     if metrics["staleness/frac_masked"]:
                         raise RuntimeError(
-                            "synchronous backward received stale samples"
+                            "backward accumulation received samples outside the staleness bound"
                         )
+                    if starting_custom and not any(
+                        any(d["advantages"]) for d in contribution
+                    ):
+                        continue
                     data.extend(contribution)
                     selected.append(group)
                     # Advantages align with every input position, including
@@ -900,17 +1143,29 @@ class AsyncTrainer:
                         and self.forward_backward_batch.reached(len(data), tokens)
                     ):
                         break
-                if (
-                    self.forward_backward_batch is not None
+                    if (
+                        self.forward_backward_batch is None
+                        and len(selected) >= self.forward_backward_groups
+                    ):
+                        break
+                if starting_custom and not selected:
+                    if not flush:
+                        return
+                    selected = groups
+                wait_for_more = (
+                    not flush
+                    and self.forward_backward_batch is not None
                     and not self.forward_backward_batch.reached(len(data), tokens)
-                    and not flush
-                ):
-                    # Empty groups cannot help reach a work threshold. Consume
-                    # them without an RPC or resetting accumulated gradients.
-                    if not data:
-                        self._streamed_groups.update(g.id for g in selected)
+                )
+                # Consume empty groups without an RPC; only useful work waits
+                # for the submission threshold.
+                if wait_for_more and data:
                     return
                 groups = selected
+                if self.max_staleness > 0:
+                    self._accumulating_groups.extend(
+                        g.id for g in groups if g.id not in self._accumulating_groups
+                    )
                 if data:
                     if self.loss == "decoupled_ppo":
                         forward = await self._call(
@@ -932,8 +1187,30 @@ class AsyncTrainer:
                                 correction,
                             )
                         )
-                    await self._submit_backward(data, len(groups))
+                if self._streaming_custom_loss is not None:
+                    data = await call(
+                        custom_batch, data, self.loss, self.custom_loss_inputs
+                    )
+                await self._submit_backward(data, len(groups))
+                if self._streaming_custom_loss is not None:
+                    self._streaming_custom_loss.group_order.extend(g.id for g in groups)
                 self._streamed_groups.update(g.id for g in groups)
+                if wait_for_more:
+                    return
+
+    async def _prepare_custom_loss(self):
+        if self.loss._graph is None or self.loss._prepared_for is not self.engine.model:
+            self.loss = await call(self.engine.model.prepare_loss, self.loss)
+        if self._overlap:
+            plan = StreamingCustomLoss(
+                self.loss,
+                batch_standardize=self.advantage.standardize == "batch",
+                custom_loss_inputs=self.custom_loss_inputs,
+            )
+            plan.loss = await call(
+                self.engine.model._prepare_loss_graph, self.loss, plan.graph
+            )
+            self._streaming_custom_loss = plan
 
     def _check_step(self):
         # Model.step currently advances on submission. Only a successfully
@@ -963,7 +1240,60 @@ class AsyncTrainer:
             self.groups_per_step, self._total_groups - self._n * self.groups_per_step
         )
 
+    def _wait_accumulation_groups(self):
+        """Ready groups that can be irrevocably assigned to this update.
+
+        Reserve room for unfinished groups at every deadline, including future
+        deadline prefixes that would overflow after an early optimizer step.
+        Greedily filling unassigned slots with the oldest reservations proves
+        whether a ready candidate can fit without displacing required work.
+        """
+        ready = {g.id: g for g in self._pending}
+        order = self._reservation_order()
+        count = self._batch_group_count()
+        selected = set(self._accumulating_groups)
+        if not selected <= ready.keys() or len(selected) > count:
+            raise RuntimeError(
+                "accumulation selection is missing ready groups or exceeds the batch"
+            )
+
+        def can_finish(chosen):
+            planned = set(chosen)
+            for group_id in order:
+                if len(planned) == count:
+                    break
+                planned.add(group_id)
+            remaining = 0
+            for group_id in order:
+                if group_id in planned:
+                    continue
+                remaining += 1
+                deadline = self._admitted_policy_steps[group_id] + self.max_staleness
+                if remaining > (deadline - self._committed_step) * self.groups_per_step:
+                    return False
+            return True
+
+        if not can_finish(selected):
+            raise RuntimeError("accumulation selection cannot meet rollout deadlines")
+        candidates = order[:count] if self.batch_order == "admission" else order
+        for group_id in candidates:
+            if len(selected) == count:
+                break
+            if (
+                group_id in ready
+                and group_id not in selected
+                and can_finish(selected | {group_id})
+            ):
+                selected.add(group_id)
+        return [ready[group_id] for group_id in order if group_id in selected]
+
     def _wait_batch(self):
+        if self._overlap and self.max_staleness > 0:
+            selected = self._wait_accumulation_groups()
+            if len(selected) < self._batch_group_count():
+                return None
+            selected_ids = {g.id for g in selected}
+            return selected, [g for g in self._pending if g.id not in selected_ids]
         ready = {g.id: g for g in self._pending}
         order = self._reservation_order()
         count = self._batch_group_count()
@@ -1094,12 +1424,16 @@ class AsyncTrainer:
             await asyncio.gather(result_task, stop_task, return_exceptions=True)
 
     async def run(self, dataset, *, steps: int, after_recovery=None):
-        """Yield committed batches, optionally reconciling effects on recovery.
+        """Yield a :class:`Step` after each completed training batch.
 
-        Await ``after_recovery(completed_batches)`` after restoring weights and
-        replaying committed updates, before advancing training. It also runs
-        when all requested batches are already complete. Callers must make
-        reconciliation idempotent; failure leaves the saved state retryable.
+        Args:
+            dataset: Rows used to create rollout groups.
+            steps: Number of batches to complete. A batch with no usable
+                training data still counts, but does not update the model.
+            after_recovery: Optional async callback receiving the number of
+                restored batches before new training starts. It also runs if
+                all requested batches were already complete. Make it
+                idempotent, because recovery may retry it.
         """
         if self._running:
             raise RuntimeError("trainer is already running")
@@ -1118,17 +1452,38 @@ class AsyncTrainer:
             raise ValueError(
                 "steps exceeds the finite dataset; enable repeat_dataset to cycle"
             )
+        if self._custom_loss:
+            self._running = True
+            try:
+                preparation = asyncio.create_task(self._prepare_custom_loss())
+                try:
+                    await asyncio.shield(preparation)
+                except asyncio.CancelledError:
+                    drain = asyncio.gather(preparation, return_exceptions=True)
+                    while not drain.done():
+                        try:
+                            await asyncio.shield(drain)
+                        except asyncio.CancelledError:
+                            pass
+                    raise
+            finally:
+                self._running = False
         self._total_groups = steps * self.groups_per_step
         if not self.repeat_dataset:
             self._total_groups = min(self._total_groups, len(rows))
         self._n, self._submitted = 0, 0
         self._active, self._finished, self._received = set(), set(), set()
         self._pending, self._journal = [], []
+        self._accumulating_groups = []
         self._admitted_policy_steps = {}
         self._base = None
         self._stop, self._lock = asyncio.Event(), asyncio.Lock()
+        self._state_write = None
+        self._saved_model_step = None
+        self._last_state_save = time.monotonic()
         self._checkpoint_task = None
         self._pending_backwards = []
+        self._backward_group_batches = []
         self._backward_executor = None
         self._updating = False
         self._fingerprints = {
@@ -1216,10 +1571,9 @@ class AsyncTrainer:
                             set(saved["finished"]),
                             set(saved["received"]),
                         )
-                        self._pending = [
-                            group_from_state(g, recovering=True)
-                            for g in saved["pending"]
-                        ]
+                        self._pending = [group_from_state(g) for g in saved["pending"]]
+                        if self._overlap and self.max_staleness > 0:
+                            self._accumulating_groups = saved["accumulating_groups"]
                         self._admitted_policy_steps = dict(
                             saved.get("admitted_policy_steps", {})
                         )
@@ -1233,6 +1587,10 @@ class AsyncTrainer:
                         # before those tasks can select a pre-recovery snapshot;
                         # retain the existing on-disk engine state if export fails.
                         await self._publish_sampling_snapshot(recovering=True)
+                        if self.dataset_scheduler is not None:
+                            self.dataset_scheduler.load_state_dict(
+                                saved["dataset_scheduler"]
+                            )
                         self.engine.load_state_dict(saved["engine"])
                         if self.evaluator:
                             self.evaluator.load_state_dict(saved["eval_history"])
@@ -1266,6 +1624,7 @@ class AsyncTrainer:
                         )
                     try:
                         while self._n < steps and not self._stop.is_set():
+                            self._backward_group_batches = []
                             (
                                 self._streamed_groups,
                                 self._streamed_chunks,
@@ -1276,6 +1635,8 @@ class AsyncTrainer:
                                 [],
                             )
                             self._streamed_corrections = []
+                            if self._streaming_custom_loss is not None:
+                                self._streaming_custom_loss.group_order = []
                             batch_started = time.monotonic()
                             batch_operations = self._activities.snapshot()
                             if (
@@ -1307,7 +1668,13 @@ class AsyncTrainer:
                                     and self._submitted
                                     < self._n * self.groups_per_step + desired
                                 ):
-                                    row = rows[self._submitted % len(rows)]
+                                    row = (
+                                        rows[self._submitted % len(rows)]
+                                        if self.dataset_scheduler is None
+                                        else self.dataset_scheduler.row(
+                                            self._submitted, rows
+                                        )
+                                    )
                                     group_id = self.engine.submit(
                                         row,
                                         group_size=self.group_size,
@@ -1360,6 +1727,17 @@ class AsyncTrainer:
                             async with self._lock:
                                 self._check_step()
                                 selected, remaining_pending = self._select_batch()
+                                backward_groups = selected
+                                if self._streaming_custom_loss is not None:
+                                    positions = {
+                                        key: i
+                                        for i, key in enumerate(
+                                            self._streaming_custom_loss.group_order
+                                        )
+                                    }
+                                    backward_groups = sorted(
+                                        selected, key=lambda g: positions[g.id]
+                                    )
                                 started = (
                                     batch_started if self._overlap else time.monotonic()
                                 )
@@ -1373,7 +1751,7 @@ class AsyncTrainer:
                                 ]
                                 self._apply_policy_provenance(trajectories)
                                 data, metrics = build_batch(
-                                    [g.trajectories for g in selected],
+                                    [g.trajectories for g in backward_groups],
                                     estimator=self.advantage,
                                     normalize=self.normalize,
                                     truncation=self.truncation,
@@ -1384,7 +1762,24 @@ class AsyncTrainer:
                                         if self.stale_policy == "mask_span"
                                         else None
                                     ),
+                                    include_loss_mask=self._custom_loss,
                                 )
+                                if self._custom_loss:
+                                    if (
+                                        not self.train_zero_advantage_batches
+                                        and not any(
+                                            any(datum["advantages"]) for datum in data
+                                        )
+                                    ):
+                                        data = []
+                                    if self._streaming_custom_loss is None:
+                                        data = await call(
+                                            custom_batch,
+                                            data,
+                                            self.loss,
+                                            self.custom_loss_inputs,
+                                        )
+                                    metrics["train/datums"] = float(len(data))
                                 if self.validate_batch is not None:
                                     await call(
                                         self.validate_batch, trajectories, metrics
@@ -1442,9 +1837,23 @@ class AsyncTrainer:
                                             normalize=self.normalize,
                                             metrics=metrics,
                                         )
+                                        if self._streaming_custom_loss is not None:
+                                            loss_metrics, scale = await call(
+                                                self._streaming_custom_loss.finish,
+                                                data,
+                                                self._streamed_chunks,
+                                                self._streamed_results,
+                                                scale,
+                                            )
+                                            fb = dataclasses.replace(
+                                                fb, metrics=fb.metrics | loss_metrics
+                                            )
                                         if scale != 1.0:
                                             optimizer_kwargs["gradient_scale"] = scale
-                                            if "loss" in fb.metrics:
+                                            if (
+                                                self._streaming_custom_loss is None
+                                                and "loss" in fb.metrics
+                                            ):
                                                 fb.metrics["loss"] *= scale
                                         if self._streamed_corrections:
                                             count = sum(
@@ -1478,11 +1887,16 @@ class AsyncTrainer:
                                         }
                                     )
                                 self._pending = remaining_pending
+                                self._accumulating_groups = []
                                 if self.stale_policy == "wait":
                                     for group in selected:
                                         del self._admitted_policy_steps[group.id]
                                     self._validate_reservations()
                                 self._n += 1
+                                if self.dataset_scheduler is not None:
+                                    metrics.update(
+                                        self.dataset_scheduler.commit(self._n, selected)
+                                    )
                                 metrics.update(
                                     {
                                         "staleness/wait_seconds": wait_seconds,
@@ -1577,26 +1991,10 @@ class AsyncTrainer:
                         # Submitted RPCs keep running even if their waiter is
                         # cancelled. Drain before closing/checkpointing a model;
                         # failed contributions must never reach an optimizer.
-                        backward_failure = None
-                        if self._pending_backwards:
-                            results = await asyncio.gather(
-                                *(
-                                    task
-                                    for index, task, count in self._pending_backwards
-                                ),
-                                return_exceptions=True,
-                            )
-                            self._pending_backwards.clear()
-                            failure = next(
-                                (r for r in results if isinstance(r, BaseException)),
-                                None,
-                            )
-                            if failure is not None and healthy:
-                                healthy = False
-                                backward_failure = failure
-                        if self._backward_executor is not None:
-                            self._backward_executor.shutdown(wait=True)
-                            self._backward_executor = None
+                        failure = await self._drain_backwards()
+                        backward_failure = failure if healthy else None
+                        if failure is not None:
+                            healthy = False
                         if self._checkpoint_task:
                             self._checkpoint_task.cancel()
                             result = await asyncio.gather(
@@ -1633,7 +2031,16 @@ class AsyncTrainer:
 
 
 def run(trainer: AsyncTrainer, dataset, *, steps: int, on_step=None):
-    """Synchronous entry point; notebooks should use ``async for`` directly."""
+    """Run training from synchronous Python code and return the final step.
+
+    Args:
+        trainer: Configured trainer to run.
+        dataset: Rows used to create rollout groups.
+        steps: Number of training batches to complete.
+        on_step: Optional callback called with each completed ``Step``.
+
+    In an async program, iterate over ``trainer.run(...)`` instead.
+    """
 
     async def consume():
         last = None

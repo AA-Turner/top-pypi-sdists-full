@@ -825,6 +825,7 @@ class TestIosBgpAddressFamilyModule(TestIosModule):
              neighbor TEST-PEER-GROUP peer-group
              neighbor 2001:db8::1 peer-group TEST-PEER-GROUP
              neighbor 2001:db8::1 description TEST-PEER-GROUP-DESCRIPTION
+             neighbor 2001:db8::1 remote-as 100
              !
              address-family ipv4
               bgp redistribute-internal
@@ -1700,3 +1701,172 @@ class TestIosBgpAddressFamilyModule(TestIosModule):
         )
         with self.assertRaises(ConnectionError):
             self.module.main()
+
+    def test_ios_bgp_address_family_replaced_routemap_removed(self):
+        """Regression: state=replaced must negate a route-map absent from want."""
+        self.execute_show_command.return_value = dedent(
+            """\
+            router bgp 65000
+             address-family ipv4
+              neighbor 2.2.2.2 activate
+              neighbor 2.2.2.2 route-map AS-PATH-PREPEND out
+             exit-address-family
+            """,
+        )
+        set_module_args(
+            dict(
+                config=dict(
+                    as_number="65000",
+                    address_family=[
+                        dict(
+                            afi="ipv4",
+                            neighbors=[
+                                dict(
+                                    neighbor_address="2.2.2.2",
+                                    activate=True,
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "router bgp 65000",
+            "address-family ipv4 unicast",
+            "no neighbor 2.2.2.2 route-map AS-PATH-PREPEND out",
+            "exit-address-family",
+        ]
+        result = self.execute_module(changed=True)
+        self.assertEqual(sorted(result["commands"]), sorted(commands))
+
+    def test_ios_bgp_address_family_replaced_routemap_moved(self):
+        """Regression: moving a route-map from neighbor A to B must negate it on A."""
+        self.execute_show_command.return_value = dedent(
+            """\
+            router bgp 65000
+             address-family ipv4
+              neighbor 1.1.1.1 activate
+              neighbor 2.2.2.2 activate
+              neighbor 2.2.2.2 route-map AS-PATH-PREPEND out
+             exit-address-family
+            """,
+        )
+        set_module_args(
+            dict(
+                config=dict(
+                    as_number="65000",
+                    address_family=[
+                        dict(
+                            afi="ipv4",
+                            neighbors=[
+                                dict(
+                                    neighbor_address="2.2.2.2",
+                                    activate=True,
+                                ),
+                                dict(
+                                    neighbor_address="1.1.1.1",
+                                    activate=True,
+                                    route_maps=[
+                                        dict(name="AS-PATH-PREPEND", out=True),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "router bgp 65000",
+            "address-family ipv4 unicast",
+            "no neighbor 2.2.2.2 route-map AS-PATH-PREPEND out",
+            "neighbor 1.1.1.1 route-map AS-PATH-PREPEND out",
+            "exit-address-family",
+        ]
+        result = self.execute_module(changed=True)
+        self.assertEqual(sorted(result["commands"]), sorted(commands))
+
+    def test_ios_bgp_address_family_replaced_routemap_partial_removal(self):
+        """Regression: keep in-direction route-map but negate out-direction absent from want."""
+        self.execute_show_command.return_value = dedent(
+            """\
+            router bgp 65000
+             address-family ipv4
+              neighbor 2.2.2.2 activate
+              neighbor 2.2.2.2 route-map INBOUND-MAP in
+              neighbor 2.2.2.2 route-map OUTBOUND-MAP out
+             exit-address-family
+            """,
+        )
+        set_module_args(
+            dict(
+                config=dict(
+                    as_number="65000",
+                    address_family=[
+                        dict(
+                            afi="ipv4",
+                            neighbors=[
+                                dict(
+                                    neighbor_address="2.2.2.2",
+                                    activate=True,
+                                    route_maps=[
+                                        {"name": "INBOUND-MAP", "in": True},
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "router bgp 65000",
+            "address-family ipv4 unicast",
+            "no neighbor 2.2.2.2 route-map OUTBOUND-MAP out",
+            "exit-address-family",
+        ]
+        result = self.execute_module(changed=True)
+        self.assertEqual(sorted(result["commands"]), sorted(commands))
+
+    def test_ios_bgp_address_family_remote_as_global_idempotent(self):
+        """Regression — specifying remote_as for a neighbor must not generate
+        spurious commands when the device already has ``neighbor X remote-as Y``
+        at the BGP global level (one leading space).  The getval regex was previously
+        anchored to two leading spaces (address-family context only), so have.remote_as
+        was always None and compare() emitted the command on every run."""
+        self.execute_show_command.return_value = dedent(
+            """\
+            router bgp 65000
+             bgp log-neighbor-changes
+             neighbor 192.0.2.1 remote-as 100
+             !
+             address-family ipv4
+              neighbor 192.0.2.1 activate
+             exit-address-family
+            """,
+        )
+        set_module_args(
+            dict(
+                config=dict(
+                    as_number="65000",
+                    address_family=[
+                        dict(
+                            afi="ipv4",
+                            neighbors=[
+                                dict(
+                                    neighbor_address="192.0.2.1",
+                                    activate=True,
+                                    remote_as="100",
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        self.execute_module(changed=False, commands=[])

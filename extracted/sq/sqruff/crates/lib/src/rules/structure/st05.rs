@@ -1,5 +1,6 @@
+use std::cell::OnceCell;
 use std::iter::zip;
-use std::ops::{Index, IndexMut};
+use std::ops::Index;
 
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, enumerate};
@@ -11,7 +12,7 @@ use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use sqruff_lib_core::lint_fix::LintFix;
 use sqruff_lib_core::linter::compute_anchor_edit_info;
 use sqruff_lib_core::parser::segments::object_reference::ObjectReferenceLevel;
-use sqruff_lib_core::parser::segments::{ErasedSegment, SegmentBuilder, Tables};
+use sqruff_lib_core::parser::segments::{ErasedSegment, SegmentBuilder, Tables, position_segments};
 use sqruff_lib_core::utils::analysis::query::{Query, Selectable};
 use sqruff_lib_core::utils::analysis::select::get_select_statement_info;
 use sqruff_lib_core::utils::functional::segments::Segments;
@@ -103,7 +104,7 @@ join c using(x)
 
     fn eval(&self, context: &RuleContext) -> Vec<LintResult> {
         let functional_context = FunctionalContext::new(context);
-        let segment = functional_context.segment();
+        let mut segment = functional_context.segment();
         let parent_stack = functional_context.parent_stack();
 
         let is_select =
@@ -116,12 +117,6 @@ join c using(x)
         }
 
         let query: Query<'_> = Query::from_segment(&context.segment, context.dialect, None);
-        let mut ctes = CTEBuilder::default();
-
-        for cte in query.inner.borrow().ctes.values() {
-            ctes.insert_cte(cte.inner.borrow().cte_definition_segment.clone().unwrap());
-        }
-
         let is_with =
             segment.all_match(|it: &ErasedSegment| it.is_type(SyntaxKind::WithCompoundStatement));
         let is_recursive = is_with
@@ -131,12 +126,48 @@ join c using(x)
 
         let case_preference = get_case_preference(&segment);
 
-        let clone_map = SegmentCloneMap::new(
-            segment.first().unwrap().clone(),
-            segment.first().unwrap().deep_clone(),
-        );
+        // T-SQL requires WITH before INSERT, so wrap the INSERT when adding CTEs.
+        if !is_with
+            && context.dialect.name == DialectKind::Tsql
+            && let Some(insert_parent) = parent_stack
+                .base
+                .iter()
+                .rev()
+                .find(|it| it.is_type(SyntaxKind::InsertStatement))
+        {
+            segment = Segments::new(insert_parent.clone(), None);
+        }
 
-        let results = self.lint_query(
+        // Collect every top-level CTE in document order. Query analysis only
+        // records selectable CTEs, so using it here would drop expression CTEs
+        // such as ClickHouse's `array(...) AS alias` when composing the fix.
+        let mut ctes = CTEBuilder::default();
+        if is_with {
+            for cte in context.segment.recursive_crawl(
+                const { &SyntaxSet::single(SyntaxKind::CommonTableExpression) },
+                false,
+                const { &SyntaxSet::single(SyntaxKind::WithCompoundStatement) },
+                false,
+            ) {
+                ctes.insert_cte(cte);
+            }
+        }
+
+        // Issue 3617: In T-SQL (and possibly other dialects) the automated fix
+        // leaves parentheses in a location that causes a syntax error. This is an
+        // unusual corner case. For simplicity, still generate the lint warning but
+        // don't try to generate a fix.
+        let bracketed_ctas = parent_stack
+            .base
+            .iter()
+            .rev()
+            .take(2)
+            .map(|it| it.get_type())
+            .eq([SyntaxKind::CreateTableStatement, SyntaxKind::Bracketed]);
+
+        let clone_map = SegmentCloneMap::new(segment.first().unwrap().clone());
+
+        let mut results = self.lint_query(
             context.tables,
             context.dialect,
             query,
@@ -145,91 +176,93 @@ join c using(x)
             &clone_map,
         );
 
-        let mut lint_results = Vec::with_capacity(results.len());
-        let mut is_fixable = true;
-
-        let mut subquery_parent = None;
+        // Most SELECTs have no nested subquery. Avoid cloning their entire
+        // segment tree (and setting up a parser) when there is no fix to build.
+        if results.iter().all(|result| !result.4) {
+            return results.into_iter().map(|result| result.0).collect();
+        }
 
         let mut local_fixes = Vec::new();
-        let mut q = Vec::new();
+        for (_, from_expression, alias_name, _, is_fixable) in &results {
+            if !is_fixable {
+                continue;
+            }
 
-        for result in results {
-            let (lint_result, from_expression, alias_name, subquery_parent_slot) = result;
-            subquery_parent = Some(subquery_parent_slot.clone());
-            let this_seg_clone = clone_map[&from_expression].clone();
-            let new_table_ref = create_table_ref(context.tables, &alias_name, context.dialect);
+            let this_seg_clone = clone_map[from_expression].clone();
+            let new_table_ref = create_table_ref(context.tables, alias_name, context.dialect);
+            // Add positions to the new table reference. Other rules may need a
+            // position, but the clone is not a typical externally returned fix.
+            let new_table_ref = position_segments(
+                &[new_table_ref],
+                this_seg_clone.get_position_marker().unwrap(),
+            )[0]
+            .clone();
 
             local_fixes.push(LintFix::replace(
                 this_seg_clone.clone(),
-                vec![
-                    SegmentBuilder::node(
-                        context.tables.next_id(),
-                        this_seg_clone.get_type(),
-                        context.dialect.name,
-                        vec![new_table_ref],
-                    )
-                    .finish(),
-                ],
+                vec![this_seg_clone.new(vec![new_table_ref])],
                 None,
             ));
+        }
 
-            q.push(subquery_parent_slot);
-
-            let bracketed_ctas = parent_stack
-                .base
+        let parser: sqruff_lib_core::parser::Parser = context.config.into();
+        let mut parse_context = (&parser).into();
+        for cte in &mut ctes.ctes {
+            let mut segments = cte.segments().to_vec();
+            let Some(subquery_idx) = segments
                 .iter()
-                .rev()
-                .take(2)
-                .map(|it| it.get_type())
-                .eq([SyntaxKind::CreateTableStatement, SyntaxKind::Bracketed]);
-
-            if bracketed_ctas || ctes.has_duplicate_aliases() || is_recursive {
-                is_fixable = false;
+                .rposition(|segment| segment.get_position_marker().is_some())
+            else {
+                continue;
+            };
+            let mut cte_fixes = HashMap::default();
+            compute_anchor_edit_info(&mut cte_fixes, local_fixes.clone());
+            let (new_subquery, _, _, _) =
+                segments[subquery_idx].apply_fixes(&mut cte_fixes, &mut parse_context);
+            segments[subquery_idx] = new_subquery;
+            let mut builder =
+                SegmentBuilder::node(cte.id(), cte.get_type(), context.dialect.name, segments);
+            if let Some(position) = cte.get_position_marker() {
+                builder = builder.with_position(position.clone());
             }
-
-            lint_results.push(lint_result);
+            *cte = builder.finish();
         }
-
-        if !is_fixable {
-            return lint_results;
-        }
-
         let mut fixes = HashMap::default();
         compute_anchor_edit_info(&mut fixes, local_fixes);
-        let (new_root, _, _) = clone_map.root.apply_fixes(&mut fixes);
-
-        let clone_map = SegmentCloneMap::new(segment.first().unwrap().clone(), new_root.clone());
-        for subquery_parent_slot in q {
-            ctes.replace_with_clone(subquery_parent_slot, &clone_map);
-        }
+        let (new_root, _, _, _) = clone_map.root().apply_fixes(&mut fixes, &mut parse_context);
 
         let _segment = Segments::new(new_root, None);
         let output_select = if is_with {
             _segment.children_where(|it: &ErasedSegment| {
                 matches!(
                     it.get_type(),
-                    SyntaxKind::SetExpression | SyntaxKind::SelectStatement
+                    SyntaxKind::SetExpression
+                        | SyntaxKind::SelectStatement
+                        | SyntaxKind::InsertStatement
                 )
             })
         } else {
             _segment.clone()
         };
 
-        // If there's no SELECT statement (e.g., WITH ... INSERT/UPDATE/DELETE),
+        // If there's no supported output statement (e.g., WITH ... UPDATE/DELETE),
         // we can't safely create fixes, so return lint results without fixes.
         if output_select.is_empty() {
-            return lint_results;
+            return results.into_iter().map(|result| result.0).collect();
         }
 
-        for result in &mut lint_results {
-            let subquery_parent = subquery_parent.clone().unwrap();
+        for (lint_result, _, _, subquery_parent, is_fixable) in &mut results {
+            if bracketed_ctas || is_recursive || !*is_fixable {
+                continue;
+            }
+
             let output_select_clone = output_select[0].clone();
 
             let mut fixes = ctes.ensure_space_after_from(
                 context.tables,
                 output_select[0].clone(),
                 &output_select_clone,
-                subquery_parent,
+                subquery_parent.clone(),
             );
 
             let new_select = ctes.compose_select(
@@ -239,16 +272,16 @@ join c using(x)
                 case_preference,
             );
 
-            result.fixes = vec![LintFix::replace(
+            lint_result.fixes = vec![LintFix::replace(
                 segment.first().unwrap().clone(),
                 vec![new_select],
                 None,
             )];
 
-            result.fixes.append(&mut fixes);
+            lint_result.fixes.append(&mut fixes);
         }
 
-        lint_results
+        results.into_iter().map(|result| result.0).collect()
     }
 
     fn is_fix_compatible(&self) -> bool {
@@ -269,7 +302,7 @@ impl RuleST05 {
         ctes: &mut CTEBuilder,
         case_preference: Case,
         segment_clone_map: &SegmentCloneMap,
-    ) -> Vec<(LintResult, ErasedSegment, SmolStr, ErasedSegment)> {
+    ) -> Vec<(LintResult, ErasedSegment, SmolStr, ErasedSegment, bool)> {
         let mut acc = Vec::new();
 
         for nsq in self.nested_subqueries(query, dialect) {
@@ -282,21 +315,54 @@ impl RuleST05 {
                 .cloned()
                 .unwrap();
 
-            let new_cte = create_cte_seg(
-                tables,
-                alias_name.clone(),
-                segment_clone_map[&anchor].clone(),
-                case_preference,
-                dialect,
-            );
+            // Duplicate CTE names are still linted, but cannot be fixed safely.
+            let mut is_fixable = !ctes.list_used_names().contains(&alias_name);
 
-            ctes.insert_cte(new_cte);
+            // If the subquery anchor is a table expression, use its bracketed child.
+            let bracket_anchor = if anchor.is_type(SyntaxKind::TableExpression) {
+                let Some(bracketed) =
+                    anchor.child(const { &SyntaxSet::single(SyntaxKind::Bracketed) })
+                else {
+                    // An unbracketed table expression is not a subquery.
+                    continue;
+                };
+                bracketed
+            } else {
+                anchor.clone()
+            };
 
-            if nsq.query.inner.borrow().selectables.len() != 1 {
-                continue;
+            // SQLFluff's parser exposes the surrounding grouped join as a child
+            // table expression of the bracket anchor. In sqruff it is an ancestor
+            // on the path to this inner from-expression element instead.
+            let nested_in_bracketed_expression = nsq
+                .selectable
+                .selectable
+                .path_to(&nsq.table_alias.from_expression_element)
+                .iter()
+                .any(|step| step.segment.is_type(SyntaxKind::Bracketed));
+
+            // A nested table expression cannot be safely turned into a CTE here.
+            if !bracket_anchor.is_type(SyntaxKind::Bracketed)
+                || bracket_anchor
+                    .child(const { &SyntaxSet::single(SyntaxKind::TableExpression) })
+                    .is_some()
+                || nested_in_bracketed_expression
+            {
+                is_fixable = false;
             }
 
-            let select = nsq.query.inner.borrow().selectables[0].clone().selectable;
+            if is_fixable {
+                let new_cte = create_cte_seg(
+                    tables,
+                    alias_name.clone(),
+                    segment_clone_map[&bracket_anchor].clone(),
+                    case_preference,
+                    dialect,
+                );
+                ctes.insert_cte(new_cte);
+            }
+
+            let select = nsq.selectable.selectable.clone();
             let anchor = anchor.recursive_crawl(
                 const {
                     &SyntaxSet::new(&[
@@ -327,7 +393,8 @@ impl RuleST05 {
                 res,
                 nsq.table_alias.from_expression_element,
                 alias_name.clone(),
-                nsq.query.inner.borrow().selectables[0].clone().selectable,
+                nsq.selectable.selectable.clone(),
+                is_fixable,
             ));
         }
 
@@ -379,21 +446,15 @@ impl RuleST05 {
                         continue;
                     }
 
-                    if is_correlated_subquery(
-                        Segments::new(
-                            query
-                                .inner
-                                .borrow()
-                                .selectables
-                                .first()
-                                .unwrap()
-                                .selectable
-                                .clone(),
-                            None,
-                        ),
-                        &select_source_names,
-                        dialect,
-                    ) {
+                    // Set expressions have a selectable for each branch. A
+                    // correlation in any branch prevents hoisting the query.
+                    if query.inner.borrow().selectables.iter().any(|selectable_| {
+                        is_correlated_subquery(
+                            Segments::new(selectable_.selectable.clone(), None),
+                            &select_source_names,
+                            dialect,
+                        )
+                    }) {
                         continue;
                     }
 
@@ -573,25 +634,6 @@ impl CTEBuilder {
 }
 
 impl CTEBuilder {
-    pub(crate) fn replace_with_clone(
-        &mut self,
-        segment: ErasedSegment,
-        clone_map: &SegmentCloneMap,
-    ) {
-        for (idx, cte) in enumerate(&self.ctes) {
-            if cte
-                .recursive_crawl_all(false)
-                .into_iter()
-                .any(|seg| segment.is(&seg))
-            {
-                self.ctes[idx] = clone_map[&self.ctes[idx]].clone();
-                return;
-            }
-        }
-    }
-}
-
-impl CTEBuilder {
     fn list_used_names(&self) -> Vec<SmolStr> {
         let mut used_names = Vec::new();
 
@@ -619,11 +661,6 @@ impl CTEBuilder {
         }
 
         used_names
-    }
-
-    fn has_duplicate_aliases(&self) -> bool {
-        let used_names = self.list_used_names();
-        !used_names.into_iter().all_unique()
     }
 
     fn create_cte_alias(&mut self, alias: Option<&AliasInfo>) -> (SmolStr, bool) {
@@ -674,11 +711,11 @@ fn is_child(maybe_parent: Segments, maybe_child: Segments) -> bool {
     let child_markers = maybe_child[0].get_position_marker().unwrap();
     let parent_pos = maybe_parent[0].get_position_marker().unwrap();
 
-    if child_markers < &parent_pos.start_point_marker() {
+    if child_markers.start_point_marker() < parent_pos.start_point_marker() {
         return false;
     }
 
-    if child_markers > &parent_pos.end_point_marker() {
+    if child_markers.end_point_marker() > parent_pos.end_point_marker() {
         return false;
     }
 
@@ -765,38 +802,65 @@ fn create_table_ref(tables: &Tables, table_name: &str, dialect: &Dialect) -> Era
 }
 
 pub(crate) struct SegmentCloneMap {
-    root: ErasedSegment,
-    segment_map: HashMap<usize, ErasedSegment>,
+    segment: ErasedSegment,
+    clone: OnceCell<(ErasedSegment, HashMap<usize, ErasedSegment>)>,
 }
 
 impl Index<&ErasedSegment> for SegmentCloneMap {
     type Output = ErasedSegment;
 
     fn index(&self, index: &ErasedSegment) -> &Self::Output {
-        &self.segment_map[&index.addr()]
-    }
-}
-
-impl IndexMut<&ErasedSegment> for SegmentCloneMap {
-    fn index_mut(&mut self, index: &ErasedSegment) -> &mut Self::Output {
-        self.segment_map.get_mut(&index.addr()).unwrap()
+        &self.cloned().1[&index.addr()]
     }
 }
 
 impl SegmentCloneMap {
-    fn new(segment: ErasedSegment, segment_copy: ErasedSegment) -> Self {
-        let mut segment_map = HashMap::new();
-
-        for (old_segment, new_segment) in zip(
-            segment.recursive_crawl_all(false),
-            segment_copy.recursive_crawl_all(false),
-        ) {
-            segment_map.insert(old_segment.addr(), new_segment);
-        }
-
+    fn new(segment: ErasedSegment) -> Self {
         Self {
-            root: segment_copy,
-            segment_map,
+            segment,
+            clone: OnceCell::new(),
         }
+    }
+
+    fn cloned(&self) -> &(ErasedSegment, HashMap<usize, ErasedSegment>) {
+        self.clone.get_or_init(|| {
+            let segment_copy = self.segment.deep_clone();
+            let mut segment_map = HashMap::new();
+            for (old_segment, new_segment) in zip(
+                self.segment.recursive_crawl_all(false),
+                segment_copy.recursive_crawl_all(false),
+            ) {
+                segment_map.insert(old_segment.addr(), new_segment);
+            }
+            (segment_copy, segment_map)
+        })
+    }
+
+    fn root(&self) -> &ErasedSegment {
+        &self.cloned().0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn segment_clone_map_builds_on_first_lookup() {
+        let tables = Tables::default();
+        let child = SegmentBuilder::token(tables.next_id(), "SELECT", SyntaxKind::Keyword).finish();
+        let root = SegmentBuilder::node(
+            tables.next_id(),
+            SyntaxKind::SelectStatement,
+            DialectKind::Ansi,
+            vec![child.clone()],
+        )
+        .finish();
+        let clone_map = SegmentCloneMap::new(root.clone());
+
+        assert!(clone_map.clone.get().is_none());
+        assert_eq!(clone_map[&child].raw(), child.raw());
+        assert!(clone_map.clone.get().is_some());
+        assert_eq!(clone_map.root().raw(), root.raw());
     }
 }

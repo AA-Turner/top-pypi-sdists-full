@@ -1,5 +1,7 @@
 from typing import Any
 
+from social_core.exceptions import SocialAuthBaseException
+
 from .oauth import BaseOAuth2
 
 
@@ -11,6 +13,8 @@ class DigitalOceanOAuth(BaseOAuth2):
     """
 
     name = "digitalocean"
+    title = "DigitalOcean"
+    icon = "digital-ocean.svg"
     ID_KEY = "uuid"
     AUTHORIZATION_URL = "https://cloud.digitalocean.com/v1/oauth/authorize"
     ACCESS_TOKEN_URL = "https://cloud.digitalocean.com/v1/oauth/token"
@@ -23,9 +27,9 @@ class DigitalOceanOAuth(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from DigitalOcean account"""
-        fullname, first_name, last_name = self.get_user_names(
-            response.get("name") or ""
-        )
+        fullname = response.get("name") or ""
+        first_name = ""
+        last_name = ""
 
         return {
             "username": response["account"].get("email"),
@@ -41,5 +45,7 @@ class DigitalOceanOAuth(BaseOAuth2):
         auth_header = {"Authorization": f"Bearer {access_token}"}
         try:
             return self.get_json(url, headers=auth_header)
+        except SocialAuthBaseException:
+            raise
         except ValueError:
             return None

@@ -60,7 +60,7 @@ import pint
 import math,os
 from datetime import datetime,timedelta,time,date
 from fractions import Fraction
-from decimal import Decimal
+from decimal import Decimal,localcontext
 import pandas as pd
 import sympy as sp
 class tw:
@@ -10195,27 +10195,48 @@ except Exception as e:
 
 
 def toRounded(actual,bldlse):
-    msg=''
+    msg=f'{Fore.light_cyan}Total Expense Round\n{Style.reset}'
+
     try:
-        forced_round_up_1p=actual.quantize(Decimal('0.000'),rounding=ROUND_CEILING)
-        forced_round_up_5p=(forced_round_up_1p/Decimal('0.050')).quantize(Decimal('1'),rounding=ROUND_CEILING)*Decimal('0.050')
-        forced_round_up_10p=(forced_round_up_1p/Decimal('0.100')).quantize(Decimal('1'),rounding=ROUND_CEILING)*Decimal('0.100')
-        forced_round_up_25p=(forced_round_up_1p/Decimal('0.250')).quantize(Decimal('1'),rounding=ROUND_CEILING)*Decimal('0.250')
-        forced_round_up_100p=(forced_round_up_1p/Decimal('1')).quantize(Decimal('1'),rounding=ROUND_CEILING)*Decimal('1')
-        msg=f"""{Fore.magenta_3a}Total Expense({Fore.orange_red_1}(QTY*(Price+CRV))+(QTY*(Price+CRV)*TAX){Fore.magenta_3a}){Fore.medium_violet_red} {Fore.dark_goldenrod}As Rounded Values:
-    {Fore.green_3b}Round Penny Up = {Fore.light_cyan}{forced_round_up_1p}({Fore.chartreuse_1}{forced_round_up_1p:0.2f}, 2 dec. pts{Fore.light_cyan})
-    {Fore.deep_sky_blue_1}Round Nickel Up = {Fore.light_cyan}{forced_round_up_5p}({Fore.chartreuse_1}{forced_round_up_5p:0.2f}, 2 dec. pts{Fore.light_cyan}) {Fore.orange_red_1}***{Fore.grey_70}AsOF({datetime(2026,9,30,13,41)})
-    {Fore.spring_green_3b}Round Dime Up {Fore.light_cyan}{forced_round_up_10p}({Fore.chartreuse_1}{forced_round_up_10p:0.2f}, 2 dec. pts{Fore.light_cyan})
-    {Fore.spring_green_2a}Round Quarter Up {Fore.light_cyan}{forced_round_up_25p}({Fore.chartreuse_1}{forced_round_up_25p:0.2f}, 2 dec. pts){Fore.light_cyan}
-    {Fore.light_red}Round 1 Dollar Up {Fore.light_cyan}{forced_round_up_100p}({Fore.chartreuse_1}{forced_round_up_100p:0.2f}, 2 dec. pts{Fore.light_cyan})
-    {Fore.grey_50}**{Fore.grey_35}Values are rounded using {ROUND_CEILING} from the module {decimal}, so there may be innaccuraciess, and new rounding rules may add new lines where retail rules may change as a laws do the same.
-    {Fore.grey_50}**{Fore.grey_70}Due to rounding, and precision levels, as well as fixed-float printing, expect to be within 1(+-) penny of the register, or check stand value.
-    {Style.reset}"""
-        if bldlse:
-            logInput(msg,user=False,filter_colors=True,maxed_hfl=False,ofile=Prompt.bld_file)
+
+        def rnd(actual,coin):
+            with localcontext() as ctx:
+                ctx.prec=100
+                coinX=Decimal(coin)
+                scaled=actual/coinX
+                scaledStr=str(scaled)
+                rounded=Decimal(scaledStr).quantize(Decimal('1'),rounding=ROUND_CEILING)*coinX
+                return rounded
+
+        try:
+            msg+=f" * {Fore.light_green}1 Penny Up = {Fore.light_steel_blue}{rnd(actual,coin='0.01'):.2f}\n{Style.reset}"
+        except Exception as e:
+            print(e,1)
+        #f5p=
+        try:
+            msg+=f" * {Fore.light_yellow}1 Nickel Up = {Fore.light_steel_blue}{rnd(actual,coin='0.05'):.2f}\n{Style.reset}"
+        except Exception as e:
+            print(e,5)
+        #f10p=
+        try:
+            msg+=f" * {Fore.dark_goldenrod}1 Dime Up = {Fore.light_steel_blue}{rnd(actual,coin='0.10'):.2f}\n{Style.reset}"
+        except Exception as e:
+            print(e,10)
+        #f25p=
+        try:
+            msg+=f" * {Fore.orange_red_1}1 Quarter Up = {Fore.light_steel_blue}{rnd(actual,coin='0.25'):.2f}\n{Style.reset}"
+        except Exception as e:
+            print(e,25)
+        try:
+            msg+=f" * {Fore.orange_red_1}1 Dollar Up = {Fore.light_steel_blue}{rnd(actual,coin='1.00'):.2f}\n{Style.reset}"
+        except Exception as e:
+            print(e,25)
+        #f100p=
+        
+
         print(msg)
     except Exception as e:
-        msg=f"""There was an Exception({e}) that prevented the round method fromn operating. {repr(e)}"""
+        msg=f"""{(actual,type(actual))}There was an Exception({e}) that prevented the round method fromn operating. {repr(e)}"""
         print(msg)
         if bldlse:
             logInput(msg,user=False,filter_colors=True,maxed_hfl=False,ofile=Prompt.bld_file)

@@ -1,3 +1,21 @@
+# SPDX-License-Identifier: ISC
+#
+# ISC License
+#
+# Copyright (c) 2022, Timothée Mazzucotelli and contributors
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 # Markdown extensions and helpers.
 
 from __future__ import annotations
@@ -158,11 +176,11 @@ class MarkdownConfig:
 markdown_config = MarkdownConfig()
 """This object can be used to save the configuration of your Markdown extensions.
 
-For example, since we provide a MkDocs plugin, we use it to store the configuration
-that was read from `mkdocs.yml`:
+For example, we use it to store the configuration that was read from `mkdocs.yml`
+or `zensical.toml`:
 
 ```python
-from markdown_exec.rendering import markdown_config
+from markdown_exec import markdown_config
 
 # ...in relevant events/hooks, access and modify extensions and their configs, then:
 markdown_config.save(extensions, extensions_config)
@@ -198,10 +216,15 @@ def _register_headings_processors(md: Markdown) -> None:
 
 def _mimic(md: Markdown, headings: list[Element], *, update_toc: bool = True) -> Markdown:
     new_md = Markdown()
-    extensions: list[Extension | str] = markdown_config.exts or md.registeredExtensions  # ty:ignore[invalid-assignment]
+    extensions: list[Extension | str] = markdown_config.exts or list(md.registeredExtensions)  # ty:ignore[invalid-assignment]
     extensions_config: dict[str, dict[str, Any]] = markdown_config.exts_config or {}
 
-    # Needed for Zensical.
+    # Zensical's preview extension requires the page's link processor.
+    # Inner renderers do not inherit that processor because Zensical already
+    # rewrites links in the generated HTML when rendering the page.
+    extensions = [ext for ext in extensions if getattr(ext, "name", ext) != "zensical.extensions.preview"]
+
+    # Needed for Zensical. TODO: not anymore since Zensical 0.0.57.
     if "tables" not in extensions:
         extensions.append("tables")
     if "md_in_html" not in extensions:
@@ -230,11 +253,11 @@ def _mimic(md: Markdown, headings: list[Element], *, update_toc: bool = True) ->
 def _id_prefix(md: Markdown, prefix: str | None) -> Iterator[None]:
     MarkdownConverter.counter += 1
     id_prepending_processor = md.treeprocessors[IdPrependingTreeprocessor.name]
-    id_prepending_processor.id_prefix = prefix if prefix is not None else f"exec-{MarkdownConverter.counter}--"  # type: ignore[attr-defined]
+    id_prepending_processor.id_prefix = prefix if prefix is not None else f"exec-{MarkdownConverter.counter}--"  # ty:ignore[unresolved-attribute]
     try:
         yield
     finally:
-        id_prepending_processor.id_prefix = ""  # type: ignore[attr-defined]
+        id_prepending_processor.id_prefix = ""  # ty:ignore[unresolved-attribute]
 
 
 class MarkdownConverter:
@@ -253,7 +276,7 @@ class MarkdownConverter:
         return getattr(self._md_ref, "_original_md", self._md_ref)
 
     def _report_headings(self, markup: Markup) -> None:
-        self._original_md.treeprocessors[InsertHeadings.name].headings[markup] = self._headings  # type: ignore[attr-defined]
+        self._original_md.treeprocessors[InsertHeadings.name].headings[markup] = self._headings  # ty:ignore[unresolved-attribute]
         self._headings = []
 
     def convert(self, text: str, stash: dict[str, str] | None = None, id_prefix: str | None = None) -> Markup:

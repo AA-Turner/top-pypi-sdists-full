@@ -26,7 +26,6 @@ copied at task-creation time.
 
 from __future__ import annotations
 
-import time
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -62,11 +61,13 @@ class ExecutionState:
     # Iteration counter — incremented at the top of each main-loop pass.
     iteration: int = 0
 
-    # ``time.perf_counter()`` when this execution began. Time-to-first-token is
-    # attributed to this execution's user_request only when the stream's first
-    # model output happened AFTER this point — output an earlier execution on
-    # the same stream already emitted is never claimed by a later one.
-    started_perf: float = field(default_factory=time.perf_counter)
+    # TIME TO FIRST TOKEN — one definition for every run (chat, agent, mandate,
+    # batch, MCP, sub-agent), owned by the execution, never by an emitter.
+    # ``time.time()`` stamped ONCE by ``send_once`` (orchestrator/first_output.py)
+    # at the first text or reasoning delta, or at the first provider response
+    # when nothing streamed. Measured from the SAME origin as total_duration:
+    # the first iteration's ``TimingUsage.start_time``.
+    ttft_first_output_at: float | None = None
 
     # Reserved cx_message.id keyed by message position.  Populated by the
     # executor before the user/assistant rows are touched so the frontend

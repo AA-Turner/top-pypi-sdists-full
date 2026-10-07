@@ -30,6 +30,14 @@ options:
         default: ['name', 'customValue', 'summary.runtime.powerState']
     keyed_groups:
         default: [{key: 'summary.runtime.powerState', separator: ''}]
+    gather_path:
+        description:
+            - If true, the vSphere folder path of each ESXi host is computed and stored in the C(path)
+              host variable.
+            - If false, the C(path) attribute is not evaluated, potentially saving execution time and bandwidth.
+            - This is required if C(path) referenced elsewhere in the inventory configuration, or O(group_by_paths) is C(True)
+        default: true
+        type: bool
 """
 
 EXAMPLES = r"""
@@ -137,12 +145,13 @@ class EsxiInventoryHost(VmwareInventoryHost):
         self._management_ip = None
 
     @classmethod
-    def create_from_vcenter_object(cls, vmware_object, properties_to_gather, pyvmomi_client, prop_set=None):
+    def create_from_vcenter_object(cls, vmware_object, properties_to_gather, pyvmomi_client, prop_set=None, gather_path=True):
         host = super().create_from_vcenter_object(
             vmware_object,
             properties_to_gather,
             pyvmomi_client,
             prop_set=prop_set,
+            gather_path=gather_path,
         )
         host.properties['management_ip'] = host.management_ip
         return host
@@ -183,6 +192,14 @@ class InventoryModule(VmwareInventoryBase):
 
     NAME = "vmware.vmware.esxi_hosts"
 
+    @property
+    def vim_class(self):
+        return vim.HostSystem
+
+    @property
+    def rest_class(self):
+        return "HostSystem"
+
     def verify_file(self, path):
         """
         Checks the plugin configuration file format and name, and returns True
@@ -211,15 +228,7 @@ class InventoryModule(VmwareInventoryBase):
           A list of property names that should be returned in the inventory. An empty
           list means all properties should be collected
         """
-        properties_param = self.get_option("properties")
-        if not isinstance(properties_param, list):
-            properties_param = [properties_param]
-
-        if "all" in properties_param:
-            return []
-
-        if "name" not in properties_param:
-            properties_param.append("name")
+        properties_param = super().parse_properties_param()
 
         # needed to filter out disconnected or unreachable hosts in self.populate_from_vcenter
         if "summary.runtime.connectionState" not in properties_param:
@@ -249,37 +258,22 @@ class InventoryModule(VmwareInventoryBase):
         except KeyError:
             return esxi_host.object.summary.runtime.connectionState
 
-    def populate_from_vcenter(self):
+    def _hydrate_inventory_host_from_vsphere_props(self, vmware_object, prop_set, properties_to_gather):
         """
-        Populate inventory data from vCenter
+        Override for the base class definition of this method. Used to fully populate an inventory host's
+        properties from vSphere.
         """
-        hostvars = {}
-        properties_to_gather = self.parse_properties_param()
-        self.initialize_pyvmomi_client()
-        if self.get_option("gather_tags"):
-            self.initialize_rest_client()
+        esxi_host = EsxiInventoryHost.create_from_vcenter_object(
+            vmware_object=vmware_object,
+            properties_to_gather=properties_to_gather,
+            pyvmomi_client=self.pyvmomi_client,
+            prop_set=prop_set,
+            gather_path=self.get_option("gather_path"),
+        )
+        if self._host_connection_state(esxi_host) in ("disconnected", "notResponding"):
+            return None
 
-        for vmware_object, prop_set in self.iter_inventory_sources(
-            vim.HostSystem,
-            properties_to_gather,
-        ):
-            esxi_host = EsxiInventoryHost.create_from_vcenter_object(
-                vmware_object=vmware_object,
-                properties_to_gather=properties_to_gather,
-                pyvmomi_client=self.pyvmomi_client,
-                prop_set=prop_set,
-            )
-
-            if self._host_connection_state(esxi_host) in ("disconnected", "notResponding"):
-                continue
-
-            if self.get_option("gather_tags"):
-                self.add_tags_to_object_properties(esxi_host)
-
-            self.set_inventory_hostname(esxi_host)
-            self.add_host_object_from_vcenter_to_inventory(new_host=esxi_host, hostvars=hostvars)
-
-        return hostvars
+        return esxi_host
 
     def set_default_ansible_host_var(self, vmware_host_object):
         """

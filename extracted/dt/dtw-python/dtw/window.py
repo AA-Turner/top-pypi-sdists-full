@@ -152,13 +152,18 @@ def sakoeChibaWindow(iw, jw, query_size, reference_size, window_size):
 def itakuraWindow(iw, jw, query_size, reference_size):
     n = query_size
     m = reference_size
-    ok = (jw < 2 * iw) & \
-         (iw <= 2 * jw) & \
-         (iw >= n - 1 - 2 * (m - jw)) & \
-         (jw > m - 1 - 2 * (n - iw))
+    # R's definition, translated from 1-based to 0-based indices
+    ok = (jw <= 2 * iw) & \
+         (iw <= 2 * jw + 1) & \
+         (iw >= n - 2 * m + 2 * jw) & \
+         (jw > m - 2 * n + 2 * iw)
     return ok
 
 
 def slantedBandWindow(iw, jw, query_size, reference_size, window_size):
-    diagj = (iw * reference_size / query_size)
+    # Diagonal from corner (0,0) to (query_size-1, reference_size-1)
+    if query_size > 1:
+        diagj = iw * (reference_size - 1) / (query_size - 1)
+    else:
+        diagj = iw * 0.0
     return abs(jw - diagj) <= window_size

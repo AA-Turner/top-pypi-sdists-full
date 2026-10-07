@@ -1,15 +1,15 @@
 //! Strikethrough parsing.
 
+use nom::Parser;
 use nom::bytes::complete::tag;
 use nom::sequence::delimited;
-use nom::Parser;
 
 use crate::context::Context;
 use crate::error::ParseError;
 use crate::node::SpannedNodes;
 use crate::span::Span;
 use crate::unparse::Unparse;
-use crate::{inline, Input};
+use crate::{Input, inline};
 
 use super::Grammar;
 

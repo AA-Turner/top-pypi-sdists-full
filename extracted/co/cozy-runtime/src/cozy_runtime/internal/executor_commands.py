@@ -50,6 +50,21 @@ class Warm(Command, frozen=True, kw_only=True, tag="warm"):
 class Join(Command, frozen=True, kw_only=True, tag="join"):
     port: int
     backend: str = "nccl"
+    #: A budget cell memfd follows this command: the follower's own (`RANK_CELLS`).
+    cell: bool = False
+    #: A socket follows: a byte on it aborts this follower's collectives (`RankGroup.interrupt`).
+    abort: bool = False
+    #: The group forms again after a call ran out of memory: device bytes to give back first.
+    room: int = -1
+
+
+class Fork(Command, frozen=True, kw_only=True, tag="fork"):
+    """Fork an import-only executor into a new one on its own seam (`fork/1`)."""
+
+    socket: str
+    root: str
+    #: The child's whole environment, as the machine seals a spawned executor's.
+    environment: dict[str, str]
 
 
 class DescribeInstalled(Command, frozen=True, kw_only=True, tag="describe_installed"):
@@ -75,12 +90,58 @@ class Budget(Command, frozen=True, kw_only=True, tag="budget"):
     vram_bytes: int
     #: -1 leaves the pinned host tier's budget as it is
     pinned_bytes: int = -1
+    #: The process's device cap (`PROCESS_CAP`); -1 lifts it, unset leaves it as it is
+    cap_bytes: int | UnsetType = UNSET
+    #: Per GPU of a group, its own process cap (index = rank, `RANK_CELLS`); a rank past the
+    #: end takes `cap_bytes`.
+    rank_caps: tuple[int, ...] = ()
+    #: Physical free bytes the owner keeps on the GPU (`PROCESS_CAP`); unset leaves it
+    floor_bytes: int | UnsetType = UNSET
+
+
+#: An executor capability: a group's followers obey their own GPU's cap and budget cell: the
+#: owner's `Start.rank_cells` and the `rank_caps` of `Load`, `Budget` and `Invoke`.
+RANK_CELLS = "rank_cells/1"
+
+#: An executor capability: it holds its whole device footprint (CUDA context, torch's reserved
+#: bytes, the plane's maps) inside `cap_bytes`, every plane budget and torch's allocator with it.
+PROCESS_CAP = "process_cap/1"
+
+
+class Share(Command, frozen=True, kw_only=True, tag="share"):
+    """Offer the machine every GPU region this executor filled and has not shared yet
+    (`weights.attach/1`): they outlive the process and other executors attach them."""
+
+
+class Revoke(Command, frozen=True, kw_only=True, tag="revoke"):
+    """Stop using the shared GPU memory of one layout (`weights.revoke/1`), or of only its
+    `regions` (`weights.trim/1`): finish queued work, unmap, release, then answer; later uses
+    fill a private copy."""
+
+    layout: str
+    generation: int = 0
+    regions: tuple[int, ...] = ()
 
 
 class Prefetch(Command, frozen=True, kw_only=True, tag="prefetch"):
     """Fill one loaded construction's host tier now, before its attempt holds the device."""
 
     construction: str
+
+
+class Map(Command, frozen=True, kw_only=True, tag="map"):
+    """Map one loaded construction's weights onto the GPU now, inside `cap_bytes`, as its
+    first stages would (`MAP`): nothing runs, and they stay mapped as after a call."""
+
+    construction: str
+    #: The process's device cap (`PROCESS_CAP`); -1 lifts it
+    cap_bytes: int = -1
+    #: Physical free bytes the owner keeps on the GPU; unset leaves it
+    floor_bytes: int | UnsetType = UNSET
+
+
+#: An executor capability: it maps a loaded construction ahead of a request (`Map`).
+MAP = "weights.map/1"
 
 
 class Unload(Command, frozen=True, kw_only=True, tag="unload"):
@@ -129,6 +190,9 @@ class Start(Command, frozen=True, kw_only=True, tag="start"):
     import_only: bool = False
     #: Absent from an older Worker: the executor keeps its in-memory tier at its default.
     memo: MemoSettings | None = None
+    #: The owner keeps one budget cell per GPU of a group (`RANK_CELLS`): rank 0 creates each
+    #: follower's at formation, hands it to its owner (`BudgetCell.rank`) and to the follower.
+    rank_cells: bool = False
 
     def release(self) -> Release:
         return Release(application=self.application, package_interface=self.package_interface)
@@ -202,6 +266,18 @@ class GroupHardware(msgspec.Struct, frozen=True, kw_only=True):
     devices: tuple[str, ...]
 
 
+#: An executor capability: it applies `Load.pinned_bytes` before its weights register.
+LOAD_PINNED = "load_pinned/1"
+#: An executor capability: it adopts the machine's sealed host layouts (`Load.sealed_tiers`).
+SEALED_TIERS = "host_tiers.sealed/1"
+#: An executor capability: it adopts a sealed host layout its machine is still filling, using
+#: each region once Ready; machines give other executors complete layouts only.
+SEALED_FILLING = "host_tiers.filling/1"
+#: An executor capability: it reads the holes of a layout staged in part from the object files
+#: its machine hands over, so the machine stages only the regions it streams.
+SEALED_STAGED = "host_tiers.staged/1"
+
+
 class Load(Command, frozen=True, kw_only=True, tag="load"):
     """Construct and fill one construction: one model (`binding`) or several (`models`)."""
 
@@ -223,6 +299,25 @@ class Load(Command, frozen=True, kw_only=True, tag="load"):
     #: The worker grants a turn per component-use scope (`stage/1`): `StageEnter` before each
     #: scope plans, `StageExit` after it. Older workers never set it.
     stages: bool = False
+    #: The pinned host tier's budget (`LOAD_PINNED`), applied before any weight set registers,
+    #: so a fill never pins past it; -1: none, the executor sizes its tier from the host.
+    pinned_bytes: int = -1
+    #: The machine keeps GPU weights across executors (`weights.attach/1`): each weight set
+    #: attaches the regions it holds (`DeviceTier`). Older workers never set it.
+    device_weights: bool = False
+    #: The machine keeps sealed host layouts (`SEALED_TIERS`): each weight set asks for one
+    #: (`SealedTier`) and adopts it read-only, reading the store only when none is held.
+    sealed_tiers: bool = False
+    #: The machine serves the header and model assets (`ModelSource`): with sealed tiers,
+    #: this executor reads no store. Older workers never set it.
+    model_sources: bool = False
+    #: The machine stages sealed layouts in part and hands over object files (`SealedStage`,
+    #: `ObjectFiles`): a GPU executor asks for them only when told so. Older machines never set it.
+    staged_tiers: bool = False
+    #: The process's device cap for the load (`PROCESS_CAP`); unset: none given
+    cap_bytes: int | UnsetType = UNSET
+    #: Per GPU of a group, its own cap for the load (index = rank, `RANK_CELLS`)
+    rank_caps: tuple[int, ...] = ()
 
     def single(self) -> ModelLoad:
         return ModelLoad(
@@ -288,6 +383,22 @@ class Invoke(_Run, frozen=True, kw_only=True, tag="invoke"):
     plane_budget_bytes: int = -1
     #: Each component-use scope asks for its turn (`stage/1`, as `Load.stages`).
     stages: bool = False
+    #: The process's device cap for this attempt (`PROCESS_CAP`); -1: none
+    cap_bytes: int = -1
+    #: Per GPU of a group, its own cap for this attempt (index = rank, `RANK_CELLS`)
+    rank_caps: tuple[int, ...] = ()
+    #: Physical free bytes the owner keeps on the GPU; -1: only a display's own floor
+    floor_bytes: int = -1
+    #: Activation growth per stage method the owner measured for this request's shape in
+    #: earlier processes: a floor under this executor's own estimates, never a cap
+    activation_bytes: dict[str, int] = {}
+    #: Per stage method, the most room torch had when an entry of it squeezed in an earlier
+    #: process at this request's shape (`Weights.squeezed`): its entries are given more
+    squeezed_bytes: dict[str, int] = {}
+    #: The owner's Degree 2 for this attempt (`weights.attach/1`): True keeps GPU weights
+    #: with the machine (attached, and offered at each stage's exit), False keeps them private
+    #: (they stream); unset leaves the executor's current setting.
+    device_weights: bool | UnsetType = UNSET
     #: Read only by executors before the weight plane.
     placement: str = "all_resident"
     headroom_bytes: int = 0
@@ -336,6 +447,9 @@ class RunJob(_Run, frozen=True, kw_only=True, tag="run_job"):
     call_interfaces: tuple[CallInterface, ...] = ()
     publish_to: str = ""
     budget: JobBudget = JobBudget()
+    #: The owner answers `weights_writer` (the Rust machine): weights go through it even
+    #: where this process's TensorFS opens no store.
+    weights: bool = False
 
 
 type KnownCommand = (
@@ -345,11 +459,15 @@ type KnownCommand = (
     | Residency
     | Warm
     | Join
+    | Fork
     | DescribeInstalled
     | Vacate
     | Restore
     | Budget
+    | Share
+    | Revoke
     | Prefetch
+    | Map
     | Unload
     | Activate
     | Attention

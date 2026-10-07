@@ -25,9 +25,16 @@ from typing import Any
 #: USD per million tokens: (uncached input, cache read, cache write, output).
 #: gemini-3.8-flash: Google's Standard-tier introductory rates, read 2026-09-03
 #: (they double on 2027-01-01). claude-opus-5-5: the gateway's route price.
+#: claude-sonnet-5, claude-opus-5: Anthropic's list prices, read 2026-10-06 (the
+#: write is the 5-minute cache's, the only one the daemon writes).
+#: Cache writes are priced as writes when the server reports them
+#: (`prompt_tokens_details.cache_write_tokens`, which Pydantic AI reads into
+#: `cache_write_tokens`); an older server's are counted as uncached input.
 PRICES: dict[str, tuple[float, float, float, float]] = {
     "gemini-3.8-flash": (0.75, 0.075, 0.75, 3.75),
     "claude-opus-5-5": (4.00, 0.20, 5.00, 20.00),
+    "claude-sonnet-5": (2.00, 0.20, 2.50, 10.00),
+    "claude-opus-5": (5.00, 0.50, 6.25, 25.00),
 }
 
 
@@ -43,7 +50,9 @@ def price_key(model: str | None) -> str | None:
     name = name.removeprefix("companion-")
     if name in PRICES:
         return name
-    return next((key for key in PRICES if name.startswith(key + "-") or name.startswith(key + "@")), None)
+    # The LONGEST matching key: `claude-opus-5-5-<date>` must not price as `claude-opus-5`.
+    return max((key for key in PRICES if name.startswith(key + "-") or name.startswith(key + "@")),
+               key=len, default=None)
 
 
 def cost(model: str | None, *, input_tokens: int, cache_read_tokens: int = 0, cache_write_tokens: int = 0,

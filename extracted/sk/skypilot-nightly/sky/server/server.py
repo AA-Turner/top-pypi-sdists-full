@@ -3212,7 +3212,9 @@ async def api_status(
     limit: Optional[int] = fastapi.Query(
         None, description='Number of requests to show.'),
     fields: Optional[List[str]] = fastapi.Query(
-        None, description='Fields to get. If None, get all fields.'),
+        None,
+        description=('Fields to get. If None, get all fields except '
+                     'return_value and error. Ignored if request_ids is set.')),
     cluster_name: Optional[str] = fastapi.Query(
         None, description='Filter requests by cluster name.'),
 ) -> List[payloads.RequestPayload]:
@@ -3245,7 +3247,7 @@ async def api_status(
                     for d in daemons.HIDDEN_REQUEST_NAMES
                 ],
                 limit=limit,
-                fields=fields,
+                fields=fields or requests_lib.DISPLAY_COLUMNS,
                 sort=True,
             ))
         return requests_lib.encode_requests(request_tasks,
@@ -3254,7 +3256,7 @@ async def api_status(
         encoded_request_tasks = []
         for request_id in request_ids:
             request_tasks = await requests_lib.get_requests_async_with_prefix(
-                request_id)
+                request_id, requests_lib.DISPLAY_COLUMNS)
             if request_tasks is None:
                 continue
             for request_task in request_tasks:
@@ -4387,6 +4389,13 @@ if __name__ == '__main__':
         logger.error(f'Port {cmd_args.port} is not available, exiting.')
         raise RuntimeError(f'Port {cmd_args.port} is not available')
 
+    # Decide whether to contain client file-mount sources and record it in the
+    # process env before any worker is spawned, so workers inherit it. A
+    # deployed / network-reachable server enforces; a loopback `sky api start`
+    # is exempt (its legitimate sources are arbitrary local paths). An operator
+    # may override this by exporting the env var explicitly before startup.
+    common.init_mount_containment_enforced(cmd_args.deploy, cmd_args.host)
+
     # Always load plugin in main process, an edge case is that the main process
     # will also run uvicorn server when num_worker=1 and then the plugins will
     # be installed twice in main process (second time with the uvicorn app).
@@ -4454,6 +4463,12 @@ if __name__ == '__main__':
             # pool controller.
             reserve_extra_for_pool=not os.environ.get(
                 constants.IS_SKYPILOT_SERVE_CONTROLLER)))
+
+    # Explicit pool sizes are checked here, before requests are accepted: the
+    # controller pool starts from a background thread that retries on errors,
+    # and compute_server_config() does not check the short-pool floor.
+    server_config.validate_explicit_worker_counts()
+    controller_utils.explicit_jobs_controllers()
 
     config = server_config.compute_server_config(
         cmd_args.deploy,

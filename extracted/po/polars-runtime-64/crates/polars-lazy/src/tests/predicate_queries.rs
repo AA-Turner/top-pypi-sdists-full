@@ -1,3 +1,5 @@
+use polars_defs::join::{JoinArgs, JoinType};
+
 use super::*;
 
 #[test]
@@ -224,6 +226,7 @@ fn test_filter_null_creation_by_cast() -> PolarsResult<()> {
 #[test]
 #[cfg(feature = "cse")]
 fn test_predicate_on_join_suffix_4788() -> PolarsResult<()> {
+    use polars_defs::join::MaintainOrderJoin;
     let lf = df![
       "x" => [1, 2],
       "y" => [1, 1],
@@ -234,6 +237,7 @@ fn test_predicate_on_join_suffix_4788() -> PolarsResult<()> {
         .left_on([col("y")])
         .right_on([col("y")])
         .suffix("_")
+        .maintain_order(MaintainOrderJoin::LeftRight)
         .finish()?
         .filter(col("x").eq(1))
         .with_comm_subplan_elim(false);

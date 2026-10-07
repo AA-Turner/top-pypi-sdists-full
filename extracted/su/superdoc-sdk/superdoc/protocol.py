@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
@@ -344,6 +345,85 @@ def build_cli_invoke_payload(
     if collaboration_auth is not None:
         payload['collaborationAuth'] = normalize_collaboration_auth(collaboration_auth)
     return payload
+
+
+def build_structured_read_input(
+    operation: Dict[str, Any], params: Dict[str, Any],
+    stdin_bytes: Optional[bytes] = None,
+    collaboration_auth: Optional[Dict[str, str]] = None,
+    encoded_argv: Optional[List[str]] = None,
+) -> Optional[Dict[str, Any]]:
+    if type(params) is not dict:
+        return None
+    if (
+        operation['operationId'] not in ('doc.info', 'doc.blocks.list', 'doc.query.match')
+        or not isinstance(params.get('sessionId'), str) or not params['sessionId']
+        or params.get('doc') is not None
+        or stdin_bytes is not None or collaboration_auth is not None
+    ):
+        return None
+    if encoded_argv is None:
+        return None
+    flags = {f"--{spec.get('flag') or spec['name']}": spec for spec in operation['params'] if spec['kind'] != 'doc'}
+    encoded: Dict[str, List[str]] = {}
+    # Preserve the completed encoding even if a later serializer mutated params.
+    for index in range(len(operation['commandTokens']), len(encoded_argv), 2):
+        if index + 1 >= len(encoded_argv):
+            return None
+        flag, token = encoded_argv[index:index + 2]
+        if not isinstance(token, str):
+            return None
+        if flag in ('--output', '--timeout-ms'):
+            continue
+        spec = flags.get(flag)
+        if spec is None or (spec['kind'] != 'jsonFlag' and token.startswith('-')):
+            return None
+        encoded.setdefault(spec['name'], []).append(token)
+    result: Dict[str, Any] = {}
+    for spec in operation['params']:
+        value = params.get(spec['name'])
+        tokens = encoded.get(spec['name'])
+        if tokens is None:
+            if spec.get('required'):
+                return None
+            continue
+        if spec['type'] != 'string[]' and len(tokens) != 1:
+            return None
+        token = tokens[0]
+        if spec['kind'] == 'jsonFlag':
+            try:
+                result[spec['name']] = json.loads(token)
+            except (ValueError, TypeError, IndexError):
+                return None
+            continue
+        kind = spec['type']
+        if kind == 'number':
+            if type(value) not in (int, float):
+                return None
+            try:
+                number = float(token)
+                if not math.isfinite(value) or value < 0 or not math.isfinite(number) or number < 0:
+                    return None
+            except (OverflowError, ValueError):
+                return None
+            result[spec['name']] = number
+        elif kind == 'boolean':
+            if type(value) is not bool or token not in ('true', 'false'):
+                return None
+            result[spec['name']] = token == 'true'
+        elif kind == 'string[]':
+            if any(not item or item.strip() != item for item in tokens):
+                return None
+            result[spec['name']] = tokens
+        else:
+            if type(value) is not str or not token or token.strip() != token:
+                return None
+            result[spec['name']] = token
+    try:
+        json.dumps(result, allow_nan=False)
+    except (ValueError, TypeError):
+        return None
+    return result
 
 
 def resolve_watchdog_timeout(

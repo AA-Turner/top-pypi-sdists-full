@@ -1385,6 +1385,12 @@ class Metric(_common.BaseModel):
         default=None,
         description="""Optional. A Python function string used to parse the raw output of the LLM judge model. The function must be named `parse_results` and accept a list of model response strings. It should return a dictionary with `score` (float) and `explanation` (str) keys.""",
     )
+    judge_model_step_configs: Optional[dict[str, genai_types.AutoraterConfig]] = Field(
+        default=None,
+        description="""Per-step judge overrides for a predefined metric, keyed by step:
+      "intent_extraction", "rubric_generation" or "rubric_validation". Steps
+      without an entry keep their default judge.""",
+    )
 
     # Allow extra fields to support metric-specific config fields.
     model_config = ConfigDict(extra="allow")
@@ -1620,6 +1626,11 @@ class MetricDict(TypedDict, total=False):
     result_parsing_function: Optional[str]
     """Optional. A Python function string used to parse the raw output of the LLM judge model. The function must be named `parse_results` and accept a list of model response strings. It should return a dictionary with `score` (float) and `explanation` (str) keys."""
 
+    judge_model_step_configs: Optional[dict[str, genai_types.AutoraterConfig]]
+    """Per-step judge overrides for a predefined metric, keyed by step:
+      "intent_extraction", "rubric_generation" or "rubric_validation". Steps
+      without an entry keep their default judge."""
+
 
 MetricOrDict = Union[Metric, MetricDict]
 
@@ -1722,7 +1733,7 @@ class CustomCodeExecutionSpec(_common.BaseModel):
     )
     code_execution_region: Optional[str] = Field(
         default=None,
-        description="""Optional. The region to use for code execution. If set, the Code Execution Sandbox will be invoked in the specified region regardless of the request's originating region. Must be a region where the Code Execution Sandbox is available. Supported regions: northamerica-northeast1, southamerica-east1, us-central1, us-east1, us-east4, us-west1, us-west4, europe-central2, europe-north1, europe-southwest1, europe-west1, europe-west2, europe-west3, europe-west4, europe-west6, europe-west8, europe-west9, me-west1, asia-east1, asia-east2, asia-northeast1, asia-northeast3, asia-south1, asia-south2, asia-southeast1, australia-southeast2. If unset, the request's originating region is used; requests from regions where the sandbox is unavailable will fail with UNIMPLEMENTED.""",
+        description="""Optional. The region to use for code execution. If set, the Code Execution Sandbox will be invoked in the specified region regardless of the request's originating region. Must be a region where the Code Execution Sandbox is available. For the current list of [supported regions](https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/locations). If unset, the request's originating region is used; requests from regions where the sandbox is unavailable will fail with UNIMPLEMENTED.""",
     )
 
 
@@ -1744,7 +1755,7 @@ class CustomCodeExecutionSpecDict(TypedDict, total=False):
   are available to the function as instance[field_name]."""
 
     code_execution_region: Optional[str]
-    """Optional. The region to use for code execution. If set, the Code Execution Sandbox will be invoked in the specified region regardless of the request's originating region. Must be a region where the Code Execution Sandbox is available. Supported regions: northamerica-northeast1, southamerica-east1, us-central1, us-east1, us-east4, us-west1, us-west4, europe-central2, europe-north1, europe-southwest1, europe-west1, europe-west2, europe-west3, europe-west4, europe-west6, europe-west8, europe-west9, me-west1, asia-east1, asia-east2, asia-northeast1, asia-northeast3, asia-south1, asia-south2, asia-southeast1, australia-southeast2. If unset, the request's originating region is used; requests from regions where the sandbox is unavailable will fail with UNIMPLEMENTED."""
+    """Optional. The region to use for code execution. If set, the Code Execution Sandbox will be invoked in the specified region regardless of the request's originating region. Must be a region where the Code Execution Sandbox is available. For the current list of [supported regions](https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/locations). If unset, the request's originating region is used; requests from regions where the sandbox is unavailable will fail with UNIMPLEMENTED."""
 
 
 CustomCodeExecutionSpecOrDict = Union[
@@ -2070,7 +2081,7 @@ class EvaluationRunConfig(_common.BaseModel):
     )
     autorater_config: Optional[genai_types.AutoraterConfig] = Field(
         default=None,
-        description="""The autorater config for the evaluation run. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored.""",
+        description="""The autorater config for the evaluation run. Predefined metrics use it for every judge step without a `step_autorater_configs` override; multi-turn metrics ignore it.""",
     )
     prompt_template: Optional[EvaluationRunPromptTemplate] = Field(
         default=None, description="""The prompt template used for inference."""
@@ -2100,7 +2111,7 @@ class EvaluationRunConfigDict(TypedDict, total=False):
     """The output config for the evaluation run."""
 
     autorater_config: Optional[genai_types.AutoraterConfig]
-    """The autorater config for the evaluation run. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored."""
+    """The autorater config for the evaluation run. Predefined metrics use it for every judge step without a `step_autorater_configs` override; multi-turn metrics ignore it."""
 
     prompt_template: Optional[EvaluationRunPromptTemplateDict]
     """The prompt template used for inference."""
@@ -3170,6 +3181,60 @@ class EvaluationDataset(_common.BaseModel):
             raise ImportError("Pandas DataFrame library is required.") from e
 
         return EvaluationDataset(eval_dataset_df=eval_dataset_df)
+
+    @classmethod
+    def load_from_adk_eval_set(
+        cls, eval_set: Union[str, "os.PathLike[str]", dict[str, Any]]
+    ) -> "EvaluationDataset":
+        """Loads an ADK eval set (`.evalset.json`) into an EvaluationDataset.
+
+        Each ADK eval case becomes an EvalCase with `eval_case_id` set to its
+        `eval_id`. For a static conversation, the last invocation's user content
+        becomes `prompt` and its final response becomes `reference`. Earlier
+        invocations, including their tool calls, become `conversation_history`.
+        A conversation scenario becomes `user_scenario`. Rubrics on the case and
+        on the last invocation go into `rubric_groups`, keyed by rubric type
+        ("adk_rubrics" when unset).
+
+        Some ADK data is kept as EvalCase extra fields: `reference_trajectory`
+        holds the tool calls of the last invocation, `session_inputs` holds the
+        session input, and custom ADK eval case fields keep their names. Other ADK
+        fields, such as `final_session_state` and the scenario's `user_persona`,
+        are not carried over. Steps that convert eval cases to a DataFrame, such
+        as `run_inference`, drop the extra fields, `rubric_groups` and
+        `eval_case_id`. google-adk does not need to be installed.
+
+        Example:
+            import agentplatform
+            from agentplatform import types
+
+            client = agentplatform.Client(
+                project="my-project", location="us-central1"
+            )
+            dataset = types.EvaluationDataset.load_from_adk_eval_set(
+                "my_agent/my_eval_set.evalset.json"
+            )
+            dataset_with_responses = client.evals.run_inference(
+                src=dataset, agent=my_agent
+            )
+            result = client.evals.evaluate(
+                dataset=dataset_with_responses,
+                metrics=[types.RubricMetric.FINAL_RESPONSE_MATCH],
+            )
+
+        Args:
+            eval_set: The path to an ADK `.evalset.json` file, or the eval set as
+              a parsed JSON dict.
+
+        Returns:
+            An EvaluationDataset with one EvalCase per ADK eval case.
+        """
+        from .. import _evals_data_converters  # pylint: disable=g-import-not-at-top
+
+        if not isinstance(eval_set, dict):
+            with open(eval_set, "r", encoding="utf-8") as f:
+                eval_set = json.load(f)
+        return _evals_data_converters.AdkEvalSetConverter().convert(eval_set)
 
     def show(self) -> None:
         """Shows the evaluation dataset."""
@@ -4702,7 +4767,7 @@ class _EvaluateInstancesRequestParameters(_common.BaseModel):
     )
     autorater_config: Optional[genai_types.AutoraterConfig] = Field(
         default=None,
-        description="""Autorater config used for evaluation. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored.""",
+        description="""Autorater config used for evaluation. Predefined metrics use it for every judge step without a `step_autorater_configs` override; multi-turn metrics ignore it.""",
     )
     metrics: Optional[list[Metric]] = Field(
         default=None,
@@ -4715,6 +4780,12 @@ class _EvaluateInstancesRequestParameters(_common.BaseModel):
     )
     metric_sources: Optional[list[MetricSource]] = Field(
         default=None, description="""The metrics used for evaluation."""
+    )
+    allow_cross_region_model: Optional[bool] = Field(
+        default=None,
+        description="""Allows judge models to be served from other regions. Required
+      when a judge model's fully-qualified resource name uses a different
+      region than the request.""",
     )
     config: Optional[EvaluateInstancesConfig] = Field(default=None, description="""""")
 
@@ -4753,7 +4824,7 @@ class _EvaluateInstancesRequestParametersDict(TypedDict, total=False):
     """"""
 
     autorater_config: Optional[genai_types.AutoraterConfig]
-    """Autorater config used for evaluation. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored."""
+    """Autorater config used for evaluation. Predefined metrics use it for every judge step without a `step_autorater_configs` override; multi-turn metrics ignore it."""
 
     metrics: Optional[list[MetricDict]]
     """The metrics used for evaluation.
@@ -4765,6 +4836,11 @@ class _EvaluateInstancesRequestParametersDict(TypedDict, total=False):
 
     metric_sources: Optional[list[MetricSourceDict]]
     """The metrics used for evaluation."""
+
+    allow_cross_region_model: Optional[bool]
+    """Allows judge models to be served from other regions. Required
+      when a judge model's fully-qualified resource name uses a different
+      region than the request."""
 
     config: Optional[EvaluateInstancesConfigDict]
     """"""
@@ -17925,6 +18001,42 @@ _CreateSandboxEnvironmentTemplateRequestParametersOrDict = Union[
 ]
 
 
+class SandboxEnvironmentTemplatePersistentDiskConfig(_common.BaseModel):
+    """Configuration for attaching a persistent disk (PD) to each SandboxEnvironment created from this template. A persistent disk provides durable, per-sandbox block storage whose contents survive across the sandbox lifecycle events that this service supports (e.g. pause/resume), unlike ephemeral local storage which is lost when the underlying runtime is torn down."""
+
+    enabled: Optional[bool] = Field(
+        default=None,
+        description="""Optional. Whether a persistent disk is attached to sandboxes created from this template. Defaults to `false`. This flag lets a template carry (and preserve) disk configuration while keeping the disk detached, so it can be toggled on later without re-specifying the rest of the config. When `false`, the remaining fields in this message are ignored.""",
+    )
+    mount_path: Optional[str] = Field(
+        default=None,
+        description="""Optional. The absolute path inside the sandbox container at which the persistent disk is mounted. Defaults to `/workspace` when unset. Ignored when `enabled` is `false`. Only writes beneath this path land on the disk. Writes elsewhere go to the container's writable layer, which counts against the container's ephemeral storage and is lost when the sandbox's runtime is torn down, so this should be the directory the workload actually writes to. Paths that would shadow the container's system directories (for example `/etc`, `/proc`, or `/usr` itself) are rejected.""",
+    )
+    size_gb: Optional[int] = Field(
+        default=None,
+        description="""Optional. The size of the persistent disk in GB. Must be non-negative. When `enabled` is `true`, a positive value is required; when unset or zero while enabled, the service applies a default size. Ignored when `enabled` is `false`.""",
+    )
+
+
+class SandboxEnvironmentTemplatePersistentDiskConfigDict(TypedDict, total=False):
+    """Configuration for attaching a persistent disk (PD) to each SandboxEnvironment created from this template. A persistent disk provides durable, per-sandbox block storage whose contents survive across the sandbox lifecycle events that this service supports (e.g. pause/resume), unlike ephemeral local storage which is lost when the underlying runtime is torn down."""
+
+    enabled: Optional[bool]
+    """Optional. Whether a persistent disk is attached to sandboxes created from this template. Defaults to `false`. This flag lets a template carry (and preserve) disk configuration while keeping the disk detached, so it can be toggled on later without re-specifying the rest of the config. When `false`, the remaining fields in this message are ignored."""
+
+    mount_path: Optional[str]
+    """Optional. The absolute path inside the sandbox container at which the persistent disk is mounted. Defaults to `/workspace` when unset. Ignored when `enabled` is `false`. Only writes beneath this path land on the disk. Writes elsewhere go to the container's writable layer, which counts against the container's ephemeral storage and is lost when the sandbox's runtime is torn down, so this should be the directory the workload actually writes to. Paths that would shadow the container's system directories (for example `/etc`, `/proc`, or `/usr` itself) are rejected."""
+
+    size_gb: Optional[int]
+    """Optional. The size of the persistent disk in GB. Must be non-negative. When `enabled` is `true`, a positive value is required; when unset or zero while enabled, the service applies a default size. Ignored when `enabled` is `false`."""
+
+
+SandboxEnvironmentTemplatePersistentDiskConfigOrDict = Union[
+    SandboxEnvironmentTemplatePersistentDiskConfig,
+    SandboxEnvironmentTemplatePersistentDiskConfigDict,
+]
+
+
 class SandboxEnvironmentTemplate(_common.BaseModel):
     """A sandbox environment template."""
 
@@ -17974,6 +18086,12 @@ class SandboxEnvironmentTemplate(_common.BaseModel):
         default=None,
         description="""Optional. Immutable. Whether to provision the SandboxEnvironmentTemplate via the GKE TD pool.""",
     )
+    persistent_disk_config: Optional[SandboxEnvironmentTemplatePersistentDiskConfig] = (
+        Field(
+            default=None,
+            description="""Optional. Configuration for attaching a persistent disk (PD) to each SandboxEnvironment created from this template. When unset (or when `enabled` is `false`), sandboxes created from this template are not backed by a persistent disk and rely on ephemeral storage only. See PersistentDiskConfig for details.""",
+        )
+    )
 
 
 class SandboxEnvironmentTemplateDict(TypedDict, total=False):
@@ -18012,6 +18130,9 @@ class SandboxEnvironmentTemplateDict(TypedDict, total=False):
 
     use_gke_td: Optional[bool]
     """Optional. Immutable. Whether to provision the SandboxEnvironmentTemplate via the GKE TD pool."""
+
+    persistent_disk_config: Optional[SandboxEnvironmentTemplatePersistentDiskConfigDict]
+    """Optional. Configuration for attaching a persistent disk (PD) to each SandboxEnvironment created from this template. When unset (or when `enabled` is `false`), sandboxes created from this template are not backed by a persistent disk and rely on ephemeral storage only. See PersistentDiskConfig for details."""
 
 
 SandboxEnvironmentTemplateOrDict = Union[
@@ -30100,6 +30221,13 @@ class EvaluateMethodConfig(_common.BaseModel):
       evaluation service. Defaults to 10. Increase this value if your
       project has a higher EvaluateInstances API quota.""",
     )
+    allow_cross_region_model: Optional[bool] = Field(
+        default=None,
+        description="""Allows judge models to be served from other regions. When set,
+      the service may route judge requests to another region if the model is
+      unavailable in the request's region. Required when a judge model's
+      fully-qualified resource name uses a different region.""",
+    )
 
 
 class EvaluateMethodConfigDict(TypedDict, total=False):
@@ -30120,6 +30248,12 @@ class EvaluateMethodConfigDict(TypedDict, total=False):
     """The rate limit (queries per second) for calls to the
       evaluation service. Defaults to 10. Increase this value if your
       project has a higher EvaluateInstances API quota."""
+
+    allow_cross_region_model: Optional[bool]
+    """Allows judge models to be served from other regions. When set,
+      the service may route judge requests to another region if the model is
+      unavailable in the request's region. Required when a judge model's
+      fully-qualified resource name uses a different region."""
 
 
 EvaluateMethodConfigOrDict = Union[EvaluateMethodConfig, EvaluateMethodConfigDict]

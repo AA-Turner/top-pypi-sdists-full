@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangorestframework
-Version: 3.18.1
+Version: 3.18.3
 Summary: Web APIs for Django, made easy.
 Author-email: Tom Christie <tom@tomchristie.com>
 License-Expression: BSD-3-Clause
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

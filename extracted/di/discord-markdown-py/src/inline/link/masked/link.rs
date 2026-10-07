@@ -1,24 +1,24 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use nom::{
+	IResult, Parser,
 	branch::alt,
 	bytes::take_until1,
 	character::complete::{char, space1},
 	combinator::{opt, verify},
 	sequence::{delimited, preceded},
-	IResult, Parser,
 };
 use tracing::Level;
 use url::Url;
 
 use crate::{
+	Input,
 	context::Context,
 	error::ParseError,
 	span::{TraceOk, TraceParse},
-	Input,
 };
 
-use super::{auto, has_no_link, verify_url, Grammar};
+use super::{Grammar, auto, has_no_link, verify_url};
 
 /// Parse a masked link title.
 ///

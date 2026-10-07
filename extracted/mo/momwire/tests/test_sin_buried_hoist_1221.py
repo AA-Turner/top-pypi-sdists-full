@@ -26,6 +26,18 @@ import pytest
 
 from momwire import SinusoidalGalerkinSolver, SinusoidalSolver
 
+
+def _direct_sg(*args, **kw):
+    """This module's subject is the DIRECT-field fill's own machinery, so
+    every solver here names it (`SinusoidalGalerkinSolver`'s default fill is
+    the mixed-potential one since momwire#1354, gated in
+    `test_sinusoidal_mp_1354.py`)."""
+    from momwire.sinusoidal_galerkin import SinusoidalGalerkinSolver as _cls
+
+    kw.setdefault("fill", "direct")
+    return _cls(*args, **kw)
+
+
 C0 = 299792458.0
 WL7 = C0 / 7e6
 SOIL_A = (13.0, 0.005)
@@ -113,7 +125,7 @@ def test_both_remainder_families_replay_through_one_loop(monkeypatch):
     monkeypatch.setattr(SinusoidalSolver, "_replay_remainder", spy)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        _buried_dipole(SinusoidalGalerkinSolver).compute_impedance()
+        _buried_dipole(_direct_sg).compute_impedance()
         SinusoidalSolver(
             wires=[np.array([(-2.5, 0.0, 1.0), (2.5, 0.0, 1.0)])],
             n_per_edge_per_wire=[[11]],
@@ -129,7 +141,7 @@ def test_the_transmitted_tensor_names_its_source_shape():
     """No default: the third shape must be the one every other block of the
     same fill is written in (#606), so omitting it is a TypeError and a
     misspelling a ValueError — both before any grid is built."""
-    s = _buried_dipole(SinusoidalGalerkinSolver)
+    s = _buried_dipole(_direct_sg)
     geom = s._build_geometry()
     args = (geom, None, None, None, None, False, None, None)
     with pytest.raises(TypeError):

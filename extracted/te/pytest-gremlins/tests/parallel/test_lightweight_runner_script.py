@@ -7,6 +7,7 @@ or 0 (survived).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -14,6 +15,7 @@ import textwrap
 
 import pytest
 
+from pytest_gremlins.instrumentation.origin_finder import normalize_origin
 from pytest_gremlins.parallel.lightweight import LIGHTWEIGHT_CANNOT_VERIFY_EXIT_CODE
 from pytest_gremlins.plugin import _get_lightweight_runner_script
 
@@ -145,3 +147,34 @@ class DescribeLightweightRunnerExitCodes:
         )
 
         assert result.returncode == CANNOT_VERIFY
+
+
+@pytest.mark.medium
+class DescribeLightweightRunnerInstrumentedModules:
+    """A module the runner's import hook loads keeps the path of the source it was built from."""
+
+    def it_gives_the_instrumented_module_its_origin_as_file(self, tmp_path: Path) -> None:
+        origin = tmp_path / 'target.py'
+        origin.write_text('VALUE = 0\n', encoding='utf-8')
+        sources = tmp_path / 'sources.json'
+        entry = {'source': 'VALUE = 1\n', 'origin': str(origin)}
+        sources.write_text(json.dumps({normalize_origin(str(origin)): entry}), encoding='utf-8')
+        test_source = f"""
+            import os
+            import target
+
+            def test_a():
+                # The import system may spell the path through a '.' sys.path entry; it must still be the file.
+                assert target.VALUE == 1
+                assert os.path.realpath(target.__file__) == {str(origin)!r}
+                assert target.__spec__.origin == target.__file__
+            """
+
+        result = _run_runner(
+            tmp_path,
+            test_source,
+            'test_sample.py::test_a',
+            env_extra={'PYTEST_GREMLINS_SOURCES_FILE': str(sources)},
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr

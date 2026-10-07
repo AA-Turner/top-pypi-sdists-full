@@ -1,6 +1,7 @@
 import pytensor.tensor as pt
+from pytensor.tensor.special import xlogy
 
-from pytensor_distributions.helper import ppf_bounds_cont
+from pytensor_distributions.helper import isf_bounds_cont, ppf_bounds_cont
 from pytensor_distributions.lmoments import _lmoments
 
 
@@ -72,7 +73,7 @@ def sf(x, alpha, beta):
 
 
 def isf(x, alpha, beta):
-    return ppf(1 - x, alpha, beta)
+    return isf_bounds_cont(pt.gammainccinv(alpha, x) / beta, x, 0.0, pt.inf)
 
 
 def rvs(alpha, beta, size=None, random_state=None):
@@ -97,7 +98,7 @@ def logpdf(x, alpha, beta):
     return pt.switch(
         pt.lt(x, 0),
         -pt.inf,
-        (alpha - 1.0) * pt.log(x) - x * beta - pt.gammaln(alpha) + alpha * pt.log(beta),
+        xlogy(alpha - 1.0, x) - x * beta - pt.gammaln(alpha) + alpha * pt.log(beta),
     )
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapy-ingest
-Version: 1.5.0
+Version: 1.6.0
 Summary: One pipeline. Full crawl observability in SQL or Elasticsearch.
 Home-page: https://github.com/fawadss1/scrapy-ingest
 Author: Fawad Ali
@@ -79,7 +79,7 @@ Dynamic: summary
 
 **One pipeline. Full crawl observability in SQL or Elasticsearch.**
 
-Set `DB_URL`, `SEARCH_URL`, or both — items, requests, logs, stats, parent URLs, and errors are captured automatically.
+Set `DB_URL`, `SEARCH_URL`, or both — or use **no DB settings** and ingest writes to **`ingest.db`** (SQLite) in your project folder. Items, requests, logs, stats, parent URLs, and errors are captured automatically.
 
 ## Install
 
@@ -91,7 +91,18 @@ This installs all runtime dependencies, including `psycopg2-binary`, `PyMySQL`, 
 
 ## Minimal setup (settings.py)
 
-Only the item pipeline is required — requests, logs, stats, parent_url, and error logging are enabled automatically:
+Only the item pipeline is required — requests, logs, stats, parent_url, and error logging are enabled automatically.
+
+**Local dev (SQLite, no server):**
+
+```python
+ITEM_PIPELINES = {
+    "scrapy_ingest.pipelines.IngestPipeline": 300,
+}
+CREATE_TABLES = True  # creates ingest.db in the project directory
+```
+
+**Postgres / MySQL:**
 
 ```python
 ITEM_PIPELINES = {
@@ -111,10 +122,11 @@ Log level follows Scrapy `LOG_LEVEL`.
 
 ## Choose your destination
 
-Set **`DB_URL`** (or `DB_*` fields) for Postgres/MySQL, **`SEARCH_URL`** for Elasticsearch/OpenSearch, or both. **At least one must be configured.**
+Set **`DB_URL`** (or `DB_*` fields) for Postgres/MySQL/SQLite, **`SEARCH_URL`** for Elasticsearch/OpenSearch, or both. If nothing is set, **`ingest.db`** (SQLite) is used unless `INGEST_SQLITE_ENABLED = False`.
 
 | Mode                                | Settings                | Result                                   |
 |-------------------------------------|-------------------------|------------------------------------------|
+| **Default (dev)**                   | *(none)*                | SQLite (`ingest.db`)                     |
 | **Database only**                   | `DB_URL` or `DB_*`      | SQL only                                 |
 | **Elasticsearch / OpenSearch only** | `SEARCH_URL`            | Indexes only                             |
 | **Both**                            | `DB_URL` + `SEARCH_URL` | SQL first, then Elasticsearch/OpenSearch |
@@ -206,9 +218,68 @@ Request `parent_url` is the page that scheduled the request (e.g. sitemap → pr
 
 Same crawl data as JSON documents in the indexes listed above. Documents include the string `job_id` (not the integer SQL primary key). Elasticsearch/OpenSearch mode does not link `parent_id`; `parent_url` is stored on each request document.
 
-## Batch flush and crawl summary
+## Ingest flow and connections
 
-Data flushes on batch size, every 10 seconds, and on engine/process stop.
+**One connection per destination per crawl** — not connect → insert → disconnect for every product. Items, requests, and logs are buffered in memory and written in batches using the same Postgres/MySQL connection and/or Elasticsearch/OpenSearch client for the whole spider run.
+
+Full diagrams: [docs/ingest-flow.rst](docs/ingest-flow.rst) (Read the Docs: [Ingest flow](https://scrapy-ingest.readthedocs.io/en/latest/ingest-flow.html)).
+
+### Crawl lifecycle
+
+```mermaid
+flowchart TB
+    START([scrapy crawl starts]) --> OPEN[IngestPipeline open_spider]
+    OPEN --> FLSTART[IngestFlusher.start]
+
+    FLSTART --> DB{DB configured?}
+    DB -->|yes| DBCONN[Open one Postgres/MySQL connection<br/>application_name = Ingest]
+    DB -->|no| SKIPDB[Skip SQL]
+
+    FLSTART --> SRCH{SEARCH_URL set?}
+    SRCH -->|yes| ESCONN[Open one SearchClient<br/>X-Opaque-Id: Ingest]
+    SRCH -->|no| SKIPES[Skip search]
+
+    DBCONN --> JOB[Create job row / index doc]
+    ESCONN --> JOB
+    JOB --> TIMER[Start 10s periodic flush timer]
+    TIMER --> CRAWL([Spider crawls])
+
+    CRAWL --> END([Engine stops])
+    END --> FINAL[Final flush + finish_job]
+    FINAL --> SUMMARY[Print crawl summary]
+    SUMMARY --> CLOSE[Close DB + search clients]
+```
+
+### When data is flushed
+
+```mermaid
+flowchart TB
+    subgraph inputs [Buffered in memory]
+        I1[Items]
+        I2[Requests]
+        I3[Logs]
+    end
+
+    inputs --> BUF[(Collector buffer)]
+
+    BUF --> T1{Size ≥ INGEST_BATCH_SIZE?<br/>default 50}
+    BUF --> T2{Timer every 10s?}
+
+    T1 -->|yes| FLUSH[flush batch]
+    T2 -->|yes| FLUSH
+
+    FLUSH --> SQL[SQL: INSERT + COMMIT<br/>same connection]
+    FLUSH --> ES[Search: bulk index<br/>same HTTP client]
+```
+
+| Setting                 | Default | Effect                                          |
+|-------------------------|---------|-------------------------------------------------|
+| `INGEST_BATCH_SIZE`     | `50`    | Flush when buffer reaches this many rows        |
+| `INGEST_FLUSH_INTERVAL` | `10`    | Also flush every N seconds (set `0` to disable) |
+
+**Example:** 100,000 products → ~2,000 batch flushes (not 100,000 connections).
+
+When both SQL and search are configured, SQL commits first; a search failure after SQL success is logged but does not roll back database rows.
 
 When the spider closes, a crawl summary is printed to stderr (visible even when `LOG_LEVEL` is `ERROR`) with job id, spider, database URL, Elasticsearch/OpenSearch URL, table/index names, counts, and elapsed time. Set `INGEST_SHOW_SUMMARY = False` to hide it.
 
@@ -295,6 +366,30 @@ ITEM_PIPELINES = {"scrapy_ingest.pipelines.RequestsPipeline": 300}
 # Logs only
 EXTENSIONS = {"scrapy_ingest.extensions.LoggingExtension": 500}
 ```
+
+## Benchmarks and comparisons
+
+How **scrapy-ingest** compares to other Scrapy storage packages — feature matrices, architecture notes, and a reproducible write-path benchmark.
+
+| Package                  |     SQL     | ES/OS | Mongo | Kafka | Requests / logs | Batched  |
+|--------------------------|:-----------:|:-----:|:-----:|:-----:|:---------------:|:--------:|
+| **scrapy-ingest**        | ✓ PG/MySQL |  ✓   |   —   |   —   |      auto       | ✓ (50)  |
+| scrapy-elasticsearch     |      —      |  ✓   |   —   |   —   |        —        | ✓ (500) |
+| scrapy-mongodb           |      —      |   —   |  ✓   |   —   |        —        | per-item |
+| scrapy-sql               |  ✓ FEEDS   |   —   |   —   |   —   |        —        |   bulk   |
+| os-scrapy-kafka-pipeline |      —      |   —   |   —   |  ✓   |        —        | per-item |
+| Manual psycopg2 pipeline |     DIY     |   —   |   —   |   —   |       DIY       | often ✗ |
+| Scrapy `FEEDS`           |    files    |   —   |   —   |   —   |        —        |  stream  |
+
+Also in docs: **scrapy-pipelines** (Scrapedia/Mongo), **Scrapy MongoPipeline** (official example).
+
+Synthetic benchmark (SQLite, 100k rows, batch 50): **~3.3×** faster write path vs per-row `COMMIT` on a sample run — real crawls are usually network-bound. Run yourself:
+
+```bash
+python scripts/benchmark_ingest.py --rows 100000 --batch-size 50
+```
+
+Full comparison, methodology, and production tuning: [docs/benchmarks.rst](docs/benchmarks.rst) · [Read the Docs](https://scrapy-ingest.readthedocs.io/en/latest/benchmarks.html).
 
 ## Links
 

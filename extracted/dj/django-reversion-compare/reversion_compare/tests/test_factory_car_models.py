@@ -131,7 +131,7 @@ class FactoryCarModelTest2(BaseTestCase):
     def test_deleted_objects(self):
         """
         for:
-        https://github.com/jedie/django-reversion-compare/commit/ba22008130f4c16a32eeb900381c2d82ca6fdd9e
+        https://codeberg.org/jedie/django-reversion-compare/commit/ba22008130f4c16a32eeb900381c2d82ca6fdd9e
         https://travis-ci.org/jedie/django-reversion-compare/builds/72317520
         """
         with create_revision():

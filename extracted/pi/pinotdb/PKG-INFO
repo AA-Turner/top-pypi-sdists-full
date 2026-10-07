@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pinotdb
-Version: 9.1.2
+Version: 9.2.1
 Summary: Python DB-API and SQLAlchemy dialect for Pinot.
 License: MIT
 License-File: LICENSE
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Provides-Extra: sqlalchemy
 Requires-Dist: ciso8601 (>=2.1.3,<3.0.0)
 Requires-Dist: greenlet (>=3.2.4,<4) ; extra == "sqlalchemy"
@@ -21,7 +22,7 @@ Requires-Dist: h11 (==0.16.0)
 Requires-Dist: httpx (>=0.28.1,<0.29)
 Requires-Dist: requests (>=2.25.0,<3.0.0) ; extra == "sqlalchemy"
 Requires-Dist: sqlalchemy (>=2.0,<3) ; extra == "sqlalchemy"
-Requires-Dist: urllib3 (==2.7.0)
+Requires-Dist: urllib3 (==2.8.0)
 Project-URL: Homepage, https://github.com/startreedata/pinot-dbapi
 Description-Content-Type: text/markdown
 
@@ -94,7 +95,7 @@ print(curs.timeUsedMs)  # Backward compatible shorthand
 ```
 
 `cursor.query_stats` contains scalar top-level metrics returned by the broker
-for the latest `execute()` call (works for both sync and async cursors).
+for the latest `execute()` or `execute_native()` call (sync and async).
 Common keys include:
 
 - `numServersQueried`
@@ -112,9 +113,69 @@ Common keys include:
 - `minConsumingFreshnessTimeMs`
 - `numSegmentsPrunedByBroker`
 
-If you need the full broker payload (including nested sections such as
-`resultTable`, `exceptions`, and tracing information), use
-`cursor.raw_query_response`.
+`cursor.query_statistics` also retains nested and list-valued statistics such
+as `stageStats`, `earlyTerminationReasons`, `tablesQueried`, and future broker
+metrics. Both statistics dictionaries exclude result rows, query errors, and
+`traceInfo`. For the full payload, use
+`cursor.raw_query_response["response"]`.
+
+### Native query results (9.2+)
+
+`execute_native()` returns a `NativeQueryResult` with column names, native column
+types, row arrays, exceptions, and typed execution metadata. TIMESTAMP and JSON
+values retain their native strings; duplicate column aliases remain separate
+columns. Read `result.rows` directly: `fetchall()` belongs to the DB-API
+`execute()` path.
+
+```python
+import httpx
+from pinotdb import connect
+
+sql = "SELECT playerID, yearID FROM baseballStats WHERE yearID >= %(year)s LIMIT 5"
+with connect(host="localhost", port=8000) as cursor:
+    result = cursor.execute_native(
+        sql,
+        {"year": 2010},
+        query_options="timeoutMs=4000;clientQueryId=example-native",
+        timeout=httpx.Timeout(5.0, connect=1.0),
+    )
+    print(result.metadata.completeness, result.columns, len(result.rows))
+    stage_stats = cursor.query_statistics.get("stageStats", {})
+    native_payload = result.raw_response
+```
+
+By default, partial or unknown execution raises `DatabaseError`; its
+`native_result` attribute retains the decoded evidence. To inspect that evidence
+without rejecting partial execution, pass `allow_partial=True` and check both
+`result.metadata.completeness` and `result.exceptions` before using the rows:
+
+```python
+with connect(host="localhost", port=8000) as cursor:
+    result = cursor.execute_native(sql, {"year": 2010}, allow_partial=True)
+    print(result.metadata.unknown_reasons)
+    print(result.metadata.execution_limit_flags)
+```
+
+The async API has the same arguments and result:
+
+```python
+from pinotdb import connect_async
+
+async def query_native():
+    async with connect_async(host="localhost", port=8000) as cursor:
+        return await cursor.execute_native(
+            sql, {"year": 2010}, allow_partial=True,
+            timeout=httpx.Timeout(5.0, connect=1.0),
+        )
+```
+
+Missing result tables or required metadata remain `unknown`; a complete empty
+result retains its schema. Complete execution describes the submitted SQL, not
+full dataset coverage or rows beyond its LIMIT. Per-call HTTPX timeouts bound
+network phases; they do not guarantee an overall deadline or native cancellation.
+Native calls do not retry automatically. See
+[the runnable sync/async example](examples/native_query.py): run
+`python examples/native_query.py`, or add `--async` for the async cursor.
 
 #### Pass the Pinot database context
 

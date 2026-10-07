@@ -29,8 +29,7 @@ pub use argument_spans::{
 };
 pub use argument_syntax_edit::{
     map_normalized_byte_offset_to_actual, map_normalized_range_to_actual,
-    normalize_xprompt_spacer_transition,
-    plan_argument_colon_to_parentheses_edit,
+    normalize_macro_spacer_transition, plan_argument_colon_to_parentheses_edit,
     plan_argument_double_colon_to_parentheses_edit,
     plan_argument_list_continuation_edit,
     plan_macro_completion_spacer_to_parentheses_edit,
@@ -88,11 +87,16 @@ pub use file::{
     build_file_history_completion_candidates,
 };
 pub use frontmatter::{
+    diagnostics_with_registry as frontmatter_diagnostics_with_registry,
+    diagnostics_with_registry_and_snapshot as frontmatter_diagnostics_with_registry_and_snapshot,
     field_schema as frontmatter_field_schema,
     input_type_completion_at as frontmatter_input_type_completion_at,
     input_type_schema as frontmatter_input_type_schema,
+    input_type_schema_with_registry as frontmatter_input_type_schema_with_registry,
     validate as validate_frontmatter,
     validate_field as validate_frontmatter_field,
+    validate_field_with_registry as validate_frontmatter_field_with_registry,
+    validate_with_registry as validate_frontmatter_with_registry,
     FrontmatterInputTypeCompletion,
 };
 pub use fuzzy::{compare_fuzzy, fuzzy_match, FuzzyMatch};

@@ -22,7 +22,7 @@ import socket
 import ssl
 import threading
 import time
-from urllib.parse import urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from io import StringIO, BytesIO
 from websocket import WebSocket, ABNF, enableTrace, WebSocketConnectionClosedException
 from base64 import urlsafe_b64decode
@@ -197,14 +197,39 @@ class WSClient:
         """The same as write_channel with channel=0."""
         self.write_channel(STDIN_CHANNEL, data)
 
+    def _frames_immediately_available(self):
+        """Return True if at least one more frame is already waiting on
+        the socket and can be read without blocking."""
+        # Prefer poll over select for the same reasons as in update().
+        if hasattr(select, "poll"):
+            poll = select.poll()
+            poll.register(self.sock.sock, select.POLLIN)
+            r = poll.poll(0)
+            poll.unregister(self.sock.sock)
+        else:
+            r, _, _ = select.select((self.sock.sock, ), (), (), 0)
+        return bool(r)
+
     def update(self, timeout=0):
-        """Update channel buffers with at most one complete frame of input."""
+        """Update channel buffers with all complete frames of input that
+        are available, waiting at most `timeout` seconds for the first
+        one."""
         if not self.is_open():
             return
         if not self.sock.connected:
             self._connected = False
             return
 
+        # SSL sockets decrypt an entire TLS record at a time, so a previous
+        # recv_data_frame() call may have pulled the bytes of the next frames
+        # off the socket already: those frames sit decrypted in the
+        # SSLSocket's internal buffer, invisible to select()/poll() on the
+        # underlying socket. Without this check the buffered frames would
+        # only be delivered once new data arrives on the socket, and would be
+        # lost if it never does.
+        if (isinstance(self.sock.sock, ssl.SSLSocket)
+                and self.sock.sock.pending()):
+            r = True
         # The options here are:
         # select.select() - this will work on most OS, however, it has a
         #                   limitation of only able to read fd numbers up to 1024.
@@ -214,7 +239,7 @@ class WSClient:
         #                   efficient as epoll. Will work for fd numbers above 1024.
         # select.epoll()  - newest and most efficient way of polling.
         #                   However, only works on linux.
-        if hasattr(select, "poll"):
+        elif hasattr(select, "poll"):
             poll = select.poll()
             poll.register(self.sock.sock, select.POLLIN)
             if timeout is not None and timeout != float("inf"):
@@ -229,7 +254,7 @@ class WSClient:
             r, _, _ = select.select(
                 (self.sock.sock, ), (), (), timeout)
 
-        if r:
+        while r:
             op_code, frame = self.sock.recv_data_frame(True)
             if op_code == ABNF.OPCODE_CLOSE:
                 self._connected = False
@@ -263,6 +288,13 @@ class WSClient:
                             self._channels[channel] = data
                         else:
                             self._channels[channel] += data
+
+            # Output larger than the websocket frame size (e.g. long exec
+            # stdout) arrives as a sequence of frames. Consume every frame
+            # that is already available before returning, otherwise callers
+            # reading a channel after a single update() would see the
+            # output truncated at a frame boundary.
+            r = self._frames_immediately_available()
 
     def run_forever(self, timeout=None):
         """Wait till connection is closed or timeout reached. Buffer any input
@@ -603,6 +635,8 @@ def portforward_call(configuration, _method, url, **kwargs):
     parameters of apiClient.request method."""
 
     query_params = kwargs.get("query_params")
+    if query_params is None:
+        query_params = parse_qsl(urlparse(url).query, keep_blank_values=True)
 
     ports = []
     for param, value in query_params:

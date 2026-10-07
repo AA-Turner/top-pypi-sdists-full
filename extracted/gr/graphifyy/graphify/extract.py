@@ -33,6 +33,8 @@ from graphify.extractors.base import (  # noqa: F401
     _LANGUAGE_BUILTIN_GLOBALS,
     _file_stem,
     _make_id,
+    _read_source_bytes,
+    _read_source_text,
     _read_text,
 )
 from graphify.extractors.apex import extract_apex  # noqa: F401
@@ -674,6 +676,23 @@ def _python_import_bindings(node, source: bytes) -> list[tuple[str, str]]:
     return bindings
 
 
+def _missing_relative_module_name(attempted: Path, root: Path, raw: str) -> str:
+    """Dotted module name, relative to ``root``, of an unresolved relative import.
+
+    ``attempted`` is the file the import would have named (``pkg/missing.py`` or
+    ``pkg/__init__.py``). Falls back to ``ref:`` + the raw specifier when the
+    import climbs above the scan root, so the id never carries an absolute path.
+    """
+    try:
+        rel = attempted.relative_to(root)
+    except ValueError:
+        return f"ref:{raw}"
+    parts = list(rel.with_suffix("").parts)
+    if parts and parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts) if parts else f"ref:{raw}"
+
+
 def _import_python(
     node, source: bytes, file_nid: str, stem: str, edges: list, str_path: str,
     scope_stack: list[str] | None = None, scan_root: Path | None = None,
@@ -749,13 +768,24 @@ def _import_python(
                 target_path = _resolve_python_module_path(
                     module_name, current_path, root, level=dots
                 )
+                missing = False
                 if target_path is None:
                     base = current_path.parent
                     for _ in range(dots - 1):
                         base = base.parent
                     rel = (module_name.replace(".", "/") + ".py") if module_name else "__init__.py"
                     target_path = base / rel
-                tgt_nid = _make_id(str(target_path))
+                    missing = not target_path.is_file()
+                if missing:
+                    # No file behind the import: minting the id from the
+                    # attempted absolute path bakes the checkout location (and
+                    # OS username) into the graph, and the root-relative id
+                    # remap never rewrites it. Use the dotted module name
+                    # relative to the scan root, the id an unresolved absolute
+                    # import of the same module already gets.
+                    tgt_nid = _make_id(_missing_relative_module_name(target_path, root, raw))
+                else:
+                    tgt_nid = _make_id(str(target_path))
             else:
                 # Use the shared scan-root-aware resolver for absolute imports.
                 # It stops at the corpus boundary and handles package roots the
@@ -1672,7 +1702,7 @@ def _extract_python_rationale(path: Path, result: dict) -> None:
         from tree_sitter import Language, Parser
         language = Language(tspython.language())
         parser = Parser(language)
-        source = path.read_bytes()
+        source = _read_source_bytes(path, warn=False)
         tree = parser.parse(source)
         root = tree.root_node
     except Exception:
@@ -2053,7 +2083,7 @@ def extract_js(path: Path) -> dict:
     source_override = None
     if is_ts:
         try:
-            source = path.read_bytes()
+            source = _read_source_bytes(path)
             source_override = _normalize_ts_import_types(source, tsx=suffix == ".tsx")
         except OSError:
             pass
@@ -2091,7 +2121,7 @@ def _rescue_js_dynamic_imports(path: Path, result: dict) -> None:
     """
     try:
         import re as _re
-        src = path.read_text(encoding="utf-8", errors="replace")
+        src = _read_source_text(path, warn=False)
         if not _re.search(r"(?<!\w)import\s*\(", src):  # cheap bail — most files have none
             return
         existing_ids = {n["id"] for n in result.get("nodes", [])}
@@ -2207,7 +2237,7 @@ def _extract_js_rationale(path: Path, result: dict) -> None:
     Mutates result in-place by appending to result['nodes'] and result['edges'].
     """
     try:
-        source_text = path.read_text(encoding="utf-8", errors="replace")
+        source_text = _read_source_text(path, warn=False)
     except Exception:
         return
 
@@ -2446,7 +2476,7 @@ def extract_svelte(path: Path) -> dict:
     dynamic imports.
     """
     try:
-        src = path.read_text(encoding="utf-8", errors="replace")
+        src = _read_source_text(path)
     except OSError as e:
         return {"nodes": [], "edges": [], "error": str(e)}
 
@@ -2555,7 +2585,7 @@ def extract_astro(path: Path) -> dict:
     file flagged every template as a syntax error and dropped frontmatter symbols.
     """
     try:
-        src = path.read_text(encoding="utf-8", errors="replace")
+        src = _read_source_text(path)
     except OSError:
         return {"nodes": [], "edges": []}
     masked = _astro_mask_non_script(src).encode("utf-8")
@@ -2563,7 +2593,7 @@ def extract_astro(path: Path) -> dict:
     result = _extract_generic(path, _TS_CONFIG, source_override=masked)
     try:
         import re as _re
-        src = path.read_text(encoding="utf-8", errors="replace")
+        src = _read_source_text(path, warn=False)
         existing_ids = {n["id"] for n in result.get("nodes", [])}
         file_node_id = _make_id(str(path))
         aliases = _load_tsconfig_aliases(path.parent)
@@ -2624,7 +2654,7 @@ def extract_vue(path: Path) -> dict:
     ``import('…')`` dynamic imports the AST does not edge.
     """
     try:
-        src = path.read_text(encoding="utf-8", errors="replace")
+        src = _read_source_text(path)
     except OSError:
         return {"nodes": [], "edges": []}
 
@@ -2674,7 +2704,7 @@ def _is_spock_file(path: Path, ts_result: dict) -> bool:
     import re as _re
     _SPOCK_FEATURE_RE = _re.compile(r"""^\s*def\s+[\"']""", _re.MULTILINE)
     try:
-        return bool(_SPOCK_FEATURE_RE.search(path.read_text(errors="replace")))
+        return bool(_SPOCK_FEATURE_RE.search(_read_source_text(path, warn=False)))
     except OSError:
         return False
 
@@ -2685,7 +2715,7 @@ def _extract_spock_fallback(path: Path, ts_result: dict) -> dict:
     (which survive reliably) with class and feature-method nodes extracted via regex.
     """
     import re as _re
-    source = path.read_text(errors="replace")
+    source = _read_source_text(path, warn=False)
     str_path = str(path)
     stem = _file_stem(path)
 
@@ -2825,7 +2855,7 @@ def _augment_cpp_string_tests(path: Path, result: dict) -> dict:
     commented Spock ``def "feature"()`` would).
     """
     try:
-        source = path.read_text(errors="replace")
+        source = _read_source_text(path, warn=False)
     except OSError:
         return result
     matches = list(_CPP_STRING_TEST_RE.finditer(source))
@@ -2962,6 +2992,60 @@ def _normalize_cpp_cli(source: bytes) -> bytes | None:
     return _CPP_CLI_ATTR_RE.sub(_blank_keeping_newlines, out)
 
 
+_CPP_EXPORT_MACRO_RE = re.compile(
+    # Match `class` or `struct`
+    rb"(\b(?:class|struct)[ \t\r\n]+)"
+    # Match one or more ALL-CAPS macros (stacked or single)
+    rb"((?:[A-Z][A-Z0-9_]*[ \t\r\n]+)+)"
+    # Negative lookahead: the matched class name cannot be exactly "final"
+    rb"(?!final[ \t\r\n]*[:{])"
+    # Match the actual class name (and optional final), ending with `:` or `{`
+    rb"([A-Za-z_][A-Za-z0-9_]*(?:[ \t\r\n]+final)?[ \t\r\n]*)([:{])"
+)
+
+
+def _normalize_cpp_export_macros(source: bytes) -> bytes:
+    """Blank an export macro between ``class``/``struct`` and the type name.
+
+    Single ALL-CAPS identifier macros (and stacked ones) are handled.
+    Note: paren-attribute macros like ``__declspec(dllexport)`` and
+    ``__attribute__((visibility("default")))`` are currently unsupported,
+    as well as template specializations (e.g. ``template<> class MODULE_API Widget<int>``).
+    """
+
+    def repl(m: re.Match[bytes]) -> bytes:
+        start = m.start()
+
+        # Check if preceded by `(` (e.g. range-based for loop `for(class MACRO var: items)`)
+        idx = start - 1
+        while idx >= 0 and source[idx] in b" \t\r\n":
+            idx -= 1
+        if idx >= 0 and source[idx] == ord(b"("):
+            return m.group(0)
+
+        # Check for brace initialization like `var{1}`
+        if m.group(4) == b"{":
+            end = m.end()
+            idx_after = end
+            while idx_after < len(source) and source[idx_after] in b" \t\r\n":
+                idx_after += 1
+            if idx_after < len(source):
+                next_char = source[idx_after : idx_after + 1]
+                if next_char in b"0123456789\"'-":
+                    return m.group(0)
+
+        # Blank the macro with spaces to preserve offsets, but KEEP NEWLINES!
+        macro_text = m.group(2)
+        blanked_macro = bytearray(macro_text)
+        for i in range(len(blanked_macro)):
+            if blanked_macro[i] not in b"\r\n":
+                blanked_macro[i] = ord(b" ")
+
+        return m.group(1) + bytes(blanked_macro) + m.group(3) + m.group(4)
+
+    return _CPP_EXPORT_MACRO_RE.sub(repl, source)
+
+
 def extract_cpp(path: Path) -> dict:
     """Extract functions, classes, and includes from a .cpp/.cc/.cxx/.hpp file.
 
@@ -2972,12 +3056,14 @@ def extract_cpp(path: Path) -> dict:
     drops as ERROR nodes (issue #2594), mirroring the Spock fallback for Groovy.
     """
     try:
-        source = path.read_bytes()
+        source = _read_source_bytes(path)
     except OSError:
         # Let _extract_generic report the read failure in its usual shape.
         return _augment_cpp_string_tests(path, _extract_generic(path, _CPP_CONFIG))
+    source_override = _normalize_cpp_cli(source) or source
+    source_override = _normalize_cpp_export_macros(source_override)
     result = _extract_generic(
-        path, _CPP_CONFIG, source_override=_normalize_cpp_cli(source) or source
+        path, _CPP_CONFIG, source_override=source_override
     )
     return _augment_cpp_string_tests(path, result)
 
@@ -3055,7 +3141,7 @@ def extract_php(path: Path) -> dict:
     """
     result = _extract_generic(path, _PHP_CONFIG)
     try:
-        src = path.read_text(encoding="utf-8", errors="replace")
+        src = _read_source_text(path, warn=False)
         masked, had_script = _php_mask_to_script_blocks(src)
         if not had_script:
             return result
@@ -4679,13 +4765,14 @@ def _resolve_csharp_member_calls(
             type_nid = bases[0]
             type_qualified = True
         elif receiver[:1].isupper():
-            # Type.M() — the type is named explicitly (also covers a Pascal-cased
-            # local whose name equals its type, resolved via the table below if the
-            # explicit-type lookup misses).
-            type_nid = _resolve_type_name_nid(receiver, caller_node, src_file)
+            # Type.M() — the type is named explicitly. A field/property/local of
+            # that name in scope shadows the type (`IStore Store => ...;
+            # Store.Save()`, #3797), so the receiver's declared type from the
+            # table wins when known; otherwise fall back to the type name.
+            type_name = rc.get("receiver_type")
+            type_nid = _resolve_type_name_nid(type_name, caller_node, src_file)
             if not type_nid:
-                type_name = rc.get("receiver_type")
-                type_nid = _resolve_type_name_nid(type_name, caller_node, src_file)
+                type_nid = _resolve_type_name_nid(receiver, caller_node, src_file)
                 if not type_nid:
                     _park_if_absent(type_name or receiver, caller_node, rc)
                     continue
@@ -6337,7 +6424,7 @@ def _xaml_codebehind_symbols(
     # parameter list on method nodes, so we read it from the code-behind source
     # at the method's recorded line.
     try:
-        cb_lines = codebehind.read_text(encoding="utf-8", errors="replace").splitlines()
+        cb_lines = _read_source_text(codebehind, warn=False).splitlines()
     except OSError:
         cb_lines = []
 
@@ -6523,7 +6610,7 @@ def _xaml_communitytoolkit_members(vm_node: dict) -> tuple[dict[str, dict], list
     try:
         # errors="replace" so a non-UTF8 code-behind can't raise UnicodeDecodeError
         # and abort the whole extract_xaml (matches every other reader here).
-        lines = Path(source_file).read_text(encoding="utf-8", errors="replace").splitlines()
+        lines = _read_source_text(Path(source_file), warn=False).splitlines()
     except OSError:
         return {}, []
 

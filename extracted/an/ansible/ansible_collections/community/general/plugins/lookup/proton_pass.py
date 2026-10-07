@@ -89,8 +89,9 @@ options:
     description:
       - Personal Access Token used for non-interactive authentication.
       - Format is C(pst_<token>::<key>).
-      - When provided, the plugin runs C(pass-cli login --pat <value>) before
-        the first item lookup if no active session is detected.
+      - When provided, the plugin runs C(pass-cli login) before the first item
+        lookup if no active session is detected, passing the token through the
+        E(PROTON_PASS_PERSONAL_ACCESS_TOKEN) environment variable.
     type: str
     default: ""
     ini:
@@ -100,6 +101,7 @@ options:
       - name: ANSIBLE_PROTON_PASS_PAT
     vars:
       - name: ansible_proton_pass_pat
+    secret: true
   agent_reason:
     description:
       - Human-readable reason string required by Proton Pass when authenticating
@@ -319,12 +321,15 @@ class ProtonPassClient:
         self.debug = debug
         self._session_ok = False
 
-    def _run(self, args: list[str]) -> tuple[int, str, str]:
-        """Run pass-cli with *args* and return (returncode, stdout, stderr).
+    def _run(self, args: list[str], extra_env: dict[str, str] | None = None) -> tuple[int, str, str]:
+        """Run pass-cli with ``args`` and return (returncode, stdout, stderr).
 
         When ``agent_reason`` is set, PROTON_PASS_AGENT_REASON is injected into
         the subprocess environment so that pass-cli records the reason in its
         encrypted audit log.
+
+        ``extra_env`` is merged into the subprocess environment. Use it for
+        secrets, which must never be passed in *args*.
 
         Raises:
             ProtonPassCLIError: if the binary is not found or the call times out.
@@ -335,6 +340,8 @@ class ProtonPassClient:
         env = os.environ.copy()
         if self.agent_reason:
             env["PROTON_PASS_AGENT_REASON"] = self.agent_reason
+        if extra_env:
+            env.update(extra_env)
 
         try:
             proc = Popen(command, stdin=DEVNULL, stdout=PIPE, stderr=PIPE, env=env)
@@ -360,12 +367,14 @@ class ProtonPassClient:
 
     def test_session(self) -> bool:
         """Return True when an active pass-cli session exists."""
-        rc, *_ignored = self._run(["test"])
+        rc, *_ignored = self._run(["info"])
         return rc == 0
 
     def login_with_pat(self, pat: str) -> None:
         """Authenticate using a Personal Access Token (``pst_<token>::<key>``)."""
-        rc, _out, err = self._run(["login", "--pat", pat])
+        # Passed via the environment so the token stays out of the process list and error messages.
+        extra_env = {"PROTON_PASS_PERSONAL_ACCESS_TOKEN": pat} if pat else None
+        rc, _out, err = self._run(["login"], extra_env=extra_env)
         if rc != 0:
             raise AnsibleLookupError(
                 f"pass-cli login failed: {err.strip()} — verify the PAT format is pst_<token>::<key>"
@@ -442,17 +451,19 @@ class ProtonPassClient:
 def _raise_item_error(title: str, vault: str, field: str | None, stderr: str) -> None:
     """Translate pass-cli stderr into a descriptive AnsibleLookupError."""
     msg = stderr.strip()
+    msg_lower = msg.lower()
     vault_hint = f" in vault '{vault}'" if vault else ""
     field_hint = f", field '{field}'" if field else ""
 
-    lower = msg.lower()
-    if "not found" in lower or "no items found" in lower:
-        raise AnsibleLookupError(
+    if "not found" in msg_lower or "no items found" in msg_lower:
+        error_msg = (
             f"Item '{title}'{vault_hint} not found in Proton Pass{field_hint}. Verify the item title and vault name."
         )
-    if "unauthorized" in lower or "unauthenticated" in lower:
-        raise AnsibleLookupError(f"pass-cli authentication error: {msg}. Re-run 'pass-cli login' or refresh your PAT.")
-    raise AnsibleLookupError(f"pass-cli failed for item '{title}'{vault_hint}{field_hint}: {msg}")
+    elif "unauthorized" in msg_lower or "unauthenticated" in msg_lower:
+        error_msg = f"pass-cli authentication error: {msg}. Re-run 'pass-cli login' or refresh your PAT."
+    else:
+        error_msg = f"pass-cli failed for item '{title}'{vault_hint}{field_hint}: {msg}"
+    raise AnsibleLookupError(error_msg)
 
 
 # ---------------------------------------------------------------------------

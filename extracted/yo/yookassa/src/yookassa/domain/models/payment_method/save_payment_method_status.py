@@ -16,3 +16,4 @@ class SavePaymentMethodStatus:
     PENDING = "pending"
     ACTIVE = "active"
     INACTIVE = "inactive"
+    UNKNOWN = "unknown"

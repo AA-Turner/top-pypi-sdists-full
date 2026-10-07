@@ -1443,16 +1443,19 @@ class HttpClient:
         *,
         id: str | None = None,
         name: str | None = None,
+        type: str | None = None,
         occurrence: Union[str, int] = "last",
     ) -> dict[str, Any] | None:
-        """Fetch one persisted span without loading the full trace."""
         from urllib.parse import quote, urlencode
 
         query: dict[str, str] = {}
         if id is not None:
             query["id"] = id
-        elif name is not None:
-            query["name"] = name
+        else:
+            if name is not None:
+                query["name"] = name
+            if type is not None:
+                query["type"] = type
             query["occurrence"] = str(occurrence)
 
         encoded_id = quote(trace_id, safe="")

@@ -76,9 +76,6 @@ class GetZeroTrustListResult:
     @_builtins.property
     @pulumi.getter
     def description(self) -> _builtins.str:
-        """
-        Provide the list description.
-        """
         return pulumi.get(self, "description")
 
     @_builtins.property
@@ -89,50 +86,31 @@ class GetZeroTrustListResult:
     @_builtins.property
     @pulumi.getter
     def id(self) -> _builtins.str:
-        """
-        Identify the API resource with a UUID.
-        """
         return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter
     def items(self) -> Sequence['outputs.GetZeroTrustListItemResult']:
-        """
-        Provide the list items.
-        """
         return pulumi.get(self, "items")
 
     @_builtins.property
     @pulumi.getter(name="listCount")
     def list_count(self) -> _builtins.float:
-        """
-        Indicate the number of items in the list.
-        """
         return pulumi.get(self, "list_count")
 
     @_builtins.property
     @pulumi.getter(name="listId")
     def list_id(self) -> Optional[_builtins.str]:
-        """
-        Identify the API resource with a UUID.
-        """
         return pulumi.get(self, "list_id")
 
     @_builtins.property
     @pulumi.getter
     def name(self) -> _builtins.str:
-        """
-        Specify the list name.
-        """
         return pulumi.get(self, "name")
 
     @_builtins.property
     @pulumi.getter
     def type(self) -> _builtins.str:
-        """
-        Specify the list type.
-        Available values: "SERIAL", "URL", "DOMAIN", "EMAIL", "IP", "CATEGORY", "LOCATION", "DEVICE", "AAGUID".
-        """
         return pulumi.get(self, "type")
 
     @_builtins.property
@@ -161,7 +139,7 @@ class AwaitableGetZeroTrustListResult(GetZeroTrustListResult):
 
 
 def get_zero_trust_list(account_id: Optional[_builtins.str] = None,
-                        filter: Optional[Union['GetZeroTrustListFilterArgs', 'GetZeroTrustListFilterArgsDict']] = None,
+                        filter: Optional[Union['GetZeroTrustListFilterArgs', 'GetZeroTrustListFilterArgsDict', 'outputs.GetZeroTrustListFilterResult']] = None,
                         list_id: Optional[_builtins.str] = None,
                         opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetZeroTrustListResult:
     """
@@ -174,9 +152,6 @@ def get_zero_trust_list(account_id: Optional[_builtins.str] = None,
     example_zero_trust_list = cloudflare.get_zero_trust_list(account_id="699d98642c564d2e855e9661899b7252",
         list_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415")
     ```
-
-
-    :param _builtins.str list_id: Identify the API resource with a UUID.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -198,7 +173,7 @@ def get_zero_trust_list(account_id: Optional[_builtins.str] = None,
         type=pulumi.get(__ret__, 'type'),
         updated_at=pulumi.get(__ret__, 'updated_at'))
 def get_zero_trust_list_output(account_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                               filter: pulumi.Input[Optional[Optional[Union['GetZeroTrustListFilterArgs', 'GetZeroTrustListFilterArgsDict']]]] = None,
+                               filter: pulumi.Input[Optional[Optional[Union['GetZeroTrustListFilterArgs', 'GetZeroTrustListFilterArgsDict', 'outputs.GetZeroTrustListFilterResult']]]] = None,
                                list_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetZeroTrustListResult]:
     """
@@ -211,9 +186,6 @@ def get_zero_trust_list_output(account_id: pulumi.Input[Optional[Optional[_built
     example_zero_trust_list = cloudflare.get_zero_trust_list(account_id="699d98642c564d2e855e9661899b7252",
         list_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415")
     ```
-
-
-    :param _builtins.str list_id: Identify the API resource with a UUID.
     """
     __args__ = dict()
     __args__['accountId'] = account_id

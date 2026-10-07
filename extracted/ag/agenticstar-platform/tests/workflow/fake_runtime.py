@@ -3,7 +3,9 @@
 chatboardfront `routes/mpRuntime.js` / `services/Project/mp/completion.js` の契約を写す:
 context / artifacts/{id}/content / audit（accepted, duplicates）/ artifacts（multipart, 201 or 200 existing）/
 completion（CAS: 同じ completion_id+digest は 200 existing、異なる terminal 候補は 409 terminal）、
-terminal 後の非 completion write は 409 terminal、期限後の write は 409 deadline_exceeded。
+terminal 後の非 completion write は 409 terminal。terminal の前は、書き込み（completion を含む）と live な読み取り（入力 artifact /
+接続 token）を、期限後は 409 deadline_exceeded、取消後は 409 cancelled、run の終端後は 409 run_closed で拒む
+（`middleware/mpRuntimeAuth.js` と同じ順）。
 """
 from __future__ import annotations
 
@@ -65,6 +67,8 @@ class FakeRuntime:
         self.context_protocol_override: Optional[str] = None   # /context の protocol を契約外にする
         self.fail_invoked_500_times = 0
         self.reject_all_writes = False
+        self.run_closed = False                      # run が終端した / run の取消（/context の cancel_requested_at には出ない）
+        self.deadline_passed = False                 # 期限を過ぎたことにする（時計を進めずに deadline_exceeded を返す）
         # 接続 slot の token 取り直し (executer-marketplace #55)。slot -> (access_token, expires_at)
         self.connection_tokens: dict[str, tuple[str, Optional[str]]] = {
             "gitlab": ("tok-1", (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())}
@@ -117,9 +121,16 @@ class FakeRuntime:
         is_write = request.method not in ("GET", "HEAD")
         if self.state == "terminal" and not sub.endswith("/completion"):
             return self._err(409, "terminal", "execution is terminal")
-        if is_write and self.state != "terminal" and self.execution_deadline is not None \
-                and datetime.now(timezone.utc) > self.execution_deadline + timedelta(seconds=300):
-            return self._err(409, "deadline_exceeded")
+        live = (sub.startswith("/artifacts/") and sub.endswith("/content")) \
+            or (sub.startswith("/connections/") and sub.endswith("/token"))
+        if (is_write or live) and self.state != "terminal":
+            if self.deadline_passed or (self.execution_deadline is not None
+                                        and datetime.now(timezone.utc) > self.execution_deadline + timedelta(seconds=300)):
+                return self._err(409, "deadline_exceeded")
+            if self.cancel_requested_at:
+                return self._err(409, "cancelled")
+            if self.run_closed:
+                return self._err(409, "run_closed")
         if is_write and self.reject_all_writes:
             return self._err(503, "runtime_unavailable")
         if sub == "/context":
@@ -129,8 +140,6 @@ class FakeRuntime:
         if sub.startswith("/connections/") and sub.endswith("/token") and request.method == "GET":
             slot = sub[len("/connections/"):-len("/token")]
             self.connection_token_calls.append(slot)
-            if self.cancel_requested_at:
-                return self._err(409, "cancelled")
             if slot not in self.connection_tokens:
                 return self._err(404, "connection_not_bound")
             token, expires_at = self.connection_tokens[slot]
@@ -143,7 +152,13 @@ class FakeRuntime:
                 self.fail_download_times -= 1
                 return self._err(503, "storage_unavailable")
             if self.download_reject is not None:
-                return self._err(*self.download_reject)
+                status, code = self.download_reject
+                if status == 409:   # 拒んだ理由は以後の要求にも効く（本物の front は保存行の現在値で判定する）
+                    self.cancel_requested_at = self.cancel_requested_at or (
+                        datetime.now(timezone.utc).isoformat() if code == "cancelled" else None)
+                    self.run_closed = self.run_closed or code == "run_closed"
+                    self.deadline_passed = self.deadline_passed or code == "deadline_exceeded"
+                return self._err(status, code)
             return httpx.Response(200, content=self.instructions, headers={"Content-Type": "text/markdown"})
         if sub == "/audit":
             return self._audit(json.loads(request.content))
@@ -226,6 +241,9 @@ class FakeRuntime:
         ids = sorted(body.get("output_artifact_ids") or [])
         if env.get("version") != 2 or env.get("had_mutating_success") not in (True, False, None) or env.get("resumed") is not False:
             return self._err(400, "invalid_envelope")
+        ec = env.get("error_class")   # JS の length（UTF-16 の単位）で数える
+        if ec is not None and (not isinstance(ec, str) or len(ec.encode("utf-16-le", "surrogatepass")) > 256):
+            return self._err(400, "invalid_envelope")   # front completion.js の optionalString(error_class, 128)
         if env["outcome"] == "completed":
             names = {self.artifacts[i]["logical_name"] for i in ids if i in self.artifacts}
             missing = [o["name"] for o in self.contract["outputs"] if o.get("required") and o["name"] not in names]

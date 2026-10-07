@@ -26,7 +26,7 @@ import lzma,base64
 from Crypto.Cipher import AES
 #from Cryptodome.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
-from decimal import Decimal,localcontext,getcontext, ROUND_HALF_UP,ROUND_CEILING
+from decimal import Decimal,localcontext,getcontext, ROUND_HALF_UP,ROUND_CEILING, localcontext
 from inputimeout import inputimeout, TimeoutOccurred
 from uuid import uuid1
 import zipfile,pydoc
@@ -36,6 +36,7 @@ import fractions
 from sqlalchemy import desc,asc
 from num2words import num2words
 from copy import deepcopy
+from dateutil.relativedelta import relativedelta
 
 try:
     import resource
@@ -3372,59 +3373,63 @@ with some options:
                             result=global_search_for_text()
                             return func(result,data)
                         elif cmd.lower() in ["peek","pk"]:
-                            with db.Session(db.ENGINE) as session:
-                                transactionID=session.query(db.TransactionID).order_by(db.TransactionID.emoid.desc()).first()
+                            with localcontext() as ctx:
+                                ctx.prec=50
+                                with db.Session(db.ENGINE) as session:
+                                    transactionID=session.query(db.TransactionID).order_by(db.TransactionID.emoid.desc()).first()
 
-                                if transactionID is None:
-                                    transactionID=db.TransactionID()
-                                    session.add(transactionID)
-                                    session.commit()
-                                    session.refresh(transactionID)
+                                    if transactionID is None:
+                                        transactionID=db.TransactionID()
+                                        session.add(transactionID)
+                                        session.commit()
+                                        session.refresh(transactionID)
 
-                                if transactionID is not None:
-                                    total_qty=decc(0)
-                                    total_crv=decc(0)
-                                    total_tax=decc(0)
-                                    total_price=decc(0)
-                                    total_expense=decc(0)
+                                    if transactionID is not None:
+                                        total_qty=decc(0)
+                                        total_crv=decc(0)
+                                        total_tax=decc(0)
+                                        total_price=decc(0)
+                                        total_expense=decc(0)
 
-                                    results=session.query(db.Entry).filter(db.Entry.InList==True).all()
-                                    cta=len(results)
-                                    for num,entry in enumerate(results):
-                                        totalQty=decc(0)
-                                        crv=decc(0)
-                                        price=decc(0)
-                                        tax=decc(0)
-                                        for field in db.BooleanAnswers.location_fields:
-                                            if getattr(entry,field)!=None:
-                                                totalQty+=decc(getattr(entry,field))
-                                        crv=totalQty*decc(entry.CRV)
-                                        tax=totalQty*decc(entry.Tax)
-                                        price=totalQty*decc(entry.Price)
+                                        results=session.query(db.Entry).filter(db.Entry.InList==True).all()
+                                        cta=len(results)
+                                        for num,entry in enumerate(results):
+                                            totalQty=float(0)
+                                            crv=float(0)
+                                            price=float(0)
+                                            tax=float(0)
+                                            for field in db.BooleanAnswers.location_fields:
+                                                if getattr(entry,field)!=None:
+                                                    totalQty+=float(getattr(entry,field))
+
+                                            crv=totalQty*float(entry.CRV)
+                                            tax=totalQty*float(entry.Tax)
+                                            price=totalQty*float(entry.Price)
+                                            
+
+                                            total_expense+=decc(price+tax+crv)
+                                            total_crv+=decc(crv)
+                                            total_tax+=decc(tax)
+                                            total_price+=decc(price)
+                                            total_qty+=decc(totalQty)
                                         
-                                        total_expense+=(price+tax+crv)
-                                        total_crv+=crv
-                                        total_tax+=tax
-                                        total_price+=price
-                                        total_qty+=totalQty
-                                    
-                                    transactionID.transactionTotalExpense=total_expense
-                                    transactionID.transactionTotalPrice=total_price
-                                    transactionID.TransactionTax=total_tax
-                                    transactionID.TransactionCRV=total_crv
-                                    transactionID.TransactionQTY=total_qty
-                                    session.commit()
-                                    session.refresh(transactionID)
-                                    msg=f"""
-{Fore.orange_red_1}total_expense {Fore.green_yellow}={Fore.light_magenta} {total_expense:g}{Style.reset}
-{Fore.orange_red_1}total_crv {Fore.green_yellow}={Fore.light_magenta} {total_crv:g}{Style.reset}
-{Fore.orange_red_1}total_tax {Fore.green_yellow}={Fore.light_magenta} {total_tax:g}{Style.reset}
-{Fore.orange_red_1}total_price {Fore.green_yellow}={Fore.light_magenta} {total_price:g}{Style.reset}
-{Fore.orange_red_1}total_qty {Fore.green_yellow}={Fore.light_magenta} {total_qty:g}{Style.reset}
-{Fore.light_red}transactionID {Fore.green_yellow}={Fore.cadet_blue_1} {transactionID.transactionId}{Style.reset}
-                                    """
-                                    print(msg)
-                                    db.toRounded(actual=total_expense,bldlse=False)
+                                        transactionID.transactionTotalExpense=total_expense
+                                        transactionID.transactionTotalPrice=total_price
+                                        transactionID.TransactionTax=total_tax
+                                        transactionID.TransactionCRV=total_crv
+                                        transactionID.TransactionQTY=total_qty
+                                        session.commit()
+                                        session.refresh(transactionID)
+                                        msg=f"""
+    {Fore.orange_red_1}total_expense {Fore.green_yellow}={Fore.light_magenta} {total_expense:g}{Style.reset}
+    {Fore.orange_red_1}total_crv {Fore.green_yellow}={Fore.light_magenta} {total_crv:g}{Style.reset}
+    {Fore.orange_red_1}total_tax {Fore.green_yellow}={Fore.light_magenta} {total_tax:g}{Style.reset}
+    {Fore.orange_red_1}total_price {Fore.green_yellow}={Fore.light_magenta} {total_price:g}{Style.reset}
+    {Fore.orange_red_1}total_qty {Fore.green_yellow}={Fore.light_magenta} {total_qty:g}{Style.reset}
+    {Fore.light_red}transactionID {Fore.green_yellow}={Fore.cadet_blue_1} {transactionID.transactionId}{Style.reset}
+                                        """
+                                        print(msg)
+                                        db.toRounded(actual=total_expense,bldlse=False)
                             continue
                         elif cmd.lower() in ["bldls","build","buildls","build list","bld ls",'lsbld','list build','ls bld','bld']:
                             bldls()

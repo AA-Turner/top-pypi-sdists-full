@@ -14,6 +14,7 @@ class DiscogsOAuth1(BaseOAuth1):
     """
 
     name = "discogs"
+    title = "Discogs"
 
     OAUTH_TOKEN_PARAMETER_NAME = "oauth_token"
 
@@ -31,9 +32,11 @@ class DiscogsOAuth1(BaseOAuth1):
 
     def user_data(self, access_token: dict, *args, **kwargs) -> dict[str, Any] | None:
         identity = self.get_json(
-            "https://api.discogs.com/oauth/identity", auth=self.oauth_auth(access_token)
+            "https://api.discogs.com/oauth/identity",
+            auth=self.oauth_auth(access_token, stage="user_info"),
         )
 
         return self.get_json(
-            identity["resource_url"], auth=self.oauth_auth(access_token)
+            identity["resource_url"],
+            auth=self.oauth_auth(access_token, stage="user_info"),
         )

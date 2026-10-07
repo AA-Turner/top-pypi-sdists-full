@@ -1,5 +1,5 @@
 import pytest
-from hypothesis import HealthCheck, Phase, given, settings
+from hypothesis import HealthCheck, Phase, find, given, settings
 from hypothesis import strategies as st
 from requests.structures import CaseInsensitiveDict
 
@@ -448,6 +448,45 @@ def test_query_parameter_modification_revalidates(ctx):
     case.query["include_deleted"] = True
     assert case.meta.generation.mode == GenerationMode.POSITIVE
     assert case.meta.components[ParameterLocation.QUERY].mode == GenerationMode.POSITIVE
+
+
+def test_pipe_delimited_query_parameters_revalidate_after_edit(ctx):
+    parameters = [
+        {
+            "name": name,
+            "in": "query",
+            "required": True,
+            "style": "pipeDelimited",
+            "explode": False,
+            "schema": {"type": "array", "items": {"type": "string"}, "minItems": 2},
+        }
+        for name in ("tags", "labels")
+    ]
+    schema = ctx.openapi.load_schema(
+        {"/items": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}}
+    )
+    case = find(schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE), lambda case: True)
+
+    assert case.meta.components[ParameterLocation.QUERY].mode == GenerationMode.POSITIVE
+    case.query["unknown"] = "x"
+    assert case.meta.components[ParameterLocation.QUERY].mode == GenerationMode.NEGATIVE
+
+
+@pytest.mark.parametrize("query", [None, {"id": "abc"}], ids=["none", "wrong-type"])
+def test_replacing_query_container_revalidates_as_negative(ctx, query):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"name": "id", "in": "query", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = find(schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE), lambda case: True)
+    case.query = query
+    assert case.meta.components[ParameterLocation.QUERY].mode == GenerationMode.NEGATIVE
 
 
 def test_header_case_insensitive_dict_hash(ctx):

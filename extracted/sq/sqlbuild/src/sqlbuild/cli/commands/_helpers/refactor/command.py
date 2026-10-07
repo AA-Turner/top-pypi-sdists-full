@@ -14,15 +14,10 @@ from sqlbuild.cli.commands._helpers.refactor.output import (
     render_refactor_json,
     render_refactor_text,
 )
+from sqlbuild.cli.commands._helpers.refactor.target import refactor_request_for_target
 from sqlbuild.cli.commands.exceptions import CliUserError
 from sqlbuild.cli.commands.models import RefactorCommandRequest, RefactorCompile
-from sqlbuild.cli.commands.types import CliCommand
 from sqlbuild.compiler.compile.models import CompilerDiagnostic
-from sqlbuild.compiler.refactoring.constants import (
-    COLUMN_KIND_PREFIX,
-    COLUMN_TARGET_SEPARATOR,
-    MODEL_KIND_PREFIX,
-)
 from sqlbuild.compiler.refactoring.exceptions import RefactorInputError
 from sqlbuild.compiler.refactoring.main.commit_refactor_plan import commit_refactor_plan
 from sqlbuild.compiler.refactoring.main.plan_column_rename import plan_column_rename
@@ -32,6 +27,7 @@ from sqlbuild.compiler.refactoring.main.with_model_migration import with_model_m
 from sqlbuild.compiler.refactoring.models import RefactorPlan, RefactorRequest
 from sqlbuild.compiler.refactoring.types import RefactorOperation, RefactorStatus
 from sqlbuild.presentation.classes.transient_status_reporter import TransientStatusReporter
+from sqlbuild.presentation.main.count_noun import format_count_noun
 from sqlbuild.presentation.main.supports_color import supports_color
 
 _STAGING_PREFIX: str = "sqb-refactor-"
@@ -68,14 +64,16 @@ def _run(
         _write_errors(errors=before.errors)
         return 1
     status.complete(message=f"Compiled project. ({time.monotonic() - started:.2f}s)")
-    refactor_request: RefactorRequest = _refactor_request(request=request)
+    refactor_request: RefactorRequest = refactor_request_for_target(
+        request=request, all_keys=before.project.graph.all_keys
+    )
     status.start("Planning edits...")
     plan: RefactorPlan = (
         plan_column_rename(project=before.project, request=refactor_request)
         if refactor_request.operation == RefactorOperation.RENAME_COLUMN
         else plan_model_refactor(project=before.project, request=refactor_request)
     )
-    status.complete(message=f"Planned edits to {len(plan.changes)} files.")
+    status.complete(message=f"Planned edits to {_files(plan)}.")
     if plan.blocking or plan.manual:
         status.error("Refused: some references cannot be rewritten safely.")
         return _finish(
@@ -135,9 +133,9 @@ def _run(
             diagnostics=(),
             use_color=use_color,
         )
-    status.start(f"Writing {len(plan.changes)} files...")
+    status.start(f"Writing {_files(plan)}...")
     commit_refactor_plan(project_dir=project_dir, originals=originals, plan=plan)
-    status.complete(message=f"Wrote {len(plan.changes)} files.")
+    status.complete(message=f"Wrote {_files(plan)}.")
     return _finish(
         request=request,
         plan=plan,
@@ -166,48 +164,8 @@ def _finish(
     return 0 if status in {RefactorStatus.APPLIED, RefactorStatus.DRY_RUN} else 1
 
 
-def _refactor_request(*, request: RefactorCommandRequest) -> RefactorRequest:
-    target: str = request.target.strip()
-    if request.command == CliCommand.MV:
-        if not target.startswith(MODEL_KIND_PREFIX):
-            raise CliUserError(
-                f"sqb mv moves models; got '{target}'",
-                code="C954",
-                help="write the target as model:<name>",
-            )
-        return RefactorRequest(
-            operation=RefactorOperation.MOVE_MODEL,
-            model_name=target.removeprefix(MODEL_KIND_PREFIX),
-            new_name="",
-            destination=request.destination or "",
-        )
-    new_name: str = (request.new_name or "").strip()
-    if target.startswith(MODEL_KIND_PREFIX):
-        if request.cascade:
-            raise CliUserError("--cascade applies to column renames only", code="C954")
-        return RefactorRequest(
-            operation=RefactorOperation.RENAME_MODEL,
-            model_name=target.removeprefix(MODEL_KIND_PREFIX),
-            new_name=new_name,
-        )
-    if target.startswith(COLUMN_KIND_PREFIX) and COLUMN_TARGET_SEPARATOR in target:
-        model_name: str
-        column_name: str
-        model_name, column_name = target.removeprefix(COLUMN_KIND_PREFIX).rsplit(
-            COLUMN_TARGET_SEPARATOR, 1
-        )
-        return RefactorRequest(
-            operation=RefactorOperation.RENAME_COLUMN,
-            model_name=model_name,
-            column_name=column_name,
-            new_name=new_name,
-            cascade=request.cascade,
-        )
-    raise CliUserError(
-        f"cannot rename '{target}'",
-        code="C954",
-        help="write the target as model:<name> or column:<model>.<column>",
-    )
+def _files(plan: RefactorPlan) -> str:
+    return format_count_noun(count=len(plan.changes), singular="file")
 
 
 def _relative(

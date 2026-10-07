@@ -86,7 +86,7 @@ def test_structured_input_editable_tool_names_includes_workbook_and_document() -
     assert "workbook" in names
     assert "document" in names
     assert "dataset" in names
-    assert "picklist" in names
+    assert "pick_list" in names
 
 
 def test_injection_catalog_exempts_realtime_native_builtins() -> None:
@@ -295,13 +295,13 @@ async def test_picklist_write_tool_hard_blocks_locked_item() -> None:
     from matrx_connect import AppContext
     from matrx_connect.context.app_context import clear_app_context, set_app_context
 
-    from matrx_ai.tools.implementations.picklists_tools import picklist
+    from matrx_ai.tools.implementations.pick_list_tools import pick_list
     from matrx_ai.tools.models import ToolContext
 
     ctx = AppContext(emitter=_NullEmitter(), metadata={READ_ONLY_RESOURCE_IDS_KEY: {"item-id"}})
     token = set_app_context(ctx)
     try:
-        result = await picklist(
+        result = await pick_list(
             {"action": "update_item", "item_id": "item-id", "label": "blocked"},
             ToolContext(call_id="c3"),
         )
@@ -317,7 +317,7 @@ async def test_picklist_item_write_hard_blocks_when_parent_list_is_locked(monkey
     from matrx_connect.context.app_context import clear_app_context, set_app_context
 
     from matrx_ai.db import _registry
-    from matrx_ai.tools.implementations.picklists_tools import picklist
+    from matrx_ai.tools.implementations.pick_list_tools import pick_list
     from matrx_ai.tools.models import ToolContext
 
     class _Item:
@@ -333,7 +333,7 @@ async def test_picklist_item_write_hard_blocks_when_parent_list_is_locked(monkey
     ctx = AppContext(emitter=_NullEmitter(), metadata={READ_ONLY_RESOURCE_IDS_KEY: {"list-id"}})
     token = set_app_context(ctx)
     try:
-        result = await picklist(
+        result = await pick_list(
             {"action": "update_item", "item_id": "item-id", "label": "blocked"},
             ToolContext(call_id="c4"),
         )
@@ -349,7 +349,7 @@ async def test_picklist_parent_lock_lookup_fails_closed(monkeypatch) -> None:
     from matrx_connect.context.app_context import clear_app_context, set_app_context
 
     from matrx_ai.db import _registry
-    from matrx_ai.tools.implementations.picklists_tools import picklist
+    from matrx_ai.tools.implementations.pick_list_tools import pick_list
     from matrx_ai.tools.models import ToolContext
 
     class _UnavailableItemModel:
@@ -362,7 +362,7 @@ async def test_picklist_parent_lock_lookup_fails_closed(monkeypatch) -> None:
     ctx = AppContext(emitter=_NullEmitter(), metadata={READ_ONLY_RESOURCE_IDS_KEY: {"list-id"}})
     token = set_app_context(ctx)
     try:
-        result = await picklist(
+        result = await pick_list(
             {"action": "update_item", "item_id": "item-id", "label": "blocked"},
             ToolContext(call_id="c5"),
         )

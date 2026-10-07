@@ -74,7 +74,20 @@ class TestComplianceWithCriteriasDto(unittest.TestCase):
                                 id = '', 
                                 requirement_name = '', 
                                 title = '', 
-                                description = '', )
+                                description = '', 
+                                manual_checks = [
+                                    legit_api_client.models.manual_check_dto.ManualCheckDto(
+                                        id = '', 
+                                        name = '', )
+                                    ], 
+                                automatic_checks = [
+                                    legit_api_client.models.automatic_check_dto.AutomaticCheckDto(
+                                        id = '', 
+                                        policy_name = '', 
+                                        title = '', 
+                                        category = '', 
+                                        type = null, )
+                                    ], )
                             ], )
                     ],
                 compliance_value = 1.337,

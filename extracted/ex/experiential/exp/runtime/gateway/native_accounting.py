@@ -13,10 +13,7 @@ from exp.common.core.artifacts import JsonObject
 from exp.common.models.gateway_catalog import ExactModelDeployment
 from exp.runtime.gateway.attempt_tokens import worst_case_input_tokens, worst_case_output_tokens
 from exp.runtime.gateway.budget_continuation import denied_destination_pool
-from exp.runtime.gateway.budgets import (
-    BudgetReservationRejected,
-    BudgetScopeKind,
-)
+from exp.runtime.gateway.budgets import BudgetReservationRejected, BudgetScopeKind
 from exp.runtime.gateway.contracts import (
     AuthorizationSnapshot,
     GatewayEvent,
@@ -25,6 +22,7 @@ from exp.runtime.gateway.contracts import (
     GatewayFailureClass,
 )
 from exp.runtime.gateway.disconnect_estimate import settled_terminal
+from exp.runtime.gateway.guardrails.session import discard_guardrails
 from exp.runtime.gateway.health import DeploymentHealthRegistry
 from exp.runtime.gateway.lane_saturation import lane_saturated_failure, overflow_target
 from exp.runtime.gateway.ledger import AttemptRejectedError
@@ -55,6 +53,7 @@ from exp.runtime.gateway.native_recovery import (
     recovery_failure,
     retain_recovery_observation_time,
 )
+from exp.runtime.gateway.native_request_settlement import RequestSettlements
 from exp.runtime.gateway.native_rung_policy import (
     bind_sticky_dispatch,
     failed_dispatch_candidate,
@@ -122,6 +121,7 @@ class NativeAttemptAccounting:
                 fair-share weight. ``None`` admits every sample; exceptions skip it.
         """
         self._write_ledger = write_ledger
+        self.request_settlements = RequestSettlements(write_ledger)
         self._finish_attempt: Callable[..., None] = write_ledger.finish_attempt
         self._budget_error_factory = budget_error_factory
         self._cache_sample_gate = cache_sample_gate
@@ -171,7 +171,7 @@ class NativeAttemptAccounting:
     @property
     def accounting_healthy(self) -> bool:
         """Return whether every durable terminal write has landed."""
-        return self._accounting_healthy
+        return self._accounting_healthy and not self.request_settlements.pending
 
     @property
     def health(self) -> DeploymentHealthRegistry:
@@ -306,7 +306,7 @@ class NativeAttemptAccounting:
             self._inflight[entry.authorization.request_id] = entry
 
     def entry(self, request_id: str) -> InflightRequest | None:
-        """Return one tracked request, or ``None`` after settlement."""
+        """Return one live request, or None after settlement."""
         with self._lock:
             return self._inflight.get(request_id)
 
@@ -360,7 +360,7 @@ class NativeAttemptAccounting:
             )
             self.finish_request_quietly(entry.authorization, failure)
             with self._lock:
-                self._inflight.pop(request_id, None)
+                discard_guardrails(self._inflight.pop(request_id, None))
             raise NativeBridgeError(public_failure_error(failure))
         failure = failure_from_boundary_payload(data.get("failure"))
         current_depth = data.get("current_depth")
@@ -441,7 +441,7 @@ class NativeAttemptAccounting:
                     )
                     forced_overflow = candidate is not None
                     if candidate is None:
-                        last_failure = lane_saturated_failure()
+                        last_failure = lane_saturated_failure(entry.authorization)
                         capacity_refused = True
                         with self._lock:
                             self._rung_saturation_refusals += 1
@@ -510,7 +510,7 @@ class NativeAttemptAccounting:
                     and overflow_target(route, [(candidate, ticket.reason)], {candidate: ticket})
                     is None
                 ):
-                    last_failure = lane_saturated_failure()
+                    last_failure = lane_saturated_failure(entry.authorization)
                     capacity_refused = True
                     with self._lock:
                         self._rung_saturation_refusals += 1
@@ -570,7 +570,7 @@ class NativeAttemptAccounting:
                     )
                     self.finish_request_quietly(entry.authorization, budget_quota_failure())
                     with self._lock:
-                        self._inflight.pop(request_id, None)
+                        discard_guardrails(self._inflight.pop(request_id, None))
                     raise error from exc
                 # A route whose hard monthly allocation cannot admit this
                 # call is skipped; a later certified route may still serve.
@@ -602,7 +602,7 @@ class NativeAttemptAccounting:
                     ),
                 )
                 with self._lock:
-                    self._inflight.pop(request_id, None)
+                    discard_guardrails(self._inflight.pop(request_id, None))
                 raise error from exc
             if ticket is not None:
                 self._loads.bind(ticket, attempt_id)
@@ -649,8 +649,8 @@ class NativeAttemptAccounting:
             certify_no_effects=capacity_refused and entry.no_paid_prework,
         )
         with self._lock:
-            if entry.pending_abandon is None:
-                self._inflight.pop(request_id, None)
+            if active or entry.pending_abandon is None:  # Settlement owns active exhaustion.
+                discard_guardrails(self._inflight.pop(request_id, None))
         return exhausted_attempt_payload(exhaustion, known_unbilled=capacity_refused and certified)
 
     def settle(self, argument: str) -> str:
@@ -704,6 +704,7 @@ class NativeAttemptAccounting:
             with self._lock:
                 entry.pending_settlement = data
             raise authority_error(exc) from exc
+        failure = terminal.failure
         self._record_health(entry, attempt_id, opened=opened, failure=failure, settlement=data)
         self._record_cache_fraction(entry, attempt_id, terminal)
         record_session_outcome(
@@ -716,7 +717,7 @@ class NativeAttemptAccounting:
         )
         with self._lock:
             if finalize:
-                self._inflight.pop(request_id, None)
+                discard_guardrails(self._inflight.pop(request_id, None))
             elif entry.active_attempt_id == attempt_id:
                 entry.active_attempt_id = None
         return "{}"
@@ -724,11 +725,8 @@ class NativeAttemptAccounting:
     def abandon(self, argument: str) -> str:
         """Terminalize one accepted request with no settleable outcome.
 
-        The data plane calls this when a request ends before any attempt is
-        active (a queue-deadline expiry, a drained permit, admission wire
-        drift, or a dropped handler between attempts). An active attempt is
-        settled with the given failure; otherwise only the accepted request
-        is finalized.
+        Preserve paid admission work on the active attempt, or on the request
+        when none was ever reserved. Failed writes remain owned for retry.
 
         Args:
             argument: JSON object with ``request_id`` and an optional
@@ -738,8 +736,7 @@ class NativeAttemptAccounting:
             An empty JSON object; an unknown request is a no-op.
 
         Raises:
-            NativeBridgeError: The durable terminal write failed; the entry
-                is kept so the deadline sweep can still close it.
+            NativeBridgeError: The terminal write failed; the entry remains for retry.
         """
         data = json.loads(argument)
         request_id = str(data["request_id"])
@@ -757,6 +754,8 @@ class NativeAttemptAccounting:
             if entry.pending_abandon is None:
                 entry.pending_abandon = failure
             failure = entry.pending_abandon
+        if entry.guardrails is not None:
+            failure = entry.guardrails.settlement_failure() or failure
         if not entry.execution_lock.acquire(blocking=False):
             return "{}"
         try:
@@ -767,7 +766,7 @@ class NativeAttemptAccounting:
                     self._record_health(
                         entry, entry.active_attempt_id, opened=False, failure=failure
                     )
-                    self._write_ledger.finish_attempt(
+                    self._finish_attempt(
                         attempt_id=entry.active_attempt_id,
                         terminal_event=GatewayEvent(
                             kind=GatewayEventKind.FAILED,
@@ -776,16 +775,22 @@ class NativeAttemptAccounting:
                         ),
                         failure=failure,
                         finalize_request=True,
+                        **web_search_requests_kwarg(
+                            self._finish_attempt, entry.web_search_requests
+                        ),
                     )
                 else:
-                    self._write_ledger.finish_request(
-                        authorization=entry.authorization,
-                        failure=failure,
+                    self.request_settlements.finish(
+                        entry.authorization,
+                        failure,
+                        web_search_requests=entry.web_search_requests
+                        if not entry.total_attempts
+                        else 0,
                     )
             except Exception as exc:  # noqa: BLE001 - the data plane retries.
                 raise authority_error(exc) from exc
             with self._lock:
-                self._inflight.pop(request_id, None)
+                discard_guardrails(self._inflight.pop(request_id, None))
             return "{}"
         finally:
             entry.execution_lock.release()
@@ -796,17 +801,20 @@ class NativeAttemptAccounting:
         failure: GatewayFailure,
         *,
         certify_no_effects: bool = False,
+        web_search_requests: int = 0,
     ) -> bool:
-        """Return committed no-effects proof; failed writes never certify free work."""
+        """Retain failed terminal writes and their exact meters for the existing sweep."""
+        entry = self.entry(authorization.request_id)
+        if entry is not None and not entry.total_attempts:
+            web_search_requests = max(web_search_requests, entry.web_search_requests)
         try:
-            committed = self._write_ledger.finish_request(
-                authorization=authorization,
-                failure=failure,
+            return self.request_settlements.finish(
+                authorization,
+                failure,
                 certify_no_effects=certify_no_effects,
+                web_search_requests=web_search_requests,
             )
-            return committed is True
-        except Exception:  # noqa: BLE001 - primary admission failure stays authoritative.
-            self._accounting_healthy = False
+        except Exception:  # noqa: BLE001 - the original sanitized admission error wins.
             return False
 
     def _record_health(
@@ -820,11 +828,7 @@ class NativeAttemptAccounting:
     ) -> None:
         """Apply one settled attempt's outcome to the deployment circuits.
 
-        Mirrors the executor's recording order: a successful dispatch opening
-        restores admission first, then the terminal outcome either closes the
-        circuit or counts against it. A plan rung whose response reports a used-up
-        usage window is throttled until that window resets, success or not, so a
-        pool of plans rotates before the first 429.
+        Restore successful opens; exhausted provider windows throttle until reset.
 
         Args:
             entry: The owning in-flight request.
@@ -833,9 +837,7 @@ class NativeAttemptAccounting:
             failure: The terminal failure, or ``None`` for a success.
             settlement: The settlement payload carrying the harvested rate-limit headers.
         """
-        # The rung's bounded-admission slot frees with the health recording:
-        # both releases are idempotent, so settle, abandon, and the sweep can
-        # each fire without double-counting.
+        # Slot and health releases are idempotent across settlement, abandon, and sweep.
         self._loads.release_attempt(attempt_id)
         depth = entry.attempt_depths.get(attempt_id)
         if depth is None:
@@ -854,13 +856,9 @@ class NativeAttemptAccounting:
                     or policy.tokens_per_minute is not None
                 )
             ):
-                # Passive-adaptive calibration: the provider just proved the
-                # observed dispatch rate is too high for this physical lane,
-                # so the rung's learned ceiling clamps to it. Recovery creep
-                # rediscovers headroom without synthetic probes. Gated on an
-                # admission-participating policy: only such rungs reserve
-                # through the registry, so only they carry a real observed
-                # window (and only they would ever enforce the ceiling).
+                # Clamp the learned ceiling to the observed rate; recovery creep
+                # rediscovers headroom. Only admission-participating rungs reserve
+                # through the registry, providing a real window and enforcing the ceiling.
                 self._loads.record_throttle(rung_load_key(deployment))
             self._health.failed(key, failure)
         else:
@@ -891,15 +889,12 @@ class NativeAttemptAccounting:
     def sweep_expired(self) -> None:
         """Recover retained settlements and close abandoned requests.
 
-        A retained settlement (the data plane's terminal write failed) is
-        replayed verbatim so the original outcome, usage, and finalize flag
-        land. A request with no settlement at all past its deadline plus
-        grace is closed as cancelled through its active attempt when one
-        exists, otherwise through its request row; that is the backstop for
-        wire-contract failures and data-plane crashes short of process death.
-        A retained settlement that fails again here latches
-        accounting-unhealthy as a durable loss.
+        Retained writes replay the original outcome, usage, and finalize flag.
+        Expired requests close as cancelled through their active attempt, or request row
+        if none exists. This covers broken wire contracts and data-plane crashes short
+        of process death. Repeated attempt-write failures latch accounting unhealthy.
         """
+        self.request_settlements.retry(_SWEEP_BATCH)
         now = time.monotonic()
         with self._lock:
             retained = [
@@ -980,7 +975,11 @@ class NativeAttemptAccounting:
         except Exception:  # noqa: BLE001 - keep the entry; the sweep retries.
             self._accounting_healthy = False
             return False
-        self._record_health(entry, attempt_id, opened=False, failure=failure, settlement=settlement)
+        failure = terminal.failure
+        opened = settlement is not None and settlement.get("opened") is True
+        self._record_health(
+            entry, attempt_id, opened=opened, failure=failure, settlement=settlement
+        )
         # Cache-priority observations must not depend on which settlement path succeeds.
         self._record_cache_fraction(entry, attempt_id, terminal)
         record_session_outcome(
@@ -993,7 +992,7 @@ class NativeAttemptAccounting:
         )
         with self._lock:
             if finalize:
-                self._inflight.pop(request_id, None)
+                discard_guardrails(self._inflight.pop(request_id, None))
             elif entry.active_attempt_id == attempt_id:
                 entry.active_attempt_id = None
         return True

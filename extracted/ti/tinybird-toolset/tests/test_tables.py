@@ -29,6 +29,9 @@ class TestTables(unittest.TestCase):
         ('SELECT * FROM t WHERE event_date IN (Select * FROM system.query_log)', [('', 't', ''), ('system', 'query_log', '')]),
     ]
 
+    def test_json_all_paths_is_allowed(self):
+        self.assertEqual(chquery.tables("SELECT JSONAllPaths('{}'::JSON)"), [])
+
     def test_extract_tables(self):
         for (sql, expected_tables) in self.scenarios:
             with self.subTest(sql=sql, expected_tables=expected_tables):

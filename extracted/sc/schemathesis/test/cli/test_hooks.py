@@ -1,5 +1,6 @@
 import pytest
 from _pytest.main import ExitCode
+from hypothesis import settings
 
 
 def test_before_call(ctx, cli):
@@ -31,6 +32,33 @@ def before_call(context, case, kwargs):
     assert result.exit_code == ExitCode.OK, result.stdout
 
 
+@pytest.mark.parametrize("phase", ["fuzzing", "stateful"])
+@pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
+def test_before_call_system_exit(ctx, cli, snapshot_cli, phase):
+    api = ctx.openapi.apps.users_crud()
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def before_call(context, case, kwargs):
+    raise SystemExit(1)
+        """
+    )
+    assert cli.main("run", api.schema_url, f"--phases={phase}", "--max-examples=1", hooks=module) == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
+def test_before_call_error_in_stateful_phase(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.users_crud()
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def before_call(context, case, kwargs):
+    raise ValueError("boom")
+        """
+    )
+    assert cli.main("run", api.schema_url, "--phases=stateful", "--max-examples=1", hooks=module) == snapshot_cli
+
+
 def test_after_call(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     # When the `after_call` hook is registered
@@ -47,6 +75,51 @@ def after_call(context, case, response):
     )
     # Then the tests should fail
     assert cli.main("run", api.schema_url, "-c", "all", hooks=module) == snapshot_cli
+
+
+@pytest.fixture
+def restore_default_profile():
+    original = settings.get_profile("default")
+    yield
+    settings.register_profile("default", original)
+    settings.load_profile("default")
+
+
+@pytest.mark.usefixtures("restore_default_profile")
+def test_hypothesis_deadline_from_hooks_is_reported(ctx, cli):
+    api = ctx.openapi.apps.success()
+    module = ctx.write_pymodule(
+        """
+import time
+import hypothesis
+
+hypothesis.settings.register_profile("tight", deadline=50)
+hypothesis.settings.load_profile("tight")
+
+@schemathesis.hook
+def before_call(context, case, kwargs):
+    time.sleep(0.15)
+"""
+    )
+    result = cli.main("run", api.schema_url, "--phases=fuzzing", "--max-examples=2", hooks=module)
+    assert "exceeds the deadline of 50.00ms" in result.stdout
+
+
+@pytest.mark.usefixtures("restore_default_profile")
+def test_stateful_run_with_default_profile_settings(ctx, cli):
+    api = ctx.openapi.apps.stateful_users()
+    module = ctx.write_pymodule(
+        """
+from hypothesis import Phase, settings
+
+settings.register_profile(
+    "default", deadline=None, phases=[phase for phase in Phase if phase not in (Phase.explain, Phase.reuse)]
+)
+settings.load_profile("default")
+"""
+    )
+    result = cli.main("run", api.schema_url, "--phases=stateful", "--mode=positive", "--max-examples=3", hooks=module)
+    assert result.exit_code == ExitCode.OK, result.stdout
 
 
 def test_hook_execution_error(ctx, cli, snapshot_cli):

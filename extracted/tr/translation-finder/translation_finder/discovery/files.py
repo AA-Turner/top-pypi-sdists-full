@@ -19,6 +19,7 @@ from translation_finder.api import register_discovery
 
 from .base import (
     FORMAT_SNIFF_MAX_BYTES,
+    FORMAT_SNIFF_MAX_FILES,
     BaseDiscovery,
     EncodingDiscovery,
     EnglishVariantsDiscovery,
@@ -189,16 +190,6 @@ def _read_binary_sniff_content(
     return content
 
 
-def _is_sniff_content_over_limit(
-    finder: Finder,
-    path: PurePath,
-    size: int | None = None,
-) -> bool:
-    """Check whether sniffing skipped content because it exceeded the limit."""
-    sample = _read_binary_sniff_sample(finder, path, size)
-    return sample is not None and not sample[1]
-
-
 def _read_text_sample(
     finder: Finder,
     path: PurePath,
@@ -223,23 +214,29 @@ def _read_text_sniff_content(
     return _decode_content(content)
 
 
-def _iter_result_paths(finder: Finder, result: ResultDict) -> Generator[PurePath]:
-    """Yield unique paths referenced by a discovery result."""
-    seen: set[str] = set()
-    for mask in (result.get("template"), result["filemask"]):
-        if mask is None:
-            continue
-        for path in finder.mask_matches(mask):
-            key = path.as_posix()
-            if key in seen:
-                continue
-            seen.add(key)
-            yield path
+class _FormatSniffBudget:
+    """Bound aggregate format sniffing across files in one result."""
+
+    def __init__(self) -> None:
+        self.remaining_bytes = FORMAT_SNIFF_MAX_BYTES
+        self.remaining_files = FORMAT_SNIFF_MAX_FILES
+
+    @property
+    def exhausted(self) -> bool:
+        """Whether another file can be inspected."""
+        return self.remaining_bytes <= 0 or self.remaining_files <= 0
+
+    def read(self, finder: Finder, path: PurePath) -> tuple[bytes, bool] | None:
+        """Read one sample and charge it to the budget."""
+        self.remaining_files -= 1
+        sample = _read_binary_sniff_sample(finder, path, self.remaining_bytes)
+        if sample is not None:
+            self.remaining_bytes -= len(sample[0])
+        return sample
 
 
-def _read_csv_rows(finder: Finder, path: PurePath) -> list[list[str]] | None:
-    """Parse a small CSV sample."""
-    text = _read_text_sample(finder, path)
+def _parse_csv_rows(text: str) -> list[list[str]] | None:
+    """Parse rows from a decoded CSV sample."""
     if not text or not any(delimiter in text for delimiter in ",;\t"):
         return None
 
@@ -263,6 +260,14 @@ def _read_csv_rows(finder: Finder, path: PurePath) -> list[list[str]] | None:
     except csv.Error:
         return None
     return rows
+
+
+def _read_csv_rows(finder: Finder, path: PurePath) -> list[list[str]] | None:
+    """Read and parse a small CSV sample."""
+    text = _read_text_sample(finder, path)
+    if text is None:
+        return None
+    return _parse_csv_rows(text)
 
 
 def _csv_dialect_syntax_score(
@@ -550,11 +555,17 @@ def _is_csv_simple(rows: list[list[str]]) -> bool:
     return not header or set(header) <= {"context", "id", "source", "target"}
 
 
-def _detect_csv_format(finder: Finder, result: ResultDict) -> str | None:
+def _detect_csv_format(discovery: BaseDiscovery, result: ResultDict) -> str | None:
     """Detect CSV format variants based on file content."""
     detected_simple = False
-    for path in _iter_result_paths(finder, result):
-        rows = _read_csv_rows(finder, path)
+    budget = _FormatSniffBudget()
+    for path in discovery._result_paths(result):  # ruff: ignore[private-member-access]
+        if budget.exhausted:
+            break
+        sample = budget.read(discovery.finder, path)
+        if sample is None:
+            continue
+        rows = _parse_csv_rows(_decode_sample_content(sample[0]))
         if rows is None:
             continue
         if _is_csv_multi(rows):
@@ -686,7 +697,7 @@ class CSVDiscovery(MonoTemplateDiscovery):
 
     def adjust_format(self, result: ResultDict) -> None:
         """Override detected format, based on the file content."""
-        detected = _detect_csv_format(self.finder, result)
+        detected = _detect_csv_format(self, result)
         if detected is not None:
             result["file_format"] = detected
 
@@ -876,10 +887,14 @@ class JavaDiscovery(EncodingDiscovery):
     def adjust_format(self, result: ResultDict) -> None:
         """Override detected format, based on the file content."""
         self.adjust_encoding(result)
-        for path in _iter_result_paths(self.finder, result):
-            content = _read_text_sample(self.finder, path)
-            if content is None:
+        budget = _FormatSniffBudget()
+        for path in self._result_paths(result):
+            if budget.exhausted:
+                break
+            sample = budget.read(self.finder, path)
+            if sample is None:
                 continue
+            content = _decode_sample_content(sample[0])
             if (
                 "xwiki" in path.as_posix().lower()
                 or "XWiki Core localization" in content
@@ -986,26 +1001,38 @@ class JSONDiscovery(BaseDiscovery):
     file_format = "json-nested"
     mask = "*.json"
 
-    def read_json_data(self, path: PurePath) -> object | None:
-        """Read and parse a complete JSON file."""
-        content = _read_binary_sniff_content(self.finder, path)
-        if content is None:
-            return None
+    @staticmethod
+    def _parse_json_data(content: bytes) -> object | None:
+        """Parse JSON data from complete binary content."""
         try:
             return json.loads(_decode_content(content))
         except (OSError, RecursionError, ValueError):
             return None
 
+    def read_json_data(self, path: PurePath) -> object | None:
+        """Read and parse a complete JSON file."""
+        content = _read_binary_sniff_content(self.finder, path)
+        if content is None:
+            return None
+        return self._parse_json_data(content)
+
     def has_template_less_content(self, result: ResultDict) -> bool:
         """Check whether a template-less JSON result looks translatable."""
-        for path in _iter_result_paths(self.finder, result):
+        budget = _FormatSniffBudget()
+        for path in self._result_paths(result):
             if not hasattr(path, "open"):
                 return True
 
-            if _is_sniff_content_over_limit(self.finder, path):
+            if budget.exhausted:
                 return True
 
-            data = self.read_json_data(path)
+            sample = budget.read(self.finder, path)
+            if sample is None:
+                continue
+            content, complete = sample
+            if not complete:
+                return True
+            data = self._parse_json_data(content)
             if isinstance(data, dict) and self.detect_dict(data) is not None:
                 return True
         return False
@@ -1298,7 +1325,7 @@ class TXTDiscovery(MonoTemplateDiscovery, EnglishVariantsDiscovery):
 
     def adjust_format(self, result: ResultDict) -> None:
         """Override detected format, based on the file content."""
-        if _detect_csv_format(self.finder, result) == "csv-simple":
+        if _detect_csv_format(self, result) == "csv-simple":
             result["file_format"] = "csv-simple"
 
 
@@ -1509,9 +1536,15 @@ class FlatXMLDiscovery(MonoTemplateDiscovery):
 
     def adjust_format(self, result: ResultDict) -> None:
         """Override detected format, based on the file content."""
-        for path in _iter_result_paths(self.finder, result):
-            content = _read_text_sample(self.finder, path)
-            if content is None or "<xwikidoc" not in content:
+        budget = _FormatSniffBudget()
+        for path in self._result_paths(result):
+            if budget.exhausted:
+                break
+            sample = budget.read(self.finder, path)
+            if sample is None:
+                continue
+            content = _decode_sample_content(sample[0])
+            if "<xwikidoc" not in content:
                 continue
             if (
                 "XWiki.TranslationDocumentClass" in content

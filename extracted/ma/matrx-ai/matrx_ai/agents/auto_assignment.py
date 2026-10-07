@@ -40,14 +40,16 @@ def random_assignment_bindings_from_variables(
         if not isinstance(assignment, dict) or assignment.get("random") is not True:
             continue
 
-        structured_list = custom_component.get("structured_list") or custom_component.get(
-            "picklist"
+        structured_list = (
+            custom_component.get("pick_list")
+            or custom_component.get("structured_list")
+            or custom_component.get("picklist")
         )
         if isinstance(structured_list, dict):
             list_id = structured_list.get("listId") or structured_list.get("list_id")
             if isinstance(list_id, str) and list_id:
                 bindings[name] = {
-                    "source": "structured_list",
+                    "source": "pick_list",
                     "list_id": list_id,
                     "group_name": structured_list.get("groupName")
                     or structured_list.get("group_name"),

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/generators-yml.json
+#
+# Generates src/supermemory from the Supermemory v5 API (openapi.json, refreshed
+# from https://api.supermemory.ai/v5/openapi by scripts/generate). Fern runs the
+# open-source generator image locally in Docker — no hosted Fern account needed.
+#
+# overlay.yaml maps operations onto the SDK surface (client.add, documents.*, …)
+# and keeps method names in line with the TypeScript SDK (supermemoryai/sdk-ts).
+api:
+  specs:
+    # openapi.json with the type names from schemas.yaml (scripts/name_schemas.py)
+    - openapi: ./openapi.sdk.json
+      overlays: ./overlay.yaml
+      settings:
+        respect-nullable-schemas: true
+        coerce-enums-to-literals: true
+        path-parameter-order: url-order
+default-group: python-sdk
+groups:
+  python-sdk:
+    generators:
+      - name: fernapi/fern-python-sdk
+        version: 5.18.1
+        output:
+          location: local-file-system
+          path: ../src/supermemory
+        config:
+          package_name: supermemory
+          client_class_name: Supermemory
+          # Body fields become keyword arguments: client.add("ns", content="…")
+          inline_request_params: true
+          # Nested request objects (filters, connector setup, batch documents)
+          # accept plain dicts, typed as TypedDicts — as in the 3.x SDK.
+          use_typeddict_requests: true
+          pydantic_config:
+            # Build response models without validation, so new API fields or
+            # enum values never break existing clients.
+            skip_validation: true

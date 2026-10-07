@@ -4,13 +4,15 @@ OAuth2 Backend to work with microsoft graph.
 
 from typing import Any
 
-from social_core.exceptions import AuthMissingParameter
+from social_core.exceptions import AuthResponseError
 
 from .oauth import BaseOAuth2
 
 
 class MicrosoftOAuth2(BaseOAuth2):
     name = "microsoft-graph"
+    title = "Microsoft"
+    icon = "microsoft.svg"
     REQUIRES_USER_ID = True
     SCOPE_SEPARATOR = " "
     AUTHORIZATION_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
@@ -36,9 +38,8 @@ class MicrosoftOAuth2(BaseOAuth2):
             method=self.ACCESS_TOKEN_METHOD,
         )
 
-        self.process_error(response)
         return self.do_auth(
-            response["access_token"], *args, response=response, **kwargs
+            self.get_access_token(response), *args, response=response, **kwargs
         )
 
     def get_user_details(self, response):
@@ -47,7 +48,9 @@ class MicrosoftOAuth2(BaseOAuth2):
         username = response.get("userPrincipalName")
 
         if not username:
-            raise AuthMissingParameter(self, "userPrincipalName")
+            raise AuthResponseError(
+                self, claim="userPrincipalName", code="missing_claim", stage="user_info"
+            )
 
         if "@" in username:
             if not email:

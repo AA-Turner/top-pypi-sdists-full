@@ -569,7 +569,7 @@ class TelemetryContext:
             }
             properties.update({k: v for k, v in props.items() if v is not None})
             # Same contract as core.build_batch: detected or absent, never a
-            # placeholder that reads as Claude Code for a Cursor user.
+            # placeholder that reads as Claude Code for a Codex or pi user.
             detected = core.detect_agent_label()
             if detected is not None:
                 properties.setdefault("agent", detected)

@@ -33,8 +33,8 @@ from ..sdk.tls import ssl_context
 from ..tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from ..tap_core.session_identity import compatible_copy, validate_identity
 from ..tap_core.session_journal import (
-    DELETED_STATE, DeliveryPending, Journal, ReconciliationRequired, SessionDeleted, Wire,
-    prefix_hash,
+    DELETED_STATE, RECEIPTED_PROTOCOLS, DeliveryPending, Journal, ProtocolRestarted,
+    ReconciliationRequired, SessionDeleted, Wire, prefix_hash,
 )
 from ..tap_core.transcript import (
     MAX_BATCH_BYTES,
@@ -64,48 +64,21 @@ def _captured_rows():
 
 INGEST_PATH = {h.id: f"/ingest/v1/sessions/{h.route}" for h in _captured_rows()}
 
-#: Claude Code writes tool OUTPUT twice: once as a `tool_result` block inside
-#: `message.content`, which the sanitizer compacts to a byte count, and once as
-#: a top-level `toolUseResult` object, which it does not touch. That second copy
-#: carries `originalFile` (whole file contents), `oldString`/`newString` (entire
-#: edit bodies) and `stdout`/`stderr` (full command output). Measured over one
-#: real 12.9MB session on the machine this was written against: present on 329
-#: events and 54% of all sanitized bytes.
-#:
-#: THE IMPORT LANE DROPS IT, AND LIVE CAPTURE IS LEFT ALONE. The two are
-#: different bargains. Someone who turns capture on is consenting to their
-#: sessions being recorded from that moment, and the engine's extraction reads
-#: that field. This lane ships history nobody consented to at the time, under a
-#: screen that promises file contents and tool output do not leave -- so for
-#: historical transcripts the promise wins. Changing the shared sanitizer would
-#: change live capture for every existing user, which is a product decision and
-#: not this feature's to make silently.
-_HEAVY_TOP_LEVEL = ("toolUseResult",)
-
-
-def _import_sanitizer(inner):
-    """The canonical sanitizer, plus the drops an unconsented import needs."""
-
-    def sanitize_for_import(event):
-        result = inner(event)
-        if isinstance(result, dict):
-            for key in _HEAVY_TOP_LEVEL:
-                result.pop(key, None)
-        return result
-
-    return sanitize_for_import
-
-
 #: The sanitizer modules a registry row can name (`capture.sanitizer`).
+#:
+#: The import lane uses them unchanged, exactly as live capture does. It used
+#: to wrap them to drop Claude Code's top-level `toolUseResult` (the second,
+#: full copy of every tool's output: 54% of the sanitized bytes of one measured
+#: 12.9MB session) from history only. Since tap 0.9.10 the shared sanitizer
+#: ships no field it does not name, for every producer, so there is nothing
+#: left for this lane to drop on its own.
 _SANITIZER_MODULES = {
     "sanitize": sanitize,
     "codex_sanitize": codex_sanitize,
     "pi_sanitize": pi_sanitize,
     "kimi_sanitize": kimi_sanitize,
 }
-SANITIZER = {
-    h.id: _import_sanitizer(_SANITIZER_MODULES[h.capture.sanitizer].sanitize_event) for h in _captured_rows()
-}
+SANITIZER = {h.id: _SANITIZER_MODULES[h.capture.sanitizer].sanitize_event for h in _captured_rows()}
 
 #: How many bytes one line may be read into memory at a time. A transcript can
 #: be tens of MB and `read_new` reads to EOF in one call, so the importer walks
@@ -1018,7 +991,8 @@ def _finalized_coverage(
         raise ReconciliationRequired("refusing adoption across transcript destination identities")
     stream = remote.get("stream")
     if (
-        remote.get("protocol_version") != 2 or remote.get("state") != "ready"
+        # Coverage is cursors and hashes, whichever protocol the stream uses.
+        remote.get("protocol_version") not in RECEIPTED_PROTOCOLS or remote.get("state") != "ready"
         or not isinstance(stream, dict) or stream.get("finalized") is not True
     ):
         return None
@@ -1130,6 +1104,9 @@ def upload_session(
             body = journal.stage(
                 transcript.session_id, cwd=transcript.cwd or "", historical_only=True,
                 require_no_pending=expected_history is not None, expected_history=expected_history,
+                # Protocol 3 packs toward 2 MiB: a smaller budget must still
+                # fit a batch, as protocol 2's 1 MiB fits the 1 MB minimum.
+                packing_cap=budget_bytes,
             )
             if body is None:
                 result.ok = True
@@ -1140,6 +1117,10 @@ def upload_session(
             stage = "finalization" if json.loads(body).get("finalize") else "upload"
             try:
                 journal.deliver(transcript.session_id, wire, expected_body=body)
+            except ProtocolRestarted:
+                # Batch 0 was refused on protocol 3 and dropped; the same range
+                # is staged again on protocol 2 now, not on a later run.
+                continue
             except ReconciliationRequired as exc:
                 if exc.status_code != 409 or rechecked:
                     raise
@@ -1257,7 +1238,7 @@ def gate_lines(
         "",
         f"  Your local {label} logs from the whole machine.",
         "  They are sanitized here before upload:",
-        "  tool output, file contents and API metadata never leave.",
+        "  tool output and file contents never leave.",
         "",
         "  Each imports on its own, with no project or experiment attached.",
     ]

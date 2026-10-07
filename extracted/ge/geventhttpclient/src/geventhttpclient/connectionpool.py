@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import base64
 import os
 import select
 from collections.abc import Callable
 from ssl import PROTOCOL_TLS_CLIENT, get_default_verify_paths
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import gevent.queue
 import gevent.socket
@@ -21,17 +19,8 @@ if not _CA_CERTS or os.path.isdir(_CA_CERTS):
 
     _CA_CERTS = certifi.where()
 
-_DEFAULT_CIPHERS = (
-    "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:"
-    "DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:ECDH+RC4:"
-    "DH+RC4:RSA+RC4:!aNULL:!eNULL:!MD5"  # codespell-ignore
-)
-
-
 DEFAULT_CONNECTION_TIMEOUT = 5.0
 DEFAULT_NETWORK_TIMEOUT = 5.0
-
-IGNORED = object()
 
 
 class ConnectionPool:
@@ -69,7 +58,17 @@ class ConnectionPool:
         self.size = size
         self.disable_ipv6 = disable_ipv6
 
-    def _resolve(self) -> list[tuple[Any, ...]]:
+    def _resolve(
+        self,
+    ) -> list[
+        tuple[
+            gevent.socket.AddressFamily,
+            gevent.socket.SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         """resolve (dns) socket information needed to connect it."""
         family = 0
         if self.disable_ipv6:
@@ -82,7 +81,18 @@ class ConnectionPool:
             gevent.socket.SOL_TCP,
         )
         # family, socktype, proto, canonname, sockaddr = info[0]
-        return info
+        return cast(
+            list[
+                tuple[
+                    gevent.socket.AddressFamily,
+                    gevent.socket.SocketKind,
+                    int,
+                    str,
+                    tuple[str, int] | tuple[str, int, int, int],
+                ]
+            ],
+            info,
+        )
 
     def close(self) -> None:
         self._closed = True
@@ -137,7 +147,11 @@ class ConnectionPool:
     def after_connect(self, sock: gevent.socket.socket) -> None:
         pass
 
-    def _connect_socket(self, sock: gevent.socket.socket, address: Any) -> gevent.socket.socket:
+    def _connect_socket(
+        self,
+        sock: gevent.socket.socket,
+        address: tuple[str, int] | tuple[str, int, int, int] | bytes | str,
+    ) -> gevent.socket.socket:
         sock.connect(address)
         return sock
 
@@ -249,7 +263,7 @@ def init_ssl_context(
     ssl_context_factory: Callable[..., gevent.ssl.SSLContext],
     ca_certs: str | None,
     check_hostname: bool = True,
-    ssl_options: dict | None = None,
+    ssl_options: dict[str, Any] | None = None,
 ) -> gevent.ssl.SSLContext:
     """
     Initializes an SSL context with additional SSL options.
@@ -299,8 +313,7 @@ class SSLConnectionPool(ConnectionPool):
         if provided. It must be a callable that returns a SSLContext.
     """
 
-    default_options: ClassVar[dict] = {
-        "ciphers": _DEFAULT_CIPHERS,
+    default_options: ClassVar[dict[str, Any]] = {
         "ca_certs": _CA_CERTS,
         "cert_reqs": gevent.ssl.CERT_REQUIRED,
         "ssl_version": PROTOCOL_TLS_CLIENT,
@@ -314,7 +327,7 @@ class SSLConnectionPool(ConnectionPool):
         request_port: int,
         insecure: bool = False,
         ssl_context_factory: Callable[..., gevent.ssl.SSLContext] | None = None,
-        ssl_options: dict | None = None,
+        ssl_options: dict[str, Any] | None = None,
         **kw: Any,
     ) -> None:
         self.insecure = insecure
@@ -331,7 +344,11 @@ class SSLConnectionPool(ConnectionPool):
 
         super().__init__(connection_host, connection_port, request_host, request_port, **kw)
 
-    def _connect_socket(self, sock: gevent.socket.socket, address: Any) -> gevent.socket.socket:
+    def _connect_socket(
+        self,
+        sock: gevent.socket.socket,
+        address: tuple[str, int] | tuple[str, int, int, int] | bytes | str,
+    ) -> gevent.socket.socket:
         sock = super()._connect_socket(sock, address)
 
         if self._use_proxy:

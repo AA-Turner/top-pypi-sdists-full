@@ -6,11 +6,15 @@ from datetime import datetime
 
 from trajectory._models import BaseModel
 from trajectory.types.async_failure import AsyncFailure
+from trajectory.types.eval_task_selection import EvalTaskSelection
 from trajectory.types.evals.eval_run_lifecycle_status import EvalRunLifecycleStatus
-from trajectory.types.run_options import RunOptions
+from trajectory.types.recorded_run_options import RecordedRunOptions
 
 
 class EvalRun(BaseModel):
+  task_selection: EvalTaskSelection | None = None
+  """Task coverage fixed at launch; null for legacy or diagnostic runs."""
+
   agent_id: str | None
   """Persisted owner; null for unassigned legacy runs."""
 
@@ -26,7 +30,7 @@ class EvalRun(BaseModel):
   base_model_slug: str | None = None
   """Base model evaluated by this run."""
 
-  options: RunOptions
+  options: RecordedRunOptions
 
   status: EvalRunLifecycleStatus | None
   """Current evaluation lifecycle status; null for legacy rows."""

@@ -125,13 +125,13 @@ class AwaitableGetOrganizationsResult(GetOrganizationsResult):
             results=self.results)
 
 
-def get_organizations(containing: Optional[Union['GetOrganizationsContainingArgs', 'GetOrganizationsContainingArgsDict']] = None,
+def get_organizations(containing: Optional[Union['GetOrganizationsContainingArgs', 'GetOrganizationsContainingArgsDict', 'outputs.GetOrganizationsContainingResult']] = None,
                       ids: Optional[Sequence[_builtins.str]] = None,
                       max_items: Optional[_builtins.int] = None,
-                      name: Optional[Union['GetOrganizationsNameArgs', 'GetOrganizationsNameArgsDict']] = None,
+                      name: Optional[Union['GetOrganizationsNameArgs', 'GetOrganizationsNameArgsDict', 'outputs.GetOrganizationsNameResult']] = None,
                       page_size: Optional[_builtins.int] = None,
                       page_token: Optional[_builtins.str] = None,
-                      parent: Optional[Union['GetOrganizationsParentArgs', 'GetOrganizationsParentArgsDict']] = None,
+                      parent: Optional[Union['GetOrganizationsParentArgs', 'GetOrganizationsParentArgsDict', 'outputs.GetOrganizationsParentResult']] = None,
                       opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetOrganizationsResult:
     """
     Accepted Permissions
@@ -145,7 +145,7 @@ def get_organizations(containing: Optional[Union['GetOrganizationsContainingArgs
     import pulumi
     import pulumi_cloudflare as cloudflare
 
-    example_organizations = cloudflare.get_organizations(ids=["a7b9c3d2e8f4g1h5i6j0k9l2m3n7o4p8"],
+    example_organizations = cloudflare.get_organizations(ids=["a7b9c3d2e8f4a1b5c6d0e9f2a3b7c4d8"],
         containing={
             "account": "account",
             "organization": "organization",
@@ -159,7 +159,7 @@ def get_organizations(containing: Optional[Union['GetOrganizationsContainingArgs
         page_size=0,
         page_token="page_token",
         parent={
-            "id": "a7b9c3d2e8f4g1h5i6j0k9l2m3n7o4p8",
+            "id": "a7b9c3d2e8f4a1b5c6d0e9f2a3b7c4d8",
         })
     ```
 
@@ -191,13 +191,13 @@ def get_organizations(containing: Optional[Union['GetOrganizationsContainingArgs
         page_token=pulumi.get(__ret__, 'page_token'),
         parent=pulumi.get(__ret__, 'parent'),
         results=pulumi.get(__ret__, 'results'))
-def get_organizations_output(containing: pulumi.Input[Optional[Optional[Union['GetOrganizationsContainingArgs', 'GetOrganizationsContainingArgsDict']]]] = None,
+def get_organizations_output(containing: pulumi.Input[Optional[Optional[Union['GetOrganizationsContainingArgs', 'GetOrganizationsContainingArgsDict', 'outputs.GetOrganizationsContainingResult']]]] = None,
                              ids: pulumi.Input[Optional[Optional[Sequence[_builtins.str]]]] = None,
                              max_items: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
-                             name: pulumi.Input[Optional[Optional[Union['GetOrganizationsNameArgs', 'GetOrganizationsNameArgsDict']]]] = None,
+                             name: pulumi.Input[Optional[Optional[Union['GetOrganizationsNameArgs', 'GetOrganizationsNameArgsDict', 'outputs.GetOrganizationsNameResult']]]] = None,
                              page_size: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
                              page_token: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                             parent: pulumi.Input[Optional[Optional[Union['GetOrganizationsParentArgs', 'GetOrganizationsParentArgsDict']]]] = None,
+                             parent: pulumi.Input[Optional[Optional[Union['GetOrganizationsParentArgs', 'GetOrganizationsParentArgsDict', 'outputs.GetOrganizationsParentResult']]]] = None,
                              opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationsResult]:
     """
     Accepted Permissions
@@ -211,7 +211,7 @@ def get_organizations_output(containing: pulumi.Input[Optional[Optional[Union['G
     import pulumi
     import pulumi_cloudflare as cloudflare
 
-    example_organizations = cloudflare.get_organizations(ids=["a7b9c3d2e8f4g1h5i6j0k9l2m3n7o4p8"],
+    example_organizations = cloudflare.get_organizations(ids=["a7b9c3d2e8f4a1b5c6d0e9f2a3b7c4d8"],
         containing={
             "account": "account",
             "organization": "organization",
@@ -225,7 +225,7 @@ def get_organizations_output(containing: pulumi.Input[Optional[Optional[Union['G
         page_size=0,
         page_token="page_token",
         parent={
-            "id": "a7b9c3d2e8f4g1h5i6j0k9l2m3n7o4p8",
+            "id": "a7b9c3d2e8f4a1b5c6d0e9f2a3b7c4d8",
         })
     ```
 

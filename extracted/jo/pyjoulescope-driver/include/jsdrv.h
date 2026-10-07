@@ -1,5 +1,6 @@
 /*
- * Copyright 2014-2025 Jetperch LLC
+ * SPDX-FileCopyrightText: Copyright 2014-2025 Jetperch LLC
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -598,6 +599,9 @@ enum jsdrv_device_open_mode_e {
 
 /**
  * @brief The initialization argument structure.
+ *
+ * Reserved for future use.  No arguments are currently defined.
+ * See jsdrv_initialize().
  */
 struct jsdrv_arg_s {
     const char * topic;          ///< The argument name.
@@ -608,8 +612,10 @@ struct jsdrv_arg_s {
  * @brief Initialize the Joulescope driver (synchronous).
  *
  * @param[out] context The Joulescope driver context for future API calls.
- * @param args The initialization arguments or NULL.  The argument list is
- *      terminated with an argument with an empty string for topic.
+ * @param args Reserved for future use: pass NULL.  No arguments are
+ *      currently defined, and the driver ignores this parameter.  When
+ *      arguments are defined, the list will be terminated by an entry
+ *      with an empty topic string.
  * @param timeout_ms This function is always blocking and waits for up to
  *      timeout_ms for the operation to complete.
  *      When 0, use the default timeout [recommended].

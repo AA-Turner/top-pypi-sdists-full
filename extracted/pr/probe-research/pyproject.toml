@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.216.3"
+version = "0.221.0"
 description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,7 +34,9 @@ dependencies = [
     # on the CapacityLimiter cancelled-acquire wakeup fix — both solid in the
     # 4.5+ line (also mcp's own floor). Locked: 4.14.x.
     "anyio>=4.5",
-    "mcp>=1.23,<2",
+    # 1.24: `mcp.client.streamable_http.streamable_http_client`, the client the
+    # CLI's `probe mcp tools|call` (`/probe inline`) talks to the hosted MCP with.
+    "mcp>=1.24,<2",
     # Frozen MCP output accounting; vocabulary/configuration ship as package data
     # so first use works offline. Imported only by the MCP budget module on demand.
     # A RANGE, not a pin (plan 2.11): an exact pin refused to share an
@@ -100,6 +102,10 @@ dev = [
     "pyarrow>=14",
     "h5py>=3.10",
     "safetensors>=0.4",
+    # tests/test_probe_events_contract.py validates every sanitized transcript
+    # event against tap_core/probe-events-1.schema.json (draft 2020-12).
+    # Test-only: the tap never validates at runtime.
+    "jsonschema>=4.18",
 ]
 # Extra needed only to RUN the hosted HTTP MCP service (not for stdio/CLI users).
 mcp-http = ["uvicorn>=0.30"]
@@ -111,7 +117,7 @@ mcp-http = ["uvicorn>=0.30"]
 # (mcp 2.x-pinned stacks such as vllm 0.30 refuse our `mcp<2` today).
 # tests/test_py310_compat.py keeps these specs identical to core's.
 cli = ["typer>=0.12,<1.0", "questionary>=2.0,<3"]
-mcp = ["mcp>=1.23,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
+mcp = ["mcp>=1.24,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
 all = ["probe-research[cli,mcp]"]
 # `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a
 # default, and `import probe` never loads it (tests/test_integrations_import_guard.py).

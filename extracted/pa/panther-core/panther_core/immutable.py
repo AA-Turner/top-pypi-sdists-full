@@ -102,6 +102,14 @@ class ImmutableCaseInsensitiveDict(ImmutableContainerMixin, Mapping):  # pylint:
         """
         return self.copy()
 
+    def raw_view(self) -> Mapping:
+        """
+        Returns the wrapped dictionary without copying it.
+        Nested values are the original mutable objects, so the result must be treated as read-only.
+        Prefer to_dict() unless the deep copy is a measurable cost.
+        """
+        return self._container
+
     def __getitem__(self, item: str) -> Any:
         # Try with the given key first (speeds up case-sensitive matches)
         # If the wrapped container is empty, which is possible for schemaless fields,

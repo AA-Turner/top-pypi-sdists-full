@@ -86,6 +86,11 @@ def test_run_output(cli, args, snapshot_cli):
     assert cli.run(*args) == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_run_rejects_unknown_phase(cli, snapshot_cli):
+    assert cli.run("http://127.0.0.1:1/openapi.json", "--phases=examples,foo") == snapshot_cli
+
+
 def test_hooks_module_not_found(cli, snapshot_cli):
     # When an unknown hook module is passed to CLI
     assert cli.main("run", "http://127.0.0.1:1", hooks="hook") == snapshot_cli
@@ -137,6 +142,11 @@ def test_schema_not_available(cli, workers, snapshot_cli):
     # Then the whole Schemathesis run should fail
     # And error message is displayed
     assert cli.run("http://127.0.0.1:1/schema.yaml", f"--workers={workers}") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_workers_out_of_range_lists_compact_choices(cli, snapshot_cli):
+    assert cli.run("http://127.0.0.1:1/schema.yaml", "--workers=999") == snapshot_cli
 
 
 @pytest.mark.snapshot_suffix(platform.python_implementation().lower())
@@ -606,6 +616,34 @@ def test_connection_error(ctx, cli, workers, snapshot_cli):
     )
 
 
+@pytest.mark.snapshot(replace_test_cases=False)
+def test_connection_error_cases_are_not_reported_as_skipped(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    assert cli.run(api.schema_url, "--url=http://127.0.0.1:1/api", "--phases=fuzzing", "-n", "5") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_test_cases=False, replace_traceback=True)
+def test_crashed_check_cases_are_reported_as_errored(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    with ctx.check(
+        """
+@schemathesis.check
+def broken_check(ctx, response, case):
+    raise ZeroDivisionError("boom")
+"""
+    ) as module:
+        assert (
+            cli.run(
+                api.schema_url,
+                "--max-examples=5",
+                "--phases=fuzzing",
+                "--checks=broken_check",
+                hooks=module,
+            )
+            == snapshot_cli
+        )
+
+
 def test_chunked_encoding_error(ctx, mocker, cli, snapshot_cli):
     api = ctx.openapi.apps.chunked_success()
 
@@ -1065,6 +1103,39 @@ def test_no_useless_traceback(ctx, cli, snapshot_cli):
     assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--mode=positive") == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_negative_mode_with_unsupported_regex_in_body(cli, ctx, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"name": {"type": "string", "pattern": "(?<=a+)b"}},
+                                    "required": ["name"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def items():
+        return jsonify({}), 400
+
+    assert (
+        cli.run_openapi_app(app, "--phases=fuzzing", "--mode=negative", "--max-examples=5", "--seed=1") == snapshot_cli
+    )
+
+
 def test_invalid_yaml(testdir, cli, simple_openapi, snapshot_cli, ctx):
     api = ctx.openapi.apps.success()
     schema = yaml.dump(simple_openapi)
@@ -1376,6 +1447,36 @@ def test_malformed_keyword(ctx, cli, snapshot_cli, operation, phase):
         {"/data": {"post": {**operation, "responses": {"200": {"description": "OK"}}}}}
     )
     assert cli.run(str(schema_path), f"--url={api.base_url}/api", f"--phases={phase}") == snapshot_cli
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"a": {"type": "integer", "minimum": "5"}},
+                        }
+                    }
+                },
+            }
+        },
+        {"parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "integer", "minimum": "5"}}]},
+    ],
+    ids=["body", "query"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_negative_mode_malformed_keyword(ctx, cli, snapshot_cli, operation):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/items": {"post": {**operation, "responses": {"200": {"description": "OK"}}}}}
+    )
+    result = cli.run_openapi_app(app, "--max-examples=5", "--phases=fuzzing", "--mode=negative")
+    assert "Schema Error" in result.stdout
+    assert result == snapshot_cli
 
 
 def test_nested_binary_in_yaml(ctx, cli, app_runner, snapshot_cli):
@@ -1711,6 +1812,65 @@ def test_max_time_reports_a_failure_found_in_a_repeat(ctx, cli, snapshot_cli):
             "--max-examples=5",
             "--generation-database=none",
             "--phases=fuzzing",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_max_time_reports_coverage_once_with_its_repeats(ctx, cli, snapshot_cli):
+    # Coverage repeats for operations whose error responses taught something; it still reads as one phase.
+    api = ctx.openapi.apps.planted_bug()
+    assert (
+        cli.run(
+            api.schema_url,
+            "--max-time=30",
+            "--generation-database=none",
+            "--phases=coverage",
+            "--checks=not_a_server_error",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_cycle_metrics=True, replace_reproduce_with=True)
+def test_max_time_reports_coverage_once_beside_fuzzing(ctx, cli, snapshot_cli):
+    # Rejections only start teaching after the first coverage pass, so coverage repeats between fuzzing passes.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"name": {"type": "string"}}}
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}, "400": {"description": "Bad"}},
+                }
+            }
+        }
+    )
+    counter = count()
+
+    @app.route("/users", methods=["POST"])
+    def create_user():
+        current = next(counter)
+        if current < 20:
+            return jsonify({}), 201
+        return jsonify({"messages": [f"field{current} - must not be blank"]}), 400
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--max-time=5",
+            "--max-examples=5",
+            "--generation-database=none",
+            "--phases=coverage,fuzzing",
+            "--checks=not_a_server_error",
+            "--warnings=off",
         )
         == snapshot_cli
     )
@@ -3356,6 +3516,7 @@ def test_server_stops_accepting_connections_in_generated_phases(subprocess_runne
         f"--phases={phase}",
         "--checks=not_a_server_error",
         "--mode=positive",
+        "--seed=1",
     )
     assert result == snapshot_cli
     # Generated bodies differ across Python versions; the listed request must still be the one that crashed it.
@@ -4100,6 +4261,38 @@ def test_link_extraction_from_binary_json_response(ctx, cli, snapshot_cli):
             "--max-examples=5",
             "-c not_a_server_error",
             config={"phases": {"stateful": {"inference": {"algorithms": []}}}},
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_network_error_reported_when_suite_ends_with_failure(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    counter = count()
+
+    @app.route("/users", methods=["POST"])
+    def create_user():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/users/<int:user_id>")
+    def get_user(user_id):
+        if next(counter) == 0:
+
+            def broken_body():
+                yield '{"id": '
+                raise RuntimeError("broken body")
+
+            return Response(broken_body())
+        return "", 404
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--phases=stateful",
+            "--max-examples=10",
+            "--seed=4",
+            "--checks=status_code_conformance",
         )
         == snapshot_cli
     )

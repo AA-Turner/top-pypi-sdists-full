@@ -56,6 +56,7 @@ from sqlbuild.adapter.contract.models import (
     RelationGrant,
     RelationInfo,
     RelationReadProbe,
+    RelationRowCountEstimate,
     RenderedRetentionChange,
     RetentionRequest,
     RetentionState,
@@ -127,6 +128,7 @@ from sqlbuild.adapters.bigquery.constants import (
     INTEGER_METADATA_TYPE_NAME,
     INTEGER_TYPE_TOKEN,
     INTEGER_WIRE_TYPE_NAME,
+    NATIVE_TABLE_TYPE,
     NOT_FOUND_ERROR_CLASS_NAME,
     SELECT_STATEMENT_TYPE,
     TABLE_NAME_WILDCARD,
@@ -269,6 +271,18 @@ class BigQueryAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             render_qualified_name=self.render_qualified_name,
         )
 
+    def render_create_source_freshness_table_sql(self, *, database: str | None, schema: str) -> str:
+        from sqlbuild.compiler.source_freshness.main.create_table_sql import (
+            build_create_table_sql as build_source_freshness_create_table_sql,
+        )
+
+        return build_source_freshness_create_table_sql(
+            database=database,
+            schema=schema,
+            render_qualified_name=self.render_qualified_name,
+            render_framework_type=self.render_framework_type,
+        )
+
     def render_create_source_freshness_index_sqls(
         self,
         *,
@@ -372,7 +386,6 @@ class BigQueryAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             schema=schema,
             render_qualified_name=self.render_qualified_name,
             render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_create_column_migration_state_table_sql(
@@ -1499,6 +1512,18 @@ class BigQueryAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     def supports_transactions(self) -> bool:
         return False
 
+    def interrupt_connection(self, connection: Any) -> bool:
+        """Cancel a connection's running statement from another thread; False if unsupported."""
+
+        del connection
+        return False
+
+    def lists_relations_authoritatively(self, *, database: str | None, schema: str) -> bool:
+        """Return whether ``list_relations`` reports every relation in this scope."""
+
+        del database, schema
+        return True
+
     def supports_zero_copy_clone(self) -> bool:
         return True
 
@@ -2506,6 +2531,29 @@ class BigQueryAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
 
     def format_row_diff_decimal_sql(self, value: Decimal) -> str:
         return format(value, "f")
+
+    def estimate_relation_row_count(
+        self,
+        *,
+        connection: _BigQueryConnection,
+        database: str | None,
+        schema: str | None,
+        name: str,
+    ) -> RelationRowCountEstimate:
+        """Read ``numRows`` from the tables API; only native tables report a count."""
+
+        if schema is None:
+            return RelationRowCountEstimate(row_count=None, detail="relation has no dataset")
+        table: Any = connection.client.get_table(
+            self._build_table_id(database=database, schema=schema, name=name)
+        )
+        table_type: str = str(getattr(table, "table_type", NATIVE_TABLE_TYPE)).upper()
+        num_rows: object | None = getattr(table, "num_rows", None)
+        if table_type != NATIVE_TABLE_TYPE or not isinstance(num_rows, int):
+            return RelationRowCountEstimate(
+                row_count=None, detail=f"no row count ({table_type.lower()})"
+            )
+        return RelationRowCountEstimate(row_count=num_rows)
 
     def inspect_row_diff_coverage(
         self,

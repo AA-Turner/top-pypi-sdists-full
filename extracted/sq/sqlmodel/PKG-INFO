@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: sqlmodel
-Version: 0.0.47
+Version: 0.0.48
 Summary: SQLModel, SQL databases in Python, designed for simplicity, compatibility, and robustness.
-Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
+Author-Email: Sebastián Ramírez <tiangolo@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -28,9 +28,11 @@ Project-URL: Repository, https://github.com/fastapi/sqlmodel
 Project-URL: Issues, https://github.com/fastapi/sqlmodel/issues
 Project-URL: Changelog, https://sqlmodel.tiangolo.com/release-notes/
 Requires-Python: >=3.10
-Requires-Dist: SQLAlchemy<2.1.0,>=2.0.14
+Requires-Dist: SQLAlchemy<2.2.0,>=2.0.14
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: typing-extensions>=4.5.0
+Provides-Extra: asyncio
+Requires-Dist: SQLAlchemy[asyncio]; extra == "asyncio"
 Description-Content-Type: text/markdown
 
 <p align="center">

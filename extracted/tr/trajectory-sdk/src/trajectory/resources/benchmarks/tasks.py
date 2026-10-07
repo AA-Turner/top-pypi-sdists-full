@@ -93,7 +93,7 @@ class Tasks(APIResource):
       raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
     return self._post(
       path_template(
-        "/api/v1/benchmarks/{bench_id}/tasks:diff",
+        "/api/v1/benchmarks/{bench_id}/tasks/diff",
         bench_id=bench_id,
       ),
       cast_to=BenchmarkTaskDiffResponse,
@@ -141,7 +141,7 @@ class Tasks(APIResource):
       raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
     return self._post(
       path_template(
-        "/api/v1/benchmarks/{bench_id}/tasks:append",
+        "/api/v1/benchmarks/{bench_id}/tasks/append",
         bench_id=bench_id,
       ),
       cast_to=CreateBenchmarkTaskAppendResponse,
@@ -193,7 +193,7 @@ class Tasks(APIResource):
       raise ValueError(f"Expected a non-empty value for `batch_id` but received {batch_id!r}")
     return self._post(
       path_template(
-        "/api/v1/benchmarks/{bench_id}/tasks:append/{batch_id}/commit",
+        "/api/v1/benchmarks/{bench_id}/tasks/append/{batch_id}/commit",
         bench_id=bench_id,
         batch_id=batch_id,
       ),

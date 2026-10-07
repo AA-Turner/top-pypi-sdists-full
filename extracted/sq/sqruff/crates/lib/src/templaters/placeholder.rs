@@ -9,7 +9,7 @@ use sqruff_lib_core::templaters::{
 
 use crate::Formatter;
 use crate::core::config::FluffConfig;
-use crate::templaters::{PlaceholderStyle, ProcessingMode, Templater};
+use crate::templaters::{PlaceholderStyle, ProcessingMode, Templater, TemplaterDocumentation};
 
 #[derive(Default)]
 pub struct PlaceholderTemplater;
@@ -90,7 +90,7 @@ impl PlaceholderTemplater {
             };
 
             let last_literal_length = span.start - last_pos_raw;
-            let replacement = template_config
+            let mut replacement = template_config
                 .and_then(|config| config.get(&param_name))
                 .map_or(Ok(param_name.clone()), |v| {
                     match (v.as_string(), v.as_int(), v.as_bool()) {
@@ -106,6 +106,10 @@ impl PlaceholderTemplater {
                         ))),
                     }
                 })?;
+
+            if let Some(quotation) = cap.name("quotation") {
+                replacement = format!("{}{replacement}{}", quotation.as_str(), quotation.as_str());
+            }
 
             // Add the literal to the slices
             template_slices.push(TemplatedFileSlice::new(
@@ -138,7 +142,8 @@ impl PlaceholderTemplater {
                 span.start,
                 None,
                 None,
-            );
+            )
+            .with_tag("literal");
             raw_slices.push(raw_file_slice);
 
             out_str.push_str(&replacement);
@@ -181,7 +186,7 @@ impl PlaceholderTemplater {
     }
 }
 
-impl Templater for PlaceholderTemplater {
+impl TemplaterDocumentation for PlaceholderTemplater {
     fn name(&self) -> &'static str {
         "placeholder"
     }
@@ -227,6 +232,9 @@ A few common styles are supported:
 
  -- dollar
  WHERE bla = $my_name or WHERE bla = ${my_name}
+
+ -- dollar_surround (DbUp compatible variable)
+ WHERE bla = $my_name$
 
  -- question_mark
  WHERE bla = ?
@@ -279,7 +287,9 @@ the named parameter param_name will be used as the key to replace, if missing, t
 
 Also consider making a pull request to the project to have your style added, it may be useful to other people and simplify your configuration."#
     }
+}
 
+impl Templater for PlaceholderTemplater {
     fn processing_mode(&self) -> ProcessingMode {
         ProcessingMode::Parallel
     }
@@ -325,7 +335,7 @@ param_style = colon",
     #[test]
     fn test_all_the_known_styles() {
         // in, param_style, expected_out, values
-        let cases: [PlaceholderCase<'_>; 19] = [
+        let cases: [PlaceholderCase<'_>; 23] = [
             (
                 "SELECT * FROM f, o, o WHERE a < 10\n\n",
                 "colon",
@@ -367,6 +377,22 @@ WHERE userid = 42 AND date > '2020-01-01'"#,
                 ],
             ),
             (
+                // Colon parameters followed by PostgreSQL's `::` cast operator
+                // should consume the full parameter name.
+                r#"
+SELECT user_mail, city_id
+FROM users_data
+WHERE userid = :user_id AND city = :city_name::text
+"#,
+                "colon",
+                r#"
+SELECT user_mail, city_id
+FROM users_data
+WHERE userid = 42 AND city = 'London'::text
+"#,
+                vec![("user_id", "42"), ("city_name", "'London'")],
+            ),
+            (
                 r#"
 SELECT user_mail, city_id
 FROM users_data
@@ -384,6 +410,24 @@ AND date > '2020-10-01'
                     ("user_id", "42"),
                     ("start_date", "'2020-01-01'"),
                     ("city_ids", "(1, 2, 3)"),
+                ],
+            ),
+            (
+                r#"
+SELECT user_mail, city_id, :"custom_column"
+FROM users_data
+WHERE userid = :user_id AND date > :'start_date'
+"#,
+                "colon_optional_quotes",
+                r#"
+SELECT user_mail, city_id, "PascalCaseColumn"
+FROM users_data
+WHERE userid = 42 AND date > '2021-10-01'
+"#,
+                vec![
+                    ("user_id", "42"),
+                    ("custom_column", "PascalCaseColumn"),
+                    ("start_date", "2021-10-01"),
                 ],
             ),
             (
@@ -594,6 +638,32 @@ WHERE userid = 42 AND date > '2021-10-01'
                     ("env", "PRD"),
                     ("user_id", "42"),
                     ("start_date", "'2021-10-01'"),
+                ],
+            ),
+            (
+                r#"
+SELECT user_mail, city_id
+FROM users_data
+WHERE user_mail = '$12$'
+AND date > $90$
+            "#,
+                "dollar_surround",
+                r#"
+SELECT user_mail, city_id
+FROM users_data
+WHERE user_mail = 'test@example.com'
+AND date > '2020-10-01'
+            "#,
+                vec![("12", "test@example.com"), ("90", "'2020-10-01'")],
+            ),
+            (
+                r"SELECT $user-name$, $名$, :$name$, x$name$, \$name$, $missing$",
+                "dollar_surround",
+                r"SELECT alice, unicode, :$name$, x$name$, \$name$, missing",
+                vec![
+                    ("user-name", "alice"),
+                    ("名", "unicode"),
+                    ("name", "blocked"),
                 ],
             ),
             (

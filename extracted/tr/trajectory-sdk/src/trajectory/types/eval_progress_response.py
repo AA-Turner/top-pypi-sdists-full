@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from trajectory._models import BaseModel
 from trajectory.types.async_failure import AsyncFailure
+from trajectory.types.eval_task_selection import EvalTaskSelection
 from trajectory.types.evals.eval_run_lifecycle_status import EvalRunLifecycleStatus
 
 
@@ -34,6 +35,8 @@ class EvalLiveSummary(BaseModel):
 
 
 class EvalProgressResponse(BaseModel):
+  task_selection: EvalTaskSelection | None = None
+
   eval_run_id: str
   """Evaluation run whose progress is returned."""
 

@@ -5,6 +5,8 @@ from yookassa.domain.models.self_employed_data.request.confirmation_redirect imp
     SelfEmployedConfirmationRedirect as RequestConfirmationRedirect
 from yookassa.domain.models.self_employed_data.response.confirmation_redirect import \
     SelfEmployedConfirmationRedirect as ResponseConfirmationRedirect
+from yookassa.domain.models.self_employed_data.response.confirmation_unknown import \
+    SelfEmployedConfirmationUnknown as ResponseConfirmationUnknown
 
 
 class SelfEmployedConfirmationClassMap(DataContext):
@@ -25,4 +27,5 @@ class SelfEmployedConfirmationClassMap(DataContext):
     def response(self):
         return {
             SelfEmployedConfirmationType.REDIRECT: ResponseConfirmationRedirect,
+            SelfEmployedConfirmationType.UNKNOWN: ResponseConfirmationUnknown,
         }

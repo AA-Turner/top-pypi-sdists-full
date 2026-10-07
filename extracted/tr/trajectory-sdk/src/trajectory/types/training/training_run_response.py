@@ -6,7 +6,7 @@ from datetime import datetime
 
 from trajectory._models import BaseModel
 from trajectory.types.async_failure import AsyncFailure
-from trajectory.types.run_options import RunOptions
+from trajectory.types.recorded_run_options import RecordedRunOptions
 from trajectory.types.training.training_run_lifecycle_status import TrainingRunLifecycleStatus
 
 
@@ -29,7 +29,7 @@ class TrainingRunResponse(BaseModel):
 
   base_model_slug: str
 
-  options: RunOptions
+  options: RecordedRunOptions
 
   created_by: str
 

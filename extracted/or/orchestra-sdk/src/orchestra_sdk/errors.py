@@ -5,3 +5,7 @@ class MissingEnvironmentKeysError(Exception):
 
 class NoEnvironmentVariablesFoundError(Exception):
     pass
+
+
+class LinkedConnectionNotFoundError(Exception):
+    pass

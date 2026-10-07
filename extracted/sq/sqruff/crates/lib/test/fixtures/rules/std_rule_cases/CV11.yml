@@ -1,5 +1,39 @@
 rule: CV11
 
+test_pass_databricks_try_cast_shorthand_preferred_cast:
+  pass_str: SELECT CAST('20' AS INTEGER), '20'?::INTEGER
+  configs:
+    core:
+      dialect: databricks
+    rules:
+      convention.casting_style:
+        preferred_type_casting_style: cast
+
+test_pass_databricks_try_cast_shorthand_consistent:
+  pass_str: SELECT CAST('20' AS INTEGER), '20'?::INTEGER
+  configs:
+    core:
+      dialect: databricks
+
+test_pass_vertica_null_cast_shorthand_preferred_cast:
+  pass_str: SELECT CAST('20' AS INTEGER), '20'::!INTEGER
+  configs:
+    core:
+      dialect: vertica
+    rules:
+      convention.casting_style:
+        preferred_type_casting_style: cast
+
+test_fail_databricks_plain_shorthand_preferred_cast:
+  fail_str: SELECT '20'::INTEGER
+  fix_str: SELECT cast('20' as INTEGER)
+  configs:
+    core:
+      dialect: databricks
+    rules:
+      convention.casting_style:
+        preferred_type_casting_style: cast
+
 test_pass_cast:
   pass_str: |
     select cast(1 as varchar) as bar
@@ -336,6 +370,28 @@ test_pass_when_dialect_is_teradata:
     core:
       dialect: teradata
 
+test_pass_when_dialect_is_athena:
+  pass_str: |
+    select cast(1 as varchar(10)) as bar
+    from foo;
+  configs:
+    core:
+      dialect: athena
+    rules:
+      convention.casting_style:
+        preferred_type_casting_style: shorthand
+
+test_pass_when_dialect_is_trino:
+  pass_str: |
+    select cast(1 as varchar(10)) as bar
+    from foo;
+  configs:
+    core:
+      dialect: trino
+    rules:
+      convention.casting_style:
+        preferred_type_casting_style: shorthand
+
 test_fail_parenthesize_expression_when_config_shorthand_from_cast:
   fail_str: |
     select
@@ -412,3 +468,72 @@ test_pass_cast_inside_aggregate_function:
   configs:
     core:
       dialect: postgres
+
+test_pass_macro_cast:
+  # If a cast is in a templated section, it shouldn't
+  # mean the ones in the file are inconsistent.
+  pass_str: |
+    {% macro cast_macro(col) %}
+        CAST(col as int)
+    {% endmacro %}
+
+    select
+        a,
+        {{ cast_macro('b') }},
+        c::date as d
+    from tbl
+  configs:
+    core:
+      templater: jinja
+
+test_fail_consistent_null_shorthand_cast:
+  # https://github.com/sqlfluff/sqlfluff/issues/7489
+  # null_literal is also a keyword type, so _get_children must not filter it
+  fail_str: |
+    SELECT
+        CONVERT(int, 1) AS bar,
+        null::int as id
+    FROM table1
+  fix_str: |
+    SELECT
+        CONVERT(int, 1) AS bar,
+        convert(int, null) as id
+    FROM table1
+  configs:
+    core:
+      dialect: snowflake
+
+test_fail_cast_preferred_null_shorthand_cast:
+  # https://github.com/sqlfluff/sqlfluff/issues/7489
+  # null_literal is also a keyword type, so _get_children must not filter it
+  fail_str: |
+    SELECT
+        null::int as id
+    FROM table1
+  fix_str: |
+    SELECT
+        cast(null as int) as id
+    FROM table1
+  configs:
+    core:
+      dialect: snowflake
+    rules:
+      convention.casting_style:
+        preferred_type_casting_style: cast
+
+test_fail_cast_preferred_boolean_shorthand_cast:
+  # boolean_literal is also a keyword type, same fix as null_literal
+  fail_str: |
+    SELECT
+        true::text as flag
+    FROM table1
+  fix_str: |
+    SELECT
+        cast(true as text) as flag
+    FROM table1
+  configs:
+    core:
+      dialect: snowflake
+    rules:
+      convention.casting_style:
+        preferred_type_casting_style: cast

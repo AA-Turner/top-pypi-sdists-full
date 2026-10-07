@@ -225,6 +225,7 @@ class Route_mapsArgs(object):  # pylint: disable=R0903
                                         "max_reachable": {"type": "bool"},
                                         "parameter": {"type": "str"},  # like "$param1"
                                     },
+                                    "mutually_exclusive": [["increment", "decrement"]],
                                 },
                                 "metric_type": {
                                     "type": "dict",
@@ -506,6 +507,7 @@ class Route_mapsArgs(object):  # pylint: disable=R0903
                                         "max_reachable": {"type": "bool"},
                                         "parameter": {"type": "str"},  # like "$param1"
                                     },
+                                    "mutually_exclusive": [["increment", "decrement"]],
                                 },
                                 "mpls": {"type": "str"},
                                 "next_hop": {

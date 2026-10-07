@@ -3,8 +3,8 @@ AGENTICSTAR Platform SDK - Marketplace Runner
 ローカルで動く agent 関数を、Marketplace 互換の終端ライフサイクルへそのまま渡す。
 
 開発者は agent 関数（ロジック 100% 自由）だけを書き、runner が
-identity 読取 → 検証 → 入力取得 → agent 実行 → 結果保存/Webhook → terminal を
-正確に 1 回 → cleanup を担う。手書きだった main ボイラープレートを SDK に集約する
+identity 読取 → 検証 → （サイクル型なら started fence）→ 入力取得 → agent 実行 → 結果保存/Webhook →
+terminal を正確に 1 回 → cleanup を担う（started fence を取れなかった実行だけはイベントを 1 つも送らない）。手書きだった main ボイラープレートを SDK に集約する
 （設計書 AGENTICSTAR_PLATFORM_SDK_IMPLEMENTATION_PLAN.md §2.1 / molt #1409）。
 
 Example:
@@ -37,6 +37,13 @@ Example:
       イベント（進捗・二重 terminal）はすべて破棄され、terminal 後に agent が
       例外を投げても配信済みの終端は変わらない（ログのみ）
     - identity / infra 設定の欠落時は agent を呼ばずに MarketplaceRunnerConfigError
+    - 開始済みの印（started fence、``db/started_fence.py``）: サイクル型の実行（execution_data の
+      ``runtime_protocol`` = ``mp-chat/1``）では、agent を呼ぶ前に、同じ実行（CONVERSATION_ID,
+      MESSAGE_ID）の agent を既に誰かが始めていないかを DB で確かめ、印を残す。始めていたら
+      （controller が Pod を作り直した等）agent を呼ばず、イベントも送らずに MarketplaceRunnerFenceTaken
+      を raise する（プロセスは非0で終わり、executor が効果不明の異常終端で閉じる）。fence の DB の失敗も
+      agent を呼ばず、イベントも送らずに raise する（fail closed。所有を確かめられない runner は終端を送らない）。通常の会話（restartPolicy=OnFailure で再起動して走り直す）と
+      確かめられた実行は従来どおり。実行行の種類を読めない時はサイクル型として扱う
 
 Note:
     - MESSAGE_ID は message-driven 実行では executor が必ず注入する
@@ -44,6 +51,9 @@ Note:
       実行形態を将来 runner が扱う場合は契約拡張が必要）
     - ``run_marketplace_agent`` は内部で ``asyncio.run`` を使うため、稼働中の
       イベントループの中からは呼べない。その場合は ``arun_marketplace_agent`` を使う
+    - started fence は DB 直結の接続プール（``PostgreSQLManager.pool``）を使う。サイクル型の実行で
+      ``data_access`` に接続プールの無い実装（HTTP API モードの ApiPostgreSQLManager・自前の実装）を渡すなら
+      ``started_fence=False`` を明示する（その場合は Pod の作り直しでの二重実行を防げない）
 """
 
 import asyncio
@@ -55,6 +65,7 @@ from typing import Any
 
 from .db import DataAccess, PostgreSQLConfig, create_postgresql_manager
 from .db.execution_access import ExecutionAccess
+from .db.started_fence import StartedFenceTaken, take_started_fence
 from .events import EventEmitter, EventType
 from .events.handlers import create_marketplace_handler
 
@@ -69,12 +80,19 @@ OPTIONAL_IDENTITY_ENV = ("REQUEST_SOURCE", "AGENT_ID")
 # infra env（エージェント登録時に marketplace_agent_env_vars として設定する）
 WEBHOOK_URL_ENV = "WEBHOOK_URL"
 
+# サイクル型の実行（executer-marketplace の chat_cycle_models.PROTOCOL）。started fence はこの実行だけ
+CYCLE_PROTOCOL = "mp-chat/1"
+
 # agent 関数の契約: (emitter, message) を受け取り、結果文字列を返す（None 可）
 MarketplaceAgent = Callable[[EventEmitter, str], Awaitable[str | None]]
 
 
 class MarketplaceRunnerConfigError(RuntimeError):
     """identity / infra 設定の欠落。agent 関数は呼ばれていない。"""
+
+
+class MarketplaceRunnerFenceTaken(RuntimeError):
+    """同じ実行の agent は既に始められていた。agent 関数は呼ばれておらず、イベントも送っていない。"""
 
 
 _TERMINAL_EVENT_TYPES = frozenset(
@@ -148,6 +166,67 @@ def _latest_user_message(messages: list | None) -> str | None:
     return None
 
 
+_UNKNOWN = object()
+
+
+async def _execution_protocol(data_access: Any, execution_id: str) -> Any:
+    """実行行の ``runtime_protocol``（無ければ None）。行を読めない（DB の失敗・行が無い・形が違う）なら _UNKNOWN。"""
+    try:
+        result = await data_access.execute_query(
+            "SELECT runtime_protocol FROM execution_data WHERE id = $1", (execution_id,)
+        )
+    except Exception as exc:  # noqa: BLE001 — 読めなければ種類不明（呼び出し側が fence を取る）
+        logger.warning("[%s] runtime_protocol could not be read: %s", execution_id, type(exc).__name__)
+        return _UNKNOWN
+    if not isinstance(result, Mapping) or not result.get("success"):
+        return _UNKNOWN
+    rows = result.get("data")
+    if not isinstance(rows, list) or not rows or not isinstance(rows[0], Mapping):
+        return _UNKNOWN
+    value = rows[0].get("runtime_protocol")
+    return value if isinstance(value, str) else None
+
+
+async def _take_started_fence(data_access: Any, identity: dict) -> None:
+    """サイクル型の実行なら開始済みの印を取る。取れなければ agent を呼ばずに raise する（fence の DB の失敗も
+    同じ = fail closed）。通常の会話と確かめられた実行だけ何もしない（従来どおり）。実行行の種類を読めない時は
+    サイクル型として扱う（通常の会話でも初回は印が取れて従来どおり走る）。"""
+    execution_id = identity["EXECUTION_ID"]
+    protocol = await _execution_protocol(data_access, execution_id)
+    if protocol is not _UNKNOWN and protocol != CYCLE_PROTOCOL:
+        return
+    manager = getattr(data_access, "db", None)
+    pool = getattr(manager, "pool", None)
+    if pool is None and manager is not None and hasattr(data_access, "ensure_initialized"):
+        await data_access.ensure_initialized()
+        pool = getattr(manager, "pool", None)
+    if pool is None and protocol is _UNKNOWN:
+        # 種類を読めず、印を取る手段も無い（接続プールの無い data_access）。従来どおり入力取得に任せる
+        logger.warning("[%s] execution kind unknown and no connection pool; started fence skipped", execution_id)
+        return
+    if pool is None:
+        raise MarketplaceRunnerConfigError(
+            "This is a cycle execution (runtime_protocol mp-chat/1), or its kind could not be read: the "
+            "started fence needs a direct "
+            "PostgreSQL connection pool (PostgreSQLManager.pool), but the data access has none. Use a "
+            "direct DB connection, or pass started_fence=False (a recreated Pod may then run the agent again)."
+        )
+    try:
+        await take_started_fence(
+            pool,
+            user_id=identity["USER_ID"],
+            conversation_id=identity["CONVERSATION_ID"],
+            message_id=identity["MESSAGE_ID"],
+            execution_id=execution_id,
+        )
+    except StartedFenceTaken as exc:
+        logger.warning("[%s] %s", execution_id, exc)
+        raise MarketplaceRunnerFenceTaken(str(exc)) from exc
+    except Exception:
+        logger.exception("[%s] started fence could not be checked; not running the agent", execution_id)
+        raise
+
+
 async def arun_marketplace_agent(
     agent_func: MarketplaceAgent,
     *,
@@ -157,6 +236,7 @@ async def arun_marketplace_agent(
     data_access: Any | None = None,
     event_handler: Callable | None = None,
     request_source: str | None = None,
+    started_fence: bool = True,
 ) -> str | None:
     """agent 関数を Marketplace 互換ライフサイクルで実行する（async 版）。
 
@@ -173,14 +253,20 @@ async def arun_marketplace_agent(
         event_handler: EventEmitter に渡す handler の差し替え（テスト用。
             デフォルト: create_marketplace_handler による DB+Webhook 複合）
         request_source: REQUEST_SOURCE env の明示上書き
+        started_fence: サイクル型の実行で、開始済みの印を取ってから agent を呼ぶ（既定 True）。
+            接続プールを持たない ``data_access`` でサイクル型を動かす時だけ False にする
 
     Returns:
         agent 関数の戻り値（失敗時は None）
 
     Raises:
         MarketplaceRunnerConfigError: identity / WEBHOOK_URL の欠落、または
-            api_url（DB_API_PROXY_URL）設定（runner は token_provider を供給できない）
+            api_url（DB_API_PROXY_URL）設定（runner は token_provider を供給できない）、
+            またはサイクル型の実行で started fence に使う接続プールが無い
             （agent 未呼出・イベント未送信のまま終了する）
+        MarketplaceRunnerFenceTaken: 同じ実行の agent は既に始められていた
+            （agent 未呼出・イベント未送信のまま終了する）
+        Exception: started fence を DB の失敗で取れなかった（agent 未呼出・イベント未送信）
     """
     if env is None:
         import os
@@ -209,11 +295,18 @@ async def arun_marketplace_agent(
                     "marketplace runner cannot supply the token_provider "
                     "required for HTTP-API mode. Unset DB_API_PROXY_URL to use "
                     "a direct DB connection, or build the manager yourself and "
-                    "pass data_access=DataAccess(manager)."
+                    "pass data_access=DataAccess(manager) (for cycle executions also pass "
+                    "started_fence=False: the started fence needs a direct connection pool)."
                 )
             data_access = await stack.enter_async_context(
                 DataAccess(create_postgresql_manager(config))
             )
+
+        if started_fence:
+            # emitter / consumer を作る前に取る。取られていた・設定エラー・DB の失敗で取れなかった、のどれでも
+            # agent を呼ばず、イベントを 1 つも送らずに raise する（所有を確かめられない runner は終端を送らない。
+            # 先行の runner が既に終端を送っていれば二重になるため。PO 判断 2026-10-06）
+            await _take_started_fence(data_access, identity)
 
         handler = event_handler or create_marketplace_handler(
             data_access=data_access,

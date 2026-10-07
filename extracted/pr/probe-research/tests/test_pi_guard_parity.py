@@ -71,6 +71,7 @@ def test_an_inline_session_is_read_the_same_way():
 def test_the_inline_agent_is_refused_the_same_switch_in_the_same_words():
     assert ts_set(COMMANDS, "RESEARCHER_SWITCH") == session_marker.RESEARCHER_SWITCH
     assert ts_string(GUARD, "INLINE_SWITCH_DENY") == session_marker.INLINE_SWITCH_DENY
+    assert ts_string(GUARD, "RESEARCHER_SWITCH_DENY") == session_marker.RESEARCHER_SWITCH_DENY
 
 
 def test_the_classifier_knows_the_same_words():
@@ -129,3 +130,15 @@ def test_the_shared_fixture_is_what_the_python_guard_answers():
                 refused = matched
                 break
         assert (invocations, refused) == (case["invocations"], case["refused"]), command
+
+
+def test_the_inline_notice_reads_word_for_word():
+    # pi tells its agent in the approved words, and both sides write one file.
+    source = PI_SRC / "inlineNotice.ts"
+    assert ts_string(source, "INLINE_NOTICE") == session_marker.INLINE_NOTICE
+    assert ts_string(source, "INLINE_READS") == session_marker.INLINE_READS
+    assert ts_string(source, "INLINE_READS_OLD_CLI") == session_marker.INLINE_READS_OLD_CLI
+    # The same CLI floor for the read bridge (`probe mcp tools|call`) on both sides.
+    floor = re.search(r'^INLINE_BRIDGE_MIN_CLI = "([^"]+)"$', (HOOKS / "version_check.py").read_text(), re.M)
+    assert floor and ts_string(source, "INLINE_BRIDGE_MIN_CLI") == floor.group(1)
+    assert ts_string(source, "INLINE_SHOWN_SUFFIX") == session_marker.INLINE_SHOWN_SUFFIX

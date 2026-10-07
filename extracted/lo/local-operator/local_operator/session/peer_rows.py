@@ -182,6 +182,148 @@ def peer_session_row(session_id: str, root: Path | None = None) -> SessionRow | 
     return None
 
 
+def seed_peer_row(root: Path | None, row: SessionRow) -> None:
+    """Merge a KNOWINGLY-LIVE peer row into the cache, for resolutions to find.
+
+    WHY THIS EXISTS (the operator-blocking defect, 2026-10-06). ``/new remote
+    <peer>`` is answered by the peer's mint: the id in that reply names a
+    conversation that exists. But every other local route resolves ids through
+    the cached listing (``peer_session_row`` above), and a listing read a moment
+    before the create cannot contain the id — so the message sent to the
+    just-created conversation was refused with "This conversation no longer
+    exists, so your message wasn't sent", and the id resolved only when the
+    next federated sidebar read landed. The create's own reply is authoritative
+    local knowledge, so the route that holds it merges the row in here: the very
+    next resolution finds it with zero wire cost (the miss path's live read —
+    ``remote_open.remote_row_for``'s ``ttl_s=0`` — remains the fallback for
+    every id no reply announced).
+
+    MERGE; A ONE-ROW ENTRY NEVER ANSWERS A LISTING. A cache entry is this
+    module's ONE answer about the whole mesh, so it is only ever built from a
+    read — except here, where a row is KNOWN rather than read. With a listing
+    already cached, the row merges into it, keeping its age (``moment``) and its
+    unanswered peers: the row is visible on the next poll, and the poll's own
+    refresh schedule is untouched. With NO listing yet, the entry is stamped
+    ALREADY-STALE (``-inf``): the cache-only lookup answers from it, and every
+    TTL-respecting read — the sidebar's poll, the silent-peer read — sees it
+    expire immediately and pays its read in full, exactly as it would on a cold
+    cache. That is the property a one-row entry must never be able to break:
+    "device D holds this row" is what the create proved; "and nothing else" it
+    did not.
+
+    SAME DEVICE, SAME ID REPLACES — one conversation, one row, the same
+    (device, id) key ``_read`` de-duplicates by — while a same-id row for
+    ANOTHER device is the different conversation ``_read`` keeps separate.
+    ``unanswered`` rides as-is when merging: it is a fact about the last LISTING
+    read, and a create is not one.
+    """
+    key = "" if root is None else str(root)
+    device = str(row.owner_device or "")
+    cached = _CACHE.get(key)
+    if cached is None:
+        _CACHE[key] = (float("-inf"), (row,), ())
+        return
+    moment, rows, unanswered = cached
+    merged: list[SessionRow] = []
+    replaced = False
+    for existing in rows:
+        if existing.id == row.id and str(existing.owner_device or "") == device:
+            merged.append(row)
+            replaced = True
+        else:
+            merged.append(existing)
+    if not replaced:
+        merged.append(row)
+    _CACHE[key] = (moment, tuple(merged), unanswered)
+
+
+def select_peer_session(
+    target: str, rows: Iterable[SessionRow]
+) -> tuple[SessionRow | None, tuple[SessionRow, ...]]:
+    """Resolve one id-or-name target to a SINGLE fetched peer row. Pure; no I/O.
+
+    THE ONE SPELLING of "which session did they mean" for every surface that
+    reaches a peer's sessions from here (the pilot verbs and the session-plane
+    verbs on ``lop network sessions`` today; the tools that import this helper
+    directly in the companion slice). The semantics mirror the local resolver
+    (``mobile/peer_send.resolve_peer_target``) minus the tiers that name local
+    rows only — a pid, the stored-session fallback, and the team role
+    vocabulary — none of which exist on the rows this reads.
+
+    The tiers, in order:
+
+    * an EXACT whole-value match — conversation name first, then session id —
+      resolves silently: a full name or id is evidence, not a guess. More than
+      one exact match is REFUSED with the candidates rather than picked
+      between (the wrong-recipient hazard the local exact tier exists for);
+    * a case-insensitive SUBSTRING of either field resolves when it is the only
+      match, and is refused WITH the candidates when it is not.
+
+    Returns ``(row, ())`` for a resolution, ``(None, candidates)`` for an
+    ambiguity (EXACT-tier ambiguities are ordered by the field that matched,
+    then by input order; substring ambiguities keep input order), and
+    ``(None, ())`` for no match.
+
+    THE CWD-BASENAME ARM IS ABSENT BY DATA, not by choice: the local resolver
+    also matches a row's working-directory basename, and the row shape this
+    module publishes (``resume.SessionRow``) carries no cwd — the projection
+    read at ``_read`` drops it — so there is no third field to read here. A
+    third address field is a row/wire change, not a selector one.
+    """
+    needle = (target or "").strip().lower()
+    ordered = list(rows)
+    if not needle:
+        return None, ()
+    exact = [
+        (rank, order, row)
+        for order, row in enumerate(ordered)
+        if (rank := _exact_field_rank(row, needle)) is not None
+    ]
+    if len(exact) > 1:
+        exact.sort(key=lambda item: (item[0], item[1]))
+        return None, tuple(row for _rank, _order, row in exact)
+    if len(exact) == 1:
+        return exact[0][2], ()
+    matches = tuple(row for row in ordered if _address_contains(row, needle))
+    if len(matches) > 1:
+        return None, matches
+    if len(matches) == 1:
+        return matches[0], ()
+    return None, ()
+
+
+def _address_fields(row: SessionRow) -> tuple[str, str]:
+    """The fields a target matches against, in precedence order.
+
+    ``name`` then ``id`` — the local resolver's field order with the cwd arm
+    dropped, because a peer row has no cwd to read (see
+    :func:`select_peer_session`). The order is load-bearing in the exact tier:
+    it is the rank a multiple-exact-match refusal sorts its candidates by.
+    """
+    return (str(row.name or ""), str(row.id or ""))
+
+
+def _address_contains(row: SessionRow, needle: str) -> bool:
+    """Whether ``needle`` is a SUBSTRING of any addressed field.
+
+    ``needle`` arrives lowercased by the caller.
+    """
+    return any(needle in field.lower() for field in _address_fields(row))
+
+
+def _exact_field_rank(row: SessionRow, needle: str) -> int | None:
+    """The precedence rank of the first field that EQUALS ``needle``, else None.
+
+    Whole-value equality, not containment (``manager`` must not exactly match
+    ``team: manager``), and case-insensitively: a name is typed by a person.
+    ``needle`` arrives already lowercased by the caller.
+    """
+    for rank, field in enumerate(_address_fields(row)):
+        if field.lower() == needle:
+            return rank
+    return None
+
+
 class RemotePark(NamedTuple):
     """One LIVE parked request on a peer device, as the origin sees it.
 

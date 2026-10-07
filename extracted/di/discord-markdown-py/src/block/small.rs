@@ -1,14 +1,14 @@
 use nom::{
+	Parser,
 	bytes::complete::tag,
 	character::complete::space1,
 	combinator::map,
 	sequence::{pair, preceded},
-	Parser,
 };
 
 use crate::{
-	block::inline_block, context::Context, error::ParseError, grammar::Grammar, node::SpannedNodes,
-	span::Span, unparse::Unparse, Input,
+	Input, block::inline_block, context::Context, error::ParseError, grammar::Grammar,
+	node::SpannedNodes, span::Span, unparse::Unparse,
 };
 
 pub const PREFIX: &str = "-#";
@@ -63,7 +63,7 @@ mod test {
 
 	use crate::{context::Context, spanned_vec, test_utils::handle_nom_err, text};
 
-	use super::{small, Small};
+	use super::{Small, small};
 
 	#[test]
 	fn basic_small() {

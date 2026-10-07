@@ -1,6 +1,7 @@
 import base64
 import errno
 import os
+import re
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import IO, Any
 
@@ -8,7 +9,7 @@ import gevent.socket
 
 from geventhttpclient import __version__
 from geventhttpclient.connectionpool import ConnectionPool, SSLConnectionPool
-from geventhttpclient.header import Headers
+from geventhttpclient.header import Headers, HeadersDataType
 from geventhttpclient.response import (
     HTTPConnectionClosed,
     HTTPParseError,
@@ -16,6 +17,33 @@ from geventhttpclient.response import (
     HTTPSocketPoolResponse,
 )
 from geventhttpclient.url import URL
+
+# RFC 9110 section 9.1 and section 5.1: a method and a header field name
+# are tokens. Section 5.5: a field value carries no CR and no LF - request
+# smuggling builds on exactly those bytes (RFC 9112 section 5.2 deprecates
+# folding). Section 3: a request target carries no whitespace and no
+# control characters.
+_TOKEN_RE = re.compile(r"\A[!#$%&'*+\-.^_`|~0-9A-Za-z]+\Z")
+_FIELD_VALUE_RE = re.compile(r"\A[\t\x20-\x7e\x80-\xff]*\Z")
+_REQUEST_TARGET_RE = re.compile(r"\A[^\x00-\x20\x7f]*\Z")
+
+# RFC 9110 section 9.2.1: GET, HEAD, OPTIONS, TRACE, PUT and DELETE are the
+# idempotent methods.
+IDEMPOTENT_METHODS = frozenset(("GET", "HEAD", "OPTIONS", "TRACE", "PUT", "DELETE"))
+
+
+# RFC 9110 sections 9.3.1 and 9.3.3 and RFC 5789: the methods whose
+# requests define a meaning for enclosed content.
+_BODY_CARRYING_METHODS = frozenset(("POST", "PUT", "PATCH"))
+
+
+def _may_retry_after_send_error(method: str) -> bool:
+    """RFC 9110 section 9.2.2: a client SHOULD NOT automatically retry a
+    request with a non-idempotent method once it may have been processed.
+    After a send error part or all of the body may have reached the server,
+    so the retry is limited to idempotent methods."""
+    return method.upper() in IDEMPOTENT_METHODS
+
 
 CRLF = "\r\n"
 WHITESPACE = " "
@@ -59,7 +87,10 @@ def _get_body_length(body: Any) -> int | None:
             return None
 
 
-def _uses_chunked_transfer(header_fields: Mapping[str, Any], body: Any) -> bool:
+def _uses_chunked_transfer(
+    header_fields: HeadersDataType,
+    body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None,
+) -> bool:
     """Check whether the body must be sent with chunked transfer coding.
 
     That is the case when the user requested `Transfer-Encoding: chunked`, or
@@ -78,7 +109,7 @@ def _uses_chunked_transfer(header_fields: Mapping[str, Any], body: Any) -> bool:
     return not isinstance(body, (bytes, bytearray, memoryview)) and _get_body_length(body) is None
 
 
-def _requests_100_continue(header_fields: Mapping[str, Any]) -> bool:
+def _requests_100_continue(header_fields: HeadersDataType) -> bool:
     """Check whether the merged headers request `Expect: 100-continue`."""
     for field, value in header_fields.items():
         if field.lower() == HEADER_EXPECT.lower() and EXPECT_100_CONTINUE in str(value).lower():
@@ -96,7 +127,7 @@ def _iter_chunked(body: Any, block_size: int) -> Iterator[bytes]:
     if isinstance(body, (bytes, bytearray, memoryview)):
         data = memoryview(body)
         for offset in range(0, len(data), block_size):
-            block: Any = data[offset : offset + block_size]
+            block: memoryview = data[offset : offset + block_size]
             yield b"%x\r\n" % len(block) + bytes(block) + b"\r\n"
     elif hasattr(body, "read"):
         while True:
@@ -153,15 +184,15 @@ class HTTPClient:
         self,
         host: str,
         port: int | None = None,
-        headers: Mapping[str, Any] | None = None,
+        headers: HeadersDataType | None = None,
         block_size: int = BLOCK_SIZE,
         connection_timeout: float = ConnectionPool.DEFAULT_CONNECTION_TIMEOUT,
         network_timeout: float = ConnectionPool.DEFAULT_NETWORK_TIMEOUT,
         disable_ipv6: bool = False,
         concurrency: int = 1,
         ssl: bool = False,
-        ssl_options: dict | None = None,
-        ssl_context_factory: Callable[..., Any] | None = None,
+        ssl_options: dict[str, Any] | None = None,
+        ssl_context_factory: Callable[..., gevent.ssl.SSLContext] | None = None,
         insecure: bool = False,
         proxy_host: str | None = None,
         proxy_port: int | None = None,
@@ -247,15 +278,15 @@ class HTTPClient:
     def close(self) -> None:
         self._connection_pool.close()
 
-    # Like urllib2, try to treat the body as a file if we can't determine the
-    # file length with `len()`
+    # a body without a usable len() falls back to the size of its file in
+    # `_get_body_length`, and to chunked transfer when even that is unknown
 
     def _build_request(
         self,
         method: str,
         request_uri: str,
-        body: str | bytes | bytearray | IO[Any] | Iterable[bytes] = b"",
-        headers: Mapping[str, Any] | None = None,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None = b"",
+        headers: HeadersDataType | None = None,
         chunked: bool | None = None,
     ) -> str:
         """
@@ -277,6 +308,18 @@ class HTTPClient:
 
         if headers is None:
             headers = {}
+
+        if not isinstance(method, str) or not _TOKEN_RE.fullmatch(method):
+            raise ValueError(f"invalid HTTP method {method!r}")
+        if not isinstance(request_uri, str) or not _REQUEST_TARGET_RE.fullmatch(request_uri):
+            raise ValueError(f"invalid request URI {request_uri!r}")
+        if request_uri.startswith("//"):
+            # origin-form has exactly one leading slash (RFC 9112 section
+            # 3.2); "//host/path" is a protocol-relative reference that would
+            # be sent as a literal path with an empty first segment
+            raise ValueError(
+                f"invalid request URI {request_uri!r}: protocol-relative targets are not origin-form"
+            )
 
         header_fields = self.headers_type()
         header_fields.update(self.default_headers)
@@ -309,7 +352,13 @@ class HTTPClient:
         if body and not chunked and HEADER_CONTENT_LENGTH not in header_fields:
             body_length = _get_body_length(body)
             if body_length:
-                header_fields[HEADER_CONTENT_LENGTH] = body_length
+                header_fields[HEADER_CONTENT_LENGTH] = str(body_length)
+        elif not chunked and HEADER_CONTENT_LENGTH not in header_fields:
+            # RFC 9112 section 6.3: methods that define a meaning for
+            # enclosed content SHOULD carry Content-Length. An empty or
+            # absent body is a zero, like curl and http.client send it.
+            if method.upper() in _BODY_CARRYING_METHODS:
+                header_fields[HEADER_CONTENT_LENGTH] = "0"
 
         request_url = request_uri
         if self.use_proxy and not self.ssl:
@@ -331,6 +380,10 @@ class HTTPClient:
         request = method + WHITESPACE + request_url + WHITESPACE + self.version + CRLF
 
         for field, value in header_fields.items():
+            if not isinstance(field, str) or not _TOKEN_RE.fullmatch(field):
+                raise ValueError(f"invalid header field name {field!r}")
+            if isinstance(value, str) and not _FIELD_VALUE_RE.fullmatch(value):
+                raise ValueError(f"invalid value for header field {field!r}: {value!r}")
             request += field + FIELD_VALUE_SEP + str(value) + CRLF
         request += CRLF
         return request
@@ -339,8 +392,8 @@ class HTTPClient:
         self,
         method: str,
         request_uri: str,
-        body: str | bytes | bytearray | IO[Any] | Iterable[bytes] = b"",
-        headers: Mapping[str, Any] | None = None,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None = b"",
+        headers: HeadersDataType | None = None,
     ) -> HTTPSocketPoolResponse:
         """
 
@@ -379,7 +432,10 @@ class HTTPClient:
         while True:
             sock = self._connection_pool.get_socket()
             try:
-                _request = request.encode()
+                # the request head speaks latin-1, like the response header
+                # decoding and http.client; characters outside latin-1 fail
+                # loudly instead of leaving UTF-8 mojibake on the wire
+                _request = request.encode("latin-1")
                 if expect_continue:
                     sock.sendall(_request)
                     try:
@@ -405,7 +461,7 @@ class HTTPClient:
                             )
                         except HTTPConnectionClosed:
                             # connection is released by the response itself
-                            if attempts_left > 0:
+                            if attempts_left > 0 and _may_retry_after_send_error(method):
                                 attempts_left -= 1
                                 continue
                             raise
@@ -424,7 +480,7 @@ class HTTPClient:
                         )
                     except HTTPConnectionClosed:
                         # connection is released by the response itself
-                        if attempts_left > 0:
+                        if attempts_left > 0 and _may_retry_after_send_error(method):
                             attempts_left -= 1
                             continue
                         raise
@@ -469,7 +525,7 @@ class HTTPClient:
                     )
                 except (gevent.socket.error, HTTPParseError):
                     # no pending (valid) response, socket is released already
-                    if attempts_left > 0:
+                    if attempts_left > 0 and _may_retry_after_send_error(method):
                         attempts_left -= 1
                         continue
                     raise
@@ -486,8 +542,10 @@ class HTTPClient:
                     headers_type=self.headers_type,
                 )
             except HTTPConnectionClosed:
-                # connection is released by the response itself
-                if attempts_left > 0:
+                # connection is released by the response itself; the request
+                # was sent in full, so the server may have processed it and
+                # the same RFC 9112 section 9.2.2 limit applies
+                if attempts_left > 0 and _may_retry_after_send_error(method):
                     attempts_left -= 1
                     continue
                 raise
@@ -496,7 +554,10 @@ class HTTPClient:
                 return response
 
     def _send_body_after_continue(
-        self, sock: gevent.socket.socket, body: Any, chunked: bool
+        self,
+        sock: gevent.socket.socket,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes],
+        chunked: bool,
     ) -> None:
         """Send the request body after an interim 100 Continue response."""
         if chunked:
@@ -554,40 +615,40 @@ class HTTPClient:
     def post(
         self,
         request_uri: str,
-        body: str | bytes | bytearray | IO[Any] | Iterable[bytes] = "",
-        headers: Mapping[str, Any] | None = None,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None = "",
+        headers: HeadersDataType | None = None,
     ) -> HTTPSocketPoolResponse:
         return self.request(METHOD_POST, request_uri, body=body, headers=headers)
 
     def put(
         self,
         request_uri: str,
-        body: str | bytes | bytearray | IO[Any] | Iterable[bytes] = "",
-        headers: Mapping[str, Any] | None = None,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None = "",
+        headers: HeadersDataType | None = None,
     ) -> HTTPSocketPoolResponse:
         return self.request(METHOD_PUT, request_uri, body=body, headers=headers)
 
     def delete(
         self,
         request_uri: str,
-        body: str | bytes | bytearray | IO[Any] | Iterable[bytes] = "",
-        headers: Mapping[str, Any] | None = None,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None = "",
+        headers: HeadersDataType | None = None,
     ) -> HTTPSocketPoolResponse:
         return self.request(METHOD_DELETE, request_uri, body=body, headers=headers)
 
     def patch(
         self,
         request_uri: str,
-        body: str | bytes | bytearray | IO[Any] | Iterable[bytes] = "",
-        headers: Mapping[str, Any] | None = None,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None = "",
+        headers: HeadersDataType | None = None,
     ) -> HTTPSocketPoolResponse:
         return self.request(METHOD_PATCH, request_uri, body=body, headers=headers)
 
     def trace(
         self,
         request_uri: str,
-        body: str | bytes | bytearray | IO[Any] | Iterable[bytes] = "",
-        headers: Mapping[str, Any] | None = None,
+        body: str | bytes | bytearray | memoryview | IO[bytes] | Iterable[bytes] | None = "",
+        headers: HeadersDataType | None = None,
     ) -> HTTPSocketPoolResponse:
         return self.request(METHOD_TRACE, request_uri, body=body, headers=headers)
 
@@ -598,9 +659,12 @@ class HTTPClient:
 
 
 class HTTPClientPool:
-    """Factory for maintaining a bunch of clients, one per host:port"""
+    """Factory for maintaining a bunch of clients, one per host:port.
 
-    # TODO: Add some housekeeping and cleanup logic
+    A client is created on first use and stays until :meth:`close`, which is the
+    only way to hand clients back; nothing expires on its own, so the pool grows
+    with the number of hosts it has talked to.
+    """
 
     def __init__(self, **kw: Any) -> None:
         self.clients: dict[tuple[str, int | None], HTTPClient] = {}

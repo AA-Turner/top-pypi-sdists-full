@@ -1,5 +1,6 @@
 /*
- * Copyright 2014-2022 Jetperch LLC
+ * SPDX-FileCopyrightText: Copyright 2014-2022 Jetperch LLC
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,7 +101,9 @@ bool msg_queue_is_empty(struct msg_queue_s* queue) {
 
 void msg_queue_push(struct msg_queue_s * queue, struct jsdrvp_msg_s * msg) {
     JSDRV_DBC_NOT_NULL(msg);
-    jsdrv_list_remove(&msg->item);  // remove from any existing list
+    // caller must detach first: removing here would touch another list
+    // without holding its lock.
+    JSDRV_DBC_TRUE(jsdrv_list_is_empty(&msg->item));
     pthread_mutex_lock(&queue->mutex);
     jsdrv_list_add_tail(&queue->items, &msg->item);
     pthread_mutex_unlock(&queue->mutex);

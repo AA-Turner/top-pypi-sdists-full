@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orchestra-sdk"
-version = "0.1.2"
+version = "0.2.0"
 
 description = "Orchestra SDK for updating self-hosted Tasks."
 readme = "README.md"

@@ -65,11 +65,16 @@ def _require_destination(settings):
     if settings.ingest_to_database or settings.ingest_to_search:
         return
     raise ConfigurationError(
-        "jobs show requires a destination: set DB_URL (or DB_* fields) and/or SEARCH_URL"
+        "jobs show requires a destination: set DB_URL (or DB_* fields), "
+        "SEARCH_URL, or enable default SQLite"
     )
 
 
 def _fetchall(db, sql, params=()):
+    from ..database.connection import DatabaseConnection
+
+    if isinstance(db, DatabaseConnection):
+        return db.fetchall(sql, params)
     with db.cursor() as cur:
         cur.execute(sql, params)
         return cur.fetchall()
@@ -118,7 +123,8 @@ def fetch_jobs(db, settings, *, limit=50, status=None, spider=None):
     cols = ", ".join(_LIST_KEYS)
     where, params = _sql_list_filters(status, spider)
     order = "started_at DESC, id DESC"
-    if getattr(settings, "db_dialect", "postgres") != "mysql":
+    dialect = getattr(settings, "db_dialect", "postgres")
+    if dialect not in ("mysql", "sqlite"):
         order = "started_at DESC NULLS LAST, id DESC"
     rows = _fetchall(
         db,

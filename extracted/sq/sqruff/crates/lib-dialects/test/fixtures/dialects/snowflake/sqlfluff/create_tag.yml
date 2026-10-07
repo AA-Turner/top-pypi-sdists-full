@@ -17,10 +17,11 @@ file:
     - keyword: TAG
     - object_reference:
       - naked_identifier: cost_center
-    - keyword: COMMENT
-    - comparison_operator:
-      - raw_comparison_operator: =
-    - quoted_literal: '''cost_center tag'''
+    - comment_equals_clause:
+      - keyword: COMMENT
+      - comparison_operator:
+        - raw_comparison_operator: =
+      - quoted_literal: '''cost_center tag'''
 - statement_terminator: ;
 - statement:
   - create_statement:
@@ -39,4 +40,13 @@ file:
     - quoted_literal: '''CONFIDENTIAL'''
     - comma: ','
     - quoted_literal: '''PII'''
+- statement_terminator: ;
+- statement:
+  - create_statement:
+    - keyword: CREATE
+    - keyword: OR
+    - keyword: ALTER
+    - keyword: TAG
+    - object_reference:
+      - naked_identifier: my_or_alter_tag
 - statement_terminator: ;

@@ -306,11 +306,17 @@ class Connect_SetUTC(Connect):
     def _connection_created(self, db):
         db = super()._connection_created(db)
         try:
-            db.query(db.dialect.set_timezone_to_utc())
+            set_utc = db.dialect.set_timezone_to_utc()
         except NotImplementedError:
             logging.debug(
                 f"Database '{db}' does not allow setting timezone. We recommend making sure it's set to 'UTC'."
             )
+            return db
+        db.query(set_utc)
+        if isinstance(db, ThreadedDatabase):
+            # The time zone is a session setting, and that query set it on one connection of the pool: the
+            # others would render timestamps in the server's time zone, and identical rows would differ.
+            db.session_setup += (set_utc,)
         return db
 
 

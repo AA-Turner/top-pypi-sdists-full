@@ -11,8 +11,9 @@ class StringMethodSettings(BaseModel):
     """
     Settings for a string-method TS search.
 
-    :param freeze: freeze nodes as they are added to the string (true=FSM, false=GSM)
-    :param interpolation_method: method to use for interpolation between nodes
+    :param settings_type: search-settings discriminator; fixed to "string_method"
+    :param freeze: freeze nodes as they are added to the string (true=FSM, false=GSM; default True)
+    :param interpolation_method: method to use for interpolation between nodes (default GEODESIC)
     """
 
     settings_type: Literal["string_method"] = "string_method"
@@ -27,6 +28,8 @@ class FSMSettings(StringMethodSettings):
     Retained for backwards compatibility; equivalent to `StringMethodSettings(freeze=True)`.
     Deprecated
 
+    :param settings_type: inherited search-settings discriminator; fixed to "string_method"
+    :param interpolation_method: inherited interpolation method between nodes (default GEODESIC)
     :param freeze: always True for FSM
     """
 

@@ -3,9 +3,9 @@
 use std::borrow::Cow;
 
 use custom::Custom;
-use nom::{branch::alt, combinator::map, error::ParseError, IResult, Parser};
+use nom::{IResult, Parser, branch::alt, combinator::map, error::ParseError};
 
-use crate::{unparse::Unparse, Input};
+use crate::{Input, unparse::Unparse};
 
 pub mod colon_delimited;
 /// Custom emoji parsing.
@@ -75,7 +75,7 @@ mod test {
 
 	use crate::test_utils::handle_nom_err;
 
-	use super::{parse, Custom, Emoji};
+	use super::{Custom, Emoji, parse};
 
 	#[test]
 	fn simple_emoji() {

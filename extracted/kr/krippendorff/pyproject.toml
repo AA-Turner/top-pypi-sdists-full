@@ -1,24 +1,24 @@
 [build-system]
-requires = ["uv_build>=0.9.6,<0.10.0"]
+requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
-
-[tool.uv.build-backend]
-module-name = "krippendorff"
-module-root = ""
 
 [project]
 name = "krippendorff"
-version = "0.8.2"
+version = "0.9.0"
 description = "Fast computation of the Krippendorff's alpha measure."
-authors = [
-    { name = "Santiago Castro", email = "sacastro@fing.edu.uy" },
-]
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE.txt"]
-
 readme = "README.md"
-
-keywords = ["Krippendorff", "alpha", "agreement", "reliability", "coding", "coders", "units", "values"]
+keywords = [
+    "Krippendorff",
+    "alpha",
+    "agreement",
+    "reliability",
+    "coding",
+    "coders",
+    "units",
+    "values",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -26,22 +26,20 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.23.2,<3"]
 
-requires-python = ">=3.10"
-dependencies = [
-    "numpy>=1.21,<3", # For NumPy Typing.
-]
-
-[dependency-groups]
-dev = ["pytest>=7,<9"]
+[[project.authors]]
+name = "Santiago Castro"
+email = "sacastro@fing.edu.uy"
 
 [project.urls]
 Homepage = "https://github.com/pln-fing-udelar/fast-krippendorff"
@@ -49,3 +47,53 @@ Documentation = "https://github.com/pln-fing-udelar/fast-krippendorff"
 Repository = "https://github.com/pln-fing-udelar/fast-krippendorff"
 "Bug Tracker" = "https://github.com/pln-fing-udelar/fast-krippendorff/issues"
 Changelog = "https://github.com/pln-fing-udelar/fast-krippendorff/releases"
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<10",
+    "ruff>=0.3,<1",
+    "ty<1",
+]
+
+[tool.ruff]
+include = [
+    "src/**/*.py",
+    "pyproject.toml",
+    "example.py",
+]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = [
+    "ANN002",
+    "ANN003",
+    "ANN401",
+]
+select = [
+    "ANN",
+    "B",
+    "C",
+    "C90",
+    "E",
+    "F",
+    "I",
+    "N",
+    "RUF",
+    "UP",
+    "W",
+]
+
+[tool.ty.src]
+include = [
+    "src/**/*.py",
+    "example.py",
+]
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.coverage.xml]
+output = "test-reports/coverage.xml"
+
+[tool.coverage.html]
+directory = "test-reports/htmlcov"

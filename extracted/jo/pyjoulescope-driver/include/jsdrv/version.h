@@ -1,5 +1,6 @@
 /*
- * Copyright 2014-2026 Jetperch LLC
+ * SPDX-FileCopyrightText: Copyright 2014-2026 Jetperch LLC
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +61,7 @@
  *
  * Changes in the patch version indicate bug fixes and improvements.
  */
-#define JSDRV_VERSION_PATCH 2
+#define JSDRV_VERSION_PATCH 3
 
 /**
  * @brief The maximum version string length.

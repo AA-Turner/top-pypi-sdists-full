@@ -37,6 +37,10 @@ harness = false
 name = "depth_map"
 harness = false
 
+[[bench]]
+name = "tpc"
+harness = false
+
 [features]
 parser = ["sqruff-lib-core/stringify"]
 python = ["pyo3", "sqruff-lib-core/serde"]
@@ -46,6 +50,7 @@ sqruff-lib-core.workspace = true
 sqruff-lib-dialects.workspace = true
 
 fancy-regex = "0.19.0"
+glob = "0.3"
 itertools = "0.15.0"
 regex = "1"
 walkdir = "2.5.0"
@@ -81,7 +86,6 @@ sqruff-lib = { path = "." }
 serde_yaml = "0.9.34"
 criterion = { version = "4.2.1", package = "codspeed-criterion-compat" }
 expect-test = "1.5"
-glob = "0.3"
 serde_json = "1"
 serde_with = { version = "3.21", default-features = false, features = [
     "alloc",

@@ -602,24 +602,9 @@ def test_pin_pattern_length_leaves_possessive_repeats_alone():
         # Negated POSIX class `[:^X:]` and unknown POSIX names \u2014 bail out.
         (r"[[:^alnum:]_]", None),
         (r"[[:greek:]_]", None),
-        # A nested class stands for one side of an operator.
-        (r"[\p{N}&&[5]]", r"[5]"),
-        # A side spelled with a shorthand class carries no codepoints to work out.
-        (r"[\p{L}&&\w]", None),
-        (r"[\p{L}&&[\w]]", None),
-        # A nested class opening on `]` names it as a member, leaving the operator's side unreadable.
-        (r"[\p{L}&&[]]", None),
-        # A negated POSIX class cannot compose with the members beside it, on either side.
-        (r"[\p{L}&&[:^alnum:]]", None),
-        # Nothing is left for the class to admit.
-        (r"[\p{L}&&\p{N}]", None),
         # Brace hex naming no digits, or a codepoint past the last one.
         (r"[a\x{}b]", None),
         (r"[a\x{110000}]", None),
-        # A class that never closes, with and without an operator inside it.
-        (r"[\p{L}&&[a]", None),
-        (r"[\p{L}&&[:alpha]", None),
-        (r"[\p{L}[a]", None),
         # Neither spelling of a group name is read by every engine, so the name goes.
         (r"^(?<major>\d+)\.(?<minor>\d+)$", r"^(\d+)\.(\d+)$"),
         (r"(?<word>\w+)-(?<rest>.*)", r"(\w+)-(.*)"),
@@ -670,13 +655,10 @@ _ENGINE_AGREEMENT = [
     # `||` is not an operator in the engine behind validation - it names a literal `|`.
     (r"^[\p{L}||\p{N}]$", "a1|", "!"),
     (r"^[\p{L}||\p{M}||\p{Z}||\p{S}||\p{N}||\p{P}]$", "a1 .$|", "\x01"),
-    # `&&` keeps what both sides admit, and a class nested inside another adds to it.
-    (r"^[\p{Print}&&[^|:/]]$", "a& ", "|:/"),
-    (r"^[[\p{L}]\p{N}]$", "a1", "[]!"),
-    # `~~` keeps what only one side admits.
-    (r"^[\p{L}~~\p{N}]$", "a1", "~!"),
-    # A class reaching the last codepoint leaves no gap above it.
-    (r"^[\p{L}\x{10FFFF}~~[a]]$", "b\U0010ffff", "a"),
+    (r"^[\p{Print}&&[^|:/]]$", ("a]", "&]", "[]", "^]", "|]", ":]", "/]"), ("a", "1", "]")),
+    (r"^[[\p{L}]\p{N}]$", ("a1]", "[1]", "Z0]"), ("a]", "1]", "a1", "[]")),
+    (r"^[\p{L}~~\p{N}]$", "a1~", "!"),
+    (r"^[\p{L}\x{10FFFF}~~[a]]$", ("a]", "b]", "~]", "[]", "\U0010ffff]"), ("a", "1]", "\U0010ffff")),
     # PCRE brace hex escapes.
     (r"^[a\x{60}]$", "a`", "b"),
     (r"^([$\-._+!*\x{60}(),;/?:@=&\w]|%([0-9a-fA-F?]{2}|[0-9a-fA-F?]?[*]))+$", "a`$_", " \t"),
@@ -693,12 +675,12 @@ def test_translation_agrees_with_the_validator(pattern, matching, rejected):
     assert translated is not None
     compiled = re.compile(translated)
     validator = jsonschema_rs.validator_for({"type": "string", "pattern": pattern}, pattern_options=FANCY_REGEX_OPTIONS)
-    for char in matching:
-        assert compiled.fullmatch(char), char
-        assert validator.is_valid(char), char
-    for char in rejected:
-        assert not compiled.fullmatch(char), char
-        assert not validator.is_valid(char), char
+    for value in matching:
+        assert compiled.fullmatch(value), value
+        assert validator.is_valid(value), value
+    for value in rejected:
+        assert not compiled.fullmatch(value), value
+        assert not validator.is_valid(value), value
 
 
 _COMPLEMENT_PROBE = "aZ0_ -!.\t\néÀ́ €中\U0001f600"
@@ -1466,6 +1448,49 @@ def test_named_group_pattern_is_kept(ctx, pattern):
     assert examples.generate_one(operation.as_strategy()).query["q"].isdigit()
 
 
+LETTERS = r"^[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+$"
+
+
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        (r"^[\p{L}]+$", LETTERS),
+        (r"^[\p{L]+$", None),
+        (r"^[\pL]+$", LETTERS),
+        (r"^[\pQ]\pL$", None),
+        (r"^[[:alpha:]]+$", LETTERS),
+        (r"^[[:digit:]]x[[:alpha]$", r"^[0-9]x[\[:alpha]$"),
+        (r"^(?<name>[a-z])+$", r"^([a-z])+$"),
+        (r"^(?<name[a-z]+$", None),
+    ],
+    ids=[
+        "braced-property",
+        "unclosed-braced-property",
+        "shorthand-property",
+        "unknown-shorthand-property",
+        "posix-class",
+        "unclosed-posix-class",
+        "named-group",
+        "unclosed-named-group",
+    ],
+)
+def test_pcre_class_syntax_is_translated_or_dropped(ctx, pattern, expected):
+    schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "pattern": pattern}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = schemathesis.openapi.from_dict(schema)["/items"]["GET"]
+    assert next(iter(operation.query)).optimized_schema.get("pattern") == expected
+
+
 def test_quantifier_rewrite_the_validator_cannot_compile_is_not_taken():
     # Folding a bound this large into the pattern makes a quantifier the regex engine refuses; the
     # pattern and the bound both stay as they were.
@@ -1687,8 +1712,12 @@ def test_length_bounds_beside_a_pattern(ctx, parameter_schema, expected):
     check()
 
 
-@pytest.mark.parametrize("pattern", ["[^ab]x", "[[:alpha:]]+"], ids=["negated-class", "posix-class"])
-def test_coverage_phase_header_values_match_pattern(ctx, app_runner, pattern):
+@pytest.mark.parametrize(
+    ("pattern", "meaning"),
+    [("[^ab]x", "[^ab]x"), ("[[:alpha:]]+", r"[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+")],
+    ids=["negated-class", "posix-class"],
+)
+def test_coverage_phase_header_values_match_pattern(ctx, app_runner, pattern, meaning):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items": {
@@ -1719,6 +1748,6 @@ def test_coverage_phase_header_values_match_pattern(ctx, app_runner, pattern):
 
         for _ in from_schema(schema).execute():
             pass
-    validator = jsonschema_rs.validator_for({"type": "string", "pattern": pattern})
+    validator = jsonschema_rs.validator_for({"type": "string", "pattern": meaning})
     assert values
     assert all(validator.is_valid(value) for value in values), values

@@ -929,7 +929,114 @@ const headingStyle = (fontSize, lineHeight) => ({
   lineHeight
 })
 
+const TOP_LAYER = typeof HTMLElement !== "undefined" && Object.hasOwn(HTMLElement.prototype, "popover")
+
+// Popper v2 locates the containing block by walking DOM ancestors for transforms
+// and does not know the top layer escapes them; the layer's own transform makes it
+// stop here, so positions resolve against the viewport.
+const LAYER_CSS = `
+[data-pmui-layer] {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: transparent;
+  color: inherit;
+  pointer-events: none;
+  transform: translateZ(0);
+}
+[data-pmui-layer] > * {
+  pointer-events: auto;
+}
+`
+
+const layer_containers = new WeakMap()
+
+function install_layer_styles(parent) {
+  const root = parent.getRootNode()
+  const target = root instanceof ShadowRoot ? root : document.head
+  // Checked on every mount since Bokeh may re-render the shadow root contents.
+  if (target.querySelector(":scope > style[data-pmui-layer-styles]") == null) {
+    const style = document.createElement("style")
+    style.dataset.pmuiLayerStyles = ""
+    style.textContent = LAYER_CSS
+    target.prepend(style)
+  }
+}
+
+/**
+ * Returns a MUI `container` that mounts each portal into its own top-layer
+ * popover inside `parent`. Overlays stay in the shadow DOM, so styles and theme
+ * variables still apply, but render above every stacking context and escape
+ * ancestor clipping. Layers are created on portal mount, so overlays stack in
+ * the order they were opened.
+ *
+ * The function is cached per parent because MUI's Portal re-resolves its
+ * container whenever the prop identity changes.
+ */
+export function overlay_container(parent) {
+  if (!TOP_LAYER || parent == null) {
+    return parent
+  }
+  let container = layer_containers.get(parent)
+  if (container === undefined) {
+    container = () => {
+      install_layer_styles(parent)
+      const layer = document.createElement("div")
+      layer.setAttribute("popover", "manual")
+      layer.dataset.pmuiLayer = ""
+      parent.appendChild(layer)
+      layer.showPopover()
+      const observer = new MutationObserver(() => {
+        if (layer.childElementCount === 0) {
+          observer.disconnect()
+          layer.remove()
+        }
+      })
+      observer.observe(layer, {childList: true})
+      // MUI's useModal also resolves the container for scroll locking without
+      // mounting anything into it, so drop layers that never receive content.
+      requestAnimationFrame(() => {
+        if (layer.childElementCount === 0) {
+          observer.disconnect()
+          layer.remove()
+        }
+      })
+      return layer
+    }
+    layer_containers.set(parent, container)
+  }
+  return container
+}
+
+// createTheme is the costliest part of mounting a component, and every
+// component with the same theme config builds an identical theme, except for
+// the overlay container of its popups, which is patched into a shallow copy.
+const THEMES = new Map()
+const CONTAINER_COMPONENTS = ["MuiPopover", "MuiPopper", "MuiModal"]
+
+function cached_theme(props, theme_config, dark_theme) {
+  const key = JSON.stringify([theme_config, dark_theme])
+  let base = THEMES.get(key)
+  if (base === undefined) {
+    base = createTheme(render_theme_config({view: {container: null}}, theme_config, dark_theme))
+    THEMES.set(key, base)
+  }
+  const container = overlay_container(props.view.container)
+  const components = {...base.components}
+  for (const name of CONTAINER_COMPONENTS) {
+    const component = components[name] ?? {}
+    components[name] = {...component, defaultProps: {...component.defaultProps, container}}
+  }
+  return {...base, components}
+}
+
 export function render_theme_config(props, theme_config, dark_theme) {
+  const container = overlay_container(props.view.container)
   const config = {
     cssVariables: {
       rootSelector: ":host",
@@ -967,17 +1074,17 @@ export function render_theme_config(props, theme_config, dark_theme) {
     components: {
       MuiPopover: {
         defaultProps: {
-          container: props.view.container,
+          container,
         },
       },
       MuiPopper: {
         defaultProps: {
-          container: props.view.container,
+          container,
         },
       },
       MuiModal: {
         defaultProps: {
-          container: props.view.container,
+          container,
         },
       },
       MuiIconButton: {
@@ -1168,31 +1275,32 @@ export const apply_global_css = (model, view, theme) => {
   }, [theme])
 }
 
-export const setup_global_styles = (view, theme, custom_theme=[]) => {
+// With scoped=true the styles go into the view's shadow root, so a component
+// that does not own the document (e.g. a Page in a notebook output) cannot
+// restyle the rest of the page.
+export const setup_global_styles = (view, theme, custom_theme=[], scoped=false) => {
   const doc = view.model.document
-  let global_style_el = document.querySelector("#global-styles-panel-mui")
-  const template_style_el = document.querySelector("#template-styles")
-  const theme_ref = React.useRef(theme)
-  if (!global_style_el) {
-    {
-      global_style_el = document.createElement("style")
-      global_style_el.id = "global-styles-panel-mui"
-      if (template_style_el) {
-        document.head.insertBefore(global_style_el, template_style_el)
-      } else {
-        document.head.appendChild(global_style_el)
-      }
+  const target = scoped ? view.shadow_el : document.head
+  const anchor_el = scoped ? view.container : document.querySelector("#template-styles")
+  const insert = (el) => {
+    if (anchor_el && anchor_el.parentNode === target) {
+      target.insertBefore(el, anchor_el)
+    } else {
+      target.appendChild(el)
     }
   }
-  let page_style_el = document.querySelector("#page-style")
+  let global_style_el = target.querySelector("#global-styles-panel-mui")
+  const theme_ref = React.useRef(theme)
+  if (!global_style_el) {
+    global_style_el = document.createElement("style")
+    global_style_el.id = "global-styles-panel-mui"
+    insert(global_style_el)
+  }
+  let page_style_el = target.querySelector("#page-style")
   if (!page_style_el) {
     page_style_el = document.createElement("style")
     page_style_el.id = "page-style"
-    if (template_style_el) {
-      document.head.insertBefore(page_style_el, template_style_el)
-    } else {
-      document.head.appendChild(page_style_el)
-    }
+    insert(page_style_el)
   }
 
   React.useEffect(() => {
@@ -1243,7 +1351,7 @@ export const setup_global_styles = (view, theme, custom_theme=[]) => {
     doc.all_models.forEach(model => apply_bokeh_theme(model, theme, dark, font_family, custom_theme))
     global_style_el.textContent = render_theme_css(theme)
     page_style_el.textContent = render_page_css(theme)
-  }, [theme])
+  }, [theme, scoped])
 }
 
 export const install_theme_hooks = (props) => {
@@ -1321,10 +1429,9 @@ export const install_theme_hooks = (props) => {
     }
   }, [])
   React.useEffect(() => update_views(), [dark_theme])
-  const theme = React.useMemo(() => {
-    const config = render_theme_config(props, theme_config, dark_theme)
-    return createTheme(config)
-  }, [dark_theme, theme_config])
+  const theme = React.useMemo(
+    () => cached_theme(props, theme_config, dark_theme), [dark_theme, theme_config]
+  )
 
   // Sync local dark_mode with global dark mode
   const isFirstRender = React.useRef(true)
@@ -1348,13 +1455,26 @@ export const install_theme_hooks = (props) => {
     const cb = (val) => setDarkTheme(val)
     if (document.documentElement.dataset.themeManaged === "true") {
       dark_mode.subscribe(cb)
-    } else {
-      const style_el = document.createElement("style")
-      style_el.id = "styles-panel-mui"
-      props.view.shadow_el.insertBefore(style_el, props.view.container)
-      style_el.textContent = render_theme_css(theme)
+      return () => dark_mode.unsubscribe(cb)
     }
-    return () => dark_mode.unsubscribe(cb)
+    const style_el = document.createElement("style")
+    style_el.id = "styles-panel-mui"
+    props.view.shadow_el.insertBefore(style_el, props.view.container)
+    style_el.textContent = render_theme_css(theme)
+
+    // Without a theme-managed document (e.g. a Page in a notebook or docs page)
+    // there is no global dark_mode to follow, so track the enclosing Page.
+    let page = props.view.parent
+    while (page != null && page.model.class_name !== "Page") {
+      page = page.parent
+    }
+    if (page == null) {
+      return
+    }
+    const sync = () => setDarkTheme(page.model.data.dark_theme)
+    sync()
+    page.model_proxy.on("dark_theme", sync)
+    return () => page.model_proxy.off("dark_theme", sync)
   }, [])
 
   React.useEffect(() => {

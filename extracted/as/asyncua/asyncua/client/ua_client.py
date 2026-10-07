@@ -24,6 +24,7 @@ from asyncua.ua.uaerrors._base import UaError
 from ..common.connection import SecureConnection, TransportLimits
 from ..common.utils import wait_for
 from ..crypto import security_policies
+from ..observer import NULL_OBSERVER, Observer
 from ..ua.ua_binary import header_from_binary, nodeid_from_binary, struct_from_binary, struct_to_binary, uatcp_to_binary
 from ..ua.uaprotocol_auto import OpenSecureChannelResult
 from .ua_session import SessionState, UaSession
@@ -213,12 +214,18 @@ class UASocketProtocol(asyncio.Protocol):
             await self.pre_request_hook()
         try:
             data = await wait_for(self._send_request(request, timeout, message_type), timeout if timeout else None)
-        except UaError as ex:
-            raise ex
+        except UaError:
+            raise
+        except asyncio.TimeoutError:
+            raise
         except Exception as ex:
             if self.state is not UASocketState.OPEN:
                 raise ConnectionError("Connection is closed") from None
-            raise Exception("Unhandled exception while sending request to OPC UA server") from ex
+            if hasattr(ex, "add_note"):
+                ex.add_note("Unhandled exception while sending request to OPC UA server")
+                raise
+            else:  # noqa: RET506 for Python <3.11
+                raise Exception("Unhandled exception while sending request to OPC UA server") from ex
         self.check_answer(data, f" in response to {request.__class__.__name__}")
         return data
 
@@ -392,18 +399,22 @@ class UaClient:
     with code that used to call them on `UaClient` directly.
     """
 
+    _max_concurrent_requests = 100
+
     def __init__(self, timeout: float = 1.0) -> None:
         """
         :param timeout: Timout in seconds
         """
         self.logger = logging.getLogger(f"{__name__}.UaClient")
         self._timeout = timeout
+        self._request_semaphore = asyncio.Semaphore(self._max_concurrent_requests)
         self.security_policy: security_policies.SecurityPolicy = security_policies.SecurityPolicyNone()
         self.protocol: UASocketProtocol | None = None
         self._pre_request_hook: Callable[[], Awaitable[None]] | None = None
         self._state: UaClientState = UaClientState.DISCONNECTED
         self._state_listeners: list[Callable[[UaClientState], None]] = []
         self._disconnect_requested: bool = False
+        self.observer: Observer = NULL_OBSERVER
         self.session: UaSession = UaSession(self)
 
     @property
@@ -423,11 +434,18 @@ class UaClient:
         """Clear the shutdown flag ahead of a fresh connect()."""
         self._disconnect_requested = False
 
+    def _observe(self, hook: Callable[[], None]) -> None:
+        try:
+            hook()
+        except Exception:
+            self.logger.exception("observer raised")
+
     def _set_state(self, target: UaClientState) -> None:
         """Set state and notify listeners. Same-state assignments are no-ops."""
         if target is self._state:
             return
         self._state = target
+        self._observe(lambda: self.observer.on_state_change(target))
         # Iterate a copy so listeners can safely unsubscribe themselves.
         for listener in list(self._state_listeners):
             try:
@@ -515,6 +533,11 @@ class UaClient:
     def set_security(self, policy: security_policies.SecurityPolicy) -> None:
         self.security_policy = policy
 
+    def set_max_concurrent_requests(self, max_concurrent_requests: int) -> None:
+        """Set the maximum number of requests sent concurrently."""
+        self._max_concurrent_requests = max_concurrent_requests
+        self._request_semaphore = asyncio.Semaphore(max_concurrent_requests)
+
     def _make_protocol(self) -> UASocketProtocol:
         self.protocol = UASocketProtocol(self._timeout, security_policy=self.security_policy)
         self.protocol.pre_request_hook = self._pre_request_hook
@@ -585,9 +608,11 @@ class UaClient:
     async def _send_request(
         self, request: Any, timeout: float | None = None, message_type: ua.MessageType = ua.MessageType.SecureMessage
     ) -> Buffer:
-        if self.protocol is None:
-            raise ConnectionError("Connection is not open")
-        return await self.protocol.send_request(request, timeout, message_type)
+        with self.observer.observe_request(request):
+            async with self._request_semaphore:
+                if self.protocol is None:
+                    raise ConnectionError("Connection is not open")
+                return await self.protocol.send_request(request, timeout, message_type)
 
     # --- back-compat: properties that previously lived on UaClient ---
 
@@ -712,6 +737,9 @@ class UaClient:
 
     async def history_read(self, params: ua.HistoryReadParameters) -> list[ua.HistoryReadResult]:
         return await self.session.history_read(params)
+
+    async def history_update(self, params: ua.HistoryUpdateParameters) -> list[ua.HistoryUpdateResult]:
+        return await self.session.history_update(params)
 
     async def read_attributes(self, nodeids: list[ua.NodeId], attr: ua.AttributeIds) -> list[ua.DataValue]:
         return await self.session.read_attributes(nodeids, attr)

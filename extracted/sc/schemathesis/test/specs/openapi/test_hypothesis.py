@@ -413,6 +413,38 @@ def test_contains_contradicting_items_leaves_only_other_branch(ctx):
 
 
 @pytest.mark.hypothesis_nested
+def test_contains_over_recursive_reference_keeps_items_valid(ctx):
+    body = {
+        "type": "array",
+        "contains": {"$ref": "#/components/schemas/L"},
+        "minContains": 1,
+        "maxContains": 2,
+        "items": {"not": {"type": "null"}},
+    }
+    components = {"schemas": {"L": {"type": "array", "items": {"$ref": "#/components/schemas/L"}}}}
+    schema = ctx.openapi.load_schema(
+        {
+            "/tags": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": body}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components=components,
+    )
+    validator = jsonschema_rs.validator_for({**body, "components": components})
+
+    @given(case=schema["/tags"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        assert validator.is_valid(case.body), case.body
+
+    test()
+
+
+@pytest.mark.hypothesis_nested
 def test_valid_headers():
     # When headers are generated
     # And there is no other keywords than "type"
@@ -1147,6 +1179,38 @@ def test_custom_format_path_value_with_slash_is_accepted_when_explicit(ctx):
         assert case.path_parameters["block"] == "192.168.1.0%2F24"
 
     inner()
+
+
+@pytest.mark.hypothesis_nested
+def test_custom_format_path_value_that_cannot_be_url_encoded_is_rejected(ctx):
+    format_name = "lone-surrogate-path"
+    schemathesis.openapi.format(format_name, st.just("a\ud800"))
+    schema = ctx.openapi.load_schema(
+        {
+            "/blocks/{block}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "block",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string", "format": format_name},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = schema["/blocks/{block}"]["GET"]
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=1, deadline=None)
+    def inner(case):
+        pass
+
+    with pytest.raises(Unsatisfiable):
+        inner()
 
 
 @pytest.mark.hypothesis_nested

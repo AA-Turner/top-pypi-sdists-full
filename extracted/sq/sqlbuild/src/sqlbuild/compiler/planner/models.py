@@ -48,6 +48,7 @@ from sqlbuild.compiler.planner.types import (
     BackfillAction,
     ChangeKind,
     CursorGrain,
+    CursorType,
     CursorWatermarkMode,
     FixtureKey,
     GraphResourceKind,
@@ -192,12 +193,14 @@ class GraphIdentityNode:
 
 @dataclass(frozen=True, kw_only=True, init=False)
 class CursorOverrides:
-    """Typed cursor override values from CLI flags."""
+    """Cursor override values from CLI flags; untyped `start`/`end` await planner typing."""
 
     start_ts: CursorScalar | None = None
     end_ts: CursorScalar | None = None
     start_int: CursorScalar | None = None
     end_int: CursorScalar | None = None
+    start: str | None = None
+    end: str | None = None
 
     def __init__(
         self,
@@ -206,7 +209,11 @@ class CursorOverrides:
         end_ts: str | CursorScalar | None = None,
         start_int: str | CursorScalar | None = None,
         end_int: str | CursorScalar | None = None,
+        start: str | None = None,
+        end: str | None = None,
     ) -> None:
+        object.__setattr__(self, "start", start)
+        object.__setattr__(self, "end", end)
         object.__setattr__(
             self,
             "start_ts",
@@ -222,6 +229,34 @@ class CursorOverrides:
         )
         object.__setattr__(
             self, "end_int", self._parse_integer(field_name="--end-cursor-int", value=end_int)
+        )
+
+    @property
+    def has_untyped(self) -> bool:
+        """Return whether `--start-cursor` or `--end-cursor` still needs a cursor type."""
+
+        return self.start is not None or self.end is not None
+
+    def typed_as(self, *, cursor_type: CursorType) -> CursorOverrides:
+        """Return these overrides with `--start-cursor`/`--end-cursor` read as `cursor_type`."""
+
+        if not self.has_untyped:
+            return self
+        if cursor_type == CursorType.INTEGER:
+            return CursorOverrides(
+                start_ts=self.start_ts,
+                end_ts=self.end_ts,
+                start_int=self._parse_integer(field_name="--start-cursor", value=self.start)
+                or self.start_int,
+                end_int=self._parse_integer(field_name="--end-cursor", value=self.end)
+                or self.end_int,
+            )
+        return CursorOverrides(
+            start_ts=self._parse_timestamp(field_name="--start-cursor", value=self.start)
+            or self.start_ts,
+            end_ts=self._parse_timestamp(field_name="--end-cursor", value=self.end) or self.end_ts,
+            start_int=self.start_int,
+            end_int=self.end_int,
         )
 
     @staticmethod
@@ -284,6 +319,14 @@ class PathSelector:
     downstream: bool = False
 
 
+@dataclass(frozen=True)
+class EmptyCursorInputDecision:
+    """Cursor inputs whose lack of rows leaves no window, and whether other inputs have rows."""
+
+    input_names: tuple[str, ...] = ()
+    waiting_on_empty_inputs: bool = False
+
+
 @dataclass(frozen=True, kw_only=True, init=False)
 class ModelCursorSnapshot:
     """Cursor MIN/MAX values gathered from warehouse for one incremental model."""
@@ -303,6 +346,8 @@ class ModelCursorSnapshot:
     upstream_terminal_ends: tuple[CursorScalar, ...] = ()
     upstream_end_inputs: tuple[tuple[CursorScalar | None, CursorScalar | None], ...] = ()
     upstream_availability_ends: tuple[CursorScalar, ...] = ()
+    empty_input_names: tuple[str, ...] = field(default=(), compare=False)
+    unreadable_input_names: tuple[str, ...] = field(default=(), compare=False)
 
     def __init__(self, **values: Any) -> None:
         defaults: dict[str, object] = {
@@ -318,6 +363,8 @@ class ModelCursorSnapshot:
             "upstream_terminal_ends": (),
             "upstream_end_inputs": (),
             "upstream_availability_ends": (),
+            "empty_input_names": (),
+            "unreadable_input_names": (),
         }
         defaults.update(values)
         field_name: str
@@ -550,6 +597,8 @@ class CursorInputRelation:
     is_runtime_produced: bool = False
     terminal_cursor_start: CursorScalar | None = None
     terminal_cursor_end: CursorScalar | None = None
+    input_name: str | None = None
+    input_kind: GraphResourceKind | None = None
 
     def __init__(
         self,
@@ -561,6 +610,8 @@ class CursorInputRelation:
         is_runtime_produced: bool = False,
         terminal_cursor_start: CursorScalar | str | None = None,
         terminal_cursor_end: CursorScalar | str | None = None,
+        input_name: str | None = None,
+        input_kind: GraphResourceKind | None = None,
     ) -> None:
         object.__setattr__(self, "relation", relation)
         object.__setattr__(self, "cursor_column", cursor_column)
@@ -569,6 +620,8 @@ class CursorInputRelation:
         object.__setattr__(self, "is_runtime_produced", is_runtime_produced)
         object.__setattr__(self, "terminal_cursor_start", terminal_cursor_start)
         object.__setattr__(self, "terminal_cursor_end", terminal_cursor_end)
+        object.__setattr__(self, "input_name", input_name)
+        object.__setattr__(self, "input_kind", input_kind)
         self.__post_init__()
 
     def __post_init__(self) -> None:
@@ -724,6 +777,32 @@ class ChangeDetectionResult:
 
 
 @dataclass(frozen=True)
+class SqlTestSelection:
+    """Unit tests selected or excluded by name, beside the tests of the selected resources."""
+
+    names: frozenset[str] = frozenset()
+    excluded_names: frozenset[str] = frozenset()
+    models_selected: bool = True
+
+
+@dataclass(frozen=True)
+class UnitTestSelectorNames:
+    """Names selectors can match: unit tests, and every other selectable resource."""
+
+    tests: frozenset[str]
+    resources: frozenset[str]
+
+
+@dataclass(frozen=True)
+class UnitTestSelectorSplit:
+    """Resource selectors left after unit-test selectors moved into a test selection."""
+
+    select: tuple[str, ...]
+    exclude: tuple[str, ...]
+    sql_test_selection: SqlTestSelection
+
+
+@dataclass(frozen=True)
 class PlannerScope:
     """Resolved graph scope for one planner invocation."""
 
@@ -735,6 +814,7 @@ class PlannerScope:
     execution_order: tuple[CompiledObjectKey, ...]
     user_selected_keys: frozenset[CompiledObjectKey] = frozenset()
     python_read_source_names: frozenset[str] = frozenset()
+    sql_test_selection: SqlTestSelection = field(default_factory=SqlTestSelection)
 
 
 @dataclass(frozen=True)
@@ -1099,9 +1179,10 @@ class PlanOutputExtras:
 
 @dataclass(frozen=True)
 class PlannedSqlTests:
-    """SQL test entries planned for one selection; reusable only for the same selected keys."""
+    """SQL test entries planned for one selection; reusable only for the same selection."""
 
     selected_keys: frozenset[CompiledObjectKey]
+    sql_test_selection: SqlTestSelection = field(default_factory=SqlTestSelection)
     entries: tuple[SqlTestPlanEntry, ...] = ()
     warnings: tuple[PlanWarning, ...] = ()
 
@@ -1132,6 +1213,8 @@ class ModelPlanEntry:
     cursor_end: str | None = None
     lookback: str | None = None
     cursor_bounds: CursorBounds | None = None
+    empty_cursor_inputs: tuple[str, ...] = ()
+    waiting_on_empty_inputs: bool = False
     cursor_input_relations: tuple[CursorInputRelation, ...] = field(default_factory=tuple)
     batch_size: str | None = None
     batch_concurrency: int = 1
@@ -1514,6 +1597,7 @@ class PlanOutput:
     source_freshness: DirectSourceFreshnessPlanningResult | None = None
     python_identity_fingerprints: dict[tuple[str, str], Fingerprint] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
+    cursor_overrides: CursorOverrides | None = None
 
     @property
     def python_source_entries(self) -> dict[str, SourceEntry]:
@@ -1530,6 +1614,7 @@ class PlannerSelection:
     exclude: tuple[str, ...] = ()
     selected_keys: frozenset[CompiledObjectKey] | None = None
     python_read_source_names: frozenset[str] = frozenset()
+    sql_test_selection: SqlTestSelection = field(default_factory=SqlTestSelection)
 
 
 @dataclass(frozen=True)

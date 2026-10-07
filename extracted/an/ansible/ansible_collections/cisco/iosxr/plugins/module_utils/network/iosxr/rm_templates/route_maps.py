@@ -818,22 +818,25 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set.med",
             "getval": re.compile(
                 r"""
-                \s*set\smed
-                (\s(?P<increment>\+))?
-                (\s(?P<decrement>\-))?
-                (\s(?P<value>\d+))?
-                (\s(?P<igp_cost>igp-cost))?
-                (\s(?P<max_reachable>max-reachable))?
-                (\s(?P<parameter>\$\w+))?
+                \s*set\smed\s*
+                (?P<increment>\+)?
+                (?P<decrement>\-)?
+                \s*
+                (?P<value>\d+)?
+                \s*
+                (?P<igp_cost>igp-cost)?
+                (?P<max_reachable>max-reachable)?
+                (?P<parameter>\$\w+)?
                 $""", re.VERBOSE,
             ),
             "setval": "set med"
-            "{{ (' +' ) if set.med.increment is defined else '' }}"
-            "{{ (' -' ) if set.med.decrement is defined else '' }}"
-            "{{ (' ' + set.med.value|string ) if set.med.value is defined else '' }}"
-            "{{ (' igp-cost') if set.med.igp_cost|d(False) else '' }}"
-            "{{ (' max-reachable') if set.med.max_reachable|d(False) else '' }}"
-            "{{ (' ' + set.med.parameter ) if set.med.parameter is defined else '' }}",
+            "{{ ' +' ~ set.med.value|string if set.med.increment|d(False) and set.med.value is defined else '' }}"
+            "{{ ' -' ~ set.med.value|string if set.med.decrement|d(False) and set.med.value is defined else '' }}"
+            "{{ ' ' ~ set.med.value|string if set.med.value is defined and not set.med.increment|d(False)"
+            " and not set.med.decrement|d(False) else '' }}"
+            "{{ ' igp-cost' if set.med.igp_cost|d(False) else '' }}"
+            "{{ ' max-reachable' if set.med.max_reachable|d(False) else '' }}"
+            "{{ (' ' ~ set.med.parameter) if set.med.parameter is defined else '' }}",
             "result": {
                 "policies": {
                     "set": {

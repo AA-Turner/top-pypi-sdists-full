@@ -460,6 +460,16 @@ def test_get_compile_command_with_config(tmp_path_cwd, config_file, expected_com
         assert get_compile_command(ctx) == expected_command
 
 
+def test_get_compile_command_no_index_not_added_by_default(tmp_path_cwd: Path) -> None:
+    """
+    --no-index must not show up in the recorded command unless it was
+    actually passed. See GH-2472.
+    """
+    (tmp_path_cwd / "requirements.in").touch()
+    with compile_cli.make_context("pip-compile", ["requirements.in"]) as ctx:
+        assert get_compile_command(ctx) == "pip-compile requirements.in"
+
+
 @pytest.mark.parametrize("config_file", ("pyproject.toml", ".pip-tools.toml"))
 @pytest.mark.parametrize(
     "config_file_content",
@@ -753,6 +763,24 @@ def test_callback_config_file_defaults_unreadable_toml(make_config_file):
             "config",
             "/dev/null/path/does/not/exist/my-config.toml",
         )
+
+
+def test_config_file_loading_overwrites_prior_default_map(make_config_file):
+    # any config value work for this test -- for simplicity, use `verbose=True/False`
+
+    # it's set in the config to True
+    piptools_config_file = make_config_file("verbose", True)
+
+    # the context already has a loaded default of False
+    ctx = Context(compile_cli)
+    ctx.default_map = {"verbose": False}
+
+    # when we load the config...
+    found_config_file = override_defaults_from_config_file(ctx, "config", None)
+    assert found_config_file == piptools_config_file
+
+    # the True value should win out
+    assert ctx.default_map["verbose"] is True
 
 
 def test_select_config_file_no_files(tmp_path_cwd):

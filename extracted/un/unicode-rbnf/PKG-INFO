@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unicode-rbnf
-Version: 2.4.0
+Version: 2.4.1
 Summary: Rule-based number formatting using Unicode CLDR data
 Author-email: Michael Hansen <mike@rhasspy.org>
 License: MIT

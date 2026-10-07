@@ -40,7 +40,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from pikobs.profile.radar_obs_error import _TABLE
+from pikobs.profile.radar_obs_error import _DEFAULT, _TABLE
 
 ONSETS = np.arange(0.5, 10.0, 1.0)
 BOUNDS = ([1.0, 0.0, 0.0], [16.0, 5.0, 1.0])     # base, slope, accel
@@ -94,23 +94,75 @@ def read_table(path, run, region, criteria, target, min_obs):
     return pooled, ranges
 
 
-def fit_class(points: Dict[float, List[float]]):
-    """(base, onset, slope, accel), weighted rms of the fit, N."""
+def fit_class(points: Dict[float, List[float]], margin: float = 0.0):
+    """(base, onset, slope, accel), weighted rms of the fit, N. The fit aims
+    at the target plus ``margin`` [m/s]; t is returned without it."""
     from scipy.optimize import lsq_linear
     h = np.array(sorted(points))
     w = np.array([points[k][1] for k in h])
     t = np.sqrt(np.array([points[k][0] / points[k][1] for k in h]))
+    aim = t + margin
     best = None
     for onset in ONSETS:
         dh = np.maximum(0.0, h - onset)
         a = np.column_stack([np.ones_like(h), dh, dh * dh])
         sw = np.sqrt(w / w.sum())
-        res = lsq_linear(a * sw[:, None], t * sw, bounds=BOUNDS)
-        rms = float(np.sqrt(np.sum(w * (a @ res.x - t) ** 2) / w.sum()))
+        res = lsq_linear(a * sw[:, None], aim * sw, bounds=BOUNDS)
+        rms = float(np.sqrt(np.sum(w * (a @ res.x - aim) ** 2) / w.sum()))
         if best is None or rms < best[1]:
             best = ((float(res.x[0]), float(onset), float(res.x[1]),
                      float(res.x[2])), rms)
     return best[0], best[1], h, t, w
+
+
+def floor_base(coef, h, t, w, floor_obs: int):
+    """(coef with base raised, shift) so the model is >= the target t at
+    every height with at least floor_obs observations -- the worst
+    shortfall, added to base. floor_obs 0: unchanged."""
+    if floor_obs <= 0:
+        return coef, 0.0
+    keep = w >= floor_obs
+    if not keep.any():
+        return coef, 0.0
+    short = float(np.max(t[keep] - _model(coef, h[keep])))
+    if short <= 0:
+        return coef, 0.0
+    base, onset, slope, accel = coef
+    return (base + short, onset, slope, accel), short
+
+
+def fortran(fitted, title_lines) -> str:
+    """calc_radvel_obs_error in the form of the radar assimilation, with
+    the coefficients in fitted (net -> idx -> (coef, ...))."""
+    def cond(lo, hi, first, last):
+        if first and lo <= -1:
+            return "elev_int < 0"
+        if last and hi >= 900:
+            return f"elev_int >= {lo}"
+        return f"elev_int >= {lo} .and. elev_int <= {hi}"
+
+    out = ["      ! " + line for line in title_lines]
+    out += ["      elev_int = nint(elevation_deg * 10.0D0)", ""]
+    for k, net in enumerate(sorted(_TABLE)):
+        out.append(f"      {'if' if k == 0 else 'else if'} (cstnid(1:1) == '{net}') then")
+        classes = _TABLE[net]
+        for i, ((lo, hi), old) in enumerate(classes):
+            coef, extra = fitted.get(net, {}).get(i, (old, None))
+            n_heights = len(extra[0]) if extra is not None else 0
+            kw = "if" if i == 0 else "else if"
+            out.append(f"      {kw} ({cond(lo, hi, i == 0, i == len(classes) - 1)}) then")
+            out.append(f"        ! N={n_heights}" + ("" if extra is not None else "  (unchanged)"))
+            out.append(f"        base_ = {coef[0]:.6f}D0 ; onset_ = {coef[1]:.6f}D0")
+            out.append(f"        slope_ = {coef[2]:.6f}D0 ; accel_ = {coef[3]:.6f}D0")
+        out.append("      end if")
+    d = _DEFAULT
+    out += ["      else",
+            f"        base_ = {d[0]}D0 ; onset_ = {d[1]}D0 ; slope_ = {d[2]}D0 ; accel_ = {d[3]}D0",
+            "      end if", "",
+            "      dh = max(0.0D0, height_km - onset_)",
+            "      sigma_o = base_ + slope_ * dh + accel_ * dh * dh", "",
+            "      sigma_o = max(SIGMA_MIN, min(SIGMA_MAX, sigma_o))"]
+    return "\n".join(out) + "\n"
 
 
 def main(argv=None) -> int:
@@ -126,6 +178,16 @@ def main(argv=None) -> int:
     ap.add_argument('--min_heights', type=int, default=4,
                     help="a class with fewer heights keeps its old "
                          "coefficients")
+    ap.add_argument('--margin', type=float, default=0.0,
+                    help="fit the target plus this margin [m/s], e.g. 0.5 "
+                         "with --target conservative, as the current model")
+    ap.add_argument('--floor_obs', type=int, default=0,
+                    help="raise base so sigma_o >= the target at every height "
+                         "with at least this many observations, e.g. 30 "
+                         "(0: no floor)")
+    ap.add_argument('--period', default='',
+                    help="the calibration period, for the Fortran header, "
+                         "e.g. '2022053100 to 2022073100'")
     ap.add_argument('--out', default='')
     args = ap.parse_args(argv)
 
@@ -147,12 +209,14 @@ def main(argv=None) -> int:
             rows.append([net, lo / 10, hi / 10, len(pts), '', *old,
                          *old, '', '', 'kept: too few heights'])
             continue
-        coef, rms, h, t, w = fit_class(pts)
+        coef, rms, h, t, w = fit_class(pts, args.margin)
+        coef, shift = floor_base(coef, h, t, w, args.floor_obs)
         old_rms = float(np.sqrt(np.sum(w * (_model(old, h) - t) ** 2)
                                 / w.sum()))
         fitted[net][idx] = (coef, (h, t, w, old))
         rows.append([net, lo / 10, hi / 10, len(pts), int(w.sum()), *old,
-                     *coef, f"{old_rms:.3f}", f"{rms:.3f}", 'fitted'])
+                     *coef, f"{old_rms:.3f}", f"{rms:.3f}",
+                     'fitted' + (f', base +{shift:.3f} (floor)' if shift > 0 else '')])
         print(f"[fit] {net} {lo / 10:5.1f}..{hi / 10:5.1f} deg  "
               f"{len(pts):2d} heights  N={int(w.sum()):>8,}  rms "
               f"{old_rms:5.2f} -> {rms:5.2f} m/s", flush=True)
@@ -183,6 +247,39 @@ def main(argv=None) -> int:
     lines.append("}")
     with open(os.path.join(out, 'radar_obs_error_fitted.py'), 'w') as fh:
         fh.write("\n".join(lines) + "\n")
+
+    # the check of the floor, and the Fortran, ready for the assimilation
+    n_pts = n_floor = n_viol = 0
+    for net, by_idx in fitted.items():
+        for coef, extra in by_idx.values():
+            if extra is None:
+                continue
+            h, t, w, _ = extra
+            n_pts += len(h)
+            keep = w >= max(args.floor_obs, 1)
+            n_floor += int(keep.sum())
+            n_viol += int(np.sum(_model(coef, h[keep]) < t[keep] - 1e-9))
+    target = ("the empirical O-P stddev" if args.target == 'conservative'
+              else "the Desroziers estimate sqrt(E[(O-A)(O-P)])")
+    title = [
+        "Per (network, elevation), sigma_o = base + slope*dh + accel*dh**2,",
+        "dh = max(0, height - onset): flat up to ONSET, then growing.",
+        "Fitted by pikobs.profile.fit_radar_obs_error (weight = Nobs) to",
+        f"{target}" + (f" + {args.margin:g} m/s margin" if args.margin else "") + ";",
+        "SLOPE and ACCEL >= 0; sigma_o in [2.0, 16.0] m/s.",
+        f"Calibration: run {args.run or 'all'}, region {args.region}"
+        + (f", {args.period}" if args.period else "") + ".",
+    ]
+    if args.floor_obs > 0:
+        title.append(f"BASE raised so sigma_o >= the target at every point with "
+                     f"Nobs >= {args.floor_obs}:")
+        title.append(f"{n_viol} violations among {n_floor} such points "
+                     f"({n_pts} points in all).")
+    with open(os.path.join(out, 'calc_radvel_obs_error_fitted.f90'), 'w') as fh:
+        fh.write(fortran(fitted, title))
+    print(f"[fit] Fortran: calc_radvel_obs_error_fitted.f90 -- "
+          f"{n_viol} violations among {n_floor} points with Nobs >= "
+          f"{max(args.floor_obs, 1)} ({n_pts} in all)", flush=True)
 
     _plot(fitted, ranges, out, args.target)
     print(f"[fit] written in {out}: radar_obs_error_fit.csv, "

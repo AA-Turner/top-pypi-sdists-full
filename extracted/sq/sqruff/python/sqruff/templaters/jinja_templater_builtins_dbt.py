@@ -1,6 +1,6 @@
 """Defines the jinja builtins for dbt."""
 
-from typing import Any, Union
+from typing import Any, Callable, Union
 
 from sqruff.templaters.jinja_templater_builtins_common import FunctionWrapper
 
@@ -37,6 +37,54 @@ class RelationEmulator:
         return self.identifier
 
 
+class VarEmulator(str):
+    """A string-like class which emulates dbt's `var()` return value."""
+
+    def __new__(cls, value: str = "item") -> "VarEmulator":
+        """Construct a string-like placeholder for mocked dbt `var()` output."""
+        return super().__new__(cls, value)
+
+    def __getattr__(self, name: str) -> "VarEmulator":
+        """When var.attribute is called return self as another placeholder."""
+        return self
+
+    def __getitem__(self, name: Any) -> str:
+        """When var['key'] is called return a placeholder instead of failing."""
+        if isinstance(name, (int, slice)):
+            return super().__getitem__(name)
+        return self
+
+
+class MacroReturn(Exception):
+    """Exception used to allow macros to return non-string values."""
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+
+def _builtin_return(value: Any) -> None:
+    raise MacroReturn(value)
+
+
+class DbtMacroWrapper:
+    """Class that wraps macros to catch MacroReturn exceptions during execution."""
+
+    # Tell Jinja this object is safe to call and does not alter data.
+    # https://jinja.palletsprojects.com/en/3.0.x/sandbox/#jinja2.sandbox.SandboxedEnvironment.is_safe_callable
+    unsafe_callable = False
+    alters_data = False
+
+    def __init__(self, macro: Callable[..., Any]):
+        self.macro = macro
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        """Wraps jinja macro calls to handle dbt's `return` jinja function."""
+        try:
+            return self.macro(*args, **kwargs)
+        except MacroReturn as e:
+            return e.value
+
+
 # NOTE: we use `FunctionWrapper` on all of the callable builtins here
 # so that there's a sensible error message if someone tries to render
 # them directly.
@@ -48,8 +96,14 @@ DBT_BUILTINS = {
         "source",
         lambda source_name, table: RelationEmulator(f"{source_name}_{table}"),
     ),
+    "function": FunctionWrapper(
+        "function",
+        # Mirror `ref` handling: tolerate optional qualifier args and use the
+        # last positional argument as the function identifier.
+        lambda *args, **kwargs: RelationEmulator(args[-1]),
+    ),
     "config": FunctionWrapper("config", lambda **kwargs: ""),
-    "var": FunctionWrapper("var", lambda variable, default="": "item"),
+    "var": FunctionWrapper("var", lambda variable, default="": VarEmulator()),
     # `is_incremental()` renders as True, always in this case.
     # TODO: This means we'll never parse other parts of the query,
     # that are only reachable when `is_incremental()` returns False.
@@ -57,4 +111,12 @@ DBT_BUILTINS = {
     # to be parsed TWICE if it uses this variable.
     "is_incremental": FunctionWrapper("is_incremental", lambda: True),
     "this": RelationEmulator(),
+    "zip_strict": FunctionWrapper("zip_strict", zip),
+    "zip": FunctionWrapper(
+        "zip",
+        lambda *args, default=None: (
+            zip(*args) if all(hasattr(arg, "__iter__") for arg in args) else default
+        ),
+    ),
+    "return": FunctionWrapper("return", _builtin_return),
 }

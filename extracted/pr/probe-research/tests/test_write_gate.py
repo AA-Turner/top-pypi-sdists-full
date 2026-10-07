@@ -1,7 +1,7 @@
 """The `probe` CLI's own write gate (`probe.cli.write_gate`).
 
-The gate is what makes the `daemon` state hold on every harness: pi and Cursor
-have no pre-tool hook, so the only thing that can stop the agent writing over
+The gate is what makes the `daemon` state hold on every harness: pi has no
+pre-tool hook, so the only thing that can stop the agent writing over
 the daemon is the CLI refusing. These tests pin each state against each class
 of command, the `--directed` escape, the degraded fallback, and -- the one that
 keeps the gate honest as the CLI grows -- that every top-level command has been
@@ -341,8 +341,8 @@ def test_a_malformed_lease_fails_open():
 
 
 def test_a_session_with_no_stored_state_is_not_gated(tmp_path, monkeypatch):
-    # A person's own terminal can carry an id-shaped variable (Cursor's) with no
-    # session behind it. Only a harness session -- seeded at start -- is gated,
+    # A person's own terminal can carry an id-shaped variable (a stale export) with
+    # no session behind it. Only a harness session -- seeded at start -- is gated,
     # whatever the folder or machine default says.
     folder = tmp_path / "repo"
     (folder / ".probe").mkdir(parents=True)
@@ -449,12 +449,14 @@ WRITE_GROUP_READS = frozenset(
         "version list",
         "artifact download", "artifact list", "artifact pin-impact", "artifact tree",
         "artifact versions",
-        "experiment edges", "experiment get", "experiment list", "experiment reproduce",
+        "experiment edges", "experiment get", "experiment lineage", "experiment list",
+        "experiment reproduce",
         "group get", "group list",
         "notes audit-advisory", "notes checkout", "notes list", "notes show", "notes status",
         "notes team",
         "paper citations", "paper edges", "paper graph", "paper list",
-        "project code list", "project contributors", "project get", "project list",
+        "project code list", "project contributors", "project get", "project lineage",
+        "project list",
         "run check", "run get", "run inputs", "run list", "run metrics", "run reproduce", "run series",
         "run upstream",
         "span get", "span list",
@@ -613,8 +615,14 @@ def test_daemon_lets_the_agent_read_what_is_recorded():
     _lease()
     for argv in (["artifact", "tree", "r1"], ["run", "metrics", "r1"], ["experiment", "edges", "e1"],
                  ["views", "preview", "--spec-file", "-"], ["run", "inputs", "r1"],
-                 ["run", "upstream", "r1", "--depth", "3"]):
+                 ["run", "upstream", "r1", "--depth", "3"], ["experiment", "lineage", "e1"],
+                 ["project", "lineage", "p1"]):
         assert _refusal(argv) is None, argv
+    # The daemon's own shell files them as lookups, not writes (`daemon/tools.py`).
+    from probe.daemon import precheck
+
+    for argv in (["experiment", "lineage", "e1"], ["project", "lineage", "p1"]):
+        assert precheck.parse(argv).owner == precheck.READ, argv
     # Correcting a read's match is a write (the researcher's), read three words deep.
     assert _refusal(["run", "input", "dismiss", "r1", "data/x.csv"]) is not None
 

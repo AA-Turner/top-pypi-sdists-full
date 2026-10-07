@@ -29,7 +29,7 @@ class R2BucketSippyArgs:
         """
         The set of arguments for constructing a R2BucketSippy resource.
 
-        :param pulumi.Input[_builtins.str] account_id: Account ID.
+        :param pulumi.Input[_builtins.str] account_id: Cloudflare account ID that owns the R2 resource.
         :param pulumi.Input[_builtins.str] bucket_name: Name of the bucket.
         :param pulumi.Input['R2BucketSippyDestinationArgs'] destination: R2 bucket to copy objects to.
         :param pulumi.Input[_builtins.str] jurisdiction: Jurisdiction of the bucket
@@ -48,7 +48,7 @@ class R2BucketSippyArgs:
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Input[_builtins.str]:
         """
-        Account ID.
+        Cloudflare account ID that owns the R2 resource.
         """
         return pulumi.get(self, "account_id")
 
@@ -117,7 +117,7 @@ class _R2BucketSippyState:
         """
         Input properties used for looking up and filtering R2BucketSippy resources.
 
-        :param pulumi.Input[_builtins.str] account_id: Account ID.
+        :param pulumi.Input[_builtins.str] account_id: Cloudflare account ID that owns the R2 resource.
         :param pulumi.Input[_builtins.str] bucket_name: Name of the bucket.
         :param pulumi.Input['R2BucketSippyDestinationArgs'] destination: R2 bucket to copy objects to.
         :param pulumi.Input[_builtins.bool] enabled: State of Sippy for this bucket.
@@ -141,7 +141,7 @@ class _R2BucketSippyState:
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Account ID.
+        Cloudflare account ID that owns the R2 resource.
         """
         return pulumi.get(self, "account_id")
 
@@ -218,9 +218,9 @@ class R2BucketSippy(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: pulumi.Input[Optional[_builtins.str]] = None,
                  bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 destination: pulumi.Input[Optional[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict']]] = None,
+                 destination: pulumi.Input[Optional[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict', 'outputs.R2BucketSippyDestination']]] = None,
                  jurisdiction: pulumi.Input[Optional[_builtins.str]] = None,
-                 source: pulumi.Input[Optional[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict']]] = None,
+                 source: pulumi.Input[Optional[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict', 'outputs.R2BucketSippySource']]] = None,
                  __props__=None):
         """
         Accepted Permissions
@@ -257,11 +257,11 @@ class R2BucketSippy(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] account_id: Account ID.
+        :param pulumi.Input[_builtins.str] account_id: Cloudflare account ID that owns the R2 resource.
         :param pulumi.Input[_builtins.str] bucket_name: Name of the bucket.
-        :param pulumi.Input[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict']] destination: R2 bucket to copy objects to.
+        :param pulumi.Input[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict', 'outputs.R2BucketSippyDestination']] destination: R2 bucket to copy objects to.
         :param pulumi.Input[_builtins.str] jurisdiction: Jurisdiction of the bucket
-        :param pulumi.Input[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict']] source: AWS S3 bucket to copy objects from.
+        :param pulumi.Input[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict', 'outputs.R2BucketSippySource']] source: AWS S3 bucket to copy objects from.
         """
         ...
     @overload
@@ -319,9 +319,9 @@ class R2BucketSippy(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: pulumi.Input[Optional[_builtins.str]] = None,
                  bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 destination: pulumi.Input[Optional[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict']]] = None,
+                 destination: pulumi.Input[Optional[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict', 'outputs.R2BucketSippyDestination']]] = None,
                  jurisdiction: pulumi.Input[Optional[_builtins.str]] = None,
-                 source: pulumi.Input[Optional[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict']]] = None,
+                 source: pulumi.Input[Optional[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict', 'outputs.R2BucketSippySource']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -353,10 +353,10 @@ class R2BucketSippy(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             account_id: pulumi.Input[Optional[_builtins.str]] = None,
             bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
-            destination: pulumi.Input[Optional[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict']]] = None,
+            destination: pulumi.Input[Optional[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict', 'outputs.R2BucketSippyDestination']]] = None,
             enabled: pulumi.Input[Optional[_builtins.bool]] = None,
             jurisdiction: pulumi.Input[Optional[_builtins.str]] = None,
-            source: pulumi.Input[Optional[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict']]] = None) -> 'R2BucketSippy':
+            source: pulumi.Input[Optional[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict', 'outputs.R2BucketSippySource']]] = None) -> 'R2BucketSippy':
         """
         Get an existing R2BucketSippy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -364,12 +364,12 @@ class R2BucketSippy(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] account_id: Account ID.
+        :param pulumi.Input[_builtins.str] account_id: Cloudflare account ID that owns the R2 resource.
         :param pulumi.Input[_builtins.str] bucket_name: Name of the bucket.
-        :param pulumi.Input[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict']] destination: R2 bucket to copy objects to.
+        :param pulumi.Input[Union['R2BucketSippyDestinationArgs', 'R2BucketSippyDestinationArgsDict', 'outputs.R2BucketSippyDestination']] destination: R2 bucket to copy objects to.
         :param pulumi.Input[_builtins.bool] enabled: State of Sippy for this bucket.
         :param pulumi.Input[_builtins.str] jurisdiction: Jurisdiction of the bucket
-        :param pulumi.Input[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict']] source: AWS S3 bucket to copy objects from.
+        :param pulumi.Input[Union['R2BucketSippySourceArgs', 'R2BucketSippySourceArgsDict', 'outputs.R2BucketSippySource']] source: AWS S3 bucket to copy objects from.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -387,7 +387,7 @@ class R2BucketSippy(pulumi.CustomResource):
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Output[_builtins.str]:
         """
-        Account ID.
+        Cloudflare account ID that owns the R2 resource.
         """
         return pulumi.get(self, "account_id")
 

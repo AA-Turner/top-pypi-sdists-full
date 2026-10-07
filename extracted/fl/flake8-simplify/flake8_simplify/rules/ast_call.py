@@ -1,14 +1,13 @@
 import ast
 import json
-import logging
+from collections.abc import Iterator
 
-from flake8_simplify.constants import BOOL_CONST_TYPES
-from flake8_simplify.utils import Call, to_source
-
-logger = logging.getLogger(__name__)
+from flake8_simplify.registry import Violation, rule
+from flake8_simplify.utils import get_parent, to_source
 
 
-def get_sim115(node: Call) -> list[tuple[int, int, str]]:
+@rule("SIM115", ast.Call)
+def get_sim115(node: ast.Call) -> Iterator[Violation]:
     """
     Find places where open() is called without a context handler.
 
@@ -36,22 +35,21 @@ def get_sim115(node: Call) -> list[tuple[int, int, str]]:
             ),
         ),
     """
-    RULE = "SIM115 Use context handler for opening files"
-    errors: list[tuple[int, int, str]] = []
+    RULE = "Use context handler for opening files"
     if not (
         isinstance(node.func, ast.Name)
         and node.func.id == "open"
-        and not isinstance(node.parent, ast.withitem)
+        and not isinstance(get_parent(node), ast.withitem)
     ):
-        return errors
-    errors.append((node.lineno, node.col_offset, RULE))
-    return errors
+        return
+    yield Violation(node, RULE)
 
 
 # Experimental rules
 
 
-def get_sim901(node: ast.Call) -> list[tuple[int, int, str]]:
+@rule("SIM901", ast.Call)
+def get_sim901(node: ast.Call) -> Iterator[Violation]:
     """
     Get a list of all calls of the type "bool(comparison)".
 
@@ -67,60 +65,44 @@ def get_sim901(node: ast.Call) -> list[tuple[int, int, str]]:
         keywords=[],
     )
     """
-    RULE = "SIM901 Use '{expected}' instead of '{actual}'"
-    errors: list[tuple[int, int, str]] = []
+    RULE = "Use '{expected}' instead of '{actual}'"
     if not (
         isinstance(node.func, ast.Name)
         and node.func.id == "bool"
         and len(node.args) == 1
         and isinstance(node.args[0], ast.Compare)
     ):
-        return errors
+        return
 
     actual = to_source(node)
     expected = to_source(node.args[0])
 
-    errors.append(
-        (
-            node.lineno,
-            node.col_offset,
-            RULE.format(actual=actual, expected=expected),
-        )
-    )
-    return errors
+    yield Violation(node, RULE.format(actual=actual, expected=expected))
 
 
-def get_sim905(node: ast.Call) -> list[tuple[int, int, str]]:
-    RULE = "SIM905 Use '{expected}' instead of '{actual}'"
-    errors: list[tuple[int, int, str]] = []
+@rule("SIM905", ast.Call)
+def get_sim905(node: ast.Call) -> Iterator[Violation]:
+    RULE = "Use '{expected}' instead of '{actual}'"
     if not (
         isinstance(node.func, ast.Attribute)
         and node.func.attr == "split"
         and isinstance(node.func.value, ast.Constant)
         and isinstance(node.func.value.value, str)
+        and not node.args
+        and not node.keywords
     ):
-        return errors
+        return
 
-    if isinstance(node.func.value, ast.Constant):
-        value = node.func.value.value
-    else:
-        value = node.func.value.value
+    value = node.func.value.value
 
     expected = json.dumps(value.split())
     actual = to_source(node.func.value) + ".split()"
-    errors.append(
-        (
-            node.lineno,
-            node.col_offset,
-            RULE.format(expected=expected, actual=actual),
-        )
-    )
-    return errors
+    yield Violation(node, RULE.format(expected=expected, actual=actual))
 
 
-def get_sim906(node: ast.Call) -> list[tuple[int, int, str]]:
-    RULE = "SIM906 Use '{expected}' instead of '{actual}'"
-    errors: list[tuple[int, int, str]] = []
+@rule("SIM906", ast.Call)
+def get_sim906(node: ast.Call) -> Iterator[Violation]:
+    RULE = "Use '{expected}' instead of '{actual}'"
     if not (
         isinstance(node.func, ast.Attribute)
         and isinstance(node.func.value, ast.Attribute)
@@ -142,7 +124,7 @@ def get_sim906(node: ast.Call) -> list[tuple[int, int, str]]:
             for arg in node.args
         )
     ):
-        return errors
+        return
 
     def get_os_path_join_args(node: ast.Call) -> list[str]:
         names: list[str] = []
@@ -157,31 +139,21 @@ def get_sim906(node: ast.Call) -> list[tuple[int, int, str]]:
                 and arg.func.attr == "join"
             ):
                 names = names + get_os_path_join_args(arg)
-            elif isinstance(arg, ast.Name):
-                names.append(arg.id)
             elif isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                names.append(f"'{arg.value}'")
+                names.append(repr(arg.value))
             else:
-                logger.debug(
-                    f"Unexpected os.path.join arg: {arg} -- {to_source(arg)}"
-                )
+                names.append(to_source(arg))
         return names
 
     names = get_os_path_join_args(node)
 
     actual = to_source(node)
     expected = f"os.path.join({', '.join(names)})"
-    errors.append(
-        (
-            node.lineno,
-            node.col_offset,
-            RULE.format(actual=actual, expected=expected),
-        )
-    )
-    return errors
+    yield Violation(node, RULE.format(actual=actual, expected=expected))
 
 
-def get_sim910(node: Call) -> list[tuple[int, int, str]]:
+@rule("SIM910", ast.Call)
+def get_sim910(node: ast.Call) -> Iterator[Violation]:
     """
     Get a list of all usages of "dict.get(key, None)"
 
@@ -202,38 +174,31 @@ def get_sim910(node: Call) -> list[tuple[int, int, str]]:
             ),
         ),
     """
-    RULE = "SIM910 Use '{expected}' instead of '{actual}'"
-    errors: list[tuple[int, int, str]] = []
+    RULE = "Use '{expected}' instead of '{actual}'"
     if not (
         isinstance(node.func, ast.Attribute)
         and node.func.attr == "get"
         and isinstance(node.func.ctx, ast.Load)
     ):
-        return errors
+        return
 
     # check the argument value
     if not (
         len(node.args) == 2
-        and isinstance(node.args[1], BOOL_CONST_TYPES)
+        and isinstance(node.args[1], ast.Constant)
         and node.args[1].value is None
     ):
-        return errors
+        return
 
     actual = to_source(node)
     func = to_source(node.func)
     key = to_source(node.args[0])
     expected = f"{func}({key})"
-    errors.append(
-        (
-            node.lineno,
-            node.col_offset,
-            RULE.format(actual=actual, expected=expected),
-        )
-    )
-    return errors
+    yield Violation(node, RULE.format(actual=actual, expected=expected))
 
 
-def get_sim911(node: ast.AST) -> list[tuple[int, int, str]]:
+@rule("SIM911", ast.Call)
+def get_sim911(node: ast.AST) -> Iterator[Violation]:
     """
     Find nodes representing the expression "zip(_.keys(), _.values())".
 
@@ -267,10 +232,8 @@ def get_sim911(node: ast.AST) -> list[tuple[int, int, str]]:
         )
     """
     RULE = (
-        "SIM911 Use '{name}.items()' instead of "
-        "'zip({name}.keys(), {name}.values())'"
+        "Use '{name}.items()' instead of 'zip({name}.keys(), {name}.values())'"
     )
-    errors: list[tuple[int, int, str]] = []
 
     if isinstance(node, ast.Call) and (
         isinstance(node.func, ast.Name)
@@ -289,11 +252,4 @@ def get_sim911(node: ast.AST) -> list[tuple[int, int, str]]:
             and second_arg.func.attr == "values"
             and first_arg.func.value.id == second_arg.func.value.id
         ):
-            errors.append(
-                (
-                    node.lineno,
-                    node.col_offset,
-                    RULE.format(name=first_arg.func.value.id),
-                )
-            )
-    return errors
+            yield Violation(node, RULE.format(name=first_arg.func.value.id))

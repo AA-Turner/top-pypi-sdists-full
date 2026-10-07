@@ -6,6 +6,7 @@ from _pytest.main import ExitCode
 
 import schemathesis
 from schemathesis.cli.events import LoadingFinished
+from schemathesis.engine.events import ScenarioFinished
 
 
 @pytest.fixture
@@ -56,7 +57,7 @@ def test_report_shape(ctx, cli, json_path):
             "fuzzing": {"status": "success", "skip_reason": None},
             "stateful": {"status": "skip", "skip_reason": "disabled"},
         },
-        "test_cases": {"with_failures": 0, "unique_failures": 0, "without_checks": 0},
+        "test_cases": {"with_failures": 0, "unique_failures": 0, "without_checks": 0, "errored": 0},
         "failures": [],
         "errors": [],
         "warnings": {
@@ -205,6 +206,29 @@ def test_handler_error_records_process_exit_code(ctx, cli, json_path, command):
     assert "CLI Handler Error" in result.stdout
     report = load_report(json_path)
     assert (result.exit_code, report["exit_code"], report["stop_reason"]) == (2, 2, "error")
+
+
+def test_handler_error_mid_run_records_running_time(ctx, cli, json_path):
+    @schemathesis.cli.handler()
+    class BrokenOnScenario(schemathesis.cli.EventHandler):
+        def handle_event(self, run_ctx, event) -> None:
+            if isinstance(event, ScenarioFinished):
+                raise RuntimeError("oops")
+
+    api = ctx.openapi.apps.success()
+    result = cli.main("run", api.schema_url, "--max-examples=1", f"--report-json-path={json_path}")
+    report = load_report(json_path)
+    assert (
+        result.exit_code,
+        report["exit_code"],
+        report["stop_reason"],
+        isinstance(report["running_time"], float),
+    ) == (
+        2,
+        2,
+        "error",
+        True,
+    ), result.stdout
 
 
 @pytest.mark.parametrize("command", [("run", "--max-examples=1"), ("fuzz", "--max-time=1")], ids=["run", "fuzz"])

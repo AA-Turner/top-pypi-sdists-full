@@ -43,11 +43,11 @@ def test_absent_headers_yield_no_attribution() -> None:
 
 
 def test_an_uncaptured_agent_is_refused() -> None:
-    """Cursor is detectable but its transcripts never reach us, so a session id from it
-    is a link nobody can follow. The plugin does not send one; the server does not
-    trust that it did not."""
+    """An agent whose transcripts never reach us (one no registry row captures) makes a
+    session id a link nobody can follow. The plugin does not send one; the server does
+    not trust that it did not."""
     agent, session = accounting.agent_from_headers(
-        _headers(**{"X-Probe-Agent": "cursor", "X-Probe-Agent-Session": "a" * 12})
+        _headers(**{"X-Probe-Agent": "not_a_harness", "X-Probe-Agent-Session": "a" * 12})
     )
     assert (agent, session) == (None, None)
 

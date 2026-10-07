@@ -28,6 +28,7 @@ fn admission() -> DecisionsAdmission {
         .clone(),
         maximum_total_attempts: 1,
         maximum_same_deployment_attempts: 1,
+        ..Default::default()
     }
 }
 

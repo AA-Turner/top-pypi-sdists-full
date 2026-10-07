@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import datetime
 
+from sqlbuild.compiler.compile.models import CompiledModel
+from sqlbuild.compiler.planner.exceptions import PlannerInputError
 from sqlbuild.compiler.planner.models import (
     CursorBounds,
+    CursorOverrides,
     Duration,
+    EmptyCursorInputDecision,
     MaximumStartPolicyInputs,
     ModelCursorSnapshot,
 )
@@ -15,6 +21,7 @@ from sqlbuild.compiler.planner.types import (
     CursorGrain,
     CursorType,
     CursorWatermarkMode,
+    MaterializationType,
     MicrobatchStrategy,
 )
 from sqlbuild.cursor_algebra.constants import GRAIN_ORDER
@@ -24,9 +31,16 @@ from sqlbuild.cursor_algebra.main.inclusive_to_exclusive import inclusive_to_exc
 from sqlbuild.cursor_algebra.main.max_bound import max_bound
 from sqlbuild.cursor_algebra.main.min_bound import min_bound
 from sqlbuild.cursor_algebra.main.observed_partition import observed_partition
+from sqlbuild.cursor_algebra.main.parse import parse
 from sqlbuild.cursor_algebra.main.try_parse import try_parse
 from sqlbuild.cursor_algebra.models import DateValue, IntegerValue, TimestampValue
 from sqlbuild.cursor_algebra.types import BoundSentinel, CursorScalar
+from sqlbuild.spec.contracts.main.get_config_str import get_config_str
+
+_INTEGER_LITERAL: re.Pattern[str] = re.compile(r"[+-]?\d+")
+_LISTED_MODEL_LIMIT: int = 3
+_EMPTY_INTEGER_CURSOR_BOUND: int = 0
+_EMPTY_TIMESTAMP_CURSOR_BOUND: datetime = datetime(1970, 1, 1)
 
 
 def compute_cursor_bounds(
@@ -98,6 +112,108 @@ def compute_cursor_bounds(
         backfill_duration=backfill_duration,
         policy=maximum_start_policy or MaximumStartPolicyInputs(),
         has_start_override=start_cursor_override is not None,
+    )
+
+
+def cursor_inputs_without_rows(*, cursor_snapshot: ModelCursorSnapshot) -> EmptyCursorInputDecision:
+    """Return empty cursor inputs that leave no window; any unreadable input is a failure."""
+
+    if cursor_snapshot.unreadable_input_names:
+        return EmptyCursorInputDecision()
+    return decide_empty_cursor_inputs(
+        empty_input_names=cursor_snapshot.empty_input_names,
+        waits_for_every_input=cursor_snapshot.cursor_watermark_mode != CursorWatermarkMode.ANY,
+        inputs_with_rows=bool(
+            cursor_snapshot.upstream_maxes
+            or cursor_snapshot.upstream_terminal_ends
+            or cursor_snapshot.upstream_availability_ends
+        ),
+        has_window_start=bool(
+            cursor_snapshot.target_max is not None
+            or cursor_snapshot.upstream_mins
+            or cursor_snapshot.upstream_terminal_starts
+        ),
+    )
+
+
+def decide_empty_cursor_inputs(
+    *,
+    empty_input_names: tuple[str, ...],
+    waits_for_every_input: bool,
+    inputs_with_rows: bool,
+    has_window_start: bool,
+) -> EmptyCursorInputDecision:
+    """Decide whether empty cursor inputs leave no window, shared by planning and runtime."""
+
+    if not empty_input_names:
+        return EmptyCursorInputDecision()
+    if not waits_for_every_input and inputs_with_rows and has_window_start:
+        return EmptyCursorInputDecision()
+    return EmptyCursorInputDecision(
+        input_names=empty_input_names, waiting_on_empty_inputs=inputs_with_rows
+    )
+
+
+def empty_cursor_window(*, cursor_type: str | None, cursor_start: str | None) -> CursorBounds:
+    """Return a zero-width cursor window, which selects no rows from any filtered input."""
+
+    bound: CursorScalar
+    if cursor_start is not None:
+        bound = parse(raw=cursor_start, cursor_type=cursor_type or CursorType.TIMESTAMP)
+    elif cursor_type == CursorType.INTEGER:
+        bound = IntegerValue(value=_EMPTY_INTEGER_CURSOR_BOUND)
+    else:
+        bound = TimestampValue(value=_EMPTY_TIMESTAMP_CURSOR_BOUND)
+    return CursorBounds(start=bound, end=bound)
+
+
+def format_no_input_rows(input_names: tuple[str, ...]) -> str:
+    """Explain that a cursor window is empty because its inputs have no rows."""
+
+    return f"no input rows ({', '.join(input_names)})"
+
+
+def format_waiting_on_empty_inputs(input_names: tuple[str, ...]) -> str:
+    """Explain that a cursor window waits on empty inputs while other inputs have rows."""
+
+    noun: str = "input" if len(input_names) == 1 else "inputs"
+    return f"waiting on empty {noun} {', '.join(input_names)}; other inputs have new rows"
+
+
+def cursor_window_override_flags(*, cursor_type: str | None) -> str:
+    """Name the CLI flags that set a cursor window explicitly for this cursor type."""
+
+    suffix: str = "int" if cursor_type == CursorType.INTEGER else "ts"
+    return f"--start-cursor-{suffix} and --end-cursor-{suffix}"
+
+
+def empty_input_rebuild_refusal(
+    *, model_name: str, input_names: tuple[str, ...], cursor_type: str | None
+) -> tuple[str, str]:
+    """Return the message and help for refusing to rebuild an existing table from empty inputs."""
+
+    return (
+        f"model '{model_name}' was not rebuilt: its cursor inputs have no rows "
+        f"({', '.join(input_names)}), so rebuilding it now would leave it empty",
+        "load the inputs first, or set the window explicitly with "
+        + cursor_window_override_flags(cursor_type=cursor_type),
+    )
+
+
+def unreadable_cursor_inputs_error(
+    *, model_name: str, cursor_type: str | None, input_names: tuple[str, ...]
+) -> PlannerInputError:
+    """Report cursor inputs whose bounds could not be read, in terms of the model's inputs."""
+
+    return PlannerInputError(
+        f"model '{model_name}' cannot work out its cursor window: cursor bounds could not be "
+        f"read from {', '.join(input_names)}",
+        code="S302",
+        help=(
+            "check that each input exists and has its cursor column (`sqb debug` checks the "
+            "connection), or set the window explicitly with "
+            f"{cursor_window_override_flags(cursor_type=cursor_type)}"
+        ),
     )
 
 
@@ -184,6 +300,8 @@ def normalize_cursor_snapshot_grain(
             for physical, terminal in cursor_snapshot.upstream_end_inputs
         ),
         upstream_availability_ends=cursor_snapshot.upstream_availability_ends,
+        empty_input_names=cursor_snapshot.empty_input_names,
+        unreadable_input_names=cursor_snapshot.unreadable_input_names,
     )
 
 
@@ -373,3 +491,66 @@ def _parse_required(*, value: str, cursor_type: str | None) -> CursorScalar:
     if parsed is None:
         raise CursorAlgebraError(f"invalid cursor value: {value}")
     return parsed
+
+
+def type_cursor_overrides(
+    *,
+    cursor_overrides: CursorOverrides | None,
+    selected_models: Iterable[CompiledModel],
+) -> CursorOverrides | None:
+    """Type `--start-cursor`/`--end-cursor` from the selected cursor models, else the literal."""
+
+    if cursor_overrides is None or not cursor_overrides.has_untyped:
+        return cursor_overrides
+    model_names_by_type: dict[CursorType, list[str]] = {}
+    model: CompiledModel
+    for model in selected_models:
+        cursor_type: CursorType | None = _model_cursor_type(model=model)
+        if cursor_type is not None:
+            model_names_by_type.setdefault(cursor_type, []).append(model.name)
+    if len(model_names_by_type) > 1:
+        raise PlannerInputError(
+            "--start-cursor and --end-cursor need one cursor type, but the selection mixes "
+            + " and ".join(
+                f"{cursor_type} cursor models ({_format_names(names)})"
+                for cursor_type, names in sorted(model_names_by_type.items())
+            ),
+            code="S303",
+            help=(
+                "select models with one cursor type, or set each type explicitly with "
+                "--start-cursor-ts/--end-cursor-ts and --start-cursor-int/--end-cursor-int"
+            ),
+        )
+    resolved_type: CursorType = (
+        next(iter(model_names_by_type))
+        if model_names_by_type
+        else _literal_cursor_type(cursor_overrides=cursor_overrides)
+    )
+    return cursor_overrides.typed_as(cursor_type=resolved_type)
+
+
+def _model_cursor_type(*, model: CompiledModel) -> CursorType | None:
+    materialized: str | None = get_config_str(values=model.config.values, key="materialized")
+    cursor_column: str | None = get_config_str(values=model.config.values, key="cursor")
+    if materialized != MaterializationType.INCREMENTAL or cursor_column is None:
+        return None
+    cursor_type: str | None = get_config_str(values=model.config.values, key="cursor_type")
+    if cursor_type not in {CursorType.TIMESTAMP, CursorType.INTEGER}:
+        return None
+    return CursorType(cursor_type)
+
+
+def _literal_cursor_type(*, cursor_overrides: CursorOverrides) -> CursorType:
+    values: tuple[str, ...] = tuple(
+        value for value in (cursor_overrides.start, cursor_overrides.end) if value is not None
+    )
+    if all(_INTEGER_LITERAL.fullmatch(value.strip()) for value in values):
+        return CursorType.INTEGER
+    return CursorType.TIMESTAMP
+
+
+def _format_names(names: list[str]) -> str:
+    ordered: list[str] = sorted(names)
+    shown: str = ", ".join(ordered[:_LISTED_MODEL_LIMIT])
+    hidden: int = len(ordered) - _LISTED_MODEL_LIMIT
+    return f"{shown} and {hidden} more" if hidden > 0 else shown

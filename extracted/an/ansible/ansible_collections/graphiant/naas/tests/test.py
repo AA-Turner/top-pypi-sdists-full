@@ -927,24 +927,51 @@ class TestGraphiantPlaybooks(unittest.TestCase):
 
     def test_configure_bgp_peering(self):
         """
-        Configure BGP Peering.
+        Configure BGP Peering (exercises camelCase and legacy snake_case fields, per-entry
+        ``state: absent``, per-policy detach, and vault MD5 fill).
+
+        ``sample_bgp_peering.yaml`` uses camelCase on edge-1/edge-3 and legacy snake_case
+        on edge-2 (proving the aliases work); marks a neighbor and an aggregation
+        ``state: absent`` (removed under configure); detaches one neighbor's inbound policy
+        via ``ipv4_inbound_filter: absent``; and leaves a neighbor's ``md5Password`` unset so
+        it is filled from ``vault_bgp_peering_md5_passwords`` in ``vault_secrets.yml.example``.
+        Second run should be idempotent (changed=False) if desired state already matches.
         """
         graphiant_config = graphiant_config_from_read_config()
-        graphiant_config.bgp.configure("sample_bgp_peering.yaml")
+        config_path = graphiant_config.config_utils.config_path
+        vault_md5 = vault_dict_from_example(config_path, "vault_bgp_peering_md5_passwords")
+
+        result = graphiant_config.bgp.configure("sample_bgp_peering.yaml", vault_md5)
+        LOG.info("Configure BGP peering result: %s", result)
+        result = graphiant_config.bgp.configure("sample_bgp_peering.yaml", vault_md5)
+        LOG.info("Configure BGP peering result (idempotency check): %s", result)
+        assert result['changed'] is False, "Configure BGP peering idempotency failed"
 
     def test_deconfigure_bgp_peering(self):
         """
         Deconfigure BGP Peering.
+
+        Second run should be idempotent (changed=False) when they are already absent.
         """
         graphiant_config = graphiant_config_from_read_config()
-        graphiant_config.bgp.deconfigure("sample_bgp_peering.yaml")
+        result = graphiant_config.bgp.deconfigure("sample_bgp_peering.yaml")
+        LOG.info("Deconfigure BGP peering result: %s", result)
+        result = graphiant_config.bgp.deconfigure("sample_bgp_peering.yaml")
+        LOG.info("Deconfigure BGP peering result (idempotency check): %s", result)
+        assert result['changed'] is False, "Deconfigure BGP peering idempotency failed"
 
     def test_detach_policies_from_bgp_peers(self):
         """
         Detach policies from BGP peers.
+
+        Second run should be idempotent (changed=False) when policies are already detached.
         """
         graphiant_config = graphiant_config_from_read_config()
-        graphiant_config.bgp.detach_policies("sample_bgp_peering.yaml")
+        result = graphiant_config.bgp.detach_policies("sample_bgp_peering.yaml")
+        LOG.info("Detach BGP policies result: %s", result)
+        result = graphiant_config.bgp.detach_policies("sample_bgp_peering.yaml")
+        LOG.info("Detach BGP policies result (idempotency check): %s", result)
+        assert result['changed'] is False, "Detach BGP policies idempotency failed"
 
     def test_create_data_exchange_services(self):
         """
@@ -2014,6 +2041,74 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         LOG.info("Deconfigure Data Assurance result (idempotency check): %s", result2)
         assert result2['changed'] is False, "Deconfigure Data Assurance idempotency failed"
 
+    def test_configure_data_assurance_inline(self):
+        """
+        Configure Data Assurance policies supplied directly as inline module parameters
+        (data_assurance_policies / content_filter_policies) instead of a config file.
+
+        Reuses the sample policy definitions (loaded from the sample YAML) so the same portal
+        prerequisites apply, and verifies the inline path is idempotent on a second run.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        config = graphiant_config.data_assurance.render_config_file("sample_data_assurance_policies.yaml")
+        da_policies = config.get("DataAssurancePolicies")
+        cf_policies = config.get("ContentFilterPolicies")
+
+        result = graphiant_config.data_assurance.configure(
+            data_assurance_policies=da_policies,
+            content_filter_policies=cf_policies,
+        )
+        LOG.info("Configure Data Assurance (inline) result: %s", result)
+        result2 = graphiant_config.data_assurance.configure(
+            data_assurance_policies=da_policies,
+            content_filter_policies=cf_policies,
+        )
+        LOG.info("Configure Data Assurance (inline) result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Configure Data Assurance (inline) idempotency failed"
+
+    def test_configure_data_assurance_file_with_inline_override(self):
+        """
+        Configure from the sample config file with an inline module-parameter override.
+
+        The override supplies assurance-policy-1's flexAlgo again (same value) via
+        data_assurance_policies; the parameters are merged onto the config file by policy
+        name. Because the desired state already matches (the inline configure ran first),
+        the combined config-file + override run must be idempotent (changed=False).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        override = [{"name": "assurance-policy-1", "flexAlgo": "test-all-cores"}]
+        result = graphiant_config.data_assurance.configure(
+            "sample_data_assurance_policies.yaml",
+            data_assurance_policies=override,
+        )
+        LOG.info("Configure Data Assurance (file + inline override) result: %s", result)
+        assert result['changed'] is False, "Data Assurance config-file + inline override idempotency failed"
+
+    def test_deconfigure_data_assurance_inline(self):
+        """
+        Deconfigure (delete) the Data Assurance and content-filter policies supplied inline as
+        module parameters. Second run should be idempotent (changed=False) once absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        config = graphiant_config.data_assurance.render_config_file("sample_data_assurance_policies.yaml")
+        da_policies = config.get("DataAssurancePolicies")
+        cf_policies = config.get("ContentFilterPolicies")
+
+        result = graphiant_config.data_assurance.deconfigure(
+            data_assurance_policies=da_policies,
+            content_filter_policies=cf_policies,
+        )
+        LOG.info("Deconfigure Data Assurance (inline) result: %s", result)
+        result2 = graphiant_config.data_assurance.deconfigure(
+            data_assurance_policies=da_policies,
+            content_filter_policies=cf_policies,
+        )
+        LOG.info("Deconfigure Data Assurance (inline) result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Deconfigure Data Assurance (inline) idempotency failed"
+
     def test_configure_global_ntp(self):
         """
         Configure Global NTP objects.
@@ -2997,6 +3092,61 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         LOG.info("Configure NAT policy YAML + module_params override (idempotency check): %s", result2)
         assert result2['changed'] is False, "Configure NAT policy module_params override idempotency failed"
 
+    _GATEWAY_SERVICES_CONFIG_FILE = "sample_gateway_services_config.yaml"
+
+    def test_create_gateway_services(self):
+        """
+        Create Gateway Services (cloudGateway + connectivity) from the sample config.
+
+        Create is create-or-update: the second run must be idempotent (changed=False) —
+        existing cloud gateways are skipped and matching connectivity gateways are skipped.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.gateway_services.create(self._GATEWAY_SERVICES_CONFIG_FILE)
+        LOG.info("Create gateway services result: %s", result)
+        result2 = graphiant_config.gateway_services.create(self._GATEWAY_SERVICES_CONFIG_FILE)
+        LOG.info("Create gateway services result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Create gateway services idempotency failed"
+
+    def test_force_update_gateway_services(self):
+        """
+        Re-push matching connectivity gateways with force_update=True.
+
+        Secrets (psk / md5Password) and auto-allocated CIDRs are excluded from the idempotency
+        comparison, so a rotated secret is not otherwise detected. force_update re-pushes every
+        matching connectivity gateway (changed=True); cloud gateways are still skipped.
+        Pre-req: run test_create_gateway_services first so the gateways exist.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        # Without force: an unchanged connectivity gateway is skipped (idempotent).
+        baseline = graphiant_config.gateway_services.create(self._GATEWAY_SERVICES_CONFIG_FILE)
+        LOG.info("Force-update baseline (no force) result: %s", baseline)
+        assert baseline['changed'] is False, "Baseline create should be idempotent before force_update"
+
+        # With force_update: matching connectivity gateways are re-pushed.
+        result = graphiant_config.gateway_services.create(
+            self._GATEWAY_SERVICES_CONFIG_FILE, force_update=True
+        )
+        LOG.info("Force-update gateway services result: %s", result)
+        assert result['changed'] is True, "force_update should re-push matching connectivity gateways"
+        assert result['updated'], "force_update should report re-pushed connectivity gateways in 'updated'"
+
+    def test_delete_gateway_services(self):
+        """
+        Delete the Gateway Services defined in the sample config.
+
+        Second run must be idempotent (changed=False) when the gateways are already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.gateway_services.delete(self._GATEWAY_SERVICES_CONFIG_FILE)
+        LOG.info("Delete gateway services result: %s", result)
+        result2 = graphiant_config.gateway_services.delete(self._GATEWAY_SERVICES_CONFIG_FILE)
+        LOG.info("Delete gateway services result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Delete gateway services idempotency failed"
+
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
@@ -3388,6 +3538,14 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_detach_nat_policy_lan_segments'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_device_nat_policy_module_params'))
 
+    '''
+    # Gateway Services Management Tests (cloudGateway + connectivity)
+    # Pre-req: region and lan-1-test LAN segment referenced by the sample config exist
+    suite.addTest(TestGraphiantPlaybooks('test_create_gateway_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_force_update_gateway_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_gateway_services'))
+    '''
+
     # OSPFv2 Management Tests
     # Pre-req: LAN segments referenced by OSPF
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_lan_segments'))
@@ -3399,12 +3557,16 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_lan_segments'))
 
     '''
-    # Traffic in needed in order to configure.
+    # Traffic is needed in order to configure.
     # Data Assurance & Content-Filter (protection) Policy Tests
     # Pre-req: site list referenced by assurance-policy-1 (siteListName) and flex-algos used
     # in the sample must exist in the target enterprise.
     suite.addTest(TestGraphiantPlaybooks('test_configure_data_assurance'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_data_assurance'))
+    # Inline module-parameter path (policies passed directly instead of / on top of a config file)
+    suite.addTest(TestGraphiantPlaybooks('test_configure_data_assurance_inline'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_data_assurance_file_with_inline_override'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_data_assurance_inline'))
     '''
 
     # To deconfigure all interfaces

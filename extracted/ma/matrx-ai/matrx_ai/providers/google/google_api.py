@@ -982,6 +982,12 @@ class GoogleChat:
             reasoning_state_for(emitter).signaled = True
             await emitter.send_reasoning_state("started")
 
+    @staticmethod
+    def _mark_answered(emitter: Emitter) -> None:
+        """Answer content has streamed on THIS stream (per-stream state)."""
+        if emitter:
+            reasoning_state_for(emitter).answered = True
+
     async def _signal_reasoning_stopped(self, emitter: Emitter) -> None:
         """Emit 'reasoning stopped' iff a 'started' is outstanding. Idempotent —
         safe to call on the first content part and again at stream end."""
@@ -1007,6 +1013,7 @@ class GoogleChat:
 
         elif part.text:
             # Real answer content — reasoning (if any) is over.
+            self._mark_answered(emitter)
             await self._signal_reasoning_stopped(emitter)
             if emitter:
                 await emitter.send_chunk(part.text)
@@ -1017,9 +1024,11 @@ class GoogleChat:
         elif part.inline_data:
             # Inline media (audio/image) is saved and emitted by _emit_media_from_response
             # after from_google() processes all chunks — skip here to avoid double-saving.
+            self._mark_answered(emitter)
             await self._signal_reasoning_stopped(emitter)
 
         elif part.function_call:
+            self._mark_answered(emitter)
             await self._signal_reasoning_stopped(emitter)
 
         elif part.thought_signature:
@@ -1027,8 +1036,12 @@ class GoogleChat:
             # on-wire evidence the model reasoned when include_thoughts=False —
             # this is the Gemini case where the UI otherwise sees nothing but
             # heartbeats. Emit the content-less "reasoning started" signal; the
-            # first content part (or stream end) closes it.
-            await self._signal_reasoning_started(emitter)
+            # first content part (or stream end) closes it. Gemini also sends a
+            # bare signature LAST, after the answer (live 2026-10-07): that one is
+            # not reasoning, and signalling it put "reasoning started" after the
+            # answer.
+            if not (emitter and reasoning_state_for(emitter).answered):
+                await self._signal_reasoning_started(emitter)
 
         else:
             pass

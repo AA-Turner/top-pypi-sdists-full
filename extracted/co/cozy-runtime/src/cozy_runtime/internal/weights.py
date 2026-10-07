@@ -6,9 +6,10 @@ byte, one weight set per component, in regions: `common` and each innermost no-s
 each component's resident set, window and ring inside the plane budget; the resident set is
 wanted and a cursor streams the rest through its byte ring in the blocks' execution order.
 Each block runs inside exactly one acquire/release; a resident region binds at its stable
-address, a streamed one at its place in the ring, from cached views. A torch OOM at a block
-boundary lowers the budget (unmap only) and runs the block again; capacity never poisons the
-executor.
+address, a streamed one at its place in the ring, from cached views. A torch OOM makes room
+(unmap only) and runs the op again; one that escapes a block's ops runs the block again, with
+the state its forward changed restored first (`Effects`, `Journal`); capacity never poisons
+the executor.
 """
 
 from __future__ import annotations
@@ -18,24 +19,27 @@ import os
 import re
 import time
 import weakref
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+import zlib
+from collections import deque
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field, replace
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 import msgspec
 import tensorfs
 
 from cozy_runtime.author._activity import aside
 from cozy_runtime.author._errors import RuntimeFailure, is_device_oom, is_library_refusal
+from cozy_runtime.author._executor_requests import DeviceTierAnswer, SealedPlan, SharedRegion
 from cozy_runtime.author._loader import Census, TensorLike, TensorSpec, _members
-from cozy_runtime.author._stage_memo import inexact
 from cozy_runtime.internal import (
     accel,
     budget_cell,
     canonical,
     image_vae,
+    lora_bake,
     plane,
     proctree,
     weight_policy,
@@ -70,6 +74,7 @@ from cozy_runtime.internal.probe import QualificationResult, observed_capability
 from cozy_runtime.internal.resolution import ResolvedModelPlan, TensorResolution, script_plan
 
 if TYPE_CHECKING:
+    from tensorfs import ReadPlan
     from tensorfs.plane import Cursor, Lease, Source, Ticket, WeightSet
     from torch import Tensor
     from torch import device as Device
@@ -83,12 +88,19 @@ type Origin = tuple[Weights, Component, Region, Table, str]
 
 #: The largest region at the sub-block grain (proving-cpu.md C2: SDXL runs at 1 GiB).
 REGION_LIMIT = 16 << 20
-#: The smallest image VAE decode tile side, in pixels.
-MIN_TILE = 128
 _REQUESTED = re.compile(r"Tried to allocate ([0-9.]+) (B|KiB|MiB|GiB)")
 _UNITS = {"B": 1, "KiB": 1 << 10, "MiB": 1 << 20, "GiB": 1 << 30}
 #: The TensorFS planning window a weight set's read plan is cut into.
 READ_WINDOW = 4 << 20
+#: The stage `WeightResidency.map_ahead` opens: no package method has this name.
+MAPPING = "(map)"
+
+
+#: The one memory failure a request can end with: an operation that needs more device memory
+#: at once than the GPU can give, with every weight it does not read unmapped, every idle
+#: tenant gone and the stage at its finest grain. Sizes and estimates only change how a stage
+#: runs (tile, stream finer, evict, page from host); they never stop it.
+INDIVISIBLE = "operation_exceeds_device"
 
 
 class ResidencyRefusal(RuntimeFailure):
@@ -133,6 +145,24 @@ class Views:
 
 
 @dataclass(slots=True)
+class Bake:
+    """One LoRA'd linear of a region: the index of its stored base weight and everything that
+    adds an update to it. A prepared graph's PEFT layer, whose factors are the region's own
+    weights (indexes of each adapter's A and B, and the scale PEFT applies); and a model's
+    consumer hooks, which supply their own (`LoRASource`). All of it is baked in one rounding,
+    and each skips its update (`_cozy_baked`) while the bytes hold its delta."""
+
+    weight: int
+    layer: Any = None
+    factors: list[tuple[int, int, float]] = field(default_factory=list)
+    hooks: list[LoRASource] = field(default_factory=list)
+
+
+class _Stale(Exception):
+    """A region's resident bytes hold a delta the forward about to read does not want."""
+
+
+@dataclass(slots=True)
 class Region:
     index: int
     path: str
@@ -149,9 +179,25 @@ class Region:
     bound: int | None = None
     #: decoded tensors and derived leaf roles kept alive while bound
     derived: list[Tensor] = field(default_factory=list)
-    #: whether its forward writes into its inputs in place, learned on its first run: such a
-    #: block can never run again, so its ops recover from out-of-memory one by one
-    mutates: bool | None = None
+    #: what its forward changes outside itself, learned on its first run (`Effects`)
+    effects: Effects | None = None
+    #: its LoRA'd linears; whether to bake them when its bytes are placed; and whether its
+    #: resident bytes hold their deltas now (cleared when the plane evicts it)
+    bakes: list[Bake] = field(default_factory=list)
+    bake: bool = False
+    baked: bool = False
+    #: what each bake added (`_bake_key`), while `baked`
+    baked_with: list[tuple[object, ...]] = field(default_factory=list)
+    #: while `baked`: the digest naming those deltas to other executors (`_variant`); "" when
+    #: it cannot be named, and the bytes then stay this process's own
+    variant: str = ""
+    #: the variant of baked bytes mapped from the machine's custody, until the first forward
+    #: that reads them says whether they are what it would bake
+    attached: str = ""
+    #: the weight set whose plane bytes a tensor views (`Weights.content`)
+    locate: Callable[[Tensor], str | None] | None = None
+    #: a bake failed part way: the resident bytes must refill before any use
+    dirty: bool = False
 
     @property
     def transforms(self) -> bool:
@@ -178,6 +224,8 @@ class Component:
     device: int
     #: every region, by plane index
     regions: list[Region]
+    #: its bytes are the machine's sealed layout: adopted read-only, never filled here
+    sealed: bool
     #: the region outside every block, if any, and the blocks in address order
     common: Region | None
     blocks: list[Region]
@@ -195,14 +243,26 @@ class Component:
     cursor: Cursor | None = None
     #: the common region's lease for the running stage
     lease: Lease | None = None
+    #: gave its weights back to another component's activations for the rest of the stage:
+    #: none of its regions is leased or planned; its common maps again when it next runs
+    spared: bool = False
     #: region indexes wanted resident for the running stage
     resident: tuple[int, ...] = ()
     #: block region index -> its position in `blocks` (the policy's block number)
     numbers: dict[int, int] = field(default_factory=dict)
     #: a CPU executor's weight set, mapped from its pinned tier (the bytes it binds)
     mapping: Any = None
-    #: the pinned tier's fill in flight (a weight set closes only after it)
-    filling: Ticket | None = None
+    #: the pinned tier's fills in flight, one per region (a weight set closes only after them)
+    filling: list[Ticket] = field(default_factory=list)
+    #: region indexes mapped from GPU memory the machine keeps (`weights.attach/1`)
+    shared: set[int] = field(default_factory=set)
+    #: the machine's lease sockets for those regions: open while they are mapped, closed (by
+    #: this process or its death) once they are let go, which ends the lease
+    leases: list[int] = field(default_factory=list)
+    #: a layout the machine stages in part: its plan, and the regions staged so far (the rest
+    #: copy from the object files; the stream's regions are asked for as stages plan them)
+    staging: tuple[SealedPlan, HostTiers] | None = None
+    staged: set[int] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         self.numbers = {region.index: i for i, region in enumerate(self.blocks)}
@@ -256,7 +316,18 @@ class Weights:
         self.clock = 0
         self.components: dict[str, Component] = {}
         self.activation: dict[str, int] = {}
-        #: methods whose stage fits itself to the room it finds (an image VAE's decode mode):
+        #: each stage method's last plan inputs (`driver_budget`), in the facts
+        self.plan_inputs: dict[str, dict[str, int]] = {}
+        #: per stage method, the most room torch had (`allocatable`) at an entry in which it
+        #: dropped its whole cache more than once: under a limit torch refuses reserved plus
+        #: one request, so a peak that fits can still squeeze. An entry of that method is
+        #: given more room first (`WeightResidency._clear`). Measured here or seeded.
+        self.squeezed: dict[str, int] = {}
+        #: those this request's own entries measured: what the owner keeps for its shape
+        self.squeezes: dict[str, int] = {}
+        #: components given back to make torch room (`page_out`), and their bytes
+        self.paged_out = [0, 0]
+        #: methods whose stage fits itself to the room it finds (an image VAE's decode maps):
         #: their activations never size a grant
         self.adaptive: set[str] = set()
         self.oom_retries = 0
@@ -272,8 +343,10 @@ class Weights:
         #: the GPUs of its group: each pins its own weights, so each takes this share of a
         #: host budget the Worker states for the whole group
         self.world = 1
-        #: blocks in their forward now (their leases pin their own weights)
-        self.running = 0
+        #: the components of the blocks in their forward now (their leases pin their own
+        #: weights), innermost last; and the component whose block ran last
+        self.running: list[str] = []
+        self.last = ""
         #: a read outside a module's forward is being mapped (`reading`)
         self.mapping = False
         #: a group's stage whose activations are not measured yet runs its first pass at the
@@ -284,8 +357,36 @@ class Weights:
         #: asks the Worker for `bytes` free on this GPU from its other tenants (`DeviceRoom`);
         #: None in a process without a Worker
         self.room: Callable[[int], None] | None = None
+        #: the last out-of-memory retry granted without memory coming back: (op, allocatable)
+        self.last_retry: tuple[str, int] | None = None
         #: the CUDA context and library workspaces outside torch and the plane, measured once
         self.context_bytes = -1
+        #: the machine's custody of GPU weights (`weights.attach/1`); None: every region private
+        self.sharing: DeviceTiers | None = None
+        #: the machine keeps baked variants beside stored bytes (its answers say so)
+        self.variants = False
+        #: how LoRA'd linears are served: baked into their weights (owner, 2026-10-04: the
+        #: default for every LoRA on every lane), or their update computed every forward (a
+        #: request's `lora_mode: per_step`, `set_lora`)
+        self.lora: lora_bake.Strategy = "bake"
+        #: the owner's cap on this process's device bytes (context, torch's reserved bytes and
+        #: the plane's maps); -1: none
+        self.cap = -1
+        self._torch_limited = False
+        self.total = (
+            0 if self.host_only else int(torch.cuda.get_device_properties(device).total_memory)
+        )
+        #: physical free bytes this process leaves on its GPU: a display's own floor, raised to
+        #: the owner's (`owner_floor`, -1: none given)
+        self.display_floor = (
+            0
+            if self.host_only
+            else weight_policy.free_floor(self.total, accel.drives_display(self.index))
+        )
+        self.owner_floor = -1
+        self.floor_free = self.display_floor
+        if not self.host_only:
+            self.measure_context()
 
     def tick(self) -> int:
         self.clock += 1
@@ -311,6 +412,146 @@ class Weights:
             accel.release_cached(self.torch, self.kind)
         return freed
 
+    def set_cap(self, cap: int) -> None:
+        """The owner's process cap; -1 lifts it. Every plane budget stays inside it, and torch's
+        allocator is held to what it leaves beside the context and the plane's maps: an
+        activation over its estimate is an out-of-memory the plane recovers from by unmapping,
+        never a full card."""
+        self.cap = cap
+        self.limit_torch()
+
+    def limit_torch(self) -> None:
+        """Hold torch's allocator to what the cap leaves beside the context and the plane."""
+        if self.host_only or (self.cap < 0 and not self._torch_limited):
+            return
+        fraction = 1.0
+        if self.cap >= 0:
+            committed = max(plane.stats(self.plane).device(self.index).committed, 0)
+            allowed = self.cap - max(self.context_bytes, 0) - committed
+            fraction = min(max(allowed, 0) / max(self.total, 1), 1.0)
+            # A lowered cap stops new segments; the idle ones torch keeps go back now.
+            if int(self.torch.cuda.memory_reserved(self.device)) > allowed:
+                accel.release_cached(self.torch, self.kind)
+        self.torch.cuda.set_per_process_memory_fraction(fraction, self.device)
+        self._torch_limited = self.cap >= 0
+
+    def set_floor(self, floor: int) -> None:
+        """The owner's physical free floor on this GPU; -1 leaves only a display's own."""
+        self.owner_floor = floor
+        self.floor_free = max(self.display_floor, floor)
+
+    def seed_activations(self, measured: Mapping[str, int]) -> None:
+        """Activation growth the owner measured for these methods in earlier processes: this
+        process plans its first stages with room for them instead of keeping every weight
+        and recovering from the out-of-memory that follows. Only ever raises an estimate."""
+        for method, nbytes in measured.items():
+            if nbytes > self.activation.get(method, 0):
+                self.activation[method] = int(nbytes)
+
+    def seed_squeezed(self, measured: Mapping[str, int]) -> None:
+        """Rooms the owner saw squeeze these methods at this request's shape in earlier
+        processes (`squeezed`), as the request begins. Only ever raises one."""
+        self.squeezes = {}
+        for method, nbytes in measured.items():
+            self.squeezed[method] = max(self.squeezed.get(method, 0), int(nbytes))
+
+    def retries(self) -> int:
+        """Times torch dropped its whole cache to place one allocation, since the process began.
+        Read at every block boundary of a stage: the allocator's own counters, without the
+        flattened copy `torch.cuda.memory_stats` makes of them."""
+        if self.host_only:
+            return 0
+        return int(self.torch._C._cuda_memoryStats(self.index).get("num_alloc_retries", 0))
+
+    def page_out(self, keep: Collection[str]) -> bool:
+        """Give torch the device bytes of one component no stage uses now (none in `keep`): the
+        one with the fewest bytes to copy back, any that holds baked bytes (a bake to restore)
+        after the rest. Its own bytes leave the plane and its budget. Bytes mapped from the
+        machine's custody are let go and the machine is asked for them (`DeviceRoom`: it drops
+        a holding nobody maps, and this process's cap rises into that room). False: nothing
+        to give."""
+        asks = self.room is not None and self.cap >= 0
+        idle = [
+            (any(region.baked for region in c.regions), self.resident_bytes(c), key)
+            for key, c in self.components.items()
+            if key not in keep and (asks or not c.shared)
+        ]
+        idle = [row for row in idle if row[1] > 0]
+        if not idle:
+            return False
+        component = self.components[min(idle)[2]]
+        self.quiesce()
+        close_cursor(component)
+        before = max(plane.stats(self.plane).device(self.index).committed, 0)
+        try:
+            shared = self._release_shared(component, sorted(component.shared))
+            own = int(self.plane.drop(component.ws, self.index, None))
+        except plane.error("LeaseViolation"):
+            self.drain()  # something reads it after all: what did leave is unbound
+            return False
+        for region in component.regions:
+            unbind(region)
+            _unbaked(region)
+        if own:
+            # Dropped bytes stay the plane's idle chunks until its budget leaves them no room.
+            # From what was committed before (the drop's own trim may have released some), and
+            # never above the budget a spare lowered; torch's limit follows either way.
+            self._apply(min(self.applied, max(before - own, 0)))
+            self.limit_torch()
+        if shared and self.room is not None:
+            free = accel.allocation(self.torch, self.kind)["driver_free_bytes"] - self.floor_free
+            self.room(max(free, 0) + shared - weight_policy.MARGIN)
+        self.paged_out[0] += 1
+        self.paged_out[1] += own + shared
+        return True
+
+    def room_before(self, method: str) -> None:
+        """Under a cap, before a stage plans: when other processes on the GPU leave less free
+        than this stage's measured activations need of what the cap grants, ask the owner to
+        make room first (`DeviceRoom`: idle tenants leave). Activations cannot shrink once
+        the stage runs; a stage never measured asks nothing. A process over its cap gives
+        back its own cached segments and idle maps first, then asks for the rest."""
+        if self.room is None or self.cap < 0 or self.host_only:
+            return
+        memory, held = self._held()
+        if held > self.cap:
+            accel.release_cached(self.torch, self.kind)
+            memory, held = self._held()
+            if held > self.cap:
+                for residency in list(self.residencies):
+                    residency.unpark()
+                self.shrink(held - self.cap, self.floor())
+                self.drain()
+                memory, held = self._held()
+        slack = max(memory["reserved_bytes"] - memory["allocated_bytes"], 0)
+        need = self.activation.get(method, 0) - slack
+        if held > self.cap:
+            # Still over: the owner raises the cap into the room it makes (never a negative ask).
+            self.room(max(need, 0) + weight_policy.MARGIN)
+            return
+        if need <= 0:
+            return
+        granted = min(need + weight_policy.MARGIN, self.cap - held)
+        if granted > 0 and memory["driver_free_bytes"] - self.floor_free < granted:
+            self.room(granted)
+
+    def _held(self) -> tuple[Mapping[str, int], int]:
+        """Torch's allocation figures, and what this process holds on the device: its context,
+        torch's reserved segments and the plane's maps."""
+        memory = accel.allocation(self.torch, self.kind)
+        committed = max(plane.stats(self.plane).device(self.index).committed, 0)
+        return memory, max(self.context_bytes, 0) + memory["reserved_bytes"] + committed
+
+    def headroom(self, memory: Mapping[str, int]) -> int:
+        """Device bytes this process may still take: the driver's free above the floor and,
+        under a cap, the cap less what the process holds (context, torch, the plane's maps)."""
+        free = memory["driver_free_bytes"] - self.floor_free
+        if self.cap >= 0:
+            committed = max(plane.stats(self.plane).device(self.index).committed, 0)
+            held = max(self.context_bytes, 0) + memory["reserved_bytes"] + committed
+            free = min(free, self.cap - held)
+        return max(free, 0)
+
     def sizing(self) -> int:
         """The largest measured activations a grant must leave room for (adaptive stages
         make their own room)."""
@@ -328,6 +569,7 @@ class Weights:
         trim = self.plane.set_vram_budget(self.index, nbytes)
         self.applied = nbytes
         self._evicted(trim.get("evicted", ()))
+        self.limit_torch()
         return int(trim.get("freed", 0))
 
     def _pin(self, nbytes: int) -> None:
@@ -357,23 +599,64 @@ class Weights:
         same device bytes, re-split per stage)."""
         if self.budget >= 0:
             own = self.activation.get(method)
-            if own is None:
-                return self.budget
-            return self.budget + max(self.sizing() - own, 0)
+            granted = self.budget if own is None else self.budget + max(self.sizing() - own, 0)
+            if self.cap < 0 and not self.floor_free:
+                return granted
+            return min(granted, self.driver_budget(method))
         driver = self.driver_budget(method)
         return min(driver, self.ceiling) if self.ceiling >= 0 else driver
 
     def driver_budget(self, method: str) -> int:
-        """What the driver has free beside this process's weights, less the activation growth
-        this method measured (activations first)."""
+        """What the driver has free beside this process's weights, inside its cap and above its
+        floor, less the activation growth this method measured (activations first)."""
         memory = accel.allocation(self.torch, self.kind)
         committed = max(plane.stats(self.plane).device(self.index).committed, 0)
         # torch reuses its own cached segments first; only growth beyond them needs the driver
         slack = max(memory["reserved_bytes"] - memory["allocated_bytes"], 0)
         growth = max(self.activation.get(method, 0) - slack, 0)
         # the bound weights' decoded copies are the weights' own, in torch's bytes
-        held = committed + self.decoded()
-        return weight_policy.plane_budget(memory["driver_free_bytes"] + held, growth)
+        decoded = self.decoded()
+        held = committed + decoded
+        available = self.headroom(memory) + held
+        # Activations first, but never below the open stages' floor while that fits: an
+        # estimate that left a stage no room for its own weights would refuse it for size. An
+        # adaptive stage then keeps its maps in host memory; any other recovers from its
+        # out-of-memory by unmapping.
+        budget = max(weight_policy.plane_budget(available, growth), min(self.window(), available))
+        self.plan_inputs[method] = {
+            "driver_free": memory["driver_free_bytes"],
+            "reserved": memory["reserved_bytes"],
+            "allocated": memory["allocated_bytes"],
+            "committed": committed,
+            "decoded": decoded,
+            "activation": self.activation.get(method, 0),
+            "growth": growth,
+            "cap": self.cap,
+            "context": self.context_bytes,
+            "budget": budget,
+        }
+        return budget
+
+    def window(self) -> int:
+        """What the open stages stream in at least: each component's common weights and two
+        of its largest regions (one in use, the next arriving), at its current grain."""
+        return sum(
+            c.planned.common + 2 * c.planned.largest
+            for _, _, c in self.opened().values()
+            if not c.spared
+        )
+
+    def grow(self, need: int) -> bool:
+        """The plane refused a region for its own budget while the device has room: map
+        `need` more (up to what is free above the floor and inside the cap) instead of
+        unmapping. False when the device has no such room."""
+        if self.host_only:
+            return False
+        free = self.headroom(accel.allocation(self.torch, self.kind))
+        if free < need + weight_policy.MARGIN:
+            return False
+        self._apply(self.applied + need + weight_policy.MARGIN)
+        return True
 
     def decoded(self) -> int:
         """Device bytes the bound regions' decoded copies hold now."""
@@ -411,70 +694,99 @@ class Weights:
         return sum(
             weight_policy.floor(replace(component.planned, fine=None))
             for _, _, component in self.opened().values()
+            if not component.spared
         )
 
     @contextmanager
-    def recovering(self, watch: frozenset[int] = frozenset()) -> Iterator[Watch]:
+    def recovering(self, journal: Journal | None = None) -> Iterator[Journal | None]:
         """Run the caller's torch ops with out-of-memory recovery: an op that cannot allocate
-        unmaps weights and runs again. With `watch` (storage addresses), the yielded record
-        notes whether any op wrote into one of them."""
-        seen = Watch(watch)
+        unmaps weights and runs again (a seeded op from its generator's state before it).
+        With a `journal`, every write into a tensor that existed before is kept first, so the
+        whole call can be rewound and run again."""
         if self.host_only:
-            yield seen
+            yield journal
             return
         if self._recovery is None:
             self._recovery = _recovery_type(self.torch)
-        with self._recovery(self, seen):
-            yield seen
+        with self._recovery(self, journal):
+            yield journal
 
     def make_room(self, need: int, operands: Sequence[object], op: str = "") -> None:
-        """An op outside every block ran out of device memory: unmap `need` bytes of weights,
-        idle ones first. An operand that is itself a weight must still be mapped after."""
+        """An op ran out of device memory (outside every block, or inside one whose ops
+        recover one by one): unmap `need` bytes of weights, idle ones first. When the open
+        stages' floor leaves nothing to unmap, their components that are not in use give
+        theirs back (`_spare`): every one but those the op reads, those with a block in its
+        forward, and the one whose block ran last. An operand that is itself a weight must
+        still be mapped after."""
         read = [
-            (region, region.bound)
+            (component.key, region, region.bound)
             for pointer in _pointers(operands)
             for component in self.components.values()
             for region in component.regions
             if region.bound is not None and region.bound <= pointer < region.bound + region.span
         ]
+
+        def mapped() -> None:
+            if any(region.bound != address for _, region, address in read):
+                raise ResidencyRefusal(
+                    INDIVISIBLE,
+                    f"{op or 'an allocation'} needs {need} B of device memory at once beside "
+                    "the weights it reads, and the GPU cannot give that with them mapped",
+                )
+
         accel.release_cached(self.torch, self.kind)
         before = self.allocatable()
-        if self.running:
-            # Inside a block (one GPU of a group): nothing is re-placed under its lease. Other
-            # weights leave, least recently used first; their blocks map them again as they run.
-            self.shrink(need, self.floor())
-            self.drain()
-        elif self.open:
-            self.open[-1][0]._make_room(need, op=op)
-        else:
-            self.shrink(need, 0)
-        if any(region.bound != address for region, address in read):
-            raise ResidencyRefusal(
-                "device_shortfall",
-                f"an allocation of {need} B needed the room of the weights the same op reads",
-            )
-        self.progressed(before, need, op)
+        try:
+            if self.running:
+                # Inside a block: nothing is re-placed under its lease. Other weights leave,
+                # least recently used first; their blocks map them again as they run.
+                self.shrink(need, self.floor())
+                self.drain()
+            elif self.open:
+                self.open[-1][0]._make_room(need, op=op)
+            else:
+                self.shrink(need, 0)
+            mapped()
+            self.progressed(before, need, op)
+        except ResidencyRefusal as exc:
+            keep = {*self.running, self.last, *(key for key, _, _ in read)}
+            if exc.code != INDIVISIBLE or not self.open:
+                raise
+            if not self.open[-1][0]._spare(keep, None if self.running else {}):
+                raise
+            mapped()
 
     def allocatable(self) -> int:
-        """Device bytes torch can allocate now: the driver's free plus its own idle cache."""
+        """Device bytes torch can allocate now: its headroom plus its own idle cache."""
         memory = accel.allocation(self.torch, self.kind)
-        return memory["driver_free_bytes"] + max(
-            memory["reserved_bytes"] - memory["allocated_bytes"], 0
-        )
+        return self.headroom(memory) + max(memory["reserved_bytes"] - memory["allocated_bytes"], 0)
 
     def progressed(self, before: int, need: int, op: str = "") -> None:
-        """An out-of-memory retry runs again only when memory came back: first this process's
-        own unmapping, else the Worker's (its other tenants on this GPU give theirs). The same
-        failure retried at the same free bytes would churn maps on a full card."""
+        """An out-of-memory retry runs again only when it can succeed: memory came back (this
+        process's own unmapping, else the owner's: its other tenants on this GPU give theirs),
+        or a fresh segment of `need` fits now. torch's idle cache and its limit follow first:
+        both lag what the plane and the owner just did. The same failure retried at the same
+        bytes would churn maps on a full card, so a repeat ends it."""
+        accel.release_cached(self.torch, self.kind)
+        self.limit_torch()
         after = self.allocatable()
+        retry = (op, after)
+        fresh = self.headroom(accel.allocation(self.torch, self.kind))
         if after <= before and self.room is not None:
             self.room(need + weight_policy.MARGIN)
             after = self.allocatable()
-        if after <= before:
+            fresh = self.headroom(accel.allocation(self.torch, self.kind))
+            retry = (op, after)
+        repeat, self.last_retry = retry == self.last_retry, retry
+        if after <= before and (fresh < need + weight_policy.MARGIN or repeat):
+            device = plane.stats(self.plane).device(self.index)
             raise ResidencyRefusal(
-                "device_shortfall",
+                INDIVISIBLE,
                 f"{op or 'an allocation'} of {need} B: nothing on this GPU could give device "
-                f"memory back ({after} B allocatable before and after)",
+                f"memory back ({after} B allocatable before and after, every weight it does "
+                "not read unmapped and every idle tenant asked; plane budget "
+                f"{device.budget} B, mapped {device.committed} B, leased "
+                f"{device.leased_bytes} B, cap {self.cap} B)",
             )
 
     @contextmanager
@@ -535,19 +847,226 @@ class Weights:
         for name, index in pairs:
             component = self.components.get(str(name))
             if component is not None and 0 <= int(index) < len(component.regions):
-                unbind(component.regions[int(index)])
+                region = component.regions[int(index)]
+                unbind(region)
+                _unbaked(region)
 
     def measure_context(self) -> None:
         """What the driver charges this process beyond torch's segments and the plane's maps:
         the CUDA context and library workspaces the Worker must leave room for."""
-        row = accel.process_memory(os.getpid(), self.kind)
+        pid = os.getpid()
+        device_id = self._uuid()
+        row = accel.process_memories_by_device({pid}, self.kind, (device_id,))[device_id][pid]
         if row.state == "present":
             reserved = accel.allocation(self.torch, self.kind)["reserved_bytes"]
-            mapped = max(plane.stats(self.plane).device(self.index).committed, 0)
+            device = plane.stats(self.plane).device(self.index)
+            # Shared regions (exported or attached) are the machine's to count, once: the
+            # driver charges one to whichever process it picks, never this one's context.
+            mapped = max(device.committed, 0) + max(device.shared_bytes, 0)
             self.context_bytes = max(row.bytes - reserved - mapped, self.context_bytes, 0)
+            self.limit_torch()
+
+    def adopt_context(self, measured: int) -> None:
+        """The context this process's own driver row showed at device init (-1: none)."""
+        if measured > self.context_bytes:
+            self.context_bytes = measured
+            self.limit_torch()
 
     def resident_bytes(self, component: Component) -> int:
         return plane.stats(self.plane).ready(component.key, self.index)
+
+    # -- GPU memory the machine keeps (`weights.attach/1`)
+
+    def _shares(self) -> bool:
+        return (
+            self.sharing is not None
+            and not self.host_only
+            and bool(self.plane.device_sharing(self.index))
+        )
+
+    def _uuid(self) -> str:
+        return dict(self.plane.devices).get(self.index, "")
+
+    def content(self, tensor: Tensor) -> str | None:
+        """The layout digest of the weight set whose plane bytes `tensor` views: what names
+        its content to another executor. None for a decoded or computed tensor."""
+        if not getattr(tensor, "is_cuda", False) or type(tensor).__name__ == "Unbound":
+            return None
+        pointer = int(tensor.data_ptr())
+        for component in self.components.values():
+            for region in component.regions:
+                if (
+                    region.bound is not None
+                    and region.bound <= pointer < region.bound + region.span
+                ):
+                    return str(component.ws.digest)
+        return None
+
+    def attach(self, component: Component) -> int:
+        """Map the regions the machine keeps for exactly this layout, read-only and without a
+        copy. A region that cannot attach fills privately, as without a machine. Returns the
+        bytes attached."""
+        if self.sharing is None or not self._shares():
+            return 0
+        attached = self._attach(component, "")
+        if any(region.bake for region in component.regions):
+            # Baked bytes are a variant of the layout: the machine names the one it holds, and
+            # the first forward that reads a region says whether it is its own (`_bake`).
+            attached += self._attach(component, "*")
+        return attached
+
+    def _attach(self, component: Component, variant: str) -> int:
+        assert self.sharing is not None
+        answer = self.sharing.ask(component.key, component.ws.digest, self._uuid(), variant)
+        self.variants = self.variants or answer.variants
+        if not answer.held:
+            return 0
+        attached, at = 0, 0
+        try:
+            for row in answer.regions:
+                fds = answer.fds[at : at + len(row.chunks)]
+                at += len(row.chunks)
+                if not 0 <= row.region < len(component.regions):
+                    continue
+                region = component.regions[row.region]
+                if region.bake != bool(variant) or row.region in component.shared:
+                    continue  # stored bytes where a bake is due, or baked ones where none is
+                graph = variant and not any(bake.hooks for bake in region.bakes)
+                if graph and _variant(region, list(map(_bake_key, region.bakes))) != answer.variant:
+                    continue  # only a prepared graph bakes here, always the same: known now
+                try:
+                    # The plane maps only when the holder's layout is this weight set's.
+                    self.plane.attach_device(
+                        component.ws,
+                        self.index,
+                        row.region,
+                        list(zip(row.chunks, fds, strict=True)),
+                        answer.layout,
+                    )
+                except plane.error("Poisoned"):
+                    raise
+                except plane.error("PlaneError"):
+                    continue
+                component.shared.add(row.region)
+                attached += region.span
+                if variant:
+                    region.baked, region.baked_with, region.dirty = True, [], False
+                    region.attached = answer.variant
+        finally:
+            for fd in answer.fds:
+                os.close(fd)
+            if attached:
+                component.leases.append(answer.lease_fd)
+            else:
+                os.close(answer.lease_fd)
+        return attached
+
+    def share(self, components: Iterable[Component] | None = None) -> int:
+        """Offer the machine every region on the GPU not shared yet (of `components`, else
+        all), so it outlives this process and other executors attach it. Returns the bytes
+        the machine kept."""
+        if self.sharing is None or not self._shares():
+            return 0
+        self.quiesce()
+        kept = 0
+        offers = [
+            (component, variant, indexes)
+            for component in list(self.components.values() if components is None else components)
+            for variant, indexes in _variants(component).items()
+        ]
+        # Stored bytes first: their answers say whether the machine keeps variants at all.
+        for component, variant, indexes in sorted(offers, key=lambda offer: offer[1] != ""):
+            if variant and not self.variants:
+                continue
+            exported = self.plane.export_device(component.ws, self.index, indexes)
+            if not exported:
+                continue
+            regions = tuple(
+                SharedRegion(region=row["region"], chunks=tuple(n for n, _ in row["chunks"]))
+                for row in exported
+            )
+            fds = tuple(fd for row in exported for _, fd in row["chunks"])
+            indexes = [row.region for row in regions]
+            component.shared.update(indexes)
+            try:
+                answer = self.sharing.offer(
+                    component.key, component.ws.digest, self._uuid(), regions, fds, variant
+                )
+            finally:
+                for fd in fds:
+                    os.close(fd)
+            self.variants = self.variants or answer.variants
+            if answer.ok and not answer.duplicate:
+                if answer.lease_fd >= 0:
+                    component.leases.append(answer.lease_fd)
+                kept += sum(component.regions[i].span for i in indexes)
+                continue
+            # Not kept: ours goes (it is outside the budget now); a duplicate is replaced by
+            # the copy the machine keeps, any other region fills privately when next used.
+            self._release_shared(component, indexes)
+            if answer.duplicate:
+                self.attach(component)
+        return kept
+
+    def set_lora(self, strategy: lora_bake.Strategy) -> None:
+        """Serve LoRA'd linears by `strategy` from their next placement on. A region whose
+        resident bytes are the other form is dropped: it refills from the unmodified host
+        copy and its next placement bakes, or not."""
+        if strategy == self.lora:
+            return
+        self.lora = strategy
+        for row in list(self.residencies):
+            row.unpark()  # a repeating stage left open holds its leases
+        self.quiesce()
+        for component in self.components.values():
+            dropped = []
+            for region in component.regions:
+                region.bake = _bakes_here(self, component, region)
+                held = region.bound is not None or region.index in component.shared
+                if region.bakes and region.baked != region.bake and held:
+                    unbind(region)
+                    dropped.append(region.index)
+                if not (region.baked and region.bake):
+                    region.baked, region.baked_with = False, []
+            if dropped:
+                self._release_shared(component, [i for i in dropped if i in component.shared])
+                self.plane.drop(component.ws, self.index, dropped)
+
+    def refill(self, component: Component, region: Region) -> None:
+        """Drop a region's resident bytes (it is unleased): its next placement copies the
+        unmodified host bytes again. Bytes mapped from the machine's custody are let go."""
+        unbind(region)
+        self.quiesce()
+        if region.index in component.shared:
+            self._release_shared(component, [region.index])
+        else:
+            self.plane.drop(component.ws, self.index, [region.index])
+            _unbaked(region)
+
+    def revoke(self, layout: str, regions: Collection[int] = ()) -> int:
+        """Stop using the machine's regions of `layout`, all of them or only `regions`: queued
+        work finishes, then they are unmapped and released. A later use fills a private copy.
+        Returns the bytes let go."""
+        self.quiesce()
+        return sum(
+            self._release_shared(
+                component, sorted(component.shared & set(regions) if regions else component.shared)
+            )
+            for component in self.components.values()
+            if component.shared and component.ws.digest == layout
+        )
+
+    def _release_shared(self, component: Component, indexes: Sequence[int]) -> int:
+        if not indexes:
+            return 0
+        freed = int(self.plane.drop(component.ws, self.index, list(indexes)))
+        for index in indexes:
+            unbind(component.regions[index])
+            _unbaked(component.regions[index])
+            component.shared.discard(index)
+        if not component.shared:
+            _end_leases(component)
+        return freed
 
     # -- the pinned tier
 
@@ -571,8 +1090,8 @@ class Weights:
         limit may have moved and other memory grown since. Read at every stage and every
         pass; only ever lowers (the plane punches its least recently used regions, which
         then come from the page cache or disk)."""
-        if self.host_only:
-            return  # a CPU executor computes on its tier
+        if self.host_only or self._all_sealed():
+            return  # a CPU executor computes on its tier; a sealed one is the machine's RAM
         share = self.host_share()
         if 0 <= share < self.pinned_applied:
             self._pin(share)
@@ -585,9 +1104,22 @@ class Weights:
         if self.host_only:
             self._bind_host(component)
             return
-        if self.pinned < 0:
-            self._pin(max(self.host_share(), 0))
+        if self._all_sealed():
+            # The machine's RAM, already resident: its budget is what this process registers.
+            self._pin(self.pinned if self.pinned >= 0 else self._total())
+        else:
+            share = self.host_share()
+            if self.pinned < 0:
+                self._pin(max(share, 0))
+            else:  # the Worker's budget, inside what the host has now
+                self._pin(self.pinned if share < 0 else min(self.pinned, share))
         self._fill(component)
+
+    def _all_sealed(self) -> bool:
+        return all(c.sealed for c in self.components.values())
+
+    def _total(self) -> int:
+        return sum(c.ws.nbytes for c in self.components.values())
 
     def _bind_host(self, component: Component) -> None:
         """A CPU executor computes on its pinned tier: every region pinned there (never evicted
@@ -628,19 +1160,23 @@ class Weights:
         so one larger than it pins a prefix and the rest reads from disk."""
         room, regions = self.pinned_applied, []
         for region in component.regions:
+            if region.index in component.shared:
+                continue  # on the GPU already, kept by the machine
             if region.span > room:
                 break
             room -= region.span
             regions.append(region.index)
-        if not regions:
-            return 0
-        try:
-            component.filling = self.plane.want(
-                component.ws, plane.PINNED, regions, priority=self.tick()
-            )
-        except (plane.error("Shortfall"), plane.error("BelowFloor")):
-            return 0
-        return sum(component.regions[i].span for i in regions)
+        # One ticket per region: the tier is shrinkable, and a ticket over several reports the
+        # first region the tier gave back instead of waiting for the others (run 4365).
+        priority, asked = self.tick(), 0
+        for index in regions:
+            try:
+                ticket = self.plane.want(component.ws, plane.PINNED, [index], priority=priority)
+            except (plane.error("Shortfall"), plane.error("BelowFloor")):
+                break
+            component.filling.append(ticket)
+            asked += component.regions[index].span
+        return asked
 
     def forget(self, construction: str) -> None:
         """Close `construction`'s weight sets and give their device handles back to the
@@ -660,9 +1196,13 @@ class Weights:
             unbind(region)
             region.views.clear()
         component.mapping = None
-        if component.filling is not None:
-            component.filling.wait()  # a filling tier refuses to close
-            component.filling = None
+        component.shared.clear()
+        for ticket in component.filling:
+            # A filling tier refuses to close. A region the tier gave back since, or whose
+            # fill failed, is not filling: either way the set can close.
+            with suppress(plane.error("PlaneError")):
+                ticket.wait()
+        component.filling.clear()
         try:
             component.ws.close()
         except plane.error("LeaseViolation"):
@@ -671,6 +1211,7 @@ class Weights:
             self.torch.cuda.synchronize(self.device)
             self.plane.set_vram_budget(self.index, self.applied)
             component.ws.close()
+        _end_leases(component)  # after the close released every shared region
 
     # -- facts
 
@@ -683,8 +1224,21 @@ class Weights:
                 component.key, self.index
             )
         stages = [row for row in held.stages if row.device == self.index]
-        copied = device.host_copy_bytes + device.disk_copy_bytes
-        copy_ns = device.host_copy_ns + device.disk_copy_ns
+        copied = device.host_copy_bytes + device.bounce_copy_bytes + device.disk_copy_bytes
+        reserved = -1 if self.host_only else int(self.torch.cuda.memory_reserved(self.device))
+        # This process's own count (per-process NVML only refines the context in it); an
+        # unmeasured context counts nothing rather than hiding the rest.
+        process = (
+            max(self.context_bytes, 0) + reserved + max(device.committed, 0)
+            if reserved >= 0
+            else -1
+        )
+        copy_ns = device.host_copy_ns + device.bounce_copy_ns + device.disk_copy_ns
+
+        def gbps(nbytes: int, ns: int) -> float:
+            return round(nbytes / ns, 3) if ns else 0.0
+
+        allocator = {} if self.host_only else self.torch.cuda.memory_stats(self.device)
         return PlaneFacts(
             budget_bytes=device.budget,
             committed_bytes=device.committed,
@@ -692,6 +1246,9 @@ class Weights:
             pinned_budget_bytes=held.host.budget,
             pinned_bytes=held.host.used,
             context_bytes=self.context_bytes,
+            reserved_bytes=reserved,
+            process_bytes=process,
+            cap_bytes=self.cap,
             resident=resident,
             streamed={
                 component.name: Streamed(
@@ -703,15 +1260,34 @@ class Weights:
                 if component.residence is not None
             },
             h2d_bytes=copied,
-            h2d_gbps=round(copied / copy_ns, 3) if copy_ns else 0.0,
+            h2d_gbps=gbps(copied, copy_ns),
             disk_copy_bytes=device.disk_copy_bytes,
             mapped_copy_bytes=device.mapped_copy_bytes,
+            bounce_copy_bytes=device.bounce_copy_bytes,
+            host_gbps=gbps(device.host_copy_bytes, device.host_copy_ns),
+            bounce_gbps=gbps(device.bounce_copy_bytes, device.bounce_copy_ns),
+            disk_gbps=gbps(device.disk_copy_bytes, device.disk_copy_ns),
+            register_failed=held.host.register_failed,
+            plan_inputs={method: dict(row) for method, row in self.plan_inputs.items()},
+            shared_bytes=device.shared_bytes,
             disk_read_bytes=held.host.disk_read_bytes,
+            sealed_bytes=held.host.sealed_bytes,
+            lora_baked=int(BAKED[0]),
+            lora_bake_ms=round(BAKED[1], 1),
+            lora_attached=int(BAKED[2]),
             late=sum(row.late for row in stages),
             stall_ns=sum(row.stall_ns for row in stages),
             misses=device.misses,
             evictions=device.evictions,
             oom_retries=self.oom_retries,
+            alloc_retries=int(allocator.get("num_alloc_retries", 0)),
+            alloc_ooms=int(allocator.get("num_ooms", 0)),
+            cache_releases=sum(count for count, _ in accel.RELEASED.values()),
+            cache_released_bytes=sum(freed for _, freed in accel.RELEASED.values()),
+            cache_released_by={who: (n, freed) for who, (n, freed) in accel.RELEASED.items()},
+            squeezed=dict(self.squeezes),
+            paged_out=self.paged_out[0],
+            paged_out_bytes=self.paged_out[1],
             modes=dict(self.modes),
         )
 
@@ -735,7 +1311,9 @@ class _HostSpan:
         return self.base[self.region.offset : self.region.offset + self.region.span]
 
 
-def bind(torch: ModuleType, region: Region, lease: Lease | _HostSpan) -> None:
+def bind(
+    torch: ModuleType, region: Region, lease: Lease | _HostSpan, *, refill: bool = False
+) -> None:
     """Point the region's destinations at the lease's bytes: its home while resident, its place
     in the stage's ring while streamed. Views are cached by address (ring placements repeat
     with the window); decoded tensors and derived leaf roles are recomputed whenever the bytes
@@ -765,6 +1343,8 @@ def bind(torch: ModuleType, region: Region, lease: Lease | _HostSpan) -> None:
                 value = torch.nn.Parameter(tensor, requires_grad=False)
                 views.writes[i] = (table, name, tensor, value)
             table[name] = value
+    if region.bakes:
+        _bake(torch, region, views.parts, lease.ring_offset is None, refill)
     if region.transforms and (moved or lease.ring_offset is not None):
         region.derived = _transform(torch, region, views.parts)
     region.bound = address
@@ -896,43 +1476,194 @@ class Read:
 
 def _recovery_type(torch: ModuleType) -> type:
     mode: type = torch.utils._python_dispatch.TorchDispatchMode
+    seeded = torch.Tag.nondeterministic_seeded
 
     class Recovery(mode):  # type: ignore[misc]
-        """Every torch op outside a block: one that runs out of device memory runs again
-        after weights were unmapped for it (retry the op, never the run)."""
+        """Every torch op: one that runs out of device memory runs again after weights were
+        unmapped for it (retry the op, never the run). A seeded op runs again from the
+        generator state it started from. With a journal, writes into tensors that existed
+        before are kept first, and the generators seeded ops draw from are noted."""
 
-        def __init__(self, weights: Weights, seen: Watch) -> None:
+        def __init__(self, weights: Weights, journal: Journal | None) -> None:
             super().__init__()
             self.weights = weights
-            self.seen = seen
+            self.journal = journal
 
         def __torch_dispatch__(
             self, func: Any, types: Any, args: tuple[Any, ...] = (), kwargs: Any = None
         ) -> Any:
             kwargs = kwargs or {}
-            seen = self.seen
-            if seen.storages and not seen.mutated and func._schema.is_mutable:
-                seen.mutated = any(
-                    _storage(value) in seen.storages for value in _written(func, args, kwargs)
-                )
+            journal = self.journal
+            drawn = _generators(torch, func, args, kwargs) if seeded in func.tags else []
+            states = [(g, g.get_state()) for g in drawn]
+            written: list[tuple[Any, Any]] = []
+            if func._schema.is_mutable:
+                targets = list(_tensor_operands(tuple(_written(func, args, kwargs))))
+                if journal is not None:
+                    journal.before_write(targets)
+                written = [(t, t.clone()) for t in targets]
+            if journal is not None:
+                journal.draws(states)
             refused = False
             while True:
                 try:
-                    return func(*args, **kwargs)
+                    out = func(*args, **kwargs)
+                    if journal is not None:
+                        journal.made(out)
+                    return out
                 except Exception as exc:
                     need, refused = _room_for(exc, refused)
-                # outside `except`, so the failed op's frames are gone
+                # outside `except`, so the failed op's frames are gone; it runs again from
+                # what it read: its generators and the tensors it writes into, as they were
+                for generator, state in states:
+                    generator.set_state(state)
+                for target, first in written:
+                    target.copy_(first)
                 self.weights.make_room(need, (*args, *kwargs.values()), str(func))
 
     return Recovery
 
 
-@dataclass(slots=True)
-class Watch:
-    """Storages to watch for in-place writes, and whether an op wrote into one."""
+@dataclass(frozen=True, slots=True)
+class Effects:
+    """What a block's forward changes outside itself, as its first run showed: whether it
+    writes into tensors that existed before it (its inputs, its buffers, anything held
+    elsewhere), and the generators its seeded ops draw from. A forward that changes nothing
+    else runs again unobserved after an out-of-memory; one that writes runs observed, its
+    writes journaled; the generators are put back either way. Python attributes it changes
+    (a counter on the module) are not seen."""
 
-    storages: frozenset[int]
-    mutated: bool = False
+    writes: bool
+    generators: tuple[Any, ...]
+
+
+@dataclass(slots=True)
+class Journal:
+    """One observed attempt of a block: the storages its ops made, the first content of every
+    other storage they wrote into, and the generators its seeded ops drew from. `rewind`
+    puts those storages back, so the attempt can run again from where it started."""
+
+    made_here: set[int] = field(default_factory=set)
+    kept: dict[int, tuple[Any, Any]] = field(default_factory=dict)
+    wrote: bool = False
+    #: generator -> its state before this attempt first drew from it; every one drawn from
+    first: dict[int, tuple[Any, Any]] = field(default_factory=dict)
+    drawn: dict[int, Any] = field(default_factory=dict)
+    #: device progress of a journaled call (`journaling`): an event recorded every
+    #: `MARK_EVERY` ops on a GPU, and how many of them the device has finished
+    ops: int = 0
+    marks: deque[Any] = field(default_factory=deque)
+    done: int = 0
+
+    def progress(self) -> int:
+        """Marks the device has passed: what a watcher reads, from its own thread, while the
+        call runs. A GPU waiting on a collective that cannot complete passes none."""
+        while self.marks and self.marks[0].query():
+            self.marks.popleft()
+            self.done += 1
+        return self.done
+
+    def made(self, out: object) -> None:
+        for value in _tensor_operands((out,)):
+            self.made_here.add(_storage(value))
+
+    def before_write(self, written: Iterable[object]) -> None:
+        for value in _tensor_operands(tuple(written)):
+            key = _storage(value)
+            if key < 0 or key in self.made_here or key in self.kept:
+                continue
+            storage = value.untyped_storage()  # type: ignore[attr-defined]
+            self.kept[key] = (storage, storage.clone())
+            self.wrote = True
+
+    def draws(self, states: Iterable[tuple[Any, Any]]) -> None:
+        for generator, state in states:
+            self.first.setdefault(id(generator), (generator, state))
+            self.drawn.setdefault(id(generator), generator)
+
+    def rewind(self) -> None:
+        for storage, first in self.kept.values():
+            storage.copy_(first)
+        for generator, state in self.first.values():
+            generator.set_state(state)
+        self.kept.clear()
+        self.made_here.clear()
+        self.first.clear()
+
+    def effects(self) -> Effects:
+        return Effects(self.wrote or bool(self.kept), tuple(self.drawn.values()))
+
+
+_JOURNALING: dict[int, type] = {}
+#: how often a journaled call marks its device progress, in ops (an event costs microseconds)
+MARK_EVERY = 32
+
+
+@contextmanager
+def journaling(torch: ModuleType, journal: Journal) -> Iterator[Journal]:
+    """Every torch op in this context writes into `journal`: the storages it makes, the first
+    content of every other storage it writes into, the generator state a seeded op draws
+    from. One GPU of a group keeps one for a whole call, so the call can be rewound when any
+    GPU of the group fails it (`mirror.mirror_component`). On any device."""
+    kind = _JOURNALING.get(id(torch))
+    if kind is None:
+        kind = _JOURNALING[id(torch)] = _journaling_type(torch)
+    with kind(journal):
+        yield journal
+
+
+def _journaling_type(torch: ModuleType) -> type:
+    mode: type = torch.utils._python_dispatch.TorchDispatchMode
+    seeded = torch.Tag.nondeterministic_seeded
+
+    class Journaling(mode):  # type: ignore[misc]
+        def __init__(self, journal: Journal) -> None:
+            super().__init__()
+            self.journal = journal
+
+        def __torch_dispatch__(
+            self, func: Any, types: Any, args: tuple[Any, ...] = (), kwargs: Any = None
+        ) -> Any:
+            kwargs = kwargs or {}
+            if seeded in func.tags:
+                drawn = _generators(torch, func, args, kwargs)
+                self.journal.draws([(g, g.get_state()) for g in drawn])
+            if func._schema.is_mutable:
+                self.journal.before_write(_tensor_operands(tuple(_written(func, args, kwargs))))
+            out = func(*args, **kwargs)
+            journal = self.journal
+            journal.made(out)
+            journal.ops += 1
+            if journal.ops % MARK_EVERY == 0 and torch.cuda.is_initialized():
+                mark = torch.cuda.Event()
+                mark.record()
+                journal.marks.append(mark)
+            return out
+
+    return Journaling
+
+
+def _generators(
+    torch: ModuleType, func: Any, args: tuple[Any, ...], kwargs: Mapping[str, Any]
+) -> list[Any]:
+    """The generators a seeded op draws from: its own, else its device's default."""
+    found = []
+    device = None
+    for index, argument in enumerate(func._schema.arguments):
+        value = args[index] if index < len(args) else kwargs.get(argument.name)
+        if isinstance(value, torch.Generator):
+            found.append(value)
+        elif argument.name == "device" and value is not None:
+            device = torch.device(value)
+    if found:
+        return found
+    if device is None:
+        tensor = next(_tensor_operands((*args, *kwargs.values())), None)
+        device = getattr(tensor, "device", torch.device("cpu"))
+    if device.type == "cuda":
+        index = device.index if device.index is not None else torch.cuda.current_device()
+        return [torch.cuda.default_generators[index]]
+    return [torch.default_generator]
 
 
 def _written(func: Any, args: tuple[object, ...], kwargs: Mapping[str, object]) -> Iterator[object]:
@@ -943,8 +1674,15 @@ def _written(func: Any, args: tuple[object, ...], kwargs: Mapping[str, object]) 
 
 
 def _storage(value: object) -> int:
+    """The address that names a tensor's storage; -1 for one with none to name (a wrapper
+    subclass, a weight's unbound stand-in), which no journal keeps."""
     pointer = getattr(value, "untyped_storage", None)
-    return int(pointer().data_ptr()) if pointer is not None else -1
+    if pointer is None:
+        return -1
+    try:
+        return int(pointer().data_ptr())
+    except RuntimeError:
+        return -1
 
 
 def _tensor_operands(operands: Sequence[object]) -> Iterator[object]:
@@ -962,6 +1700,11 @@ def _pointers(operands: Sequence[object]) -> Iterator[int]:
                 yield int(item.data_ptr())
 
 
+def _unbaked(region: Region) -> None:
+    """The region's bytes went: the next ones are the stored bytes, unmodified."""
+    region.baked, region.baked_with, region.dirty, region.attached = False, [], False, ""
+
+
 def unbind(region: Region) -> None:
     """Put the stand-ins back, keeping a dtype the component was converted to meanwhile."""
     for table, name, standin in region.unbound:
@@ -969,6 +1712,19 @@ def unbind(region: Region) -> None:
         table[name] = standin if dtype == standin.dtype else _retyped(standin, dtype)
     region.derived = []
     region.bound = None
+
+
+def _drop_copies(region: Region) -> None:
+    """Unbind a region whose destinations a package's `module.to(dtype)` gave bytes of their
+    own: torch's copies beside the plane's (SDXL's VAE upcast and cast back: 160 MiB kept
+    across requests). Its next bind converts again."""
+    views = region.views.get(region.bound) if region.bound is not None else None
+    if views is not None and any(
+        (held := table.get(name)) is not None and held.data_ptr() != tensor.data_ptr()
+        for table, name, tensor, _ in views.writes
+    ):
+        del region.views[region.bound]  # a cached Parameter may hold a copy as its `.data`
+        unbind(region)
 
 
 def close_cursor(component: Component) -> None:
@@ -992,6 +1748,161 @@ def close_cursor(component: Component) -> None:
         # A view into the ring outlives the stage (a failed block's frames hold one): the
         # dropped cursor closes itself when the last of them goes.
         pass
+
+
+def _bake_key(bake: Bake) -> tuple[object, ...]:
+    """What baking `bake` now would add: its graph, and each hook's current factors (None: the
+    hook serves no update now)."""
+    hooks = (hook.lora_factors() for hook in bake.hooks)
+    return ("graph" if bake.layer is not None else None, *(g and (g[0], g[3]) for g in hooks))
+
+
+def _bake(
+    torch: ModuleType,
+    region: Region,
+    parts: list[dict[str, Tensor]],
+    home: bool,
+    refill: bool,
+) -> None:
+    """Add each LoRA'd linear's delta into the region's bytes before any decode reads them;
+    its update then skips. Resident bytes are baked the first time they are placed. A
+    streamed copy is a fresh copy of the stored bytes at every acquire (each cursor position
+    is its own copy), so it is baked as it arrives, the same way: one seed per weight makes
+    every bake of a weight the same bytes, and outputs never depend on placement.
+
+    Resident bytes holding a delta the coming forward does not want (a base forward of a DiT
+    baked for its turbo overlay, or another overlay), or left half baked by a failure, raise
+    `_Stale` where the caller can refill them (`refill`, a block's own lease); elsewhere the
+    read sees the bytes as they are."""
+    keys = [_bake_key(bake) for bake in region.bakes]
+    some = region.bake and any(key is not None for row in keys for key in row)
+    if home and region.attached:
+        # Baked bytes from the machine's custody: this forward's own when its bake would be
+        # the same variant, else stale like a local bake it does not want. A placement ahead
+        # of its forward (no hook serves yet) leaves the question to that forward.
+        if some and _variant(region, keys) == region.attached:
+            region.baked_with, region.variant, region.attached = keys, region.attached, ""
+            BAKED[2] += len(region.bakes)
+        elif refill:
+            raise _Stale(region.index)
+    if not home:
+        if some:
+            BAKED[0] += _apply(torch, region, parts, keys)
+        baked = some
+    else:
+        if refill and (region.dirty or (region.baked and keys != region.baked_with)):
+            raise _Stale(region.index)
+        if some and not region.baked:
+            region.dirty = True  # until every weight is baked
+            began = time.perf_counter()
+            BAKED[0] += _apply(torch, region, parts, keys)
+            if stored_device(parts[0]).type == "cuda":
+                torch.cuda.synchronize(stored_device(parts[0]))
+            BAKED[1] += (time.perf_counter() - began) * 1000
+            region.baked, region.baked_with, region.dirty = True, keys, False
+            region.variant = _variant(region, keys)
+        baked = region.baked and keys == region.baked_with
+    for bake, (graph, *hooks) in zip(region.bakes, keys, strict=True):
+        if bake.layer is not None:
+            bake.layer._cozy_baked = baked and graph is not None
+        for hook, key in zip(bake.hooks, hooks, strict=True):
+            hook._cozy_baked = baked and key is not None
+
+
+#: This process's bakes (one plane per process): weights baked, the milliseconds its resident
+#: bakes took (a streamed copy's bake is not timed: that would stall its stream), and weights
+#: whose baked bytes came from the machine's custody.
+BAKED: list[float] = [0, 0.0, 0]
+
+
+def _in_use(weights: Weights) -> set[str]:
+    """The weight sets an open stage, or a repeating one left open, uses."""
+    keys = set(weights.opened())
+    for row in weights.residencies:
+        if row.parked is not None:
+            keys.update(row.components[name].key for name in row.parked[1])
+    return keys
+
+
+def _variant(region: Region, keys: list[tuple[object, ...]]) -> str:
+    """The digest that names what baking `keys` into the region adds, the same in every
+    executor: a prepared graph's factors are the layout's own weights, so their scales name
+    it; a hook's are named by the weight set its factors are bytes of (`Weights.content`) and
+    its scale. "" when a hook's factors are not plane bytes: such a bake is never shared."""
+    rows: set[tuple[str, str]] = set()
+    for bake, (graph, *hooks) in zip(region.bakes, keys, strict=True):
+        if graph is not None:
+            # an adapter's factors are `<site>.lora_A.<adapter>.weight`: its name and scale
+            rows.update(
+                ("graph:" + region.weights[a].row.name.rpartition(".lora_A.")[2], repr(scale))
+                for a, _, scale in bake.factors
+            )
+        for hook, key in zip(bake.hooks, hooks, strict=True):
+            got = hook.lora_factors() if key is not None else None
+            if got is None:
+                continue
+            locate = region.locate
+            content = {locate(got[1]), locate(got[2])} if locate is not None else {None}
+            (named,) = content if len(content) == 1 else (None,)
+            if named is None:
+                return ""
+            rows.add((named, repr(float(got[3]))))
+    return canonical.digest([lora_bake.VARIANT, sorted(rows)]) if rows else ""
+
+
+def _variants(component: Component) -> dict[str, list[int]]:
+    """The component's regions the machine may keep, by what their bytes hold: "" for stored
+    bytes, a variant for baked ones it can name. Bytes mapped from custody but not yet read
+    are not this process's to offer."""
+    found: dict[str, list[int]] = {}
+    for region in component.regions:
+        private = region.bake and not region.baked  # its next forward bakes into these bytes
+        if region.dirty or region.attached or private or (region.baked and not region.variant):
+            continue
+        found.setdefault(region.variant if region.baked else "", []).append(region.index)
+    return found
+
+
+def _apply(
+    torch: ModuleType,
+    region: Region,
+    parts: list[dict[str, Tensor]],
+    keys: list[tuple[object, ...]],
+) -> int:
+    """Bake every LoRA'd weight of the region in place, a row chunk at a time: everything
+    that updates a weight now (`keys`) summed, then rounded once. Returns the weights baked."""
+    count = 0
+    for bake, row in zip(region.bakes, keys, strict=True):
+        downs, ups = [], []
+        if bake.layer is not None:
+            downs += [parts[a]["value"] for a, _, _ in bake.factors]
+            ups += [parts[b]["value"] * scale for _, b, scale in bake.factors]
+        for hook, key in zip(bake.hooks, row[1:], strict=True):
+            got = hook.lora_factors() if key is not None else None
+            if got is not None:
+                downs.append(got[1])
+                ups.append(got[2] * got[3])
+        if not downs:
+            continue
+        count += 1
+        stored = parts[bake.weight]
+        kind = downs[0].dtype
+        name = region.weights[bake.weight].row.name
+        generator = torch.Generator(device=stored_device(stored)).manual_seed(
+            zlib.crc32(name.encode())
+        )
+        lora_bake.bake(
+            torch,
+            stored,
+            torch.cat([d.to(kind) for d in downs]),
+            torch.cat([u.to(kind) for u in ups], dim=1),
+            generator=generator,
+        )
+    return count
+
+
+def stored_device(stored: dict[str, Tensor]) -> Any:
+    return next(iter(stored.values())).device
 
 
 def _views(torch: ModuleType, region: Region, base: Tensor) -> Views:
@@ -1232,8 +2143,11 @@ class PlaneBackend:
         """Completeness sets, and the verified read leases: a corrupt artifact refuses here,
         before construction."""
         self.expected = {name: frozenset(keys) for name, keys in sets.items()}
-        for name in sets:
-            self.leases.acquire(name)
+        if self.tiers is None or self.tiers.seal is None:
+            # With sealed tiers the machine verified every byte it filled; a weight set it
+            # holds none of takes its lease when it registers.
+            for name in sets:
+                self.leases.acquire(name)
         self.stats["leases"] = self.leases.document()
 
     def fit(self, walked: Census, *, encoded_leaves: str) -> Mapping[str, object] | None:
@@ -1385,12 +2299,19 @@ class PlaneBackend:
         self.leaves = {
             key: self._install_leaf(key) for key in order if self._route(key) == "encoded_gemm"
         }
-        for name, root in self.roots.items():
-            keys = [key for key in order if self.plan[key].component == name]
-            if keys:
-                component = self._register(name, root, keys)
-                self.components[name] = component
-                self.weights.register(component)
+        prepared = {
+            name: self._prepare_layout(name, root, keys)
+            for name, root in self.roots.items()
+            if (keys := [key for key in order if self.plan[key].component == name])
+        }
+        if self.tiers is not None and self.tiers.prefetch is not None and prepared:
+            # Every component's sealed layout starts filling now, and fills while the ones
+            # before it register: each ask below waits only for its own.
+            self.tiers.prefetch([layout.sealed for layout in prepared.values()])
+        for name, layout in prepared.items():
+            component = self._register(name, self.roots[name], layout.keys, prepared=layout)
+            self.components[name] = component
+            self.weights.register(component)
         self.stats["register_ms"] = round((time.perf_counter() - started) * 1000, 2)
         self.state = "ready"
 
@@ -1471,11 +2392,26 @@ class PlaneBackend:
         self.weights.register(component)
         return component
 
-    def _register(
+    def _source(self, name: str, checkpoint: Checkpoint) -> Source:
+        """The manifest's one store source, made by its first weight set that reads it."""
+        source = self.sources.get(checkpoint.manifest_id)
+        if source is None:
+            if checkpoint.store is None:
+                raise _refuse(
+                    "store_unusable",
+                    f"{name}: the machine served no layout for this weight set, and this "
+                    "executor reads no store",
+                )
+            source = self.sources[checkpoint.manifest_id] = plane.source(
+                self.weights.plane, checkpoint.store, self.leases.take(name)
+            )
+        return source
+
+    def _prepare_layout(
         self, name: str, root: Module, keys: list[str], *, fine: bool = False
-    ) -> Component:
-        """Partition the component into regions (common, then each block or sub-block unit),
-        register them as one weight set, and bind every stored part to its destinations."""
+    ) -> _Prepared:
+        """Partition the component into regions (common, then each block or sub-block unit)
+        and plan its read: everything its weight set's layout is made of."""
         try:
             layout = partition(root, REGION_LIMIT if fine else None)
         except ValueError:
@@ -1488,34 +2424,77 @@ class PlaneBackend:
         kept = [(index, group) for index, group in enumerate(members) if group]
         checkpoint = self.checkpoints[name]
         skipped = self.skipped.get(name, ())
-        plan = checkpoint.read_plan(
-            [(name, self.plan[key].name) for key in keys] + [(name, key) for key in skipped],
-            READ_WINDOW,
-            (name,),
+        traversal = [(name, self.plan[key].name) for key in keys] + [(name, key) for key in skipped]
+        plan = checkpoint.read_plan(traversal, READ_WINDOW, (name,))
+        parts = (
+            [
+                self.plan[key].role_what(part.role)
+                for key in keys
+                for part in self.plan[key].encoded.parts
+            ]
+            if skipped
+            else []
         )
         if skipped:
             # The plan names every stored tensor; only what the code builds is read or mapped.
-            plan = plan.select(
-                [
-                    self.plan[key].role_what(part.role)
-                    for key in keys
-                    for part in self.plan[key].encoded.parts
-                ]
-            )
-        weights = self.weights
+            plan = plan.select(parts)
         key = f"{self.construction}/{name}"
         ids = [[f"{name}/{self.plan[k].name}" for k in group] for _, group in kept]
         digest = canonical.digest({"manifest": checkpoint.manifest_id, "regions": ids})
-        tiers = None if fine else self.tiers
+        sealed_plan = SealedPlan(
+            manifest=checkpoint.manifest_id,
+            name=key,
+            layout=digest,
+            window=READ_WINDOW,
+            traversal=tuple(traversal),
+            components=(name,),
+            regions=tuple(tuple(group) for group in ids),
+            parts=tuple(parts),
+        )
+        return _Prepared(keys, units, kept, checkpoint, plan, ids, digest, sealed_plan)
+
+    def _register(
+        self,
+        name: str,
+        root: Module,
+        keys: list[str],
+        *,
+        fine: bool = False,
+        prepared: _Prepared | None = None,
+    ) -> Component:
+        """Register the component's layout as one weight set and bind every stored part to
+        its destinations."""
+        layout = prepared or self._prepare_layout(name, root, keys, fine=fine)
+        units, kept, checkpoint, plan = layout.units, layout.kept, layout.checkpoint, layout.plan
+        ids, digest, key = layout.ids, layout.digest, layout.sealed.name
+        weights = self.weights
+        # A finer re-registration reads its own store, except where the machine serves this
+        # checkpoint (`Load.model_sources`): there it asks for the finer layout too.
+        tiers = None if fine and checkpoint.store is not None else self.tiers
         with store_refusals(f"registering {name}"):
-            source = self.sources.get(checkpoint.manifest_id)
-            if source is None:
-                source = self.sources[checkpoint.manifest_id] = plane.source(
-                    weights.plane, checkpoint.store, self.leases.take(name)
-                )
-            held = tiers.ask(key, digest) if tiers is not None else None
+            held = None
+            if tiers is not None and tiers.seal is not None:
+                held = tiers.seal(layout.sealed)
+            elif tiers is not None:
+                held = tiers.ask(key, digest)
+            sealed = held is not None and plane.is_sealed(held)
+            # A layout staged in part: its holes copy from the verified object files.
+            files = (
+                tiers.files(layout.sealed, _objects(plan))
+                if sealed and tiers is not None and tiers.files
+                else []
+            )
             try:
-                ws = weights.plane.register(key, source, plan, ids, host_fd=held)
+                if sealed:
+                    assert held is not None
+                    # The machine's: no store, no lease, no fill here, ever. (`files` only
+                    # when there are any: an older TensorFS takes no such argument.)
+                    handed: dict[str, Any] = {"files": files} if files else {}
+                    ws = weights.plane.register_sealed(key, plan, ids, held, **handed)
+                else:
+                    ws = weights.plane.register(
+                        key, self._source(name, checkpoint), plan, ids, host_fd=held
+                    )
             except plane.error("Invalid"):
                 if held is None:
                     raise
@@ -1523,8 +2502,11 @@ class PlaneBackend:
             finally:
                 if held is not None:
                     os.close(held)  # the plane reopened its own description
+                for _, _, fd in files:
+                    os.close(fd)  # the plane duplicated each
             if ws is None:
-                held, ws = None, weights.plane.register(key, source, plan, ids)
+                held, sealed = None, False
+                ws = weights.plane.register(key, self._source(name, checkpoint), plan, ids)
         if tiers is not None:
             if held is None:
                 tiers.offer(key, digest, ws.host_fd)
@@ -1580,6 +2562,7 @@ class PlaneBackend:
             ws=ws,
             device=weights.index,
             regions=regions,
+            sealed=sealed,
             common=common,
             blocks=blocks,
             layout=weight_policy.Layout(
@@ -1588,11 +2571,31 @@ class PlaneBackend:
                 fine=None if fine else _fine(root),
             ),
             fine=fine,
+            staging=(layout.sealed, tiers)
+            if sealed and tiers is not None and tiers.stage
+            else None,
         )
         for region in regions:
             for table, attr, standin in region.unbound:
                 setattr(standin, "origin", (weights, component, region, table, attr))  # noqa: B010
+            region.bakes = _lora_layers(root, region)
+            region.bake = _bakes_here(weights, component, region)
+            region.locate = weights.content
+        if not fine:
+            weights.attach(component)
         return component
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceTiers:
+    """The machine's custody of GPU regions (`weights.attach/1`): `ask` returns the regions it
+    keeps for exactly (weight set, layout, GPU, variant) and their fds, `held` False when it
+    keeps none; `offer` hands it the regions this process filled and exported, with their fds."""
+
+    ask: Callable[[str, str, str, str], DeviceTierAnswer]
+    offer: Callable[
+        [str, str, str, tuple[SharedRegion, ...], tuple[int, ...], str], DeviceTierAnswer
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1605,6 +2608,30 @@ class HostTiers:
     ask: Callable[[str, str], int | None]
     offer: Callable[[str, str, int], None]
     share: Callable[[str, str, int], None] = lambda name, layout, memfd: None
+    #: the machine's sealed layout for a plan (`SealedTier`), asked instead of `ask`
+    seal: Callable[[SealedPlan], int | None] | None = None
+    #: start the machine filling every component's layout at once (`SealedPrefetch`)
+    prefetch: Callable[[list[SealedPlan]], None] | None = None
+    #: stage more regions of a layout staged in part (`SealedStage`): those staged or staging
+    stage: Callable[[SealedPlan, list[int]], list[int]] | None = None
+    #: the verified object files behind a plan, `(sha256, length, fd)` per object of the list
+    #: given (the plan's, in SHA-256 order; `ObjectFiles`)
+    files: Callable[[SealedPlan, list[tuple[str, int]]], list[tuple[str, int, int]]] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _Prepared:
+    """One component's layout before it registers: its keys, block units, kept groups,
+    checkpoint, read plan, region ids and digest, and the plan the machine fills from."""
+
+    keys: list[str]
+    units: list[str]
+    kept: list[tuple[int, list[str]]]
+    checkpoint: Checkpoint
+    plan: ReadPlan
+    ids: list[list[str]]
+    digest: str
+    sealed: SealedPlan
 
 
 class _Span(msgspec.Struct, frozen=True):
@@ -1619,6 +2646,60 @@ class _Placed(msgspec.Struct, frozen=True):
     region: int
     offset: int
     nbytes: int
+
+
+def _lora_layers(root: Module, region: Region) -> list[Bake]:
+    """The region's LoRA'd linears whose stored weight takes a bake: PEFT layers whose every
+    active adapter's factors lie in the same region (so they are bound together), and, in a
+    block, linears carrying a model's consumer hook (`LoRASource`), under a PEFT layer or not."""
+    where = {weight.row.name: index for index, weight in enumerate(region.weights)}
+    found: list[Bake] = []
+    for index, weight in enumerate(region.weights):
+        roles = {role: dtype for role, (_, dtype, _) in weight.parts.items()}
+        site = weight.row.name.removesuffix(".weight")
+        if site == weight.row.name or not lora_bake.bakeable(roles):
+            continue
+        bake = Bake(index)
+        try:
+            hooks: Iterable[object] = root.get_submodule(site)._forward_hooks.values()
+        except AttributeError:  # a tensor named `.weight` on no module of its own
+            hooks = ()
+        if region.path:
+            bake.hooks = [hook for hook in hooks if isinstance(hook, LoRASource)]
+        target = site.removesuffix(".base_layer")
+        if target != site:
+            layer: Any = root.get_submodule(target)
+            for name in getattr(layer, "active_adapters", ()):
+                a = where.get(f"{target}.lora_A.{name}.weight")
+                b = where.get(f"{target}.lora_B.{name}.weight")
+                if a is None or b is None:
+                    break
+                bake.factors.append((a, b, float(layer.scaling[name])))
+            else:
+                if bake.factors:
+                    bake.layer = layer
+        if bake.layer is not None or bake.hooks:
+            found.append(bake)
+    return found
+
+
+def _bakes_here(weights: Weights, component: Component, region: Region) -> bool:
+    """A region bakes its LoRA'd linears unless the request said per step, on a GPU: a CPU
+    executor computes on its host tier, which other executors adopt as the stored bytes."""
+    del component
+    return bool(region.bakes) and not weights.host_only and weights.lora == "bake"
+
+
+@runtime_checkable
+class LoRASource(Protocol):
+    """A model's forward hook on a linear that adds a LoRA update the model owns (H3's turbo
+    overlay). The weight plane bakes `lora_factors()` (identity, down, up, scale; None when
+    the hook adds nothing now) into the linear's bytes, and sets `_cozy_baked` while the
+    bytes it reads hold it."""
+
+    _cozy_baked: bool
+
+    def lora_factors(self) -> tuple[object, Tensor, Tensor, float] | None: ...
 
 
 def _fine(root: Module) -> tuple[int, int] | None:
@@ -1731,6 +2812,8 @@ class WeightResidency:
         self.per_item: dict[str, int] = {}
         self.batch: dict[str, int] = {}
         self.baseline = -1
+        #: torch's room and its cache drops so far, at the open entry's start
+        self.pressure = (0, 0)
         self.derived_at_open = 0
         #: The scheduler's turn (W4, `stage/1`): called before a stage plans, returns the
         #: plane budget the Worker granted for it, or None to keep the current one; and its
@@ -1756,7 +2839,7 @@ class WeightResidency:
         for component in self.components.values():
             self._hook(component)
             vae: Any = component.root
-            if not weights.host_only and _image_vae(vae):
+            if image_vae.exact(vae):
                 vae.decode = self._decode(component.name, vae.decode)
 
     def _hook(self, component: Component) -> None:
@@ -1788,6 +2871,10 @@ class WeightResidency:
         self.last_shortfall = None
         self.derived_at_open = self._derived()
 
+    def serve_lora(self, strategy: lora_bake.Strategy) -> None:
+        """A request's LoRA serving (`lora_mode`): baked, or per step."""
+        self.weights.set_lora(strategy)
+
     def admit(self, method: str, components: tuple[str, ...]) -> None:
         self._require_clean(method)
         try:
@@ -1811,6 +2898,8 @@ class WeightResidency:
         self.entries[method] = self.entries.get(method, 0) + 1
         self.repeats[method] = max(self.repeats.get(method, 0), self.entries[method])
         weights.hold_host()
+        self._clear(method, local)
+        weights.room_before(method)
         if weights.host_only:  # everything is bound in place already; no device to measure
             self.active = (method, local)
             self.entered_ns = time.perf_counter_ns()
@@ -1836,25 +2925,23 @@ class WeightResidency:
                 # weights are all the plane keeps; every other byte stays torch's until it is.
                 # One GPU of a group keeps only a streaming window for the first pass (its
                 # blocks cannot run again after an out-of-memory), then grows by what it measured.
-                own = [component.planned for _, _, component in weights.opened().values()]
+                own = [_paid(c, c.planned)[0] for _, _, c in weights.opened().values()]
                 weights.growing = weights.grouped
-                budget = min(
-                    budget,
-                    # a window of two blocks: one more than the floor, so nothing refines
-                    sum(o.common + 2 * o.largest if weights.grouped else o.total for o in own),
-                )
+                keep = sum(o.common + 2 * o.largest if weights.grouped else o.total for o in own)
+                if weights.cap >= 0 and not weights.grouped:
+                    # Under an owner's cap other stages' weights stay mapped too (keep hot): an
+                    # activation that then lacks room is an out-of-memory at the cap, and the
+                    # plane unmaps the least recently used to run it. Without one, they leave.
+                    keep += max(plane.stats(weights.plane).device(weights.index).committed, 0)
+                # a window of two blocks: one more than the floor, so nothing refines
+                budget = min(budget, keep)
             budget = self._place(budget)
             stream = weights.stream()
             for name in local:
                 component = self.components[name]
                 component.passes = 0
                 if component.common is not None:
-                    try:
-                        component.lease = weights.plane.acquire(
-                            component.ws, weights.index, component.common.index, stream
-                        )
-                    except self._capacity as exc:
-                        raise self._shortfall(method, 0, budget, str(exc)) from None
+                    component.lease = self._acquire_common(method, component, budget, stream)
                     bind(weights.torch, component.common, component.lease)
         except BaseException:
             with suppress(Exception):  # the original failure is the one to report
@@ -1862,6 +2949,54 @@ class WeightResidency:
             self._left()
             raise
         self._entered(method)
+
+    def _clear(self, method: str, local: Sequence[str]) -> None:
+        """Before an entry of `method`: while torch has no more room than an entry of it is
+        known to squeeze in (`Weights.squeezed`), components no stage uses now leave the
+        device, the cheapest to restore first. They fill again when their own stage opens."""
+        weights = self.weights
+        bound = weights.squeezed.get(method)
+        if bound is None or weights.host_only or weights.grouped:
+            return
+        keep = {self.components[name].key for name in local} | _in_use(weights)
+        while weights.allocatable() <= bound + weight_policy.MARGIN and weights.page_out(keep):
+            pass
+
+    def _squeezing(self) -> None:
+        """At an outer block boundary inside a stage: torch dropped its whole cache more than
+        once since the entry or the last page-out, so the room it has squeezes this entry (one
+        stage can be a whole denoise). Read at every block, so it acts within the step that
+        squeezes (one read, 11 us on an RTX 4070). The room is kept for later entries and
+        executors, and the idle component cheapest to restore leaves now: never one an open or
+        repeating stage uses (`_in_use`), so never one `_spare` gave back."""
+        weights = self.weights
+        if self.active is None or self.baseline < 0 or weights.grouped or weights.mapping:
+            return
+        room, dropped = self.pressure
+        if weights.retries() - dropped <= 1:
+            return
+        method = self.active[0]
+        weights.squeezed[method] = weights.squeezes[method] = max(
+            weights.squeezed.get(method, 0), room
+        )
+        weights.page_out(_in_use(weights))
+        self.pressure = (weights.allocatable(), weights.retries())
+
+    def _acquire_common(self, method: str, component: Component, budget: int, stream: Any) -> Any:
+        """The stage's common region's lease; short of device memory, the owner is asked for
+        room once before that is reported."""
+        weights = self.weights
+        assert component.common is not None
+        for asked in (False, True):
+            try:
+                return weights.plane.acquire(
+                    component.ws, weights.index, component.common.index, stream
+                )
+            except self._capacity as exc:
+                if asked or weights.room is None or weights.cap < 0:
+                    raise self._shortfall(method, component.common.span, budget, str(exc)) from None
+                weights.room(component.common.span + weight_policy.MARGIN)
+        raise AssertionError("unreachable")
 
     def _place(self, budget: int, resume: Mapping[str, int] = {}) -> int:
         """`_plan` the open stages in `budget`. When the driver itself has less (another
@@ -1873,22 +3008,40 @@ class WeightResidency:
         method = weights.open[-1][1]
         weights.quiesce()  # a plan unmaps: other components' sets, this one's stale regions
         pooled = False
+        asked = False
         while True:
             oom: tuple[int, str] | None = None
             try:
                 self._plan(budget, resume)
+                weights.limit_torch()
                 return budget
             except self._budget_error as exc:
                 if pooled or not _device_pool(exc):
-                    raise self._shortfall(method, 0, budget, str(exc)) from None
+                    if asked or weights.room is None or weights.cap < 0:
+                        raise self._shortfall(method, 0, budget, str(exc)) from None
+                    asked = True
+                    weights.room(weight_policy.MARGIN)
+                    budget = max(budget, weights.driver_budget(method))
+                    continue
                 pooled = True
+            except ResidencyRefusal as exc:
+                # Short when the plane placed the plan: the owner makes room once (its idle
+                # tenants leave), then the stage plans again in what that gave.
+                if asked or exc.code != INDIVISIBLE or weights.room is None or weights.cap < 0:
+                    raise
+                asked = True
+                short = self.last_shortfall or {}
+                missing = int(short.get("needed_bytes", 0)) - int(short.get("available_bytes", 0))
+                weights.room(max(missing, 0) + weight_policy.MARGIN)
+                budget = max(budget, weights.driver_budget(method))
+                continue
             except Exception as exc:
                 if not is_device_oom(exc):
                     raise
                 oom = (_requested(exc), str(exc).splitlines()[0][:300])
             # outside `except`, so the failed plan's frames (and their tensors) are gone
             if oom is not None:
-                budget = self._after_bind(budget, method, *oom)
+                budget, asked = self._after_bind(budget, method, *oom, asked=asked)
                 continue
             accel.release_cached(weights.torch, weights.kind)
             window = sum(
@@ -1896,15 +3049,22 @@ class WeightResidency:
             )
             budget = min(budget, max(weights.driver_budget(method), window))
 
-    def _after_bind(self, budget: int, method: str, need: int, failed: str) -> int:
+    def _after_bind(
+        self, budget: int, method: str, need: int, failed: str, asked: bool = False
+    ) -> tuple[int, bool]:
         """The budget to plan again in after binding ran out of device memory: what the open
-        stages' weights and their decoded copies can have now (mapped, decoded and free), or
-        the failure by its own name when that is no less than before."""
+        stages' weights and their decoded copies can have now (mapped, decoded and free). At
+        the stage's floor the owner is asked for room once (its idle tenants leave); the
+        failure is reported by its own name only when that gave nothing either."""
         weights = self.weights
         accel.release_cached(weights.torch, weights.kind)
         mapped = max(plane.stats(weights.plane).device(weights.index).committed, 0)
         room = mapped + weights.decoded() + weights.allocatable() - need - weight_policy.MARGIN
         lowered = max(min(room, budget - weight_policy.MARGIN), weights.floor())
+        if lowered >= budget and not asked and weights.room is not None and weights.cap >= 0:
+            weights.oom_retries += 1
+            weights.room(need + weight_policy.MARGIN)
+            return budget, True
         if lowered >= budget:
             raise self._shortfall(
                 method,
@@ -1913,7 +3073,7 @@ class WeightResidency:
                 f"binding its weights ran out of device memory at the stage's floor: {failed}",
             )
         weights.oom_retries += 1
-        return lowered
+        return lowered, asked
 
     def _left(self) -> None:
         if self.active is not None:
@@ -1935,7 +3095,14 @@ class WeightResidency:
         floor = weights.floor()
         for component in opened:
             close_cursor(component)
+        before, capped = weights.applied, wanted <= budget_cell.CAP
+        if capped:  # a process cap: the plane re-placed inside it
+            weights.set_cap(budget_cell.CAP - wanted)
+            wanted = weights.stage_budget(weights.open[-1][1]) if weights.open else -1
         weights.set_budget(max(wanted, floor) if wanted >= 0 else wanted)
+        if not capped and wanted >= 0 and weights.cap >= 0:
+            # a plane ask moves the cap by what it moved the plane
+            weights.set_cap(max(weights.cap + weights.applied - before, 0))
         weights.drain()
         if opened and weights.open:
             self._place(max(weights.applied, floor), resume)
@@ -1971,6 +3138,7 @@ class WeightResidency:
             if self.components[name].fine:  # the run's record of how tight its memory was
                 weights.modes[f"{name}.grain"] = "sub-block"
         self.baseline = accel.allocated(weights.torch, weights.kind)
+        self.pressure = (weights.allocatable(), weights.retries())
         accel.reset_peak(weights.torch, weights.kind)
         self.entered_ns = time.perf_counter_ns()
         if self.exit is not None:
@@ -1998,13 +3166,30 @@ class WeightResidency:
             else:
                 self._close(local)
             weights.drain()
+            if weights.sharing is not None:
+                # Shared while resident: the next stage's plan would evict it otherwise.
+                fresh = [c for c in map(self.components.__getitem__, local) if _unshared(c)]
+                if fresh:
+                    weights.share(fresh)
         finally:
             self._left()
         peak = 0
         if self.baseline >= 0:
-            peak = max(accel.peak_allocated(weights.torch, weights.kind) - self.baseline, 0)
+            # What the stage took beyond its live bytes at entry: its tensors' peak, or the
+            # segments torch reserved for them, whichever is more (a cap counts the segments).
+            peak = max(
+                accel.peak_allocated(weights.torch, weights.kind) - self.baseline,
+                accel.peak_reserved(weights.torch, weights.kind) - self.baseline,
+                0,
+            )
             self.peaks[method] = max(self.peaks.get(method, 0), peak)
             weights.activation[method] = max(weights.activation.get(method, 0), peak)
+            room, dropped = self.pressure
+            if weights.retries() - dropped > 1:
+                # One drop clears another stage's cache; a second in the same entry is this
+                # stage's own blocks against torch's limit: the room it had squeezes it.
+                room = max(weights.squeezed.get(method, 0), room)
+                weights.squeezed[method] = weights.squeezes[method] = room
             item = peak // max(self.batch.pop(method, 1), 1)
             self.per_item[method] = max(self.per_item.get(method, 0), item)
         self.baseline = -1
@@ -2033,6 +3218,44 @@ class WeightResidency:
                     },
                 )
             )
+
+    def map_ahead(self) -> tuple[int, bool]:
+        """Map every component's resident set now, as one stage of all of them would place
+        it inside the budget, and leave it mapped at idle priority as after a call: nothing
+        runs and nothing is measured. Mapped privately and asking the owner for nothing; a
+        call shares it at its stage's exit. Returns the device bytes its components hold,
+        mapped here or attached from the machine, and whether that is every weight."""
+        weights = self.weights
+        names = tuple(name for name in self.components if name not in self.hosted)
+        if weights.host_only or not names:
+            return 0, not names
+        self.unpark()
+        sharing, room = weights.sharing, weights.room
+        weights.sharing = weights.room = None
+        try:
+            self.admit(MAPPING, names)
+            self.release(MAPPING, names)
+        except ResidencyRefusal:
+            pass  # not even the floor fits: what was placed stays, the rest is host memory
+        finally:
+            weights.sharing, weights.room = sharing, room
+            for table in (
+                weights.activation,
+                weights.plan_inputs,
+                weights.squeezed,
+                weights.squeezes,
+                self.peaks,
+                self.per_item,
+                self.entries,
+                self.repeats,
+            ):
+                table.pop(MAPPING, None)
+        held, complete = 0, True
+        for component in map(self.components.__getitem__, names):
+            on = set(component.resident) | component.shared
+            held += sum(region.span for region in component.regions if region.index in on)
+            complete = complete and all(region.index in on for region in component.regions)
+        return held, complete
 
     # -- the executor's and the package's calls
 
@@ -2074,7 +3297,10 @@ class WeightResidency:
     def batch_fits(self, method: str, batch: int) -> bool:
         """`batch` items of `method` at once, if their measured activations fit what is free
         plus the weights the plane may unmap beyond the stage's own floor. Recorded."""
-        per_item = self.per_item.get(method)
+        # Measured here, else what earlier executors measured for the method (a peak at any
+        # batch, so never smaller than one item): unmeasured anywhere is yes, and the first
+        # run measures.
+        per_item = self.per_item.get(method, self.weights.activation.get(method))
         if per_item is None:
             fits = True
         else:
@@ -2091,7 +3317,7 @@ class WeightResidency:
         (theirs is the stage's own set, just wanted)."""
         weights = self.weights
         memory = accel.allocation(weights.torch, weights.kind)
-        free = memory["driver_free_bytes"] + max(
+        free = weights.headroom(memory) + max(
             memory["reserved_bytes"] - memory["allocated_bytes"], 0
         )
         device = plane.stats(weights.plane).device(weights.index)
@@ -2137,17 +3363,22 @@ class WeightResidency:
 
     # -- the stage
 
-    def _plan(self, budget: int, resume: Mapping[str, int] = {}) -> None:
+    def _plan(self, budget: int, resume: Mapping[str, int] = {}, asked: bool = False) -> None:
         """Place every open stage's components inside `budget`: each resident set wanted, the
         rest streamed by a cursor in the blocks' execution order (from `resume[weight set]`
         when a block boundary re-plans mid-pass). Before a component's order is observed its
         blocks are acquired on demand. A component whose block floor does not fit moves to
         the sub-block grain first."""
         weights = self.weights
-        opened = weights.opened()
+        opened = {key: row for key, row in weights.opened().items() if not row[2].spared}
         components = {key: component for key, (_, _, component) in opened.items()}
         method = weights.open[-1][1]
         arriving: list[Ticket] = []
+        # The policy places only the blocks the budget pays for: a region attached from the
+        # machine is on the device already and is never streamed (see `_paid`).
+        kept = {key: _paid(c, c.planned)[1] for key, c in components.items()}
+        at = {key: {block: p for p, block in enumerate(blocks)} for key, blocks in kept.items()}
+        measured = _costs(weights, {key: (c, opened[key][1]) for key, c in components.items()})
 
         def stage(
             layouts: Mapping[str, weight_policy.Layout],
@@ -2156,11 +3387,17 @@ class WeightResidency:
                 layouts,
                 budget,
                 orders={
-                    key: [c.numbers[index] for index in c.order]
+                    key: [at[key][n] for n in map(c.numbers.__getitem__, c.order) if n in at[key]]
                     for key, c in components.items()
                     if c.observed
                 },
-                costs=_costs(weights, {key: (c, opened[key][1]) for key, c in components.items()}),
+                costs={
+                    key: replace(
+                        cost,
+                        compute={at[key][n]: v for n, v in cost.compute.items() if n in at[key]},
+                    )
+                    for key, cost in measured.items()
+                },
                 cyclic={
                     key
                     for key, (row, tag, c) in opened.items()
@@ -2172,23 +3409,28 @@ class WeightResidency:
         # larger component never takes the room a smaller one needs to stay whole (H3's
         # turbo LoRA beside its DiT, run 2947). Only when those floors do not fit does a
         # component that can still refine count at its finer floor, and move to it.
-        layouts = {key: replace(c.planned, fine=None) for key, c in components.items()}
+        layouts = {key: _paid(c, replace(c.planned, fine=None))[0] for key, c in components.items()}
         try:
             try:
-                placed = stage(layouts)
+                paid = stage(layouts)
             except weight_policy.BelowFloor:
                 layouts = {
-                    key: c.planned if opened[key][0]._refinable(c) else layouts[key]
+                    key: _paid(c, c.planned)[0] if opened[key][0]._refinable(c) else layouts[key]
                     for key, c in components.items()
                 }
-                placed = stage(layouts)
+                paid = stage(layouts)
         except weight_policy.BelowFloor as exc:
             if exc.component in opened and opened[exc.component][0]._refine(exc.component):
-                return self._plan(budget, resume)
+                return self._plan(budget, resume, asked)
+            if not asked and weights.room is not None and weights.cap >= 0:
+                # Never refused for size while the GPU has room to give: the owner makes it
+                # (idle tenants leave, held weights nobody reads are revoked) and raises the cap.
+                weights.room(max(exc.needed - exc.available, 0) + weight_policy.MARGIN)
+                return self._plan(max(budget, weights.driver_budget(method)), resume, True)
             raise self._shortfall(method, exc.needed, exc.available, str(exc)) from None
         # A budget that only fits one block at a time streams with no overlap: regions of at
         # most 16 MiB let it hold a window of several. (Window 1 chosen when two fit stays.)
-        for key, residence in placed.items():
+        for key, residence in paid.items():
             layout = layouts[key]
             if (
                 residence.streamed
@@ -2197,7 +3439,8 @@ class WeightResidency:
                 and opened[key][0]._refine(key)
             ):
                 return self._plan(budget, resume)
-        need = sum(r.vram_bytes(layouts[key]) for key, r in placed.items())
+        need = sum(r.vram_bytes(layouts[key]) for key, r in paid.items())
+        placed = {key: _unpaid(components[key], kept[key], r) for key, r in paid.items()}
         if self.spare and need > budget:
             raise ResidencyRefusal("device_spared", f"{method}() declined: needs {need} B")
         weights._apply(budget)
@@ -2239,6 +3482,8 @@ class WeightResidency:
                 )
             except self._shortfall_error as exc:
                 raise self._shortfall(method, need, budget, str(exc)) from None
+            if streams:
+                _stage_stream(weights, component, residence, clock)
         # Every eviction so far is past: its regions leave their bindings now, before the
         # resident sets bind (a region evicted earlier and wanted again binds after this).
         weights.drain()
@@ -2313,64 +3558,101 @@ class WeightResidency:
     def _block(
         self, component: Component, region: Region, forward: Callable[..., Any]
     ) -> Callable[..., Any]:
-        """The one hook per block: acquire, bind, run, release. A torch OOM releases, lowers
-        the plane budget and runs the block again, while its inputs are untouched."""
+        """The one hook per block: acquire, bind, run, release. A torch OOM makes room and
+        runs the op again; one that escapes the block's ops (a library's own allocation)
+        makes room and runs the block again, from the state it started with: the
+        generators it draws from are put back, and so are the tensors it wrote into
+        (`Journal`). Only a block that shares its call with a group cannot run again."""
         weights = self.weights
         torch = weights.torch
 
         def run(*args: Any, **kwargs: Any) -> Any:
             try:
-                if region.mutates is False and not weights.grouped:
-                    with self._quiet():  # the block retries as a unit, not op by op
-                        return attempt(*args, **kwargs)
-                # Its first run, a block that writes into its inputs, or one GPU of a group:
-                # its ops recover one by one, and the first run learns whether it writes.
-                inputs = (*args, *kwargs.values())
-                watch = (
-                    frozenset(_storage(v) for v in _tensor_operands(inputs))
-                    if region.mutates is None
-                    else frozenset()
-                )
-                with weights.recovering(watch) as seen:
-                    out = attempt(*args, **kwargs)
-                if region.mutates is None and not weights.host_only:
-                    region.mutates = seen.mutated
+                effects = region.effects
+                if effects is not None and not effects.writes and not weights.grouped:
+                    # Writes nothing that existed before it: it runs unobserved, and only
+                    # the generators it draws from are kept for a second run.
+                    kept = [(g, g.get_state()) for g in effects.generators]
+
+                    def rewind() -> None:
+                        for generator, state in kept:
+                            generator.set_state(state)
+
+                    with self._quiet():
+                        return rewound(rewind, *args, **kwargs)
+                # Its first run, a block that writes into tensors it did not make, or one
+                # GPU of a group: its ops recover one by one, journaled.
+                journal = Journal()
+                with weights.recovering(journal):
+                    out = rewound(journal.rewind, *args, **kwargs)
+                if effects is None and not weights.host_only:
+                    region.effects = journal.effects()
                 return out
             except self._poisoned_error as exc:
                 raise self._poison(exc) from exc
 
-        def attempt(*args: Any, **kwargs: Any) -> Any:
+        def rewound(rewind: Callable[[], None], *args: Any, **kwargs: Any) -> Any:
+            """A block that fails for good leaves the state it found: the next request on
+            this executor starts from it, as if the failed one never ran."""
+            try:
+                return attempt(rewind, *args, **kwargs)
+            except BaseException:
+                with self._quiet():
+                    rewind()
+                raise
+
+        def attempt(rewind: Callable[[], None], *args: Any, **kwargs: Any) -> Any:
             if weights.cell is not None and not weights.running:
                 self._asked({component.key: region.index})
             passes = component.passes
             self._observe(component, region.index)
             if component.passes > passes:
                 weights.hold_host()
+            if not weights.running:  # a block boundary, before this block leases anything
+                self._squeezing()
             if weights.growing and component.passes == 2 > passes:
                 self._grow()
+            if component.spared:
+                self._unspare(component)
             versions = _versions(args, kwargs)
-            # a library's refusal is answered once: by its op where ops recover one by one
-            refused = weights.grouped or region.mutates is not False
+            # a library's refusal is answered once: by its op when ops recover one by one
+            refused = weights.grouped or region.effects is None or region.effects.writes
+            refusals = 0
             while True:
                 stream = weights.stream()
                 try:
                     lease = self._acquire(component, region.index, stream)
                 except self._capacity:
+                    # The plane refused the region for its own plan: grow its budget into
+                    # the device's free room, then plan the stage afresh, and only then
+                    # unmap (which must give memory back, or the op cannot run).
+                    refusals += 1
+                    if refusals == 1 and weights.grow(region.span):
+                        continue
+                    if refusals <= 2:
+                        self._replan({component.key: region.index})
+                        continue
                     self._make_room(
                         region.span,
                         {component.key: region.index},
                         f"{component.name}.{region.path}",
                     )
                     continue
-                need = 0
+                need, stale = 0, False
                 try:
                     try:
-                        bind(torch, region, lease)
-                        weights.running += 1
+                        # The plane's bind and bake are its own math, outside the block's
+                        # recovery: a bake that fails leaves the region dirty, and it refills.
+                        with self._quiet():
+                            bind(torch, region, lease, refill=True)
+                        weights.running.append(component.key)
+                        weights.last = component.key
                         try:
                             return forward(*args, **kwargs)
                         finally:
-                            weights.running -= 1
+                            weights.running.pop()
+                    except _Stale:
+                        stale = True
                     except Exception as exc:
                         need, refused = _room_for(exc, refused)
                         need = need or region.span
@@ -2380,23 +3662,31 @@ class WeightResidency:
                     if region.index not in component.resident:
                         unbind(region)
                     lease.release()
-                if weights.grouped or region.mutates is not False:
+                if stale:
+                    self._restore(component, region)
+                    continue
+                if weights.grouped:
                     raise self._shortfall(
                         self.active[0] if self.active else "",
                         need,
                         0,
                         f"{component.name}.{region.path} ran out of memory outside torch's "
-                        "own ops, and it shares its call with its group or writes into its "
-                        "inputs, so it cannot run again",
+                        "own ops, and it shares its call with its group, so it cannot run "
+                        "again alone",
                     )
                 if _versions(args, kwargs) != versions:
+                    # It wrote into its inputs although its first run did not: observe it
+                    # from now on. This attempt cannot be rewound.
+                    region.effects = None
                     raise self._shortfall(
                         self.active[0] if self.active else "",
                         need,
                         0,
                         f"{component.name}.{region.path} ran out of memory after changing its "
-                        "inputs in place, so it cannot run again",
+                        "inputs in place, which its first run did not, so it cannot run again",
                     )
+                with self._quiet():  # putting state back is not the block's own op
+                    rewind()
                 self._make_room(
                     need, {component.key: region.index}, f"{component.name}.{region.path}"
                 )
@@ -2422,10 +3712,14 @@ class WeightResidency:
     def _lease(self, component: Component, region: Region, op: str) -> Lease:
         """A region's lease for an op that reads it outside its forward (`Weights.reading`)."""
         weights = self.weights
+        grown = False
         while True:
             try:
                 return self._acquire(component, region.index, weights.stream())
             except self._capacity:
+                grown = not grown and weights.grow(region.span)
+                if grown:
+                    continue
                 if weights.running:
                     raise self._shortfall(
                         weights.open[-1][1],
@@ -2440,6 +3734,27 @@ class WeightResidency:
                     f"{op} ({component.name}.{region.path})",
                 )
 
+    def _replan(self, resume: Mapping[str, int]) -> None:
+        """Plan the open stages again in the budget they have: their cursors start over from
+        the block that runs again (`resume`)."""
+        opened = [component for _, _, component in self.weights.opened().values()]
+        for component in opened:
+            close_cursor(component)
+        if opened:
+            self._place(self.weights.applied, resume)
+
+    def _restore(self, component: Component, region: Region) -> None:
+        """Give a block the stored bytes again (its resident ones hold a delta its forward
+        does not want, or half of one): the open stages' cursors close (one may hold the
+        region in place), the region drops, and the stages are placed again from this block."""
+        weights = self.weights
+        opened = [row for _, _, row in weights.opened().values()]
+        for row in opened:
+            close_cursor(row)
+        weights.refill(component, region)
+        if opened:
+            self._place(weights.applied, {component.key: region.index})
+
     def _make_room(self, need: int, resume: Mapping[str, int] = {}, op: str = "") -> None:
         """Activations first: unmap `need` bytes of weights, idle ones first, then re-place the
         open stages (a block that runs again resumes its component's cursor: `resume`)."""
@@ -2452,7 +3767,74 @@ class WeightResidency:
         weights.shrink(need, weights.floor())
         if opened:
             self._place(weights.applied, resume)
-        weights.progressed(before, need, op or f"{method}()")
+        try:
+            weights.progressed(before, need, op or f"{method}()")
+        except ResidencyRefusal:
+            if not self._spare(resume, resume):
+                raise
+
+    def _spare(self, keep: Collection[str], resume: Mapping[str, int] | None) -> bool:
+        """Activations first, past the stage's floor. A stage that scopes several components
+        (Anima's `render`: conditioner, text encoder, transformer and VAE) keeps every one's
+        common region leased and bound for the whole stage; while memory runs out, those not
+        in `keep` give theirs back: leases released, regions unbound and unmapped. A read of
+        one meanwhile maps it for that op (`Weights.reading`), and its next block maps its
+        common again (`_unspare`). The open stages are re-placed with `resume` (None: a block
+        is in its forward, and nothing is re-placed under its lease). False when nothing is
+        kept (nothing is known to be in use) or nobody else held anything."""
+        weights = self.weights
+        opened = weights.opened()
+        if weights.host_only or not any(key in opened for key in keep):
+            return False
+        idle = [
+            component
+            for key, (_, _, component) in opened.items()
+            if key not in keep and not component.spared
+        ]
+        if not idle:
+            return False
+        weights.quiesce()  # nothing queued still reads what leaves
+        before = max(plane.stats(weights.plane).device(weights.index).committed, 0)
+        for component in idle:
+            close_cursor(component)
+            if component.lease is not None:
+                component.lease.release()
+                component.lease = None
+            regions = [region.index for region in component.regions]
+            for region in component.regions:
+                if region.bound is not None:
+                    unbind(region)
+            with suppress(plane.error("LeaseViolation")):
+                weights.plane.drop(component.ws, weights.index, regions)
+            component.resident = ()
+            component.spared = True
+        weights.drain()
+        # Dropped regions stay mapped as the plane's idle cache until its budget leaves them
+        # no room: the plane keeps what the running component streams in, torch the rest.
+        weights._apply(min(weights.applied, max(weights.window(), weights.floor())))
+        if resume is not None:
+            self._place(weights.applied, resume)
+        after = max(plane.stats(weights.plane).device(weights.index).committed, 0)
+        if after >= before:
+            return False
+        weights.oom_retries += 1
+        weights.last_retry = None
+        return True
+
+    def _unspare(self, component: Component) -> None:
+        """A spared component runs again within its stage: its common region is leased and
+        bound for the rest of the stage, and its blocks join the stage's plan."""
+        weights = self.weights
+        component.spared = False
+        if component.common is not None and component.lease is None:
+            component.lease = self._acquire_common(
+                weights.open[-1][1] if weights.open else "",
+                component,
+                weights.applied,
+                weights.stream(),
+            )
+            bind(weights.torch, component.common, component.lease)
+            component.resident = (component.common.index,)
 
     def _observe(self, component: Component, index: int) -> None:
         """Count passes and learn the blocks' execution order from a stage's first pass."""
@@ -2472,79 +3854,44 @@ class WeightResidency:
             component.seen.append(index)
 
     def _decode(self, name: str, decode: Callable[..., Any]) -> Callable[..., Any]:
-        """An image VAE's decode mode, decided before the call from what is free plus what the
-        plane may unmap: untiled when its measured activations fit, else tiled with the tile
-        clamped to what is free. A size never measured at or above runs untiled (its blocks
-        retry on OOM), sized by the largest size measured below it: a fixed cost makes small
-        decodes' per-pixel peaks overstate large ones.
-        A decode that cannot run untiled even with every idle weight unmapped runs again tiled,
-        and a tile that does not fit runs again at half the side, down to the smallest tile.
+        """An image VAE's decode, exact in row bands (`image_vae.Decode`) on a partition that
+        never depends on memory: memory decides only where its maps live. Idle weights unmap
+        for its maps and bands first (activations first); short of that room, or out of memory
+        part way, its maps live in host memory, and a failed step runs again from its input.
+        Out of device memory on host maps (a driver call included), room is made and it runs again.
         The mode is recorded in the run's outputs."""
-        root: Any = self.components[name].root  # a diffusers image VAE, read as it is
-        vae = image_vae.geometry(root)
-        assert vae is not None
         weights = self.weights
-        #: pixels -> the untiled peak measured at that size
-        peaks: dict[int, int] = {}
-        #: pixels -> the tile side that last fit
-        sides: dict[int, int] = {}
-        scale = vae.scale
 
         def run(z: Tensor, *args: object, **kwargs: object) -> object:
+            exact = image_vae.plan(self.components[name].root, z, *args, **kwargs)
+            if exact is None:
+                return decode(z, *args, **kwargs)
+            if weights.host_only:  # its weights are bound whole: no room to make
+                return exact.run()
             if self.active is not None:
                 weights.adaptive.add(self.active[0])
-            height, width = int(z.shape[-2]) * scale, int(z.shape[-1]) * scale
-            pixels = int(z.shape[0]) * height * width
             free, evictable = self.room((name,))
-            size = min((n for n in peaks if n >= pixels), default=0)
-            known = size or max(peaks, default=0)
-            per_pixel = peaks[known] // known if known else 0
-            mode = (
-                weight_policy.decode_mode(free, evictable, per_pixel * pixels)
-                if size
-                else "untiled"
-            )
-            # Activations first: idle weights leave before a decode needs their room (all of
-            # them unless a measured untiled peak says less), since a decode run short of
-            # memory takes slower convolutions.
-            need = per_pixel * pixels if mode == "untiled" and known else free + evictable
-            free = self._room_for_decode(name, free, evictable, min(need, free + evictable))
-            # a tile under half the image, so tiling always lowers the peak
-            largest = _tile(min(height, width) // 2)
-            side = min(_side(free // max(per_pixel, 1)), sides.get(pixels, largest), largest)
-            baseline = accel.allocated(weights.torch, weights.kind)
-            accel.reset_peak(weights.torch, weights.kind)
+            need = exact.peak(host=False)
+            host = need > self._room_for_decode(name, free, evictable, min(need, free + evictable))
             while True:
-                if mode == "tiled":
-                    vae.tile(side)
-                else:
-                    root.disable_tiling()
                 try:
-                    out = decode(z, *args, **kwargs)
+                    out = exact.run(self._within(name), host)
                     break
                 except Exception as exc:
-                    capacity = is_device_oom(exc) or (
-                        isinstance(exc, ResidencyRefusal) and exc.code == "device_shortfall"
-                    )
-                    if not capacity or (mode == "tiled" and side <= MIN_TILE):
+                    oom = is_device_oom(exc)
+                    refused = isinstance(exc, ResidencyRefusal) and exc.code == INDIVISIBLE
+                    if not oom and (host or not refused):
                         raise
-                # outside `except`, so the failed call's frames are gone
+                    need = _requested(exc) if host else -1
+                # outside `except`, so the failed step's frames are gone
                 accel.release_cached(weights.torch, weights.kind)
-                if mode == "tiled":
-                    side = _tile(side // 2)
-                    continue
-                # it needs more than all it had: the next decode of this size starts tiled
-                peaks[pixels] = max(peaks.get(pixels, 0), free + evictable + 1)
-                mode = "tiled"
-                free, evictable = self.room((name,))
-                self._room_for_decode(name, free, evictable, free + evictable)
-            if mode == "tiled":
-                sides[pixels] = side
-                inexact()  # a tiled decode's arithmetic differs from an untiled one
-            else:
-                peak = accel.peak_allocated(weights.torch, weights.kind) - baseline
-                peaks[pixels] = max(peaks.get(pixels, 0), peak)
-            weights.modes[f"{name}.decode"] = f"tiled {side}" if mode == "tiled" else mode
+                if need >= 0:
+                    # Already on host maps: weights unmap and idle tenants leave, then the
+                    # failed step runs again from its input; a retry that gains nothing ends
+                    # it by its own name.
+                    weights.make_room(need, (), f"{name}.decode")
+                host = True
+            weights.modes[f"{name}.decode"] = f"chunked {exact.rows}" + (" host" if host else "")
             # The decode's transient activations go back to the driver: kept in torch's
             # cache they shrink the next grant, and the weights the decode unmapped come
             # back into exactly that room.
@@ -2552,6 +3899,19 @@ class WeightResidency:
             return out
 
         return run
+
+    def _within(self, name: str) -> image_vae.Within:
+        """Run a body with a module's weights bound once for all of it: through the block's
+        own hook when the module is a block region; as it is otherwise (common weights, or a
+        module whose block regions the body binds itself)."""
+        component = self.components[name]
+        regions = {id(region.module): region for region in component.blocks}
+
+        def within(module: object, body: Callable[[], Any]) -> Any:
+            region = regions.get(id(module))
+            return body() if region is None else self._block(component, region, body)()
+
+        return within
 
     def unpark(self) -> None:
         """Close a repeating stage left open: another stage, an attempt's end, or a budget
@@ -2577,7 +3937,10 @@ class WeightResidency:
             if component.lease is not None:
                 component.lease.release()
                 component.lease = None
-            if not weights.host_only:
+            component.spared = False
+            if not weights.host_only:  # host maps bind once, at load
+                for region in component.regions:
+                    _drop_copies(region)
                 weights.plane.prioritise(component.ws, weights.index, None, priority=idle)
         if failure is not None:
             raise failure
@@ -2615,8 +3978,14 @@ class WeightResidency:
             "request_shape": method,
         }
         self.last_shortfall = shortfall
-        self.refusals.append(f"device_shortfall: {method}: {detail}"[:400])
-        return ResidencyRefusal("device_shortfall", f"{method}(): {detail}", shortfall)
+        self.refusals.append(f"{INDIVISIBLE}: {method}: {detail}"[:400])
+        return ResidencyRefusal(
+            INDIVISIBLE,
+            f"{method}(): {detail}; its smallest working set needs {needed} B of device memory "
+            f"at once and {available} B can be had at the finest grain, the owner having made "
+            "room",
+            shortfall,
+        )
 
     def _poison(self, exc: BaseException) -> ResidencyRefusal:
         """The plane latched poison (a lease lost, a driver mapping in doubt): this process is
@@ -2629,6 +3998,81 @@ class WeightResidency:
             raise ResidencyRefusal(
                 "residency_poisoned", f"{what}() against a poisoned weight plane: {self.poisoned}"
             )
+
+
+def _objects(plan: ReadPlan) -> list[tuple[str, int]]:
+    """The objects `plan` reads, `(sha256 hex, length)` in SHA-256 order."""
+    found = {
+        item["object"].removeprefix("sha256:"): item["object_length"]
+        for item in plan.items()
+        if item.get("source") == "object"
+    }
+    return sorted(found.items())
+
+
+def _stage_stream(
+    weights: Weights, component: Component, residence: weight_policy.Residence, clock: int
+) -> None:
+    """The blocks a stage streams every step get the machine's sealed, pinned host copy: ask
+    it to stage those it lacks (a layout staged in part), then pin what it staged. What it
+    cannot stage keeps streaming from the object files through the plane's staging buffers."""
+    if component.staging is None:
+        return  # a whole layout: pinned at registration, inside the pinned budget
+    plan, tiers = component.staging
+    streamed = [component.blocks[i].index for i in residence.streamed]
+    missing = [r for r in streamed if r not in component.staged]
+    if missing and tiers.stage is not None:
+        component.staged.update(tiers.stage(plan, missing))
+    streamed = [r for r in streamed if r in component.staged]
+    if streamed and not weights.host_only:
+        with suppress(plane.error("Shortfall"), plane.error("BelowFloor")):
+            weights.plane.want(component.ws, plane.PINNED, streamed, priority=clock)
+
+
+def _paid(
+    component: Component, layout: weight_policy.Layout
+) -> tuple[weight_policy.Layout, tuple[int, ...]]:
+    """What a stage's budget pays for, and the block numbers the policy may place. A region
+    attached from the machine is on the device already, outside the budget, and never
+    streamed: only its decoded copies cost (torch's bytes), held beside `common`."""
+    if not component.shared:
+        return layout, tuple(range(len(layout.blocks)))
+    kept = tuple(i for i, b in enumerate(component.blocks) if b.index not in component.shared)
+    common = component.common
+    fixed = (common.decoded if common.index in component.shared else layout.common) if common else 0
+    fixed += sum(b.decoded for b in component.blocks if b.index in component.shared)
+    blocks = tuple(layout.blocks[i] for i in kept)
+    return weight_policy.Layout(common=fixed, blocks=blocks, fine=None), kept
+
+
+def _unpaid(
+    component: Component, kept: Sequence[int], paid: weight_policy.Residence
+) -> weight_policy.Residence:
+    """`paid` (over the placed blocks) in the component's block numbers: attached blocks are
+    resident, and the ring streams only blocks the budget pays for."""
+    if len(kept) == len(component.blocks):
+        return paid
+    attached = [i for i in range(len(component.blocks)) if i not in set(kept)]
+    return replace(
+        paid,
+        resident=(*(kept[p] for p in paid.resident), *attached),
+        streamed=tuple(kept[p] for p in paid.streamed),
+    )
+
+
+def _end_leases(component: Component) -> None:
+    """Close the machine's lease sockets once none of the component's regions maps shared
+    memory any longer: the machine sees each lease end without being told."""
+    for fd in component.leases:
+        with suppress(OSError):
+            os.close(fd)
+    component.leases.clear()
+
+
+def _unshared(component: Component) -> bool:
+    """Resident regions not yet offered to the machine; a leased one cannot be (yet)."""
+    leased = {component.common.index} if component.lease and component.common else set()
+    return bool(set(component.resident) - component.shared - leased)
 
 
 def _costs(
@@ -2707,18 +4151,3 @@ def _room_for(exc: BaseException, refused: bool) -> tuple[int, bool]:
     if refused or not is_library_refusal(exc):
         raise exc
     return weight_policy.LIBRARY_ROOM, True
-
-
-def _image_vae(root: Module) -> bool:
-    """An image VAE whose decode the plane sizes: one frame, tiling it can switch."""
-    return image_vae.geometry(root) is not None
-
-
-def _tile(side: int) -> int:
-    """`side` as a tile's: a multiple of 64, at least the smallest tile."""
-    return max(side // 64 * 64, MIN_TILE)
-
-
-def _side(pixels: int) -> int:
-    """The largest tile side whose square is at most `pixels`."""
-    return _tile(int(max(pixels, 0) ** 0.5))

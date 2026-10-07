@@ -606,7 +606,14 @@ class Filter:  # pylint: disable=too-few-public-methods
             raise self.exception
         val = event
         if isinstance(val, PantherEvent):
-            val = event.to_dict()
+            # jmespath only traverses builtin dicts/lists, not the immutable wrappers.
+            # Filters never mutate the event, so skip the deep copy that to_dict() makes.
+            # jmespath functions like keys() reject other Mapping types (e.g. defaultdict),
+            # so fall back to copying for anything that isn't a plain dict. All known callers
+            # construct PantherEvent from plain dicts today.
+            val = event.raw_view()
+            if type(val) is not dict:  # pylint: disable=unidiomatic-typecheck
+                val = event.to_dict()
         return self._compiled_filter(val)
 
     def total_conditions(self) -> int:

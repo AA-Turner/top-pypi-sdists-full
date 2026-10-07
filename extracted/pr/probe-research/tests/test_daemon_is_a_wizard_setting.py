@@ -244,21 +244,24 @@ def test_session_state_daemon_is_refused_with_nothing_written(capsys):
     assert session_marker.session_state(SID) == session_marker.STATE_READ_ONLY
 
 
-def test_session_state_on_follows_who_records(capsys, daemon_session):
+def test_session_state_on_follows_who_records(capsys, daemon_session, monkeypatch):
+    # The researcher's terminal: inside the agent the CLI refuses the switch.
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
-    assert cli.main(["session", "state", "on"]) in (0, None)
+    assert cli.main(["session", "state", "on", "--session", SID]) in (0, None)
     out = json.loads(capsys.readouterr().out)
     assert session_marker.session_state(SID) == session_marker.STATE_DAEMON
     assert (out["state"], out["label"]) == ("daemon", "on (daemon)")
 
-    assert cli.main(["session", "state", "read"]) in (0, None)
+    assert cli.main(["session", "state", "read", "--session", SID]) in (0, None)
     out = json.loads(capsys.readouterr().out)
     assert (out["state"], out["label"]) == ("read", "read only (daemon)")
 
 
-def test_session_toggle_follows_who_records(capsys, daemon_session):
+def test_session_toggle_follows_who_records(capsys, daemon_session, monkeypatch):
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
-    assert cli.main(["session", "toggle"]) in (0, None)
+    assert cli.main(["session", "toggle", "--session", SID]) in (0, None)
     assert json.loads(capsys.readouterr().out)["label"] == "on (daemon)"
     assert session_marker.session_state(SID) == session_marker.STATE_DAEMON
 

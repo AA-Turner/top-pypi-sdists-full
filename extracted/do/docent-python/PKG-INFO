@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: docent-python
-Version: 0.1.87
+Version: 0.1.88
 Summary: Renamed to 'docent'. This package is a redirect that depends on 'docent'.
 Project-URL: Homepage, https://github.com/TransluceAI/docent
 Project-URL: Issues, https://github.com/TransluceAI/docent/issues
@@ -9,7 +9,7 @@ Author-email: Transluce <info@transluce.org>
 License-Expression: Apache-2.0
 License-File: LICENSE.md
 Requires-Python: >=3.11
-Requires-Dist: docent==0.1.87
+Requires-Dist: docent==0.1.88
 Description-Content-Type: text/markdown
 
 # docent-python

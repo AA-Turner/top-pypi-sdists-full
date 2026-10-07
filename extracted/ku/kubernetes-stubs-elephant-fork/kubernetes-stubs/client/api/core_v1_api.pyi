@@ -179,7 +179,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_config_map(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -256,7 +256,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_endpoints(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -333,7 +333,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_event(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -410,7 +410,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_limit_range(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -687,7 +687,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Eviction:
         ...
-    def connect_get_namespaced_pod_exec(self, name: str, namespace: str, *, command: typing.Optional[str] = ..., container: typing.Optional[str] = ..., stderr: typing.Optional[bool] = ..., stdin: typing.Optional[bool] = ..., stdout: typing.Optional[bool] = ..., tty: typing.Optional[bool] = ..., 
+    def connect_get_namespaced_pod_exec(self, name: str, namespace: str, *, command: typing.Optional[list[str]] = ..., container: typing.Optional[str] = ..., stderr: typing.Optional[bool] = ..., stdin: typing.Optional[bool] = ..., stdout: typing.Optional[bool] = ..., tty: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -698,7 +698,7 @@ class CoreV1Api:
         ] = ...
     ) -> str:
         ...
-    def connect_post_namespaced_pod_exec(self, name: str, namespace: str, *, command: typing.Optional[str] = ..., container: typing.Optional[str] = ..., stderr: typing.Optional[bool] = ..., stdin: typing.Optional[bool] = ..., stdout: typing.Optional[bool] = ..., tty: typing.Optional[bool] = ..., 
+    def connect_post_namespaced_pod_exec(self, name: str, namespace: str, *, command: typing.Optional[list[str]] = ..., container: typing.Optional[str] = ..., stderr: typing.Optional[bool] = ..., stdin: typing.Optional[bool] = ..., stdout: typing.Optional[bool] = ..., tty: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -720,7 +720,7 @@ class CoreV1Api:
         ] = ...
     ) -> str:
         ...
-    def connect_get_namespaced_pod_portforward(self, name: str, namespace: str, *, ports: typing.Optional[int] = ..., 
+    def connect_get_namespaced_pod_portforward(self, name: str, namespace: str, *, ports: typing.Optional[str] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -731,7 +731,7 @@ class CoreV1Api:
         ] = ...
     ) -> str:
         ...
-    def connect_post_namespaced_pod_portforward(self, name: str, namespace: str, *, ports: typing.Optional[int] = ..., 
+    def connect_post_namespaced_pod_portforward(self, name: str, namespace: str, *, ports: typing.Optional[str] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1103,7 +1103,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_replication_controller(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -1356,7 +1356,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespaced_secret(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -1752,7 +1752,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_namespace(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
@@ -1873,7 +1873,7 @@ class CoreV1Api:
                 typing.Union[float, int],
             ]
         ] = ...
-    ) -> kubernetes.client.V1Status:
+    ) -> typing.Any:
         ...
     def patch_node(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[

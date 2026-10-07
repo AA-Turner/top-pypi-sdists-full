@@ -957,7 +957,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
           handler,
           multiprocessing_options=options.multiprocessing_options,
           async_options=options.async_options or AsyncOptions(),
-          file_options=options.file_options,
+          file_options=options.file_options or FileOptions(),
           atomicity_options=options.atomicity_options,
           checkpoint_metadata_store=self._non_blocking_metadata_store,
           temporary_path_class=options.temporary_path_class,
@@ -966,7 +966,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
       return Checkpointer(
           handler,
           multiprocessing_options=options.multiprocessing_options,
-          file_options=options.file_options,
+          file_options=options.file_options or FileOptions(),
           atomicity_options=options.atomicity_options,
           checkpoint_metadata_store=self._blocking_metadata_store,
           temporary_path_class=options.temporary_path_class,
@@ -1040,7 +1040,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         CompositeCheckpointHandler(
             composite_options=composite_checkpoint_handler.CompositeOptions(
                 multiprocessing_options=options.multiprocessing_options,
-                file_options=options.file_options,
+                file_options=options.file_options or FileOptions(),
                 async_options=options.async_options,
                 atomicity_options=options.atomicity_options,
                 temporary_path_class=options.temporary_path_class,
@@ -1416,18 +1416,18 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     self._validate_args(items, args)
     if not force and not self.should_save(step):
       return False
+    validation_duration = time.time() - validation_start_time
     # Wait for any ongoing temporary path cleanup before starting the save.
     self._maybe_await_cleanup_tmp_directory()
+    cm_start_sync_start_time = time.time()
     multihost.sync_global_processes(
         multihost.unique_barrier_key(
             'CheckpointManager:save_start',
             prefix=self._multiprocessing_options.barrier_sync_key_prefix,
         ),
         processes=self._multiprocessing_options.active_processes,
-        record_event_name=(
-            '/jax/orbax/write/checkpoint_start_sync_duration_secs'
-        ),
     )
+    cm_start_sync_duration = time.time() - cm_start_sync_start_time
     if self.reached_preemption(step):
       logging.info(
           '[process=%s] Saving checkpoint at step %d due to preemption.',
@@ -1471,6 +1471,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     # We consider the save in progress only when we have finished waiting for
     # previous save to complete.
     self._save_progress_tracker.set(True)
+    validation_phase2_start_time = time.time()
     if step in self.all_steps():
       raise StepAlreadyExistsError(
           f'Checkpoint for step {step} already exists.'
@@ -1526,15 +1527,45 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     logging.info(
         '[process=%s] Saving checkpoint at step %d', process_index, step
     )
-    validation_duration = time.time() - validation_start_time
+    validation_duration += time.time() - validation_phase2_start_time
     jax.monitoring.record_event_duration_secs(
         '/jax/orbax/write/blocking_val_duration_secs',
         validation_duration,
     )
     step_stats.checkpointer_blocking_start_time = time.time()
-    self._checkpointer.save(
-        save_directory, args=args, custom_metadata=custom_metadata, force=True
-    )
+    if isinstance(self._checkpointer, Checkpointer):
+      skip_sync = bool(
+          isinstance(self._checkpointer, AsyncCheckpointer)
+          and self._options.file_options
+          and self._options.file_options.skip_sync_file_validations
+      )
+      # `Checkpointer.save()` folds these into its own blocking metrics so that
+      # each is recorded once per save and spans the full blocking save.
+      self._checkpointer.save(
+          save_directory,
+          args=args,
+          custom_metadata=custom_metadata,
+          force=not skip_sync,
+          save_context=checkpointer_lib.SaveContext(
+              checkpoint_start_time=(
+                  step_stats.checkpoint_manager_blocking_start_time
+              ),
+              start_sync_duration_secs=cm_start_sync_duration,
+              wait_prev_duration_secs=step_stats.wait_for_prev_duration_secs,
+          ),
+      )
+    else:
+      self._checkpointer.save(
+          save_directory, args=args, custom_metadata=custom_metadata, force=True
+      )
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/checkpoint_start_sync_duration_secs',
+          cm_start_sync_duration,
+      )
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/blocking_wait_prev_duration_secs',
+          step_stats.wait_for_prev_duration_secs,
+      )
     step_stats.checkpointer_blocking_duration_secs = (
         time.time() - step_stats.checkpointer_blocking_start_time
     )
@@ -2088,10 +2119,6 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
       if duration > 0:
         jax.monitoring.record_event_duration_secs(
             '/jax/checkpoint/write/wait_for_prev_duration_secs',
-            duration,
-        )
-        jax.monitoring.record_event_duration_secs(
-            '/jax/orbax/write/blocking_wait_prev_duration_secs',
             duration,
         )
         self._wait_for_prev_save_duration += duration

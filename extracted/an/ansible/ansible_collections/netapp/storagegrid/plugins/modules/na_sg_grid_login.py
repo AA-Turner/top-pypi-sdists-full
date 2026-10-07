@@ -36,6 +36,7 @@ options:
     - The ip or fqdn of the admin node for the grid.
     type: str
     required: true
+    aliases: ['api_url']
   username:
     description:
     - The username of the user authenticating.
@@ -96,7 +97,7 @@ class SgLogin(object):
         """
         self.argument_spec = (
             dict(
-                hostname=dict(type="str", required=True),
+                hostname=dict(type="str", required=True, aliases=["api_url"]),
                 username=dict(type="str", required=True),
                 password=dict(type="str", required=True, no_log=True),
                 tenant_id=dict(type="str", required=False),
@@ -136,7 +137,6 @@ class SgLogin(object):
 
         resp_data = self.generate_auth_token()
         result_message = "authentication token generated successfully."
-        self.na_helper.changed = True
 
         self.module.exit_json(changed=self.na_helper.changed, msg=result_message, na_sa_token=resp_data)
 

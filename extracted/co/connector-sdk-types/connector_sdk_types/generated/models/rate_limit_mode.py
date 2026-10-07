@@ -29,6 +29,7 @@ class RateLimitMode(str, Enum):
     ENFORCE = 'enforce'
     RETRY_ONLY = 'retry_only'
     BYPASS = 'bypass'
+    ENFORCE_NO_RETRY = 'enforce_no_retry'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

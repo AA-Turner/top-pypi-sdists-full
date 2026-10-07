@@ -1,20 +1,25 @@
 [project]
 name = "sqruff" 
-version = "0.40.0"
+version = "0.41.0"
 description = "A SQL linter written in rust." 
 requires-python = ">=3.10" 
 
 [project.optional-dependencies]
 jinja = [
+    "charset-normalizer>=3.0.0",
     "regex",
     "jinja2>=3.0.0",
     "jinja2-simple-tags>=0.3.1"
 ]
 dbt = [
+    "charset-normalizer>=3.0.0",
     "regex",
     "jinja2>=3.0.0",
     "jinja2-simple-tags>=0.3.1",
     "dbt-core>=1.4.1",
+]
+sqlmesh = [
+    "sqlmesh>=0.80.0",
 ]
 
 [project.scripts]

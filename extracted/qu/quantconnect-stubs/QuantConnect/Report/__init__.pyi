@@ -120,7 +120,7 @@ class PointInTimePortfolio(System.Object):
 
     @property
     def holdings(self) -> typing.List[QuantConnect.Report.PointInTimePortfolio.PointInTimeHolding]:
-        """A list of holdings at the current moment in time"""
+        """A list of the open holdings at the current moment in time, plus the holding of the processed order's symbol"""
         ...
 
     @property

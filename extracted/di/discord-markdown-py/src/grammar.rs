@@ -10,13 +10,13 @@ use variant_struct::VariantStruct;
 
 use crate::{
 	error::ParseError,
-	grammar::line_prefix::{LinePrefix, LINE_PREFIX_GRAMMARS},
+	grammar::line_prefix::{LINE_PREFIX_GRAMMARS, LinePrefix},
 };
 
 use super::{
+	Input,
 	inline::{link, spoiler},
 	rule::{Rule, RuleSet},
-	Input,
 };
 
 /// A precomputed hint about whether a grammar's necessary bytes are present in the remaining
@@ -85,6 +85,8 @@ pub enum Grammar {
 	MaskedLinkLink,
 	/// Inline code, with delimiter \`
 	Code,
+	/// Inline code, with delimiter \`\`
+	DoubleCode,
 	/// Code block content, with delimiter \`\`\`
 	CodeBlock,
 	/// Timestamp content, with delimiters `<` and `>`

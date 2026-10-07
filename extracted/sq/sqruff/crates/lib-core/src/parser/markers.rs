@@ -115,6 +115,29 @@ impl PositionMarker {
         self.source_position().1
     }
 
+    /// Calculate the zero-indexed visual column, expanding tabs to tab stops.
+    pub fn working_visual_column(&self, tab_space_size: usize) -> usize {
+        assert!(
+            tab_space_size > 0,
+            "tab_space_size must be greater than zero"
+        );
+
+        let templated = self.templated_file.templated();
+        let position = self.templated_slice.start.min(templated.len());
+        let before_position = templated.get(..position).unwrap_or(templated);
+        let line_start = before_position.rfind('\n').map_or(0, |idx| idx + 1);
+
+        before_position[line_start..]
+            .chars()
+            .fold(0, |visual_column, character| {
+                if character == '\t' {
+                    ((visual_column / tab_space_size) + 1) * tab_space_size
+                } else {
+                    visual_column + 1
+                }
+            })
+    }
+
     #[track_caller]
     pub fn from_child_markers<'a>(
         markers: impl Iterator<Item = &'a PositionMarker>,
@@ -258,6 +281,16 @@ impl PositionMarker {
         start_point_marker: &PositionMarker,
         end_point_marker: &PositionMarker,
     ) -> PositionMarker {
+        // Markers in one parse normally share a TemplatedFile allocation. Keep
+        // value equality as a fallback for independently constructed copies.
+        if !start_point_marker
+            .templated_file
+            .ptr_eq(&end_point_marker.templated_file)
+            && start_point_marker.templated_file != end_point_marker.templated_file
+        {
+            panic!("Markers must refer to the same templated file.");
+        }
+
         Self {
             data: PositionMarkerData {
                 source_slice: start_point_marker.source_slice.start
@@ -330,6 +363,24 @@ mod tests {
 
         assert_eq!(marker.source_position(), (2, 1));
         assert_eq!(marker.templated_position(), (1, 1));
+    }
+
+    #[test]
+    fn test_working_visual_column_expands_tabs() {
+        let raw = "SELECT\n\tshort_col\tAS";
+        let templated_file: TemplatedFile = raw.into();
+        let marker_at = |position| {
+            PositionMarker::from_point(position, position, templated_file.clone(), None, None)
+        };
+
+        assert_eq!(marker_at(7).working_visual_column(4), 0);
+        assert_eq!(marker_at(8).working_visual_column(4), 4);
+        assert_eq!(marker_at(17).working_visual_column(4), 13);
+        assert_eq!(marker_at(18).working_visual_column(4), 16);
+
+        assert_eq!(marker_at(8).working_visual_column(2), 2);
+        assert_eq!(marker_at(17).working_visual_column(2), 11);
+        assert_eq!(marker_at(18).working_visual_column(2), 12);
     }
 
     /// Test that we can correctly infer positions from strings.
@@ -442,5 +493,31 @@ mod tests {
 
         // Check greater than or equal
         assert!(all_pos.iter().all(|p| c_pos >= **p));
+    }
+
+    #[test]
+    fn test_from_points_accepts_identical_and_equal_templated_files() {
+        let file: TemplatedFile = "abc".into();
+        let same_file = file.clone();
+        let equal_file: TemplatedFile = "abc".into();
+        assert!(file.ptr_eq(&same_file));
+        assert!(!file.ptr_eq(&equal_file));
+        assert_eq!(file, equal_file);
+
+        let start = PositionMarker::from_point(0, 0, file, None, None);
+        for end_file in [same_file, equal_file] {
+            let end = PositionMarker::from_point(3, 3, end_file, None, None);
+            let combined = PositionMarker::from_points(&start, &end);
+            assert_eq!(combined.source_slice, 0..3);
+            assert_eq!(combined.templated_slice, 0..3);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Markers must refer to the same templated file.")]
+    fn test_from_points_rejects_different_templated_files() {
+        let start = PositionMarker::from_point(0, 0, "abc".into(), None, None);
+        let end = PositionMarker::from_point(3, 3, "xyz".into(), None, None);
+        PositionMarker::from_points(&start, &end);
     }
 }

@@ -729,7 +729,7 @@ class ListInputContent(_StructuredInputBase):
     type: Literal["input_list"] = "input_list"
     bookmarks: list[dict[str, Any]] = field(default_factory=list)
     _editable_tools: frozenset[str] = field(
-        default=frozenset({"picklist"}),
+        default=frozenset({"pick_list"}),
         init=False,
         repr=False,
         compare=False,

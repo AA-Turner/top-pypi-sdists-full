@@ -570,6 +570,21 @@ def test_session_end_ends_its_routes_inside_the_harness_budget(tmp_path, codex, 
     assert not marker.exists(), "a SessionEnd route outlived the harness's budget"
 
 
+def test_the_codex_session_end_budget_leaves_room_for_what_runs_after_it(monkeypatch):
+    """Codex kills the hook at CODEX_SESSION_END_S, counted from before this
+    process starts. After the budget runs out the dispatcher still waits
+    KILL_WAIT_S for a killed route and JOIN_SLACK_S on the join; with startup
+    (STARTUP_ALLOWANCE_S) that has to end before the kill. It did not at 2.8s."""
+    monkeypatch.setenv("PLUGIN_ROOT", "/plugin")
+    codex = dispatch.budget("session-end")
+    assert dispatch.STARTUP_ALLOWANCE_S >= 0.2, "an allowance below the measured cold start proves nothing"
+    assert codex + dispatch.KILL_WAIT_S + dispatch.JOIN_SLACK_S < dispatch.CODEX_SESSION_END_S - dispatch.STARTUP_ALLOWANCE_S
+    # Claude Code's is unchanged: 1.5s default less SESSION_END_MARGIN_S.
+    monkeypatch.delenv("PLUGIN_ROOT")
+    monkeypatch.delenv("CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS", raising=False)
+    assert dispatch.budget("session-end") == pytest.approx(1.3)
+
+
 @pytest.mark.parametrize("raw", ["", "soon", "²", "0", "-5", "99999999999999999999999"])
 def test_a_session_end_budget_never_crashes(monkeypatch, raw):
     monkeypatch.delenv("PLUGIN_ROOT", raising=False)

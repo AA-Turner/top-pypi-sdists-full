@@ -1,17 +1,19 @@
+use itertools::Itertools;
 use sqruff_lib_core::dialects::Dialect;
 use sqruff_lib_core::dialects::init::DialectKind;
 use sqruff_lib_core::dialects::syntax::SyntaxKind;
 use sqruff_lib_core::helpers::{Config, ToMatchable};
-use sqruff_lib_core::parser::grammar::Ref;
 use sqruff_lib_core::parser::grammar::anyof::{
     AnyNumberOf, any_set_of, one_of, optionally_bracketed,
 };
 use sqruff_lib_core::parser::grammar::delimited::Delimited;
 use sqruff_lib_core::parser::grammar::sequence::{Bracketed, Sequence};
+use sqruff_lib_core::parser::grammar::{Nothing, Ref};
 use sqruff_lib_core::parser::lexer::Matcher;
-use sqruff_lib_core::parser::matchable::MatchableTrait;
+use sqruff_lib_core::parser::matchable::{Matchable, MatchableTrait};
 use sqruff_lib_core::parser::node_matcher::NodeMatcher;
 use sqruff_lib_core::parser::parsers::{RegexParser, StringParser, TypedParser};
+use sqruff_lib_core::parser::segments::generator::SegmentGenerator;
 use sqruff_lib_core::parser::segments::meta::MetaSegment;
 use sqruff_lib_core::parser::types::ParseMode;
 
@@ -35,6 +37,72 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
 pub fn raw_dialect() -> Dialect {
     let mut mysql = ansi::raw_dialect();
     mysql.name = DialectKind::Mysql;
+    mysql
+        .sets_mut("bare_functions")
+        .extend(["NOW", "LOCALTIME", "LOCALTIMESTAMP"]);
+
+    mysql.add([(
+        "NullSafeEqualsSegment".into(),
+        NodeMatcher::new(SyntaxKind::ComparisonOperator, |_| {
+            Sequence::new(vec![
+                Ref::new("RawLessThanSegment").to_matchable(),
+                Ref::new("RawEqualsSegment").to_matchable(),
+                Ref::new("RawGreaterThanSegment").to_matchable(),
+            ])
+            .allow_gaps(false)
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+    mysql.replace_grammar(
+        "ComparisonOperatorGrammar",
+        mysql.grammar("ComparisonOperatorGrammar").copy(
+            Some(vec![Ref::new("NullSafeEqualsSegment").to_matchable()]),
+            None,
+            None,
+            None,
+            Vec::new(),
+            false,
+        ),
+    );
+
+    // Keep WITH ROLLUP inside the GROUP BY indentation block.
+    mysql.replace_grammar(
+        "GroupByClauseSegment",
+        Sequence::new(vec![
+            Ref::keyword("GROUP").to_matchable(),
+            Ref::keyword("BY").to_matchable(),
+            MetaSegment::indent().to_matchable(),
+            one_of(vec![
+                Ref::keyword("ALL").to_matchable(),
+                Ref::new("GroupingSetsClauseSegment").to_matchable(),
+                Ref::new("CubeRollupClauseSegment").to_matchable(),
+                Delimited::new(vec![
+                    one_of(vec![
+                        Ref::new("ColumnReferenceSegment").to_matchable(),
+                        Ref::new("NumericLiteralSegment").to_matchable(),
+                        Ref::new("ExpressionSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| {
+                    this.terminators =
+                        vec![Ref::new("GroupByClauseTerminatorGrammar").to_matchable()];
+                })
+                .to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("WITH").to_matchable(),
+                Ref::keyword("ROLLUP").to_matchable(),
+            ])
+            .config(|this| this.optional())
+            .to_matchable(),
+            MetaSegment::dedent().to_matchable(),
+        ])
+        .to_matchable(),
+    );
 
     // ============================================================
     // Lexer matchers
@@ -50,7 +118,7 @@ pub fn raw_dialect() -> Dialect {
         ),
         Matcher::regex(
             "double_quote",
-            r#""([^"\\]|\\.)*""#,
+            r#""([^"\\]|\\.|"")*""#,
             SyntaxKind::DoubleQuote,
         ),
     ]);
@@ -183,6 +251,11 @@ pub fn raw_dialect() -> Dialect {
         "YEAR",
     ]);
 
+    mysql.sets_mut("date_part_function_name").clear();
+    mysql
+        .sets_mut("date_part_function_name")
+        .extend(["EXTRACT", "TIMESTAMPADD", "TIMESTAMPDIFF"]);
+
     // ============================================================
     // Grammar replacements (overriding ANSI)
     // ============================================================
@@ -195,6 +268,22 @@ pub fn raw_dialect() -> Dialect {
             .into(),
     )]);
 
+    // MySQL allows double-quoted identifiers for aliases.
+    mysql.add([(
+        "DoubleQuotedIdentifierSegment".into(),
+        TypedParser::new(SyntaxKind::DoubleQuote, SyntaxKind::QuotedIdentifier)
+            .to_matchable()
+            .into(),
+    )]);
+
+    // DUAL is a special one-row table and must not be schema-qualified.
+    mysql.add([(
+        "DualIdentifierSegment".into(),
+        StringParser::new("DUAL", SyntaxKind::NakedIdentifier)
+            .to_matchable()
+            .into(),
+    )]);
+
     // AtSignLiteralSegment.
     mysql.add([(
         "AtSignLiteralSegment".into(),
@@ -203,16 +292,61 @@ pub fn raw_dialect() -> Dialect {
             .into(),
     )]);
 
-    // SystemVariableSegment - @@session.var or @@global.var.
+    // SystemVariableSegment - an optionally scoped @@system variable.
     mysql.add([(
         "SystemVariableSegment".into(),
         RegexParser::new(
-            r"@@(session|global)\.[A-Za-z0-9_]+",
+            r"@@((session|global|local|persist|persist_only)\.)?[A-Za-z0-9_]+",
             SyntaxKind::SystemVariable,
         )
         .to_matchable()
         .into(),
     )]);
+
+    // NakedIdentifierSegment - allow a bare `_` as an identifier in MySQL.
+    mysql.add([(
+        "NakedIdentifierSegment".into(),
+        SegmentGenerator::new(|dialect| {
+            // Generate the anti template from the set of reserved keywords
+            let reserved_keywords = dialect.sets("reserved_keywords");
+            let pattern = reserved_keywords.iter().join("|");
+            let anti_template = format!("^({pattern})$");
+
+            RegexParser::new("([A-Z0-9_]*[A-Z][A-Z0-9_]*)|_", SyntaxKind::NakedIdentifier)
+                .anti_template(&anti_template)
+                .to_matchable()
+        })
+        .into(),
+    )]);
+
+    // Charset names are not identifiers: in particular, RF04 must not flag
+    // unreserved keywords such as ASCII when used as charset names.
+    mysql.add([(
+        "CharacterSetSegment".into(),
+        SegmentGenerator::new(|dialect| {
+            let reserved_keywords = dialect.sets("reserved_keywords");
+            let anti_template = format!("^({})$", reserved_keywords.iter().sorted().join("|"));
+            RegexParser::new(r"[A-Z0-9_]*[A-Z][A-Z0-9_]*", SyntaxKind::CharacterSet)
+                .anti_template(&anti_template)
+                .to_matchable()
+        })
+        .into(),
+    )]);
+
+    // BINARY is a reserved keyword but is also a valid collation name.
+    let collation_reference = mysql
+        .grammar("CollationReferenceSegment")
+        .as_node_matcher_ref()
+        .expect("ANSI collation reference is a node matcher")
+        .match_grammar(&mysql);
+    mysql.replace_grammar(
+        "CollationReferenceSegment",
+        one_of(vec![
+            Ref::keyword("BINARY").to_matchable(),
+            collation_reference,
+        ])
+        .to_matchable(),
+    );
 
     // DoubleQuotedJSONPath.
     mysql.add([(
@@ -251,6 +385,28 @@ pub fn raw_dialect() -> Dialect {
                 .into(),
         ),
     ]);
+
+    // LikeGrammar - MySQL/MariaDB support REGEXP alongside LIKE/RLIKE.
+    mysql.add([(
+        "LikeGrammar".into(),
+        one_of(vec![
+            Ref::keyword("LIKE").to_matchable(),
+            Ref::keyword("RLIKE").to_matchable(),
+            Ref::keyword("REGEXP").to_matchable(),
+        ])
+        .to_matchable()
+        .into(),
+    )]);
+
+    mysql.add([(
+        "CollateGrammar".into(),
+        Sequence::new(vec![
+            Ref::keyword("COLLATE").to_matchable(),
+            Ref::new("CollationReferenceSegment").to_matchable(),
+        ])
+        .to_matchable()
+        .into(),
+    )]);
 
     // ProcedureParameterGrammar.
     mysql.add([(
@@ -320,7 +476,7 @@ pub fn raw_dialect() -> Dialect {
         ),
         (
             "InlinePathOperatorSegment".into(),
-            StringParser::new("->>", SyntaxKind::InlinePathOperator)
+            StringParser::new("->>", SyntaxKind::ColumnPathOperator)
                 .to_matchable()
                 .into(),
         ),
@@ -345,6 +501,17 @@ pub fn raw_dialect() -> Dialect {
         .into(),
     )]);
 
+    // Prefix lengths on index key parts should touch the column name, like
+    // bracketed datatype arguments (e.g. VARCHAR(255)).
+    mysql.add([(
+        "IndexColumnPrefixLengthSegment".into(),
+        NodeMatcher::new(SyntaxKind::BracketedArguments, |_| {
+            Bracketed::new(vec![Ref::new("NumericLiteralSegment").to_matchable()]).to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
     // BracketedKeyPartListGrammar - (key_part, ...).
     mysql.add([(
         "BracketedKeyPartListGrammar".into(),
@@ -355,8 +522,7 @@ pub fn raw_dialect() -> Dialect {
                         Ref::new("ColumnReferenceSegment").to_matchable(),
                         Sequence::new(vec![
                             Ref::new("ColumnReferenceSegment").to_matchable(),
-                            Bracketed::new(vec![Ref::new("NumericLiteralSegment").to_matchable()])
-                                .to_matchable(),
+                            Ref::new("IndexColumnPrefixLengthSegment").to_matchable(),
                         ])
                         .to_matchable(),
                         Bracketed::new(vec![Ref::new("ExpressionSegment").to_matchable()])
@@ -396,6 +562,22 @@ pub fn raw_dialect() -> Dialect {
         TypedParser::new(SyntaxKind::BackQuote, SyntaxKind::QuotedIdentifier).to_matchable(),
     );
 
+    mysql.replace_grammar(
+        "TableReferenceSegment",
+        one_of(vec![
+            Ref::new("DualIdentifierSegment").to_matchable(),
+            Delimited::new(vec![Ref::new("SingleIdentifierGrammar").to_matchable()])
+                .config(|this| {
+                    this.delimiter(Ref::new("ObjectReferenceDelimiterGrammar"));
+                    this.terminators =
+                        vec![Ref::new("ObjectReferenceTerminatorGrammar").to_matchable()];
+                    this.allow_gaps = false;
+                })
+                .to_matchable(),
+        ])
+        .to_matchable(),
+    );
+
     // LiteralGrammar - add double-quoted literals and system variables.
     let literal_grammar = mysql.grammar("LiteralGrammar");
     mysql.replace_grammar(
@@ -413,17 +595,38 @@ pub fn raw_dialect() -> Dialect {
         ),
     );
 
-    // FromClauseTerminatorGrammar - add index hints, partition, FOR, INTO.
+    // MySQL permits parenthesized default values in column constraints.
+    let column_constraint_default = mysql.grammar("ColumnConstraintDefaultGrammar");
+    mysql.replace_grammar(
+        "ColumnConstraintDefaultGrammar",
+        one_of(vec![
+            Bracketed::new(vec![column_constraint_default.clone()]).to_matchable(),
+            column_constraint_default,
+        ])
+        .to_matchable(),
+    );
+
+    // Index hints and partition selection belong to each table expression so
+    // they also parse correctly before joins.
+    mysql.replace_grammar(
+        "PostTableExpressionGrammar",
+        one_of(vec![
+            Ref::new("IndexHintClauseSegment").to_matchable(),
+            Ref::new("SelectPartitionClauseSegment").to_matchable(),
+        ])
+        .to_matchable(),
+    );
+
+    // FromClauseTerminatorGrammar - add FOR, check options, and INTO.
     let from_clause_terminator = mysql.grammar("FromClauseTerminatorGrammar");
     mysql.replace_grammar(
         "FromClauseTerminatorGrammar",
         from_clause_terminator.copy(
             Some(vec![
-                Ref::new("IndexHintClauseSegment").to_matchable(),
-                Ref::new("SelectPartitionClauseSegment").to_matchable(),
                 Ref::new("ForClauseSegment").to_matchable(),
                 Ref::new("SetOperatorSegment").to_matchable(),
                 Ref::new("WithNoSchemaBindingClauseSegment").to_matchable(),
+                Ref::new("WithCheckOptionSegment").to_matchable(),
                 Ref::new("IntoClauseSegment").to_matchable(),
             ]),
             None,
@@ -466,6 +669,24 @@ pub fn raw_dialect() -> Dialect {
         ),
     );
 
+    let potential_select =
+        mysql.grammar("Expression_D_Potential_Select_Statement_Without_Brackets");
+    mysql.replace_grammar(
+        "Expression_D_Potential_Select_Statement_Without_Brackets",
+        potential_select.copy(
+            Some(vec![
+                Ref::new("SessionVariableNameSegment").to_matchable(),
+                // Allow VALUES() in expressions such as ON DUPLICATE KEY UPDATE.
+                Ref::new("ValuesClauseSegment").to_matchable(),
+            ]),
+            Some(0),
+            None,
+            None,
+            vec![],
+            false,
+        ),
+    );
+
     // DateTimeLiteralGrammar - MySQL allows optional keyword.
     mysql.replace_grammar(
         "DateTimeLiteralGrammar",
@@ -495,6 +716,29 @@ pub fn raw_dialect() -> Dialect {
             Ref::new("DoubleQuotedLiteralSegment").to_matchable(),
         ])
         .config(|this| this.min_times = 1)
+        .to_matchable(),
+    );
+
+    // AliasExpressionSegment - single- and double-quoted aliases are identifiers.
+    mysql.replace_grammar(
+        "AliasExpressionSegment",
+        Sequence::new(vec![
+            MetaSegment::indent().to_matchable(),
+            Ref::new("AsAliasOperatorSegment").optional().to_matchable(),
+            one_of(vec![
+                Sequence::new(vec![
+                    Ref::new("SingleIdentifierGrammar").to_matchable(),
+                    Bracketed::new(vec![Ref::new("SingleIdentifierListSegment").to_matchable()])
+                        .config(|this| this.optional())
+                        .to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::new("SingleQuotedIdentifierSegment").to_matchable(),
+                Ref::new("DoubleQuotedIdentifierSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            MetaSegment::dedent().to_matchable(),
+        ])
         .to_matchable(),
     );
 
@@ -592,17 +836,23 @@ pub fn raw_dialect() -> Dialect {
     );
 
     // ============================================================
-    // MySQL-specific arithmetic operators (DIV, bitwise ops)
+    // MySQL-specific arithmetic operators (DIV, MOD, and bitwise ops)
     // ============================================================
 
-    mysql.add([(
-        "DivBinaryOperatorSegment".into(),
-        NodeMatcher::new(SyntaxKind::BinaryOperator, |_| {
-            Ref::keyword("DIV").to_matchable()
-        })
-        .to_matchable()
-        .into(),
-    )]);
+    mysql.add([
+        (
+            "DivOperatorSegment".into(),
+            StringParser::new("DIV", SyntaxKind::BinaryOperator)
+                .to_matchable()
+                .into(),
+        ),
+        (
+            "ModOperatorSegment".into(),
+            StringParser::new("MOD", SyntaxKind::BinaryOperator)
+                .to_matchable()
+                .into(),
+        ),
+    ]);
 
     mysql.replace_grammar(
         "ArithmeticBinaryOperatorGrammar",
@@ -617,9 +867,26 @@ pub fn raw_dialect() -> Dialect {
             Ref::new("BitwiseXorSegment").to_matchable(),
             Ref::new("BitwiseLShiftSegment").to_matchable(),
             Ref::new("BitwiseRShiftSegment").to_matchable(),
-            Ref::new("DivBinaryOperatorSegment").to_matchable(),
+            Ref::new("DivOperatorSegment").to_matchable(),
+            Ref::new("ModOperatorSegment").to_matchable(),
         ])
         .to_matchable(),
+    );
+
+    let binary_operator_grammar = mysql.grammar("BinaryOperatorGrammar");
+    mysql.replace_grammar(
+        "BinaryOperatorGrammar",
+        binary_operator_grammar.copy(
+            Some(vec![
+                Ref::new("ColumnPathOperatorSegment").to_matchable(),
+                Ref::new("InlinePathOperatorSegment").to_matchable(),
+            ]),
+            None,
+            None,
+            None,
+            vec![],
+            false,
+        ),
     );
 
     // MySQL 8.0+ supports CTEs with DML statements.
@@ -640,6 +907,342 @@ pub fn raw_dialect() -> Dialect {
     // Segment definitions
     // ============================================================
 
+    // DatatypeSegment.
+    mysql.replace_grammar(
+        "DatatypeSegment",
+        one_of(vec![
+            Ref::new("TimeWithTZGrammar").to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("DOUBLE").to_matchable(),
+                Ref::keyword("PRECISION").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                one_of(vec![
+                    Ref::keyword("SIGNED").to_matchable(),
+                    Ref::keyword("UNSIGNED").to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::keyword("INTEGER").optional().to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                one_of(vec![
+                    Sequence::new(vec![
+                        one_of(vec![
+                            Ref::keyword("CHARACTER").to_matchable(),
+                            Ref::keyword("BINARY").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        one_of(vec![
+                            Ref::keyword("VARYING").to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("LARGE").to_matchable(),
+                                Ref::keyword("OBJECT").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Sequence::new(vec![
+                            Ref::new("SingleIdentifierGrammar").to_matchable(),
+                            Ref::new("DotSegment").to_matchable(),
+                        ])
+                        .config(|this| this.optional())
+                        .to_matchable(),
+                        Ref::new("DatatypeIdentifierSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::new("BracketedArguments").optional().to_matchable(),
+                one_of(vec![
+                    Ref::new("CharCharacterSetGrammar").to_matchable(),
+                    Ref::keyword("SIGNED").to_matchable(),
+                    Ref::keyword("UNSIGNED").to_matchable(),
+                    Ref::keyword("ZEROFILL").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("ZEROFILL").to_matchable(),
+                        Ref::keyword("UNSIGNED").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("UNSIGNED").to_matchable(),
+                        Ref::keyword("ZEROFILL").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable(),
+            Ref::new("ArrayTypeSegment").to_matchable(),
+        ])
+        .to_matchable(),
+    );
+
+    // Parenthesized timestamp functions in MySQL/MariaDB column defaults.
+    mysql.add([
+        (
+            "CurrentTimestampLikeFunctionNameSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionName, |_| {
+                one_of(vec![
+                    Ref::keyword("CURRENT_TIMESTAMP").to_matchable(),
+                    Ref::keyword("NOW").to_matchable(),
+                    Ref::keyword("LOCALTIME").to_matchable(),
+                    Ref::keyword("LOCALTIMESTAMP").to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "CurrentTimestampLikeFunctionContentsSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionContents, |_| {
+                Bracketed::new(vec![
+                    Ref::new("NumericLiteralSegment").optional().to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "CurrentTimestampLikeFunctionSegment".into(),
+            NodeMatcher::new(SyntaxKind::Function, |_| {
+                Sequence::new(vec![
+                    Ref::new("CurrentTimestampLikeFunctionNameSegment").to_matchable(),
+                    Ref::new("CurrentTimestampLikeFunctionContentsSegment").to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+    ]);
+
+    // JSON_TABLE column definitions create output identifiers; they are not
+    // references to columns of an enclosing SELECT.
+    mysql.add([
+        (
+            "JsonTableColumnsClauseSegment".into(),
+            NodeMatcher::new(SyntaxKind::JsonTableColumnsClause, |_| {
+                let column_definition = one_of(vec![
+                    Sequence::new(vec![
+                        Ref::new("SingleIdentifierGrammar").to_matchable(),
+                        Ref::keyword("FOR").to_matchable(),
+                        Ref::keyword("ORDINALITY").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("NESTED").to_matchable(),
+                        Ref::keyword("PATH").optional().to_matchable(),
+                        Ref::new("QuotedLiteralSegment").to_matchable(),
+                        Ref::new("JsonTableColumnsClauseSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::new("SingleIdentifierGrammar").to_matchable(),
+                        Ref::new("DatatypeSegment").to_matchable(),
+                        one_of(vec![
+                            Sequence::new(vec![
+                                Ref::keyword("EXISTS").to_matchable(),
+                                Ref::keyword("PATH").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("PATH").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                                AnyNumberOf::new(vec![
+                                    Sequence::new(vec![
+                                        one_of(vec![
+                                            Ref::keyword("NULL").to_matchable(),
+                                            Ref::keyword("ERROR").to_matchable(),
+                                            Sequence::new(vec![
+                                                Ref::keyword("DEFAULT").to_matchable(),
+                                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                        ])
+                                        .to_matchable(),
+                                        Ref::keyword("ON").to_matchable(),
+                                        one_of(vec![
+                                            Ref::keyword("EMPTY").to_matchable(),
+                                            Ref::keyword("ERROR").to_matchable(),
+                                        ])
+                                        .to_matchable(),
+                                    ])
+                                    .to_matchable(),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable();
+
+                Sequence::new(vec![
+                    Ref::keyword("COLUMNS").to_matchable(),
+                    Bracketed::new(vec![Delimited::new(vec![column_definition]).to_matchable()])
+                        .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "JsonTableFunctionContentsSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionContents, |_| {
+                Bracketed::new(vec![
+                    Ref::new("ExpressionSegment").to_matchable(),
+                    Ref::new("CommaSegment").to_matchable(),
+                    Ref::new("QuotedLiteralSegment").to_matchable(),
+                    Ref::new("JsonTableColumnsClauseSegment").to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "JsonTableFunctionNameSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionName, |_| {
+                StringParser::new("JSON_TABLE", SyntaxKind::FunctionNameIdentifier).to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "JsonValueFunctionContentsSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionContents, |_| {
+                Bracketed::new(vec![
+                    Ref::new("ExpressionSegment").to_matchable(),
+                    Ref::new("CommaSegment").to_matchable(),
+                    Ref::new("ExpressionSegment").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("RETURNING").to_matchable(),
+                        Ref::new("DatatypeSegment").to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("CHARACTER").to_matchable(),
+                            Ref::keyword("SET").to_matchable(),
+                            Ref::new("NakedIdentifierSegment").to_matchable(),
+                        ])
+                        .config(|this| this.optional())
+                        .to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
+                    AnyNumberOf::new(vec![
+                        Sequence::new(vec![
+                            one_of(vec![
+                                Ref::keyword("NULL").to_matchable(),
+                                Ref::keyword("ERROR").to_matchable(),
+                                Sequence::new(vec![
+                                    Ref::keyword("DEFAULT").to_matchable(),
+                                    Ref::new("ExpressionSegment").to_matchable(),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Ref::keyword("ON").to_matchable(),
+                            one_of(vec![
+                                Ref::keyword("EMPTY").to_matchable(),
+                                Ref::keyword("ERROR").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .config(|this| this.max_times(2))
+                    .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "JsonValueFunctionNameSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionName, |_| {
+                StringParser::new("JSON_VALUE", SyntaxKind::FunctionNameIdentifier).to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "ConvertFunctionNameSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionName, |_| {
+                StringParser::new("CONVERT", SyntaxKind::FunctionNameIdentifier).to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "ConvertFunctionContentsSegment".into(),
+            NodeMatcher::new(SyntaxKind::FunctionContents, |_| {
+                Bracketed::new(vec![
+                    Ref::new("ExpressionSegment").to_matchable(),
+                    one_of(vec![
+                        Sequence::new(vec![
+                            Ref::new("CommaSegment").to_matchable(),
+                            Ref::new("DatatypeSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("USING").to_matchable(),
+                            one_of(vec![
+                                Ref::keyword("BINARY").to_matchable(),
+                                Ref::new("NakedIdentifierSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+    ]);
+
+    let function_grammar = mysql
+        .grammar("FunctionSegment")
+        .as_node_matcher_ref()
+        .unwrap()
+        .match_grammar(&mysql);
+    mysql.replace_grammar(
+        "FunctionSegment",
+        one_of(vec![
+            Sequence::new(vec![
+                Ref::new("JsonTableFunctionNameSegment").to_matchable(),
+                Ref::new("JsonTableFunctionContentsSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::new("JsonValueFunctionNameSegment").to_matchable(),
+                Ref::new("JsonValueFunctionContentsSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::new("ConvertFunctionNameSegment").to_matchable(),
+                Ref::new("ConvertFunctionContentsSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            function_grammar,
+        ])
+        .to_matchable(),
+    );
+
     // ColumnDefinitionSegment.
     mysql.replace_grammar(
         "ColumnDefinitionSegment",
@@ -658,68 +1261,41 @@ pub fn raw_dialect() -> Dialect {
                         Ref::keyword("TIMESTAMP").to_matchable(),
                     ])
                     .to_matchable(),
-                    Sequence::new(vec![
-                        Bracketed::new(vec![Ref::new("NumericLiteralSegment").to_matchable()])
-                            .config(|this| this.optional())
-                            .to_matchable(),
-                    ])
-                    .config(|this| this.optional())
-                    .to_matchable(),
-                    Sequence::new(vec![
-                        Sequence::new(vec![Ref::keyword("NOT").to_matchable()])
-                            .config(|this| this.optional())
-                            .to_matchable(),
-                        Ref::keyword("NULL").to_matchable(),
-                    ])
-                    .config(|this| this.optional())
-                    .to_matchable(),
-                    Sequence::new(vec![
-                        Ref::keyword("DEFAULT").to_matchable(),
-                        one_of(vec![
-                            Sequence::new(vec![
-                                one_of(vec![
-                                    Ref::keyword("CURRENT_TIMESTAMP").to_matchable(),
-                                    Ref::keyword("NOW").to_matchable(),
-                                ])
-                                .to_matchable(),
-                                Bracketed::new(vec![
-                                    Ref::new("NumericLiteralSegment").optional().to_matchable(),
-                                ])
+                    // Precision
+                    Ref::new("BracketedArguments").optional().to_matchable(),
+                    // Allow NULL/NOT NULL, DEFAULT, and ON UPDATE in any order
+                    AnyNumberOf::new(vec![
+                        Sequence::new(vec![
+                            Sequence::new(vec![Ref::keyword("NOT").to_matchable()])
                                 .config(|this| this.optional())
                                 .to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                            Ref::new("QuotedLiteralSegment").to_matchable(),
+                            Ref::keyword("NULL").to_matchable(),
                         ])
                         .config(|this| this.optional())
                         .to_matchable(),
-                    ])
-                    .config(|this| this.optional())
-                    .to_matchable(),
-                    Sequence::new(vec![
+                        Sequence::new(vec![
+                            Ref::keyword("DEFAULT").to_matchable(),
+                            one_of(vec![
+                                Ref::new("CurrentTimestampLikeFunctionSegment").to_matchable(),
+                                Ref::new("BareFunctionSegment").to_matchable(),
+                                Ref::new("NumericLiteralSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                                Ref::keyword("NULL").to_matchable(),
+                            ])
+                            .config(|this| this.optional())
+                            .to_matchable(),
+                        ])
+                        .config(|this| this.optional())
+                        .to_matchable(),
                         Sequence::new(vec![
                             Ref::keyword("ON").to_matchable(),
                             Ref::keyword("UPDATE").to_matchable(),
-                        ])
-                        .config(|this| this.optional())
-                        .to_matchable(),
-                        Sequence::new(vec![
                             one_of(vec![
-                                Ref::keyword("CURRENT_TIMESTAMP").to_matchable(),
-                                Ref::keyword("NOW").to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Bracketed::new(vec![
-                                Ref::new("NumericLiteralSegment").optional().to_matchable(),
+                                Ref::new("CurrentTimestampLikeFunctionSegment").to_matchable(),
+                                Ref::new("BareFunctionSegment").to_matchable(),
                             ])
                             .config(|this| this.optional())
                             .to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Sequence::new(vec![
-                            Bracketed::new(vec![Ref::new("NumericLiteralSegment").to_matchable()])
-                                .to_matchable(),
                         ])
                         .config(|this| this.optional())
                         .to_matchable(),
@@ -745,18 +1321,11 @@ pub fn raw_dialect() -> Dialect {
         .to_matchable(),
     );
 
-    // CreateTableStatementSegment - ANSI grammar plus MySQL table options.
+    // CreateTableStatementSegment - ANSI grammar plus MySQL table options and
+    // an optional AS before the SELECT source.
     mysql.replace_grammar(
         "CreateTableStatementSegment",
-        Sequence::new(vec![
-            Ref::keyword("CREATE").to_matchable(),
-            Ref::new("OrReplaceGrammar").optional().to_matchable(),
-            Ref::new("TemporaryTransientGrammar")
-                .optional()
-                .to_matchable(),
-            Ref::keyword("TABLE").to_matchable(),
-            Ref::new("IfNotExistsGrammar").optional().to_matchable(),
-            Ref::new("TableReferenceSegment").to_matchable(),
+        create_table_grammar(
             one_of(vec![
                 Sequence::new(vec![
                     Bracketed::new(vec![
@@ -771,11 +1340,19 @@ pub fn raw_dialect() -> Dialect {
                     ])
                     .to_matchable(),
                     Ref::new("CommentClauseSegment").optional().to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("AS").optional().to_matchable(),
+                        optionally_bracketed(vec![Ref::new("SelectableGrammar").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
                 ])
                 .to_matchable(),
                 Sequence::new(vec![
-                    Ref::keyword("AS").to_matchable(),
-                    Ref::new("SelectableGrammar").to_matchable(),
+                    Ref::keyword("AS").optional().to_matchable(),
+                    optionally_bracketed(vec![Ref::new("SelectableGrammar").to_matchable()])
+                        .to_matchable(),
                 ])
                 .to_matchable(),
                 Sequence::new(vec![
@@ -785,344 +1362,15 @@ pub fn raw_dialect() -> Dialect {
                 .to_matchable(),
             ])
             .to_matchable(),
-            Ref::new("TableEndClauseSegment").optional().to_matchable(),
-            // MySQL table options
-            AnyNumberOf::new(vec![
-                Sequence::new(vec![
-                    Ref::keyword("DEFAULT").optional().to_matchable(),
-                    Ref::new("ParameterNameSegment").to_matchable(),
-                    Ref::new("EqualsSegment").optional().to_matchable(),
-                    one_of(vec![
-                        Ref::new("LiteralGrammar").to_matchable(),
-                        Ref::new("ParameterNameSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .to_matchable(),
-        ])
-        .to_matchable(),
+        ),
     );
 
     // CreateUserStatementSegment.
-    mysql.replace_grammar(
-        "CreateUserStatementSegment",
-        Sequence::new(vec![
-            Ref::keyword("CREATE").to_matchable(),
-            Ref::keyword("USER").to_matchable(),
-            Ref::new("IfNotExistsGrammar").optional().to_matchable(),
-            Delimited::new(vec![
-                Sequence::new(vec![
-                    Ref::new("RoleReferenceSegment").to_matchable(),
-                    Sequence::new(vec![
-                        Delimited::new(vec![
-                            Sequence::new(vec![
-                                Ref::keyword("IDENTIFIED").to_matchable(),
-                                one_of(vec![
-                                    Sequence::new(vec![
-                                        Ref::keyword("BY").to_matchable(),
-                                        one_of(vec![
-                                            Sequence::new(vec![
-                                                Ref::keyword("RANDOM").to_matchable(),
-                                                Ref::keyword("PASSWORD").to_matchable(),
-                                            ])
-                                            .to_matchable(),
-                                            Ref::new("QuotedLiteralSegment").to_matchable(),
-                                        ])
-                                        .to_matchable(),
-                                    ])
-                                    .to_matchable(),
-                                    Sequence::new(vec![
-                                        Ref::keyword("WITH").to_matchable(),
-                                        Ref::new("ObjectReferenceSegment").to_matchable(),
-                                        Sequence::new(vec![
-                                            one_of(vec![
-                                                Sequence::new(vec![
-                                                    Ref::keyword("BY").to_matchable(),
-                                                    one_of(vec![
-                                                        Sequence::new(vec![
-                                                            Ref::keyword("RANDOM").to_matchable(),
-                                                            Ref::keyword("PASSWORD").to_matchable(),
-                                                        ])
-                                                        .to_matchable(),
-                                                        Ref::new("QuotedLiteralSegment")
-                                                            .to_matchable(),
-                                                    ])
-                                                    .to_matchable(),
-                                                ])
-                                                .to_matchable(),
-                                                Sequence::new(vec![
-                                                    Ref::keyword("AS").to_matchable(),
-                                                    Ref::new("QuotedLiteralSegment").to_matchable(),
-                                                ])
-                                                .to_matchable(),
-                                                Sequence::new(vec![
-                                                    Ref::keyword("INITIAL").to_matchable(),
-                                                    Ref::keyword("AUTHENTICATION").to_matchable(),
-                                                    Ref::keyword("IDENTIFIED").to_matchable(),
-                                                    one_of(vec![
-                                                        Sequence::new(vec![
-                                                            Ref::keyword("BY").to_matchable(),
-                                                            one_of(vec![
-                                                                Sequence::new(vec![
-                                                                    Ref::keyword("RANDOM")
-                                                                        .to_matchable(),
-                                                                    Ref::keyword("PASSWORD")
-                                                                        .to_matchable(),
-                                                                ])
-                                                                .to_matchable(),
-                                                                Ref::new("QuotedLiteralSegment")
-                                                                    .to_matchable(),
-                                                            ])
-                                                            .to_matchable(),
-                                                        ])
-                                                        .to_matchable(),
-                                                        Sequence::new(vec![
-                                                            Ref::keyword("WITH").to_matchable(),
-                                                            Ref::new("ObjectReferenceSegment")
-                                                                .to_matchable(),
-                                                            Ref::keyword("AS").to_matchable(),
-                                                            Ref::new("QuotedLiteralSegment")
-                                                                .to_matchable(),
-                                                        ])
-                                                        .to_matchable(),
-                                                    ])
-                                                    .to_matchable(),
-                                                ])
-                                                .to_matchable(),
-                                            ])
-                                            .to_matchable(),
-                                        ])
-                                        .config(|this| this.optional())
-                                        .to_matchable(),
-                                    ])
-                                    .to_matchable(),
-                                ])
-                                .to_matchable(),
-                            ])
-                            .to_matchable(),
-                        ])
-                        .config(|this| this.delimiter(Ref::keyword("AND")))
-                        .to_matchable(),
-                    ])
-                    .config(|this| this.optional())
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .to_matchable(),
-            Sequence::new(vec![
-                Ref::keyword("DEFAULT").to_matchable(),
-                Ref::keyword("ROLE").to_matchable(),
-                Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()])
-                    .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Sequence::new(vec![
-                Ref::keyword("REQUIRE").to_matchable(),
-                one_of(vec![
-                    Ref::keyword("NONE").to_matchable(),
-                    Delimited::new(vec![
-                        one_of(vec![
-                            Ref::keyword("SSL").to_matchable(),
-                            Ref::keyword("X509").to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("CIPHER").to_matchable(),
-                                Ref::new("QuotedLiteralSegment").to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("ISSUER").to_matchable(),
-                                Ref::new("QuotedLiteralSegment").to_matchable(),
-                            ])
-                            .to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("SUBJECT").to_matchable(),
-                                Ref::new("QuotedLiteralSegment").to_matchable(),
-                            ])
-                            .to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .config(|this| this.delimiter(Ref::keyword("AND")))
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Sequence::new(vec![
-                Ref::keyword("WITH").to_matchable(),
-                AnyNumberOf::new(vec![
-                    Sequence::new(vec![
-                        one_of(vec![
-                            Ref::keyword("MAX_QUERIES_PER_HOUR").to_matchable(),
-                            Ref::keyword("MAX_UPDATES_PER_HOUR").to_matchable(),
-                            Ref::keyword("MAX_CONNECTIONS_PER_HOUR").to_matchable(),
-                            Ref::keyword("MAX_USER_CONNECTIONS").to_matchable(),
-                        ])
-                        .to_matchable(),
-                        Ref::new("NumericLiteralSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            AnyNumberOf::new(vec![
-                Sequence::new(vec![
-                    Ref::keyword("PASSWORD").to_matchable(),
-                    Ref::keyword("EXPIRE").to_matchable(),
-                    one_of(vec![
-                        Ref::keyword("DEFAULT").to_matchable(),
-                        Ref::keyword("NEVER").to_matchable(),
-                        Sequence::new(vec![
-                            Ref::keyword("INTERVAL").to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                            Ref::keyword("DAY").to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .config(|this| this.optional())
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("PASSWORD").to_matchable(),
-                    Ref::keyword("HISTORY").to_matchable(),
-                    one_of(vec![
-                        Ref::keyword("DEFAULT").to_matchable(),
-                        Ref::new("NumericLiteralSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("PASSWORD").to_matchable(),
-                    Ref::keyword("REUSE").to_matchable(),
-                    Ref::keyword("INTERVAL").to_matchable(),
-                    one_of(vec![
-                        Ref::keyword("DEFAULT").to_matchable(),
-                        Sequence::new(vec![
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                            Ref::keyword("DAY").to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("PASSWORD").to_matchable(),
-                    Ref::keyword("REQUIRE").to_matchable(),
-                    Ref::keyword("CURRENT").to_matchable(),
-                    one_of(vec![
-                        Ref::keyword("DEFAULT").to_matchable(),
-                        Ref::keyword("OPTIONAL").to_matchable(),
-                    ])
-                    .config(|this| this.optional())
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("FAILED_LOGIN_ATTEMPTS").to_matchable(),
-                    Ref::new("NumericLiteralSegment").to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("PASSWORD_LOCK_TIME").to_matchable(),
-                    one_of(vec![
-                        Ref::new("NumericLiteralSegment").to_matchable(),
-                        Ref::keyword("UNBOUNDED").to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Sequence::new(vec![
-                Ref::keyword("ACCOUNT").to_matchable(),
-                one_of(vec![
-                    Ref::keyword("UNLOCK").to_matchable(),
-                    Ref::keyword("LOCK").to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Sequence::new(vec![
-                one_of(vec![
-                    Ref::keyword("COMMENT").to_matchable(),
-                    Ref::keyword("ATTRIBUTE").to_matchable(),
-                ])
-                .to_matchable(),
-                Ref::new("QuotedLiteralSegment").to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-        ])
-        .to_matchable(),
-    );
+    mysql.replace_grammar("CreateUserStatementSegment", create_user_grammar(false));
 
-    // ColumnConstraintSegment - add CHARACTER SET and COLLATE.
-    // We inline the ANSI grammar here rather than using mysql.grammar() which would
-    // embed a NodeMatcher directly (NodeMatcher doesn't support cache_key).
     mysql.replace_grammar(
         "ColumnConstraintSegment",
-        Sequence::new(vec![
-            Sequence::new(vec![
-                Ref::keyword("CONSTRAINT").to_matchable(),
-                Ref::new("ObjectReferenceSegment").to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            one_of(vec![
-                Sequence::new(vec![
-                    Ref::keyword("NOT").optional().to_matchable(),
-                    Ref::keyword("NULL").to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("CHECK").to_matchable(),
-                    Bracketed::new(vec![Ref::new("ExpressionSegment").to_matchable()])
-                        .to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("DEFAULT").to_matchable(),
-                    Ref::new("ColumnConstraintDefaultGrammar").to_matchable(),
-                ])
-                .to_matchable(),
-                Ref::new("PrimaryKeyGrammar").to_matchable(),
-                Ref::new("UniqueKeyGrammar").to_matchable(),
-                Ref::new("AutoIncrementGrammar").to_matchable(),
-                Ref::new("ReferenceDefinitionGrammar").to_matchable(),
-                Ref::new("CommentClauseSegment").to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("COLLATE").to_matchable(),
-                    Ref::new("CollationReferenceSegment").to_matchable(),
-                ])
-                .to_matchable(),
-                // MySQL-specific: CHARACTER SET and COLLATE with NakedIdentifier
-                Sequence::new(vec![
-                    Ref::keyword("CHARACTER").to_matchable(),
-                    Ref::keyword("SET").to_matchable(),
-                    Ref::new("NakedIdentifierSegment").to_matchable(),
-                ])
-                .to_matchable(),
-                Sequence::new(vec![
-                    Ref::keyword("COLLATE").to_matchable(),
-                    Ref::new("CollationReferenceSegment").to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .to_matchable(),
-        ])
-        .to_matchable(),
+        column_constraint_grammar(false, false),
     );
 
     // IndexTypeGrammar.
@@ -1370,8 +1618,15 @@ pub fn raw_dialect() -> Dialect {
         "IntervalExpressionSegment",
         Sequence::new(vec![
             Ref::keyword("INTERVAL").to_matchable(),
-            Ref::new("ExpressionSegment").to_matchable(),
-            Ref::new("DatetimeUnitSegment").to_matchable(),
+            one_of(vec![
+                Ref::new("DatetimeUnitSegment").to_matchable(),
+                Sequence::new(vec![
+                    Ref::new("ExpressionSegment").to_matchable(),
+                    Ref::new("DatetimeUnitSegment").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
         ])
         .to_matchable(),
     );
@@ -1444,108 +1699,35 @@ pub fn raw_dialect() -> Dialect {
     // InsertStatementSegment.
     mysql.replace_grammar(
         "InsertStatementSegment",
-        Sequence::new(vec![
-            Ref::keyword("INSERT").to_matchable(),
-            one_of(vec![
-                Ref::keyword("LOW_PRIORITY").to_matchable(),
-                Ref::keyword("DELAYED").to_matchable(),
-                Ref::keyword("HIGH_PRIORITY").to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Ref::keyword("IGNORE").optional().to_matchable(),
-            Ref::keyword("INTO").optional().to_matchable(),
-            Ref::new("TableReferenceSegment").to_matchable(),
-            Sequence::new(vec![
-                Ref::keyword("PARTITION").to_matchable(),
-                Bracketed::new(vec![Ref::new("SingleIdentifierListSegment").to_matchable()])
-                    .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Ref::new("BracketedColumnReferenceListGrammar")
-                .optional()
-                .to_matchable(),
-            any_set_of(vec![
-                one_of(vec![
-                    Ref::new("ValuesClauseSegment").to_matchable(),
-                    Ref::new("SetClauseListSegment").to_matchable(),
-                    Sequence::new(vec![
-                        one_of(vec![
-                            Ref::new("SelectableGrammar").to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("TABLE").to_matchable(),
-                                Ref::new("TableReferenceSegment").to_matchable(),
-                            ])
-                            .to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-                Ref::new("InsertRowAliasSegment").optional().to_matchable(),
-                Ref::new("UpsertClauseListSegment")
-                    .optional()
-                    .to_matchable(),
-            ])
-            .to_matchable(),
-        ])
-        .to_matchable(),
+        insert_statement_grammar(true, false),
     );
+
+    // DeleteTargetTableSegment.
+    // A target table used in a `DELETE` statement, permitting a trailing `.*`
+    // after each table name in multi-table delete syntax.
+    // https://dev.mysql.com/doc/refman/8.0/en/delete.html
+    mysql.add([(
+        "DeleteTargetTableSegment".into(),
+        NodeMatcher::new(SyntaxKind::DeleteTargetTable, |_| {
+            Sequence::new(vec![
+                Ref::new("TableReferenceSegment").to_matchable(),
+                Sequence::new(vec![
+                    Ref::new("DotSegment").to_matchable(),
+                    Ref::new("StarSegment").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
 
     // DeleteStatementSegment.
     mysql.replace_grammar(
         "DeleteStatementSegment",
-        Sequence::new(vec![
-            Ref::keyword("DELETE").to_matchable(),
-            Ref::keyword("LOW_PRIORITY").optional().to_matchable(),
-            Ref::keyword("QUICK").optional().to_matchable(),
-            Ref::keyword("IGNORE").optional().to_matchable(),
-            one_of(vec![
-                // DELETE FROM ... USING ...
-                Sequence::new(vec![
-                    Ref::keyword("FROM").to_matchable(),
-                    Delimited::new(vec![Ref::new("TableReferenceSegment").to_matchable()])
-                        .config(|this| {
-                            this.base.terminators = vec![Ref::keyword("USING").to_matchable()]
-                        })
-                        .to_matchable(),
-                    Sequence::new(vec![
-                        Ref::keyword("USING").to_matchable(),
-                        Delimited::new(vec![Ref::new("FromExpressionSegment").to_matchable()])
-                            .to_matchable(),
-                    ])
-                    .to_matchable(),
-                    Ref::new("WhereClauseSegment").optional().to_matchable(),
-                ])
-                .to_matchable(),
-                // DELETE ... FROM ...
-                Sequence::new(vec![
-                    Delimited::new(vec![Ref::new("TableReferenceSegment").to_matchable()])
-                        .config(|this| {
-                            this.base.terminators = vec![Ref::keyword("FROM").to_matchable()]
-                        })
-                        .to_matchable(),
-                    Ref::new("FromClauseSegment").to_matchable(),
-                    Ref::new("WhereClauseSegment").optional().to_matchable(),
-                ])
-                .to_matchable(),
-                // Simple DELETE FROM ...
-                Sequence::new(vec![
-                    Ref::new("FromClauseSegment").to_matchable(),
-                    Ref::new("SelectPartitionClauseSegment")
-                        .optional()
-                        .to_matchable(),
-                    Ref::new("WhereClauseSegment").optional().to_matchable(),
-                    Ref::new("OrderByClauseSegment").optional().to_matchable(),
-                    Ref::new("LimitClauseSegment").optional().to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .to_matchable(),
-        ])
-        .to_matchable(),
+        delete_statement_grammar(false, false),
     );
 
     // DeclareStatement.
@@ -1743,6 +1925,7 @@ pub fn raw_dialect() -> Dialect {
                 Ref::keyword("CREATE").to_matchable(),
                 Ref::new("DefinerSegment").optional().to_matchable(),
                 Ref::keyword("PROCEDURE").to_matchable(),
+                Ref::new("IfNotExistsGrammar").optional().to_matchable(),
                 Ref::new("FunctionNameSegment").to_matchable(),
                 Ref::new("ProcedureParameterListGrammar")
                     .optional()
@@ -1864,9 +2047,29 @@ pub fn raw_dialect() -> Dialect {
                 Ref::keyword("SET").to_matchable(),
                 Delimited::new(vec![
                     Sequence::new(vec![
+                        Sequence::new(vec![
+                            one_of(vec![
+                                Ref::keyword("NEW").to_matchable(),
+                                Ref::keyword("OLD").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Ref::new("DotSegment").to_matchable(),
+                        ])
+                        .config(|this| this.optional())
+                        .to_matchable(),
+                        one_of(vec![
+                            Ref::keyword("GLOBAL").to_matchable(),
+                            Ref::keyword("PERSIST").to_matchable(),
+                            Ref::keyword("PERSIST_ONLY").to_matchable(),
+                            Ref::keyword("SESSION").to_matchable(),
+                            Ref::keyword("LOCAL").to_matchable(),
+                        ])
+                        .config(|this| this.optional())
+                        .to_matchable(),
                         one_of(vec![
                             Ref::new("SessionVariableNameSegment").to_matchable(),
                             Ref::new("LocalVariableNameSegment").to_matchable(),
+                            Ref::new("SystemVariableSegment").to_matchable(),
                         ])
                         .to_matchable(),
                         one_of(vec![
@@ -1875,9 +2078,11 @@ pub fn raw_dialect() -> Dialect {
                         ])
                         .to_matchable(),
                         AnyNumberOf::new(vec![
+                            Ref::new("NumericLiteralSegment").to_matchable(),
                             Ref::new("QuotedLiteralSegment").to_matchable(),
                             Ref::new("DoubleQuotedLiteralSegment").to_matchable(),
                             Ref::new("SessionVariableNameSegment").to_matchable(),
+                            Ref::new("SystemVariableSegment").to_matchable(),
                             Ref::new("BooleanDynamicSystemVariablesGrammar").to_matchable(),
                             Ref::new("LocalVariableNameSegment").to_matchable(),
                             Ref::new("FunctionSegment").to_matchable(),
@@ -2148,29 +2353,10 @@ pub fn raw_dialect() -> Dialect {
     // CallStoredProcedureSegment.
     mysql.add([(
         "CallStoredProcedureSegment".into(),
-        NodeMatcher::new(SyntaxKind::CallSegment, |_| {
+        NodeMatcher::new(SyntaxKind::CallStatement, |_| {
             Sequence::new(vec![
                 Ref::keyword("CALL").to_matchable(),
-                one_of(vec![
-                    Ref::new("SingleIdentifierGrammar").to_matchable(),
-                    Ref::new("QuotedIdentifierSegment").to_matchable(),
-                ])
-                .to_matchable(),
-                Bracketed::new(vec![
-                    AnyNumberOf::new(vec![
-                        Delimited::new(vec![
-                            Ref::new("QuotedLiteralSegment").to_matchable(),
-                            Ref::new("NumericLiteralSegment").to_matchable(),
-                            Ref::new("DoubleQuotedLiteralSegment").to_matchable(),
-                            Ref::new("SessionVariableNameSegment").to_matchable(),
-                            Ref::new("LocalVariableNameSegment").to_matchable(),
-                            Ref::new("FunctionSegment").to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
+                Ref::new("FunctionSegment").to_matchable(),
             ])
             .to_matchable()
         })
@@ -2624,6 +2810,91 @@ pub fn raw_dialect() -> Dialect {
         .into(),
     )]);
 
+    mysql.add([(
+        "TableOptionsSegment".into(),
+        NodeMatcher::new(SyntaxKind::TableOptions, |_| mysql_table_options_grammar())
+            .to_matchable()
+            .into(),
+    )]);
+
+    // MySQL online DDL options within ALTER TABLE statements.
+    mysql.add([(
+        "AlterTableOnlineDDLOptionSegment".into(),
+        NodeMatcher::new(SyntaxKind::AlterTableOnlineDDLOption, |_| {
+            one_of(vec![
+                Sequence::new(vec![
+                    Ref::keyword("ALGORITHM").to_matchable(),
+                    Ref::new("EqualsSegment").optional().to_matchable(),
+                    one_of(vec![
+                        Ref::keyword("DEFAULT").to_matchable(),
+                        Ref::keyword("INPLACE").to_matchable(),
+                        Ref::keyword("COPY").to_matchable(),
+                        Ref::keyword("INSTANT").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("LOCK").to_matchable(),
+                    Ref::new("EqualsSegment").optional().to_matchable(),
+                    one_of(vec![
+                        Ref::keyword("DEFAULT").to_matchable(),
+                        Ref::keyword("NONE").to_matchable(),
+                        Ref::keyword("SHARED").to_matchable(),
+                        Ref::keyword("EXCLUSIVE").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // Dialect-specific ALTER TABLE actions are disabled for MySQL. MariaDB
+    // replaces this grammar to support ADD/DROP SYSTEM VERSIONING.
+    mysql.add([(
+        "AddDropSystemVersioningGrammar".into(),
+        Nothing::new().to_matchable().into(),
+    )]);
+    mysql.add([(
+        "TriggerOrReplaceGrammar".into(),
+        Nothing::new().to_matchable().into(),
+    )]);
+
+    // Dialect extension points for ALTER TABLE. MySQL keeps these forms as-is;
+    // MariaDB replaces them with its conditional and index variants.
+    mysql.add([
+        (
+            "AlterTableConstraintSegment".into(),
+            Ref::new("TableConstraintSegment").to_matchable().into(),
+        ),
+        (
+            "AlterTableIfExistsGrammar".into(),
+            Nothing::new().to_matchable().into(),
+        ),
+        (
+            "AlterTableIndexKeywordGrammar".into(),
+            Ref::keyword("INDEX").to_matchable().into(),
+        ),
+        (
+            "AlterTableIndexStateGrammar".into(),
+            one_of(vec![
+                Ref::keyword("VISIBLE").to_matchable(),
+                Ref::keyword("INVISIBLE").to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+    ]);
+
+    mysql.add([(
+        "AlterTablePartitionActionGrammar".into(),
+        alter_table_partition_action_grammar(false).into(),
+    )]);
+
     // AlterTableStatementSegment.
     mysql.replace_grammar(
         "AlterTableStatementSegment",
@@ -2634,32 +2905,79 @@ pub fn raw_dialect() -> Dialect {
             Delimited::new(vec![
                 one_of(vec![
                     // Table options
+                    Ref::new("TableOptionsSegment").to_matchable(),
+                    // Online DDL options
+                    Ref::new("AlterTableOnlineDDLOptionSegment").to_matchable(),
+                    Ref::new("AddDropSystemVersioningGrammar").to_matchable(),
+                    // ADD column
                     Sequence::new(vec![
-                        Ref::new("ParameterNameSegment").to_matchable(),
-                        Ref::new("EqualsSegment").optional().to_matchable(),
+                        Ref::keyword("ADD").to_matchable(),
+                        Ref::keyword("COLUMN").optional().to_matchable(),
+                        Ref::new("IfNotExistsGrammar").optional().to_matchable(),
+                        Ref::new("ColumnDefinitionSegment").to_matchable(),
                         one_of(vec![
-                            Ref::new("LiteralGrammar").to_matchable(),
-                            Ref::new("NakedIdentifierSegment").to_matchable(),
+                            Ref::keyword("FIRST").to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("AFTER").to_matchable(),
+                                Ref::new("ColumnReferenceSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Ref::new("BracketedColumnReferenceListGrammar").to_matchable(),
                         ])
+                        .config(|this| this.optional())
                         .to_matchable(),
                     ])
                     .to_matchable(),
-                    // ADD/MODIFY column
+                    // ALTER column
                     Sequence::new(vec![
-                        one_of(vec![
-                            Ref::keyword("ADD").to_matchable(),
-                            Ref::keyword("MODIFY").to_matchable(),
-                        ])
-                        .to_matchable(),
+                        Ref::keyword("ALTER").to_matchable(),
                         Ref::keyword("COLUMN").optional().to_matchable(),
-                        Ref::new("ColumnDefinitionSegment").to_matchable(),
-                        one_of(vec![
-                            Sequence::new(vec![
-                                one_of(vec![
-                                    Ref::keyword("FIRST").to_matchable(),
-                                    Ref::keyword("AFTER").to_matchable(),
+                        Ref::new("SingleIdentifierGrammar").to_matchable(),
+                        any_set_of(vec![
+                            one_of(vec![
+                                Sequence::new(vec![
+                                    Ref::keyword("SET").to_matchable(),
+                                    Ref::keyword("DEFAULT").to_matchable(),
+                                    one_of(vec![
+                                        Ref::new("LiteralGrammar").to_matchable(),
+                                        Ref::new("ExpressionSegment").to_matchable(),
+                                    ])
+                                    .to_matchable(),
                                 ])
                                 .to_matchable(),
+                                Sequence::new(vec![
+                                    Ref::keyword("DROP").to_matchable(),
+                                    Ref::keyword("DEFAULT").to_matchable(),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("SET").to_matchable(),
+                                one_of(vec![
+                                    Ref::keyword("INVISIBLE").to_matchable(),
+                                    Ref::keyword("VISIBLE").to_matchable(),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .config(|this| this.min_times(1))
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    // MODIFY column
+                    Sequence::new(vec![
+                        Ref::keyword("MODIFY").to_matchable(),
+                        Ref::keyword("COLUMN").optional().to_matchable(),
+                        Ref::new("AlterTableIfExistsGrammar")
+                            .optional()
+                            .to_matchable(),
+                        Ref::new("ColumnDefinitionSegment").to_matchable(),
+                        one_of(vec![
+                            Ref::keyword("FIRST").to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("AFTER").to_matchable(),
                                 Ref::new("ColumnReferenceSegment").to_matchable(),
                             ])
                             .to_matchable(),
@@ -2672,13 +2990,16 @@ pub fn raw_dialect() -> Dialect {
                     // ADD constraint
                     Sequence::new(vec![
                         Ref::keyword("ADD").to_matchable(),
-                        Ref::new("TableConstraintSegment").to_matchable(),
+                        Ref::new("AlterTableConstraintSegment").to_matchable(),
                     ])
                     .to_matchable(),
                     // CHANGE column
                     Sequence::new(vec![
                         Ref::keyword("CHANGE").to_matchable(),
                         Ref::keyword("COLUMN").optional().to_matchable(),
+                        Ref::new("AlterTableIfExistsGrammar")
+                            .optional()
+                            .to_matchable(),
                         Ref::new("ColumnReferenceSegment").to_matchable(),
                         Ref::new("ColumnDefinitionSegment").to_matchable(),
                         one_of(vec![
@@ -2699,6 +3020,9 @@ pub fn raw_dialect() -> Dialect {
                         one_of(vec![
                             Sequence::new(vec![
                                 Ref::keyword("COLUMN").optional().to_matchable(),
+                                Ref::new("AlterTableIfExistsGrammar")
+                                    .optional()
+                                    .to_matchable(),
                                 Ref::new("ColumnReferenceSegment").to_matchable(),
                             ])
                             .to_matchable(),
@@ -2709,12 +3033,18 @@ pub fn raw_dialect() -> Dialect {
                                 ])
                                 .config(|this| this.optional())
                                 .to_matchable(),
+                                Ref::new("AlterTableIfExistsGrammar")
+                                    .optional()
+                                    .to_matchable(),
                                 Ref::new("IndexReferenceSegment").to_matchable(),
                             ])
                             .to_matchable(),
                             Ref::new("PrimaryKeyGrammar").to_matchable(),
                             Sequence::new(vec![
                                 Ref::new("ForeignKeyGrammar").to_matchable(),
+                                Ref::new("AlterTableIfExistsGrammar")
+                                    .optional()
+                                    .to_matchable(),
                                 Ref::new("ObjectReferenceSegment").to_matchable(),
                             ])
                             .to_matchable(),
@@ -2724,6 +3054,9 @@ pub fn raw_dialect() -> Dialect {
                                     Ref::keyword("CONSTRAINT").to_matchable(),
                                 ])
                                 .to_matchable(),
+                                Ref::new("AlterTableIfExistsGrammar")
+                                    .optional()
+                                    .to_matchable(),
                                 Ref::new("ObjectReferenceSegment").to_matchable(),
                             ])
                             .to_matchable(),
@@ -2754,13 +3087,12 @@ pub fn raw_dialect() -> Dialect {
                     // ALTER INDEX
                     Sequence::new(vec![
                         Ref::keyword("ALTER").to_matchable(),
-                        Ref::keyword("INDEX").to_matchable(),
+                        Ref::new("AlterTableIndexKeywordGrammar").to_matchable(),
+                        Ref::new("AlterTableIfExistsGrammar")
+                            .optional()
+                            .to_matchable(),
                         Ref::new("IndexReferenceSegment").to_matchable(),
-                        one_of(vec![
-                            Ref::keyword("VISIBLE").to_matchable(),
-                            Ref::keyword("INVISIBLE").to_matchable(),
-                        ])
-                        .to_matchable(),
+                        Ref::new("AlterTableIndexStateGrammar").to_matchable(),
                     ])
                     .to_matchable(),
                     // RENAME
@@ -2811,10 +3143,22 @@ pub fn raw_dialect() -> Dialect {
                         Ref::keyword("KEYS").to_matchable(),
                     ])
                     .to_matchable(),
+                    // CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]
+                    Sequence::new(vec![
+                        Ref::keyword("CONVERT").to_matchable(),
+                        Ref::keyword("TO").to_matchable(),
+                        AnyNumberOf::new(vec![Ref::new("AlterOptionSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
                 ])
                 .to_matchable(),
             ])
+            .config(|this| this.optional())
             .to_matchable(),
+            Ref::new("AlterTablePartitionActionGrammar")
+                .optional()
+                .to_matchable(),
         ])
         .to_matchable(),
     );
@@ -2876,14 +3220,8 @@ pub fn raw_dialect() -> Dialect {
                     .optional()
                     .to_matchable(),
                 Ref::keyword("AS").to_matchable(),
-                optionally_bracketed(vec![
-                    one_of(vec![
-                        Ref::new("SelectStatementSegment").to_matchable(),
-                        Ref::new("SetExpressionSegment").to_matchable(),
-                    ])
+                optionally_bracketed(vec![Ref::new("SelectableGrammar").to_matchable()])
                     .to_matchable(),
-                ])
-                .to_matchable(),
                 Ref::new("WithCheckOptionSegment").optional().to_matchable(),
             ])
             .to_matchable()
@@ -2893,53 +3231,7 @@ pub fn raw_dialect() -> Dialect {
     )]);
 
     // CreateViewStatementSegment.
-    mysql.replace_grammar(
-        "CreateViewStatementSegment",
-        Sequence::new(vec![
-            Ref::keyword("CREATE").to_matchable(),
-            Ref::new("OrReplaceGrammar").optional().to_matchable(),
-            Sequence::new(vec![
-                Ref::keyword("ALGORITHM").to_matchable(),
-                Ref::new("EqualsSegment").to_matchable(),
-                one_of(vec![
-                    Ref::keyword("UNDEFINED").to_matchable(),
-                    Ref::keyword("MERGE").to_matchable(),
-                    Ref::keyword("TEMPTABLE").to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Ref::new("DefinerSegment").optional().to_matchable(),
-            Sequence::new(vec![
-                Ref::keyword("SQL").to_matchable(),
-                Ref::keyword("SECURITY").to_matchable(),
-                one_of(vec![
-                    Ref::keyword("DEFINER").to_matchable(),
-                    Ref::keyword("INVOKER").to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Ref::keyword("VIEW").to_matchable(),
-            Ref::new("TableReferenceSegment").to_matchable(),
-            Ref::new("BracketedColumnReferenceListGrammar")
-                .optional()
-                .to_matchable(),
-            Ref::keyword("AS").to_matchable(),
-            optionally_bracketed(vec![
-                one_of(vec![
-                    Ref::new("SelectStatementSegment").to_matchable(),
-                    Ref::new("SetExpressionSegment").to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .to_matchable(),
-            Ref::new("WithCheckOptionSegment").optional().to_matchable(),
-        ])
-        .to_matchable(),
-    );
+    mysql.replace_grammar("CreateViewStatementSegment", create_view_grammar(false));
 
     // RenameTableStatementSegment.
     mysql.add([(
@@ -3182,24 +3474,7 @@ pub fn raw_dialect() -> Dialect {
     )]);
 
     // UpdateStatementSegment.
-    mysql.replace_grammar(
-        "UpdateStatementSegment",
-        Sequence::new(vec![
-            Ref::keyword("UPDATE").to_matchable(),
-            Ref::keyword("LOW_PRIORITY").optional().to_matchable(),
-            Ref::keyword("IGNORE").optional().to_matchable(),
-            Delimited::new(vec![
-                Ref::new("TableReferenceSegment").to_matchable(),
-                Ref::new("FromExpressionSegment").to_matchable(),
-            ])
-            .to_matchable(),
-            Ref::new("SetClauseListSegment").to_matchable(),
-            Ref::new("WhereClauseSegment").optional().to_matchable(),
-            Ref::new("OrderByClauseSegment").optional().to_matchable(),
-            Ref::new("LimitClauseSegment").optional().to_matchable(),
-        ])
-        .to_matchable(),
-    );
+    mysql.replace_grammar("UpdateStatementSegment", update_statement_grammar(false));
 
     // FlushStatementSegment.
     mysql.add([(
@@ -3423,47 +3698,7 @@ pub fn raw_dialect() -> Dialect {
     mysql.add([(
         "ReplaceSegment".into(),
         NodeMatcher::new(SyntaxKind::ReplaceStatement, |_| {
-            Sequence::new(vec![
-                Ref::keyword("REPLACE").to_matchable(),
-                one_of(vec![
-                    Ref::keyword("LOW_PRIORITY").to_matchable(),
-                    Ref::keyword("DELAYED").to_matchable(),
-                ])
-                .config(|this| this.optional())
-                .to_matchable(),
-                Ref::keyword("INTO").optional().to_matchable(),
-                Ref::new("TableReferenceSegment").to_matchable(),
-                Ref::new("SelectPartitionClauseSegment")
-                    .optional()
-                    .to_matchable(),
-                one_of(vec![
-                    Sequence::new(vec![
-                        Ref::new("BracketedColumnReferenceListGrammar")
-                            .optional()
-                            .to_matchable(),
-                        Ref::new("ValuesClauseSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
-                    Ref::new("SetClauseListSegment").to_matchable(),
-                    Sequence::new(vec![
-                        Ref::new("BracketedColumnReferenceListGrammar")
-                            .optional()
-                            .to_matchable(),
-                        one_of(vec![
-                            Ref::new("SelectableGrammar").to_matchable(),
-                            Sequence::new(vec![
-                                Ref::keyword("TABLE").to_matchable(),
-                                Ref::new("TableReferenceSegment").to_matchable(),
-                            ])
-                            .to_matchable(),
-                        ])
-                        .to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .to_matchable()
+            replace_statement_grammar(true, false)
         })
         .to_matchable()
         .into(),
@@ -3474,6 +3709,9 @@ pub fn raw_dialect() -> Dialect {
         "CreateTriggerStatementSegment",
         Sequence::new(vec![
             Ref::keyword("CREATE").to_matchable(),
+            Ref::new("TriggerOrReplaceGrammar")
+                .optional()
+                .to_matchable(),
             Ref::new("DefinerSegment").optional().to_matchable(),
             Ref::keyword("TRIGGER").to_matchable(),
             Ref::new("IfNotExistsGrammar").optional().to_matchable(),
@@ -3533,33 +3771,6 @@ pub fn raw_dialect() -> Dialect {
         .to_matchable(),
     );
 
-    // ColumnReferenceSegment - add JSON path operators.
-    // Base is a delimited list of identifiers (ANSI), plus optional JSON path.
-    let base_col_ref = Delimited::new(vec![Ref::new("SingleIdentifierGrammar").to_matchable()])
-        .config(|this| this.delimiter(Ref::new("ObjectReferenceDelimiterGrammar")))
-        .to_matchable();
-    mysql.replace_grammar(
-        "ColumnReferenceSegment",
-        one_of(vec![
-            Sequence::new(vec![
-                base_col_ref.clone(),
-                one_of(vec![
-                    Ref::new("ColumnPathOperatorSegment").to_matchable(),
-                    Ref::new("InlinePathOperatorSegment").to_matchable(),
-                ])
-                .to_matchable(),
-                one_of(vec![
-                    Ref::new("DoubleQuotedJSONPath").to_matchable(),
-                    Ref::new("SingleQuotedJSONPath").to_matchable(),
-                ])
-                .to_matchable(),
-            ])
-            .to_matchable(),
-            base_col_ref,
-        ])
-        .to_matchable(),
-    );
-
     // CreateDatabaseStatementSegment.
     mysql.replace_grammar(
         "CreateDatabaseStatementSegment",
@@ -3588,7 +3799,13 @@ pub fn raw_dialect() -> Dialect {
                         Ref::keyword("CHARACTER").to_matchable(),
                         Ref::keyword("SET").to_matchable(),
                         Ref::new("EqualsSegment").optional().to_matchable(),
-                        Ref::new("NakedIdentifierSegment").to_matchable(),
+                        one_of(vec![
+                            Ref::new("CharacterSetSegment").to_matchable(),
+                            Ref::keyword("BINARY").to_matchable(),
+                            Ref::new("NakedIdentifierSegment").to_matchable(),
+                            Ref::new("QuotedLiteralSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
                     ])
                     .to_matchable(),
                     Sequence::new(vec![
@@ -3645,7 +3862,14 @@ pub fn raw_dialect() -> Dialect {
                     Ref::keyword("CHARACTER").to_matchable(),
                     Ref::keyword("SET").to_matchable(),
                     Ref::new("EqualsSegment").optional().to_matchable(),
-                    Ref::new("NakedIdentifierSegment").to_matchable(),
+                    one_of(vec![
+                        Ref::new("CharacterSetSegment").to_matchable(),
+                        Ref::keyword("BINARY").to_matchable(),
+                        Ref::new("SingleIdentifierGrammar").to_matchable(),
+                        Ref::new("SingleQuotedIdentifierSegment").to_matchable(),
+                        Ref::new("DoubleQuotedIdentifierSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
                 ])
                 .to_matchable(),
                 Sequence::new(vec![
@@ -3807,6 +4031,172 @@ pub fn raw_dialect() -> Dialect {
         .to_matchable(),
     );
 
+    mysql.replace_grammar(
+        "AccessPermissionSegment",
+        NodeMatcher::new(SyntaxKind::AccessPermission, |_| {
+            one_of(vec![
+                Sequence::new(vec![
+                    Ref::keyword("ALL").to_matchable(),
+                    Ref::keyword("PRIVILEGES").optional().to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    one_of(vec![
+                        Ref::keyword("SELECT").to_matchable(),
+                        Ref::keyword("INSERT").to_matchable(),
+                        Ref::keyword("UPDATE").to_matchable(),
+                        Ref::keyword("DELETE").to_matchable(),
+                        Ref::keyword("CREATE").to_matchable(),
+                        Ref::keyword("DROP").to_matchable(),
+                        Ref::keyword("ALTER").to_matchable(),
+                        Ref::keyword("INDEX").to_matchable(),
+                        Ref::keyword("EXECUTE").to_matchable(),
+                        Ref::keyword("REFERENCES").to_matchable(),
+                        Ref::keyword("RELOAD").to_matchable(),
+                        Ref::keyword("PROCESS").to_matchable(),
+                        Ref::keyword("SUPER").to_matchable(),
+                        Ref::keyword("USAGE").to_matchable(),
+                        Ref::keyword("TRIGGER").to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("CREATE").to_matchable(),
+                            Ref::keyword("VIEW").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("SHOW").to_matchable(),
+                            Ref::keyword("VIEW").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![Ref::new("ColumnReferenceSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable(),
+    );
+    mysql.replace_grammar(
+        "AccessObjectSegment",
+        NodeMatcher::new(SyntaxKind::AccessObject, |_| {
+            Sequence::new(vec![
+                one_of(vec![
+                    Ref::keyword("TABLE").to_matchable(),
+                    Ref::keyword("FUNCTION").to_matchable(),
+                    Ref::keyword("PROCEDURE").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                Ref::new("ObjectReferenceSegment").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable(),
+    );
+    mysql.replace_grammar(
+        "AccessTargetSegment",
+        NodeMatcher::new(SyntaxKind::AccessTarget, |_| {
+            Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()]).to_matchable()
+        })
+        .to_matchable(),
+    );
+    mysql.replace_grammar(
+        "GrantStatementSegment",
+        NodeMatcher::new(SyntaxKind::GrantStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("GRANT").to_matchable(),
+                one_of(vec![
+                    Sequence::new(vec![
+                        Ref::new("AccessPermissionsSegment").to_matchable(),
+                        Ref::keyword("ON").to_matchable(),
+                        Ref::new("AccessObjectSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()])
+                        .to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::keyword("TO").to_matchable(),
+                Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()])
+                    .to_matchable(),
+                one_of(vec![
+                    Sequence::new(vec![
+                        Ref::keyword("WITH").to_matchable(),
+                        Ref::keyword("GRANT").to_matchable(),
+                        Ref::keyword("OPTION").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("WITH").to_matchable(),
+                        Ref::keyword("ADMIN").to_matchable(),
+                        Ref::keyword("OPTION").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable(),
+    );
+    mysql.replace_grammar(
+        "RevokeStatementSegment",
+        NodeMatcher::new(SyntaxKind::RevokeStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("REVOKE").to_matchable(),
+                Ref::new("AccessPermissionsSegment").to_matchable(),
+                Ref::keyword("ON").to_matchable(),
+                Ref::new("AccessObjectSegment").to_matchable(),
+                Ref::keyword("FROM").to_matchable(),
+                Ref::new("AccessTargetSegment").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable(),
+    );
+    mysql.replace_grammar(
+        "AccessStatementSegment",
+        NodeMatcher::new(SyntaxKind::AccessStatement, |_| {
+            one_of(vec![
+                Ref::new("GrantStatementSegment").to_matchable(),
+                Ref::new("RevokeStatementSegment").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable(),
+    );
+
+    mysql.add([(
+        "SetDefaultRoleStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::SetDefaultRoleStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("SET").to_matchable(),
+                Ref::keyword("DEFAULT").to_matchable(),
+                Ref::keyword("ROLE").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("ALL").to_matchable(),
+                    Ref::keyword("NONE").to_matchable(),
+                    Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()])
+                        .to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::keyword("TO").to_matchable(),
+                Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()])
+                    .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
     // ValuesStatementSegment - MySQL VALUES statement.
     mysql.add([(
         "ValuesStatementSegment".into(),
@@ -3868,7 +4258,6 @@ pub fn raw_dialect() -> Dialect {
         "UnorderedSelectStatementSegment",
         Sequence::new(vec![
             Ref::new("SelectClauseSegment").to_matchable(),
-            MetaSegment::dedent().to_matchable(),
             Ref::new("IntoClauseSegment").optional().to_matchable(),
             Ref::new("FromClauseSegment").optional().to_matchable(),
             Ref::new("SelectPartitionClauseSegment")
@@ -3891,6 +4280,7 @@ pub fn raw_dialect() -> Dialect {
             Ref::new("IntoClauseSegment").to_matchable(),
             Ref::new("ForClauseSegment").to_matchable(),
             Ref::new("IndexHintClauseSegment").to_matchable(),
+            Ref::new("WithCheckOptionSegment").to_matchable(),
             Ref::new("SelectPartitionClauseSegment").to_matchable(),
             Ref::new("UpsertClauseListSegment").to_matchable(),
         ])
@@ -3901,39 +4291,7 @@ pub fn raw_dialect() -> Dialect {
     );
 
     // SelectStatementSegment - add ORDER BY, LIMIT, named window, INTO, FOR.
-    mysql.replace_grammar(
-        "SelectStatementSegment",
-        Sequence::new(vec![
-            Ref::new("SelectClauseSegment").to_matchable(),
-            MetaSegment::dedent().to_matchable(),
-            Ref::new("IntoClauseSegment").optional().to_matchable(),
-            Ref::new("FromClauseSegment").optional().to_matchable(),
-            Ref::new("SelectPartitionClauseSegment")
-                .optional()
-                .to_matchable(),
-            Ref::new("IndexHintClauseSegment").optional().to_matchable(),
-            Ref::new("WhereClauseSegment").optional().to_matchable(),
-            Ref::new("GroupByClauseSegment").optional().to_matchable(),
-            Ref::new("HavingClauseSegment").optional().to_matchable(),
-            Ref::new("OverlapsClauseSegment").optional().to_matchable(),
-            Ref::new("OrderByClauseSegment").optional().to_matchable(),
-            Ref::new("LimitClauseSegment").optional().to_matchable(),
-            Ref::new("NamedWindowSegment").optional().to_matchable(),
-            Ref::new("IntoClauseSegment").optional().to_matchable(),
-            Ref::new("ForClauseSegment").optional().to_matchable(),
-        ])
-        .terminators(vec![
-            Ref::new("SetOperatorSegment").to_matchable(),
-            Ref::new("WithNoSchemaBindingClauseSegment").to_matchable(),
-            Ref::new("WithDataClauseSegment").to_matchable(),
-            Ref::new("UpsertClauseListSegment").to_matchable(),
-            Ref::new("WithCheckOptionSegment").to_matchable(),
-        ])
-        .config(|this| {
-            this.parse_mode(ParseMode::GreedyOnceStarted);
-        })
-        .to_matchable(),
-    );
+    mysql.replace_grammar("SelectStatementSegment", select_statement_grammar(false));
 
     // ============================================================
     // RETURN statement (#4693) — https://dev.mysql.com/doc/refman/8.0/en/return.html
@@ -3943,6 +4301,251 @@ pub fn raw_dialect() -> Dialect {
             Sequence::new(vec![
                 Ref::keyword("RETURN").to_matchable(),
                 Ref::new("ExpressionSegment").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // SET TRANSACTION statement (#5781)
+    // https://dev.mysql.com/doc/refman/8.0/en/set-transaction.html
+    mysql.add([(
+        "SetTransactionStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::SetTransactionStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("SET").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("GLOBAL").to_matchable(),
+                    Ref::keyword("SESSION").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                Ref::keyword("TRANSACTION").to_matchable(),
+                Delimited::new(vec![
+                    Sequence::new(vec![
+                        Ref::keyword("ISOLATION").to_matchable(),
+                        Ref::keyword("LEVEL").to_matchable(),
+                        one_of(vec![
+                            Sequence::new(vec![
+                                Ref::keyword("READ").to_matchable(),
+                                one_of(vec![
+                                    Ref::keyword("COMMITTED").to_matchable(),
+                                    Ref::keyword("UNCOMMITTED").to_matchable(),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("REPEATABLE").to_matchable(),
+                                Ref::keyword("READ").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Ref::keyword("SERIALIZABLE").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("READ").to_matchable(),
+                        one_of(vec![
+                            Ref::keyword("WRITE").to_matchable(),
+                            Ref::keyword("ONLY").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // SET NAMES statement — https://dev.mysql.com/doc/refman/8.0/en/set-names.html
+    mysql.add([(
+        "SetNamesStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::SetNamesStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("SET").to_matchable(),
+                Ref::keyword("NAMES").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("DEFAULT").to_matchable(),
+                    Ref::new("QuotedLiteralSegment").to_matchable(),
+                    Ref::new("NakedIdentifierSegment").to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("COLLATE").to_matchable(),
+                    Ref::new("CollationReferenceSegment").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // CREATE EVENT statement.
+    // https://dev.mysql.com/doc/refman/9.2/en/create-event.html
+    mysql.add([(
+        "CreateEventStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::CreateEventStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("CREATE").to_matchable(),
+                Ref::new("DefinerSegment").optional().to_matchable(),
+                Ref::keyword("EVENT").to_matchable(),
+                Ref::new("IfNotExistsGrammar").optional().to_matchable(),
+                Ref::new("ObjectReferenceSegment").to_matchable(),
+                Ref::keyword("ON").to_matchable(),
+                Ref::keyword("SCHEDULE").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("AT").to_matchable(),
+                    Ref::keyword("EVERY").to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::new("ExpressionSegment").to_matchable(),
+                Ref::new("DatetimeUnitSegment").optional().to_matchable(),
+                AnyNumberOf::new(vec![
+                    Sequence::new(vec![
+                        one_of(vec![
+                            Ref::keyword("STARTS").to_matchable(),
+                            Ref::keyword("ENDS").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Ref::new("ExpressionSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("ON").to_matchable(),
+                    Ref::keyword("COMPLETION").to_matchable(),
+                    Ref::keyword("NOT").optional().to_matchable(),
+                    Ref::keyword("PRESERVE").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                one_of(vec![
+                    Ref::keyword("ENABLE").to_matchable(),
+                    Ref::keyword("DISABLE").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("DISABLE").to_matchable(),
+                        Ref::keyword("ON").to_matchable(),
+                        one_of(vec![
+                            Ref::keyword("REPLICA").to_matchable(),
+                            Ref::keyword("SLAVE").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                Ref::new("CommentClauseSegment").optional().to_matchable(),
+                Ref::keyword("DO").to_matchable(),
+                Ref::new("StatementSegment").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // ALTER EVENT statement.
+    // https://dev.mysql.com/doc/refman/9.2/en/alter-event.html
+    mysql.add([(
+        "AlterEventStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::AlterEventStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("ALTER").to_matchable(),
+                Ref::new("DefinerSegment").optional().to_matchable(),
+                Ref::keyword("EVENT").to_matchable(),
+                Ref::new("ObjectReferenceSegment").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("ON").to_matchable(),
+                    Ref::keyword("SCHEDULE").to_matchable(),
+                    one_of(vec![
+                        Ref::keyword("AT").to_matchable(),
+                        Ref::keyword("EVERY").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Ref::new("ExpressionSegment").to_matchable(),
+                    Ref::new("DatetimeUnitSegment").optional().to_matchable(),
+                    AnyNumberOf::new(vec![
+                        Sequence::new(vec![
+                            one_of(vec![
+                                Ref::keyword("STARTS").to_matchable(),
+                                Ref::keyword("ENDS").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Ref::new("ExpressionSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("ON").to_matchable(),
+                    Ref::keyword("COMPLETION").to_matchable(),
+                    Ref::keyword("NOT").optional().to_matchable(),
+                    Ref::keyword("PRESERVE").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("RENAME").to_matchable(),
+                    Ref::keyword("TO").to_matchable(),
+                    Ref::new("ObjectReferenceSegment").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                one_of(vec![
+                    Ref::keyword("ENABLE").to_matchable(),
+                    Ref::keyword("DISABLE").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("DISABLE").to_matchable(),
+                        Ref::keyword("ON").to_matchable(),
+                        one_of(vec![
+                            Ref::keyword("REPLICA").to_matchable(),
+                            Ref::keyword("SLAVE").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                Ref::new("CommentClauseSegment").optional().to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("DO").to_matchable(),
+                    Ref::new("StatementSegment").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // DROP EVENT statement.
+    // https://dev.mysql.com/doc/refman/9.2/en/drop-event.html
+    mysql.add([(
+        "DropEventStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::DropEventStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("DROP").to_matchable(),
+                Ref::keyword("EVENT").to_matchable(),
+                Ref::new("IfExistsGrammar").optional().to_matchable(),
+                Ref::new("ObjectReferenceSegment").to_matchable(),
             ])
             .to_matchable()
         })
@@ -3960,7 +4563,9 @@ pub fn raw_dialect() -> Dialect {
                 Ref::new("DelimiterStatement").to_matchable(),
                 Ref::new("CreateProcedureStatementSegment").to_matchable(),
                 Ref::new("DeclareStatement").to_matchable(),
+                Ref::new("SetTransactionStatementSegment").to_matchable(),
                 Ref::new("SetAssignmentStatementSegment").to_matchable(),
+                Ref::new("SetDefaultRoleStatementSegment").to_matchable(),
                 Ref::new("IfExpressionStatement").to_matchable(),
                 Ref::new("WhileStatementSegment").to_matchable(),
                 Ref::new("IterateStatementSegment").to_matchable(),
@@ -3994,6 +4599,10 @@ pub fn raw_dialect() -> Dialect {
                 Ref::new("ReplaceSegment").to_matchable(),
                 Ref::new("AlterDatabaseStatementSegment").to_matchable(),
                 Ref::new("ReturnStatementSegment").to_matchable(),
+                Ref::new("SetNamesStatementSegment").to_matchable(),
+                Ref::new("CreateEventStatementSegment").to_matchable(),
+                Ref::new("AlterEventStatementSegment").to_matchable(),
+                Ref::new("DropEventStatementSegment").to_matchable(),
             ]),
             None,
             None,
@@ -4006,4 +4615,1224 @@ pub fn raw_dialect() -> Dialect {
     );
 
     mysql
+}
+
+/// A single MySQL/MariaDB table option, e.g. `ENGINE = InnoDB` or
+/// `CHARACTER SET = utf8`. `with_default` allows a leading optional `DEFAULT`
+/// keyword (present for top-level options, absent inside partition definitions).
+fn table_option(with_default: bool) -> Matchable {
+    let mut items: Vec<Matchable> = Vec::new();
+    if with_default {
+        items.push(Ref::keyword("DEFAULT").optional().to_matchable());
+    }
+    items.push(
+        one_of(vec![
+            Ref::new("ParameterNameSegment").to_matchable(),
+            charset_grammar(),
+            Sequence::new(vec![
+                one_of(vec![
+                    Ref::keyword("DATA").to_matchable(),
+                    Ref::keyword("INDEX").to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::keyword("DIRECTORY").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("WITH").to_matchable(),
+                Ref::keyword("SYSTEM").to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+    );
+    items.push(Ref::new("EqualsSegment").optional().to_matchable());
+    items.push(
+        one_of(vec![
+            Ref::new("LiteralGrammar").to_matchable(),
+            Ref::new("ParameterNameSegment").to_matchable(),
+            Ref::new("QuotedLiteralSegment").to_matchable(),
+            Ref::new("SingleQuotedIdentifierSegment").to_matchable(),
+            Ref::new("NumericLiteralSegment").to_matchable(),
+            Ref::keyword("DEFAULT").to_matchable(),
+            Bracketed::new(vec![
+                Delimited::new(vec![Ref::new("TableReferenceSegment").to_matchable()])
+                    .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+    );
+    Sequence::new(items).to_matchable()
+}
+
+/// The `LINEAR? ( HASH(expr) | KEY [ALGORITHM = n] cols )` partitioning scheme.
+/// `bracket_key` brackets the KEY column list (used for subpartitioning).
+fn partition_scheme(bracket_key: bool) -> Matchable {
+    let key_cols = if bracket_key {
+        Bracketed::new(vec![Ref::new("ColumnReferenceSegment").to_matchable()]).to_matchable()
+    } else {
+        Delimited::new(vec![Ref::new("ColumnReferenceSegment").to_matchable()]).to_matchable()
+    };
+    Sequence::new(vec![
+        Ref::keyword("LINEAR").optional().to_matchable(),
+        one_of(vec![
+            Sequence::new(vec![
+                Ref::keyword("HASH").to_matchable(),
+                Ref::new("ExpressionSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("KEY").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("ALGORITHM").to_matchable(),
+                    Ref::new("EqualsSegment").to_matchable(),
+                    Ref::new("NumericLiteralSegment").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                key_cols,
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+    ])
+    .to_matchable()
+}
+
+fn mysql_table_options_grammar() -> Matchable {
+    optionally_delimited_table_options(vec![
+        numeric_alter_table_option("AUTOEXTEND_SIZE"),
+        numeric_alter_table_option("AUTO_INCREMENT"),
+        numeric_alter_table_option("AVG_ROW_LENGTH"),
+        charset_alter_table_option(),
+        numeric_alter_table_option("CHECKSUM"),
+        collate_alter_table_option(),
+        quoted_alter_table_option("COMMENT"),
+        quoted_alter_table_option("COMPRESSION"),
+        quoted_alter_table_option("CONNECTION"),
+        Sequence::new(vec![
+            one_of(vec![
+                Ref::keyword("DATA").to_matchable(),
+                Ref::keyword("INDEX").to_matchable(),
+            ])
+            .to_matchable(),
+            Ref::keyword("DIRECTORY").to_matchable(),
+            Ref::new("EqualsSegment").optional().to_matchable(),
+            Ref::new("QuotedLiteralSegment").to_matchable(),
+        ])
+        .to_matchable(),
+        numeric_alter_table_option("DELAY_KEY_WRITE"),
+        quoted_alter_table_option("ENCRYPTION"),
+        equals_alter_table_option("ENGINE", quoted_or_identifier()),
+        quoted_alter_table_option("ENGINE_ATTRIBUTE"),
+        keyword_alter_table_option("INSERT_METHOD", &["NO", "FIRST", "LAST"]),
+        numeric_alter_table_option("KEY_BLOCK_SIZE"),
+        numeric_alter_table_option("MAX_ROWS"),
+        numeric_alter_table_option("MIN_ROWS"),
+        number_or_default_alter_table_option("PACK_KEYS"),
+        quoted_alter_table_option("PASSWORD"),
+        keyword_alter_table_option(
+            "ROW_FORMAT",
+            &[
+                "DEFAULT",
+                "DYNAMIC",
+                "FIXED",
+                "COMPRESSED",
+                "REDUNDANT",
+                "COMPACT",
+            ],
+        ),
+        quoted_alter_table_option("SECONDARY_ENGINE_ATTRIBUTE"),
+        number_or_default_alter_table_option("STATS_AUTO_RECALC"),
+        number_or_default_alter_table_option("STATS_PERSISTENT"),
+        numeric_alter_table_option("STATS_SAMPLE_PAGES"),
+        Sequence::new(vec![
+            Ref::keyword("TABLESPACE").to_matchable(),
+            Ref::new("NakedIdentifierSegment").to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("STORAGE").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("DISK").to_matchable(),
+                    Ref::keyword("MEMORY").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .config(|this| this.optional())
+            .to_matchable(),
+        ])
+        .to_matchable(),
+        union_alter_table_option(),
+    ])
+}
+
+fn optionally_delimited_table_options(options: Vec<Matchable>) -> Matchable {
+    Delimited::new(vec![one_of(options).to_matchable()])
+        .config(|this| this.optional_delimiter())
+        .to_matchable()
+}
+
+fn equals_alter_table_option(keyword: &'static str, value: Matchable) -> Matchable {
+    Sequence::new(vec![
+        Ref::keyword(keyword).to_matchable(),
+        Ref::new("EqualsSegment").optional().to_matchable(),
+        value,
+    ])
+    .to_matchable()
+}
+
+fn numeric_alter_table_option(keyword: &'static str) -> Matchable {
+    equals_alter_table_option(keyword, Ref::new("NumericLiteralSegment").to_matchable())
+}
+
+fn quoted_alter_table_option(keyword: &'static str) -> Matchable {
+    equals_alter_table_option(keyword, Ref::new("QuotedLiteralSegment").to_matchable())
+}
+
+fn keyword_alter_table_option(keyword: &'static str, values: &[&'static str]) -> Matchable {
+    equals_alter_table_option(
+        keyword,
+        one_of(
+            values
+                .iter()
+                .map(|value| Ref::keyword(*value).to_matchable())
+                .collect(),
+        )
+        .to_matchable(),
+    )
+}
+
+fn number_or_default_alter_table_option(keyword: &'static str) -> Matchable {
+    equals_alter_table_option(
+        keyword,
+        one_of(vec![
+            Ref::keyword("DEFAULT").to_matchable(),
+            Ref::new("NumericLiteralSegment").to_matchable(),
+        ])
+        .to_matchable(),
+    )
+}
+
+fn quoted_or_identifier() -> Matchable {
+    one_of(vec![
+        Ref::new("QuotedLiteralSegment").to_matchable(),
+        Ref::new("NakedIdentifierSegment").to_matchable(),
+    ])
+    .to_matchable()
+}
+
+fn charset_grammar() -> Matchable {
+    one_of(vec![
+        Sequence::new(vec![
+            Ref::keyword("CHARACTER").to_matchable(),
+            Ref::keyword("SET").to_matchable(),
+        ])
+        .to_matchable(),
+        Ref::keyword("CHARSET").to_matchable(),
+    ])
+    .to_matchable()
+}
+
+fn quoted_or_identifier_or_default() -> Matchable {
+    one_of(vec![
+        Ref::new("QuotedLiteralSegment").to_matchable(),
+        Ref::new("NakedIdentifierSegment").to_matchable(),
+        Ref::keyword("DEFAULT").to_matchable(),
+    ])
+    .to_matchable()
+}
+
+fn charset_value_or_default() -> Matchable {
+    one_of(vec![
+        Ref::new("QuotedLiteralSegment").to_matchable(),
+        Ref::new("CharacterSetSegment").to_matchable(),
+        Ref::keyword("BINARY").to_matchable(),
+        Ref::keyword("DEFAULT").to_matchable(),
+    ])
+    .to_matchable()
+}
+
+fn charset_alter_table_option() -> Matchable {
+    Sequence::new(vec![
+        Ref::keyword("DEFAULT").optional().to_matchable(),
+        charset_grammar(),
+        Ref::new("EqualsSegment").optional().to_matchable(),
+        charset_value_or_default(),
+    ])
+    .to_matchable()
+}
+
+fn collate_alter_table_option() -> Matchable {
+    Sequence::new(vec![
+        Ref::keyword("DEFAULT").optional().to_matchable(),
+        Ref::keyword("COLLATE").to_matchable(),
+        Ref::new("EqualsSegment").optional().to_matchable(),
+        quoted_or_identifier_or_default(),
+    ])
+    .to_matchable()
+}
+
+fn union_alter_table_option() -> Matchable {
+    Sequence::new(vec![
+        Ref::keyword("UNION").to_matchable(),
+        Ref::new("EqualsSegment").optional().to_matchable(),
+        Bracketed::new(vec![
+            Delimited::new(vec![Ref::new("TableReferenceSegment").to_matchable()]).to_matchable(),
+        ])
+        .to_matchable(),
+    ])
+    .to_matchable()
+}
+
+/// The trailing MySQL/MariaDB table options: repeated table options plus the
+/// optional `PARTITION BY` clause with its partition/subpartition definitions.
+pub(crate) fn create_table_options() -> Matchable {
+    let partition_by = Sequence::new(vec![
+        Ref::keyword("PARTITION").to_matchable(),
+        Ref::keyword("BY").to_matchable(),
+        one_of(vec![
+            partition_scheme(false),
+            Sequence::new(vec![
+                one_of(vec![
+                    Ref::keyword("RANGE").to_matchable(),
+                    Ref::keyword("LIST").to_matchable(),
+                ])
+                .to_matchable(),
+                one_of(vec![
+                    Ref::new("ExpressionSegment").to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![Ref::new("ColumnReferenceSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("PARTITIONS").to_matchable(),
+            Ref::new("NumericLiteralSegment").to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("SUBPARTITION").to_matchable(),
+            Ref::keyword("BY").to_matchable(),
+            partition_scheme(true),
+            Sequence::new(vec![
+                Ref::keyword("SUBPARTITIONS").to_matchable(),
+                Ref::new("NumericLiteralSegment").to_matchable(),
+            ])
+            .config(|this| this.optional())
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        AnyNumberOf::new(vec![
+            Bracketed::new(vec![
+                Delimited::new(vec![
+                    Sequence::new(vec![
+                        Ref::keyword("PARTITION").to_matchable(),
+                        Ref::new("ColumnReferenceSegment").to_matchable(),
+                        AnyNumberOf::new(vec![
+                            Sequence::new(vec![
+                                Ref::keyword("VALUES").to_matchable(),
+                                one_of(vec![
+                                    Sequence::new(vec![
+                                        Ref::keyword("LESS").to_matchable(),
+                                        Ref::keyword("THAN").to_matchable(),
+                                        one_of(vec![
+                                            Ref::keyword("MAXVALUE").to_matchable(),
+                                            Bracketed::new(vec![
+                                                one_of(vec![
+                                                    Ref::new("ExpressionSegment").to_matchable(),
+                                                    Ref::new("ColumnReferenceSegment")
+                                                        .to_matchable(),
+                                                    Ref::new("NumericLiteralSegment")
+                                                        .to_matchable(),
+                                                    Ref::new("LiteralGrammar").to_matchable(),
+                                                ])
+                                                .to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                        ])
+                                        .to_matchable(),
+                                    ])
+                                    .to_matchable(),
+                                    Sequence::new(vec![
+                                        Ref::keyword("IN").to_matchable(),
+                                        Bracketed::new(vec![
+                                            Delimited::new(vec![
+                                                one_of(vec![
+                                                    Ref::new("LiteralGrammar").to_matchable(),
+                                                    Ref::new("ObjectReferenceSegment")
+                                                        .to_matchable(),
+                                                ])
+                                                .to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                        ])
+                                        .to_matchable(),
+                                    ])
+                                    .to_matchable(),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                            table_option(false),
+                            Sequence::new(vec![
+                                Ref::keyword("SUBPARTITION").optional().to_matchable(),
+                                Ref::new("LiteralGrammar").to_matchable(),
+                                AnyNumberOf::new(vec![
+                                    Sequence::new(vec![
+                                        Ref::keyword("VALUES").to_matchable(),
+                                        one_of(vec![
+                                            Sequence::new(vec![
+                                                Ref::keyword("LESS").to_matchable(),
+                                                Ref::keyword("THAN").to_matchable(),
+                                                one_of(vec![
+                                                    Ref::keyword("MAXVALUE").to_matchable(),
+                                                    Bracketed::new(vec![
+                                                        Ref::new("ExpressionSegment")
+                                                            .to_matchable(),
+                                                    ])
+                                                    .to_matchable(),
+                                                    Bracketed::new(vec![
+                                                        Ref::new("ColumnReferenceSegment")
+                                                            .to_matchable(),
+                                                    ])
+                                                    .to_matchable(),
+                                                ])
+                                                .to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                            Sequence::new(vec![
+                                                Ref::keyword("IN").to_matchable(),
+                                                Bracketed::new(vec![
+                                                    Ref::new("ObjectReferenceSegment")
+                                                        .to_matchable(),
+                                                ])
+                                                .to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                        ])
+                                        .to_matchable(),
+                                    ])
+                                    .to_matchable(),
+                                    table_option(false),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+    ])
+    .to_matchable();
+
+    AnyNumberOf::new(vec![table_option(true), partition_by]).to_matchable()
+}
+
+/// Build ALTER TABLE partition actions shared by MySQL and MariaDB. MariaDB
+/// additionally accepts `DROP PARTITION IF EXISTS` with multiple names.
+pub(crate) fn alter_table_partition_action_grammar(allow_drop_if_exists: bool) -> Matchable {
+    let mut other_verbs = vec![
+        Ref::keyword("ADD").to_matchable(),
+        Ref::keyword("DISCARD").to_matchable(),
+        Ref::keyword("IMPORT").to_matchable(),
+        Ref::keyword("TRUNCATE").to_matchable(),
+        Ref::keyword("COALESCE").to_matchable(),
+        Ref::keyword("REORGANIZE").to_matchable(),
+        Ref::keyword("EXCHANGE").to_matchable(),
+        Ref::keyword("ANALYZE").to_matchable(),
+        Ref::keyword("CHECK").to_matchable(),
+        Ref::keyword("OPTIMIZE").to_matchable(),
+        Ref::keyword("REBUILD").to_matchable(),
+        Ref::keyword("REPAIR").to_matchable(),
+        Ref::keyword("REMOVE").to_matchable(),
+    ];
+    if !allow_drop_if_exists {
+        other_verbs.insert(1, Ref::keyword("DROP").to_matchable());
+    }
+    let other_action = Sequence::new(vec![
+        one_of(other_verbs).to_matchable(),
+        one_of(vec![
+            Ref::keyword("PARTITION").to_matchable(),
+            Ref::keyword("PARTITIONING").to_matchable(),
+        ])
+        .to_matchable(),
+        one_of(vec![
+            Ref::new("SingleIdentifierGrammar").to_matchable(),
+            Ref::new("NumericLiteralSegment").to_matchable(),
+            Ref::keyword("ALL").to_matchable(),
+            Bracketed::new(vec![
+                Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()])
+                    .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+    ])
+    .to_matchable();
+    let action = if allow_drop_if_exists {
+        one_of(vec![
+            Sequence::new(vec![
+                Ref::keyword("DROP").to_matchable(),
+                Ref::keyword("PARTITION").to_matchable(),
+                Ref::new("IfExistsGrammar").optional().to_matchable(),
+                Delimited::new(vec![Ref::new("SingleIdentifierGrammar").to_matchable()])
+                    .to_matchable(),
+            ])
+            .to_matchable(),
+            other_action,
+        ])
+        .to_matchable()
+    } else {
+        other_action
+    };
+    Sequence::new(vec![
+        action,
+        Ref::keyword("TABLESPACE").optional().to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("WITH").to_matchable(),
+            Ref::keyword("TABLE").to_matchable(),
+            Ref::new("TableReferenceSegment").to_matchable(),
+            one_of(vec![
+                Ref::keyword("WITH").to_matchable(),
+                Ref::keyword("WITHOUT").to_matchable(),
+            ])
+            .to_matchable(),
+            Ref::keyword("VALIDATION").to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("INTO").to_matchable(),
+            Bracketed::new(vec![
+                Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()])
+                    .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+    ])
+    .to_matchable()
+}
+
+/// Build CREATE VIEW grammar shared by MySQL and MariaDB. Only MariaDB accepts
+/// IF NOT EXISTS between VIEW and the view name.
+pub(crate) fn create_view_grammar(allow_if_not_exists: bool) -> Matchable {
+    let mut parts = vec![
+        Ref::keyword("CREATE").to_matchable(),
+        Ref::new("OrReplaceGrammar").optional().to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("ALGORITHM").to_matchable(),
+            Ref::new("EqualsSegment").to_matchable(),
+            one_of(vec![
+                Ref::keyword("UNDEFINED").to_matchable(),
+                Ref::keyword("MERGE").to_matchable(),
+                Ref::keyword("TEMPTABLE").to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Ref::new("DefinerSegment").optional().to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("SQL").to_matchable(),
+            Ref::keyword("SECURITY").to_matchable(),
+            one_of(vec![
+                Ref::keyword("DEFINER").to_matchable(),
+                Ref::keyword("INVOKER").to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Ref::keyword("VIEW").to_matchable(),
+    ];
+    if allow_if_not_exists {
+        parts.push(Ref::new("IfNotExistsGrammar").optional().to_matchable());
+    }
+    parts.extend([
+        Ref::new("TableReferenceSegment").to_matchable(),
+        Ref::new("BracketedColumnReferenceListGrammar")
+            .optional()
+            .to_matchable(),
+        Ref::keyword("AS").to_matchable(),
+        optionally_bracketed(vec![Ref::new("SelectableGrammar").to_matchable()]).to_matchable(),
+        Ref::new("WithCheckOptionSegment").optional().to_matchable(),
+    ]);
+    Sequence::new(parts).to_matchable()
+}
+
+/// Build UPDATE grammar shared by MySQL and MariaDB; only MariaDB has period DML.
+pub(crate) fn update_statement_grammar(allow_portion: bool) -> Matchable {
+    let mut parts = vec![
+        Ref::keyword("UPDATE").to_matchable(),
+        Ref::keyword("LOW_PRIORITY").optional().to_matchable(),
+        Ref::keyword("IGNORE").optional().to_matchable(),
+        MetaSegment::indent().to_matchable(),
+        Delimited::new(vec![
+            Ref::new("TableReferenceSegment").to_matchable(),
+            Ref::new("FromExpressionSegment").to_matchable(),
+        ])
+        .to_matchable(),
+        MetaSegment::dedent().to_matchable(),
+    ];
+    if allow_portion {
+        parts.push(Ref::new("ForPortionOfSegment").optional().to_matchable());
+    }
+    parts.extend([
+        Ref::new("SetClauseListSegment").to_matchable(),
+        Ref::new("WhereClauseSegment").optional().to_matchable(),
+        Ref::new("OrderByClauseSegment").optional().to_matchable(),
+        Ref::new("LimitClauseSegment").optional().to_matchable(),
+    ]);
+    Sequence::new(parts).to_matchable()
+}
+
+/// Build column constraints shared by MySQL, MariaDB, and Doris. MariaDB
+/// additionally permits `PERSISTENT` and temporal `GENERATED ALWAYS AS ROW`.
+pub(crate) fn column_constraint_grammar(
+    allow_persistent: bool,
+    allow_temporal_row: bool,
+) -> Matchable {
+    let mut generated_column_types = vec![
+        Ref::keyword("STORED").to_matchable(),
+        Ref::keyword("VIRTUAL").to_matchable(),
+    ];
+    if allow_persistent {
+        generated_column_types.push(Ref::keyword("PERSISTENT").to_matchable());
+    }
+
+    // We inline the ANSI grammar here rather than using mysql.grammar() which would
+    // embed a NodeMatcher directly (NodeMatcher doesn't support cache_key).
+    Sequence::new(vec![
+        Sequence::new(vec![
+            Ref::keyword("CONSTRAINT").to_matchable(),
+            Ref::new("ObjectReferenceSegment").to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        one_of({
+            let mut options = vec![
+                Sequence::new(vec![
+                    Ref::keyword("NOT").optional().to_matchable(),
+                    Ref::keyword("NULL").to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("CHECK").to_matchable(),
+                    Bracketed::new(vec![Ref::new("ExpressionSegment").to_matchable()])
+                        .to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("DEFAULT").to_matchable(),
+                    Ref::new("ColumnConstraintDefaultGrammar").to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::new("PrimaryKeyGrammar").to_matchable(),
+                Ref::new("UniqueKeyGrammar").to_matchable(),
+                Ref::new("AutoIncrementGrammar").to_matchable(),
+                Ref::new("ReferenceDefinitionGrammar").to_matchable(),
+                Ref::new("CommentClauseSegment").to_matchable(),
+                Ref::new("CollateGrammar").to_matchable(),
+                // MySQL-specific CHARACTER SET constraint.
+                Sequence::new(vec![
+                    charset_grammar(),
+                    one_of(vec![
+                        Ref::new("CharacterSetSegment").to_matchable(),
+                        Ref::keyword("BINARY").to_matchable(),
+                        Ref::new("SingleIdentifierGrammar").to_matchable(),
+                        Ref::new("SingleQuotedIdentifierSegment").to_matchable(),
+                        Ref::new("DoubleQuotedIdentifierSegment").to_matchable(),
+                        Ref::keyword("DEFAULT").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Sequence::new(vec![
+                        Ref::keyword("GENERATED").to_matchable(),
+                        Ref::keyword("ALWAYS").to_matchable(),
+                    ])
+                    .config(|this| this.optional())
+                    .to_matchable(),
+                    Ref::keyword("AS").to_matchable(),
+                    Bracketed::new(vec![Ref::new("ExpressionSegment").to_matchable()])
+                        .to_matchable(),
+                    one_of(generated_column_types)
+                        .config(|this| this.optional())
+                        .to_matchable(),
+                ])
+                .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("SRID").to_matchable(),
+                    Ref::new("NumericLiteralSegment").to_matchable(),
+                ])
+                .to_matchable(),
+                one_of(vec![
+                    Ref::keyword("INVISIBLE").to_matchable(),
+                    Ref::keyword("VISIBLE").to_matchable(),
+                ])
+                .to_matchable(),
+            ];
+            if allow_temporal_row {
+                options.push(
+                    Sequence::new(vec![
+                        Ref::keyword("GENERATED").to_matchable(),
+                        Ref::keyword("ALWAYS").to_matchable(),
+                        Ref::keyword("AS").to_matchable(),
+                        Ref::keyword("ROW").to_matchable(),
+                        one_of(vec![
+                            Ref::keyword("START").to_matchable(),
+                            Ref::keyword("END").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                );
+            }
+            options
+        })
+        .to_matchable(),
+    ])
+    .to_matchable()
+}
+
+/// Build the `INSERT` grammar shared by MySQL and MariaDB. MySQL accepts a
+/// `TABLE` source, while MariaDB supports a trailing `RETURNING` clause.
+pub(crate) fn insert_statement_grammar(
+    allow_table_source: bool,
+    allow_returning: bool,
+) -> Matchable {
+    let select_source = if allow_table_source {
+        Sequence::new(vec![
+            one_of(vec![
+                Ref::new("SelectableGrammar").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("TABLE").to_matchable(),
+                    Ref::new("TableReferenceSegment").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable()
+    } else {
+        Ref::new("SelectableGrammar")
+            .terminators(vec![Ref::keyword("RETURNING").to_matchable()])
+            .to_matchable()
+    };
+
+    let mut insert_clauses = vec![
+        one_of(vec![
+            Ref::new("ValuesClauseSegment").to_matchable(),
+            Ref::new("SetClauseListSegment").to_matchable(),
+            select_source,
+        ])
+        .config(|this| {
+            if allow_returning {
+                this.optional();
+            }
+        })
+        .to_matchable(),
+        Ref::new("InsertRowAliasSegment").optional().to_matchable(),
+        Ref::new("UpsertClauseListSegment")
+            .optional()
+            .to_matchable(),
+    ];
+    if allow_returning {
+        insert_clauses.push(Ref::new("ReturningClauseSegment").optional().to_matchable());
+    }
+
+    Sequence::new(vec![
+        Ref::keyword("INSERT").to_matchable(),
+        one_of(vec![
+            Ref::keyword("LOW_PRIORITY").to_matchable(),
+            Ref::keyword("DELAYED").to_matchable(),
+            Ref::keyword("HIGH_PRIORITY").to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Ref::keyword("IGNORE").optional().to_matchable(),
+        Ref::keyword("INTO").optional().to_matchable(),
+        Ref::new("TableReferenceSegment").to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("PARTITION").to_matchable(),
+            Bracketed::new(vec![Ref::new("SingleIdentifierListSegment").to_matchable()])
+                .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Ref::new("BracketedColumnReferenceListGrammar")
+            .optional()
+            .to_matchable(),
+        if allow_returning {
+            Sequence::new(insert_clauses)
+                .config(|this| this.optional())
+                .to_matchable()
+        } else {
+            any_set_of(insert_clauses).to_matchable()
+        },
+    ])
+    .to_matchable()
+}
+
+/// Build the `DELETE` grammar shared by MySQL and MariaDB. MariaDB supports
+/// `RETURNING` on the single-table form.
+pub(crate) fn delete_statement_grammar(allow_returning: bool, allow_portion: bool) -> Matchable {
+    let mut simple_delete = vec![
+        Ref::new("FromClauseSegment").to_matchable(),
+        Ref::new("SelectPartitionClauseSegment")
+            .optional()
+            .to_matchable(),
+        Ref::new("WhereClauseSegment").optional().to_matchable(),
+        Ref::new("OrderByClauseSegment").optional().to_matchable(),
+        Ref::new("LimitClauseSegment").optional().to_matchable(),
+    ];
+    if allow_portion {
+        simple_delete.insert(1, Ref::new("ForPortionOfSegment").optional().to_matchable());
+    }
+    if allow_returning {
+        simple_delete.push(Ref::new("ReturningClauseSegment").optional().to_matchable());
+    }
+
+    Sequence::new(vec![
+        Ref::keyword("DELETE").to_matchable(),
+        Ref::keyword("LOW_PRIORITY").optional().to_matchable(),
+        Ref::keyword("QUICK").optional().to_matchable(),
+        Ref::keyword("IGNORE").optional().to_matchable(),
+        one_of(vec![
+            // DELETE FROM ... USING ...
+            Sequence::new(vec![
+                Ref::keyword("FROM").to_matchable(),
+                Delimited::new(vec![Ref::new("DeleteTargetTableSegment").to_matchable()])
+                    .config(|this| {
+                        this.base.terminators = vec![Ref::keyword("USING").to_matchable()]
+                    })
+                    .to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("USING").to_matchable(),
+                    Delimited::new(vec![Ref::new("FromExpressionSegment").to_matchable()])
+                        .to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::new("WhereClauseSegment").optional().to_matchable(),
+            ])
+            .to_matchable(),
+            // DELETE ... FROM ...
+            Sequence::new(vec![
+                Delimited::new(vec![Ref::new("DeleteTargetTableSegment").to_matchable()])
+                    .config(|this| {
+                        this.base.terminators = vec![Ref::keyword("FROM").to_matchable()]
+                    })
+                    .to_matchable(),
+                Ref::new("FromClauseSegment").to_matchable(),
+                Ref::new("WhereClauseSegment").optional().to_matchable(),
+            ])
+            .to_matchable(),
+            // Simple DELETE FROM ...
+            Sequence::new(simple_delete).to_matchable(),
+        ])
+        .to_matchable(),
+    ])
+    .to_matchable()
+}
+
+/// Build the `REPLACE` grammar shared by MySQL and MariaDB. MySQL accepts a
+/// `TABLE` source, while MariaDB supports a trailing `RETURNING` clause.
+pub(crate) fn replace_statement_grammar(
+    allow_table_source: bool,
+    allow_returning: bool,
+) -> Matchable {
+    let select_source = if allow_table_source {
+        one_of(vec![
+            Ref::new("SelectableGrammar").to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("TABLE").to_matchable(),
+                Ref::new("TableReferenceSegment").to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable()
+    } else {
+        Ref::new("SelectStatementSegment").to_matchable()
+    };
+
+    let mut items = vec![
+        Ref::keyword("REPLACE").to_matchable(),
+        one_of(vec![
+            Ref::keyword("LOW_PRIORITY").to_matchable(),
+            Ref::keyword("DELAYED").to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Ref::keyword("INTO").optional().to_matchable(),
+        Ref::new("TableReferenceSegment").to_matchable(),
+        Ref::new("SelectPartitionClauseSegment")
+            .optional()
+            .to_matchable(),
+        one_of(vec![
+            Sequence::new(vec![
+                Ref::new("BracketedColumnReferenceListGrammar")
+                    .optional()
+                    .to_matchable(),
+                Ref::new("ValuesClauseSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Ref::new("SetClauseListSegment").to_matchable(),
+            Sequence::new(vec![
+                Ref::new("BracketedColumnReferenceListGrammar")
+                    .optional()
+                    .to_matchable(),
+                select_source,
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+    ];
+    if allow_returning {
+        items.push(Ref::new("ReturningClauseSegment").optional().to_matchable());
+    }
+
+    Sequence::new(items).to_matchable()
+}
+
+/// Build the `SELECT` grammar shared by MySQL and MariaDB. A MariaDB select
+/// used as an INSERT or REPLACE source must stop before `RETURNING`.
+pub(crate) fn select_statement_grammar(allow_returning: bool) -> Matchable {
+    let mut terminators = vec![
+        Ref::new("SetOperatorSegment").to_matchable(),
+        Ref::new("UpsertClauseListSegment").to_matchable(),
+        Ref::new("WithCheckOptionSegment").to_matchable(),
+    ];
+    if allow_returning {
+        terminators.push(Ref::new("ReturningClauseSegment").to_matchable());
+    } else {
+        terminators.insert(
+            1,
+            Ref::new("WithNoSchemaBindingClauseSegment").to_matchable(),
+        );
+        terminators.insert(2, Ref::new("WithDataClauseSegment").to_matchable());
+    }
+
+    Sequence::new(vec![
+        Ref::new("SelectClauseSegment").to_matchable(),
+        Ref::new("IntoClauseSegment").optional().to_matchable(),
+        Ref::new("FromClauseSegment").optional().to_matchable(),
+        Ref::new("SelectPartitionClauseSegment")
+            .optional()
+            .to_matchable(),
+        Ref::new("IndexHintClauseSegment").optional().to_matchable(),
+        Ref::new("WhereClauseSegment").optional().to_matchable(),
+        Ref::new("GroupByClauseSegment").optional().to_matchable(),
+        Ref::new("HavingClauseSegment").optional().to_matchable(),
+        Ref::new("OverlapsClauseSegment").optional().to_matchable(),
+        Ref::new("OrderByClauseSegment").optional().to_matchable(),
+        Ref::new("LimitClauseSegment").optional().to_matchable(),
+        Ref::new("NamedWindowSegment").optional().to_matchable(),
+        Ref::new("IntoClauseSegment").optional().to_matchable(),
+        Ref::new("ForClauseSegment").optional().to_matchable(),
+    ])
+    .terminators(terminators)
+    .config(|this| {
+        this.parse_mode(ParseMode::GreedyOnceStarted);
+    })
+    .to_matchable()
+}
+
+/// Build the `CREATE TABLE` grammar shared by MySQL and MariaDB. `column_block`
+/// is the dialect-specific column list / `AS SELECT` / `LIKE` portion.
+pub(crate) fn create_table_grammar(column_block: Matchable) -> Matchable {
+    Sequence::new(vec![
+        Ref::keyword("CREATE").to_matchable(),
+        Ref::new("OrReplaceGrammar").optional().to_matchable(),
+        Ref::new("TemporaryTransientGrammar")
+            .optional()
+            .to_matchable(),
+        Ref::keyword("TABLE").to_matchable(),
+        Ref::new("IfNotExistsGrammar").optional().to_matchable(),
+        Ref::new("TableReferenceSegment").to_matchable(),
+        column_block,
+        Ref::new("TableEndClauseSegment").optional().to_matchable(),
+        create_table_options(),
+    ])
+    .to_matchable()
+}
+
+/// Build the `CREATE [OR REPLACE] USER` grammar. MariaDB permits the optional
+/// `OR REPLACE`; MySQL does not.
+pub(crate) fn create_user_grammar(allow_or_replace: bool) -> Matchable {
+    let mut items: Vec<Matchable> = vec![Ref::keyword("CREATE").to_matchable()];
+    if allow_or_replace {
+        items.push(Ref::new("OrReplaceGrammar").optional().to_matchable());
+    }
+    items.push(Ref::keyword("USER").to_matchable());
+    items.extend([
+        Ref::new("IfNotExistsGrammar").optional().to_matchable(),
+        Delimited::new(vec![
+            Sequence::new(vec![
+                Ref::new("RoleReferenceSegment").to_matchable(),
+                Sequence::new(vec![
+                    Delimited::new(vec![
+                        Sequence::new(vec![
+                            Ref::keyword("IDENTIFIED").to_matchable(),
+                            one_of(vec![
+                                Sequence::new(vec![
+                                    Ref::keyword("BY").to_matchable(),
+                                    one_of(vec![
+                                        Sequence::new(vec![
+                                            Ref::keyword("RANDOM").to_matchable(),
+                                            Ref::keyword("PASSWORD").to_matchable(),
+                                        ])
+                                        .to_matchable(),
+                                        Ref::new("QuotedLiteralSegment").to_matchable(),
+                                    ])
+                                    .to_matchable(),
+                                ])
+                                .to_matchable(),
+                                Sequence::new(vec![
+                                    Ref::keyword("WITH").to_matchable(),
+                                    Ref::new("ObjectReferenceSegment").to_matchable(),
+                                    Sequence::new(vec![
+                                        one_of(vec![
+                                            Sequence::new(vec![
+                                                Ref::keyword("BY").to_matchable(),
+                                                one_of(vec![
+                                                    Sequence::new(vec![
+                                                        Ref::keyword("RANDOM").to_matchable(),
+                                                        Ref::keyword("PASSWORD").to_matchable(),
+                                                    ])
+                                                    .to_matchable(),
+                                                    Ref::new("QuotedLiteralSegment").to_matchable(),
+                                                ])
+                                                .to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                            Sequence::new(vec![
+                                                Ref::keyword("AS").to_matchable(),
+                                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                            Sequence::new(vec![
+                                                Ref::keyword("INITIAL").to_matchable(),
+                                                Ref::keyword("AUTHENTICATION").to_matchable(),
+                                                Ref::keyword("IDENTIFIED").to_matchable(),
+                                                one_of(vec![
+                                                    Sequence::new(vec![
+                                                        Ref::keyword("BY").to_matchable(),
+                                                        one_of(vec![
+                                                            Sequence::new(vec![
+                                                                Ref::keyword("RANDOM")
+                                                                    .to_matchable(),
+                                                                Ref::keyword("PASSWORD")
+                                                                    .to_matchable(),
+                                                            ])
+                                                            .to_matchable(),
+                                                            Ref::new("QuotedLiteralSegment")
+                                                                .to_matchable(),
+                                                        ])
+                                                        .to_matchable(),
+                                                    ])
+                                                    .to_matchable(),
+                                                    Sequence::new(vec![
+                                                        Ref::keyword("WITH").to_matchable(),
+                                                        Ref::new("ObjectReferenceSegment")
+                                                            .to_matchable(),
+                                                        Ref::keyword("AS").to_matchable(),
+                                                        Ref::new("QuotedLiteralSegment")
+                                                            .to_matchable(),
+                                                    ])
+                                                    .to_matchable(),
+                                                ])
+                                                .to_matchable(),
+                                            ])
+                                            .to_matchable(),
+                                        ])
+                                        .to_matchable(),
+                                    ])
+                                    .config(|this| this.optional())
+                                    .to_matchable(),
+                                ])
+                                .to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .config(|this| this.delimiter(Ref::keyword("AND")))
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("DEFAULT").to_matchable(),
+            Ref::keyword("ROLE").to_matchable(),
+            Delimited::new(vec![Ref::new("RoleReferenceSegment").to_matchable()]).to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("REQUIRE").to_matchable(),
+            one_of(vec![
+                Ref::keyword("NONE").to_matchable(),
+                Delimited::new(vec![
+                    one_of(vec![
+                        Ref::keyword("SSL").to_matchable(),
+                        Ref::keyword("X509").to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("CIPHER").to_matchable(),
+                            Ref::new("QuotedLiteralSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("ISSUER").to_matchable(),
+                            Ref::new("QuotedLiteralSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("SUBJECT").to_matchable(),
+                            Ref::new("QuotedLiteralSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.delimiter(Ref::keyword("AND")))
+                .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("WITH").to_matchable(),
+            AnyNumberOf::new(vec![
+                Sequence::new(vec![
+                    one_of(vec![
+                        Ref::keyword("MAX_QUERIES_PER_HOUR").to_matchable(),
+                        Ref::keyword("MAX_UPDATES_PER_HOUR").to_matchable(),
+                        Ref::keyword("MAX_CONNECTIONS_PER_HOUR").to_matchable(),
+                        Ref::keyword("MAX_USER_CONNECTIONS").to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Ref::new("NumericLiteralSegment").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        AnyNumberOf::new(vec![
+            Sequence::new(vec![
+                Ref::keyword("PASSWORD").to_matchable(),
+                Ref::keyword("EXPIRE").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("DEFAULT").to_matchable(),
+                    Ref::keyword("NEVER").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("INTERVAL").to_matchable(),
+                        Ref::new("NumericLiteralSegment").to_matchable(),
+                        Ref::keyword("DAY").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("PASSWORD").to_matchable(),
+                Ref::keyword("HISTORY").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("DEFAULT").to_matchable(),
+                    Ref::new("NumericLiteralSegment").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("PASSWORD").to_matchable(),
+                Ref::keyword("REUSE").to_matchable(),
+                Ref::keyword("INTERVAL").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("DEFAULT").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::new("NumericLiteralSegment").to_matchable(),
+                        Ref::keyword("DAY").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("PASSWORD").to_matchable(),
+                Ref::keyword("REQUIRE").to_matchable(),
+                Ref::keyword("CURRENT").to_matchable(),
+                one_of(vec![
+                    Ref::keyword("DEFAULT").to_matchable(),
+                    Ref::keyword("OPTIONAL").to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("FAILED_LOGIN_ATTEMPTS").to_matchable(),
+                Ref::new("NumericLiteralSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            Sequence::new(vec![
+                Ref::keyword("PASSWORD_LOCK_TIME").to_matchable(),
+                one_of(vec![
+                    Ref::new("NumericLiteralSegment").to_matchable(),
+                    Ref::keyword("UNBOUNDED").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Sequence::new(vec![
+            Ref::keyword("ACCOUNT").to_matchable(),
+            one_of(vec![
+                Ref::keyword("UNLOCK").to_matchable(),
+                Ref::keyword("LOCK").to_matchable(),
+            ])
+            .to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+        Sequence::new(vec![
+            one_of(vec![
+                Ref::keyword("COMMENT").to_matchable(),
+                Ref::keyword("ATTRIBUTE").to_matchable(),
+            ])
+            .to_matchable(),
+            Ref::new("QuotedLiteralSegment").to_matchable(),
+        ])
+        .config(|this| this.optional())
+        .to_matchable(),
+    ]);
+    Sequence::new(items).to_matchable()
 }

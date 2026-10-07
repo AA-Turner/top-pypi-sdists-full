@@ -362,6 +362,19 @@ test_pass_ignore_comment_clauses_postgres:
       layout.long_lines:
         ignore_comment_clauses: true
 
+test_pass_ignore_comment_clauses_databricks_create_view:
+  pass_str: |
+    CREATE VIEW my_schema.my_view
+    COMMENT 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec dignissim diam, eu consectetur dolor. Aliquam vestibulum hendrerit massa ac dapibus. Duis luctus ut nunc quis mollis. Pellentesque at ultricies justo. Mauris nulla metus, posuere in lorem eget, mattis eleifend dui. In ullamcorper, enim id posuere mattis, urna ex tempus ipsum, ac bibendum neque arcu at mi. Pellentesque ultricies rutrum nibh a accumsan. Morbi non fermentum eros. Sed at nisl et purus suscipit congue. Vestibulum auctor vehicula maximus. In semper felis neque, eu condimentum lacus pharetra ut. Curabitur nibh metus, dapibus sed tellus ac, commodo porta orci.'
+    AS
+    SELECT 1 AS col
+  configs:
+    core:
+      dialect: databricks
+    rules:
+      layout.long_lines:
+        ignore_comment_clauses: true
+
 test_fail_templated_comment_line:
   fail_str: |
     SELECT *
@@ -535,7 +548,7 @@ test_fix_implicit_indent:
     core:
       max_line_length: 45
     indentation:
-      allow_implicit_indents: true
+      implicit_indents: allow
 
 test_fix_no_implicit_indent:
   # Test explicitly preventing implicit indents.
@@ -575,7 +588,7 @@ test_fix_no_implicit_indent:
     core:
       max_line_length: 45
     indentation:
-      allow_implicit_indents: false
+      implicit_indents: forbid
 
 test_fix_window_function:
   # https://github.com/sqlfluff/sqlfluff/issues/4292
@@ -612,6 +625,71 @@ test_fail_do_not_fix_noqa:
         col3
     FROM
         really_really_really_really_really_really_long_schema_name.TABLE1 -- noqa: L014
+
+test_block_comment_single_line_noqa:
+  # Ignore long line in block comment
+  pass_str: |
+    /* A very long single-line block comment which is ignored --noqa: LT05 */
+    /* Another single-line block comment which is also ignored. I'm too lazy to specify which rule to ignore though. -- noqa */
+    /*
+    A very long multi-line block comment which is ignored -- noqa: LT05
+    */
+    /* noqa: disable=all */
+    -- A noqa by itself in a block comment is followed
+    /* noqa: enable=all */
+    /* -- noqa: disable=all */
+    -- A noqa in a block comment preceded by a single line comment marker (--) is followed
+    /* noqa: enable=all */
+    /* Ignore warnings for a bit! -- noqa: disable=all */
+    -- If the noqa is accompanied by preceding text in a block comment it
+    -- must be preceded by a single-line comment marker, and it must be
+    -- the last part of the line.
+    /* noqa: enable=all */
+    select 1
+  configs:
+    core:
+      max_line_length: 30
+
+test_fail_block_comment_single_line_noqa:
+  # Don't ignore long line in single-line block comment
+  fail_str: |
+    /* A very long single-line block comment which is not ignored */
+  configs:
+    core:
+      max_line_length: 30
+
+test_fail_block_comment_multi_line_noqa:
+  # Don't ignore long line in multi-line block comment
+  fail_str: |
+    /*
+    A very long multi-line block comment which is not ignored
+    */
+  configs:
+    core:
+      max_line_length: 30
+
+test_fail_block_comment_noqa_following_preceding_text_noqa:
+  # Don't follow noqa if it follows preceding text and is not
+  # immediately preceded by a single line comment marker (--)
+  fail_str: |
+    /* This won't work: noqa: disable=all */
+    -- A noqa will NOT be followed if it follows preceding text, and is
+    -- not immediately preceded by a single-line comment marker (--).
+    /* noqa: enable=all */
+  configs:
+    core:
+      max_line_length: 30
+
+test_fail_block_comment_noqa_not_at_end_of_line_noqa:
+  # Don't follow noqa if it is not at the end of the line
+  fail_str: |
+    /* -- noqa: disable=all Invalid noqa declaration */
+    -- A noqa will NOT be followed if it is not the last part of the line.
+    /* noqa: enable=all */
+    select 1
+  configs:
+    core:
+      max_line_length: 55
 
 test_operator_precedence:
   fail_str: |
@@ -723,6 +801,32 @@ test_pass_window_function:
             order by d desc
         ) as rnk
     from foo
+
+test_fail_no_fix_long_templated:
+  # Test we fail but don't try and fix a long templated line
+  fail_str: |
+    select
+        '{{ "', '".join(["foo", "bar", "whatever", "whatever", "whatever", "whatever"]) }}'
+  expect_no_fix: true
+  configs:
+    core:
+      templater: jinja
+
+test_fail_no_fix_jinja_macro_with_brackets:
+  # Test that LT05 doesn't attempt to fix within template-expanded content
+  # that contains brackets (creating indent/dedent pairs). Without the guard,
+  # the fixer inserts line breaks within the rendered template content, which
+  # can't be mapped back to source and leads to content duplication.
+  # https://github.com/sqlfluff/sqlfluff/issues/7639
+  fail_str: |
+    {% macro cast_tz(expr) %}({{ expr }})::TIMESTAMP AT TIME ZONE 'UTC'{% endmacro %}
+    SELECT
+        datediff(
+            'minute',
+            {{ cast_tz("cast(source.order_entered_date || ' ' || source.order_entered_time as timestamp)") }},
+            {{ cast_tz("cast(source.order_arrived_date || ' ' || source.order_arrived_time as timestamp)") }}
+        )
+    FROM source
 
 test_jinja_block_source_line_length:
   # https://github.com/quarylabs/sqruff/issues/3122

@@ -113,7 +113,7 @@ class GetClientCertificateResult:
     @pulumi.getter(name="clientCertificateId")
     def client_certificate_id(self) -> Optional[_builtins.str]:
         """
-        Identifier.
+        Client Certificate Tag
         """
         return pulumi.get(self, "client_certificate_id")
 
@@ -166,7 +166,7 @@ class GetClientCertificateResult:
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        Identifier.
+        Client Certificate Tag
         """
         return pulumi.get(self, "id")
 
@@ -290,7 +290,7 @@ class AwaitableGetClientCertificateResult(GetClientCertificateResult):
 
 
 def get_client_certificate(client_certificate_id: Optional[_builtins.str] = None,
-                           filter: Optional[Union['GetClientCertificateFilterArgs', 'GetClientCertificateFilterArgsDict']] = None,
+                           filter: Optional[Union['GetClientCertificateFilterArgs', 'GetClientCertificateFilterArgsDict', 'outputs.GetClientCertificateFilterResult']] = None,
                            zone_id: Optional[_builtins.str] = None,
                            opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetClientCertificateResult:
     """
@@ -306,11 +306,11 @@ def get_client_certificate(client_certificate_id: Optional[_builtins.str] = None
     import pulumi_cloudflare as cloudflare
 
     example_client_certificate = cloudflare.get_client_certificate(zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-        client_certificate_id="023e105f4ecef8ad9ca31a8372d0c353")
+        client_certificate_id="0d89c70d-ad9f-4843-b99f-6cc0252067e9")
     ```
 
 
-    :param _builtins.str client_certificate_id: Identifier.
+    :param _builtins.str client_certificate_id: Client Certificate Tag
     :param _builtins.str zone_id: Identifier.
     """
     __args__ = dict()
@@ -343,7 +343,7 @@ def get_client_certificate(client_certificate_id: Optional[_builtins.str] = None
         validity_days=pulumi.get(__ret__, 'validity_days'),
         zone_id=pulumi.get(__ret__, 'zone_id'))
 def get_client_certificate_output(client_certificate_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                                  filter: pulumi.Input[Optional[Optional[Union['GetClientCertificateFilterArgs', 'GetClientCertificateFilterArgsDict']]]] = None,
+                                  filter: pulumi.Input[Optional[Optional[Union['GetClientCertificateFilterArgs', 'GetClientCertificateFilterArgsDict', 'outputs.GetClientCertificateFilterResult']]]] = None,
                                   zone_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                   opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetClientCertificateResult]:
     """
@@ -359,11 +359,11 @@ def get_client_certificate_output(client_certificate_id: pulumi.Input[Optional[O
     import pulumi_cloudflare as cloudflare
 
     example_client_certificate = cloudflare.get_client_certificate(zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-        client_certificate_id="023e105f4ecef8ad9ca31a8372d0c353")
+        client_certificate_id="0d89c70d-ad9f-4843-b99f-6cc0252067e9")
     ```
 
 
-    :param _builtins.str client_certificate_id: Identifier.
+    :param _builtins.str client_certificate_id: Client Certificate Tag
     :param _builtins.str zone_id: Identifier.
     """
     __args__ = dict()

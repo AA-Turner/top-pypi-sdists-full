@@ -7,8 +7,10 @@
 
 import asyncio
 import contextlib
+import functools
 import gc
 import ipaddress
+import itertools
 import os
 import pathlib
 import platform
@@ -16,6 +18,7 @@ import shutil
 import socket
 import ssl
 import stat
+import struct
 import tempfile
 import textwrap
 import unittest
@@ -28,6 +31,7 @@ import distro
 
 import asyncpg
 from asyncpg import _testbase as tb
+from asyncpg._testbase import fuzzer
 from asyncpg import connection as pg_connection
 from asyncpg import connect_utils
 from asyncpg import cluster as pg_cluster
@@ -265,6 +269,11 @@ class TestAuthentication(BaseTestAuthentication):
             await self._try_connect(
                 user='password_user',
                 password='wrongpassword')
+
+    async def test_auth_password_cleartext_without_password(self):
+        with self.assertRaises(asyncpg.InvalidPasswordError):
+            await self._try_connect(
+                user='password_user', password=lambda: None)
 
     async def test_auth_password_cleartext_callable(self):
         def get_correctpassword():
@@ -606,7 +615,8 @@ class TestConnectParams(tb.TestCase):
                 'PGSSLNEGOTIATION': 'postgres'
             },
 
-            'dsn': 'postgres://u:p@localhost/d?sslnegotiation=direct',
+            'dsn': 'postgres://u:p@localhost/d'
+                   '?sslnegotiation=direct&sslmode=require',
 
             'result': ([('localhost', 5432)], {
                 'user': 'u',
@@ -620,7 +630,8 @@ class TestConnectParams(tb.TestCase):
         {
             'name': 'params_ssl_negotiation_env',
             'env': {
-                'PGSSLNEGOTIATION': 'direct'
+                'PGSSLNEGOTIATION': 'direct',
+                'PGSSLMODE': 'require',
             },
 
             'dsn': 'postgres://u:p@localhost/d',
@@ -1648,15 +1659,128 @@ gsslib=sspi
             with self.assertRaisesRegex(ValueError, 'greater than 0'):
                 await asyncpg.connect(command_timeout=val)
 
-        for arg in {'max_cacheable_statement_size',
-                    'max_cached_statement_lifetime',
-                    'statement_cache_size'}:
-            for val in {None, -1, True, False}:
-                with self.assertRaisesRegex(ValueError, 'greater or equal'):
-                    await asyncpg.connect(**{arg: val})
+        cases = itertools.product(
+            ('max_cacheable_statement_size',
+             'max_cached_statement_lifetime', 'statement_cache_size'),
+            (None, -1, True, False),
+        )
+        for arg, val in cases:
+            with self.assertRaisesRegex(ValueError, 'greater or equal'):
+                await asyncpg.connect(**{arg: val})
+
+
+class TestConnectionCleanup(tb.TestCase):
+
+    async def test_connect_terminates_rejected_connections(self):
+        for outcome in ('matched', 'unmatched', 'error', 'cancelled'):
+            with self.subTest(outcome=outcome):
+                rejected = unittest.mock.Mock(spec=pg_connection.Connection)
+                candidate = unittest.mock.Mock(spec=pg_connection.Connection)
+                results = {
+                    'matched': True,
+                    'unmatched': False,
+                    'error': RuntimeError('attribute check failed'),
+                    'cancelled': asyncio.CancelledError(),
+                }
+                tasks_before = asyncio.all_tasks()
+                try:
+                    with unittest.mock.patch.object(
+                            connect_utils, '_connect_addr',
+                            side_effect=[rejected, candidate],
+                    ), unittest.mock.patch.object(
+                            connect_utils, '_can_use_connection',
+                            side_effect=[False, results[outcome]],
+                    ):
+                        coro = asyncpg.connect(
+                            host=['first', 'second'], user='postgres',
+                            database='postgres', ssl=False,
+                            target_session_attrs='primary',
+                        )
+                        if outcome == 'matched':
+                            self.assertIs(await coro, candidate)
+                        else:
+                            expected = {
+                                'unmatched':
+                                    exceptions.TargetServerAttributeNotMatched,
+                                'error': RuntimeError,
+                                'cancelled': asyncio.CancelledError,
+                            }[outcome]
+                            with self.assertRaises(expected):
+                                await coro
+
+                    rejected.terminate.assert_called_once_with()
+                    rejected.close.assert_not_called()
+                    candidate.close.assert_not_called()
+                    if outcome == 'matched':
+                        candidate.terminate.assert_not_called()
+                    else:
+                        candidate.terminate.assert_called_once_with()
+                    self.assertEqual(asyncio.all_tasks(), tasks_before)
+                finally:
+                    # Clean up unexpected tasks if a regression assertion
+                    # fails.
+                    pending = asyncio.all_tasks() - tasks_before
+                    for task in pending:
+                        task.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
+
+    async def test_rejected_host_cannot_time_out_selected_connection(self):
+        async def close():
+            await asyncio.Future()
+
+        rejected = unittest.mock.Mock(spec=pg_connection.Connection)
+        rejected.close.side_effect = close
+        selected = unittest.mock.Mock(spec=pg_connection.Connection)
+        tasks_before = asyncio.all_tasks()
+        try:
+            with unittest.mock.patch.object(
+                connect_utils, '_connect_addr',
+                side_effect=[rejected, selected],
+            ), unittest.mock.patch.object(
+                connect_utils, '_can_use_connection',
+                side_effect=[False, True],
+            ):
+                con = await asyncpg.connect(
+                    host=['first', 'second'], user='postgres',
+                    database='postgres', ssl=False,
+                    target_session_attrs='primary', timeout=0.1,
+                )
+            self.assertIs(con, selected)
+            rejected.terminate.assert_called_once_with()
+            rejected.close.assert_not_called()
+            selected.terminate.assert_not_called()
+            selected.close.assert_not_called()
+            self.assertEqual(asyncio.all_tasks(), tasks_before)
+        finally:
+            pending = asyncio.all_tasks() - tasks_before
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
 
 
 class TestConnection(tb.ConnectedTestCase):
+
+    async def test_connection_cancelled_during_transport_setup(self):
+        for connection_lost_first in (False, True):
+            with self.subTest(connection_lost_first=connection_lost_first):
+                async def interrupted_connector(factory, *args, **kwargs):
+                    proto = factory()
+                    if connection_lost_first:
+                        proto.connection_lost(None)
+                    else:
+                        self.loop.call_soon(proto.connection_lost, None)
+                    raise asyncio.CancelledError
+
+                with unittest.mock.patch.object(
+                    self.loop, 'create_connection', interrupted_connector,
+                ):
+                    with self.assertRaises(asyncio.CancelledError):
+                        await self.connect(host='127.0.0.1', ssl=False)
+
+                # Authentication must not report an unobserved failure after
+                # cancellation, even if the transport closes afterwards.
+                await asyncio.sleep(0)
+                gc.collect()
 
     async def test_connection_isinstance(self):
         self.assertTrue(isinstance(self.con, pg_connection.Connection))
@@ -1793,7 +1917,117 @@ class TestConnection(tb.ConnectedTestCase):
                     ssl='verify-full')
 
 
-class BaseTestSSLConnection(tb.ConnectedTestCase):
+class SSLProxyConnection(fuzzer.Connection):
+    """PostgreSQL startup faults using the shared proxy's socket lifecycle."""
+
+    # Startup packets have no message-type byte: length, then protocol code.
+    STARTUP_HEADER = struct.Struct('!II')
+    SSL_REQUEST = STARTUP_HEADER.pack(
+        STARTUP_HEADER.size, connect_utils._SSL_REQUEST_CODE)
+
+    # Subsequent messages have a type byte and a length including this field.
+    MESSAGE_LENGTH = struct.Struct('!I')
+    AUTHENTICATION_OK = 0
+    TLS_RECORD_HEADER_SIZE = 5
+
+    def __init__(self, *args, faults, direct, attempts, tasks, caller_loop):
+        super().__init__(*args)
+        self.faults = faults
+        self.direct = direct
+        self.attempts = attempts
+        self.tasks = tasks
+        self.caller_loop = caller_loop
+
+    async def prepare(self):
+        """Return True to forward traffic, False to close a faulted attempt."""
+        self.tasks.append(asyncio.current_task())
+        index = len(self.attempts)
+        self.attempts.append(None)
+        fault = self.faults[index] if index < len(self.faults) else {}
+
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain(SSL_CERT_FILE, SSL_KEY_FILE)
+        await self.use_client_stream(ssl_context if self.direct else None)
+        header = await self.client_reader.readexactly(self.STARTUP_HEADER.size)
+        ssl_requested = header == self.SSL_REQUEST
+        self.attempts[index] = ssl_requested or self.direct
+        if not fault:
+            await self.loop.sock_sendall(self.backend_sock, header)
+            return True
+
+        if ssl_requested:
+            if not await self._negotiate_ssl(fault, ssl_context):
+                return False
+            header = await self.client_reader.readexactly(
+                self.STARTUP_HEADER.size)
+
+        # Consume the startup parameters before injecting an authentication
+        # failure, disconnect, or stall.
+        length, _ = self.STARTUP_HEADER.unpack(header)
+        await self.client_reader.readexactly(length - self.STARTUP_HEADER.size)
+        if fault.get('hang') == 'startup':
+            await self._wait_for_client_close(ready=fault['ready'])
+        elif not fault.get('disconnect'):
+            if fault.get('auth_ok'):
+                self._write_message(
+                    b'R', self.MESSAGE_LENGTH.pack(self.AUTHENTICATION_OK))
+            self._write_error_response(fault['error'])
+            await self.client_writer.drain()
+            await self._wait_for_client_close()
+        return False
+
+    async def _negotiate_ssl(self, fault, ssl_context):
+        """Return whether the client can proceed to its startup message."""
+        if fault.get('hang') == 'sslrequest':
+            await self._wait_for_client_close(ready=fault['ready'])
+            return False
+
+        response = fault.get('response', b'S')
+        self.client_writer.write(response)
+        await self.client_writer.drain()
+        if response == b'S':
+            if fault.get('hang') == 'handshake':
+                # Wait until ClientHello starts before signalling readiness.
+                await self.client_reader.readexactly(
+                    self.TLS_RECORD_HEADER_SIZE)
+                await self._wait_for_client_close(ready=fault['ready'])
+                return False
+            await self.start_tls(ssl_context)
+        elif response != b'N':
+            # Do not send the rest of a fragmented ErrorResponse: the
+            # diagnostic must neither wait for nor expose its payload.
+            await self._wait_for_client_close()
+            return False
+        return True
+
+    async def _wait_for_client_close(self, *, ready=None):
+        if ready is not None:
+            # Readiness events belong to the test loop, not the proxy thread.
+            self.caller_loop.call_soon_threadsafe(ready.set)
+        await self.client_reader.read()
+
+    def _write_message(self, message_type, payload):
+        length = self.MESSAGE_LENGTH.size + len(payload)
+        self.client_writer.write(
+            message_type + self.MESSAGE_LENGTH.pack(length) + payload)
+
+    def _write_error_response(self, exc_type):
+        fields = (
+            (b'S', b'FATAL'),                           # Severity
+            (b'C', exc_type.sqlstate.encode('ascii')),  # SQLSTATE
+            (b'M', b'proxy startup error'),             # Message
+        )
+        payload = b''.join(tag + value + b'\0' for tag, value in fields)
+        self._write_message(b'E', payload + b'\0')
+
+
+class BaseTestSSLConnection(tb.ConnectedTestCase, tb.ProxiedClusterTestCase):
+    @classmethod
+    def get_connection_spec(cls, kwargs={}):
+        # Keep administrative connections and unproxied SSL tests on the
+        # cluster. Proxy tests explicitly supply the shared proxy's port.
+        return tb.ClusterTestCase.get_connection_spec.__func__(cls, kwargs)
+
     @classmethod
     def get_server_settings(cls):
         conf = super().get_server_settings()
@@ -1847,19 +2081,330 @@ class BaseTestSSLConnection(tb.ConnectedTestCase):
     def _add_hba_entry(self):
         raise NotImplementedError()
 
+    def _add_hba_entries(self, connection_type, auth_method, *,
+                         addresses=('127.0.0.0/24', '::1/128')):
+        for address in addresses:
+            self.cluster.add_hba_entry(
+                type=connection_type, address=ipaddress.ip_network(address),
+                database='postgres', user='ssl_user', auth_method=auth_method)
+
+    async def _test_works(self, *, expected_ssl=None, **conn_args):
+        con = await self.connect(**conn_args)
+        try:
+            self.assertEqual(await con.fetchval('SELECT 42'), 42)
+            if expected_ssl is not None:
+                self.assertEqual(con._protocol.is_ssl, expected_ssl)
+        finally:
+            await con.close()
+
+    async def _test_cancellation_recovery(self, con):
+        self.assertEqual(await con.fetchval('SELECT 42'), 42)
+        with self.assertRaises(asyncio.TimeoutError):
+            await con.execute('SELECT pg_sleep(5)', timeout=0.5)
+        self.assertEqual(await con.fetchval('SELECT 43'), 43)
+
+    async def _test_pool(self, *, expected_ssl, **conn_args):
+        pool = await self.create_pool(min_size=5, max_size=10, **conn_args)
+
+        async def worker():
+            async with pool.acquire() as con:
+                self.assertEqual(con._protocol.is_ssl, expected_ssl)
+                await self._test_cancellation_recovery(con)
+
+        tasks = [self.loop.create_task(worker()) for _ in range(100)]
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await pool.close()
+
+    async def _test_sslmode_works(
+        self, sslmode, *, expected_ssl, host='localhost',
+    ):
+        await self._test_works(
+            dsn='postgresql://foo/postgres?sslmode=' + sslmode,
+            host=host, user='ssl_user', expected_ssl=expected_ssl)
+
+    async def _test_sslmode_fails(
+        self, sslmode, *, host='localhost',
+        exc_type=asyncpg.InvalidAuthorizationSpecificationError,
+    ):
+        # XXX: uvloop artifact
+        old_handler = self.loop.get_exception_handler()
+        try:
+            self.loop.set_exception_handler(lambda *args: None)
+            with self.assertRaises(exc_type):
+                await self._test_works(
+                    dsn='postgresql://foo/?sslmode=' + sslmode,
+                    host=host, user='ssl_user')
+        finally:
+            self.loop.set_exception_handler(old_handler)
+
+    async def _test_connect_interruption(self, *, ready, cancel, **conn_args):
+        async def connect():
+            # Python 3.9 wraps CancelledError when it crosses a task boundary.
+            # Capture the original exception so its cause can be checked.
+            expected = (asyncio.CancelledError if cancel
+                        else asyncio.TimeoutError)
+            with self.assertRaises(expected) as raised:
+                await self.connect(timeout=2 if cancel else 0.2, **conn_args)
+            return raised.exception
+
+        task = self.loop.create_task(connect())
+        try:
+            if cancel:
+                await asyncio.wait_for(ready.wait(), 2)
+                task.cancel()
+            return await task
+        finally:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    @contextlib.asynccontextmanager
+    async def connection_proxy(self, *faults, direct=False):
+        attempts = []
+        tasks = []
+        caller_loop = asyncio.get_running_loop()
+
+        async def configure():
+            self.proxy.connection_factory = functools.partial(
+                SSLProxyConnection, faults=faults, direct=direct,
+                attempts=attempts, tasks=tasks, caller_loop=caller_loop)
+
+        async def finish():
+            try:
+                # Discarded transports must close without forced cleanup.
+                results = await asyncio.wait_for(asyncio.gather(
+                    *tasks, return_exceptions=True), 2)
+                for result in results:
+                    if isinstance(result, BaseException) and not isinstance(
+                        result, asyncio.CancelledError
+                    ):
+                        raise result
+            finally:
+                self.proxy.connection_factory = fuzzer.Connection
+
+        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(
+            configure(), self.proxy.loop))
+        try:
+            yield self.proxy.listening_port, attempts
+        finally:
+            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(
+                finish(), self.proxy.loop))
+
 
 @unittest.skipIf(os.environ.get('PGHOST'), 'unmanaged cluster')
 class TestSSLConnection(BaseTestSSLConnection):
     def _add_hba_entry(self):
-        self.cluster.add_hba_entry(
-            type='hostssl', address=ipaddress.ip_network('127.0.0.0/24'),
-            database='postgres', user='ssl_user',
-            auth_method='trust')
+        self._add_hba_entries('hostssl', 'trust')
 
-        self.cluster.add_hba_entry(
-            type='hostssl', address=ipaddress.ip_network('::1/128'),
-            database='postgres', user='ssl_user',
-            auth_method='trust')
+    def _allow_plaintext(self):
+        self._add_hba_entries('hostnossl', 'trust',
+                              addresses=('127.0.0.0/24',))
+        self.cluster.reload()
+
+    async def test_ssl_startup_retry_boundary(self):
+        self._allow_plaintext()
+        cases = itertools.product(
+            ('allow', 'prefer'),
+            (False, True),
+            (asyncpg.InvalidAuthorizationSpecificationError,
+             asyncpg.InvalidCatalogNameError,
+             asyncpg.TooManyConnectionsError,
+             asyncpg.ConnectionDoesNotExistError),
+        )
+        for mode, auth_ok, error in cases:
+            with self.subTest(mode=mode, auth_ok=auth_ok, error=error):
+                fault = {'auth_ok': auth_ok, 'error': error}
+                async with self.connection_proxy(fault) as result:
+                    port, seen = result
+                    calls = []
+
+                    async def password():
+                        calls.append(True)
+                        return 'unused with trust authentication'
+
+                    options = dict(host='127.0.0.1', port=port,
+                                   user='ssl_user', ssl=mode,
+                                   password=password)
+                    if auth_ok:
+                        with self.assertRaises(error):
+                            await self.connect(**options)
+                        self.assertEqual(seen, [mode == 'prefer'])
+                    else:
+                        await self._test_works(
+                            expected_ssl=mode == 'allow', **options)
+                        self.assertEqual(
+                            seen, [mode == 'prefer', mode == 'allow'])
+                    self.assertEqual(len(calls), 1)
+
+    async def test_ssl_post_authentication_server_error(self):
+        # PostgreSQL processes startup GUCs after AuthenticationOk.
+        self._allow_plaintext()
+        for mode in ('allow', 'prefer'):
+            async with self.connection_proxy() as (port, seen):
+                with self.assertRaises(asyncpg.InvalidParameterValueError):
+                    await self.connect(
+                        host='127.0.0.1', port=port, user='ssl_user', ssl=mode,
+                        server_settings={'work_mem': 'invalid'})
+                self.assertEqual(seen, [mode == 'prefer'])
+
+    async def test_ssl_fallback_error_cause(self):
+        for mode in ('allow', 'prefer'):
+            faults = (
+                {'error': asyncpg.InvalidCatalogNameError},
+                {'error': asyncpg.TooManyConnectionsError},
+            )
+            async with self.connection_proxy(*faults) as (port, seen):
+                with self.assertRaises(asyncpg.TooManyConnectionsError) as exc:
+                    await self.connect(host='127.0.0.1', port=port,
+                                       user='ssl_user', ssl=mode)
+                self.assertIsInstance(exc.exception.__cause__,
+                                      asyncpg.InvalidCatalogNameError)
+                self.assertEqual(seen, [mode == 'prefer', mode == 'allow'])
+
+    async def test_ssl_cannot_connect_now_failover(self):
+        self._allow_plaintext()
+        cases = itertools.product(
+            ('allow', 'prefer', 'require', 'disable'), (False, True))
+        for mode, exhausted in cases:
+            with self.subTest(mode=mode, exhausted=exhausted):
+                faults = [{'error': asyncpg.CannotConnectNowError}]
+                if exhausted:
+                    faults.append({'error': asyncpg.CannotConnectNowError})
+                async with self.connection_proxy(*faults) as (port, seen):
+                    options = dict(host=['127.0.0.1'] * 2,
+                                   port=[port, port],
+                                   user='ssl_user', ssl=mode)
+                    if exhausted:
+                        with self.assertRaises(
+                            asyncpg.CannotConnectNowError
+                        ):
+                            await self.connect(**options)
+                    else:
+                        await self._test_works(**options)
+                    # Both hosts start with the same transport; a fallback
+                    # on the first host would use the opposite transport.
+                    self.assertEqual(seen, [mode in ('prefer', 'require')]
+                                     * 2)
+        for mode in ('allow', 'prefer'):
+            async with self.connection_proxy(
+                {'error': asyncpg.InvalidCatalogNameError},
+                {'error': asyncpg.CannotConnectNowError},
+            ) as (port, seen):
+                with self.assertRaises(
+                    asyncpg.CannotConnectNowError
+                ) as raised:
+                    await self.connect(host='127.0.0.1', port=port,
+                                       user='ssl_user', ssl=mode)
+                self.assertIsInstance(raised.exception.__cause__,
+                                      asyncpg.InvalidCatalogNameError)
+                self.assertEqual(len(seen), 2)
+            async with self.connection_proxy(
+                {'auth_ok': True, 'error': asyncpg.CannotConnectNowError}
+            ) as (port, seen):
+                with self.assertRaises(asyncpg.CannotConnectNowError):
+                    await self.connect(host=['127.0.0.1'] * 2,
+                                       port=[port, port], user='ssl_user',
+                                       ssl=mode)
+                self.assertEqual(len(seen), 1)
+
+    async def test_sslrequest_errors_are_terminal(self):
+        # E alone tests fragmented ErrorResponse delivery: diagnostics must
+        # not wait for or expose the rest of the unauthenticated message.
+        error_response = (b'E\0\0\0\xffC' +
+                          asyncpg.CannotConnectNowError.sqlstate.encode() +
+                          b'\0Muntrusted\0\0')
+        for response in (b'E', error_response, b'X', b'Sextra', b'Nextra'):
+            with self.subTest(response=response):
+                async with self.connection_proxy(
+                    {'response': response}
+                ) as (port, seen):
+                    with self.assertRaises(ConnectionError) as raised:
+                        await self.connect(host='127.0.0.1', port=port,
+                                           user='ssl_user', ssl='prefer')
+                    if response.startswith(b'E'):
+                        self.assertEqual(
+                            str(raised.exception),
+                            f'PostgreSQL server at "127.0.0.1:{port}": '
+                            'server sent an error response during SSL '
+                            'exchange; check the server logs for details')
+                    self.assertEqual(seen, [True])
+
+    async def test_ssl_declined_and_disconnect_attempt_counts(self):
+        for mode in ('allow', 'prefer'):
+            self._allow_plaintext()
+            async with self.connection_proxy(
+                {'disconnect': True}
+            ) as (port, seen):
+                await self._test_works(
+                    host='127.0.0.1', port=port, user='ssl_user', ssl=mode)
+                self.assertEqual(seen, [mode == 'prefer', mode == 'allow'])
+        async with self.connection_proxy(
+            {'response': b'N',
+             'error': asyncpg.InvalidAuthorizationSpecificationError}
+        ) as (port, seen):
+            with self.assertRaises(
+                asyncpg.InvalidAuthorizationSpecificationError
+            ):
+                await self.connect(host='127.0.0.1', port=port,
+                                   user='ssl_user', ssl='prefer')
+            self.assertEqual(seen, [True])
+
+    async def test_ssl_connect_timeout_and_cancellation(self):
+        cases = itertools.product(
+            ('sslrequest', 'handshake', 'startup'), (False, True))
+        for phase, cancel in cases:
+            with self.subTest(phase=phase, cancel=cancel):
+                ready = asyncio.Event()
+                async with self.connection_proxy(
+                    {'hang': phase, 'ready': ready}
+                ) as (port, seen):
+                    await self._test_connect_interruption(
+                        ready=ready, cancel=cancel, host='127.0.0.1',
+                        port=port, user='ssl_user', ssl='prefer')
+                    self.assertEqual(seen, [True])
+
+    async def test_ssl_handshake_failure_cause(self):
+        if self.cluster.get_pg_version() < (12, 0):
+            self.skipTest('PostgreSQL < 12 cannot set SSL protocol version')
+        for mode in ('prefer', 'require'):
+            async with self.connection_proxy() as (port, seen):
+                with self.assertRaises(
+                    asyncpg.InvalidAuthorizationSpecificationError
+                    if mode == 'prefer' else ssl.SSLError
+                ) as raised:
+                    await self.connect(
+                        dsn='postgresql://ssl_user@127.0.0.1/postgres'
+                            f'?sslmode={mode}'
+                            '&ssl_min_protocol_version=TLSv1.3',
+                        port=port)
+                if mode == 'prefer':
+                    self.assertIsInstance(raised.exception.__cause__,
+                                          ssl.SSLError)
+                self.assertEqual(seen, [True, False] if mode == 'prefer'
+                                 else [True])
+
+    async def test_ssl_fallback_timeout_and_cancellation(self):
+        cases = itertools.product(('allow', 'prefer'), (False, True))
+        for mode, cancel in cases:
+            with self.subTest(mode=mode, cancel=cancel):
+                ready = asyncio.Event()
+                async with self.connection_proxy(
+                    {'error': asyncpg.InvalidCatalogNameError},
+                    {'hang': 'startup', 'ready': ready},
+                ) as (port, seen):
+                    error = await self._test_connect_interruption(
+                        ready=ready, cancel=cancel, host='127.0.0.1',
+                        port=port, user='ssl_user', ssl=mode)
+                    if cancel:
+                        self.assertIsInstance(error.__cause__,
+                                              asyncpg.InvalidCatalogNameError)
+                    self.assertEqual(seen, [mode == 'prefer',
+                                            mode == 'allow'])
 
     async def test_ssl_connection_custom_context(self):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -1871,74 +2416,198 @@ class TestSSLConnection(BaseTestSSLConnection):
             ssl=ssl_context)
 
         try:
-            self.assertEqual(await con.fetchval('SELECT 42'), 42)
-
-            with self.assertRaises(asyncio.TimeoutError):
-                await con.execute('SELECT pg_sleep(5)', timeout=0.5)
-
-            self.assertEqual(await con.fetchval('SELECT 43'), 43)
+            await self._test_cancellation_recovery(con)
         finally:
             await con.close()
 
+    async def test_direct_tls_connection(self):
+        # A TLS-terminating gateway also supports PostgreSQL versions predating
+        # direct TLS. Every accepted connection must execute a real query.
+        self._allow_plaintext()
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        for mode in ('require', 'verify-ca', 'verify-full', True, ctx):
+            with self.subTest(mode=mode):
+                async with self.connection_proxy(direct=True) as (port, seen):
+                    with unittest.mock.patch.dict(os.environ, {
+                        'SSL_CERT_FILE': SSL_CA_CERT_FILE,
+                    }):
+                        await self._test_works(
+                            dsn='postgresql://ssl_user@localhost/postgres'
+                                '?sslrootcert=' + SSL_CA_CERT_FILE,
+                            port=port, ssl=mode, direct_tls=True,
+                            expected_ssl=True)
+                    self.assertEqual(seen, [True])
+        self.assertEqual(ctx.verify_mode, ssl.CERT_NONE)
+        self.assertFalse(ctx.check_hostname)
+
+    async def test_direct_tls_native(self):
+        if self.cluster.get_pg_version() < (17, 0):
+            self.skipTest('native direct TLS requires PostgreSQL 17+')
+
+        for mode in ('require', 'verify-ca', 'verify-full', True):
+            with self.subTest(mode=mode):
+                with unittest.mock.patch.dict(os.environ, {
+                    'SSL_CERT_FILE': SSL_CA_CERT_FILE,
+                }):
+                    await self._test_works(
+                        dsn='postgresql://ssl_user@localhost/postgres'
+                            '?sslrootcert=' + SSL_CA_CERT_FILE,
+                        ssl=mode, direct_tls=True, expected_ssl=True)
+
+    async def test_direct_tls_configuration_sources(self):
+        base_dsn = 'postgresql://ssl_user@localhost/postgres'
+
+        async def rejected(**kwargs):
+            async with self.connection_proxy() as (port, seen):
+                with self.assertRaisesRegex(
+                    asyncpg.ClientConfigurationError,
+                    'direct TLS requires sslmode',
+                ):
+                    await self.connect(port=port, **kwargs)
+                self.assertEqual(seen, [])
+
+        for mode in ('disable', 'allow', 'prefer'):
+            with self.subTest(mode=mode):
+                await rejected(dsn=base_dsn, ssl=mode, direct_tls=True)
+                await rejected(dsn=base_dsn +
+                               f'?sslmode={mode}&sslnegotiation=direct')
+                with unittest.mock.patch.dict(os.environ, {
+                    'PGSSLMODE': mode, 'PGSSLNEGOTIATION': 'direct',
+                }):
+                    await rejected(dsn=base_dsn)
+                    # Keyword overrides both environment values.
+                    await self._test_works(
+                        expected_ssl=True, dsn=base_dsn,
+                        ssl='require', direct_tls=False)
+                    # DSN overrides both environment values.
+                    await self._test_works(
+                        expected_ssl=True, dsn=base_dsn +
+                        '?sslmode=require&sslnegotiation=postgres')
+                with tempfile.TemporaryDirectory() as directory:
+                    service = pathlib.Path(directory) / 'pg_service.conf'
+                    service.write_text('[test]\nsslnegotiation=direct\n'
+                                       f'sslmode={mode}\n')
+                    options = dict(dsn=base_dsn + '?service=test',
+                                   servicefile=str(service))
+                    await rejected(**options)
+                    await self._test_works(
+                        expected_ssl=True, **options,
+                        ssl='require', direct_tls=False)
+                    options['dsn'] += ('&sslmode=require'
+                                       '&sslnegotiation=postgres')
+                    await self._test_works(expected_ssl=True, **options)
+        for mode in (None, False):
+            await rejected(dsn=base_dsn, ssl=mode, direct_tls=True)
+
     async def test_ssl_connection_sslmode(self):
-        async def verify_works(sslmode, *, host='localhost'):
-            con = None
-            try:
-                con = await self.connect(
-                    dsn='postgresql://foo/postgres?sslmode=' + sslmode,
-                    host=host,
-                    user='ssl_user')
-                self.assertEqual(await con.fetchval('SELECT 42'), 42)
-                self.assertTrue(con._protocol.is_ssl)
-            finally:
-                if con:
-                    await con.close()
-
-        async def verify_fails(sslmode, *, host='localhost', exn_type):
-            # XXX: uvloop artifact
-            old_handler = self.loop.get_exception_handler()
-            con = None
-            try:
-                self.loop.set_exception_handler(lambda *args: None)
-                with self.assertRaises(exn_type):
-                    con = await self.connect(
-                        dsn='postgresql://foo/?sslmode=' + sslmode,
-                        host=host,
-                        user='ssl_user')
-                    await con.fetchval('SELECT 42')
-            finally:
-                if con:
-                    await con.close()
-                self.loop.set_exception_handler(old_handler)
-
-        invalid_auth_err = asyncpg.InvalidAuthorizationSpecificationError
-        await verify_fails('disable', exn_type=invalid_auth_err)
-        await verify_works('allow')
-        await verify_works('prefer')
-        await verify_works('require')
-        await verify_fails('verify-ca', exn_type=ValueError)
-        await verify_fails('verify-full', exn_type=ValueError)
+        await self._test_sslmode_fails('disable')
+        await self._test_sslmode_works('allow', expected_ssl=True)
+        await self._test_sslmode_works('prefer', expected_ssl=True)
+        await self._test_sslmode_works('require', expected_ssl=True)
+        await self._test_sslmode_fails('verify-ca', exc_type=ValueError)
+        await self._test_sslmode_fails('verify-full', exc_type=ValueError)
 
         with mock_dot_postgresql():
-            await verify_works('require')
-            await verify_works('verify-ca')
-            await verify_works('verify-ca', host='127.0.0.1')
-            await verify_works('verify-full')
-            await verify_fails('verify-full', host='127.0.0.1',
-                               exn_type=ssl.CertificateError)
+            await self._test_sslmode_works('require', expected_ssl=True)
+            await self._test_sslmode_works('verify-ca', expected_ssl=True)
+            await self._test_sslmode_works(
+                'verify-ca', host='127.0.0.1', expected_ssl=True)
+            await self._test_sslmode_works('verify-full', expected_ssl=True)
+            await self._test_sslmode_fails(
+                'verify-full', host='127.0.0.1', exc_type=ssl.CertificateError)
 
         with mock_dot_postgresql(crl=True):
-            await verify_fails('disable', exn_type=invalid_auth_err)
-            await verify_works('allow')
-            await verify_works('prefer')
-            await verify_fails('require',
-                               exn_type=ssl.SSLError)
-            await verify_fails('verify-ca',
-                               exn_type=ssl.SSLError)
-            await verify_fails('verify-ca', host='127.0.0.1',
-                               exn_type=ssl.SSLError)
-            await verify_fails('verify-full',
-                               exn_type=ssl.SSLError)
+            await self._test_sslmode_fails('disable')
+            await self._test_sslmode_works('allow', expected_ssl=True)
+            await self._test_sslmode_works('prefer', expected_ssl=True)
+            await self._test_sslmode_fails('require', exc_type=ssl.SSLError)
+            await self._test_sslmode_fails('verify-ca', exc_type=ssl.SSLError)
+            await self._test_sslmode_fails(
+                'verify-ca', host='127.0.0.1', exc_type=ssl.SSLError)
+            await self._test_sslmode_fails(
+                'verify-full', exc_type=ssl.SSLError)
+
+    async def test_sslmode_preserves_password_error(self):
+        await self.con.execute(
+            "ALTER ROLE ssl_user PASSWORD 'correct_password'")
+
+        cases = (
+            ('prefer', 'hostssl', 'hostnossl', False),
+            ('allow', 'hostnossl', 'hostssl', True),
+        )
+        for sslmode, first_type, fallback_type, fallback_is_ssl in cases:
+            with self.subTest(sslmode=sslmode):
+                self.cluster.reset_hba()
+                self._add_hba_entries(first_type, 'password')
+                self.cluster.reload()
+
+                connect_args = dict(
+                    host='localhost',
+                    database='postgres',
+                    user='ssl_user',
+                    password='wrong_password',
+                    ssl=sslmode,
+                )
+
+                async with self.connection_proxy() as (port, seen):
+                    with self.assertRaisesRegex(
+                        asyncpg.InvalidPasswordError,
+                        'password authentication failed',
+                    ):
+                        await self.connect(**connect_args, port=port)
+                    self.assertEqual(seen, [not fallback_is_ssl,
+                                            fallback_is_ssl])
+
+                for fault, expected in (
+                    ({'disconnect': True}, asyncpg.InvalidPasswordError),
+                    ({'error': asyncpg.InvalidCatalogNameError},
+                     asyncpg.InvalidCatalogNameError),
+                ):
+                    async with self.connection_proxy({}, fault) as result:
+                        port, seen = result
+                        with self.assertRaises(expected) as raised:
+                            await self.connect(**connect_args, port=port)
+                        if expected is asyncpg.InvalidCatalogNameError:
+                            self.assertIsInstance(raised.exception.__cause__,
+                                                  asyncpg.InvalidPasswordError)
+                        self.assertEqual(seen, [not fallback_is_ssl,
+                                                fallback_is_ssl])
+
+                # A password failure in the preferred mode must not prevent
+                # a valid, differently-authenticated fallback connection.
+                self._add_hba_entries(fallback_type, 'trust')
+                self.cluster.reload()
+
+                async with self.connection_proxy() as (port, seen):
+                    await self._test_works(
+                        **connect_args, port=port,
+                        expected_ssl=fallback_is_ssl)
+                    self.assertEqual(seen, [not fallback_is_ssl,
+                                            fallback_is_ssl])
+
+    async def test_ssl_client_authentication_error_is_terminal(self):
+        if self.cluster.get_pg_version() < (10, 0):
+            await self.con.execute("SET password_encryption = on")
+        else:
+            await self.con.execute("SET password_encryption = 'md5'")
+        await self.con.execute("ALTER ROLE ssl_user PASSWORD 'password'")
+        self.cluster.reset_hba()
+        self._add_hba_entries('host', 'md5', addresses=('127.0.0.0/24',))
+        self.cluster.reload()
+        for mode in ('allow', 'prefer'):
+            async with self.connection_proxy() as (port, seen):
+                with unittest.mock.patch(
+                    'hashlib.md5', side_effect=ValueError('no md5')
+                ):
+                    with self.assertRaisesRegex(
+                        asyncpg.InternalClientError, 'no md5'
+                    ):
+                        await self.connect(
+                            host='127.0.0.1', port=port, user='ssl_user',
+                            password='password', ssl=mode)
+                self.assertEqual(seen, [mode == 'prefer'])
 
     async def test_ssl_connection_default_context(self):
         # XXX: uvloop artifact
@@ -1957,26 +2626,9 @@ class TestSSLConnection(BaseTestSSLConnection):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_verify_locations(SSL_CA_CERT_FILE)
 
-        pool = await self.create_pool(
-            host='localhost',
-            user='ssl_user',
-            database='postgres',
-            min_size=5,
-            max_size=10,
-            ssl=ssl_context)
-
-        async def worker():
-            async with pool.acquire() as con:
-                self.assertEqual(await con.fetchval('SELECT 42'), 42)
-
-                with self.assertRaises(asyncio.TimeoutError):
-                    await con.execute('SELECT pg_sleep(5)', timeout=0.5)
-
-                self.assertEqual(await con.fetchval('SELECT 43'), 43)
-
-        tasks = [worker() for _ in range(100)]
-        await asyncio.gather(*tasks)
-        await pool.close()
+        await self._test_pool(
+            host='localhost', user='ssl_user', database='postgres',
+            ssl=ssl_context, expected_ssl=True)
 
     async def test_executemany_uvloop_ssl_issue_700(self):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -2040,16 +2692,12 @@ class TestSSLConnection(BaseTestSSLConnection):
                                 '&ssl_min_protocol_version=TLSv1.2'
                                 '&ssl_max_protocol_version=TLSv1.1'
                         )
-                con = await self.connect(
+                await self._test_works(
                     dsn='postgresql://ssl_user@localhost/postgres'
                         '?sslmode=require'
                         '&ssl_min_protocol_version=TLSv1.2'
                         '&ssl_max_protocol_version=TLSv1.2'
                 )
-                try:
-                    self.assertEqual(await con.fetchval('SELECT 42'), 42)
-                finally:
-                    await con.close()
             finally:
                 self.loop.set_exception_handler(old_handler)
 
@@ -2057,15 +2705,7 @@ class TestSSLConnection(BaseTestSSLConnection):
 @unittest.skipIf(os.environ.get('PGHOST'), 'unmanaged cluster')
 class TestClientSSLConnection(BaseTestSSLConnection):
     def _add_hba_entry(self):
-        self.cluster.add_hba_entry(
-            type='hostssl', address=ipaddress.ip_network('127.0.0.0/24'),
-            database='postgres', user='ssl_user',
-            auth_method='cert')
-
-        self.cluster.add_hba_entry(
-            type='hostssl', address=ipaddress.ip_network('::1/128'),
-            database='postgres', user='ssl_user',
-            auth_method='cert')
+        self._add_hba_entries('hostssl', 'cert')
 
     async def test_ssl_connection_client_auth_fails_with_wrong_setup(self):
         ssl_context = ssl.create_default_context(
@@ -2082,14 +2722,6 @@ class TestClientSSLConnection(BaseTestSSLConnection):
                 user='ssl_user',
                 ssl=ssl_context,
             )
-
-    async def _test_works(self, **conn_args):
-        con = await self.connect(**conn_args)
-
-        try:
-            self.assertEqual(await con.fetchval('SELECT 42'), 42)
-        finally:
-            await con.close()
 
     async def test_ssl_connection_client_auth_custom_context(self):
         for key_file in (CLIENT_SSL_KEY_FILE, CLIENT_SSL_PROTECTED_KEY_FILE):
@@ -2150,57 +2782,27 @@ class TestClientSSLConnection(BaseTestSSLConnection):
 @unittest.skipIf(os.environ.get('PGHOST'), 'unmanaged cluster')
 class TestNoSSLConnection(BaseTestSSLConnection):
     def _add_hba_entry(self):
-        self.cluster.add_hba_entry(
-            type='hostnossl', address=ipaddress.ip_network('127.0.0.0/24'),
-            database='postgres', user='ssl_user',
-            auth_method='trust')
+        self._add_hba_entries('hostnossl', 'trust')
 
-        self.cluster.add_hba_entry(
-            type='hostnossl', address=ipaddress.ip_network('::1/128'),
-            database='postgres', user='ssl_user',
-            auth_method='trust')
+    async def test_nossl_handshake_fallback(self):
+        if self.cluster.get_pg_version() < (12, 0):
+            self.skipTest('PostgreSQL < 12 cannot set SSL protocol version')
+        async with self.connection_proxy() as (port, seen):
+            await self._test_works(
+                dsn='postgresql://ssl_user@127.0.0.1/postgres'
+                    '?sslmode=prefer&ssl_min_protocol_version=TLSv1.3',
+                port=port, expected_ssl=False)
+            self.assertEqual(seen, [True, False])
 
     async def test_nossl_connection_sslmode(self):
-        async def verify_works(sslmode, *, host='localhost'):
-            con = None
-            try:
-                con = await self.connect(
-                    dsn='postgresql://foo/postgres?sslmode=' + sslmode,
-                    host=host,
-                    user='ssl_user')
-                self.assertEqual(await con.fetchval('SELECT 42'), 42)
-                self.assertFalse(con._protocol.is_ssl)
-            finally:
-                if con:
-                    await con.close()
-
-        async def verify_fails(sslmode, *, host='localhost'):
-            # XXX: uvloop artifact
-            old_handler = self.loop.get_exception_handler()
-            con = None
-            try:
-                self.loop.set_exception_handler(lambda *args: None)
-                with self.assertRaises(
-                        asyncpg.InvalidAuthorizationSpecificationError
-                ):
-                    con = await self.connect(
-                        dsn='postgresql://foo/?sslmode=' + sslmode,
-                        host=host,
-                        user='ssl_user')
-                    await con.fetchval('SELECT 42')
-            finally:
-                if con:
-                    await con.close()
-                self.loop.set_exception_handler(old_handler)
-
-        await verify_works('disable')
-        await verify_works('allow')
-        await verify_works('prefer')
-        await verify_fails('require')
+        await self._test_sslmode_works('disable', expected_ssl=False)
+        await self._test_sslmode_works('allow', expected_ssl=False)
+        await self._test_sslmode_works('prefer', expected_ssl=False)
+        await self._test_sslmode_fails('require')
         with mock_dot_postgresql():
-            await verify_fails('require')
-            await verify_fails('verify-ca')
-            await verify_fails('verify-full')
+            await self._test_sslmode_fails('require')
+            await self._test_sslmode_fails('verify-ca')
+            await self._test_sslmode_fails('verify-full')
 
     async def test_nossl_connection_prefer_cancel(self):
         con = await self.connect(
@@ -2209,35 +2811,14 @@ class TestNoSSLConnection(BaseTestSSLConnection):
             user='ssl_user')
         try:
             self.assertFalse(con._protocol.is_ssl)
-            with self.assertRaises(asyncio.TimeoutError):
-                await con.execute('SELECT pg_sleep(5)', timeout=0.5)
-            val = await con.fetchval('SELECT 123')
-            self.assertEqual(val, 123)
+            await self._test_cancellation_recovery(con)
         finally:
             await con.close()
 
     async def test_nossl_connection_pool(self):
-        pool = await self.create_pool(
-            host='localhost',
-            user='ssl_user',
-            database='postgres',
-            min_size=5,
-            max_size=10,
-            ssl='prefer')
-
-        async def worker():
-            async with pool.acquire() as con:
-                self.assertFalse(con._protocol.is_ssl)
-                self.assertEqual(await con.fetchval('SELECT 42'), 42)
-
-                with self.assertRaises(asyncio.TimeoutError):
-                    await con.execute('SELECT pg_sleep(5)', timeout=0.5)
-
-                self.assertEqual(await con.fetchval('SELECT 43'), 43)
-
-        tasks = [worker() for _ in range(100)]
-        await asyncio.gather(*tasks)
-        await pool.close()
+        await self._test_pool(
+            host='localhost', user='ssl_user', database='postgres',
+            ssl='prefer', expected_ssl=False)
 
 
 class TestConnectionGC(tb.ClusterTestCase):
@@ -2292,6 +2873,48 @@ class TestConnectionGC(tb.ClusterTestCase):
 
 
 class TestConnectionAttributes(tb.HotStandbyTestCase):
+
+    async def test_rejected_standby_is_terminated_before_primary(self):
+        primary_spec = self.get_cluster_connection_spec(self.master_cluster)
+        standby_spec = self.get_cluster_connection_spec(self.standby_cluster)
+        candidates = []
+        terminated = []
+
+        class Connection(pg_connection.Connection):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                if not candidates:
+                    self.add_termination_listener(terminated.append)
+                candidates.append(self)
+
+        con = None
+        try:
+            con = await self.connect(
+                host=[standby_spec['host'], primary_spec['host']],
+                port=[standby_spec['port'], primary_spec['port']],
+                connection_class=Connection, target_session_attrs='primary',
+                timeout=5,
+            )
+            self.assertEqual(len(candidates), 2)
+            rejected = candidates[0]
+            self.assertTrue(rejected.is_closed())
+            self.assertTrue(rejected._transport.is_closing())
+            self.assertIs(con, candidates[1])
+            self.assertFalse(con.is_closed())
+            self.assertTrue(_get_connected_host(con).endswith(
+                primary_spec['port']))
+            self.assertEqual(await con.fetchval('SELECT 42'), 42)
+            self.assertEqual(terminated, [rejected])
+
+            # A later graceful close of the terminated connection is safe.
+            await rejected.close()
+            self.assertEqual(await con.fetchval('SELECT 43'), 43)
+            self.assertEqual(terminated, [rejected])
+        finally:
+            for candidate in candidates:
+                candidate.terminate()
+            if con is not None:
+                await con.close()
 
     async def _run_connection_test(
         self, connect, target_attribute, expected_port

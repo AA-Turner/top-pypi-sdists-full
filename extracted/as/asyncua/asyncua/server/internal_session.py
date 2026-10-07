@@ -223,6 +223,9 @@ class InternalSession(AbstractSession):
     async def history_read(self, params: ua.HistoryReadParameters) -> list[ua.HistoryReadResult]:
         return await self.iserver.history_manager.read_history(params)
 
+    async def history_update(self, params: ua.HistoryUpdateParameters) -> list[ua.HistoryUpdateResult]:
+        return self.iserver.history_manager.update_history(params)
+
     async def write(self, params: ua.WriteParameters) -> list[ua.StatusCode]:
         if self.user is None:
             user = User()
@@ -307,6 +310,12 @@ class InternalSession(AbstractSession):
             CallbackType.ItemSubscriptionModified, ServerItemCallback(params, subscription_result, None, self.external)
         )
         return subscription_result
+
+    async def set_monitoring_mode(self, params: ua.SetMonitoringModeParameters) -> list[ua.StatusCode]:
+        return await self.subscription_service.set_monitoring_mode(params)
+
+    async def set_publishing_mode(self, params: ua.SetPublishingModeParameters) -> list[ua.StatusCode]:
+        return await self.subscription_service.set_publishing_mode(params)
 
     def republish(self, params: ua.RepublishParameters) -> ua.NotificationMessage:
         return self.subscription_service.republish(params)

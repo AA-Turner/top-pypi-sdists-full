@@ -7,10 +7,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from requests import HTTPError
-
-from social_core.exceptions import AuthCanceled
-
 from .oauth import BaseOAuth1
 
 
@@ -33,6 +29,7 @@ class EvernoteOAuth(BaseOAuth1):
     """
 
     name = "evernote"
+    title = "Evernote"
     ID_KEY = "edam_userId"
     AUTHORIZATION_URL = "https://www.evernote.com/OAuth.action"
     REQUEST_TOKEN_URL = "https://www.evernote.com/oauth"
@@ -51,15 +48,13 @@ class EvernoteOAuth(BaseOAuth1):
 
     def access_token(self, token):
         """Return request for access token value"""
-        try:
-            return self.get_querystring(
-                self.ACCESS_TOKEN_URL, auth=self.oauth_auth(token)
-            )
-        except HTTPError as err:
-            # Evernote returns a 401 error when AuthCanceled
-            if err.response.status_code == 401:
-                raise AuthCanceled(self, response=err.response) from err
-            raise
+        response = self.get_querystring(
+            self.ACCESS_TOKEN_URL,
+            auth=self.oauth_auth(token, stage="token_exchange"),
+            stage="token_exchange",
+        )
+        self._process_error(response, stage="token_exchange")
+        return response
 
     def extra_data(
         self,
@@ -83,6 +78,7 @@ class EvernoteOAuth(BaseOAuth1):
 
 class EvernoteSandboxOAuth(EvernoteOAuth):
     name = "evernote-sandbox"
+    title = "Evernote (Sandbox)"
     AUTHORIZATION_URL = "https://sandbox.evernote.com/OAuth.action"
     REQUEST_TOKEN_URL = "https://sandbox.evernote.com/oauth"
     ACCESS_TOKEN_URL = "https://sandbox.evernote.com/oauth"

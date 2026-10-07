@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: asyncua
-Version: 2.0.1
+Version: 2.1.0
 Summary: Pure Python OPC-UA client and server library
 Project-URL: Homepage, http://freeopcua.github.io/
 Project-URL: Repository, https://github.com/FreeOpcUa/opcua-asyncio
@@ -20,8 +20,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: aiosqlite
 Requires-Dist: anyio
-Requires-Dist: cryptography>42.0.0
-Requires-Dist: pyopenssl>23.2.0
+Requires-Dist: cryptography>=45.0.0
 Requires-Dist: python-dateutil
 Requires-Dist: pytz
 Requires-Dist: sortedcontainers

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from yookassa.domain.common import ResponseObject
-from yookassa.domain.models import Amount
+from yookassa.domain.models import Amount, DealStatus
 
 
 class DealResponse(ResponseObject):
@@ -79,6 +79,9 @@ class DealResponse(ResponseObject):
         :param value: status модели DealResponse.
         :type value: str
         """
+        value = str(value)
+        if value not in {getattr(DealStatus, _n) for _n in dir(DealStatus) if not _n.startswith('_')}:
+            value = DealStatus.UNKNOWN
         self.__status = value
 
     @property

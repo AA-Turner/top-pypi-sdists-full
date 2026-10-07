@@ -491,6 +491,27 @@ def add_parser(subparsers: Any, parent_parser: Any = None) -> None:
         default="",
         help="run a slash command in that session on its device (e.g. '/rename new name')",
     )
+    # ``--peek`` IS THE FAMILY'S READ (design §3C): the same target addressing
+    # (an id or a name), no text, no write — the newest steps of the
+    # conversation's synced display window, served by the owner. It is a flag on
+    # this verb rather than a new subcommand because it takes the same
+    # ``--peer`` and answers the same "what does that conversation hold"
+    # question the table above asks. A STORED session is REFUSED rather than
+    # warmed (§8.3, locked): a read must never start a runtime on a device
+    # nobody is watching, and the refusal names the route that does warm it.
+    net_sessions.add_argument(
+        "--peek",
+        metavar="SESSION",
+        default="",
+        help="read the newest steps of that session's history, where it lives (live sessions)",
+    )
+    net_sessions.add_argument(
+        "--steps",
+        type=int,
+        default=None,
+        metavar="N",
+        help=f"with --peek: how many of the newest steps to show (default {_PEEK_DEFAULT_STEPS})",
+    )
     # REMAINDER, so the payload is what the user typed rather than what the
     # parser makes of it: with ``nargs="*"`` every word matching a declared
     # option was consumed as that option, wherever it appeared — `check the
@@ -706,7 +727,14 @@ def add_parser(subparsers: Any, parent_parser: Any = None) -> None:
     credential = actions.add_parser("credential", help="Share or revoke one credential")
     credential_actions = credential.add_subparsers(dest="credential_command")
     cred_share = credential_actions.add_parser(
-        "share", help="Let another device borrow a credential this one holds"
+        "share",
+        # §9.2 of the provisioning design: share is an ADJUSTMENT surface now —
+        # approving a device already provisioned it, so the help says the verb is
+        # not a prerequisite of onboarding (it was the taught first step before).
+        help=(
+            "Let another device borrow a credential this one holds — not needed for "
+            "onboarding anymore: approving a device already shares this device's logins"
+        ),
     )
     cred_share.add_argument("key", help="A provider name, or mcp:<server-url>")
     cred_share.add_argument(
@@ -719,7 +747,7 @@ def add_parser(subparsers: Any, parent_parser: Any = None) -> None:
         "--scope",
         choices=("session", "device"),
         # NOT a static default: None is resolved PER KIND in the handler so the
-        # GitHub App credential — device-scoped by construction — defaults to
+        # github credential — device-scoped by construction — defaults to
         # 'device' (its only possible scope) while every provider keeps
         # 'session'. An explicitly typed value reaches the document's own refusal.
         default=None,
@@ -1435,6 +1463,7 @@ def _cmd_credentials(args: argparse.Namespace) -> int:
     verb's refusal used to be the first word of. Read-only, like everything else here.
     """
     from local_operator.network.credentials.state import PlacementState
+    from local_operator.network.credentials.sync import SyncState, sync_segment
     from local_operator.network.identity import load as load_identity
 
     pulled = _relay_call("credential_placement", timeout=_listing_timeout(), allow_no_answer=True)
@@ -1453,6 +1482,7 @@ def _cmd_credentials(args: argparse.Namespace) -> int:
         record = _record_for(document.network_id)
         network_name = record.name if record is not None else document.network_id
         state = PlacementState.load(document.network_id)
+        sync_state = SyncState.load(document.network_id)
         keys: list[dict[str, Any]] = []
         if not document.entries:
             continue
@@ -1486,6 +1516,22 @@ def _cmd_credentials(args: argparse.Namespace) -> int:
             }
             if not row["owned_here"] and entry.is_holder(self_device):
                 row["observation"] = state.status(key) or "not_asked"
+            if row["owned_here"]:
+                # THE OWNER'S OWN VIEW OF EACH HOLDER'S COPY (S3; design §5.2): one
+                # segment per member row — ``synced (gen 7)`` / ``stale (gen 6 of
+                # 7, last acked 14:02)``. Read from the sync document only: a
+                # listing never dials and never reads a store, and a copy
+                # relationship with no generation yet shows NO segment (absent,
+                # never "failed" — the rollout segment's own rule).
+                current = sync_state.generation(key)
+                if current is not None:
+                    for holder_row in row["holders"]:
+                        if holder_row["device"] == self_device:
+                            continue
+                        acked = sync_state.ack_for(holder_row["device"], key)
+                        segment = sync_segment(acked=acked, current=current)
+                        if segment:
+                            holder_row["sync"] = segment
             keys.append(row)
         if not keys:
             lines.append(f"{network_name}: nothing is shared in this network yet")
@@ -1506,9 +1552,10 @@ def _cmd_credentials(args: argparse.Namespace) -> int:
                     # is what makes the entry coherent and the second is the reader.
                     if holder["device"] in (self_device, row["owner_device"]):
                         continue
+                    sync_tail = f" — {holder['sync']}" if holder.get("sync") else ""
                     lines.append(
                         f"      shared with {holder['name'] or holder['device']} "
-                        f"({holder['scope']})"
+                        f"({holder['scope']}){sync_tail}"
                     )
                 if row.get("observation") and row["observation"] not in ("active", "not_asked"):
                     lines.append(f"      borrowed: {row['observation']}")
@@ -1669,10 +1716,12 @@ def _shareable_providers(self_device: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     from local_operator.network.credentials import github as github_mod
 
-    if github_mod.app_secret_present(_config_dir()):
-        # The App key lives in the SECRET store, not ``auth.db`` — so it is the one
-        # row that can exist on a device with no credential store yet, and it is
-        # assembled BEFORE the store guard below can return early.
+    if github_mod.source_present(_config_dir()):
+        # The github row's sources live OUTSIDE ``auth.db`` (the secret store and
+        # gh's own login), so it is the one row that can exist on a device
+        # with no credential store yet, and it is assembled BEFORE the store guard
+        # below can return early. Any ladder arm (§3.2) — and a resolvable one,
+        # never an unreadable store — makes the row real.
         rows.append(_github_shareable_row(self_device))
 
     store = offers.open_store(_config_dir())
@@ -1725,53 +1774,138 @@ def _shareable_providers(self_device: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _github_revocation_payload(revoked_now: int | None, ttl_s: int) -> dict[str, Any]:
-    """The ``github`` revoke receipt's payload — ONE spelling for lines and ``--json``."""
-    return {
-        "new_grants": "refused now",
-        "lent_grant_max_s": ttl_s,
-        "minted_tokens_revoked": revoked_now,
-        "copied_bearer": (
+def _github_revocation_payload(revoked_now: int | None, ttl_s: int, source: str) -> dict[str, Any]:
+    """The ``github`` revoke receipt's payload — ONE spelling for lines and ``--json``.
+
+    Per-source (§3.3): only the App arm has a server-side revoke handle. A
+    token arm was not minted here, so no DELETE was run and the sentence names
+    the forge as the place the token actually ends — an incident reader must
+    not believe "revoked" means "dead" for a bearer lop never minted.
+    """
+    from local_operator.network.credentials import github as github_mod
+
+    if source == github_mod.SOURCE_APP:
+        copied = (
             "revoked at GitHub at the grant's window end — and immediately when "
             "this revoke ran — via DELETE /installation/token (204; idempotent); "
             "only if no revoke can be delivered does the token fall back to its "
             "own 60-minute ceiling"
-        ),
+        )
+    elif source == github_mod.SOURCE_TOKEN:
+        copied = (
+            "a GITHUB_TOKEN-class PAT is not minted by this device: there is no "
+            "server-side revoke here — it keeps working at GitHub until it expires "
+            "or is revoked there (Settings -> Developer settings -> Personal access "
+            "tokens); a grant already lent is dropped by the borrower at its window end"
+        )
+    elif source == github_mod.SOURCE_GH:
+        copied = (
+            "the gh CLI login is a user token this device did not mint: there is no "
+            "server-side revoke here — sign out of the gh CLI or revoke the token at "
+            "GitHub (Settings -> Applications) to end it; a grant already lent is "
+            "dropped by the borrower at its window end"
+        )
+    elif source == github_mod.SOURCE_UNREADABLE:
+        copied = (
+            "the secret store on this device could not be read, so the serving arm "
+            "could not be determined — any grant already lent is dropped by the borrower "
+            "at its window end; repair the store before the next revoke"
+        )
+    else:
+        copied = (
+            "no GitHub source is configured on this device any more — nothing new can "
+            "be served; a token copied out of the borrower lives at GitHub until it "
+            "expires or is revoked there"
+        )
+    return {
+        "new_grants": "refused now",
+        "lent_grant_max_s": ttl_s,
+        "minted_tokens_revoked": revoked_now,
+        "source": source,
+        "copied_bearer": copied,
     }
 
 
-def _github_revoke_lines(name: str, revoked_now: int | None) -> list[str]:
-    """The receipt's operator-visible lines, mint-revoke wording (M1, restated).
+def _github_revoke_lines(name: str, revoked_now: int | None, source: str) -> list[str]:
+    """The receipt's operator-visible lines, per serving arm (§3.3).
 
-    Line 1 holds the CONDITIONAL inside it — "and on this revoke's DELETE when it
-    can be delivered" — so it is true whether or not this relay could run the
-    call; line 2 says which branch actually happened. The ``--json`` payload
-    carries the same conditional in ``copied_bearer``.
+    App arm: the mint-revoke wording (M1, restated), unchanged — line 1 holds
+    the CONDITIONAL inside it, line 2 says which branch actually happened. The
+    token arms say the plainer truth: this device minted nothing, there is no
+    DELETE to run, and the end at the forge is where the operator goes. ``""``
+    (no source configured at revoke time) gets the neutral pair.
     """
-    if revoked_now is None:
-        delivered = (
-            "no immediate DELETE could be delivered (this device's relay is not "
-            "running): the token dies at GitHub at its own 60-minute ceiling unless "
-            "the borrowing device's window-end self-revoke lands first"
+    from local_operator.network.credentials import github as github_mod
+
+    if source == github_mod.SOURCE_APP:
+        if revoked_now is None:
+            delivered = (
+                "no immediate DELETE could be delivered (this device's relay is not "
+                "running): the token dies at GitHub at its own 60-minute ceiling unless "
+                "the borrowing device's window-end self-revoke lands first"
+            )
+        else:
+            delivered = (
+                f"the immediate DELETE ran: {revoked_now} outstanding token(s) revoked at "
+                "GitHub just now (a retry closes anything the call missed; the window-end "
+                "revoke still stands)"
+            )
+        return [
+            (
+                f"new borrows by {name}: refused now; the outstanding GitHub token is "
+                "revoked at GitHub at its window end, and on this revoke's DELETE when it "
+                "can be delivered — via `DELETE /installation/token` (204; idempotent)"
+            ),
+            delivered,
+        ]
+    if source in (github_mod.SOURCE_TOKEN, github_mod.SOURCE_GH):
+        served = (
+            "the GITHUB_TOKEN-class PAT this device served"
+            if source == github_mod.SOURCE_TOKEN
+            else "the gh CLI login this device served"
         )
-    else:
-        delivered = (
-            f"the immediate DELETE ran: {revoked_now} outstanding token(s) revoked at "
-            "GitHub just now (a retry closes anything the call missed; the window-end "
-            "revoke still stands)"
+        end = (
+            "revoke the PAT at GitHub (Settings -> Developer settings -> Personal " "access tokens)"
+            if source == github_mod.SOURCE_TOKEN
+            else "sign out of the gh CLI on the owner, or revoke the token at GitHub "
+            "(Settings -> Applications)"
         )
+        return [
+            (
+                f"new borrows by {name}: refused now; {served} was not minted here, so "
+                "there is no window-end DELETE and nothing for this device to revoke — a "
+                f"grant already lent is dropped by {name} at its own window end"
+            ),
+            (
+                f"to end the token itself now, {end}; it keeps working at GitHub until "
+                "you do or it expires"
+            ),
+        ]
+    if source == github_mod.SOURCE_UNREADABLE:
+        return [
+            (
+                f"new borrows by {name}: refused now; this device's secret store could "
+                "not be read, so the serving arm could not be determined"
+            ),
+            (
+                f"a token already lent is dropped by {name} at its window end; repair "
+                "the store here and re-run the revoke for the per-arm receipt"
+            ),
+        ]
     return [
         (
-            f"new borrows by {name}: refused now; the outstanding GitHub token is "
-            "revoked at GitHub at its window end, and on this revoke's DELETE when it "
-            "can be delivered — via `DELETE /installation/token` (204; idempotent)"
+            f"new borrows by {name}: refused now; no GitHub source is configured on "
+            "this device any more, so nothing new can be served"
         ),
-        delivered,
+        (
+            "a token copied out of that device lives at GitHub until it expires or is "
+            "revoked there"
+        ),
     ]
 
 
-def _github_share_disclosure(name: str) -> str:
-    """T7(b), MANDATED: what device scoping MEANS, in one line on the receipt.
+def _github_share_disclosure(name: str, source: str) -> str:
+    """T7(b) + §3.4, MANDATED: what device scoping MEANS, in one line on the receipt.
 
     The share receipt carries this at share time (the network guide carries it
     once): while the share stands, any process or session on the borrowing
@@ -1779,15 +1913,29 @@ def _github_share_disclosure(name: str) -> str:
     trust unit on a node, not the session id. Nothing in this design claims
     intra-uid separation, and no surface may say the loan is bound to a
     session.
+
+    The token arms add §3.4's narrowing-honesty clause, because only the App is
+    narrowed server-side: the helper bounds lop's own paths to the designated
+    repositories, and the token itself is the owner's login beyond them.
     """
-    return (
+    device = (
         f"note: this loan is authorised by the DEVICE, not a session — while the "
         f"share stands, any process or session on {name} (same user) can use it"
     )
+    from local_operator.network.credentials import github as github_mod
+
+    if source in (github_mod.SOURCE_TOKEN, github_mod.SOURCE_GH):
+        return (
+            device + ". GitHub note: the borrowing device can use this token against any "
+            "repository the git helper is configured to serve, and nothing else "
+            "through lop's own paths; the token itself is your full login, so treat "
+            "a share like a copy of your login"
+        )
+    return device
 
 
 def _github_shareable_row(self_device: str) -> dict[str, Any]:
-    """The GitHub App ledger row: shareable when the secret exists (§D4).
+    """The github ledger row: shareable when a ladder arm resolves (§3.2).
 
     Mirrors the provider rows' shape so ``readiness.shareable_lines`` renders it
     unchanged — holders nested, and the remedy spell the device scope the key
@@ -1866,7 +2014,7 @@ def _cmd_credential(args: argparse.Namespace) -> int:
 
     # THE SHARE SCOPE'S PER-KIND DEFAULT (github adapter, F3). An operator typing
     # the bare verb gets the scope the key can actually honour: 'session' where a
-    # session bound means something, 'device' for the GitHub App credential. The
+    # session bound means something, 'device' for the github credential. The
     # document refuses session scope for that key by NAME, so an explicitly
     # typed `--scope session` still reaches the refusal instead of being
     # silently overridden here.
@@ -1931,7 +2079,10 @@ def _cmd_credential(args: argparse.Namespace) -> int:
         f"broker_credential on {name}: {capability or 'unchanged'}",
     ]
     if verb == "share" and github_mod.is_github_key(key):
-        lines.append(_github_share_disclosure(name))
+        # The disclosure names the ARM that will serve (§3.4): only the App is
+        # narrowed server-side, and the share receipt must not promise narrowing
+        # a token arm cannot deliver.
+        lines.append(_github_share_disclosure(name, github_mod.resolve_source(_config_dir())))
     if verb == "revoke":
         # THE TRUE REVOCATION LATENCY, said where the operator acts (QA round 1, Q5;
         # design §3.7). A revoke stops NEW grants at once, but no provider offers a
@@ -1974,8 +2125,11 @@ def _cmd_credential(args: argparse.Namespace) -> int:
             # window end + on this revoke; the 60-minute figure is the fallback).
             # Both halves live in helpers so the copy has ONE home (the tests
             # assert against the same strings the receipt prints).
-            payload["revocation"] = _github_revocation_payload(revoked_now, ttl_s)
-            lines.extend(_github_revoke_lines(name, revoked_now))
+            # PER-SOURCE (§3.3): resolved at THIS moment — the receipt describes
+            # the arm that serves now, and says plainly when nothing does.
+            source = github_mod.resolve_source(_config_dir())
+            payload["revocation"] = _github_revocation_payload(revoked_now, ttl_s, source)
+            lines.extend(_github_revoke_lines(name, revoked_now, source))
             return _emit(args, payload, lines)
         copied = (
             "valid at the provider until the key is rotated there (a static key never expires)"
@@ -2027,20 +2181,23 @@ def _require_local_credential(key: str, provider: str) -> None:
     from local_operator.network.credentials import github as github_mod
 
     if github_mod.is_github_key(key):
-        # THE INTERIM STATE, IN THE READER'S TERMS (desk call, 2026-10-03): the
-        # GitHub adapter is present and its mint is real, but an App has not been
-        # created, so a share today has nothing to lend — and that is what this
-        # sentence says, followed by the one-time setup remedy. Not "implemented",
-        # not "blocked": push and PR-write through the mesh are unavailable until
-        # the App exists, everything else already works.
-        raise MeshRefusal(
-            "no_local_credential",
-            "this device has no GitHub App credential yet, so there is nothing to "
-            "share: push and PR-write through the mesh are unavailable until a "
-            "GitHub App is configured here (a short one-time setup — the network "
-            "guide has the checklist). Public clones and non-GitHub work are "
-            "unaffected.",
-        )
+        # THE LADDER IS THE HOLD CHECK (§3.2): an App, a GITHUB_TOKEN-class
+        # secret, or the gh CLI's own login — any arm is something to lend, and
+        # this is the SAME one order the lender serves with. An UNREADABLE store
+        # refuses by name rather than reading as empty (M1): a share must not
+        # promise a device that cannot resolve its own ladder.
+        source = github_mod.resolve_source(_config_dir())
+        if source == github_mod.SOURCE_UNREADABLE:
+            raise MeshRefusal(
+                github_mod.CODE_STORE_UNREADABLE,
+                "this device's encrypted secret store could not be read, so the GitHub "
+                "source ladder cannot be resolved and nothing can be shared from here "
+                "until it is repaired — no wider source is substituted while it is "
+                "unreadable (the network guide has the ladder).",
+            )
+        if source:
+            return
+        raise MeshRefusal("no_local_credential", github_mod.no_source_message())
     if is_mcp_key(key):
         url = mcp_url_from_key(key)
         raise MeshRefusal(
@@ -4535,6 +4692,18 @@ PILOT_REPLY_TIMEOUT_S = 60.0
 #: lookup, the teardown), which is why the rungs' sum is not by itself a bound.
 PILOT_ACT_TIMEOUT_S = 2 * PILOT_BIND_TIMEOUT_S + max(PILOT_TURN_TIMEOUT_S, PILOT_REPLY_TIMEOUT_S)
 
+#: THE WORST CASE ONE ``--peek`` CAN OCCUPY, derived the same way the driving
+#: act's bound is (one bind budget for the OPEN, one for the BIND), with the
+#: READ rung in place of the turn — because a peek reaches neither a SPAWN nor a
+#: TURN: it gates stored sessions out BEFORE the viewer exists (design §8.3: a
+#: read never starts a runtime on a device nobody is watching), so the spawn
+#: half of the family's 540 s cannot happen, and it asks for no work, so the
+#: unbounded-turn rung cannot either. 2 x 120 + 60 = 300, and it must stay
+#: below the TUI's child budget (``tui/network_cli.PILOT_CALL_TIMEOUT_S``, 600)
+#: so a composer shows this verb's answer rather than a timeout about a call
+#: that was working.
+PILOT_PEEK_TIMEOUT_S = 2 * PILOT_BIND_TIMEOUT_S + PILOT_REPLY_TIMEOUT_S
+
 #: The ``style`` values a ``SlashResult`` may carry (``session/frontend_state``:
 #: ``info``/``warning``/``error``, the three the owner's own renders use). A
 #: receipt outside this set is one this build cannot read an outcome from, which
@@ -4542,6 +4711,14 @@ PILOT_ACT_TIMEOUT_S = 2 * PILOT_BIND_TIMEOUT_S + max(PILOT_TURN_TIMEOUT_S, PILOT
 #: NIT-6): the old test was ``style != "error"``, and a MISSING style is not
 #: ``error``, so an unreadable receipt read as success.
 _SLASH_STYLES = ("info", "warning", "error")
+
+#: Steps a ``--peek`` window shows when the caller names no count: the sessions
+#: tool's own default (``tools/builtin._PEEK_DEFAULT_STEPS``), so the CLI and
+#: the tool answer "how much is one peek" with one number. Its ceiling is NOT
+#: copied here — ``--steps`` is bounded against ``comms.PEEK_MAX_STEPS`` (50),
+#: the same constant ``hub``'s peek and the sessions tool refuse with, read at
+#: the one place the value is accepted.
+_PEEK_DEFAULT_STEPS = 12
 
 
 def _pilot_text(args: argparse.Namespace) -> str:
@@ -4676,6 +4853,100 @@ def _pilot_unresolved(session_id: str, peer: str) -> tuple[str, str]:
     )
 
 
+def _pilot_ambiguous_sentence(peer: str, target: str, candidates: tuple[Any, ...]) -> str:
+    """The refusal an AMBIGUOUS target deserves: the rows to pick between, named.
+
+    A name that matches two conversations is not a target a verb may guess
+    between — the wrong-recipient hazard the local resolver's exact tier exists
+    for (``mobile/peer_send``) — so the refusal carries every candidate with the
+    id each one is RETYPEABLE as, in the shape the family's listings already
+    print. The candidate order is the selector's own (EXACT-tier ambiguities
+    ordered by the field that matched, then by input order; substring
+    ambiguities keep input order), so the same mesh state reads the same way
+    twice.
+    """
+    lines = [f"{peer} holds {len(candidates)} sessions matching {target!r} — name one by its id:"]
+    lines.extend(f"  {row.id}  {row.name}" for row in candidates)
+    return "\n".join(lines)
+
+
+def _stored_peek_sentence(session_id: str, peer: str) -> str:
+    """The one-line route out of a cold ``--peek`` (design §8.3, locked).
+
+    THE SENTENCE IS THE ROUTE: an agent (or a script) reading this refusal must
+    be able to make its NEXT call without a second question, so it names the
+    exact command that warms the session — and the agent-side spelling of the
+    same act — rather than saying "it is not running" and stopping.
+    """
+    return (
+        f"{session_id} is stored on {peer}, so there is nothing running to read — a peek "
+        f"never starts a runtime there. Warm it first: `lop network sessions --peer {peer} "
+        f"--engage {session_id}` (an agent resumes with `sessions` op='resume'), then peek."
+    )
+
+
+def _resolve_act_target(
+    target: str, peer: str, config_dir: Path
+) -> tuple[Any | None, tuple[Any, ...]]:
+    """The session plane's ONE id-or-name read, shared by every verb with a target.
+
+    TWO TIERS, in the order of the local resolver's own evidence:
+
+    * the exact ID first, through ``remote_row_for`` — cache-first, and ONE
+      catalogue read when the cache misses — so an id behaves exactly as it
+      always has: it resolves to the device that HOLDS it, and a ``--peer``
+      that disagrees is reported beside the real one rather than silently
+      obeyed (the Q1 correction);
+    * then, only when no id matched, the pure selector
+      (``peer_rows.select_peer_session``) over the rows THIS ``--peer``
+      reported — "reach the session called <name> on that device". A name is
+      answerable at all only because of this read: the peer's own ops take
+      session ids, and no wire op has ever taken a name.
+
+    Returns ``(row, ())`` resolved, ``(None, candidates)`` ambiguous, and
+    ``(None, ())`` for a miss — the third state the callers render through the
+    family's own unresolved taxonomy (``_pilot_unresolved``).
+    """
+    from local_operator.session.remote_open import remote_row_for
+
+    row = remote_row_for(target, config_dir)
+    if row is not None:
+        return row, ()
+    from local_operator.session import peer_rows as peer_rows_mod
+
+    rows = [
+        candidate
+        for candidate in peer_rows_mod.peer_session_rows(config_dir)
+        if str(candidate.owner_device or "") == peer
+        or str(candidate.owner_device_name or "") == peer
+    ]
+    return peer_rows_mod.select_peer_session(target, rows)
+
+
+def _translate_act_target(target: str, peer: str) -> str:
+    """A ``--stop``/``--engage`` target: the id a name means, or the word itself.
+
+    THESE TWO VERBS ACT AT THE PEER, unlike the pilot acts: this side carries
+    the request and renders the owner's own ladder verbatim, so a target the
+    mesh cannot resolve PASSES THROUGH unchanged — an id can be missing from a
+    cache that is seconds old, and it is the peer that answers for what it
+    holds (§9.2: the fresh-created window is the mesh lane's to close, not this
+    side's to encode). The one state that must NOT pass through is an
+    AMBIGUOUS name, where the typed word means several sessions: acting on a
+    guess is the wrong-recipient class this family refuses, so it refuses in
+    the family's own vocabulary, listing the candidates.
+    """
+    from local_operator.network.types import MeshRefusal
+    from local_operator.paths import config_dir
+
+    row, candidates = _resolve_act_target(target, peer, Path(config_dir()))
+    if candidates:
+        raise MeshRefusal("session_ambiguous", _pilot_ambiguous_sentence(peer, target, candidates))
+    if row is not None:
+        return str(getattr(row, "id", "") or target)
+    return target
+
+
 def _pilot_dial_refusal(
     session_id: str, peer: str, message: str, config_dir: Path
 ) -> tuple[str, str]:
@@ -4712,7 +4983,7 @@ def _pilot_dial_refusal(
 
 
 def _cmd_pilot(args: argparse.Namespace, *, verb: str, session_id: str) -> int:
-    """``--send``/``--steer``/``--slash``: one act on a session that is not here.
+    """``--send``/``--steer``/``--slash``/``--peek``: one act on a session that is not here.
 
     WHY THIS DOES NOT GO THROUGH ``_relay_answer``. Every other verb in this file
     is a request to THIS device's relay, and the session plane has a local op for
@@ -4741,8 +5012,11 @@ def _cmd_pilot(args: argparse.Namespace, *, verb: str, session_id: str) -> int:
             f"--{verb} needs --peer: a conversation lives on one device, and only that "
             "device's runtime can run a turn inside it",
         )
-    text = _pilot_text(args)
-    if not text:
+    # ``--peek`` DELIVERS NOTHING, so it reads stdin for nothing: skipping
+    # ``_pilot_text`` here is load-bearing, because that helper would otherwise
+    # BLOCK on a piped stdin for a payload this verb has no use for.
+    text = "" if verb == "peek" else _pilot_text(args)
+    if verb != "peek" and not text:
         print(
             f"--{verb} needs some text — pass it after the session id, or pipe it in",
             file=sys.stderr,
@@ -4754,9 +5028,19 @@ def _cmd_pilot(args: argparse.Namespace, *, verb: str, session_id: str) -> int:
             file=sys.stderr,
         )
         return 2
+    steps = getattr(args, "steps", None)
+    # The RANGE was validated where the flag was read (``_cmd_sessions``); this
+    # is only the default, for every verb — the driving acts merely ignore it.
+    steps = _PEEK_DEFAULT_STEPS if steps is None else int(steps)
 
     from local_operator.paths import config_dir
 
+    # ONE BOUND FOR THE WHOLE ACT, per verb: the driving acts pay for a spawn
+    # and an unbounded turn (``PILOT_ACT_TIMEOUT_S``), while ``--peek`` can
+    # reach neither — it never engages a stored session (§8.3) and asks for no
+    # work — so its bound is the same derivation with the REPLY rung in place
+    # of the turn (see ``PILOT_PEEK_TIMEOUT_S``).
+    bound = PILOT_PEEK_TIMEOUT_S if verb == "peek" else PILOT_ACT_TIMEOUT_S
     try:
         payload, lines = asyncio.run(
             asyncio.wait_for(
@@ -4766,19 +5050,20 @@ def _cmd_pilot(args: argparse.Namespace, *, verb: str, session_id: str) -> int:
                     peer=peer,
                     text=text,
                     config_dir=Path(config_dir()),
+                    steps=int(steps),
                 ),
                 # ONE bound around the whole act, at the number its parts add up
-                # to (``PILOT_ACT_TIMEOUT_S``) — the sum of the rungs alone is not
-                # a bound on the act, because the row lookup and the teardown have
-                # no rung of their own.
-                timeout=PILOT_ACT_TIMEOUT_S,
+                # to — the sum of the rungs alone is not a bound on the act,
+                # because the row lookup and the teardown have no rung of their
+                # own.
+                timeout=bound,
             )
         )
     except TimeoutError as exc:
         raise MeshRefusal(
             "session_unreachable",
             f"{peer} did not finish this act on {session_id} within "
-            f"{PILOT_ACT_TIMEOUT_S:.0f}s — the worst case this verb budgets for; "
+            f"{bound:.0f}s — the worst case this verb budgets for; "
             f"`lop network doctor --peer {peer}` diagnoses the link",
         ) from exc
     return _emit(args, payload, lines)
@@ -4791,29 +5076,50 @@ async def _pilot_act(
     peer: str,
     text: str,
     config_dir: Path,
+    steps: int = _PEEK_DEFAULT_STEPS,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Open ``session_id`` on the peer as its viewer, perform ONE act, report it."""
+    """Open the target on the peer as its viewer, perform ONE act, report it.
+
+    THE TARGET IS AN ID OR A NAME (``_resolve_act_target``): everything below
+    the resolution works on the RESOLVED id, so a name is one spelling of an
+    address rather than a second kind of session.
+    """
     from local_operator.network.types import MeshRefusal
     from local_operator.session.remote_open import (
         open_remote_viewer,
-        remote_row_for,
         unreachable_peer_sentence,
     )
 
-    # The reachability read is CACHE-FIRST and answers ``None`` with no dial when
-    # this device holds the id itself, so the local path pays nothing for it —
-    # the same property the TUI's guard and the shell's ``--resume`` rely on.
-    row = await asyncio.to_thread(remote_row_for, session_id, config_dir)
+    # WHO THE TARGET IS comes from ONE read with two tiers: the exact id
+    # (cache-first and dial-free for a local session, the property the TUI's
+    # guard and the shell's ``--resume`` rely on), then the id-or-name selector
+    # over this peer's rows.
+    row, candidates = await asyncio.to_thread(_resolve_act_target, session_id, peer, config_dir)
+    if candidates:
+        raise MeshRefusal(
+            "session_ambiguous", _pilot_ambiguous_sentence(peer, session_id, candidates)
+        )
     if row is None:
         # WHICH refusal this is depends on facts this side has not read yet, and
         # the three of them need three different next steps — see
         # ``_pilot_unresolved``. Read on the failure path only.
         code, sentence = await asyncio.to_thread(_pilot_unresolved, session_id, peer)
         raise MeshRefusal(code, sentence)
+    # FROM HERE THE RESOLVED ID IS THE ADDRESS: a name was one spelling of it,
+    # and every sentence and receipt below names the session's own id, so two
+    # callers who addressed one conversation two ways read back one answer.
+    session_id = str(getattr(row, "id", "") or session_id)
     if not row.reachable:
         # The peer's name, the reason in words and the diagnosing command, all
         # composed in the one place that owns "a peer row becomes a viewer".
         raise MeshRefusal("peer_unreachable", unreachable_peer_sentence(session_id, row))
+    if verb == "peek" and not str(getattr(row, "live_state", "") or ""):
+        # THE LIVE-ONLY GATE (design §8.3, locked 2026-10-06): the row state is
+        # read BEFORE the viewer exists, so a stored session refuses HERE —
+        # never opened, never bound, never warmed. A read must not start a
+        # runtime on a device nobody is watching, and the sentence names the
+        # exact call that does warm it (an agent's next action IS the resume).
+        raise MeshRefusal("session_stored", _stored_peek_sentence(session_id, peer))
 
     # THE DEVICE THE WORK HAPPENS ON, from the row and never from the string typed.
     # ``--peer`` names where a conversation lives, but it is not what ROUTES this
@@ -4904,7 +5210,13 @@ async def _pilot_act(
                 _pilot_dial_refusal, session_id, peer, str(exc), config_dir
             )
             raise MeshRefusal(code, sentence) from exc
-        if verb == "send":
+        if verb == "peek":
+            # A READ, NOT AN ACT: no text, no write, and nothing is left behind
+            # on the peer. It rides the same bound viewer and bind as the
+            # driving acts, because the rows come from the same synced display
+            # window an attached terminal paints.
+            payload, lines = await _pilot_peek(viewer, session_id, device, steps)
+        elif verb == "send":
             payload, lines = await _pilot_send(viewer, session_id, device, text)
         elif verb == "steer":
             payload, lines = await _pilot_steer(viewer, session_id, device, text)
@@ -5121,6 +5433,85 @@ async def _pilot_slash(
     return payload, [f"{session_id} on {peer}: /{command} — {said or 'no receipt'}"]
 
 
+async def _pilot_peek(
+    viewer: Any,
+    session_id: str,
+    peer: str,
+    steps: int,
+) -> tuple[dict[str, Any], list[str]]:
+    """``--peek``: the newest ``steps`` rows of the conversation's synced history.
+
+    A TAIL WINDOW, NOT A REPLAY. The rows come from the viewer's OWN synced
+    display history (``display_history_window``) — the same canonical window
+    ``_pilot_last_reply`` reads after a ``--send``, and the same rows an
+    attached terminal is painting — so this shows what that conversation
+    currently looks like from here, bounded to the window the owner already
+    served. Paging OLDER than that window (``history_page``'s signed cursors)
+    is not this verb's v1: a tail is what the acceptance asks for, and each
+    page is an owner round trip per step count.
+
+    WHY THE ROWS ARE FILTERED TO NON-EMPTY TEXT: the window carries the
+    bookkeeping rows the owner journals (checkpoints, todo snapshots) that
+    render as nothing, and a "last 12" that spent half its budget on blank
+    rows would be a window that lies about how much it shows. The filter is
+    the display-side sibling of the local peek's ``_peek_message_entries``
+    rule ("only rows that render become steps").
+
+    READ-ONLY: nothing is written to the peer, no text is delivered, and each
+    row's body is clipped (head AND tail, ``comms._clip``'s own budget) so
+    ``--steps 50`` of dense turns cannot push an unbounded payload into a
+    caller's context.
+    """
+    from local_operator.harness.comms import _clip
+    from local_operator.network.types import MeshRefusal
+
+    try:
+        rows = list(viewer.display_history_window())
+    except Exception as exc:  # noqa: BLE001 — a read that fails is a refusal
+        raise MeshRefusal(
+            "session_unreachable",
+            f"{peer} did not serve {session_id}'s history ({exc}); nothing was changed "
+            "on that device",
+        ) from exc
+    readable = [row for row in rows if str(getattr(row, "text", "") or "").strip()]
+    shown = readable[-steps:]
+    payload: dict[str, Any] = {
+        "ok": True,
+        "session_id": session_id,
+        "peer": peer,
+        "verb": "peek",
+        "steps": len(shown),
+        "rows": [
+            {
+                "role": str(getattr(row, "role", "") or ""),
+                "text": _clip(str(getattr(row, "text", "") or "")),
+            }
+            for row in shown
+        ],
+        # WHETHER THIS IS THE WHOLE CONVERSATION, SAID HONESTLY: true when the
+        # window holds more than the slice shows. It says nothing about rows
+        # older than the window itself — those were never loaded here, and a
+        # claim about them would be a claim this side cannot support.
+        "has_older": len(readable) > len(shown),
+    }
+    if not shown:
+        return payload, [
+            f"{session_id} on {peer}: the viewer holds no steps with text yet — "
+            "nothing has been shown on that device's display"
+        ]
+    lines = [
+        f"{session_id} on {peer} — the newest {len(shown)} step(s)"
+        + (" (older steps are loaded here too)" if payload["has_older"] else "")
+        + ":"
+    ]
+    for index, row in enumerate(shown, start=1):
+        lines.append(
+            f"{index}. {str(getattr(row, 'role', '') or '?')}: "
+            f"{_clip(str(getattr(row, 'text', '') or ''))}"
+        )
+    return payload, lines
+
+
 #: The dests of the flags that only describe a session being CREATED (each one's
 #: own help opens with "with --create:"). With a pilot act they can neither apply
 #: nor be ignored silently: they are ACCEPTED and then dropped, and the words a user
@@ -5189,20 +5580,39 @@ def _cmd_sessions(args: argparse.Namespace) -> int:
         print("--force applies to --stop only", file=sys.stderr)
         return 2
 
+    # ``--steps`` IS THE SAME CLASS as ``--force`` above: it means one thing —
+    # how much of a ``--peek`` window to show — so a caller who passes it beside
+    # anything else (or alone) has asked for a read this command is not
+    # performing. Its range is checked against ``comms.PEEK_MAX_STEPS`` — the
+    # SAME ceiling ``hub``'s peek and the sessions tool refuse with — read here
+    # rather than copied, so the surfaces cannot come to disagree about "too
+    # many".
+    peek = str(getattr(args, "peek", "") or "")
+    steps = getattr(args, "steps", None)
+    if steps is not None and not peek:
+        print("--steps applies to --peek only", file=sys.stderr)
+        return 2
+    if peek and steps is not None:
+        from local_operator.harness.comms import PEEK_MAX_STEPS
+
+        if not 1 <= steps <= PEEK_MAX_STEPS:
+            print(f"--steps takes 1..{PEEK_MAX_STEPS} (asked for {steps})", file=sys.stderr)
+            return 2
+
     # THE PILOT ACTS ARE DECIDED FIRST, and that ordering is the point: they are
     # the only verbs here that open a VIEWER, and a command line that asked for
     # one of them AND an archive/stop would run one act while silently dropping
     # the other — the class of untruth ``--force`` above is refused for.
     pilot = [
         (name, str(getattr(args, name, "") or ""))
-        for name in ("send", "steer", "slash")
+        for name in ("send", "steer", "slash", "peek")
         if str(getattr(args, name, "") or "")
     ]
     if pilot:
         if len(pilot) > 1:
             print(
-                "name one of --send/--steer/--slash: each is one act on one session, and "
-                "they are not a pipeline",
+                "name one of --send/--steer/--slash/--peek: each is one act on one session, "
+                "and they are not a pipeline",
                 file=sys.stderr,
             )
             return 2
@@ -5235,6 +5645,15 @@ def _cmd_sessions(args: argparse.Namespace) -> int:
                 f"--{verb} acts on one that already exists: it would be accepted and then "
                 "dropped. If you meant those words as text, separate the text with `--` "
                 f"(`--{verb} <session> -- <text>`)",
+                file=sys.stderr,
+            )
+            return 2
+        if verb == "peek" and _pilot_text_from_args(args):
+            # ``--peek`` READS; any positional would be accepted and dropped,
+            # which is the untruth this family refuses everywhere else.
+            print(
+                "--peek reads a conversation and takes no text: "
+                "`--peek <session> [--steps N]` is the whole form",
                 file=sys.stderr,
             )
             return 2
@@ -5277,6 +5696,15 @@ def _cmd_sessions(args: argparse.Namespace) -> int:
     if session_id:
         if not peer:
             raise MeshRefusal("peer_required", "--stop needs --peer: a session lives on one device")
+        # THE TARGET IS AN ID OR A NAME (design §3B). A name is translated
+        # through the same read the pilot acts use; a target the mesh cannot
+        # resolve PASSES THROUGH — the peer runs its own ladder and answers for
+        # what IT holds, and a cache seconds old must not become this side's
+        # verdict about a session it cannot see (§9.2). The one state that may
+        # NOT pass through is an AMBIGUOUS name: acting on a guess between two
+        # conversations is the wrong-recipient class this family refuses
+        # everywhere.
+        session_id = _translate_act_target(session_id, peer)
         # A LONG budget on purpose: the peer runs its OWN ladder, whose SIGTERM
         # rung waits out a drain only the owning machine can bound, and a CLI
         # that gave up at 5 s would report "nothing happened" about a stop that
@@ -5313,6 +5741,9 @@ def _cmd_sessions(args: argparse.Namespace) -> int:
             raise MeshRefusal(
                 "peer_required", "--engage needs --peer: a session lives on one device"
             )
+        # The id-or-name translation, exactly as ``--stop`` above it (one
+        # spelling, one refusal for ambiguity, pass-through for a miss).
+        engage = _translate_act_target(engage, peer)
         detail = _relay_answer(
             "peer_session_engage",
             peer=peer,
@@ -6673,6 +7104,7 @@ def _doctor_locally(args: argparse.Namespace) -> dict[str, Any]:
     from local_operator.network import store
     from local_operator.network.audit import AuditLog
     from local_operator.network.credentials.repair import repair_checks
+    from local_operator.network.credentials.sync import sync_checks
     from local_operator.network.identity import identity_path
     from local_operator.network.relay import membership_state
 
@@ -6719,6 +7151,11 @@ def _doctor_locally(args: argparse.Namespace) -> dict[str, Any]:
         # the owner of a dead login is exactly the device that needs the notice when
         # nothing else answers it (``credentials/repair.py`` owns the derivation).
         checks.extend(repair_checks(record, log=repair_log))
+        # THE SYNC SEGMENTS (S3), beside the repair rows and for the same reason:
+        # derived from the ledger document, so with the relay down the owner still
+        # sees which holders have not confirmed the current generation. Read-only
+        # and never dialling — a doctor run must not move the state it reports.
+        checks.extend(sync_checks(record))
         for member in record.active_members():
             if member.device_id == record.self_device_id:
                 continue
@@ -7129,6 +7566,16 @@ def _approval_lines(record: Mapping[str, Any]) -> list[str]:
     ]
     if scopes:
         lines.append(f"  {'what':<{_CARD_LABEL_WIDTH}}: " + ", ".join(scopes))
+    if record.get("kind") == "device_onboard":
+        # WHAT APPROVAL DOES, named where the decision is taken (§1.4/§9.2's
+        # copy half): the approve gesture IS the provisioning transaction's
+        # authorisation now, and the operator reads that here rather than
+        # meeting it first in the run's receipts. One line, no counts — the
+        # per-key list lives on `network credentials` and in the run itself.
+        lines.append(
+            f"  {'provision':<{_CARD_LABEL_WIDTH}}: definitions, MCP servers, "
+            "git identity, and this device's logins"
+        )
     expires = record.get("expires_at")
     decided = record.get("decided_at")
     if state == "withdrawn" and isinstance(decided, (int, float)) and decided:

@@ -1,15 +1,59 @@
 import json
 import os
+import pickle
+import shutil
 from pathlib import Path
+from unittest import mock
+
+import pytest
 
 from sqruff.templaters.dbt_templater import (
+    DbtTemplater,
+    _get_dbt_config_value,
     _get_or_create_templater,
     _templater_cache,
     clear_templater_cache,
+    handle_dbt_errors,
+    is_dbt_exception,
     process_batch_from_rust,
     process_from_rust,
 )
-from sqruff.templaters.python_templater import FluffConfig
+from sqruff.templaters.python_templater import (
+    FluffConfig,
+    SQLFluffSkipFile,
+    SQLTemplaterError,
+)
+
+
+class DbtCompilationError(Exception):
+    """Stand-in for dbt's non-pickleable exception hierarchy."""
+
+
+DbtCompilationError.__module__ = "dbt.exceptions"
+
+
+class DbtFailedToConnectError(Exception):
+    """Stand-in for dbt's fatal connection exception."""
+
+
+DbtFailedToConnectError.__module__ = "dbt.adapters.exceptions"
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    ["PROFILES_DIR", "PROJECT_DIR", "PROFILE", "TARGET", "TARGET_PATH"],
+)
+def test_dbt_config_precedence(suffix, monkeypatch):
+    """Explicit sqruff config wins over dbt engine and legacy env vars."""
+    monkeypatch.delenv(f"DBT_ENGINE_{suffix}", raising=False)
+    monkeypatch.delenv(f"DBT_{suffix}", raising=False)
+    assert _get_dbt_config_value(None, suffix, "default") == "default"
+
+    monkeypatch.setenv(f"DBT_{suffix}", "legacy")
+    assert _get_dbt_config_value(None, suffix) == "legacy"
+    monkeypatch.setenv(f"DBT_ENGINE_{suffix}", "engine")
+    assert _get_dbt_config_value(None, suffix) == "engine"
+    assert _get_dbt_config_value("configured", suffix) == "configured"
 
 
 def test_dbt():
@@ -45,6 +89,7 @@ from source_data
                 jinja_apply_dbt_builtins=True,
                 jinja_library_paths=None,
                 jinja_templater_paths=None,
+                jinja_exclude_macros_from_path=None,
                 jinja_loader_search_path=None,
                 jinja_ignore_templating=None,
                 dbt_target=None,
@@ -64,6 +109,295 @@ from source_data
     assert len(templated_file.raw_sliced) > 1
 
 
+@pytest.mark.parametrize(
+    ("dbt_skip_compilation_error", "exception_class", "exception_msg"),
+    [
+        (
+            True,
+            SQLFluffSkipFile,
+            "because dbt raised a fatal exception during compilation",
+        ),
+        (False, SQLTemplaterError, "Runtime Error"),
+    ],
+)
+def test_dbt_compile_failure_reports_reason(
+    tmp_path, dbt_skip_compilation_error, exception_class, exception_msg
+):
+    """Include the triggering dbt error when a model fails to compile."""
+    if "PROJECT_ROOT" in os.environ:
+        project_root = Path(os.environ["PROJECT_ROOT"])
+        source_project = project_root / "crates/cli-python/tests/dbt_sample"
+    else:
+        current = Path(os.path.dirname(os.path.abspath(__file__)))
+        source_project = current.joinpath("../../../tests/dbt_sample")
+
+    project = tmp_path / "dbt_sample"
+    shutil.copytree(
+        source_project,
+        project,
+        ignore=shutil.ignore_patterns("target", "logs", "*.duckdb"),
+    )
+    source_model = project / "error_models/compile_missing_table.sql"
+    target_model = project / "models/compile_missing_table.sql"
+    shutil.copyfile(source_model, target_model)
+
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=str(project),
+        dbt_profiles_dir=str(project / "profiles"),
+        dbt_skip_compilation_error=dbt_skip_compilation_error,
+    )
+
+    clear_templater_cache()
+    with pytest.raises(exception_class, match=exception_msg):
+        process_from_rust(
+            target_model.read_text(),
+            str(target_model.resolve()),
+            json.dumps(config._asdict()),
+            {},
+        )
+    clear_templater_cache()
+
+
+def test_target_and_target_path_from_env(monkeypatch):
+    """Use dbt environment defaults unless sqruff config explicitly sets them."""
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+        dbt_profiles_dir=None,
+    )
+    templater = DbtTemplater(sqlfluff_config=config)
+    monkeypatch.delenv("DBT_TARGET", raising=False)
+    monkeypatch.delenv("DBT_TARGET_PATH", raising=False)
+    assert templater._get_target() is None
+    assert templater._get_target_path() is None
+
+    monkeypatch.setenv("DBT_TARGET", "dev")
+    monkeypatch.setenv("DBT_TARGET_PATH", "custom_target")
+    assert templater._get_target() == "dev"
+    assert templater._get_target_path() == "custom_target"
+
+    monkeypatch.setenv("DBT_ENGINE_TARGET", "engine_target")
+    monkeypatch.setenv("DBT_ENGINE_TARGET_PATH", "engine_path")
+    assert templater._get_target() == "engine_target"
+    assert templater._get_target_path() == "engine_path"
+
+    templater.config = config._replace(
+        dbt_target="prod", dbt_target_path="configured_target"
+    )
+    assert templater._get_target() == "prod"
+    assert templater._get_target_path() == "configured_target"
+
+    templater.config = config
+    monkeypatch.setenv("DBT_PROFILE", "legacy_profile")
+    assert templater._get_profile() == "legacy_profile"
+    monkeypatch.setenv("DBT_ENGINE_PROFILE", "engine_profile")
+    assert templater._get_profile() == "engine_profile"
+    templater.config = config._replace(dbt_profile="configured_profile")
+    assert templater._get_profile() == "configured_profile"
+
+
+def test_project_dir_from_env(tmp_path, monkeypatch):
+    """Use DBT_PROJECT_DIR when no project directory is configured."""
+    project_dir = tmp_path / "env_project"
+    project_dir.mkdir()
+    explicit_project_dir = tmp_path / "explicit_project"
+    explicit_project_dir.mkdir()
+    monkeypatch.setenv("DBT_PROJECT_DIR", str(project_dir))
+
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+        dbt_profiles_dir=None,
+    )
+
+    templater = DbtTemplater(sqlfluff_config=config)
+    assert templater._get_project_dir() == str(project_dir.resolve())
+
+    clear_templater_cache()
+    assert _get_or_create_templater(config, {}).config == config
+    assert list(_templater_cache) == [str(project_dir.resolve())]
+    clear_templater_cache()
+
+    engine_project_dir = tmp_path / "engine_project"
+    engine_project_dir.mkdir()
+    monkeypatch.setenv("DBT_ENGINE_PROJECT_DIR", str(engine_project_dir))
+    assert templater._get_project_dir() == str(engine_project_dir.resolve())
+    assert _get_or_create_templater(config, {}).config == config
+    assert list(_templater_cache) == [str(engine_project_dir.resolve())]
+    clear_templater_cache()
+
+    templater.config = config._replace(dbt_project_dir=str(explicit_project_dir))
+    assert templater._get_project_dir() == str(explicit_project_dir.resolve())
+
+
+def test_profiles_dir_env_precedence(tmp_path, monkeypatch):
+    """Resolve profiles dir using engine, legacy, then explicit config precedence."""
+    legacy_dir = tmp_path / "legacy_profiles"
+    engine_dir = tmp_path / "engine_profiles"
+    configured_dir = tmp_path / "configured_profiles"
+    for directory in (legacy_dir, engine_dir, configured_dir):
+        directory.mkdir()
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+        dbt_profiles_dir=None,
+    )
+    templater = DbtTemplater(sqlfluff_config=config)
+    monkeypatch.setenv("DBT_PROFILES_DIR", str(legacy_dir))
+    assert templater._get_profiles_dir() == str(legacy_dir.resolve())
+    monkeypatch.setenv("DBT_ENGINE_PROFILES_DIR", str(engine_dir))
+    assert templater._get_profiles_dir() == str(engine_dir.resolve())
+    templater.config = config._replace(dbt_profiles_dir=str(configured_dir))
+    assert templater._get_profiles_dir() == str(configured_dir.resolve())
+
+
+def test_process_passes_project_dir_without_changing_cwd(tmp_path, monkeypatch):
+    """Pass the dbt project root explicitly instead of changing process cwd."""
+    project_dir = tmp_path / "nested" / "dbt_project"
+    profiles_dir = project_dir / "profiles"
+    model = project_dir / "models" / "customers.sql"
+    profiles_dir.mkdir(parents=True)
+    model.parent.mkdir()
+    model.write_text("select 1\n")
+
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=str(project_dir),
+        dbt_profiles_dir=str(profiles_dir),
+    )
+    templater = DbtTemplater(sqlfluff_config=config)
+    captured = {}
+
+    def fake_unsafe_process(fname, in_str, passed_config, dbt_dir):
+        captured.update(
+            fname=fname,
+            in_str=in_str,
+            config=passed_config,
+            dbt_dir=dbt_dir,
+        )
+        return "processed"
+
+    monkeypatch.setattr(templater, "_unsafe_process", fake_unsafe_process)
+    monkeypatch.setattr(
+        os,
+        "chdir",
+        lambda path: pytest.fail(f"process() changed cwd to {path}"),
+    )
+
+    assert (
+        templater.process(
+            fname=str(model),
+            in_str="select 1\n",
+            config=config,
+        )
+        == "processed"
+    )
+    assert captured == {
+        "fname": str(model.resolve()),
+        "in_str": "select 1\n",
+        "config": config,
+        "dbt_dir": str(project_dir.resolve()),
+    }
+
+
+def test_find_node_with_symlinked_local_package(tmp_path):
+    """Find a dbt node through both real and symlinked package paths."""
+    real_package = tmp_path / "packages" / "my_pkg"
+    real_model = real_package / "models" / "my_model.sql"
+    real_model.parent.mkdir(parents=True)
+    real_model.write_text("select 1\n")
+
+    installed_packages = tmp_path / "dbt_packages"
+    installed_packages.mkdir()
+    symlinked_package = installed_packages / "my_pkg"
+    symlinked_package.symlink_to(real_package, target_is_directory=True)
+    symlinked_model = symlinked_package / "models" / "my_model.sql"
+
+    node = mock.Mock(original_file_path="dbt_packages/my_pkg/models/my_model.sql")
+    manifest = mock.Mock()
+    manifest.nodes = {"model.my_pkg.my_model": node}
+    selector = mock.Mock()
+    selector.search.return_value = []
+
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=str(tmp_path),
+        dbt_profiles_dir=None,
+    )
+    templater = DbtTemplater(sqlfluff_config=config)
+    templater.project_dir = str(tmp_path)
+    templater.__dict__["dbt_manifest"] = manifest
+    templater.__dict__["dbt_selector_method"] = selector
+
+    for model_path in (real_model, symlinked_model):
+        found_node, skip_reason = templater._find_node(
+            str(model_path), config, str(tmp_path)
+        )
+        assert found_node is node
+        assert skip_reason is None
+
+
 def test_templater_caching():
     """Test that templater instances are cached per project directory."""
     current = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -79,6 +413,7 @@ def test_templater_caching():
         jinja_apply_dbt_builtins=True,
         jinja_library_paths=None,
         jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
         jinja_loader_search_path=None,
         jinja_ignore_templating=None,
         dbt_target=None,
@@ -118,6 +453,7 @@ def test_batch_processing():
         jinja_apply_dbt_builtins=True,
         jinja_library_paths=None,
         jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
         jinja_loader_search_path=None,
         jinja_ignore_templating=None,
         dbt_target=None,
@@ -194,6 +530,7 @@ def test_batch_processing_preserves_order():
         jinja_apply_dbt_builtins=True,
         jinja_library_paths=None,
         jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
         jinja_loader_search_path=None,
         jinja_ignore_templating=None,
         dbt_target=None,
@@ -231,3 +568,109 @@ def test_batch_processing_preserves_order():
                 f"Result {i} fname mismatch: expected {expected_fname}, "
                 f"got {templated_file.fname}"
             )
+
+
+def test_is_dbt_exception():
+    """Identify dbt exceptions without importing their unstable class names."""
+    assert is_dbt_exception(DbtCompilationError("broken model"))
+    assert not is_dbt_exception(ValueError("not dbt"))
+    assert not is_dbt_exception(None)
+
+
+def test_templater_dbt_threads_default():
+    """An unset thread count lets dbt use the value from profiles.yml."""
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+        dbt_profiles_dir=None,
+    )
+
+    assert DbtTemplater(sqlfluff_config=config)._get_threads() is None
+
+
+def test_templater_dbt_threads_explicit():
+    """An explicit thread count overrides the profiles.yml value."""
+    config = FluffConfig(
+        templater_unwrap_wrapped_queries=False,
+        jinja_apply_dbt_builtins=True,
+        jinja_library_paths=None,
+        jinja_templater_paths=None,
+        jinja_exclude_macros_from_path=None,
+        jinja_loader_search_path=None,
+        jinja_ignore_templating=None,
+        dbt_target=None,
+        dbt_profile=None,
+        dbt_target_path=None,
+        dbt_context=None,
+        dbt_project_dir=None,
+        dbt_profiles_dir=None,
+        dbt_threads=4,
+    )
+
+    assert DbtTemplater(sqlfluff_config=config)._get_threads() == 4
+
+
+@pytest.mark.parametrize("error_class", [Exception, SQLTemplaterError])
+def test_handle_dbt_errors_returns_pickleable_native_exception(error_class):
+    """Replace dbt exceptions with context-free, pickleable native exceptions."""
+
+    @handle_dbt_errors(error_class, "Compilation failed: ")
+    def raise_dbt_exception():
+        raise DbtCompilationError("broken model")
+
+    with pytest.raises(error_class) as excinfo:
+        raise_dbt_exception()
+
+    assert (
+        "Compilation failed: dbt.exceptions.DbtCompilationError: broken model"
+        in str(excinfo.value)
+    )
+    assert excinfo.value.__context__ is None
+    assert excinfo.value.__cause__ is None
+
+    roundtrip_exception = pickle.loads(pickle.dumps(excinfo.value))
+    assert isinstance(roundtrip_exception, type(excinfo.value))
+    assert str(roundtrip_exception) == str(excinfo.value)
+
+
+def test_handle_dbt_errors_strips_dbt_context_from_native_exception():
+    """Strip inherited dbt context and cause before re-raising native errors."""
+
+    @handle_dbt_errors(SQLTemplaterError, "unused")
+    def raise_native_exception():
+        try:
+            raise DbtCompilationError("dbt context")
+        except DbtCompilationError as dbt_error:
+            raise ValueError("native error") from dbt_error
+
+    with pytest.raises(ValueError, match="native error") as excinfo:
+        raise_native_exception()
+
+    assert excinfo.value.__context__ is None
+    assert excinfo.value.__cause__ is None
+
+
+def test_handle_dbt_errors_reports_connection_failure():
+    """Give dbt connection failures the dedicated actionable message."""
+
+    @handle_dbt_errors(SQLTemplaterError, "unused")
+    def raise_connection_exception():
+        raise DbtFailedToConnectError("connection refused")
+
+    with pytest.raises(SQLTemplaterError) as excinfo:
+        raise_connection_exception()
+
+    assert "dbt tried to connect to the database and failed" in str(excinfo.value)
+    assert "dbt.adapters.exceptions.DbtFailedToConnectError" in str(excinfo.value)
+    assert excinfo.value.__context__ is None
+    assert excinfo.value.__cause__ is None

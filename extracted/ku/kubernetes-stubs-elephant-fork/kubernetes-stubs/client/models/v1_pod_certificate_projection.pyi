@@ -10,9 +10,10 @@ class V1PodCertificateProjection:
     key_type: str
     max_expiration_seconds: typing.Optional[int]
     signer_name: str
+    user: typing.Optional[int]
     user_annotations: typing.Optional[dict[str, str]]
     
-    def __init__(self, *, certificate_chain_path: typing.Optional[str] = ..., credential_bundle_path: typing.Optional[str] = ..., key_path: typing.Optional[str] = ..., key_type: str, max_expiration_seconds: typing.Optional[int] = ..., signer_name: str, user_annotations: typing.Optional[dict[str, str]] = ...) -> None:
+    def __init__(self, *, certificate_chain_path: typing.Optional[str] = ..., credential_bundle_path: typing.Optional[str] = ..., key_path: typing.Optional[str] = ..., key_type: str, max_expiration_seconds: typing.Optional[int] = ..., signer_name: str, user: typing.Optional[int] = ..., user_annotations: typing.Optional[dict[str, str]] = ...) -> None:
         ...
     def to_dict(self) -> V1PodCertificateProjectionDict:
         ...
@@ -23,4 +24,5 @@ class V1PodCertificateProjectionDict(typing.TypedDict, total=False):
     keyType: str
     maxExpirationSeconds: typing.Optional[int]
     signerName: str
+    user: typing.Optional[int]
     userAnnotations: typing.Optional[dict[str, str]]

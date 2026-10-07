@@ -50,6 +50,7 @@ from sqlbuild.adapter.contract.models import (
     RelationGrant,
     RelationInfo,
     RelationReadProbe,
+    RelationRowCountEstimate,
     RowDiffColumnResult,
     RowDiffCoverage,
     RowDiffPreparedRelations,
@@ -110,6 +111,18 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         escape_string_prefix=True, nested_block_comments=True
     )
     relation_grants_supported: ClassVar[bool] = False
+
+    def interrupt_connection(self, connection: Any) -> bool:
+        """Cancel a connection's running statement from another thread; False if unsupported."""
+
+        connection.interrupt()
+        return True
+
+    def lists_relations_authoritatively(self, *, database: str | None, schema: str) -> bool:
+        """Return whether ``list_relations`` reports every relation in this scope."""
+
+        del database, schema
+        return True
 
     def supports_zero_copy_clone(self) -> bool:
         return False
@@ -804,6 +817,18 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
             render_qualified_name=self.render_qualified_name,
         )
 
+    def render_create_source_freshness_table_sql(self, *, database: str | None, schema: str) -> str:
+        from sqlbuild.compiler.source_freshness.main.create_table_sql import (
+            build_create_table_sql as build_source_freshness_create_table_sql,
+        )
+
+        return build_source_freshness_create_table_sql(
+            database=database,
+            schema=schema,
+            render_qualified_name=self.render_qualified_name,
+            render_framework_type=self.render_framework_type,
+        )
+
     def render_create_source_freshness_index_sqls(
         self,
         *,
@@ -907,7 +932,6 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
             schema=schema,
             render_qualified_name=self.render_qualified_name,
             render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_create_column_migration_state_table_sql(
@@ -2022,6 +2046,40 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
             start_cursor=start_cursor,
             end_cursor=end_cursor,
         )
+
+    def estimate_relation_row_count(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schema: str | None,
+        name: str,
+    ) -> RelationRowCountEstimate:
+        """Read DuckDB's estimated table size from the catalog."""
+
+        database_filter: str = (
+            "database_name = current_database()"
+            if database is None
+            else f"lower(database_name) = lower({_duckdb_string_literal(database)})"
+        )
+        schema_filter: str = (
+            "schema_name = current_schema()"
+            if schema is None
+            else f"lower(schema_name) = lower({_duckdb_string_literal(schema)})"
+        )
+        row: tuple[Any, ...] | None = self.execute(
+            connection=connection,
+            sql=(
+                "SELECT estimated_size FROM duckdb_tables() WHERE "
+                f"{database_filter} AND {schema_filter} "
+                f"AND lower(table_name) = lower({_duckdb_string_literal(name)})"
+            ),
+        ).fetchone()
+        if row is None or row[0] is None:
+            return RelationRowCountEstimate(
+                row_count=None, detail="no table size metadata (view or missing table)"
+            )
+        return RelationRowCountEstimate(row_count=int(row[0]))
 
     def diff_schema(
         self,

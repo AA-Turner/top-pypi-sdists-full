@@ -21,7 +21,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-import msgspec
 import pytest
 
 from cozy_runtime.author._observations import (
@@ -29,22 +28,8 @@ from cozy_runtime.author._observations import (
     TEXT_CAP,
     EventRing,
 )
-from cozy_runtime.internal import (
-    accel,
-    attention,
-    attention_fp8,
-    attention_upstream,
-    executor_commands,
-)
+from cozy_runtime.internal import accel, attention, attention_fp8, attention_upstream
 from cozy_runtime.internal.encoding import DeviceFacts
-from cozy_runtime.internal.executor_commands import Binding
-from cozy_runtime.internal.worker.attempts import AttemptRecord
-from cozy_runtime.internal.worker.plan import DeclaredBinding, ModelBinding
-from cozy_runtime.internal.worker.session import executor_load_command
-from test_end_to_end import NO_EXECUTOR
-
-PACKAGE = Path(__file__).resolve().parent.parent / "examples" / "marco-polo"
-needs_executor = pytest.mark.skipif(bool(NO_EXECUTOR), reason=NO_EXECUTOR or "")
 
 
 def _device(sm: int, kind: str = "cuda") -> DeviceFacts:
@@ -234,10 +219,12 @@ def test_a_candidate_that_fails_to_resolve_for_any_reason_drops_out_of_auto() ->
     broken = attention.BY_NAME["flash-attn3"]
     real = attention._resolve
 
-    def planted(candidate: attention.Candidate, device: DeviceFacts) -> attention.Ready:
+    def planted(
+        candidate: attention.Candidate, device: DeviceFacts, wait: bool = True
+    ) -> attention.Ready:
         if candidate is broken:
             raise RuntimeError("ImportError: undefined symbol: _ZN3c105ErrorC1E")
-        return real(candidate, device)
+        return real(candidate, device, wait)
 
     attention._resolve = planted
     try:
@@ -775,79 +762,3 @@ def test_an_over_cap_observation_truncates_and_never_faults_the_attempt() -> Non
     first, second = ring.emit("log", "n" * (NAME_CAP + 1)), ring.emit("log", "n" * (NAME_CAP + 2))
     assert len(first.name) == NAME_CAP and first.name != second.name
     assert ring.caps()["refused"] == 0
-
-
-def test_the_attempt_confession_of_a_huge_value_is_admitted() -> None:
-    """The real worker record, through the real `confess` the release path calls."""
-    attempt = AttemptRecord(request_id="req", attempt=1, digest=b"", spec={})
-    attempt.confess("attention", "z" * 4096)
-    assert attempt.ring.caps()["refused"] == 0 and attempt.ring.caps()["truncated"] == 1
-    assert [row["kind"] for row in attempt.confessions] == ["attention"]
-    assert len(str(attempt.ring.events[-1].value)) == TEXT_CAP
-
-
-# ------------------------------------------ the execution-path override, threaded (cr-125)
-
-
-def _binding(models: int = 1) -> DeclaredBinding:
-    """One resolved binding, exactly the shape the boot path hands the prepare builder."""
-    slots = tuple(
-        ModelBinding(
-            model_class="pkg:Dit",
-            model_binding_path=f"m{index}",
-            model_parameter_name=f"p{index}",
-            store="store",
-            variant="fp8",
-            reference_snapshot="sha256:aa",
-            components=("dit",),
-            snapshots={"dit": "sha256:aa"},
-        )
-        for index in range(models)
-    )
-    return DeclaredBinding(
-        entrypoint_binding_digest="sha256:bb",
-        entrypoint="fl2va",
-        model_class=slots[0].model_class,
-        model_binding_path=slots[0].model_binding_path,
-        model_parameter_name=slots[0].model_parameter_name,
-        release="rel-1",
-        models=slots if models > 1 else (),
-        components=slots[0].components,
-        snapshots=slots[0].snapshots,
-        store=slots[0].store,
-        variant=slots[0].variant,
-        reference_snapshot=slots[0].reference_snapshot,
-    )
-
-
-def test_a_serving_prepare_carries_no_pin_at_all() -> None:
-    """PRODUCTION IS KNOB-FREE. The override is absent by default and the serving prepare is
-    byte-identical to what it was before cr-125 — the key is not present, not empty."""
-    served = executor_load_command(
-        _binding(), construction="c", devices="0", authorized_device_limit_bytes=7
-    )
-    assert "attention_pin" not in executor_commands.encode(served)
-
-
-def test_a_pinned_prepare_names_one_kernel_for_every_model_of_the_construction() -> None:
-    """The pin rides the ONE prepare funnel, and a group takes it whole: two models of one
-    construction cannot serve two different execution paths and still be one measurement."""
-    single = executor_load_command(
-        _binding(),
-        construction="c",
-        devices="0",
-        authorized_device_limit_bytes=7,
-        attention_pin="sageattention",
-    )
-    assert single.attention_pin == "sageattention"
-    group = executor_load_command(
-        _binding(models=2),
-        construction="c",
-        devices="0",
-        authorized_device_limit_bytes=7,
-        attention_pin="sageattention",
-    )
-    # It sits on the COMMAND, not inside a model row: `_prepare_many` hands the same value
-    # to every child prepare, the way it hands them one device authorization.
-    assert executor_commands.encode(group)["attention_pin"] == "sageattention"
-    assert "attention_pin" not in {f.name for f in msgspec.structs.fields(Binding)}

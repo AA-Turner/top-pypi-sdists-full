@@ -2,7 +2,7 @@ import ast
 import json
 import logging
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from string import Formatter
 from typing import (
     Any,
@@ -21,6 +21,7 @@ class FluffConfig(NamedTuple):
     templater_unwrap_wrapped_queries: bool
 
     jinja_templater_paths: List[str]
+    jinja_exclude_macros_from_path: List[str]
     jinja_loader_search_path: List[str]
     jinja_apply_dbt_builtins: bool
     jinja_ignore_templating: bool
@@ -32,6 +33,14 @@ class FluffConfig(NamedTuple):
     dbt_target_path: Optional[str]
     dbt_context: Optional[str]
     dbt_project_dir: Optional[str]
+    dbt_threads: Optional[int] = None
+    dbt_skip_compilation_error: bool = True
+    ignore_templating: bool = False
+    encoding: str = "autodetect"
+    sqlmesh_project_dir: Optional[str] = None
+    sqlmesh_config: Optional[str] = None
+    sqlmesh_gateway: Optional[str] = None
+    sqlmesh_dialect: Optional[str] = None
 
 
 def fluff_config_from_json(json_stringified: str) -> FluffConfig:
@@ -44,8 +53,15 @@ class FormatterInterface:
 
 
 class SQLTemplaterError(Exception):
-    def __init__(self, message):
+    def __init__(self, message, line_no=None, line_pos=None):
+        super().__init__(message)
         self.message = message
+        self.line_no = line_no
+        self.line_pos = line_pos
+
+
+class SQLFluffSkipFile(RuntimeError):
+    """An error returned from a templater to skip a file."""
 
 
 def zero_slice(i: int) -> slice:
@@ -374,6 +390,7 @@ class PythonTemplater:
             config=config,
             context=context,
         )
+        ignore_templating = config and config.ignore_templating
 
         def render_func(raw_str: str) -> str:
             """Render the string using the captured live_context.
@@ -383,17 +400,65 @@ class PythonTemplater:
             template variable containing "." into a dictionary lookup.
                 Example:  {foo.bar} => {sqlfluff[foo.bar]}
             """
+            # Hack to allow template variables with dot notation (e.g. foo.bar)
+            raw_str_with_dot_notation_hack = re.sub(
+                r"{([^:}]*\.[^:}]*)(:\S*)?}",
+                r"{sqlfluff[\1]\2}",
+                raw_str,
+            )
+            templater_logger.debug(
+                "    Raw String with Dot Notation Hack: %r",
+                raw_str_with_dot_notation_hack,
+            )
+
+            if ignore_templating:
+                # When templating errors are ignored, substitute a stable SQL-safe
+                # placeholder for missing variables so linting can still proceed.
+                class _FallbackValue:
+                    def __init__(self, name: str) -> None:
+                        self.name = name
+
+                    def __str__(self) -> str:
+                        return self.name
+
+                    def __format__(self, format_spec: str) -> str:
+                        return str(self)
+
+                    def __getitem__(self, key: str) -> str:
+                        return key.replace(".", "_")
+
+                class _FallbackDict(dict[str, Any]):
+                    @classmethod
+                    def from_mapping(
+                        cls, mapping: Mapping[str, Any]
+                    ) -> "_FallbackDict":
+                        return cls(
+                            {
+                                key: cls.from_mapping(value)
+                                if isinstance(value, Mapping)
+                                else value
+                                for key, value in mapping.items()
+                            }
+                        )
+
+                    def __missing__(self, key: str) -> _FallbackValue:
+                        return _FallbackValue(key)
+
+                class _DotNotationFallbackDict(_FallbackDict):
+                    def __missing__(self, key: str) -> _FallbackValue:
+                        return _FallbackValue(key.replace(".", "_"))
+
+                fallback_context = _FallbackDict.from_mapping(live_context)
+                if isinstance(fallback_context.get("sqlfluff"), Mapping):
+                    fallback_context["sqlfluff"] = (
+                        _DotNotationFallbackDict.from_mapping(
+                            fallback_context["sqlfluff"]
+                        )
+                    )
+
+                return raw_str_with_dot_notation_hack.format_map(fallback_context)
+
             try:
-                # Hack to allow template variables with dot notation (e.g. foo.bar)
-                raw_str_with_dot_notation_hack = re.sub(
-                    r"{([^:}]*\.[^:}]*)(:\S*)?}",
-                    r"{sqlfluff[\1]\2}",
-                    raw_str,
-                )
-                templater_logger.debug(
-                    "    Raw String with Dot Notation Hack: %r",
-                    raw_str_with_dot_notation_hack,
-                )
                 rendered_str = raw_str_with_dot_notation_hack.format(**live_context)
             except KeyError as err:
                 missing_key = err.args[0]
@@ -665,7 +730,7 @@ class PythonTemplater:
         """Split a sliced file on its invariant literals.
 
         We prioritise the _longest_ invariants first as they
-        are more likely to the the anchors.
+        are more likely to be the anchors.
         """
         # Calculate invariants
         invariants = [

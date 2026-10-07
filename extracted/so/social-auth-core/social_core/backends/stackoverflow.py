@@ -16,11 +16,15 @@ if TYPE_CHECKING:
 
     from requests.auth import AuthBase
 
+    from social_core.exceptions import ErrorStage
+
 
 class StackoverflowOAuth2(BaseOAuth2):
     """Stackoverflow OAuth2 authentication backend"""
 
     name = "stackoverflow"
+    title = "Stack Overflow"
+    icon = "stackoverflow.svg"
     ID_KEY = "user_id"
     AUTHORIZATION_URL = "https://stackexchange.com/oauth"
     ACCESS_TOKEN_URL = "https://stackexchange.com/oauth/access_token"
@@ -29,12 +33,12 @@ class StackoverflowOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from Stackoverflow account"""
-        fullname, first_name, last_name = self.get_user_names(
-            response.get("display_name")
-        )
+        fullname = response.get("display_name")
+        first_name = ""
+        last_name = ""
         return {
             "username": response.get("link").rsplit("/", 1)[-1],
-            "full_name": fullname,
+            "fullname": fullname,
             "first_name": first_name,
             "last_name": last_name,
         }
@@ -50,7 +54,7 @@ class StackoverflowOAuth2(BaseOAuth2):
             },
         )["items"][0]
 
-    def request_access_token(
+    def request_access_token(  # noqa: PLR0913
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
@@ -59,15 +63,20 @@ class StackoverflowOAuth2(BaseOAuth2):
         json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
+        *,
+        stage: ErrorStage = "token_exchange",
     ) -> dict[Any, Any]:
-        with wrap_access_token_error(self):
+        with wrap_access_token_error(self, stage=stage):
             response = self.request(
                 url,
                 method=method,
+                stage=stage,
                 headers=headers,
                 data=data,
                 json=json,
                 auth=auth,
                 params=params,
             )
-        return parse_qs(response.content)
+        data = parse_qs(response.text)
+        self._process_error(data, stage=stage)
+        return data

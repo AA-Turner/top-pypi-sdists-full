@@ -5,7 +5,7 @@ LiveJournal OpenId backend, docs at:
 
 from urllib.parse import urlsplit
 
-from social_core.exceptions import AuthMissingParameter
+from social_core.exceptions import AuthInputError
 
 from .open_id import OpenIdAuth
 
@@ -14,6 +14,7 @@ class LiveJournalOpenId(OpenIdAuth):
     """LiveJournal OpenID authentication backend"""
 
     name = "livejournal"
+    title = "LiveJournal"
 
     def get_user_details(self, response):
         """Generate username from identity url"""
@@ -27,5 +28,10 @@ class LiveJournalOpenId(OpenIdAuth):
     def openid_url(self) -> str:
         """Returns LiveJournal authentication URL"""
         if not self.data.get("openid_lj_user"):
-            raise AuthMissingParameter(self, "openid_lj_user")
+            raise AuthInputError(
+                self,
+                parameter="openid_lj_user",
+                code="missing_parameter",
+                stage="begin",
+            )
         return f"https://{self.data['openid_lj_user']}.livejournal.com"

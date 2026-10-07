@@ -11,9 +11,10 @@ artifact refuses before construction.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import os
 import threading
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -151,8 +152,14 @@ def _refuse(code: str, message: str, fields: Sequence[str] = ()) -> FillRefusal:
 
 
 def tensorfs_module() -> ModuleType:
-    """TensorFS for `internal/worker` modules, which do not import it themselves (cr-067)."""
+    """Load TensorFS lazily for storage components that keep module imports lightweight."""
     return tensorfs
+
+
+def store_available() -> bool:
+    """This process's TensorFS can open a store: False for the plane-only build Rust-machine
+    executors install (weight plane, headers, plans and fit; `tensorfs.STORE`)."""
+    return bool(getattr(tensorfs, "STORE", True))
 
 
 def capabilities() -> frozenset[str]:
@@ -324,12 +331,25 @@ class Checkpoint:
     verified per object in Python; none of that survives, and none of it needs to.
     """
 
-    def __init__(self, root: str | Path, manifest_id: str) -> None:
+    def __init__(
+        self,
+        root: str | Path,
+        manifest_id: str,
+        *,
+        sourced: Callable[[str], bytes] | None = None,
+    ) -> None:
+        """`sourced` serves the header (name "") and each asset (the Rust machine's
+        `ModelSource`): such a checkpoint opens no store, and has no lease to give."""
         self.root = str(root)
         self.manifest_id = manifest_id
+        self.sourced = sourced
+        self.store: Store | None = None
         with store_refusals(f"opening manifest {manifest_id[:23]}"):
-            self.store = store(self.root)
-            header = self.store.manifest(manifest_id)["header"]
+            if sourced is not None:
+                header: bytes | None = sourced("")
+            else:
+                self.store = store(self.root)
+                header = self.store.manifest(manifest_id)["header"]
             if header is None:
                 raise _refuse("checkpoint_unreadable", f"{manifest_id}: no cozytensors header")
             self.header_bytes = header
@@ -463,18 +483,38 @@ class Checkpoint:
 
     def acquire(self) -> ReadLease:
         """A verified read lease over this snapshot's CozyTensors runtime closure."""
+        if self.store is None:
+            raise _refuse(
+                "store_unusable",
+                f"{self.manifest_id[:23]}: served by the machine, which holds its weights; "
+                "this executor reads no store",
+            )
         with store_refusals(f"acquiring a lease on {self.manifest_id[:23]}"):
             lease = self.store.acquire_cozytensors(self.manifest_id)
         return lease
 
     def model_assets(self) -> dict[str, bytes]:
-        """Read the header-declared model files through one verified closure lease."""
+        """Read the header-declared model files through one verified lease over their own
+        objects: never the whole closure (SDXL's is 2,602 objects, a descriptor each)."""
         names = sorted(self.header["assets"])
         if not names:
             return {}
+        if self.sourced is not None:
+            return {name: self.sourced(name) for name in names}
+        # The header object too: the lease reads each asset through it.
+        header = (hashlib.sha256(self.header_bytes).hexdigest(), len(self.header_bytes))
+        segments = sorted(
+            {header}
+            | {
+                (segment["sha256"], int(segment["length"]))
+                for name in names
+                for segment in self.header["assets"][name]["segments"]
+            }
+        )
+        assert self.store is not None
         with (
             store_refusals(f"reading model assets from {self.manifest_id[:23]}"),
-            self.acquire() as lease,
+            self.store.acquire(self.manifest_id, segments) as lease,
         ):
             assets = {
                 name: bytes(lease.read_asset(self.header_bytes, name, max_bytes=64 << 20))

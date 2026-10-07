@@ -67,6 +67,14 @@ def _validate(value, schema):
 
 @dataclass(frozen=True)
 class Tool:
+    """Callable tool with a model-facing argument schema.
+
+    Attributes:
+        function: Async Python function called when the tool is selected.
+        spec: Tool description and JSON-compatible argument schema.
+        signature: Python signature used to bind tool arguments.
+    """
+
     function: object
     spec: dict
     signature: inspect.Signature
@@ -122,32 +130,46 @@ def tool(function) -> Tool:
 
 
 class InfrastructureError(RuntimeError):
-    """An operational failure; never turn it into a task reward or tool result.
+    """A tool or environment failure that should stop the rollout.
 
-    Tool providers should wrap backend-specific transport/unavailability errors
-    in this exception. TimeoutError and ConnectionError also propagate.
+    Raise this for unavailable external services instead of returning a tool
+    error to the model. ``TimeoutError`` and ``ConnectionError`` also stop the
+    rollout rather than becoming task rewards.
     """
 
 
 class Env:
-    """Use an instance for stateless environments, a factory for private sandboxes.
+    """Define the prompts, tools, rewards, and turn transitions for a rollout.
 
-    ``on_turn`` returns only NEW environment-authored messages, or None to finish.
-    It may explicitly call ``traj.rewrite`` to compact history. Never re-render a
-    generated assistant message. Recovery defaults to dropping unfinished work;
-    opt into ``stateless`` or ``snapshot`` only when the environment supports it.
+    Pass a shared instance to ``RolloutEngine`` for stateless tasks, or a
+    factory that creates a private environment for each trajectory. Override
+    ``reset`` and ``reward``; the default ``on_turn`` executes declared tools.
+
+    Attributes:
+        tools: Tools available to the model during each turn.
+        recovery: How unfinished trajectories resume after a checkpoint:
+            ``"drop"`` (default), ``"stateless"``, or ``"snapshot"``.
     """
 
     tools: tuple[Tool, ...] | list[Tool] = ()
     recovery: Literal["drop", "stateless", "snapshot"] = "drop"
 
     async def reset(self, row) -> list[Message]:
+        """Return the initial conversation messages for a dataset row."""
         raise NotImplementedError
 
     async def reward(self, traj, row) -> float:
+        """Return the final reward for a completed trajectory."""
         raise NotImplementedError
 
     async def on_turn(self, traj) -> list[Message] | None:
+        """Return new environment messages after the latest model turn.
+
+        The default executes tool calls and returns their results, or ``None``
+        when the model has no more tool calls. Overrides should return only
+        new messages, without re-rendering prior model output. Use
+        ``traj.rewrite`` explicitly if you need to compact the conversation.
+        """
         message = traj.messages[-1]
         calls = message.get("tool_calls", [])
         if not calls:
@@ -205,11 +227,13 @@ class Env:
         return 0.0
 
     async def snapshot(self, traj):
+        """Capture private environment state for ``recovery="snapshot"``."""
         raise NotImplementedError(
             "snapshot recovery requires Env.snapshot and Env.restore"
         )
 
     async def restore(self, traj, state):
+        """Restore private state captured by ``snapshot`` after a restart."""
         raise NotImplementedError(
             "snapshot recovery requires Env.snapshot and Env.restore"
         )

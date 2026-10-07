@@ -475,6 +475,92 @@ class TestIosxrRouteMapsModule(TestIosxrModule):
         ]
         self.assertEqual(result["commands"], commands)
 
+    def test_set_med_increment(self):
+        self.get_config.return_value = "route-policy TEST-MED-INCREMENT"
+        self.get_config_data.return_value = ""
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "TEST-MED-INCREMENT",
+                        "global": {
+                            "set": {
+                                "med": {"increment": True, "value": 50},
+                            },
+                        },
+                    },
+                ],
+                state="merged",
+            ),
+        )
+        result = self.execute_module(changed=True)
+        commands = [
+            "route-policy TEST-MED-INCREMENT",
+            "set med +50",
+            "end-policy",
+        ]
+        self.assertEqual(result["commands"], commands)
+
+    def test_set_med_decrement(self):
+        self.get_config.return_value = "route-policy TEST-MED-DECREMENT"
+        self.get_config_data.return_value = ""
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "TEST-MED-DECREMENT",
+                        "global": {
+                            "set": {
+                                "med": {"decrement": True, "value": 50},
+                            },
+                        },
+                    },
+                ],
+                state="merged",
+            ),
+        )
+        result = self.execute_module(changed=True)
+        commands = [
+            "route-policy TEST-MED-DECREMENT",
+            "set med -50",
+            "end-policy",
+        ]
+        self.assertEqual(result["commands"], commands)
+
+    def test_set_med_increment_parsed(self):
+        self.get_config.return_value = "route-policy TEST-MED-PARSED"
+        self.get_config_data.return_value = dedent(
+            """\
+            route-policy TEST-MED-PARSED
+              set med +50
+            end-policy
+            """,
+        )
+        set_module_args(dict(state="gathered"))
+        result = self.execute_module(changed=False)
+        gathered = result["gathered"]
+        policy = gathered[0]
+        med = policy["global"]["set"]["med"]
+        self.assertTrue(med["increment"])
+        self.assertEqual(med["value"], 50)
+
+    def test_set_med_decrement_parsed(self):
+        self.get_config.return_value = "route-policy TEST-MED-PARSED"
+        self.get_config_data.return_value = dedent(
+            """\
+            route-policy TEST-MED-PARSED
+              set med -50
+            end-policy
+            """,
+        )
+        set_module_args(dict(state="gathered"))
+        result = self.execute_module(changed=False)
+        gathered = result["gathered"]
+        policy = gathered[0]
+        med = policy["global"]["set"]["med"]
+        self.assertTrue(med["decrement"])
+        self.assertEqual(med["value"], 50)
+
     def test_iosxr_route_maps_overridden(self):
         self.maxDiff = None
         self.get_config.return_value = dedent(
@@ -1457,3 +1543,61 @@ class TestIosxrRouteMapsModule(TestIosxrModule):
         ]
         result = self.execute_module(changed=False)
         self.assertEqual(sorted(gathered), sorted(result["gathered"]))
+
+    def test_set_med_increment_with_space(self):
+        """Test parsing of 'set med + 50' with space between operator and value"""
+        self.get_config.return_value = "route-policy TEST-MED-SPACE"
+        self.get_config_data.return_value = dedent(
+            """\
+            route-policy TEST-MED-SPACE
+              set med + 50
+            end-policy
+            """,
+        )
+        set_module_args(dict(state="gathered"))
+        result = self.execute_module(changed=False)
+        gathered = result["gathered"]
+        policy = gathered[0]
+        med = policy["global"]["set"]["med"]
+        self.assertTrue(med["increment"])
+        self.assertEqual(med["value"], 50)
+
+    def test_set_med_decrement_with_space(self):
+        """Test parsing of 'set med - 50' with space between operator and value"""
+        self.get_config.return_value = "route-policy TEST-MED-SPACE"
+        self.get_config_data.return_value = dedent(
+            """\
+            route-policy TEST-MED-SPACE
+              set med - 50
+            end-policy
+            """,
+        )
+        set_module_args(dict(state="gathered"))
+        result = self.execute_module(changed=False)
+        gathered = result["gathered"]
+        policy = gathered[0]
+        med = policy["global"]["set"]["med"]
+        self.assertTrue(med["decrement"])
+        self.assertEqual(med["value"], 50)
+
+    def test_set_med_increment_decrement_mutual_exclusion(self):
+        """Test that increment and decrement are mutually exclusive"""
+        self.get_config.return_value = "route-policy TEST-MED-INVALID"
+        self.get_config_data.return_value = ""
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "TEST-MED-INVALID",
+                        "global": {
+                            "set": {
+                                "med": {"increment": 50, "decrement": 50, "value": 50},
+                            },
+                        },
+                    },
+                ],
+                state="merged",
+            ),
+        )
+        result = self.execute_module(failed=True)
+        self.assertIn("mutually exclusive", result["msg"].lower())

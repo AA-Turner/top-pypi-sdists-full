@@ -183,7 +183,7 @@ class AccessMutualTlsHostnameSettings(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessMutualTlsHostnameSettingsSettingArgs', 'AccessMutualTlsHostnameSettingsSettingArgsDict']]]]] = None,
+                 settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessMutualTlsHostnameSettingsSettingArgs', 'AccessMutualTlsHostnameSettingsSettingArgsDict', 'outputs.AccessMutualTlsHostnameSettingsSetting']]]]] = None,
                  zone_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
@@ -209,7 +209,9 @@ class AccessMutualTlsHostnameSettings(pulumi.CustomResource):
 
         ## Import
 
-        > This resource does not currently support `pulumi import`.
+        ```sh
+        $ pulumi import cloudflare:index/accessMutualTlsHostnameSettings:AccessMutualTlsHostnameSettings example '<{accounts|zones}/{account_id|zone_id}>'
+        ```
 
 
         :param str resource_name: The name of the resource.
@@ -246,7 +248,9 @@ class AccessMutualTlsHostnameSettings(pulumi.CustomResource):
 
         ## Import
 
-        > This resource does not currently support `pulumi import`.
+        ```sh
+        $ pulumi import cloudflare:index/accessMutualTlsHostnameSettings:AccessMutualTlsHostnameSettings example '<{accounts|zones}/{account_id|zone_id}>'
+        ```
 
 
         :param str resource_name: The name of the resource.
@@ -265,7 +269,7 @@ class AccessMutualTlsHostnameSettings(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessMutualTlsHostnameSettingsSettingArgs', 'AccessMutualTlsHostnameSettingsSettingArgsDict']]]]] = None,
+                 settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessMutualTlsHostnameSettingsSettingArgs', 'AccessMutualTlsHostnameSettingsSettingArgsDict', 'outputs.AccessMutualTlsHostnameSettingsSetting']]]]] = None,
                  zone_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         pulumi.log.warn("""AccessMutualTlsHostnameSettings is deprecated: cloudflare.index/accessmutualtlshostnamesettings.AccessMutualTlsHostnameSettings has been deprecated in favor of cloudflare.index/zerotrustaccessmtlshostnamesettings.ZeroTrustAccessMtlsHostnameSettings""")
@@ -301,7 +305,7 @@ class AccessMutualTlsHostnameSettings(pulumi.CustomResource):
             china_network: pulumi.Input[Optional[_builtins.bool]] = None,
             client_certificate_forwarding: pulumi.Input[Optional[_builtins.bool]] = None,
             hostname: pulumi.Input[Optional[_builtins.str]] = None,
-            settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessMutualTlsHostnameSettingsSettingArgs', 'AccessMutualTlsHostnameSettingsSettingArgsDict']]]]] = None,
+            settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessMutualTlsHostnameSettingsSettingArgs', 'AccessMutualTlsHostnameSettingsSettingArgsDict', 'outputs.AccessMutualTlsHostnameSettingsSetting']]]]] = None,
             zone_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'AccessMutualTlsHostnameSettings':
         """
         Get an existing AccessMutualTlsHostnameSettings resource's state with the given name, id, and optional extra

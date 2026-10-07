@@ -1,0 +1,1 @@
+import"./rolldown-runtime-CM1DJQSe.js";import{K as e}from"./vendor-primevue-DgZFaBSX.js";var t=`modal`,n=1700,r={mounted(r){e.set(t,r,n)},beforeUnmount(t){e.clear(t)}};export{t as n,r,n as t};

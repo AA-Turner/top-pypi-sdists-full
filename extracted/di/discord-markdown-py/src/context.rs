@@ -14,11 +14,11 @@ use crate::{
 };
 
 use super::{
+	Input,
 	grammar::GrammarSet,
 	node::Node,
-	rule::{RuleSet, BLOCK_RULES, INLINE_RULES},
+	rule::{BLOCK_RULES, INLINE_RULES, RuleSet},
 	span::Span,
-	Input,
 };
 
 #[cfg(doc)]
@@ -418,7 +418,7 @@ impl Default for Context {
 
 #[cfg(test)]
 mod test {
-	use super::{Context, Options, DEFAULT_FUEL};
+	use super::{Context, DEFAULT_FUEL, Options};
 	use crate::error::Error;
 	use crate::grammar::Grammar;
 	use crate::parse;

@@ -231,7 +231,17 @@ impl ObjectReferenceSegment {
     fn iter_reference_parts(&self, elem: ErasedSegment) -> Vec<ObjectReferencePart> {
         let mut acc = Vec::new();
 
-        let raw = elem.raw();
+        let raw = elem.raw_normalized();
+        // BigQuery permits a quoted column reference to contain multiple parts.
+        // Other dialects treat dots inside an identifier as part of its name.
+        if self.0.dialect() != DialectKind::Bigquery
+            || matches!(self.1, ObjectReferenceKind::WildcardIdentifier)
+        {
+            return vec![ObjectReferencePart {
+                part: raw.into(),
+                segments: vec![elem],
+            }];
+        }
         let parts = raw.split('.');
 
         for part in parts {

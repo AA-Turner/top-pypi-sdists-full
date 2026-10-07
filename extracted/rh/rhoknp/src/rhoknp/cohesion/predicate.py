@@ -20,7 +20,7 @@ class Predicate:
     def __init__(self, base_phrase: "BasePhrase", cfid: str | None = None) -> None:
         self.base_phrase: "BasePhrase" = base_phrase  #: 述語の核となる基本句．
         self.cfid: str | None = cfid  #: 格フーレムID．
-        self._pas: "Pas" | None = None
+        self._pas: "Pas | None" = None
 
     @property
     def text(self) -> str:
@@ -82,9 +82,9 @@ class Predicate:
         return f"<{self.__module__}.{self.__class__.__name__}: {self.text!r}>"
 
     def __hash__(self) -> int:
-        return hash((self.base_phrase, self.cfid))
+        return hash(self.base_phrase)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):
             return False
-        return self.base_phrase == other.base_phrase and self.cfid == other.cfid
+        return self.base_phrase == other.base_phrase

@@ -1155,7 +1155,9 @@ class Database(abc.ABC):
                         )
                     else:
                         assert col_name in col_dict
-                        col_dict[col_name] = String_VaryingAlphanum(collation=col_dict[col_name].collation)
+                        col_dict[col_name] = String_VaryingAlphanum(
+                            collation=col_dict[col_name].collation, padded=col_dict[col_name].padded
+                        )
 
         return col_dict
 
@@ -1227,6 +1229,8 @@ class ThreadedDatabase(Database):
     """
 
     thread_count: int = 1
+    # Run on each new connection before its first query: session settings, such as the time zone (see Connect_SetUTC)
+    session_setup: Tuple[str, ...] = ()
 
     _init_error: Optional[Exception] = None
     _queue: Optional[ThreadPoolExecutor] = None
@@ -1240,6 +1244,8 @@ class ThreadedDatabase(Database):
         assert not hasattr(self.thread_local, "conn")
         try:
             self.thread_local.conn = self.create_connection()
+            for sql_code in self.session_setup:
+                self._query_conn(self.thread_local.conn, sql_code)
         except Exception as e:
             self._init_error = e
 

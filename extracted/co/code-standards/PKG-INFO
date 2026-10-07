@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-standards
-Version: 8.29.0
+Version: 8.29.1
 Summary: One deterministic quality gate for Sarj Python, TypeScript, Swift, Kotlin, shell, SQL, IaC, and repository policy.
 Project-URL: Homepage, https://code-standards.sarj.ai/
 Project-URL: Documentation, https://code-standards.sarj.ai/cli/
@@ -25,7 +25,7 @@ Requires-Dist: pathspec==1.1.1
 Requires-Dist: pre-commit==4.6.2
 Requires-Dist: pydantic==2.13.5
 Requires-Dist: pyyaml==6.0.3
-Requires-Dist: repo-standards==6.2.0
+Requires-Dist: repo-standards==6.2.2
 Requires-Dist: ruff==0.16.9
 Requires-Dist: sarj-iac-lint==0.18.0
 Requires-Dist: sarj-python-lint==1.22.1

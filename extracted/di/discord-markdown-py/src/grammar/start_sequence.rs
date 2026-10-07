@@ -1,15 +1,16 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use nom::{
+	OutputMode, PResult, Parser,
 	branch::alt,
 	bytes::tag,
 	character::complete::line_ending,
 	combinator::{eof, fail},
-	OutputMode, PResult, Parser,
 };
 use tracing::Level;
 
 use crate::{
+	Input,
 	error::ParseError,
 	inline::{
 		bold, code, code_block, emoji, italic,
@@ -17,7 +18,6 @@ use crate::{
 		mention, spoiler, strikethrough, timestamp, underline,
 	},
 	span::TraceOk,
-	Input,
 };
 
 use super::Grammar;
@@ -59,7 +59,8 @@ where
 			Grammar::AutoLink => tag(&[link::auto::TERMINAL][..]).process::<OM>(input),
 			Grammar::MaskedLinkText => tag(&[link::masked::TEXT_OPENER][..]).process::<OM>(input),
 			Grammar::MaskedLinkLink => tag(&[link::masked::LINK_OPENER][..]).process::<OM>(input),
-			Grammar::Code => tag(code::DELIMITER).process::<OM>(input),
+			Grammar::Code => tag(code::SINGLE_DELIMITER).process::<OM>(input),
+			Grammar::DoubleCode => tag(code::DOUBLE_DELIMITER).process::<OM>(input),
 			Grammar::CodeBlock => tag(code_block::DELIMITER).process::<OM>(input),
 			Grammar::Timestamp => tag(timestamp::OPEN_DELIMITER).process::<OM>(input),
 			Grammar::CustomEmoji => tag(emoji::custom::OPEN_DELIMITER).process::<OM>(input),

@@ -8,7 +8,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 from urllib.parse import urljoin
 
-from social_core.exceptions import AuthMissingParameter
+from social_core.exceptions import (
+    AuthConfigurationError,
+    ErrorStage,
+)
 from social_core.utils import append_slash
 
 from .github import GithubOAuth2, GithubOrganizationOAuth2, GithubTeamOAuth2
@@ -18,29 +21,36 @@ if TYPE_CHECKING:
 
 
 class GithubEnterpriseMixin:
-    def _required_setting(self, name: str) -> str:
+    def _required_setting(self, name: str, *, stage: ErrorStage) -> str:
         value = cast("GithubOAuth2", self).setting(name)
         if not value:
-            raise AuthMissingParameter(cast("BaseAuth", self), name)
+            raise AuthConfigurationError(
+                cast("BaseAuth", self),
+                parameter=name,
+                code="missing_setting",
+                stage=stage,
+            )
         return cast("str", value)
 
     def api_url(self):
-        return append_slash(self._required_setting("API_URL"))
+        return append_slash(self._required_setting("API_URL", stage="user_info"))
 
     def authorization_url(self):
-        return self._url("login/oauth/authorize")
+        return self._url("login/oauth/authorize", stage="begin")
 
     def access_token_url(self):
-        return self._url("login/oauth/access_token")
+        return self._url("login/oauth/access_token", stage="token_exchange")
 
-    def _url(self, path):
-        return urljoin(append_slash(self._required_setting("URL")), path)
+    def _url(self, path, *, stage: ErrorStage):
+        return urljoin(append_slash(self._required_setting("URL", stage=stage)), path)
 
 
 class GithubEnterpriseOAuth2(GithubEnterpriseMixin, GithubOAuth2):
     """Github Enterprise OAuth authentication backend"""
 
     name = "github-enterprise"
+    title = "GitHub Enterprise"
+    icon = "github.svg"
 
 
 class GithubEnterpriseOrganizationOAuth2(
@@ -50,6 +60,8 @@ class GithubEnterpriseOrganizationOAuth2(
     organizations"""
 
     name = "github-enterprise-org"
+    title = "GitHub Enterprise Organization"
+    icon = "github.svg"
     DEFAULT_SCOPE = ["read:org"]
 
 
@@ -57,4 +69,6 @@ class GithubEnterpriseTeamOAuth2(GithubEnterpriseMixin, GithubTeamOAuth2):
     """Github Enterprise OAuth2 authentication backend for teams"""
 
     name = "github-enterprise-team"
+    title = "GitHub Enterprise Team"
+    icon = "github.svg"
     DEFAULT_SCOPE = ["read:org"]

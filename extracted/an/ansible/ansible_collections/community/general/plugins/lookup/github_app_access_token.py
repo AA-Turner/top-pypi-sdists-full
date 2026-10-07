@@ -23,9 +23,13 @@ options:
     type: path
   app_id:
     description:
-      - Your GitHub App ID, you can find this in the Settings page.
+      - Your GitHub App's client ID or GitHub App ID. You can find these in the Settings page.
+      - GitHub recommends using the client ID instead of the numeric
+        app ID (see U(https://github.blog/changelog/2024-08-23-client-ids-are-now-included-in-app-api-responses/)).
+      - The O(client_id) alias has been added in community.general 13.5.0.
     required: true
     type: str
+    aliases: [client_id]
   installation_id:
     description:
       - The installation ID that contains the git repository you would like access to.
@@ -40,6 +44,7 @@ options:
       - Either O(key_path) or O(private_key) must be specified.
     type: str
     version_added: 10.0.0
+    secret: true
   token_expiry:
     description:
       - How long the token should last for in seconds.
@@ -64,11 +69,24 @@ EXAMPLES = r"""
     github_token: >-
       {{ lookup('community.general.github_app_access_token', key_path='/home/to_your/key',
                 app_id='123456', installation_id='64209') }}
+
+- name: Get access token using the GitHub App's client ID instead of its numeric app ID
+  ansible.builtin.git:
+    repo: >-
+      https://x-access-token:{{ github_token }}@github.com/hidden_user/super-secret-repo.git
+    dest: /srv/checkout
+  vars:
+    github_token: >-
+      {{ lookup('community.general.github_app_access_token', key_path='/home/to_your/key',
+                client_id='Iv1.a1b2c3d4e5f6g7h8', installation_id='64209') }}
 """
 
 RETURN = r"""
 _raw:
-  description: A one-element list containing your GitHub access token.
+  description:
+    - A one-element list containing your GitHub access token.
+    - B(Note) on ansible-core 2.22+, the token will be registered as a secret.
+      See R(Masking secrets in Ansible output, secret_masking) for more information.
   type: list
   elements: str
 """
@@ -105,6 +123,7 @@ from ansible.module_utils.urls import open_url
 from ansible.plugins.lookup import LookupBase
 from ansible.utils.display import Display
 
+from ansible_collections.community.general.plugins.module_utils._secrets import mark_values_as_secrets
 from ansible_collections.community.general.plugins.plugin_utils._lookup import check_for_no_terms
 
 display = Display()
@@ -226,4 +245,4 @@ class LookupModule(LookupBase):
             self.get_option("token_expiry"),
         )
 
-        return [t]
+        return [mark_values_as_secrets(t)]

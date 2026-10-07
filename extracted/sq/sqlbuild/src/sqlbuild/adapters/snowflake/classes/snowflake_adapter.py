@@ -52,6 +52,7 @@ from sqlbuild.adapter.contract.models import (
     RelationGrant,
     RelationInfo,
     RelationReadProbe,
+    RelationRowCountEstimate,
     RenderedRetentionChange,
     RetentionRequest,
     RetentionState,
@@ -126,7 +127,13 @@ from sqlbuild.adapters.snowflake._helpers.show_metadata import (
     listed_relation_from_show_view,
     show_like_pattern,
 )
+from sqlbuild.adapters.snowflake._helpers.state_table_retention import (
+    is_invalid_retention_error,
+)
 from sqlbuild.adapters.snowflake.classes.snowflake_connection import _SnowflakeConnection
+from sqlbuild.adapters.snowflake.classes.state_table_retention_fallbacks import (
+    StateTableRetentionFallbacks,
+)
 from sqlbuild.adapters.snowflake.constants import (
     BASE_TABLE_METADATA_TYPE,
     CURRENT_DATABASE_ATTRIBUTE,
@@ -149,12 +156,14 @@ from sqlbuild.cost.main.collection import collect_snowflake_cost
 from sqlbuild.cost.models import RunCostSummary
 from sqlbuild.cost.types import CostCapability, CostStatus
 from sqlbuild.diagnostics.main.log_sql import log_sql
+from sqlbuild.runtime.observability.classes.statement_lifecycle import StatementLifecycle
 from sqlbuild.spec.contracts.constants import DEFAULT_SEED_CSV_SETTINGS
 from sqlbuild.spec.contracts.models import SeedCsvSettings
 from sqlbuild.spec.contracts.types import TableType
 from sqlbuild.sql_values.models import SqlValue
 
 _EXACT_COLUMN_INSPECTION_LIMIT: int = 32
+_STATE_TABLE_RETENTION_ATTRIBUTE: str = "_state_table_retention_fallbacks_state"
 _METADATA_INSPECTION_CONCURRENCY: int = 8
 _SHOW_RESULT_LIMIT: int = 10_000
 _SHOW_COLUMN_KIND: str = "COLUMN"
@@ -179,7 +188,6 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     exact_column_inspection_limit: ClassVar[int] = _EXACT_COLUMN_INSPECTION_LIMIT
 
     max_identifier_length: ClassVar[int] = 255
-    state_tables_transient: ClassVar[bool] = True
     supports_session_warehouse: ClassVar[bool] = True
     connection_routing_keys: ClassVar[frozenset[str]] = frozenset(
         {"source", "profile", "target", "project_dir", "profiles_dir"}
@@ -535,6 +543,22 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             render_qualified_name=self.render_qualified_name,
         )
 
+    def render_create_source_freshness_table_sql(self, *, database: str | None, schema: str) -> str:
+        from sqlbuild.compiler.source_freshness.main.create_table_sql import (
+            build_create_table_sql as build_source_freshness_create_table_sql,
+        )
+
+        return self._with_state_table_retention(
+            create_sql=build_source_freshness_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
+            database=database,
+            schema=schema,
+        )
+
     def render_create_source_freshness_index_sqls(
         self,
         *,
@@ -543,6 +567,34 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     ) -> tuple[str, ...]:
         del database, schema
         return ()
+
+    def render_create_microbatch_state_table_sql(self, *, database: str | None, schema: str) -> str:
+        return self._with_state_table_retention(
+            create_sql=super().render_create_microbatch_state_table_sql(
+                database=database, schema=schema
+            ),
+            database=database,
+            schema=schema,
+        )
+
+    def _with_state_table_retention(
+        self, *, create_sql: str, database: str | None, schema: str
+    ) -> str:
+        """Render state-table DDL with the maximum time travel its schema accepts."""
+
+        return self._state_table_retention_fallbacks().render(
+            create_sql=create_sql, database=database, schema=schema
+        )
+
+    def _state_table_retention_fallbacks(self) -> StateTableRetentionFallbacks:
+        fallbacks: StateTableRetentionFallbacks | None = self.__dict__.get(
+            _STATE_TABLE_RETENTION_ATTRIBUTE
+        )
+        if fallbacks is not None:
+            return fallbacks
+        return self.__dict__.setdefault(
+            _STATE_TABLE_RETENTION_ATTRIBUTE, StateTableRetentionFallbacks()
+        )
 
     def render_insert_source_freshness_records_sql(
         self,
@@ -568,12 +620,15 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             build_node_results_create_table_sql,
         )
 
-        return build_node_results_create_table_sql(
+        return self._with_state_table_retention(
+            create_sql=build_node_results_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
             database=database,
             schema=schema,
-            render_qualified_name=self.render_qualified_name,
-            render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_create_node_result_index_sqls(
@@ -590,12 +645,15 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             build_audit_results_create_table_sql,
         )
 
-        return build_audit_results_create_table_sql(
+        return self._with_state_table_retention(
+            create_sql=build_audit_results_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
             database=database,
             schema=schema,
-            render_qualified_name=self.render_qualified_name,
-            render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_create_audit_result_index_sqls(
@@ -609,12 +667,15 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             build_janitor_events_create_table_sql,
         )
 
-        return build_janitor_events_create_table_sql(
+        return self._with_state_table_retention(
+            create_sql=build_janitor_events_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
             database=database,
             schema=schema,
-            render_qualified_name=self.render_qualified_name,
-            render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_create_migration_state_table_sql(self, *, database: str | None, schema: str) -> str:
@@ -622,12 +683,15 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             build_migration_state_create_table_sql,
         )
 
-        return build_migration_state_create_table_sql(
+        return self._with_state_table_retention(
+            create_sql=build_migration_state_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
             database=database,
             schema=schema,
-            render_qualified_name=self.render_qualified_name,
-            render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_create_old_name_view_state_table_sql(
@@ -637,12 +701,15 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             build_old_name_view_state_create_table_sql,
         )
 
-        return build_old_name_view_state_create_table_sql(
+        return self._with_state_table_retention(
+            create_sql=build_old_name_view_state_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
             database=database,
             schema=schema,
-            render_qualified_name=self.render_qualified_name,
-            render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_create_column_migration_state_table_sql(
@@ -652,12 +719,15 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             build_column_migration_state_create_table_sql,
         )
 
-        return build_column_migration_state_create_table_sql(
+        return self._with_state_table_retention(
+            create_sql=build_column_migration_state_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
             database=database,
             schema=schema,
-            render_qualified_name=self.render_qualified_name,
-            render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_prune_fingerprint_history_sql(
@@ -1724,6 +1794,22 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     def _execute(self, *, connection: _SnowflakeConnection, sql: str) -> Any:
         """Execute a SQL statement against a Snowflake connection."""
 
+        fallbacks: StateTableRetentionFallbacks = self._state_table_retention_fallbacks()
+        fallback_sql: str | None = fallbacks.fallback_for(sql)
+        if fallback_sql is None:
+            return self._execute_statement(connection=connection, sql=sql)
+        if fallbacks.is_fallen_back(sql):
+            return self._execute_statement(connection=connection, sql=fallback_sql)
+        try:
+            return self._execute_statement(connection=connection, sql=sql)
+        except Exception as error:
+            if not is_invalid_retention_error(error):
+                raise
+        fallbacks.remember_fallback(sql)
+        StatementLifecycle.discard_failed_attempt()
+        return self._execute_statement(connection=connection, sql=fallback_sql)
+
+    def _execute_statement(self, *, connection: _SnowflakeConnection, sql: str) -> Any:
         log_sql(logger=logging.getLogger("sqlbuild.adapter.snowflake"), sql=sql)
         return connection.execute(sql)
 
@@ -1811,6 +1897,26 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         schema: str | None,
         name: str,
     ) -> bool:
+        return (
+            self._information_schema_table_row(
+                connection=connection,
+                database=database,
+                schema=schema,
+                name=name,
+                projection="1",
+            )
+            is not None
+        )
+
+    def _information_schema_table_row(
+        self,
+        *,
+        connection: _SnowflakeConnection,
+        database: str | None,
+        schema: str | None,
+        name: str,
+        projection: str,
+    ) -> tuple[Any, ...] | None:
         clauses: list[str] = ["table_name = %s"]
         params: list[str] = [self._information_schema_identifier(name)]
         if schema is not None:
@@ -1822,13 +1928,13 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         cursor: Any = connection.cursor()
         try:
             cursor.execute(
-                "SELECT 1 FROM "
+                f"SELECT {projection} FROM "
                 + self._information_schema_relation(database=database, name="tables")
                 + " WHERE "
                 + " AND ".join(clauses),
                 tuple(params),
             )
-            return cursor.fetchone() is not None
+            return cursor.fetchone()
         finally:
             cursor.close()
 
@@ -2621,12 +2727,15 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             build_create_table_sql,
         )
 
-        return build_create_table_sql(
+        return self._with_state_table_retention(
+            create_sql=build_create_table_sql(
+                database=database,
+                schema=schema,
+                render_qualified_name=self.render_qualified_name,
+                render_framework_type=self.render_framework_type,
+            ),
             database=database,
             schema=schema,
-            render_qualified_name=self.render_qualified_name,
-            render_framework_type=self.render_framework_type,
-            transient=self.state_tables_transient,
         )
 
     def render_table_function_call(self, *, target: str, call_suffix_sql: str) -> str:
@@ -2733,6 +2842,18 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             escaped_value: str = value.replace("'", "''")
             return f"'{escaped_value}'"
         return f"'{value}'"
+
+    def interrupt_connection(self, connection: Any) -> bool:
+        """Cancel a connection's running statement from another thread; False if unsupported."""
+
+        del connection
+        return False
+
+    def lists_relations_authoritatively(self, *, database: str | None, schema: str) -> bool:
+        """Return whether ``list_relations`` reports every relation in this scope."""
+
+        del database, schema
+        return True
 
     def supports_zero_copy_clone(self) -> bool:
         return True
@@ -3130,6 +3251,29 @@ class SnowflakeAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         statement: str
         for statement in statements:
             self.execute(connection=connection, sql=statement)
+
+    def estimate_relation_row_count(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schema: str | None,
+        name: str,
+    ) -> RelationRowCountEstimate:
+        """Read ``ROW_COUNT`` from the information schema; views report no count."""
+
+        row: tuple[Any, ...] | None = self._information_schema_table_row(
+            connection=connection,
+            database=database,
+            schema=schema,
+            name=name,
+            projection="row_count",
+        )
+        if row is None:
+            return RelationRowCountEstimate(row_count=None, detail="relation not found")
+        if row[0] is None:
+            return RelationRowCountEstimate(row_count=None, detail="no row count (view)")
+        return RelationRowCountEstimate(row_count=int(row[0]))
 
     def inspect_row_diff_coverage(
         self,

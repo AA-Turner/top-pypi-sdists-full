@@ -49,6 +49,7 @@ dp_doppler_channel_destroy (dp_doppler_channel_state_t *state)
     return;
   dp_resamp_destroy (state->rs);
   free (state->ctrl);
+  free (state->pos);
   free (state);
 }
 
@@ -58,6 +59,10 @@ dp_doppler_channel_reset (dp_doppler_channel_state_t *state)
   dp_resamp_reset (state->rs);
   state->n_in  = 0;
   state->n_out = 0;
+  /* The profile's last d is running state, so it resets with the clocks;
+     leaving it would report a fresh stream at the previous one's offset. */
+  state->prof_d   = 0.0;
+  state->profiled = 0u;
 }
 
 size_t
@@ -87,6 +92,11 @@ dp_doppler_channel_execute (dp_doppler_channel_state_t *state,
                             float _Complex *out, size_t max_out)
 {
   size_t n_out = 0;
+  /* The closed form drives this call, so it is what offset_hz describes
+     again: a profile's last d would otherwise outlive the stream it was the
+     Doppler of. An empty call applies nothing and leaves it alone. */
+  if (x_len)
+    state->profiled = 0u;
   /* Chip away at the input in ctrl-buffer-sized pieces. dp_resamp_execute_ctrl
      is input-driven and its accumulator carries across calls, so chunking here
      is invisible in the output. */
@@ -141,6 +151,130 @@ dp_doppler_channel_execute (dp_doppler_channel_state_t *state,
   return n_out;
 }
 
+size_t
+dp_doppler_channel_execute_profile_max_out (dp_doppler_channel_state_t *state,
+                                            size_t                      n)
+{
+  (void)state; /* jm's signature: the binding sizes before it sees ppm[] */
+  /* The profile is unseen, so scale the known length by a floor on the scale
+     (PROFILE_MIN_SCALE: a 2x expansion, which profile_ok enforces) plus the
+     resampler's carried-accumulator slack, the same slack
+     dp_doppler_channel_execute_max_out() allows. */
+  return 2u * n + 2u;
+}
+
+/* The smallest scale a profile sample may ask for. A scale of zero or less
+   means time has stopped or reversed -- create() already refuses the scalar
+   equivalent, and the array form must not be the way in -- but the floor is
+   higher than that, because dp_doppler_channel_execute_profile_max_out()
+   sizes the output for an expansion of at most 2x. A scale below 1/2 would
+   ask for more samples than the buffer holds, and the kernel would stop
+   short: silently, with the input clock already advanced past the chunk. So
+   the validation and the sizing are one number, and a sample that would
+   overflow the sizing is refused rather than truncated. 1/2 is a -5e5 ppm
+   Doppler, which no real pass approaches. */
+#define PROFILE_MIN_SCALE 0.5
+
+/* A profile is valid only if EVERY sample is finite and keeps the scale at or
+   above PROFILE_MIN_SCALE. Non-finite is refused explicitly: NaN fails the
+   comparison by accident, but +inf passes any "> 0" test and used to yield a
+   single output with no error. */
+static int
+profile_ok (const double *ppm, size_t n)
+{
+  for (size_t i = 0; i < n; i++)
+    if (!(isfinite (ppm[i]) && 1.0 + ppm[i] * 1e-6 >= PROFILE_MIN_SCALE))
+      return 0;
+  return 1;
+}
+
+size_t
+dp_doppler_channel_execute_profile (dp_doppler_channel_state_t *state,
+                                    const float _Complex *x, size_t x_len,
+                                    const double *ppm, size_t ppm_len,
+                                    float _Complex *out, size_t max_out)
+{
+  if (!state || !x || !ppm || !out)
+    return 0;
+  /* The length contract, enforced rather than documented: one Doppler value
+     per waveform sample. */
+  if (ppm_len != x_len)
+    return 0;
+  /* Validated over the WHOLE profile first: a check folded into the chunk
+     loop would emit a valid prefix and then stop, which reads as a short
+     read rather than a rejected argument. */
+  if (!profile_ok (ppm, x_len))
+    return 0;
+
+  /* Positions come back parallel to the outputs, so the scratch is as long
+     as the output buffer can be asked to fill. Grown on demand and never
+     serialized: it is a work area, not state. */
+  if (state->pos_cap < max_out)
+    {
+      state->pos     = dp_xrealloc (state->pos, max_out * sizeof (double));
+      state->pos_cap = max_out;
+    }
+
+  size_t n_out = 0;
+  double base  = doppler_channel_ratio (state, 0.0);
+  int    turn  = (state->carrier_hz != 0.0);
+
+  for (size_t off = 0; off < x_len && n_out < max_out;)
+    {
+      size_t m = x_len - off;
+      if (m > state->ctrl_cap)
+        m = state->ctrl_cap;
+
+      /* The profile IS the deviation. The resampler's rate is `base + ctrl`,
+         so subtracting the same `base` it was built with makes ppm[]
+         absolute and cancels the create-time scalar exactly. */
+      for (size_t i = 0; i < m; i++)
+        state->ctrl[i] = 1.0 / (1.0 + ppm[off + i] * 1e-6) - base;
+
+      size_t got = dp_resamp_execute_ctrl_pos (state->rs, x + off, state->ctrl,
+                                               m, out + n_out, state->pos,
+                                               max_out - n_out);
+
+      /* Carrier, from where the resampler says each output sits. The excess
+         delay at absolute output k is (p_k - k + 1) samples, p_k being its
+         position on the input timeline: n_in inputs came before this chunk,
+         so p_k = n_in + pos[j], and k = n_out + j. The integer part is
+         formed in int64 -- exact -- and only the sub-sample fraction is a
+         double, so a long capture loses nothing to cancellation.
+
+         The +1 is the pipeline convention (the first tick of a fresh stream
+         is emitted before any input is loaded, at -1); without it a profile
+         of zeros would still carry a constant fc/fs-cycle phase. */
+      if (turn)
+        for (size_t j = 0; j < got; j++)
+          {
+            double  rel            = state->pos[j];
+            double  fl             = floor (rel);
+            int64_t whole          = (int64_t)state->n_in
+                                     - (int64_t)(state->n_out + n_out + j) + 1
+                                     + (int64_t)fl;
+            double  excess_samples = (double)whole + (rel - fl);
+            /* Cycles, reduced to one turn before the float cast: cexpf would
+               lose the fraction that actually matters on a ~5e7-cycle
+               absolute phase. */
+            double ph = state->carrier_hz * excess_samples / state->fs;
+            ph -= floor (ph);
+            if (ph != 0.0) /* an all-zero profile pays no multiply */
+              out[n_out + j] *= cexpf ((float)(2.0 * M_PI * ph) * I);
+          }
+
+      state->n_in += m;
+      n_out += got;
+      off += m;
+    }
+
+  if (x_len)
+    state->prof_d = ppm[x_len - 1] * 1e-6;
+  state->profiled = 1u;
+  state->n_out += n_out;
+  return n_out;
+}
+
 double
 dp_doppler_channel_get_elapsed_s (const dp_doppler_channel_state_t *state)
 {
@@ -150,6 +284,11 @@ dp_doppler_channel_get_elapsed_s (const dp_doppler_channel_state_t *state)
 double
 dp_doppler_channel_get_offset_hz (const dp_doppler_channel_state_t *state)
 {
+  /* A stream a profile has driven is no longer described by the create-time
+     ramp, so reporting the closed form would name a frequency the capture
+     does not have. */
+  if (state->profiled)
+    return state->carrier_hz * state->prof_d;
   double t = dp_doppler_channel_get_elapsed_s (state);
   return state->carrier_hz
          * (state->doppler_ppm + state->doppler_rate_ppm_s * t) * 1e-6;
@@ -163,14 +302,20 @@ dp_doppler_channel_get_delay_samples (const dp_doppler_channel_state_t *state)
 
 /* ---- state serialization ------------------------------------------------ */
 
-/* Running state only: the two sample clocks plus the resampler's own blob
-   (delay line + fractional accumulator). Configuration is restored by
-   create(), so none of fs/carrier_hz/doppler_* is packed here. */
+/* Running state only: the two sample clocks, the profile's last d, plus the
+   resampler's own blob (delay line + fractional accumulator). Configuration
+   is restored by create(), so none of fs/carrier_hz/doppler_* is packed here.
+
+   The profile carrier needs nothing of its own: it is read off the
+   resampler's position, which is the resampler blob plus the two clocks.
+   `prof_d` is only what offset_hz reports, and it is here because a resumed
+   stream that forgot a profile had driven it would report the closed form
+   again. Adding it is why the layout version is 2. */
 
 size_t
 dp_doppler_channel_state_bytes (const dp_doppler_channel_state_t *state)
 {
-  return sizeof (dp_state_hdr_t) + 2u * sizeof (uint64_t)
+  return sizeof (dp_state_hdr_t) + 3u * sizeof (uint64_t) + sizeof (double)
          + dp_resamp_state_bytes (state->rs);
 }
 
@@ -184,6 +329,8 @@ dp_doppler_channel_get_state (const dp_doppler_channel_state_t *state,
             total);
   dp_w_u64 (&w, state->n_in);
   dp_w_u64 (&w, state->n_out);
+  dp_w_f64 (&w, state->prof_d);
+  dp_w_u64 (&w, state->profiled);
   void *child = dp_w_reserve (&w, dp_resamp_state_bytes (state->rs));
   if (child)
     dp_resamp_get_state (state->rs, child);
@@ -202,6 +349,8 @@ dp_doppler_channel_set_state (dp_doppler_channel_state_t *state,
   (void)dp_r_reserve (&r, sizeof (dp_state_hdr_t)); /* skip the envelope */
   state->n_in       = dp_r_u64 (&r);
   state->n_out      = dp_r_u64 (&r);
+  state->prof_d     = dp_r_f64 (&r);
+  state->profiled   = (uint8_t)(dp_r_u64 (&r) != 0u);
   const void *child = dp_r_reserve (&r, dp_resamp_state_bytes (state->rs));
   if (!child)
     return DP_ERR_INVALID;

@@ -95,6 +95,128 @@ class DopplerChannel:
             Output.
         """
 
+    def execute_profile(
+        self,
+        x: npt.NDArray[np.complex64],
+        ppm: npt.NDArray[np.float64],
+        out: npt.NDArray[np.complex64] | None = None,
+    ) -> NDArray[np.complex64]:
+        """Apply a per-sample Doppler PROFILE to a block of complex baseband.
+
+        The array form of dp_doppler_channel_execute(): instead of the
+        create-time `(doppler_ppm, doppler_rate_ppm_s)` closed form -- a
+        straight line, which a real pass is not -- the Doppler is supplied as
+        one value per INPUT sample. The length contract is the one
+        `dp_resamp_execute_ctrl()` underneath already has (`ctrl` parallel to
+        `in`), so a profile is handed to the resampler rather than reduced to
+        fit it.
+
+        **The profile is ABSOLUTE.** `ppm[i]` is the total instantaneous
+        Doppler at input sample `i`; the create-time scalars do not add to it.
+        They cancel exactly rather than by convention: the resampler's rate is
+        `base + ctrl`, and this fills `ctrl = ratio(ppm[i]) - base` with the
+        same `base` it was built with. Creating with zeros and supplying a
+        profile is the ordinary use.
+
+        **The carrier is read off the resampler, not integrated beside it.**
+        The excess delay at output `k` is `(p_k - k + 1)/fs`, where `p_k` is
+        the input position the resampler's own accumulator reports for that
+        output (dp_resamp_execute_ctrl_pos()). So the carrier
+        `exp(j*2*pi*fc*excess)` is derived from the dilation the resampler
+        actually performed:
+
+        - It cannot disagree with the dilation, and there is no second
+          accumulator to drift from the first.
+        - It cannot depend on how the stream was chunked: nothing here maps a
+          profile index to an output index, which is what made the first
+          attempt at this (reverted) chunk-dependent. Output `k` has the
+          carrier of the position it was interpolated at, whatever call it fell
+          in.
+        - It has no cancellation: the integer part of `p_k - k` is exact, and
+          only a fraction below one input sample is floating point.
+
+        Mixing the two calls on one stream is permitted and coherent -- both
+        advance the same clocks -- and dp_doppler_channel_get_offset_hz()
+        reports whichever drove the most recent call: the profile's last value
+        after this, the closed form again after the next
+        dp_doppler_channel_execute(). The profile is in the serialized state
+        (layout version 2) only as that last value; the carrier needs none.
+
+        A sign change mid-record is the point: no `(doppler_ppm,
+        doppler_rate_ppm_s)` pair produces it.
+
+        Parameters
+        ----------
+        x : npt.NDArray[np.complex64]
+            Input CF32 samples, x_len of them.
+        ppm : npt.NDArray[np.float64]
+            Doppler in ppm, parallel to x.
+        out : npt.NDArray[np.complex64] | None
+            Output buffer.
+
+        Returns
+        -------
+        NDArray[np.complex64]
+            Samples written; in Python, the array's length. A refused call
+            writes nothing, leaves the clocks alone and returns 0, but 0 is
+            also a valid result (a one-sample call returns it about half the
+            time at +1e6 ppm), so the return value alone cannot tell a refusal
+            from an empty answer: check the clocks (doppler#1869). Refused: a
+            NULL pointer, a ppm_len that differs from x_len, or a profile
+            sample that is non-finite or below -5e5 ppm (a scale under 1/2:
+            past the 2x expansion the output is sized for, and at -1e6 ppm time
+            stops, which create() already refuses for the scalar). All checked
+            over the whole profile BEFORE any output is produced, so a bad call
+            writes nothing rather than a valid prefix.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.impairment import DopplerChannel
+        >>> ch = DopplerChannel(fs=1e6, carrier_hz=2.5e9)
+        >>> n = 1000
+        >>> ppm = np.where(np.arange(n) < n // 2, 20.0, -20.0)
+        >>> y = ch.execute_profile(np.ones(n, dtype=np.complex64), ppm)
+        >>> y.shape          # closing then opening: the record STRETCHES overall
+        (1001,)
+        >>> round(ch.offset_hz, 1)   # fc * d at the last profile sample
+        -50000.0
+
+        """
+
+    def execute_profile_max_out(self, x_len: int) -> int:
+        """The BINDING's output bound for execute_profile() (jm pass_capacity).
+
+        The generated binding knows the INPUT LENGTH n -- it passes it -- but
+
+        has not looked at the profile array, so it knows how many samples go in
+
+        and not how far they dilate. With the profile unseen there is no exact
+
+        answer: the bound scales n by a floor on the scale and the kernel
+        clamps
+
+        to the caller's real capacity, as `Resampler_execute_ctrl_max_out` does
+        for
+
+        its equally arbitrary `ctrl`. The floor allows a 2x expansion, i.e. a
+
+        Doppler of -500000 ppm -- half the speed of light closing, six orders
+        of
+
+        magnitude past any geometry this object models.
+
+        Parameters
+        ----------
+        x_len : int
+            Input.
+
+        Returns
+        -------
+        int
+            The capacity the binding allocates.
+        """
+
     def reset(self) -> None:
         """Reset DopplerChannel to its post-create state.
 

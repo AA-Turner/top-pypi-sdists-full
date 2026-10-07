@@ -51,7 +51,7 @@ def test_structured_list_binding_is_authoritative() -> None:
 
     assert random_assignment_bindings_from_variables(variables) == {
         "item": {
-            "source": "structured_list",
+            "source": "pick_list",
             "list_id": "list-1",
             "group_name": "A",
         }

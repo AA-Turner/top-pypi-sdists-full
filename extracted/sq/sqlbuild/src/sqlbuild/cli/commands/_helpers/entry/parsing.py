@@ -14,6 +14,7 @@ from sqlbuild.cli.commands.constants import (
     DEBUG_OPTION,
     EMPTY_ENV_VALUE,
     NO_COLOR_OPTION,
+    POSITIONAL_SELECT_COMMANDS,
     SCOPE_DEFAULT_PAGE_SIZE,
     SCOPE_GLOBAL_SUMMARY,
     SQLBUILD_CONCURRENCY_ENV_VAR,
@@ -24,6 +25,8 @@ from sqlbuild.cli.entry.models import (
     SelectorFileSummary,
     SelectorInputs,
 )
+from sqlbuild.compiler.frontier.exceptions import CompilerEngineError
+from sqlbuild.compiler.frontier.main.resolve_compiler_engine import resolve_compiler_engine
 from sqlbuild.compiler.scopes.types import DeclarationKind
 from sqlbuild.integrations.dbt.types import DbtInteropCommand
 
@@ -104,9 +107,21 @@ def parse_cli_invocation(
                     continue
                 dbt_passthrough_args.append(dbt_arg)
             args.dbt_args = dbt_passthrough_args
-        elif unknown_args:
-            parser.error(f"unrecognized arguments: {' '.join(unknown_args)}")
+        else:
+            if args.command in POSITIONAL_SELECT_COMMANDS:
+                args.select, unknown_args = _merge_positional_selectors(
+                    positional=args.positional_select,
+                    select=args.select,
+                    unknown_args=unknown_args,
+                )
+            if unknown_args:
+                parser.error(f"unrecognized arguments: {' '.join(unknown_args)}")
         args.verbose = args.verbose or args.debug
+        if args.compiler_engine is None:
+            try:
+                _ = resolve_compiler_engine()
+            except CompilerEngineError as error:
+                parser.error(str(error))
         if (
             args.debug
             and args.command == CliCommand.DBT
@@ -125,6 +140,8 @@ def parse_cli_invocation(
                 args.concurrency = resolve_env_default_concurrency(args.concurrency)
             except argparse.ArgumentTypeError as error:
                 parser.error(str(error))
+        if args.command in {CliCommand.BUILD, CliCommand.LOAD, CliCommand.PLAN}:
+            _validate_cursor_override_args(args=args, parser=parser)
         if args.command == CliCommand.SCOPE:
             _validate_scope_args(args=args, parser=parser)
         if args.command == CliCommand.TEST:
@@ -137,6 +154,33 @@ def parse_cli_invocation(
         exit_code: int = error.code if isinstance(error.code, int) else 1
         return ParsedCliInvocation(args=None, exit_code=exit_code)
     return ParsedCliInvocation(args=args, exit_code=None)
+
+
+def _merge_positional_selectors(
+    *, positional: list[str], select: list[str], unknown_args: list[str]
+) -> tuple[list[str], list[str]]:
+    """Combine positional, trailing and --select selectors; return what is still unrecognised."""
+
+    if unknown_args and not any(arg.startswith("-") for arg in unknown_args):
+        return [*positional, *unknown_args, *select], []
+    return [*positional, *select], unknown_args
+
+
+def _validate_cursor_override_args(*, args: CliNamespace, parser: argparse.ArgumentParser) -> None:
+    has_untyped: bool = args.start_cursor is not None or args.end_cursor is not None
+    has_typed: bool = any(
+        value is not None
+        for value in (
+            args.start_cursor_ts,
+            args.end_cursor_ts,
+            args.start_cursor_int,
+            args.end_cursor_int,
+        )
+    )
+    if has_untyped and has_typed:
+        parser.error(
+            "--start-cursor/--end-cursor cannot be combined with the -ts or -int cursor flags"
+        )
 
 
 def _validate_scope_args(*, args: CliNamespace, parser: argparse.ArgumentParser) -> None:

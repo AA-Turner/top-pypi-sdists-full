@@ -11,7 +11,7 @@ import pytest
 from hypothesis import HealthCheck, Phase, assume, find, given, settings
 from hypothesis import strategies as st
 from hypothesis.database import InMemoryExampleDatabase
-from hypothesis.errors import InvalidArgument, Unsatisfiable
+from hypothesis.errors import InvalidArgument, NoSuchExample, Unsatisfiable
 from hypothesis.internal.observability import with_observability_callback
 from jsonschema_rs import canonical
 
@@ -529,7 +529,7 @@ def test_default_strategies_binary(swagger_20):
     case = examples.generate_one(operation.as_strategy())
     assert isinstance(case.body["upfile"], Binary)
     kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1")
-    assert kwargs["files"] == [("upfile", case.body["upfile"].data)]
+    assert kwargs["files"] == [("upfile", ("upfile.png", case.body["upfile"].data))]
 
 
 def test_merge_length_into_pattern(ctx):
@@ -3009,6 +3009,17 @@ def test_canonical_pattern_naming_a_character_outside_the_alphabet(ctx):
     find(built, lambda value: len(value) > 1, settings=settings(max_examples=1000, database=None))
 
 
+# The validator counts a few non-ASCII spaces, like U+00A0, as `\s`.
+@pytest.mark.parametrize("pattern", ["^\\S+$", "^[\\S \\n]+$", "^[^\\s]+$"])
+def test_canonical_pattern_non_whitespace_class_draws_no_validator_whitespace(pattern):
+    schema = {"type": "string", "pattern": pattern}
+    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft4Validator)
+    is_valid = jsonschema_rs.Draft4Validator(schema).is_valid
+
+    with pytest.raises(NoSuchExample):
+        find(built, lambda value: not is_valid(value), settings=settings(max_examples=1000, database=None))
+
+
 def test_canonical_object_floor_over_values_that_cannot_be_drawn():
     # Every property would need a value, and the only schema on offer admits none.
     schema = {
@@ -3196,6 +3207,34 @@ def test_barred_pattern_naming_every_character(pattern):
         find(built, lambda _: True, settings=settings(max_examples=10, database=None))
 
 
+def test_header_pattern_needing_only_excluded_characters_is_unsatisfiable(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "X-Token",
+                            "in": "header",
+                            "required": True,
+                            "schema": {"type": "string", "pattern": "^\\w$"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    schema.config.generation.update(
+        codec="latin-1",
+        exclude_header_characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_",
+    )
+    strategy = schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE)
+
+    with pytest.raises(Unsatisfiable):
+        find(strategy, lambda _: True, settings=settings(max_examples=10, database=None))
+
+
 def test_canonical_integer_grid_without_a_multiple_in_range():
     # No integer between 1 and 2.5 is a multiple of 1.5, and canonicalization does not rule it out.
     schema = {"type": "integer", "minimum": 1, "maximum": 2.5, "multipleOf": 1.5}
@@ -3287,6 +3326,33 @@ def test_positive_generation_respects_not_with_unicode_property_pattern(ctx, ver
     @settings(max_examples=10, deadline=None)
     def test(case):
         assert is_valid(case.body), case.body
+
+    test()
+
+
+def test_cookie_value_barred_from_every_printable_character_is_empty(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "session",
+                            "in": "cookie",
+                            "required": True,
+                            "schema": {"type": "string", "not": {"pattern": "[ -~]"}},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(max_examples=10, deadline=None)
+    def test(case):
+        assert case.cookies == {"session": ""}
 
     test()
 

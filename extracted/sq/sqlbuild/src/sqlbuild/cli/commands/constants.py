@@ -4,7 +4,6 @@ from types import MappingProxyType
 
 from sqlbuild.cli.commands.types import CliCommand, CompileLineageMode, PlaygroundTemplate
 from sqlbuild.compiler.lineage.types import ColumnLineageMode
-from sqlbuild.compiler.planner.types import SelectorKind
 from sqlbuild.spec.contracts.types import WarehouseGroup
 
 C0_CONTROL_CODE_LIMIT: int = 32
@@ -37,19 +36,8 @@ RULES_SHOW_ACTION: str = "show"
 RULES_SKILLS_ACTION: str = "skills"
 SQL_FILE_SUFFIX: str = ".sql"
 SELECTOR_INTERSECTION_MARKER: str = ","
-PATH_BETWEEN_MARKER: str = "~"
-SELECTOR_KIND_SEPARATOR: str = ":"
-PATH_SEPARATOR: str = "/"
-SELECTOR_EXPANSION_MARKER: str = "+"
 COLUMN_TARGET_SEPARATOR: str = "."
-SUPPORTED_TYPED_SELECTOR_KINDS: frozenset[str] = frozenset(
-    {
-        SelectorKind.SEED,
-        SelectorKind.SOURCE,
-        SelectorKind.TAG,
-        SelectorKind.PATH,
-    }
-)
+COLUMN_TARGET_KIND: str = "column"
 PLAYGROUND_ORCHESTRATED_PROJECT_DIR: str = "waffle_shop"
 PLAYGROUND_ORCHESTRATED_TEMPLATES: frozenset[PlaygroundTemplate] = frozenset(
     {PlaygroundTemplate.DAGSTER, PlaygroundTemplate.RIVERS}
@@ -144,6 +132,18 @@ QUERY_DIFF_INCOMPLETE_EXECUTION_CODES: frozenset[str] = frozenset({"C237", "C238
 CLI_WAREHOUSE_SOURCE: str = "--warehouse"
 CONNECTION_WAREHOUSE_SOURCE: str = "connection warehouse"
 CONNECTION_DEFAULT_WAREHOUSE_SOURCE: str = "connection default"
+POSITIONAL_SELECT_COMMANDS: frozenset[str] = frozenset(
+    {
+        CliCommand.AUDIT,
+        CliCommand.BUILD,
+        CliCommand.CHECK,
+        CliCommand.COMPILE,
+        CliCommand.FRESHNESS,
+        CliCommand.PLAN,
+        CliCommand.SEED,
+        CliCommand.TEST,
+    }
+)
 COMMAND_WAREHOUSE_GROUPS: MappingProxyType[CliCommand, WarehouseGroup | None] = MappingProxyType(
     {
         CliCommand.AUDIT: WarehouseGroup.BUILD,

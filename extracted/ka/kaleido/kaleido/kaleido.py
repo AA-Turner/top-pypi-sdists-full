@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import warnings
 from collections import deque
 from collections.abc import AsyncIterable, Iterable
@@ -20,16 +21,13 @@ from ._page_generator import PageGenerator
 from ._utils import fig_tools, path_tools
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, ValuesView
     from types import TracebackType
     from typing import (
         Any,
-        AsyncGenerator,
-        List,
         Literal,
-        Tuple,
         TypeVar,
         Union,
-        ValuesView,
     )
 
     from typing_extensions import NotRequired, Required, TypeAlias, TypeGuard
@@ -37,9 +35,9 @@ if TYPE_CHECKING:
     T = TypeVar("T")
     AnyIterable: TypeAlias = Union[Iterable[T], AsyncIterable[T]]  # not runtime
 
-    # union of sized iterables since 3.8 doesn't have & operator
-    # Iterable & Sized
-    Listish: TypeAlias = Union[Tuple[T], List[T], ValuesView[T]]
+    # Python typing has no intersection type for Iterable & Sized, so list the
+    # sized iterables that _conform_tabs accepts
+    Listish: TypeAlias = Union[tuple[T], list[T], ValuesView[T]]
 
     class FigureDict(TypedDict):
         """The type a fig_dicts returns for `write_fig_from_object`."""
@@ -187,12 +185,19 @@ class Kaleido(choreo.Browser):
         try:
             super().__init__(**kwargs)
         except ChromeNotFoundError:
-            raise ChromeNotFoundError(
+            msg = (
                 "Kaleido v1 and later requires Chrome to be installed. "
                 "To install Chrome, use the CLI command `kaleido_get_chrome`, "
                 "or from Python, use either `await kaleido.get_chrome()` "
-                "or `kaleido.get_chrome_sync()`.",
-            ) from None  # overwriting the error entirely. (diagnostics)
+                "or `kaleido.get_chrome_sync()`."
+            )
+            # a path the user set explicitly is the likelier cause
+            if browser_path := kwargs.get("path"):
+                msg = f"No browser found at path={str(browser_path)!r}. {msg}"
+            elif browser_path := os.environ.get("BROWSER_PATH"):
+                msg = f"No browser found at BROWSER_PATH={browser_path!r}. {msg}"
+            # overwriting the error entirely. (diagnostics)
+            raise ChromeNotFoundError(msg) from None
 
         # save this for open() because it requires close()
         self._saved_page_arg = page

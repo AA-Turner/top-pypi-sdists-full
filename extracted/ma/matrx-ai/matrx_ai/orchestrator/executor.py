@@ -546,7 +546,8 @@ async def execute_ai_request(
         surrounding = (
             ctx.parent_conversation_id
             if getattr(ctx, "system_run", False) or not _is_valid_uuid_str(ctx.conversation_id)
-            else ctx.conversation_id
+            # Never a workflow step's minted invocation id — no row backs it.
+            else ctx.conversation_id_for_lineage
         )
         # A held code call is internal machinery, never a conversation in the
         # person's history: stamp the existing ``subagent`` type (chat.conversation_lane
@@ -2482,34 +2483,6 @@ def _record_billed_usage_on_failure(
         )
 
 
-def _turn_ttft_ms(state: ExecutionState | None) -> int | None:
-    """Time-to-first-token for THIS execution's user turn, in whole milliseconds.
-
-    Measured by the stream emitter (request accepted → first text or reasoning
-    chunk emitted; see ``StreamEmitter.time_to_first_output_s``). ``None`` — and
-    nothing is persisted — when no output ever reached the stream, when the
-    stream has no armed request start, when the first output belonged to an
-    earlier execution on the same stream, or for a child agent (it shares its
-    parent's stream, so the parent's first token is not the child's).
-    """
-    from matrx_ai.context.app_context import try_get_app_context
-
-    ctx = try_get_app_context()
-    if ctx is None or getattr(ctx, "parent_conversation_id", None):
-        return None
-    emitter = getattr(ctx, "emitter", None)
-    ttft_fn = getattr(emitter, "time_to_first_output_s", None)
-    first_at = getattr(emitter, "first_output_at", None)
-    if not callable(ttft_fn) or not isinstance(first_at, float):
-        return None
-    if state is not None and first_at < state.started_perf:
-        return None
-    ttft_s = ttft_fn()
-    if not isinstance(ttft_s, float):
-        return None
-    return int(round(ttft_s * 1000))
-
-
 async def _finalize_and_persist(
     current_request: AIMatrixRequest,
     iteration: int,
@@ -2563,7 +2536,9 @@ async def _finalize_and_persist(
     # chat.user_request.metadata.ttft_ms (via build_request_summary) and in the
     # completion event's timing_stats.first_token_seconds.
     _timing_stats = current_request.timing_stats
-    _ttft_ms = _turn_ttft_ms(state or try_get_execution_state())
+    from matrx_ai.orchestrator.first_output import turn_ttft_ms
+
+    _ttft_ms = turn_ttft_ms(state or try_get_execution_state(), current_request.timing_history)
     if _ttft_ms is not None:
         metadata = {**metadata, "ttft_ms": _ttft_ms}
         _timing_stats = {**_timing_stats, "first_token_seconds": _ttft_ms / 1000}
@@ -5540,9 +5515,10 @@ async def _execute_until_complete_inner(
                     # point was already delivered to the client, so the
                     # condition is a caveat on an otherwise-delivered
                     # response — emit WARNING, not ERROR. The request-level
-                    # metadata still records ``status=failed`` so the
-                    # persistence layer can flag it, but the user's stream
-                    # is not invalidated.
+                    # metadata records ``status=failed`` (or
+                    # ``completed_with_warning`` when the delivered answer
+                    # stands — see provider_stop) so the persistence layer
+                    # can flag it, but the user's stream is not invalidated.
                     # See StreamEmitter.send_error docstring for the rule.
                     model = current_request.config.model or "unknown model"
                     finish_str = (
@@ -5569,29 +5545,19 @@ async def _execute_until_complete_inner(
                     except ValueError:
                         retries_exhausted = False
 
-                    # Safety / content-filter finish reasons get a clear,
-                    # specific user message (this is the common Google case once
-                    # adjustable categories are off — non-adjustable blocks and
-                    # prompt-level blocks still land here). Whatever text streamed
-                    # before the block is preserved (appended below), so the
-                    # message tells the user the answer may be partial.
-                    _SAFETY_REASONS = {
-                        FinishReason.SAFETY,
-                        FinishReason.CONTENT_FILTER,
-                        FinishReason.PROHIBITED_CONTENT,
-                        FinishReason.RECITATION,
-                        FinishReason.SPII,
-                        FinishReason.BLOCKLIST,
-                        FinishReason.IMAGE_SAFETY,
-                        FinishReason.IMAGE_PROHIBITED_CONTENT,
-                        FinishReason.IMAGE_RECITATION,
-                        FinishReason.LANGUAGE,
-                    }
-                    _fr_for_msg: FinishReason | None
-                    try:
-                        _fr_for_msg = FinishReason(finish_str)
-                    except ValueError:
-                        _fr_for_msg = None
+                    # Every provider stop is named by ONE table
+                    # (config/finish_reason.py: provider_stop) — its own code,
+                    # its own sentence, whether it is expected provider control
+                    # flow, and whether a delivered answer stands. Live
+                    # 2026-10-07: Gemini's RECITATION ("matched published text
+                    # word for word") was reported as a content-safety block and
+                    # recorded as a hard failure over a complete flashcard set.
+                    from matrx_ai.config.finish_reason import provider_stop
+
+                    stop = provider_stop(finish_str)
+                    # Decided BEFORE anything is appended: does this turn hold
+                    # an answer the person can already see?
+                    has_visible_answer = _terminal_response_problem(api_response) is None
 
                     if retries_exhausted:
                         user_msg = (
@@ -5601,34 +5567,20 @@ async def _execute_until_complete_inner(
                         )
                         warning_code = "max_retries_exceeded"
                         warning_level: Literal["low", "medium", "high"] = "high"
-                    elif _fr_for_msg is FinishReason.REFUSAL:
-                        # The model itself declined this turn (Anthropic's
-                        # stop_reason "refusal"). Expected model control flow,
-                        # not a provider failure, and often not repeatable: on
-                        # 2026-09-24 the identical turn went through when it was
-                        # sent again three minutes later.
-                        user_msg = (
-                            "The model declined to respond to this message, so nothing "
-                            "was done. Sending it again often works; if it keeps "
-                            "happening, rephrase the request."
-                        )
-                        warning_code = "model_refusal"
-                        warning_level = "medium"
-                    elif _fr_for_msg in _SAFETY_REASONS:
-                        user_msg = (
-                            "The response was stopped by the provider's content-safety "
-                            "filters, so the answer may be incomplete. Any text generated "
-                            "before it stopped has been saved. Try rephrasing your request."
-                        )
-                        warning_code = "content_safety_stop"
-                        warning_level = "medium"
+                        stop_expected = False
                     else:
-                        user_msg = (
-                            "The model was unable to complete the response. "
-                            "This may be due to content restrictions or a model error."
-                        )
-                        warning_code = "model_stop"
+                        user_msg = stop.user_message
+                        warning_code = stop.code
                         warning_level = "medium"
+                        stop_expected = stop.expected
+
+                    # The answer stands when the provider stopped AFTER writing a
+                    # usable answer for a reason unrelated to its quality. The
+                    # request then completes WITH this warning — never a hard
+                    # ``failed`` over text the person already has.
+                    answer_stands = (
+                        not retries_exhausted and stop.delivered_text_stands and has_visible_answer
+                    )
 
                     await exec_ctx.emitter.send_warning(
                         WarningPayload(
@@ -5643,15 +5595,16 @@ async def _execute_until_complete_inner(
                                 "iteration": iteration,
                                 "retry_attempt": retry_attempt,
                                 "max_retries": max_retries_per_iteration,
+                                "answer_kept": answer_stands,
                             },
                         )
                     )
 
                     # Provider/runtime failures represented as a terminal
                     # finish reason must reach the human-review queue too.
-                    # Safety/content-policy stops are expected provider control
-                    # flow and deliberately remain outside system_error.
-                    if _fr_for_msg not in _SAFETY_REASONS and _fr_for_msg is not FinishReason.REFUSAL:
+                    # Expected provider control flow (safety, recitation,
+                    # refusal, ...) deliberately remains outside system_error.
+                    if not stop_expected:
                         from matrx_connect.streaming.error_capture import capture_error
 
                         finish_exc = RuntimeError(
@@ -5663,7 +5616,7 @@ async def _execute_until_complete_inner(
                             request_id=getattr(exec_ctx, "request_id", None),
                             conversation_id=getattr(exec_ctx, "conversation_id", None),
                             route="orchestrator/provider_response",
-                            error_type="finish_reason_error",
+                            error_type=warning_code,
                             payload={
                                 "model": model,
                                 "finish_reason": finish_str,
@@ -5684,18 +5637,15 @@ async def _execute_until_complete_inner(
                         iteration=iteration,
                         final_response=api_response,
                         metadata={
-                            "status": "failed",
+                            # ``completed_with_warning`` → cx_user_request
+                            # ``completed`` WITH the structured error kept
+                            # (requests.py). No new DB status is invented.
+                            "status": "completed_with_warning" if answer_stands else "failed",
                             "finish_reason": str(api_response.finish_reason),
-                            # A refusal or safety stop is saved in words the
-                            # person can act on; the raw reason stays in
-                            # finish_reason for operators.
-                            "error": (
-                                user_msg
-                                if _fr_for_msg is FinishReason.REFUSAL
-                                or _fr_for_msg in _SAFETY_REASONS
-                                else f"Model stopped with finish reason: {api_response.finish_reason}"
-                            ),
-                            "error_type": "finish_reason_error",
+                            # Saved in words the person can act on; the raw
+                            # reason stays in finish_reason for operators.
+                            "error": user_msg,
+                            "error_type": warning_code,
                         },
                         trigger_position=trigger_position,
                         pre_execution_message_count=pre_execution_message_count,

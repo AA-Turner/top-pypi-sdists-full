@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.9.77
+Version: 0.9.79
 Summary: AI coding assistant skill (Claude Code, CodeBuddy, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://graphify.com
@@ -218,6 +218,10 @@ graphify-out/
 ├── GRAPH_REPORT.md  the highlights: key concepts, surprising connections, suggested questions
 └── graph.json       the full graph — query it anytime without re-reading your files
 ```
+
+The persisted graph includes `graph.schema_version` so integrations can detect
+incompatible format changes, plus `graph.graphify_version` identifying the
+Graphify release that produced it.
 
 **Works in** Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, and 15+ more — [pick your platform](#install).
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orchestra-sdk
-Version: 0.1.2
+Version: 0.2.0
 Summary: Orchestra SDK for updating self-hosted Tasks.
 Author-email: Orchestra Technologies <support@getorchestra.io>
 License: Copyright 2025 Orchestra Technologies
@@ -205,3 +205,26 @@ def my_function(arg1, arg2=1):
 ```
 
 The function returns true/false for if the output was successfully set. We recommend checking the return value and logging failures to ensure outputs are correctly set.
+
+## Linked connections
+
+Python and dbt Core Tasks receive the credentials of their linked connections as environment variables named `<INTEGRATION>__<CONNECTION_ID>__<FIELD>`, for example `SNOWFLAKE__PROD_12345__SNOWFLAKE_PASSWORD`. The SDK reads these for you:
+
+```python
+import os
+
+from orchestra_sdk.orchestra import OrchestraSDK
+
+orchestra = OrchestraSDK(api_key=os.environ["ORCHESTRA_API_KEY"])
+
+# connection_id can be omitted when only one connection of that integration is linked
+snowflake = orchestra.get_linked_connection("snowflake", connection_id="prod_12345")
+snowflake["snowflake_password"]
+
+for connection in orchestra.list_linked_connections():
+    print(connection.integration, connection.connection_id, list(connection.fields))
+```
+
+- Integration, connection ID and field names are case-insensitive.
+- Field values are strings, except values that parse as a JSON object or list, which are decoded. A plain string that happens to be valid JSON, such as a password `[1234]`, is decoded too.
+- If a linked connection could not be loaded, its variables are not set and `get_linked_connection` raises `LinkedConnectionNotFoundError`.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import Field, JsonValue, model_validator
@@ -11,7 +12,12 @@ from pydantic_core import to_json
 
 from exp.common.core.artifacts import ContractModel, JsonObject
 from exp.runtime.gateway.capture_context import capture_context_document
-from exp.runtime.gateway.contracts import AuthorizationSnapshot, GatewayRequest
+from exp.runtime.gateway.contracts import (
+    AuthorizationSnapshot,
+    GatewayFailure,
+    GatewayFailureClass,
+    GatewayRequest,
+)
 
 if TYPE_CHECKING:
     from exp_gateway_native import CaptureCollector
@@ -290,6 +296,28 @@ class CaptureController:
         return self.native.begin_bytes(to_json(record, inf_nan_mode="null"))
 
 
+@dataclass(frozen=True)
+class PendingCapture:
+    """Effective capture context held by admission until input approval.
+
+    Attributes:
+        request: Expanded public request whose input must be approved before retention.
+        session_id: Validated caller session identifier, or None when absent.
+    """
+
+    request: GatewayRequest
+    session_id: str | None
+
+
+def capture_unavailable_failure() -> GatewayFailure:
+    """Return the content-free failure shared by admission and deferred response release."""
+    return GatewayFailure(
+        failure_class=GatewayFailureClass.UNAVAILABLE,
+        safe_message="Traffic capture is unavailable or at capacity. Restore capacity and retry.",
+        safe_details={"code": "capture_unavailable"},
+    )
+
+
 def begin_capture(
     controller: CaptureController | None,
     authorization: AuthorizationSnapshot,
@@ -306,6 +334,16 @@ def begin_capture(
     except Exception:  # noqa: BLE001 - sanitize policy and collector failures at admission.
         _LOGGER.warning("capture.admission_failed request_id=%s", authorization.request_id)
         return False
+
+
+def discard_capture(controller: CaptureController | None, request_id: str) -> None:
+    """Release a newly registered capture if its request closed during host policy evaluation."""
+    if controller is None:
+        return
+    try:
+        controller.native.settle(request_id, False, False)
+    except Exception:  # noqa: BLE001 - preserve the closed request's sanitized outcome.
+        _LOGGER.warning("capture.discard_failed request_id=%s", request_id)
 
 
 def select_capture_model(

@@ -298,6 +298,39 @@ class BaseMediaGeneration(ABC):
     def _call_provider(self, kwargs: dict[str, Any]) -> Any:
         """Invoke the provider SDK synchronously. Base wraps this in run_in_executor."""
 
+    async def _text_only_response(
+        self,
+        unified_config: UnifiedConfig,
+        kwargs: dict[str, Any],
+        raw: Any,
+        profile: Any,
+        text_reply: str,
+        emitter: Any,
+    ) -> UnifiedResponse:
+        """A paid call that returned text and no asset: return the text, billed."""
+        from matrx_ai.config import TextContent
+
+        try:
+            from matrx_ai.config.usage_config import ensure_pricing_lookup
+
+            await ensure_pricing_lookup()
+        except Exception:
+            pass
+        usage = self._build_usage(
+            unified_config,
+            kwargs,
+            raw,
+            [],
+            offering_id=profile.offering_id,
+            model_name=profile.model_name,
+        )
+        if emitter:
+            await emitter.send_chunk(text_reply)
+        return UnifiedResponse(
+            messages=[UnifiedMessage(role="assistant", content=[TextContent(text=text_reply)])],
+            usage=usage,
+        )
+
     def _poll_if_long_running(self, raw: Any) -> Any:
         """Override for video classes. Default: synchronous, no polling needed."""
         return raw
@@ -305,6 +338,12 @@ class BaseMediaGeneration(ABC):
     @abstractmethod
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:
         """Pull GeneratedAsset items out of the raw provider response."""
+
+    def _extract_text_reply(self, raw: Any) -> str:
+        """Text the model answered INSTEAD of an asset (a multimodal image model asked
+        something that is not an image request). Default: none. Override where the
+        provider can reply in text, so that reply is returned, never discarded."""
+        return ""
 
     @abstractmethod
     def _classify_error(self, exc: Exception) -> Any:
@@ -1109,6 +1148,12 @@ class BaseMediaGeneration(ABC):
 
             assets = await self._maybe_await(self._extract_assets, raw)
             if not assets:
+                text_reply = (self._extract_text_reply(raw) or "").strip()
+                if text_reply:
+                    # The model answered in words (feedback be97b536): keep the reply.
+                    return await self._text_only_response(
+                        unified_config, kwargs, raw, profile, text_reply, emitter
+                    )
                 raise RuntimeError(
                     f"{self.provider} {self.modality} generation returned no assets."
                 )

@@ -4478,6 +4478,45 @@ class SpanSearchResponse(BaseModel):
     """
 
 
+class ChainEventResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    public_id: Annotated[str, Field(title="Public Id")]
+    chain_id: Annotated[str, Field(title="Chain Id")]
+    event_type: Annotated[str, Field(title="Event Type")]
+    data: Annotated[dict[str, JsonValue] | None, Field(title="Data")] = None
+    created_by: Annotated[str | None, Field(title="Created By")] = None
+    created_by_email: Annotated[str | None, Field(title="Created By Email")] = None
+    created_by_name: Annotated[str | None, Field(title="Created By Name")] = None
+    created_at: Annotated[datetime, Field(title="Created At")]
+
+
+class ChainEventListResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    events: Annotated[list[ChainEventResponse], Field(title="Events")]
+    total: Annotated[int, Field(title="Total")]
+    """
+    Total matching events on the chain, independent of limit.
+    """
+
+
+class CreateChainEventBody(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    event_type: Annotated[str, Field(max_length=100, min_length=1, title="Event Type")]
+    """
+    What happened, namespaced by writer (e.g. "my_source.thing_happened").
+    """
+    data: Annotated[dict[str, JsonValue] | None, Field(title="Data")] = None
+    """
+    Event payload; capped at 16 KiB serialized.
+    """
+
+
 class ChainViewResponse(BaseModel):
     model_config = ConfigDict(
         extra="allow",
