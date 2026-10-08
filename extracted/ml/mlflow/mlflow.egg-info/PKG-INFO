@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow
-Version: 3.16.1
+Version: 3.17.0
 Summary: MLflow is an open source platform for the complete machine learning lifecycle
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -224,8 +224,8 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: mlflow-skinny==3.16.1
-Requires-Dist: mlflow-tracing==3.16.1
+Requires-Dist: mlflow-skinny==3.17.0
+Requires-Dist: mlflow-tracing==3.17.0
 Requires-Dist: Flask-CORS<7
 Requires-Dist: Flask<4
 Requires-Dist: aiohttp<4,>=3.7.0
@@ -257,6 +257,7 @@ Requires-Dist: prometheus-flask-exporter; extra == "extras"
 Provides-Extra: db
 Requires-Dist: PyMySQL; extra == "db"
 Requires-Dist: psycopg2-binary; extra == "db"
+Requires-Dist: psycopg[binary]; extra == "db"
 Requires-Dist: pymssql; extra == "db"
 Provides-Extra: databricks
 Requires-Dist: azure-storage-file-datalake>12; extra == "databricks"
@@ -293,7 +294,7 @@ Requires-Dist: mlflow-jfrog-plugin; extra == "jfrog"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes; extra == "kubernetes"
 Provides-Extra: langchain
-Requires-Dist: langchain<=1.3.17,>=1.0.0; extra == "langchain"
+Requires-Dist: langchain<=1.4.3,>=1.0.0; extra == "langchain"
 Provides-Extra: auth
 Requires-Dist: Flask-WTF<2; extra == "auth"
 Dynamic: license-file
@@ -345,13 +346,13 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
 
 From zero to full-stack LLMOps in minutes. No complex setup or major code changes required. [Get Started →](https://mlflow.org/docs/latest/genai/tracing/quickstart/)
 
-> **Fastest start — set up tracing with our CLI**
+> **Fastest start — set up tracing with the MLflow setup wizard**
 >
 > ```bash
-> uvx mlflow@latest agent setup
+> curl -LsSf https://mlflow.org/wizard/setup.sh | sh
 > ```
 >
-> One command installs the MLflow skills and launches your coding agent of choice to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.
+> Run this from your project's Git repository with Claude Code, Codex, or OpenCode installed. The wizard guides you through connecting to an MLflow server or Databricks workspace, then launches your coding agent to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.
 
 **1. Start MLflow Server**
 
@@ -604,11 +605,11 @@ MLflow can be used in a variety of environments, including your local environmen
 ## 💭 Support
 
 - For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest).
-- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the right bottom.
+- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the bottom right.
 - Join the [virtual events](https://lu.ma/mlflow?k=c) like office hours and meetups.
 - To report a bug, file a documentation issue, or submit a feature request, please [open a GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 - For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-  or join us on [Slack](https://mlflow.org/slack).
+  or join us on [Slack](https://go.mlflow.org/slack).
 
 ## 🤝 Contributing
 

@@ -57,7 +57,8 @@ class Settings:
 defaults = {
     "ENV": "local",
     "RESOURCE_PATH": get_resource_path("taktile_auth", "assets/resources.yaml"),
-    "ROLE_PATH": get_resource_path("taktile_auth", "assets/roles.yaml"),
+    # A directory of role files, merged at load time; a single YAML file also works.
+    "ROLE_PATH": get_resource_path("taktile_auth", "assets/roles"),
     "CACHE_SPEEDUP_TIME_MINUTES": 60,
     "CACHE_FALLBACK_TIME_MINUTES": 72 * 60,
     "CACHE_PUBLIC_KEY_SPEEDUP_TIME_MINUTES": 24 * 60,

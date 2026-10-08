@@ -208,13 +208,22 @@ pub(super) fn insert_reference(
         references.insert(sha256, reference);
         return Ok(());
     };
+    existing.occurrences = validate_duplicate_reference(&sha256, existing, &reference)?;
+    Ok(())
+}
+
+pub(super) fn validate_duplicate_reference(
+    sha256: &str,
+    existing: &RemoteValueReference,
+    reference: &RemoteValueReference,
+) -> Result<usize, StatsigErr> {
     if existing.metadata != reference.metadata {
         return Err(hydration_error(
             HydrationFailureReason::MetadataConflict,
             &format!("remote value {sha256} had conflicting metadata"),
         ));
     }
-    existing.occurrences = existing
+    existing
         .occurrences
         .checked_add(reference.occurrences)
         .ok_or_else(|| {
@@ -222,39 +231,49 @@ pub(super) fn insert_reference(
                 HydrationFailureReason::TooManyValues,
                 "DCS remote value reference count overflowed",
             )
-        })?;
-    Ok(())
+        })
 }
 
 pub(super) fn validate_reference_limits<'a>(
     references: impl IntoIterator<Item = &'a RemoteValueReference>,
 ) -> Result<(usize, u64), StatsigErr> {
-    let mut reference_count = 0usize;
-    let mut total_metadata_bytes = 0usize;
-    let mut total_bytes = 0u64;
-
+    let mut totals = ReferenceTotals::default();
     for reference in references {
-        reference_count = reference_count
-            .checked_add(reference.occurrences)
+        totals.add_occurrences(reference, reference.occurrences)?;
+    }
+    Ok((totals.reference_count, totals.total_bytes))
+}
+
+#[derive(Clone, Copy, Default)]
+pub(super) struct ReferenceTotals {
+    pub(super) reference_count: usize,
+    pub(super) total_bytes: u64,
+    total_metadata_bytes: usize,
+}
+
+impl ReferenceTotals {
+    /// Charge newly discovered occurrences using the retained reference's
+    /// metadata and URL, including when later placeholders use another origin.
+    pub(super) fn add_occurrences(
+        &mut self,
+        reference: &RemoteValueReference,
+        occurrences: usize,
+    ) -> Result<(), StatsigErr> {
+        let reference_count = self
+            .reference_count
+            .checked_add(occurrences)
             .ok_or_else(|| {
                 hydration_error(
                     HydrationFailureReason::TooManyValues,
                     "DCS remote value reference count overflowed",
                 )
             })?;
-        let reference_metadata_bytes = std::mem::size_of::<RemoteValueReference>()
+        let total_metadata_bytes = std::mem::size_of::<RemoteValueReference>()
             .checked_add(reference.download_url.as_str().len())
             .and_then(|bytes| bytes.checked_add(reference.metadata.sha256.as_str().len()))
             .and_then(|bytes| bytes.checked_add(reference.metadata.content_type.as_str().len()))
-            .and_then(|bytes| bytes.checked_mul(reference.occurrences))
-            .ok_or_else(|| {
-                hydration_error(
-                    HydrationFailureReason::TooManyValues,
-                    "DCS remote value metadata byte count overflowed",
-                )
-            })?;
-        total_metadata_bytes = total_metadata_bytes
-            .checked_add(reference_metadata_bytes)
+            .and_then(|bytes| bytes.checked_mul(occurrences))
+            .and_then(|bytes| self.total_metadata_bytes.checked_add(bytes))
             .ok_or_else(|| {
                 hydration_error(
                     HydrationFailureReason::TooManyValues,
@@ -270,25 +289,24 @@ pub(super) fn validate_reference_limits<'a>(
             ));
         }
 
-        let reference_bytes = reference
+        let total_bytes = reference
             .metadata
             .byte_length
-            .checked_mul(reference.occurrences as u64)
+            .checked_mul(occurrences as u64)
+            .and_then(|bytes| self.total_bytes.checked_add(bytes))
             .ok_or_else(|| {
                 hydration_error(
                     HydrationFailureReason::TotalBytesExceeded,
                     "DCS remote value byte count overflowed",
                 )
             })?;
-        total_bytes = total_bytes.checked_add(reference_bytes).ok_or_else(|| {
-            hydration_error(
-                HydrationFailureReason::TotalBytesExceeded,
-                "DCS remote value byte count overflowed",
-            )
-        })?;
+        *self = Self {
+            reference_count,
+            total_metadata_bytes,
+            total_bytes,
+        };
+        Ok(())
     }
-
-    Ok((reference_count, total_bytes))
 }
 
 pub(super) fn resolve_and_validate_download_url(

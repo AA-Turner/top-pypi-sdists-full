@@ -97,6 +97,22 @@ def _filter_search_results(
 filter_search_results = _filter_search_results
 
 
+def _flag_component_type(searcher: "Searcher", flag: str) -> None:
+    """Set the todo/event/journal flag the client-side filter goes by.
+
+    A type given by comp_class or a comp-filter rather than by todo=True means
+    all tasks, completed ones included - also when the result is post-filtered
+    (search.comp-type unsupported/broken).
+    """
+    if (
+        flag == "todo"
+        and not getattr(searcher, "todo", False)
+        and searcher.include_completed is None
+    ):
+        searcher.include_completed = True
+    setattr(searcher, flag, True)
+
+
 def _build_search_xml_query(
     searcher: "Searcher",
     server_expand: bool = False,
@@ -168,20 +184,13 @@ def _build_search_xml_query(
 
         if comp_filter and comp_filter.attributes.get("name") == comp_name:
             comp_class = sync_class
-            if (
-                flag == "todo"
-                and not getattr(searcher, "todo", False)
-                and searcher.include_completed is None
-            ):
-                searcher.include_completed = True
-            setattr(searcher, flag, True)
 
         if comp_class is sync_class:
             if comp_filter:
                 assert comp_filter.attributes.get("name") == comp_name
             else:
                 comp_filter = cdav.CompFilter(comp_name)
-            setattr(searcher, flag, True)
+            _flag_component_type(searcher, flag)
 
     if comp_class and not comp_filter:
         raise error.ConsistencyError(f"unsupported comp class {comp_class} for search")
@@ -235,21 +244,47 @@ def _build_search_xml_query(
     return (root, comp_class)
 
 
-def _dedup_by_url(matches: list) -> list:
+def _dedup_resources(matches: list) -> list:
     """Drop repeated resources, keeping the first occurrence and the order.
 
     A search that is split into several server queries can return the same
     resource more than once: the include-completed split issues overlapping
     queries, and in a comp-type split a resource that legally holds both a
     VEVENT and a VTODO matches two of the three queries.
+
+    The RECURRENCE-ID is part of the key: with ``expand=True`` every
+    occurrence of a recurring event is a separate object carrying the URL of
+    the resource, and those must all be kept.
+    See https://github.com/python-caldav/caldav/issues/722
     """
     objects = []
     seen = set()
     for item in matches:
-        if item.url not in seen:
-            seen.add(item.url)
+        recurrence_id = item.icalendar_component.get("RECURRENCE-ID")
+        key = (item.url, recurrence_id.to_ical() if recurrence_id is not None else None)
+        if key not in seen:
+            seen.add(key)
             objects.append(item)
     return objects
+
+
+def _text_search_untrusted(features: Any) -> bool:
+    """Whether an empty text search may be the server failing rather than a miss.
+
+    Decides if ``_hacks="insist"`` retries without the text filters, which
+    downloads everything and filters client-side.  Only a feature profile
+    saying so makes it untrusted; the filter is sent with the i;octet
+    collation, hence search.text.case-sensitive (CCS lacks it).  A
+    search-cache delay counts too: until the index catches up, a text filter
+    matches nothing while an unfiltered REPORT finds the object (purelymail).
+    With no profile configured nothing says the text search is broken, and
+    fetching the whole calendar on every miss is too disruptive to do on a guess.
+    """
+    if features.backward_compatibility_mode:
+        return False
+    if not features.is_supported("search.text.case-sensitive"):
+        return True
+    return features.is_supported("search-cache", dict).get("behaviour", "normal") == "delay"
 
 
 def _is_not_defined_supported(features: Any, prop: str) -> bool:
@@ -552,6 +587,30 @@ class CalDAVSearcher(Searcher):
                 _hacks = "no_comp_filter"
             post_filter = True
 
+        ## Servers silently ignoring the comp-filter (e.g. OX, Yahoo) return
+        ## the whole calendar.  The comp-filter is kept - Yahoo rejects a query
+        ## without one - and the wrong-typed objects are dropped client-side.
+        if (
+            cw
+            and (self.comp_class or self.todo or self.event or self.journal)
+            and comp_type_support == "unsupported"
+            and post_filter is None
+        ):
+            post_filter = True
+
+        ## The client-side filter goes by the todo/event/journal flags.  A
+        ## caller-supplied calendar-query bypasses build_search_xml_query,
+        ## which would otherwise set them from comp_class.
+        if (
+            post_filter
+            and comp_type_support in ("broken", "unsupported")
+            and self.comp_class
+            and not (self.todo or self.event or self.journal)
+        ):
+            flag = self.comp_class.__name__.lower()
+            if flag in ("event", "todo", "journal"):
+                _flag_component_type(self, flag)
+
         ## Setting default value for post_filter
         if (
             cw
@@ -589,7 +648,7 @@ class CalDAVSearcher(Searcher):
                 raise error.ReportError("can't expand without a date range")
 
         ## special compatibility-case for servers that do not support text search at all
-        ## (e.g. purelymail where both i;octet and i;ascii-casemap collations are unsupported).
+        ## (e.g. Zimbra and Robur, which ignore the filter and return everything).
         ## Remove all text-value filters and rely on client-side post_filter instead.
         if (
             cw
@@ -760,7 +819,7 @@ class CalDAVSearcher(Searcher):
                     (clone, calendar, server_expand, False, props, xml, None, _hacks),
                 )
 
-            objects = _dedup_by_url(matches)
+            objects = _dedup_resources(matches)
         else:
             orig_xml = xml
 
@@ -882,10 +941,19 @@ class CalDAVSearcher(Searcher):
                 return
 
             ## If _hacks=="insist" and still no results despite having text property
-            ## filters, the server may not support text search (e.g. purelymail,
-            ## CCS with i;octet collation).  Retry without the text filters and rely
+            ## filters, the server may not support text search (e.g. CCS with i;octet
+            ## collation), or its search index may lag behind the writes (e.g.
+            ## purelymail, for minutes).  Retry without the text filters and rely
             ## on client-side post_filter (which is guaranteed True in get_object_by_uid).
-            if not objects and _hacks == "insist" and self._property_filters:
+            ## Only on a server whose profile says its text search fails: anywhere
+            ## else an empty answer is taken as a genuine miss, as the retry
+            ## fetches everything.
+            if (
+                not objects
+                and _hacks == "insist"
+                and self._property_filters
+                and _text_search_untrusted(calendar.client.features)
+            ):
                 non_undef_filters = [
                     prop for prop, op in self._property_operator.items() if op != "undef"
                 ]
@@ -1052,17 +1120,26 @@ class CalDAVSearcher(Searcher):
 
         base = self._comptype_split_base()
 
-        for comp_class in (Event, Todo, Journal):
-            if not calendar.client.features.is_supported(
-                f"save-load.{comp_class.__name__.lower()}"
-            ):
-                continue
-            clone = replace(base)
-            clone.comp_class = comp_class
-            objects += clone.search(
-                calendar, server_expand, split_expanded, props, xml, post_filter, _hacks
-            )
-        return self.sort(_dedup_by_url(objects))
+        ## With _hacks="insist", a comp-type that comes back empty retries
+        ## without the text filters and downloads everything of that type.
+        ## An empty answer is genuine as long as some other comp-type matched
+        ## (get_object_by_uid on a VTODO used to fetch all events and journals),
+        ## so insist only when the whole split came back empty.
+        insist_twice = _hacks == "insist" and _text_search_untrusted(calendar.client.features)
+        for hacks in [None, _hacks] if insist_twice else [_hacks]:
+            for comp_class in (Event, Todo, Journal):
+                if not calendar.client.features.is_supported(
+                    f"save-load.{comp_class.__name__.lower()}"
+                ):
+                    continue
+                clone = replace(base)
+                clone.comp_class = comp_class
+                objects += clone.search(
+                    calendar, server_expand, split_expanded, props, xml, post_filter, hacks
+                )
+            if objects:
+                break
+        return self.sort(_dedup_resources(objects))
 
     async def async_search(
         self,
@@ -1151,18 +1228,23 @@ class CalDAVSearcher(Searcher):
 
         base = self._comptype_split_base()
 
-        for comp_class in (Event, Todo, Journal):
-            if not calendar.client.features.is_supported(
-                f"save-load.{comp_class.__name__.lower()}"
-            ):
-                continue
-            clone = replace(base)
-            clone.comp_class = comp_class
-            results = await clone.async_search(
-                calendar, server_expand, split_expanded, props, xml, post_filter, _hacks
-            )
-            objects.extend(results)
-        return self.sort(_dedup_by_url(objects))
+        ## See _search_with_comptypes for why "insist" is deferred.
+        insist_twice = _hacks == "insist" and _text_search_untrusted(calendar.client.features)
+        for hacks in [None, _hacks] if insist_twice else [_hacks]:
+            for comp_class in (Event, Todo, Journal):
+                if not calendar.client.features.is_supported(
+                    f"save-load.{comp_class.__name__.lower()}"
+                ):
+                    continue
+                clone = replace(base)
+                clone.comp_class = comp_class
+                results = await clone.async_search(
+                    calendar, server_expand, split_expanded, props, xml, post_filter, hacks
+                )
+                objects.extend(results)
+            if objects:
+                break
+        return self.sort(_dedup_resources(objects))
 
     def filter(
         self,

@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from types import TracebackType
 from typing import Any, Generic, TypeVar, cast
 
-import httpx
+import httpx2
 
 from trajectory._exceptions import APIError
 from trajectory._models import FinalRequestOptions
@@ -20,7 +20,7 @@ class Stream(Generic[ChunkT]):
   def __init__(
     self,
     cast_to: type[ChunkT],
-    response: httpx.Response,
+    response: httpx2.Response,
     client: Any,
     options: FinalRequestOptions | None = None,
   ) -> None:

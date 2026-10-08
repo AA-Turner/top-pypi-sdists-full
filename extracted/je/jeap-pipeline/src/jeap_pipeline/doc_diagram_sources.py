@@ -44,6 +44,19 @@ PUBLISHED_EXTENSIONS: FrozenSet[str] = frozenset({
 #: The published extensions that are pictures. Only a picture can have been exported from a source.
 IMAGE_EXTENSIONS: FrozenSet[str] = frozenset({"svg", "png", "jpg", "jpeg", "gif", "webp", "avif"})
 
+#: Extensions that are never somebody's diagram source, whatever a site publishes: page types, a
+#: document a site renders on its own origin, and code a site or a browser runs. The jEAP doc
+#: service keeps the same list for the same reason (`MarkdownAssetRules.isNeverAllowed`), because a
+#: page or a script beside `overview.svg` is a page, not an editor file. Without it the open-ended
+#: rule - anything not published is a candidate source - would delete an `overview.mdx` page and
+#: fail the build when only its text changed.
+NEVER_SOURCE_EXTENSIONS: FrozenSet[str] = frozenset({
+    "md", "mdx",
+    "html", "htm", "xhtml", "shtml",
+    "js", "mjs", "cjs", "jsx", "ts", "tsx", "css",
+    "adoc", "asciidoc",
+})
+
 #: How far the history is deepened per round before the whole of it is fetched. A diagram that was
 #: touched recently - the usual case - is dated by the first round.
 _DEEPEN_ROUNDS: Tuple[int, ...] = (64, 256, 1024)
@@ -92,37 +105,48 @@ class DiagramReport:
         return not self.findings
 
 
-def diagram_pairs_of(paths: Sequence[str]) -> List[DiagramPair]:
+def diagram_pairs_of(paths: Sequence[str], source_format: str = "markdown") -> List[DiagramPair]:
     """
     Find the diagram source/image pairs in a documentation set.
 
     A file is the source of an image when, **in the same folder**, there is an image file whose stem
-    it extends - its name is `<image-stem>.<anything>` - and its own extension is not one the doc
-    service publishes:
+    it extends - its name is `<image-stem>.<anything>` - and its own extension is neither one the
+    doc service publishes nor one that is never a source (a page type or browser code, see
+    `NEVER_SOURCE_EXTENSIONS`):
 
-    | In one folder                      | Verdict                                              |
-    |------------------------------------|------------------------------------------------------|
-    | `overview.svg` + `overview.drawio` | `overview.drawio` is the source                      |
-    | `flow.png` + `flow.drawio.xml`     | `flow.drawio.xml` is the source                      |
-    | `report.svg` + `report.pdf`        | not a pair - a `.pdf` is published, so it is an asset |
-    | `diagram.svg` + `diagram.png`      | not a pair - both are published                      |
+    | In one folder                         | Verdict                                              |
+    |---------------------------------------|------------------------------------------------------|
+    | `overview.svg` + `overview.drawio`    | `overview.drawio` is the source                      |
+    | `flow.png` + `flow.drawio.xml`        | `flow.drawio.xml` is the source                      |
+    | `report.svg` + `report.pdf`           | not a pair - a `.pdf` is published, so it is an asset |
+    | `diagram.svg` + `diagram.png`         | not a pair - both are published                      |
+    | `overview.svg` + `overview.mdx`       | not a pair - an MDX page is never an editor file      |
 
     The rule is about the name and not about a list of known diagram tools on purpose: hand-exported
     images were chosen precisely so that the convention holds for any editor, and an allowlist of
     tools would need a release of this library for every new one. Requiring the companion to be an
-    image, and the candidate to be something the doc service would refuse anyway, is what keeps the
-    rule from swallowing a real asset.
+    image, and the candidate to be something no site publishes or runs, is what keeps the rule from
+    swallowing a real asset or page.
 
-    When several images could claim one source the most specific wins: with `flow.svg` and
-    `flow.detail.svg` both present, `flow.detail.drawio` belongs to `flow.detail.svg`.
+    When several images could claim one source the most specific stem wins: with `flow.svg` and
+    `flow.detail.svg` both present, `flow.detail.drawio` belongs to `flow.detail.svg`. **Every
+    export format of that stem is paired**, so one `flow.drawio` beside `flow.png` and `flow.svg`
+    yields a pair per image and a stale export is found whichever format the page embeds.
+
 
     Args:
         paths (Sequence[str]): The relative paths of the set, as `collect_documentation_paths`
             returns them - forward slashes, relative to the set's folder.
+        source_format (str): Markdown by default. HTML disables inference to preserve its
+            open-ended asset types; AsciiDoc also preserves .adoc and .asciidoc documents.
 
     Returns:
         List[DiagramPair]: One pair per source found, ordered by source path.
     """
+    # HTML microsites have an open-ended asset vocabulary, not Markdown's allowlist.
+    # A same-stem HTML/CSS/JS/font file cannot safely be inferred to be editor source.
+    if source_format == "html":
+        return []
     by_folder: Dict[str, List[str]] = {}
     for path in paths:
         by_folder.setdefault(posix_dirname(path), []).append(path)
@@ -134,16 +158,16 @@ def diagram_pairs_of(paths: Sequence[str]) -> List[DiagramPair]:
             continue
         for member in members:
             extension = _extension_of(member)
-            if not extension or extension in PUBLISHED_EXTENSIONS:
+            if (not extension or extension in PUBLISHED_EXTENSIONS
+                    or extension in NEVER_SOURCE_EXTENSIONS):
                 continue
-            image = _image_claiming(_name_of(member), images)
-            if image is not None:
+            for image in _images_claiming(_name_of(member), images):
                 pairs.append(DiagramPair(source=member, image=image))
 
-    return sorted(pairs, key=lambda pair: pair.source)
+    return sorted(pairs, key=lambda pair: (pair.source, pair.image))
 
 
-def diagram_sources_of(paths: Sequence[str]) -> List[str]:
+def diagram_sources_of(paths: Sequence[str], source_format: str = "markdown") -> List[str]:
     """
     The diagram sources in a documentation set - the paths an upload leaves out.
 
@@ -153,11 +177,13 @@ def diagram_sources_of(paths: Sequence[str]) -> List[str]:
 
     Args:
         paths (Sequence[str]): The relative paths of the set.
+        source_format (str): The input format; HTML keeps all assets.
 
     Returns:
         List[str]: The relative paths of the sources, sorted.
     """
-    return [pair.source for pair in diagram_pairs_of(paths)]
+    # One source can have several export formats, so the same source appears in several pairs.
+    return sorted({pair.source for pair in diagram_pairs_of(paths, source_format)})
 
 
 def posix_dirname(path: str) -> str:
@@ -168,7 +194,33 @@ def posix_dirname(path: str) -> str:
 
 def check_diagram_sources(root: str,
                           paths: Sequence[str],
-                          deepen: bool = False) -> DiagramReport:
+                          deepen: bool = False,
+                          source_format: str = "markdown",
+                          referenced_images: Optional[Sequence[str]] = None) -> DiagramReport:
+    """Check diagram freshness, reporting unavailable Git history instead of accepting it.
+
+    `paths` contains unfiltered set-relative paths. `source_format` selects pairing rules;
+    `deepen` permits fetching history only when a diagram pair requires it.
+    `referenced_images`, when supplied, selects already assigned pairs by image path;
+    it never changes the complete tree used to establish the original pairings.
+    """
+    pairs = diagram_pairs_of(paths, source_format)
+    if referenced_images is not None:
+        referenced = set(referenced_images)
+        pairs = [pair for pair in pairs if pair.image in referenced]
+    try:
+        return _check_diagram_sources(root, pairs, deepen)
+    except (OSError, subprocess.SubprocessError, ValueError, _HistoryError) as error:
+        return DiagramReport(pairs_checked=len(pairs), findings=[
+            DiagramFinding(DiagramFindingCode.UNDATABLE_DIAGRAM_HISTORY,
+                           f"Cannot verify diagram history: {error}")])
+
+
+class _HistoryError(RuntimeError):
+    """Git failed to supply a usable history answer."""
+
+
+def _check_diagram_sources(root: str, pairs: Sequence[DiagramPair], deepen: bool) -> DiagramReport:
     """
     Check that every diagram of a documentation set was exported after it was last edited.
 
@@ -191,12 +243,12 @@ def check_diagram_sources(root: str,
             enough to date the diagrams. Defaults to `False`, which reports the set as undatable
             instead; a pipeline that checks out shallowly passes `True`. Only the sets that actually
             have a diagram ever cause a fetch.
+        source_format (str): The input format used for pairing; HTML is not checked.
 
     Returns:
         DiagramReport: The findings, how many pairs were checked, and how many were not committed
             yet.
     """
-    pairs = diagram_pairs_of(paths)
     if not pairs:
         return DiagramReport(pairs_checked=0)
 
@@ -262,22 +314,24 @@ def _stem_of(name: str) -> str:
     return name[:separator] if separator > 0 else name
 
 
-def _image_claiming(name: str, images: Sequence[str]) -> Optional[str]:
-    """The image whose stem `name` extends, the longest stem winning, or `None`."""
-    claimed: Optional[str] = None
+def _images_claiming(name: str, images: Sequence[str]) -> List[str]:
+    """Every export format of the most specific image stem `name` extends, sorted."""
     claimed_length = -1
     for image in images:
         stem = _stem_of(_name_of(image))
         if stem == name or not name.startswith(f"{stem}."):
             continue
-        if len(stem) > claimed_length:
-            claimed, claimed_length = image, len(stem)
-    return claimed
+        claimed_length = max(claimed_length, len(stem))
+    if claimed_length < 0:
+        return []
+    return sorted(image for image in images
+                  if len(_stem_of(_name_of(image))) == claimed_length
+                  and name.startswith(f"{_stem_of(_name_of(image))}."))
 
 
 def _git(root: str, *arguments: str) -> subprocess.CompletedProcess:
     """Run git in the folder of the documentation set, never raising on a non-zero status."""
-    return subprocess.run(["git", "-C", root, *arguments],
+    return subprocess.run(["git", "--literal-pathspecs", "-C", root, *arguments],
                           capture_output=True, text=True, check=False, timeout=_GIT_TIMEOUT)
 
 
@@ -289,7 +343,9 @@ def _is_git_checkout(root: str) -> bool:
 def _last_commit(root: str, path: str) -> Optional[Tuple[str, int, str]]:
     """The commit that last touched `path`, as `(sha, unix timestamp, ISO date)`, or `None`."""
     completed = _git(root, "log", "-1", "--format=%H %ct %cI", "--", path)
-    if completed.returncode != 0 or not completed.stdout.strip():
+    if completed.returncode != 0:
+        raise _HistoryError(f"git log failed for '{path}' (exit {completed.returncode}).")
+    if not completed.stdout.strip():
         return None
     sha, timestamp, iso = completed.stdout.strip().split(" ", 2)
     return sha, int(timestamp), iso
@@ -297,14 +353,23 @@ def _last_commit(root: str, path: str) -> Optional[Tuple[str, int, str]]:
 
 def _shallow_boundary(root: str) -> FrozenSet[str]:
     """The commits a shallow history is grafted at. Empty for a complete checkout."""
-    completed = _git(root, "rev-parse", "--absolute-git-dir")
-    if completed.returncode != 0:
+    state = _git(root, "rev-parse", "--is-shallow-repository")
+    if state.returncode != 0 or state.stdout.strip() not in {"true", "false"}:
+        raise _HistoryError("Cannot determine whether the Git checkout is shallow.")
+    if state.stdout.strip() == "false":
         return frozenset()
-    shallow = os.path.join(completed.stdout.strip(), "shallow")
+    completed = _git(root, "rev-parse", "--git-path", "shallow")
+    value = completed.stdout.rstrip("\n")
+    if completed.returncode != 0 or not value or "\n" in value or value.startswith("--"):
+        raise _HistoryError("Cannot locate the Git shallow boundary file.")
+    shallow = os.path.join(root, value)
     if not os.path.isfile(shallow):
-        return frozenset()
+        raise _HistoryError("Shallow checkout has no readable shallow boundary file.")
     with open(shallow, "r", encoding="utf-8") as handle:
-        return frozenset(line.strip() for line in handle if line.strip())
+        boundary = frozenset(line.strip() for line in handle if line.strip())
+    if not boundary:
+        raise _HistoryError("Shallow boundary file is empty.")
+    return boundary
 
 
 def _boundary_dated(root: str, paths: Sequence[str]) -> List[str]:
@@ -358,4 +423,7 @@ def _is_stale(root: str,
         return True
     if source_timestamp < image_timestamp or source_sha == image_sha:
         return False
-    return _git(root, "merge-base", "--is-ancestor", image_sha, source_sha).returncode == 0
+    result = _git(root, "merge-base", "--is-ancestor", image_sha, source_sha)
+    if result.returncode not in (0, 1):
+        raise _HistoryError("Cannot compare diagram commit ancestry.")
+    return result.returncode == 0

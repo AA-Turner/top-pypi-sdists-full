@@ -15,6 +15,11 @@ DESCRIPTIONS: dict[str, str] = {
         "strictly positive so re-registration always pays a nonzero, floating burn. Lower the "
         "`lock_share` argument to at most 62258."
     ),
+    "GrandpaChangeDelayMustBeZero": (
+        "`schedule_grandpa_change` was given a nonzero `in_blocks` delay. GRANDPA authority "
+        "changes submitted through AdminUtils must activate at the end of the current block so "
+        "the authority set and its set ID remain consistent. Pass `in_blocks=0`."
+    ),
     "BondsMovingAverageMaxReached": (
         "A subnet owner called `sudo_set_bonds_moving_average` with a value above 975000, the "
         "cap for owner-set values; root is exempt. Lower the `bonds_moving_average` argument or "
@@ -59,9 +64,9 @@ DESCRIPTIONS: dict[str, str] = {
         "the root network. Check that the `netuid` argument is not the root netuid 0."
     ),
     "POWRegistrationDisabled": (
-        "`sudo_set_network_pow_registration_allowed` unconditionally fails because "
-        "proof-of-work registration is deprecated and its toggle can no longer be changed. "
-        "Nothing to check; the call is permanently disabled."
+        "This legacy error is retained for older runtimes that disabled PoW registration. "
+        "Upgraded runtimes let the subnet owner enable network_pow_registration_allowed; "
+        "general registration must also be enabled. Root does not accept PoW registration."
     ),
     "SubnetDoesNotExist": (
         "The admin-utils call targets a netuid with no registered subnet. Verify the `netuid` "

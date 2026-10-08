@@ -1159,6 +1159,231 @@ class TestAsyncRateLimiting:
                 await client.request("/")
 
 
+class TestAsyncUnpromptedBasicAuth:
+    """Issue #713, async side. Mirrors TestUnpromptedBasicAuth in test_caldav_unit.py."""
+
+    def _make_response(self, status_code, headers=None):
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.headers = headers or {}
+        resp.reason = "Unauthorized" if status_code == 401 else "OK"
+        resp.reason_phrase = resp.reason
+        return resp
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("retry_status", [200, 401])
+    async def test_connection_abort_probe_can_guess_basic_once(self, retry_status):
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(
+            side_effect=[
+                ConnectionError("server aborted connection"),
+                self._make_response(401),
+                self._make_response(retry_status),
+            ]
+        )
+
+        if retry_status == 200:
+            response = await client.request("/calendar/item.ics", "PUT", "calendar data")
+            assert response.status == 200
+        else:
+            with pytest.raises(error.AuthorizationError):
+                await client.request("/calendar/item.ics", "PUT", "calendar data")
+            assert client.auth is None
+
+        calls = client.session.request.call_args_list
+        assert [call.kwargs["method"] for call in calls] == ["PUT", "GET", "PUT"]
+        assert calls[0].kwargs["auth"] is None
+        assert calls[1].kwargs.get("auth") is None
+        assert calls[2].kwargs["auth"] is not None
+        assert {key: value for key, value in calls[2].kwargs.items() if key != "auth"} == {
+            key: value for key, value in calls[0].kwargs.items() if key != "auth"
+        }
+        assert client._unprompted_basic_tried is True
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "probe_status, scheme, response_url",
+        [(401, "http", None), (401, "https", "http://cal.example.com/"), (200, "https", None)],
+    )
+    async def test_connection_abort_probe_without_safe_auth_reraises(
+        self, probe_status, scheme, response_url
+    ):
+        client = AsyncDAVClient(
+            url=f"{scheme}://cal.example.com/", username="user", password="pass"
+        )
+        original_error = ConnectionError("server aborted connection")
+        probe = self._make_response(probe_status)
+        probe.url = response_url
+        client.session.request = AsyncMock(side_effect=[original_error, probe])
+
+        with pytest.raises(ConnectionError) as exc_info:
+            await client.request("/calendar/item.ics", "PUT", "calendar data")
+
+        assert exc_info.value is original_error
+        assert client.session.request.call_count == 2
+        assert client.auth is None
+
+    @pytest.mark.asyncio
+    async def test_connection_abort_after_basic_guess_unwinds_the_guess(self):
+        """A guessed Basic retry that is aborted again must not leave the guess set."""
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        second_error = ConnectionError("aborted again")
+        client.session.request = AsyncMock(
+            side_effect=[
+                ConnectionError("server aborted connection"),
+                self._make_response(401),
+                second_error,
+            ]
+        )
+
+        with pytest.raises(ConnectionError) as exc_info:
+            await client.request("/calendar/item.ics", "PUT", "calendar data")
+
+        assert exc_info.value is second_error
+        assert client.auth is None
+        assert client.auth_type is None
+        assert client._unprompted_basic_tried is True
+
+    @pytest.mark.asyncio
+    async def test_connection_abort_guess_kept_when_server_answers(self):
+        """A guessed retry the server answers (here: 429) keeps the guessed auth."""
+        client = AsyncDAVClient(
+            url="https://cal.example.com/",
+            username="user",
+            password="pass",
+            rate_limit_handle=False,
+        )
+        client.session.request = AsyncMock(
+            side_effect=[
+                ConnectionError("server aborted connection"),
+                self._make_response(401),
+                self._make_response(429, {"Retry-After": "4"}),
+            ]
+        )
+        with pytest.raises(error.RateLimitError):
+            await client.request("/calendar/item.ics", "PUT", "calendar data")
+        assert client.auth is not None
+        assert client.auth_type == "basic"
+
+    @pytest.mark.asyncio
+    async def test_connection_abort_probe_does_not_guess_twice(self):
+        """After a failed guess, a later abort-probe-401 re-raises without guessing again."""
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(
+            side_effect=[
+                ConnectionError("server aborted connection"),
+                self._make_response(401),
+                self._make_response(401),
+            ]
+        )
+        with pytest.raises(error.AuthorizationError):
+            await client.request("/calendar/item.ics", "PUT", "calendar data")
+
+        original_error = ConnectionError("server aborted connection")
+        client.session.request = AsyncMock(side_effect=[original_error, self._make_response(401)])
+        with pytest.raises(ConnectionError) as exc_info:
+            await client.request("/calendar/item.ics", "PUT", "calendar data")
+
+        assert exc_info.value is original_error
+        assert client.session.request.call_count == 2
+        assert client.auth is None
+
+    @pytest.mark.asyncio
+    async def test_401_without_www_authenticate_retries_with_basic_over_tls(self):
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(
+            side_effect=[self._make_response(401), self._make_response(200)]
+        )
+        response = await client.request("/")
+        assert response.status == 200
+        assert client.session.request.call_count == 2
+        assert client.auth_type == "basic"
+        second_call_kwargs = client.session.request.call_args_list[1].kwargs
+        assert second_call_kwargs["auth"] is not None
+
+    @pytest.mark.asyncio
+    async def test_401_without_www_authenticate_over_plain_http_does_not_guess(self):
+        client = AsyncDAVClient(url="http://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(return_value=self._make_response(401))
+        with pytest.raises(error.AuthorizationError):
+            await client.request("/")
+        assert client.session.request.call_count == 1
+        assert client.auth is None
+
+    @pytest.mark.asyncio
+    async def test_401_without_www_authenticate_does_not_loop_forever(self):
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(return_value=self._make_response(401))
+        with pytest.raises(error.AuthorizationError):
+            await client.request("/")
+        assert client.session.request.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_explicit_auth_type_is_not_overridden(self):
+        client = AsyncDAVClient(
+            url="https://cal.example.com/",
+            username="user",
+            password="pass",
+            auth_type="digest",
+        )
+        client.session.request = AsyncMock(return_value=self._make_response(401))
+        with pytest.raises(error.AuthorizationError):
+            await client.request("/")
+        assert client.auth_type == "digest"
+
+    @pytest.mark.asyncio
+    async def test_explicit_auth_object_is_not_overridden(self):
+        client = AsyncDAVClient(
+            url="https://cal.example.com/",
+            username="user",
+            password="pass",
+            auth=object(),
+        )
+        client.session.request = AsyncMock(return_value=self._make_response(401))
+        with pytest.raises(error.AuthorizationError):
+            await client.request("/")
+        assert client.session.request.call_count == 1
+        assert client.auth_type is None
+
+    @pytest.mark.asyncio
+    async def test_401_with_www_authenticate_still_negotiates_normally(self):
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(
+            side_effect=[
+                self._make_response(401, {"WWW-Authenticate": 'Basic realm="x"'}),
+                self._make_response(200),
+            ]
+        )
+        response = await client.request("/")
+        assert response.status == 200
+        assert client.session.request.call_count == 2
+        assert client.auth is not None
+        assert client.auth_type is None  # negotiation doesn't set auth_type, only auth
+
+    @pytest.mark.asyncio
+    async def test_failed_guess_does_not_stick_and_does_not_retry(self):
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(return_value=self._make_response(401))
+        with pytest.raises(error.AuthorizationError):
+            await client.request("/")
+        assert client.session.request.call_count == 2
+        assert client.auth is None
+        assert client.auth_type is None
+        assert client._unprompted_basic_tried is True
+
+        # A later request on the same client, now facing a real challenge, still negotiates.
+        client.session.request = AsyncMock(
+            side_effect=[
+                self._make_response(401, {"WWW-Authenticate": 'Digest realm="x"'}),
+                self._make_response(200),
+            ]
+        )
+        response = await client.request("/")
+        assert response.status == 200
+        assert client.auth is not None
+        assert client.auth_type is None
+
+
 class TestAsyncPrincipalCalendar:
     """``principal.calendar()`` must work with async clients.
 

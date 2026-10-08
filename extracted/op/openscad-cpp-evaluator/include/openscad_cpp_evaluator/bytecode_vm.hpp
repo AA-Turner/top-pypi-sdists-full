@@ -30,15 +30,6 @@ struct PendingBuiltinWrap {
     CSGParams params;
     std::uint64_t randsBefore = 0;
     int siteIdx = -1;
-    // Only populated for BuiltinWrapSite::Kind::Roof -- the already-
-    // resolved call arguments, retained across the whole bracket so
-    // Op::PopBuiltinWrap's handler can compute roof()'s own params AFTER
-    // children finish (computeRoofParams needs them; re-running
-    // resolveCallArgs at Pop time instead would re-evaluate every argument
-    // expression a second time -- double rands()/side effects). Every
-    // other kind computes its params at Push time and leaves this default-
-    // empty.
-    CallArgs deferredArgs;
 
     // ev.measuring_ as it stood immediately BEFORE this bracket opened.
     // Recorded for EVERY kind, not just Measure, so the exception teardown
@@ -71,6 +62,9 @@ struct PendingCsgWrap {
     // Parallel to groupSizes: whether a group that came out EMPTY is still
     // an operand. See Op::CsgGroupEnd's `a`.
     std::vector<Value> emptyIsAGroup;
+    // Parallel too: whether the statement was a `%` one, which is never an
+    // operand. See Op::CsgGroupEnd's `a` (bit 2).
+    std::vector<Value> backgroundStmt;
     size_t groupStartSize = 0;
 };
 

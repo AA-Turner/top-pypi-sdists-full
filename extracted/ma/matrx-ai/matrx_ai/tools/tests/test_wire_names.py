@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.config.wire_names import (
     WIRE_SAFE_RE,
@@ -259,7 +260,9 @@ def executor(registry_with_lister):
     return ToolExecutor(registry=registry_with_lister)
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     def __getattr__(self, _name: str):
         async def _noop(*_a: Any, **_kw: Any) -> None: ...
 

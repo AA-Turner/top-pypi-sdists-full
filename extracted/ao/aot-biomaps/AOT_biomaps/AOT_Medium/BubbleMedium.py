@@ -1,5 +1,5 @@
 import numpy as np
-import warnings
+
 from AOT_biomaps.AOT_Medium._mainMedium import Medium
 
 # Optional kwave imports

@@ -18,13 +18,13 @@ T = TypeVar("T", bound="JobResultResponse")
 class JobResultResponse:
     """
     Attributes:
-        date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
-        date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
+        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
         engine_version (int):
         id (UUID):
         job_ref (str):
+        job_run_id (UUID):
         result_type (str):
-        run_id (UUID):
+        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
         agent_status (None | str | Unset): The agent's self-report, which may legitimately disagree with the run's own
             status: a failed agent inside a succeeded run is normal.
         cost_usd (None | str | Unset): Decimal string, never a float.
@@ -39,13 +39,13 @@ class JobResultResponse:
         turn_count (int | None | Unset):
     """
 
-    date_added: datetime.datetime
-    date_updated: datetime.datetime
+    created_at: datetime.datetime
     engine_version: int
     id: UUID
     job_ref: str
+    job_run_id: UUID
     result_type: str
-    run_id: UUID
+    updated_at: datetime.datetime
     agent_status: None | str | Unset = UNSET
     cost_usd: None | str | Unset = UNSET
     input_tokens: int | None | Unset = UNSET
@@ -60,9 +60,7 @@ class JobResultResponse:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        date_added = self.date_added.isoformat()
-
-        date_updated = self.date_updated.isoformat()
+        created_at = self.created_at.isoformat()
 
         engine_version = self.engine_version
 
@@ -70,9 +68,11 @@ class JobResultResponse:
 
         job_ref = self.job_ref
 
+        job_run_id = str(self.job_run_id)
+
         result_type = self.result_type
 
-        run_id = str(self.run_id)
+        updated_at = self.updated_at.isoformat()
 
         agent_status: None | str | Unset
         if isinstance(self.agent_status, Unset):
@@ -140,13 +140,13 @@ class JobResultResponse:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "date_added": date_added,
-                "date_updated": date_updated,
+                "created_at": created_at,
                 "engine_version": engine_version,
                 "id": id,
                 "job_ref": job_ref,
+                "job_run_id": job_run_id,
                 "result_type": result_type,
-                "run_id": run_id,
+                "updated_at": updated_at,
             }
         )
         if agent_status is not UNSET:
@@ -177,9 +177,7 @@ class JobResultResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        date_added = isoparse(d.pop("date_added"))
-
-        date_updated = isoparse(d.pop("date_updated"))
+        created_at = isoparse(d.pop("created_at"))
 
         engine_version = d.pop("engine_version")
 
@@ -187,9 +185,11 @@ class JobResultResponse:
 
         job_ref = d.pop("job_ref")
 
+        job_run_id = UUID(d.pop("job_run_id"))
+
         result_type = d.pop("result_type")
 
-        run_id = UUID(d.pop("run_id"))
+        updated_at = isoparse(d.pop("updated_at"))
 
         def _parse_agent_status(data: object) -> None | str | Unset:
             if data is None:
@@ -284,13 +284,13 @@ class JobResultResponse:
         turn_count = _parse_turn_count(d.pop("turn_count", UNSET))
 
         job_result_response = cls(
-            date_added=date_added,
-            date_updated=date_updated,
+            created_at=created_at,
             engine_version=engine_version,
             id=id,
             job_ref=job_ref,
+            job_run_id=job_run_id,
             result_type=result_type,
-            run_id=run_id,
+            updated_at=updated_at,
             agent_status=agent_status,
             cost_usd=cost_usd,
             input_tokens=input_tokens,

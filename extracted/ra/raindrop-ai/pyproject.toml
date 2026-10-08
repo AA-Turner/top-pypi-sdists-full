@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "raindrop-ai"
-version = "0.0.73"
+version = "0.0.74"
 description = "Raindrop AI (Python SDK)"
 authors = ["Raindrop AI <sdk@raindrop.ai>"]
 license = "MIT"
@@ -35,10 +35,13 @@ protobuf = ">=5.29.6,<7"
 
 [tool.poetry.group.dev.dependencies]
 green = "^4.0.2"
-pytest = "^8.4.1"
+pytest = "~9.0.3"
 pytest-cov = "^6.2.1"
 openai = "^1.100.1"
 quickjs = "^1.19.4"
+# Only reached through ``green`` (``setuptools = "*"``). Floor fixes
+# GHSA-h35f-9h28-mq5c; cap keeps the lock on the first patched major.
+setuptools = ">=83.0.0,<84"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

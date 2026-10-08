@@ -15,19 +15,18 @@ from __future__ import annotations
 
 import copy
 import logging
+import ntpath
 import re
 import urllib.parse as urlparse
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from reportlab import rl_settings
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 from reportlab.lib.fonts import addMapping
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus.frames import Frame
 
 try:
     from reportlab.pdfgen.canvas import ShowBoundaryValue
@@ -35,7 +34,9 @@ except ImportError:  # pragma: no cover
     # reportlab < 4.0.9.1; the class was removed from platypus.frames in
     # reportlab 5, so this branch only ever runs on the oldest supported 4.x
     from reportlab.platypus.frames import ShowBoundaryValue
-from reportlab.platypus.paraparser import ParaFrag, ps2tt, tt2ps
+from itertools import starmap
+
+from reportlab.platypus.paraparser import ABag, ParaFrag, ps2tt, tt2ps
 
 from xhtml2pdf import default, parser
 from xhtml2pdf.builders.flex import FlexData
@@ -63,10 +64,13 @@ from xhtml2pdf.util import (
 )
 from xhtml2pdf.w3c import css
 from xhtml2pdf.xhtml2pdf_reportlab import (
+    DeepCopiedDirectly,
+    PmlFrame,
     PmlPageCount,
     PmlPageTemplate,
     PmlParagraph,
     PmlParagraphAndImage,
+    PmlParagraphStyle,
     PmlTableOfContents,
     tocNotifyKind,
 )
@@ -81,7 +85,6 @@ if TYPE_CHECKING:
     from xhtml2pdf.xhtml2pdf_reportlab import PmlImage
 
 
-rl_settings.warnOnMissingFontGlyphs = 0
 log = logging.getLogger(__name__)
 
 sizeDelta = 2  # amount to reduce font size by for super and sub script
@@ -95,23 +98,31 @@ _NEWLINES = re.compile(r"(\r\n|\n|\r)")
 _NBSP = re.compile("(" + NBSP + ")")
 
 
-def clone(self, **kwargs) -> ParaFrag:
-    n = ParaFrag(**self.__dict__)
-    if kwargs:
-        d = n.__dict__
-        d.update(kwargs)
-        # This else could cause trouble in Paragraphs with images etc.
-        if "cbDefn" in d:
-            del d["cbDefn"]
-    n.bulletText = None
-    return n
+class PmlParaFrag(DeepCopiedDirectly, ParaFrag):
+    """
+    A fragment of xhtml2pdf's, cloned the way the story builder expects.
 
+    A clone never carries the bullet, and one made with changes drops the
+    callback -- an inline image or an anchor belongs to the fragment it was
+    made for, not to the text that follows it. This used to be a patch on
+    reportlab's ParaFrag itself, which changed how every Paragraph in the
+    process cloned its fragments, not only xhtml2pdf's.
+    """
 
-ParaFrag.clone = clone
+    def clone(self, **kwargs) -> PmlParaFrag:
+        n = self.__class__(**self.__dict__)
+        if kwargs:
+            d = n.__dict__
+            d.update(kwargs)
+            # This else could cause trouble in Paragraphs with images etc.
+            if "cbDefn" in d:
+                del d["cbDefn"]
+        n.bulletText = None
+        return n
 
 
 #: The file each embedded face was built from, by its ReportLab name. Process
-#: wide, like pdfmetrics._fonts, so that the two can be compared at all.
+#: wide, like reportlab's font registry, so that the two can be compared at all.
 _embedded_font_source: dict[str, str] = {}
 
 
@@ -119,8 +130,8 @@ def registerTTFont(fullFontName: str, file) -> None:
     """
     Make an embedded TrueType font available to ReportLab under fullFontName.
 
-    Not a cache: registerFont keeps whichever object is already in
-    pdfmetrics._fonts under a dynamic font's name, so from the second document
+    Not a cache: registerFont keeps whichever object is already registered
+    under a dynamic font's name, so from the second document
     of a process onwards the TTFont built here was discarded on arrival. This
     builds the object that gets used and skips the ones that never did --
     which matters because building one reads and parses the whole font file,
@@ -131,8 +142,7 @@ def registerTTFont(fullFontName: str, file) -> None:
     That predates this; what is new is that it says so.
     """
     name = file.getNamedFile()
-    registered = pdfmetrics._fonts.get(fullFontName)
-    if registered is not None:
+    if fullFontName in pdfmetrics.getRegisteredFontNames():
         # Same name, different file: the document is going to be drawn with
         # the other one's glyphs, and until now nothing said a word. Whether
         # the file is the same cannot be asked of a TTFont, which does not
@@ -155,7 +165,7 @@ def registerTTFont(fullFontName: str, file) -> None:
 
 
 def getParaFrag(style) -> ParaFrag:
-    frag: ParaFrag = ParaFrag()
+    frag: ParaFrag = PmlParaFrag()
 
     set_value(
         frag,
@@ -179,6 +189,7 @@ def getParaFrag(style) -> ParaFrag:
             "paddingTop",
             "paddingBottom",
             "bulletIndent",
+            "bulletRightIndent",
             "insideStaticFrame",
             "outlineLevel",
         ),
@@ -211,7 +222,15 @@ def getParaFrag(style) -> ParaFrag:
     frag.tocName = ""
     set_value(
         frag,
-        ("pageNumber", "pageCount", "outline", "outlineOpen", "keepWithNext", "rtl"),
+        (
+            "pageNumber",
+            "pageCount",
+            "outline",
+            "outlineOpen",
+            "keepWithNext",
+            "rtl",
+            "splitLongWords",
+        ),
         False,  # noqa: FBT003
     )
 
@@ -253,15 +272,52 @@ def getParaFrag(style) -> ParaFrag:
     frag.bulletFontName = "Helvetica"
     frag.zoom = 1.0
 
-    return frag
+    return _with_defaults(frag)
+
+
+def _with_defaults(frag: PmlParaFrag) -> PmlParaFrag:
+    """
+    An empty frag that reads every attribute of `frag` as its default.
+
+    A frag carries some ninety attributes and every element clones one, so a
+    long document used to hold ninety-odd copies of the same values per run
+    of text -- 3 KB a fragment, most of a render's memory. The values move
+    onto a class made for this render, and a clone copies only what an
+    element changed. Reading an attribute is unchanged: Python finds it on
+    the instance or, failing that, on the class.
+    """
+    defaults = type(PmlParaFrag.__name__, (PmlParaFrag,), dict(frag.__dict__))
+    defaults.__qualname__ = PmlParaFrag.__qualname__
+    return defaults()
+
+
+def _is_windows_drive_path(path: str) -> bool:
+    r"""`C:\dir\file.html` or `C:/dir/file.html`, a local Windows path."""
+    return len(path) >= 3 and path[0].isalpha() and path[1] == ":" and path[2] in "\\/"
+
+
+def hasURLScheme(path) -> bool:
+    r"""
+    Whether `path` is a URL rather than a local path.
+
+    urlparse reads the drive letter of a Windows path as a scheme --
+    `C:\docs\a.html` has the scheme "c" -- so a document on a Windows disk
+    was taken for a URL: its directory was the file itself, and every
+    relative image, stylesheet and font was looked for under it.
+    """
+    path = str(path)
+    return bool(urlparse.urlparse(path).scheme) and not _is_windows_drive_path(path)
 
 
 def getDirName(path) -> str:
     # A resolved local file arrives as a Path, and urlparse only speaks str.
     path = str(path)
-    parts = urlparse.urlparse(path)
-    if parts.scheme:
+    if hasURLScheme(path):
         return path
+    if _is_windows_drive_path(path):
+        # Already absolute. ntpath rather than Path, which only splits on
+        # backslashes on Windows itself.
+        return ntpath.dirname(path)
     return str(Path(path).parent.resolve())
 
 
@@ -426,6 +482,8 @@ class pisaCSSBuilder(css.CSSBuilder):
         pageBorder,
     ) -> tuple[dict, dict]:
         c = self.c
+        if name == "body" and pseudopage is None:
+            c.bodyPageNamed = True
         name = name or "body"
 
         if name in c.templateList:
@@ -458,25 +516,44 @@ class pisaCSSBuilder(css.CSSBuilder):
             getSize,
         )
 
-        for prop in (
-            "margin-top",
-            "margin-left",
-            "margin-right",
-            "margin-bottom",
-            "top",
-            "left",
-            "right",
-            "bottom",
-            "width",
-            "height",
-        ):
-            if prop in data:
-                c.frameList.append(
-                    self._pisaAddFrame(
-                        name, data, first=True, border=pageBorder, size=c.pageSize
-                    )
+        # The page's own margins make a content frame: the page less its
+        # margins. Only when no @frame is a content frame, though. With one,
+        # the margin frame came first and the story filled it, then went on
+        # into the declared frame on the same page, on top of what it had
+        # just written, and never reached the next page.
+        page_box = next(
+            (
+                prop
+                for prop in (
+                    "margin-top",
+                    "margin-left",
+                    "margin-right",
+                    "margin-bottom",
+                    "top",
+                    "left",
+                    "right",
+                    "bottom",
+                    "width",
+                    "height",
                 )
-                break
+                if prop in data
+            ),
+            None,
+        )
+        has_content_frame = any(static is None for _n, static, *_rest in c.frameList)
+        if page_box and has_content_frame:
+            log.debug(
+                "@page %r declares %s and a content @frame; the frame is where the"
+                " content goes, and the margins are ignored",
+                name,
+                page_box,
+            )
+        elif page_box:
+            c.frameList.append(
+                self._pisaAddFrame(
+                    name, data, first=True, border=pageBorder, size=c.pageSize
+                )
+            )
 
         # Frames have to be calculated after we know the pagesize
         frameList = []
@@ -530,7 +607,7 @@ class pisaCSSBuilder(css.CSSBuilder):
                     )
                 )
 
-            frame = Frame(
+            frame = PmlFrame(
                 x,
                 y,
                 w,
@@ -594,7 +671,7 @@ class pisaCSSBuilder(css.CSSBuilder):
             )
 
             frameList.append(
-                Frame(
+                PmlFrame(
                     x,
                     y,
                     w,
@@ -644,6 +721,7 @@ class pisaCSSBuilder(css.CSSBuilder):
 class pisaCSSParser(css.CSSParser):
     def parseExternal(self, cssResourceName):
         oldRootPath = self.rootPath
+        oldSourceName = self.sourceName
         cssFile = self.c.getFile(cssResourceName, relative=self.rootPath)
         if not cssFile:
             return None
@@ -664,20 +742,22 @@ class pisaCSSParser(css.CSSParser):
             # as written, and Path("fonts.css").parent.resolve() is the
             # process working directory, so every url() in an imported sheet
             # -- a @font-face src, above all -- was looked for there.
-            if self.rootPath and urlparse.urlparse(self.rootPath).scheme:
+            if self.rootPath and hasURLScheme(self.rootPath):
                 self.rootPath = urlparse.urljoin(self.rootPath, cssResourceName)
             else:
                 self.rootPath = getDirName(cssFile.getAbsPath() or cssFile.uri)
 
+            self.sourceName = str(cssFile.getAbsPath() or cssResourceName)
             return self.parse(data)
         except Exception:
-            log.exception("Error while parsing CSS file")
+            log.exception("Error while parsing CSS file %r", cssResourceName)
             return None
         finally:
             # In a finally, because this used to sit inside the try: a sheet
             # that failed to parse left rootPath pointing at itself, and every
             # url() that came after was resolved against it.
             self.rootPath = oldRootPath
+            self.sourceName = oldSourceName
 
 
 class PageNumberText:
@@ -747,11 +827,26 @@ class pisaContext:
         #: Characters already reported as having no glyph anywhere, so a
         #: paragraph of them says it once per character rather than per word.
         self._glyph_warned: set[str] = set()
+        #: The characters _warn_missing_glyphs has looked at, per list of
+        #: candidate faces.
+        self._glyph_checked: dict[tuple, set[str]] = {}
+        #: Messages warnOnce has already logged.
+        self._said_once: set[str] = set()
+        #: The absolute and fixed boxes, painted by the page template; see
+        #: xhtml2pdf/builders/position.py.
+        self.positioned: list = []
+        #: The positioned ancestors of the element being read, innermost
+        #: last: what an absolute box is placed against.
+        self.positionStack: list = []
         self.fontList: dict[str, str] = copy.copy(default.DEFAULT_FONT)
         self.asianFontList: dict[str, str] = copy.copy(get_default_asian_font())
         self.anchorFrag: list = []
         self.anchorName: list = []
         self.fragAnchor: list = []
+        #: The fragment identifiers some <a href="#..."> points at, collected
+        #: before the document is laid out, so that an element's id becomes
+        #: a destination only when something links to it.
+        self.linkTargets: set[str] = set()
         self.fragList: list = []
         self.fragStack: list = []
         self.frameList: list = []
@@ -775,6 +870,17 @@ class pisaContext:
         self.warn: int = 0
         self.cssDefaultText: str = ""
         self.cssText: str = ""
+        self.cssCustomNames: frozenset[str] = frozenset()
+        #: Each `property: value` var() substitution produced, parsed.
+        self.cssVarCache: dict[tuple[str, str], dict] = {}
+        #: The var() declarations already reported as unusable.
+        self.cssVarWarned: set[tuple[str, str]] = set()
+        #: Each stylesheet of the document as (text, name), in document order.
+        #: Parsed one by one, so that a warning can say which one it is about
+        #: and an @import -- what a <link> becomes -- is still at the top of
+        #: its own sheet. Concatenated, a <link> after a <style> was an
+        #: @import after the first rule and was dropped.
+        self.cssSources: list[tuple[str, str]] = []
         #: Tags some rule selects by position; see parser.getCSSAttrCacheKey.
         self.cssPositionalTags: set[str] = set()
         #: Attributes some rule selects by; see parser.getCSSAttrCacheKey.
@@ -789,11 +895,16 @@ class pisaContext:
         #: declared here because addTOC reads it before the walk has set it.
         self.cssAttr: CSSAttrs = CSSAttrs()
         self.cssAttrCache: dict = {}
+        #: The font size of <html>, which `rem` is relative to; None until
+        #: <html> has been styled. See parser.resolveRootEm.
+        self.rootFontSize: float | None = None
         #: Declarations dropped because their value is a CSS function this
         #: library cannot evaluate, as "property: function()". Filled by
         #: parser.CSSCollect and reported once when the document is done, the
         #: way unimplemented property names are.
         self.cssDroppedFunctions: set[str] = set()
+        #: The same, by the source each was written in.
+        self.cssDroppedFunctionSources: dict[str | None, set[str]] = {}
         #: The RTL language *name* ("arabic", "hebrew", ...) that drives text
         #: reshaping. Not a BCP 47 tag, so it is not what goes in /Lang.
         self.language: str = ""
@@ -805,6 +916,9 @@ class pisaContext:
         self.frameStatic: dict = {}
         self.imageData: dict = {}
         self.templateList: dict = {}
+        #: Whether the stylesheet wrote "@page body", which is the unnamed
+        #: @page under its own name; see document.start_on_leading_template.
+        self.bodyPageNamed: bool = False
         self.capacity: int = capacity
         #: Every table of contents in the document, by name; the unnamed one
         #: is under "". One instance per <pdf:toc>, because ReportLab keeps
@@ -819,6 +933,8 @@ class pisaContext:
         self.tocNamesUsed: set[str] = set()
         self.multiBuild: bool = False
         self.pageSize: tuple[float, float] = A4
+        #: The size the unnamed @page gives, which every @page starts from.
+        self.bodyPageSize: tuple[float, float] = A4
         #: Background colour propagated from <body> to the page canvas,
         #: per CSS 2.1 14.2. None when body declares no background.
         self.pageCanvasBackground = None
@@ -839,8 +955,9 @@ class pisaContext:
 
         # Store path to document
         self.pathDocument: str = path or "__dummy__"
-        parts = urlparse.urlparse(self.pathDocument)
-        if not parts.scheme:
+        if not hasURLScheme(self.pathDocument) and not _is_windows_drive_path(
+            self.pathDocument
+        ):
             self.pathDocument = str(Path(self.pathDocument).absolute().resolve())
         self.pathDirectory: str = getDirName(self.pathDocument)
         #: What this document may fetch; see xhtml2pdf.config.resources.
@@ -932,13 +1049,16 @@ class pisaContext:
         return self.uidctr
 
     # METHODS FOR CSS
-    def addCSS(self, value):
+    def addCSS(self, value, sourceName: str | None = None):
         value = value.strip()
         if value.startswith("<![CDATA["):
             value = value[9:-3]
         if value.startswith("<!--"):
             value = value[4:-3]
         self.cssText += value.strip() + "\n"
+        if sourceName is None:
+            sourceName = f"<style> block {len(self.cssSources) + 1}"
+        self.cssSources.append((value.strip(), sourceName))
 
     # METHODS FOR CSS
     def addDefaultCSS(self, value):
@@ -967,8 +1087,12 @@ class pisaContext:
         self.cssParser._c = weakref.ref(self)
         pisaCSSParser.c = property(lambda self: self._c())
 
-        self.css = self.cssParser.parse(self.cssText)
-        self.cssDefault = self.cssParser.parse(self.cssDefaultText)
+        self.css = self.cssBuilder.stylesheet(
+            list(starmap(self._parseCSSSource, self.cssSources)), []
+        )
+        self.cssDefault = self._parseCSSSource(
+            self.cssDefaultText, parser.DEFAULT_CSS_SOURCE
+        )
         self.cssCascade = css.CSSCascadeStrategy(
             userAgent=self.cssDefault, user=self.css
         )
@@ -976,7 +1100,18 @@ class pisaContext:
         # Which tags any rule selects by position; see getCSSAttrCacheKey.
         self.cssPositionalTags = parser.getPositionalTagNames(self.cssCascade)
         self.cssAttributeNames = parser.getAttributeSelectorNames(self.cssCascade)
-        parser.warnUnsupportedProperties(self.css)
+        #: Every custom property some rule declares, which is all an element
+        #: can have besides those in its style attribute.
+        self.cssCustomNames = frozenset(
+            name for name in self.cssCascade.propertyNames if name.startswith("--")
+        )
+
+    def _parseCSSSource(self, text, sourceName):
+        self.cssParser.sourceName = sourceName
+        try:
+            return self.cssParser.parse(text)
+        finally:
+            self.cssParser.sourceName = None
 
     # METHODS FOR STORY
     def addStory(self, data):
@@ -988,7 +1123,7 @@ class pisaContext:
         return story
 
     def toParagraphStyle(self, first) -> ParagraphStyle:
-        style = ParagraphStyle(
+        style = PmlParagraphStyle(
             "default%d" % self.UID(), keepWithNext=first.keepWithNext
         )
 
@@ -1012,6 +1147,7 @@ class pisaContext:
                 "textColor",
                 "alignment",
                 "bulletIndent",
+                "bulletRightIndent",
                 "wordWrap",
                 "borderTopStyle",
                 "borderTopWidth",
@@ -1126,6 +1262,16 @@ class pisaContext:
                     isBlock=True,
                 )
                 pstyle = self.toParagraphStyle(self.frag)
+                # A right-to-left index has its page numbers on the left and
+                # its levels indented from the right. The stylesheet's
+                # margin-left is a physical left: on a line set flush right
+                # it only shortened the line, so every level lined up.
+                pstyle.tocRTL = bool(self.frag.rtl)
+                if pstyle.tocRTL:
+                    pstyle.leftIndent, pstyle.rightIndent = (
+                        pstyle.rightIndent,
+                        pstyle.leftIndent,
+                    )
                 styles.append(pstyle)
         finally:
             # In a finally because CSS2Frag, unlike CSSCollect, does not
@@ -1176,7 +1322,13 @@ class pisaContext:
             maxLeading = max(leading, frag.fontSize + frag.leadingSpace, maxLeading)
             frag.leading = leading
 
-        if force or (self.text.strip() and self.fragList):
+        # A page number or count is text too, only not known yet: it never
+        # reaches self.text, and a paragraph holding nothing else -- a
+        # footer cell with a lone <pdf:pagenumber/> -- used to be dropped.
+        has_page_field = any(
+            frag.pageNumber or frag.pageCount for frag in self.fragList
+        )
+        if force or ((self.text.strip() or has_page_field) and self.fragList):
             # A list item's marker belongs to the item, not to whichever frag
             # happens to be current, and it is claimed here -- by the first
             # paragraph the item really emits, which may well come from a
@@ -1191,6 +1343,7 @@ class pisaContext:
                 # the hanging indent, and would lose the base-14 font a square
                 # or lower-greek marker has to be drawn in.
                 self.fragBlock.bulletIndent = item_frag.bulletIndent
+                self.fragBlock.bulletRightIndent = item_frag.bulletRightIndent
                 self.fragBlock.bulletFontName = item_frag.bulletFontName
                 self.pendingBullet = None
 
@@ -1268,6 +1421,19 @@ class pisaContext:
 
         self.clearFrag()
 
+    def addAnchor(self, name: str) -> None:
+        """Make `name` a destination at the start of the next paragraph."""
+        # Important! Make sure that cbDefn is not inherited by other
+        # fragments because of a bug in Reportlab!
+        afrag = self.frag.clone()
+        # These 3 lines are needed to fix an error with non internal fonts
+        afrag.fontName = "Helvetica"
+        afrag.bold = 0
+        afrag.italic = 0
+        afrag.cbDefn = ABag(kind="anchor", name=name, label="anchor")
+        self.fragAnchor.append(afrag)
+        self.anchorName.append(name)
+
     # METHODS FOR FRAG
     def clearFrag(self) -> None:
         self.fragList = []
@@ -1325,7 +1491,12 @@ class pisaContext:
 
     def _warn_missing_glyphs(self, text: str, candidates: list) -> None:
         """Say once per character that no family named has a glyph for it."""
-        for char in set(text):
+        # Every fragment comes through here, and its characters are mostly
+        # ones an earlier fragment in the same families already had looked at.
+        checked = self._glyph_checked.setdefault(tuple(candidates), set())
+        unchecked = set(text).difference(checked)
+        checked.update(unchecked)
+        for char in unchecked:
             if char.isspace() or char in self._glyph_warned:
                 continue
             if any(font_has_glyph(name, char) for name in candidates):
@@ -1465,6 +1636,13 @@ class pisaContext:
 
     def context(self, msg: str) -> str:
         return f"{msg!s}\n{self._getFragment(50)}"
+
+    def warnOnce(self, msg: str) -> None:
+        """Log `msg` as a warning the first time this document says it."""
+        if msg in self._said_once:
+            return
+        self._said_once.add(msg)
+        log.warning(self.warning(msg))
 
     def warning(self, msg, *args):
         self.warn += 1

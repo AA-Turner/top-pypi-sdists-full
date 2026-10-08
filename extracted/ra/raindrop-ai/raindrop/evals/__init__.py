@@ -70,6 +70,7 @@ from .portable import (
 )
 from .trace_tools import (
     project_workshop_trace,
+    format_trace,
     trace_output,
     trace_tool_calls,
     trace_tools,
@@ -138,6 +139,7 @@ __all__ = [
     "pull_eval",
     "verify_portable_eval_artifact",
     "project_workshop_trace",
+    "format_trace",
     "trace_output",
     "trace_tool_calls",
     "trace_tools",

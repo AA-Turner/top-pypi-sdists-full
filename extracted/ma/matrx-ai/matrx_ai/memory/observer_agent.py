@@ -7,12 +7,9 @@ Mirrors: packages/memory/src/processors/observational-memory/observer-agent.ts
 from __future__ import annotations
 
 import re
-from datetime import datetime
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 from .types import Message, MessageRole, ModelConfig, ObserverResult
-
 
 # The Observer's system prompt (persona, extraction instructions, guidelines,
 # output format) is the memory.observer mandate Holder's (2026-09-25) — seeded
@@ -24,48 +21,37 @@ from .types import Message, MessageRole, ModelConfig, ObserverResult
 # User/task prompt construction
 # ---------------------------------------------------------------------------
 
-def build_observer_prompt(
-    existing_observations: Optional[str],
+def build_observer_variables(
+    existing_observations: str | None,
     messages: list[Message],
     timezone: str = "UTC",
-    current_task: Optional[str] = None,
-    previous_response_hint: Optional[str] = None,
-    resource_id: Optional[str] = None,
-    thread_id: Optional[str] = None,
-    instruction: Optional[str] = None,
-) -> str:
+    current_task: str | None = None,
+    previous_response_hint: str | None = None,
+    instruction: str | None = None,
+) -> dict[str, str]:
     """
-    Build the MATERIAL the Observer's Holder frames (its ``{{material}}``).
-    
+    The values the Observer's Holder receives BY NAME (memory.observer).
+
+    The Holder AUTHORS its user turn around these names (2026-10-07); the code
+    never composes section headers or task text. An absent value is omitted so
+    the Holder's own default applies.
+
     Args:
-        existing_observations: Current observation text the Observer should extend (not replace).
+        existing_observations: Current observation list; the Observer returns the complete list (these plus the new ones), which replaces it.
         messages: New unobserved messages to process.
         timezone: Timezone for formatting timestamps.
         current_task: Prior `current_task` value (passed for context).
         previous_response_hint: Prior `suggested_response` value.
+        instruction: The memory config's own extra instruction, when set.
     """
-    parts: list[str] = []
-
-    if existing_observations:
-        parts.append("## Existing Observations (DO NOT repeat these — only ADD new ones)\n")
-        parts.append(existing_observations)
-        parts.append("")
-
-    if current_task:
-        parts.append(f"## Current Task\n{current_task}\n")
-
-    if previous_response_hint:
-        parts.append(f"## Pending Response Hint\n{previous_response_hint}\n")
-
-    parts.append("## New Messages to Observe\n")
-    parts.append(format_messages_for_observer(messages, timezone))
-
-    if instruction:
-        parts.append(f"\n## Additional Instructions\n{instruction}")
-
-    # The task statement ("## Your Task …") is the Holder's own user turn
-    # (memory.observer, 2026-09-25 residue pass); this is only its material.
-    return "\n".join(parts)
+    values: dict[str, str] = {
+        "existing_observations": existing_observations or "",
+        "current_task": current_task or "",
+        "pending_response_hint": previous_response_hint or "",
+        "new_messages": format_messages_for_observer(messages, timezone),
+        "memory_instructions": instruction or "",
+    }
+    return {name: value for name, value in values.items() if value}
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +75,7 @@ def format_messages_for_observer(
     """
     tz = ZoneInfo(timezone)
     lines: list[str] = []
-    last_date: Optional[str] = None
+    last_date: str | None = None
 
     for msg in messages:
         ts = msg.created_at.astimezone(tz)
@@ -113,8 +99,9 @@ def format_messages_for_observer(
             elif role == MessageRole.SYSTEM:
                 lines.append(f"System ({time_str}): {content}")
         elif isinstance(content, list):
-            from .types import TextPart, ToolCallPart, ToolResultPart, ImagePart
             import json
+
+            from .types import ImagePart, TextPart, ToolCallPart, ToolResultPart
 
             role_label = {
                 MessageRole.USER: "User",
@@ -180,7 +167,7 @@ def parse_observer_output(
     output: str,
     input_tokens: int = 0,
     output_tokens: int = 0,
-) -> Optional[ObserverResult]:
+) -> ObserverResult | None:
     """
     Parse the XML output from the Observer LLM.
     
@@ -411,7 +398,7 @@ def sanitize_observation_lines(observations: str, max_line_length: int = 10_000)
 
 async def run_observer(
     model_config: ModelConfig,
-    user_prompt: str,
+    variables: dict[str, str],
     llm_call_fn,
 ) -> ObserverResult:
     """
@@ -419,8 +406,8 @@ async def run_observer(
 
     Args:
         model_config: The mandate that holds the call (+ an explicit model override).
-        user_prompt: The material, built via build_observer_prompt(). The
-            Holder's authored user turn frames it and states the task.
+        variables: The values, built via build_observer_variables(). The
+            Holder's authored user turn names them and states the task.
         llm_call_fn: Async callable(mandate_key=, messages=, model=, variables=) → str.
             The host resolves the mandate's Holder (instructions, the authored
             user turn, model, sampling); ``messages`` follow the Holder's turns.
@@ -438,7 +425,7 @@ async def run_observer(
             messages=messages,
             model=model_config.model,
             **({"offering_id": model_config.offering_id} if model_config.offering_id else {}),
-            variables={"material": user_prompt},
+            variables=variables,
         )
 
         result = parse_observer_output(raw_output)

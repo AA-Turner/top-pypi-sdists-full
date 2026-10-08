@@ -232,3 +232,19 @@ def test_a_size_of_zero_or_below_is_refused_so_the_worker_runs_as_bites(monkeypa
         agent_mod.counted_compaction(agent_mod.RunState(conversation=True))
     assert worker_mod._compaction_available() is False
 
+
+
+def test_the_writer_compacts_at_250k_and_the_reader_at_120k_by_default():
+    """The writer's size is 250K (Richard, 2026-10-07; it was 950K): every round
+    re-reads the whole context. Read in a fresh interpreter with the overrides
+    unset, so a test that patched the module cannot pass it."""
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("PROBE_DAEMON_CONTEXT_TOKENS", "PROBE_READER_CONTEXT_TOKENS")}
+    out = subprocess.run([sys.executable, "-c", "from probe.daemon import agent as a; "
+                          "print(a.CONTEXT_TOKENS, a.READ_CONTEXT_TOKENS)"],
+                         env=env, capture_output=True, text=True, check=True).stdout.split()
+    assert out == ["250000", "120000"]

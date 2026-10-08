@@ -86,6 +86,7 @@ if TYPE_CHECKING:
     from chalk.queries.named_query import NamedQuery
     from chalk.scalinggroup.spec import (
         AutoScalingSpec,
+        ComputeClass,
         DeleteScalingGroupResponse,
         GrpcReadinessProbe,
         GrpcStartupProbe,
@@ -1785,7 +1786,7 @@ class ChalkClient:
 
     def prompt_evaluation(
         self,
-        prompts: list[Prompt | str],
+        prompts: list[Prompt],
         dataset_name: str | None = None,
         dataset_id: str | None = None,
         revision_id: str | None = None,
@@ -1832,7 +1833,7 @@ class ChalkClient:
         ----------
         prompts
             The list of prompts to use for the evaluation.
-            This can be a list of `Prompt` objects or a list of named prompts.
+            Provide explicit `Prompt` objects. Named prompt references are no longer supported.
         dataset_name
             The name of the `Dataset` to use for the evaluation.
             Dataset names are unique for each environment.
@@ -3343,6 +3344,7 @@ class ChalkClient:
         chalk_workload_identity: bool = False,
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
+        compute_class: Optional["ComputeClass"] = None,
     ) -> "ModelDeployment":
         """Deploy a registered model version behind a stable, named endpoint.
 
@@ -3382,6 +3384,9 @@ class ChalkClient:
             Environment to deploy to.
         chalk_workload_identity
             Use Chalk workload identity for cloud resource access.
+        compute_class
+            Where to run the model container. ``HOST`` requires fixed replicas without
+            autoscaling triggers; the default is the Kubernetes pod-based class.
 
         retries
             Retries after the initial asynchronous execution. Must be a nonnegative
@@ -3405,13 +3410,14 @@ class ChalkClient:
 
         Examples
         --------
-        >>> from chalk.scalinggroup import AutoScalingSpec, ScalingGroupResourceRequest
+        >>> from chalk.scalinggroup import AutoScalingSpec, ComputeClass, ScalingGroupResourceRequest
         >>> deployment = client.create_model_deployment(
         ...     name="ner",
         ...     model_name="ner-model",
         ...     model_version=3,
         ...     scaling=AutoScalingSpec(min_replicas=1, max_replicas=2),
         ...     resources=ScalingGroupResourceRequest(cpu="2", memory="4Gi"),
+        ...     compute_class=ComputeClass.HOST,
         ... )
         >>> deployment.remote(text="Ada Lovelace was born in London")
         >>> deployment.defer(text="Ada Lovelace was born in London").get(timeout=30)
@@ -3623,6 +3629,7 @@ class ChalkClient:
         validate: bool = True,
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
+        compute_class: Optional["ComputeClass"] = None,
     ) -> dict[str, Any]:
         """Deprecated: use `create_model_deployment`, which returns a typed
         `ModelDeployment` and can wait for readiness.

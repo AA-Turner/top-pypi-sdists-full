@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 import pytest
 
-from pyipmi.fields import (VersionField, FruTypeLengthString)
+from array import array
+
+from pyipmi.fields import (VersionField, FruTypeLengthString,
+                           SdrTypeLengthString)
 from pyipmi.errors import DecodingError
 
 
@@ -31,3 +33,9 @@ def test_versionfield_decoding_error():
 def test_FruTypeLengthString_6bitascii():
     f = FruTypeLengthString(b'\x83d\xc9\xb2\xde', 0)
     assert f.string == 'DELL'
+
+
+def test_SdrTypeLengthString_bcd_plus_from_array():
+    # the SDR passes the device ID string as array
+    f = SdrTypeLengthString(data=array('B', [0x42, 0x12, 0x34]))
+    assert f.string == '1234'

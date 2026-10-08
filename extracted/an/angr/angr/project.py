@@ -18,7 +18,7 @@ from angr.knowledge_base import KnowledgeBase
 
 from .analyses.analysis import AnalysesHub, AnalysesHubWithDefault
 from .engines.pcode.lifter import PcodeBasicBlockLifter
-from .errors import AngrNoPluginError
+from .errors import AngrNoPluginError, AngrValueError
 from .factory import AngrObjectFactory
 from .llm_client import LLMClient
 from .procedures import SIM_LIBRARIES, SIM_PROCEDURES
@@ -69,7 +69,11 @@ def load_shellcode(shellcode: bytes | str, arch, start_offset=0, load_address=0,
     )
 
 
-CACHE_CONFIG_KEYS = {"functions", "cfg_nodes", "cfg_edges"}
+CACHE_CONFIG_KEYS = {"functions", "cfg_nodes", "cfg_segment_bytes"}
+# Graphs of binaries with more executable code than this are paged to the RuntimeDb.
+CFG_PAGED_EXECUTABLE_BYTES = 1024 * 1024
+CFG_SEGMENT_BUDGET_MIN = 128 * 1024 * 1024
+CFG_SEGMENT_BUDGET_MAX = 512 * 1024 * 1024
 
 _UNSET = object()
 
@@ -219,6 +223,8 @@ class Project:
             l.warning("Disabling IRSB translation cache because support for self-modifying code is enabled.")
 
         self.entry = self.loader.main_object.entry
+        if isinstance(self.entry, int) and self.entry < 0:
+            raise AngrValueError(f"Main object {self.loader.main_object} has a negative entry address {self.entry}")
         self.storage = defaultdict(list)
         self.store_function = store_function or self._store
         self.load_function = load_function or self._load
@@ -256,6 +262,7 @@ class Project:
 
         self._languages: list[str] | None = None
         self._language_confidence: str | None = None
+        self._detected_languages: list[str] | None = None
         self.is_java_project = isinstance(self.arch, ArchSoot)
         self.is_java_jni_project = isinstance(self.arch, ArchSoot) and getattr(
             self.simos, "is_javavm_with_jni_support", False
@@ -916,6 +923,7 @@ class Project:
         if not self._languages:
             detector = self.analyses.LanguageDetector()
             self._languages = [detector.language]
+            self._detected_languages = self._languages
             self._language_confidence = detector.confidence.value
         if not self._languages:
             self._languages.append("unknown")
@@ -928,7 +936,8 @@ class Project:
         not come from detection.
         """
         self.languages()
-        return self._language_confidence
+        detected_languages = getattr(self, "_detected_languages", self._languages)
+        return self._language_confidence if self._languages is detected_languages else None
 
     @property
     def language_is_certain(self) -> bool:
@@ -941,7 +950,10 @@ class Project:
 
     @property
     def is_rust_binary(self) -> bool:
-        return "rust" in self.languages()
+        """
+        Whether the main binary was identified as Rust with enough confidence to enable Rust-specific analyses.
+        """
+        return "rust" in self.languages() and self.language_confidence in (None, "medium", "high")
 
     @property
     def is_go_binary(self) -> bool:
@@ -1003,26 +1015,34 @@ class Project:
             return None  # if the binary is small, don't cache CFG nodes
         return min(((sz // 256) // 100 + 1) * 30, 5000)
 
-    def get_cfg_edge_cache_limit(self) -> int | None:
-        """
-        Get the cache limit for CFG edge caches (adjacency data spilling).
-
-        :return: The cache limit, or None to disable the cache.
-        """
-        if "cfg_edges" in self.cache_limits:
-            return self.cache_limits["cfg_edges"]
-
+    def _main_object_size(self) -> int | None:
         if self.loader.main_object.cached_content is not None:
-            sz = len(self.loader.main_object.cached_content)
-        else:
-            # estimate a size using max address - min address
-            if self.loader.main_object.max_addr is not None and self.loader.main_object.min_addr is not None:
-                sz = self.loader.main_object.max_addr - self.loader.main_object.min_addr
-            else:
-                sz = None
+            return len(self.loader.main_object.cached_content)
+        if self.loader.main_object.max_addr is not None and self.loader.main_object.min_addr is not None:
+            return self.loader.main_object.max_addr - self.loader.main_object.min_addr
+        return None
 
-        if sz is None:
-            return 10000  # sigh
-        if sz < 256 * 1024:
-            return None  # if the binary is small, don't cache CFG edges
-        return min(((sz // 256) // 100 + 1) * 50, 800)
+    def executable_bytes(self) -> int:
+        """
+        The number of bytes of executable code in the main object (sections, else segments, else the whole object).
+        """
+        obj = self.loader.main_object
+        size = sum(sec.memsize for sec in obj.sections if sec.is_executable)
+        if size == 0:
+            size = sum(seg.memsize for seg in obj.segments if seg.is_executable)
+        if size == 0:
+            size = self._main_object_size() or 0
+        return size
+
+    def get_cfg_segment_budget(self) -> int | None:
+        """
+        Byte budget for resident CFG graph segments (cache_limits key ``cfg_segment_bytes``); a graph with a budget
+        is paged to the RuntimeDb from the start. None keeps the graph fully resident. By default only binaries with
+        more than CFG_PAGED_EXECUTABLE_BYTES of executable code are paged.
+        """
+        if "cfg_segment_bytes" in self.cache_limits:
+            return self.cache_limits["cfg_segment_bytes"]
+        code = self.executable_bytes()
+        if code <= CFG_PAGED_EXECUTABLE_BYTES:
+            return None
+        return min(max(CFG_SEGMENT_BUDGET_MIN, code * 16), CFG_SEGMENT_BUDGET_MAX)

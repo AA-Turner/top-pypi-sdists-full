@@ -86,9 +86,28 @@ def parse_resource_yaml(path: pathlib.Path) -> t.Dict[str, ResourceDefinition]:
     return resources
 
 
+def load_role_yaml(role_path: pathlib.Path) -> t.Dict[str, t.Any]:
+    """Load raw role definitions from a YAML file, or from every ``*.yaml`` in a directory.
+
+    Files are merged before parsing because a role may nest roles defined in another file.
+    """
+    paths = sorted(role_path.glob("*.yaml")) if role_path.is_dir() else [role_path]
+    roles_raw: t.Dict[str, t.Any] = {}
+    defined_in: t.Dict[str, pathlib.Path] = {}
+    for path in paths:
+        with open(path, "r") as f:
+            file_roles: t.Dict[str, t.Any] = yaml.load(f, Loader=_YamlLoader) or {}
+        for role_signature, role_body in file_roles.items():
+            role_name = role_signature.split("/")[0]
+            if role_name in defined_in:
+                raise ValueError(f"Role {role_name} is defined in both {defined_in[role_name]} and {path}")
+            defined_in[role_name] = path
+            roles_raw[role_signature] = role_body
+    return roles_raw
+
+
 def parse_role_yaml(role_path: pathlib.Path, resources: t.Dict[str, ResourceDefinition]) -> t.Dict[str, RoleDefinition]:
-    with open(role_path, "r") as f:
-        roles_raw: t.Dict[str, t.Any] = yaml.load(f, Loader=_YamlLoader)
+    roles_raw = load_role_yaml(role_path)
 
     role_yaml = {}
     for role_signature, role_body in roles_raw.items():

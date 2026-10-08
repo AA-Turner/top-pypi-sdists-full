@@ -15,7 +15,7 @@ from collections.abc import Generator
 import datetime
 import operator
 import time
-from typing import Any, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING, cast, overload
 import warnings
 
 import iso8601
@@ -441,18 +441,13 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         if not filters:
             filters = {}
 
-        # servers() always yields non-None servers, so _expand_server never
-        # returns None here
-        return cast(
-            'list[_server.Server]',
-            [
-                self._expand_server(server, detailed, bare)
-                for server in self.compute.servers(
-                    all_projects=all_projects,
-                    **filters,
-                )
-            ],
-        )
+        return [
+            self._expand_server(server, detailed, bare)
+            for server in self.compute.servers(
+                all_projects=all_projects,
+                **filters,
+            )
+        ]
 
     def list_server_groups(self) -> list[_server_group.ServerGroup]:
         """List all available server groups.
@@ -511,7 +506,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use 'search_keypairs' "
                 "instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
             entities = self.search_keypairs(name_or_id, filters)
             if not entities:
@@ -553,7 +548,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use 'search_flavors' "
                 "instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
 
         if not filters:
@@ -655,7 +650,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
                 "'search_servers' instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
             entities = self.search_servers(
                 name_or_id,
@@ -684,6 +679,22 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         )
         return self._expand_server(server, detailed, bare)
 
+    @overload
+    def _expand_server(
+        self,
+        server: _server.Server,
+        detailed: bool,
+        bare: bool,
+    ) -> _server.Server: ...
+
+    @overload
+    def _expand_server(
+        self,
+        server: None,
+        detailed: bool,
+        bare: bool,
+    ) -> None: ...
+
     def _expand_server(
         self,
         server: _server.Server | None,
@@ -692,13 +703,14 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     ) -> _server.Server | None:
         if bare or not server:
             return server
-        elif detailed:
+
+        if detailed:
             return cast(
                 '_server.Server',
                 meta.get_hostvars_from_server(self, server),  # type: ignore[arg-type]
             )
-        else:
-            return meta.add_server_interfaces(self, server)  # type: ignore[arg-type]
+
+        return meta.add_server_interfaces(self, server)  # type: ignore[arg-type]
 
     def get_server_by_id(self, id: str) -> _server.Server | None:
         """Get a server by ID.
@@ -739,7 +751,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
                 "'search_server_groups' instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
             entities = self.search_server_groups(name_or_id, filters)
             if not entities:
@@ -872,7 +884,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         warnings.warn(
             "get_server_meta() is deprecated; use "
             "cloud.compute.fetch_server_metadata(server) instead",
-            os_warnings.RemovedInSDK60Warning,
+            os_warnings.RemovedInSDK50Warning,
         )
         # TODO(mordred) remove once ansible has moved to Inventory interface
         server_vars = meta.get_hostvars_from_server(self, server)  # type: ignore[arg-type]
@@ -1044,7 +1056,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
                         "Support for passing server group as a raw dict has "
                         "been deprecated for removal. Consider passing a "
                         "string name or ID or a ServerGroup object instead.",
-                        os_warnings.RemovedInSDK60Warning,
+                        os_warnings.RemovedInSDK50Warning,
                     )
                 group_id = group['id']
             else:  # object
@@ -1080,7 +1092,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
                             "Support for passing network as a raw dict has "
                             "been deprecated for removal. Consider passing a "
                             "string name or ID or a Network object instead.",
-                            os_warnings.RemovedInSDK60Warning,
+                            os_warnings.RemovedInSDK50Warning,
                         )
                     network_id = net['id']
                 else:
@@ -1148,7 +1160,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
                         "Support for passing image as a raw dict has "
                         "been deprecated for removal. Consider passing a "
                         "string name or ID or an Image object instead.",
-                        os_warnings.RemovedInSDK60Warning,
+                        os_warnings.RemovedInSDK50Warning,
                     )
                 kwargs['imageRef'] = image['id']
             else:
@@ -1161,7 +1173,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
                     "Support for passing flavor as a raw dict has "
                     "been deprecated for removal. Consider passing a "
                     "string name or ID or a Flavor object instead.",
-                    os_warnings.RemovedInSDK60Warning,
+                    os_warnings.RemovedInSDK50Warning,
                 )
             kwargs['flavorRef'] = flavor['id']
         else:
@@ -1264,7 +1276,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
                         "Support for passing boot_volume as a raw dict has "
                         "been deprecated for removal. Consider passing a "
                         "string name or ID or a Volume object instead.",
-                        os_warnings.RemovedInSDK60Warning,
+                        os_warnings.RemovedInSDK50Warning,
                     )
                 volume_id = boot_volume['id']
             else:
@@ -1288,7 +1300,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
                         "Support for passing image as a raw dict has "
                         "been deprecated for removal. Consider passing a "
                         "string name or ID or an Image object instead.",
-                        os_warnings.RemovedInSDK60Warning,
+                        os_warnings.RemovedInSDK50Warning,
                     )
                 image_obj = image
             else:
@@ -1326,7 +1338,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
                         "Support for passing volumes as a list of raw dicts "
                         "been deprecated for removal. Consider passing a list "
                         "of string name or ID or ServerGroup objects instead.",
-                        os_warnings.RemovedInSDK60Warning,
+                        os_warnings.RemovedInSDK50Warning,
                     )
                 volume_id = volume['id']
             else:
@@ -1931,7 +1943,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
                 "'search_aggregates' instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
 
         return self.compute.find_aggregate(name_or_id, ignore_missing=True)

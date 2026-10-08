@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.tools.executor import ToolExecutor
 from matrx_ai.tools.guardrails import GuardrailEngine
@@ -37,7 +38,9 @@ ON_SCREEN = "59678b3b-3620-442d-872b-0331ac74a1cf"
 OTHER = "0b8c2d55-6f7e-4a1b-9c3d-2e4f5a6b7c8d"
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_reasoning_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...

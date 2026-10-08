@@ -1,16 +1,16 @@
-import copy
+from __future__ import annotations
+
 import AOT_biomaps
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope, calculate_envelope_squared, loadmat, sensor_data_to_grid, compute_target_sizes, resample_field, to_pipeline_layout
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, Dim, FormatSave, WaveType
 from AOT_biomaps.AOT_Medium import Medium
 
-
+import copy
 import os
 import numpy as np
 import shutil
 from scipy.io import loadmat as scipy_loadmat
-
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import h5py
@@ -28,6 +28,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 # Optional kwave imports - will be None if kwave is not installed

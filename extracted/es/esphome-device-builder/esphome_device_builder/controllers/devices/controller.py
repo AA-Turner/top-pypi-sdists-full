@@ -230,6 +230,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             on_config_hash_change=self._on_config_hash_change,
             on_api_encryption_change=self._on_api_encryption_change,
             on_mac_address_change=self._on_mac_address_change,
+            on_network_change=self._on_network_change,
             on_importable_added=self._on_importable_added,
             on_importable_removed=self._on_importable_removed,
             is_ignored=self.state.ignored_devices.__contains__,
@@ -238,6 +239,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             on_persisted_ip_invalidated=self._on_persisted_ip_invalidated,
             on_resolved_addresses_cleared=self._on_resolved_addresses_cleared,
             on_deployed_identity_live_change=self._on_deployed_identity_live_change,
+            on_ota_signed_change=self._on_ota_signed_change,
         )
         # Per-signal freshness tracker (mDNS / ping / MQTT last-seen,
         # ping RTT) feeding the device drawer's Reachability section.
@@ -1289,6 +1291,9 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
     def _on_deployed_identity_live_change(self, name: str, *, live: bool) -> None:
         state_callbacks.on_deployed_identity_live_change(self, name, live=live)
 
+    def _on_ota_signed_change(self, name: str, *, signed: bool) -> None:
+        state_callbacks.on_ota_signed_change(self, name, signed=signed)
+
     def _on_version_change(self, name: str, version: str) -> None:
         state_callbacks.on_version_change(self, name, version)
 
@@ -1300,6 +1305,9 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
 
     def _on_config_hash_change(self, name: str, config_hash: str) -> None:
         state_callbacks.on_config_hash_change(self, name, config_hash)
+
+    def _on_network_change(self, name: str, network: str) -> None:
+        state_callbacks.on_network_change(self, name, network)
 
     def _on_importable_added(self, device: AdoptableDevice) -> None:
         importable.on_importable_added(self, device)

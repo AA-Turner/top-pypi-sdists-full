@@ -957,18 +957,7 @@ def roadmap_map():
             [],
         ),
         (
-            "§3 performance",
-            [
-                ("tokenizer: remaining readers", "S"),
-                ("reserves · per-cell scratch", "S"),
-                ("lazy submodule imports", "M"),
-                ("facet cache · grid map (next ABI)", "M"),
-                ("viewer typed-array channel", "L"),
-            ],
-            [],
-        ),
-        (
-            "§4 reader/writer parity",
+            "§3 reader/writer parity",
             [
                 ("guard: both directions", "S"),
                 ("svg · tikz readers (2-D)", "S"),
@@ -980,7 +969,7 @@ def roadmap_map():
             [(0, 1)],
         ),
         (
-            "§5 operations",
+            "§4 operations",
             [
                 ("box · sphere · cylinder · disk", "S"),
                 ("extrude · revolve", "M"),
@@ -992,7 +981,7 @@ def roadmap_map():
             [(0, 1), (2, 3)],
         ),
         (
-            "§6 ecosystem reach",
+            "§5 ecosystem reach",
             [
                 ("registries (calendar-bound)", "S"),
                 ("Rust bindings over the C API", "M"),
@@ -1002,7 +991,7 @@ def roadmap_map():
             [],
         ),
         (
-            "§7 long run (spike first)",
+            "§6 long run (spike first)",
             [
                 ("spike: can the model stretch?", "M"),
                 ("read-only CAD ingestion", "L"),
@@ -1010,6 +999,18 @@ def roadmap_map():
                 ("out-of-core operations", "XL"),
             ],
             [(0, 1)],
+        ),
+        (
+            "§7 terminal rendering",
+            [
+                ("findings: budget · twin · ABI", "S"),
+                ("software rasterizer", "L"),
+                ("cell encodings · PNG · .txt", "M"),
+                ("field rendering · surfaces", "M"),
+                ("interactive tui · view auto", "L"),
+                ("synthwave theme · music", "S"),
+            ],
+            [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)],
         ),
     ]
     per_row = 4

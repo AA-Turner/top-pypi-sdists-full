@@ -84,6 +84,12 @@ PD_TABLE_PREFIX = "SCOS_PD_"
 #   depth >  0 → inside a join   → keep NDV enabled (default)
 _pd_join_depth: ContextVar[int] = ContextVar("_pd_join_depth", default=0)
 
+# Files above this size have XP cache block sizes (bitCeil(size)/1024)
+# ≥ 1 MiB, making the local parquet cache write-only overhead on cold scans
+# (122 GB written, 0 read back for a 51.7 GB file) and worthless even on warm
+# re-scans.  Disabling the cache for these files saves ~9.5s per CTAS.
+PD_DISABLE_CACHE_FILE_SIZE_THRESHOLD = 1 << 30  # 1 GiB
+
 
 @contextmanager
 def _join_context():
@@ -777,6 +783,35 @@ def _ensure_pd_table(
             ) from e
         raise
     ctx.table = table
+
+    # For s3:// source paths, _resolve_read_compression's LIST can't capture
+    # file sizes (it receives the raw s3:// URL, not the resolved @stage form).
+    # Fill the gap here using the resolved @stage path the CIT just used.
+    # Skipped when _read_file already cached a size (the @stage path case).
+    if getattr(session, "_pd_max_source_file_size", 0) == 0:
+        try:
+            list_path = f"@{ctx.stage}"
+            if ctx.file_path:
+                list_path += f"/{ctx.file_path}"
+            for row in session.sql(
+                f"LIST '{_esc_sql_literal(list_path)}'"
+            ).to_local_iterator():
+                try:
+                    size = row[1]
+                    if (
+                        isinstance(size, (int, float))
+                        and size > PD_DISABLE_CACHE_FILE_SIZE_THRESHOLD
+                    ):
+                        session._pd_max_source_file_size = int(size)
+                        break
+                except (IndexError, TypeError):
+                    pass
+        except Exception as e:
+            logger.warning(
+                "Failed to LIST stage files for parquet cache sizing at "
+                f"'{list_path}': {e}"
+            )
+
     return table
 
 

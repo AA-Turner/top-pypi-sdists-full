@@ -207,3 +207,12 @@ def plug_mcp_telemetry(features: Set[str]) -> Optional["McpFeatures"]:
     from dlthub_mcp import telemetry_features
 
     return telemetry_features(features)
+
+
+@plugins.hookimpl(specname="plug_mcp")
+def plug_mcp_restore(features: Set[str]) -> Optional["McpFeatures"]:
+    """Contribute the pipeline restore tools, on `--features=+dlthub.restore_pipeline`."""
+    # Current package
+    from dlthub_mcp import restore_features
+
+    return restore_features(features)

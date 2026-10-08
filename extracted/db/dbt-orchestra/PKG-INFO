@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-orchestra
-Version: 1.3.1
+Version: 1.4.0
 Summary: Orchestra wrapper for dbt Core (including state aware orchestration).
 Author: Orchestra Technologies
 License-Expression: Apache-2.0
@@ -37,6 +37,7 @@ Requires-Dist: pytest-httpx; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Provides-Extra: adapters
+Requires-Dist: dbt-duckdb; extra == "adapters"
 Requires-Dist: dbt-postgres; extra == "adapters"
 Provides-Extra: debug
 Requires-Dist: awscrt; extra == "debug"
@@ -303,7 +304,7 @@ When **both** are omitted, Orchestra can still run **adapter-specific** SQL to i
 | **Google BigQuery** | `bigquery` | Same as Snowflake — configure `loaded_at_*`; no Orchestra fallback. |
 | **AWS Redshift** | `redshift` | Same as Snowflake — configure `loaded_at_*`; no Orchestra fallback. |
 | **PostgreSQL** | `postgres` | Same as Snowflake — configure `loaded_at_*`; no Orchestra fallback. |
-| **DuckDB** | `duckdb` | **Not supported** |
+| **DuckDB** | `duckdb` | Configure `loaded_at_*`; no Orchestra fallback. |
 | **Other adapters** | varies | No Orchestra fallback unless listed above; use `loaded_at_*` or verify dbt's default behavior for your warehouse. |
 
 For adapters without a registered fallback, if both `loaded_at` settings are missing, Orchestra follows dbt's `FreshnessRunner` behavior (which may surface as warnings or a non-actionable result depending on dbt and the warehouse).

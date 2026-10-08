@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 1.11.0
+Version: 1.12.1
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python
@@ -53,6 +53,8 @@ Description-Content-Type: text/markdown
 The Claude SDK for Python provides access to the [Claude API](https://docs.anthropic.com/en/api/) from Python applications.
 
 ## Documentation
+
+Tool helpers (`@beta_tool`, the tool runner and `ToolError`) are documented in [tools.md](https://github.com/anthropics/anthropic-sdk-python/tree/main/tools.md). The browser and computer toolset classes have their own guides, [browser-toolset.md](https://github.com/anthropics/anthropic-sdk-python/tree/main/browser-toolset.md) and [computer-toolset.md](https://github.com/anthropics/anthropic-sdk-python/tree/main/computer-toolset.md).
 
 Full documentation is available at **[platform.claude.com/docs/en/api/sdks/python](https://platform.claude.com/docs/en/api/sdks/python)**.
 

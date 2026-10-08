@@ -1,7 +1,7 @@
 use log::{Level, debug, error, info, warn};
 use parking_lot::RwLock;
+use std::collections::VecDeque;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::logging_utils::sanitize_secret_key;
@@ -13,16 +13,106 @@ const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Warn;
 lazy_static::lazy_static! {
     static ref LOGGER_STATE: RwLock<LoggerState> = RwLock::new(LoggerState {
         level: DEFAULT_LOG_LEVEL,
+        initialized: false,
         provider: None,
+        active_calls: 0,
+        lifecycle_running: false,
+        shutting_down: false,
+        pending: VecDeque::new(),
     });
 }
 
 struct LoggerState {
     level: LogLevel,
+    initialized: bool,
     provider: Option<Arc<dyn OutputLogProvider>>,
+    active_calls: usize,
+    lifecycle_running: bool,
+    shutting_down: bool,
+    pending: VecDeque<Lifecycle>,
 }
 
-static INITIALIZED: AtomicBool = AtomicBool::new(false);
+enum Lifecycle {
+    Initialize(LogLevel, Option<Arc<dyn OutputLogProvider>>),
+    Shutdown,
+}
+
+impl LoggerState {
+    fn begin_call(&mut self) -> Option<ProviderCall> {
+        if self.lifecycle_running || !self.pending.is_empty() {
+            return None;
+        }
+        let provider = self.provider.clone()?;
+        self.active_calls += 1;
+        Some(ProviderCall(provider))
+    }
+}
+
+struct ProviderCall(Arc<dyn OutputLogProvider>);
+
+impl Drop for ProviderCall {
+    fn drop(&mut self) {
+        LOGGER_STATE.write().active_calls -= 1;
+        run_pending_lifecycle();
+    }
+}
+
+struct LifecycleCall;
+
+impl Drop for LifecycleCall {
+    fn drop(&mut self) {
+        let mut state = LOGGER_STATE.write();
+        state.lifecycle_running = false;
+        state.shutting_down = false;
+    }
+}
+
+// Preserve process-wide lifecycle ordering, even when bindings reuse or wrap
+// the same provider. Only bookkeeping is locked: callbacks and provider releases
+// can reenter the logger and must run outside LOGGER_STATE.
+fn run_pending_lifecycle() {
+    loop {
+        let (action, selected, previous) = {
+            let mut state = LOGGER_STATE.write();
+            if state.active_calls != 0 || state.lifecycle_running {
+                return;
+            }
+            let Some(action) = state.pending.pop_front() else {
+                return;
+            };
+            state.lifecycle_running = true;
+            state.shutting_down = matches!(action, Lifecycle::Shutdown);
+            let previous = match &action {
+                Lifecycle::Initialize(level, provider) => {
+                    state.level = level.clone();
+                    provider
+                        .as_ref()
+                        .and_then(|p| state.provider.replace(p.clone()))
+                }
+                Lifecycle::Shutdown => None,
+            };
+            (action, state.provider.clone(), previous)
+        };
+        let call = LifecycleCall;
+        drop(previous);
+        match action {
+            Lifecycle::Initialize(_, Some(provider)) => provider.initialize(),
+            Lifecycle::Initialize(level, None) => {
+                if let Some(level) = level.to_third_party_level() {
+                    if simple_logger::init_with_level(level).is_err() {
+                        log::set_max_level(level.to_level_filter());
+                    }
+                }
+            }
+            Lifecycle::Shutdown => {
+                if let Some(provider) = selected {
+                    provider.shutdown();
+                }
+            }
+        }
+        drop(call);
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum LogLevel {
@@ -90,6 +180,8 @@ pub trait OutputLogProvider: Send + Sync {
     fn shutdown(&self);
 }
 
+/// Queue initialization after earlier callbacks and shutdowns. Reentrant callers
+/// must not wait for the callback they are currently executing.
 pub fn initialize_output_logger(
     level: &Option<LogLevel>,
     provider: Option<Arc<dyn OutputLogProvider>>,
@@ -97,11 +189,6 @@ pub fn initialize_output_logger(
     if crate::output_policy::OutputPolicy::current().is_silent() {
         return;
     }
-    let was_initialized = INITIALIZED.swap(true, Ordering::SeqCst);
-    if was_initialized {
-        return;
-    }
-
     let mut state = match LOGGER_STATE.try_write_for(Duration::from_secs(5)) {
         Some(state) => state,
         None => {
@@ -111,32 +198,21 @@ pub fn initialize_output_logger(
             return;
         }
     };
-    let level = level.as_ref().unwrap_or(&DEFAULT_LOG_LEVEL).clone();
-    state.level = level.clone();
-
-    if let Some(provider_impl) = provider {
-        provider_impl.initialize();
-        state.provider = Some(provider_impl);
-    } else {
-        let final_level = match level {
-            LogLevel::None => {
-                return;
-            }
-            _ => match level.to_third_party_level() {
-                Some(level) => level,
-                None => return,
-            },
-        };
-
-        match simple_logger::init_with_level(final_level) {
-            Ok(()) => {}
-            Err(_) => {
-                log::set_max_level(final_level.to_level_filter());
-            }
-        }
+    if state.initialized {
+        return;
     }
+    state.initialized = true;
+    let level = level.as_ref().unwrap_or(&DEFAULT_LOG_LEVEL).clone();
+    state
+        .pending
+        .push_back(Lifecycle::Initialize(level, provider));
+    drop(state);
+    run_pending_lifecycle();
 }
 
+/// Defer provider shutdown until active callbacks finish, including when called
+/// from a callback. Keep the legacy behavior of retaining the selected provider
+/// for later messages until another initialization replaces it.
 pub fn shutdown_output_logger() {
     if crate::output_policy::OutputPolicy::current().is_silent() {
         return;
@@ -151,11 +227,17 @@ pub fn shutdown_output_logger() {
         }
     };
 
-    if let Some(provider) = &mut state.provider {
-        provider.shutdown();
+    // Coalesce adjacent shutdowns, including shutdown reentered by the provider.
+    // A queued initialization is a boundary: its later shutdown must stay later.
+    if matches!(state.pending.back(), Some(Lifecycle::Shutdown))
+        || (state.shutting_down && state.pending.is_empty())
+    {
+        return;
     }
-
-    INITIALIZED.store(false, Ordering::SeqCst);
+    state.initialized = false;
+    state.pending.push_back(Lifecycle::Shutdown);
+    drop(state);
+    run_pending_lifecycle();
 }
 
 pub fn log_message(tag: &str, level: LogLevel, msg: String) {
@@ -175,19 +257,22 @@ pub fn log_message(tag: &str, level: LogLevel, msg: String) {
 
     let sanitized_msg = sanitize_secret_key(&truncated_msg);
 
-    if let Some(state) = LOGGER_STATE.try_read_for(Duration::from_secs(5)) {
-        if let Some(provider) = &state.provider {
-            match level {
-                LogLevel::Debug => provider.debug(tag, sanitized_msg),
-                LogLevel::Info => provider.info(tag, sanitized_msg),
-                LogLevel::Warn => provider.warn(tag, sanitized_msg),
-                LogLevel::Error => provider.error(tag, sanitized_msg),
-                _ => {}
-            }
-            return;
-        }
+    let provider = if let Some(mut state) = LOGGER_STATE.try_write_for(Duration::from_secs(5)) {
+        state.begin_call()
     } else {
-        eprintln!("[Statsig] Failed to acquire read lock for logger: Failed to lock LOGGER_STATE");
+        eprintln!("[Statsig] Failed to acquire write lock for logger: Failed to lock LOGGER_STATE");
+        None
+    };
+    if let Some(call) = provider {
+        let provider = &call.0;
+        match level {
+            LogLevel::Debug => provider.debug(tag, sanitized_msg),
+            LogLevel::Info => provider.info(tag, sanitized_msg),
+            LogLevel::Warn => provider.warn(tag, sanitized_msg),
+            LogLevel::Error => provider.error(tag, sanitized_msg),
+            _ => {}
+        }
+        return;
     }
 
     if let Some(level) = level.to_third_party_level() {

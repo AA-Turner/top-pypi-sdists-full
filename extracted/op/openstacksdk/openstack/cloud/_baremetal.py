@@ -341,7 +341,7 @@ class BaremetalCloudMixin(openstackcloud._OpenStackCloudMixin):
             self.baremetal.wait_for_node_reservation(machine, timeout)
         except exceptions.SDKException as e:
             raise exceptions.SDKException(
-                "Error unregistering node '{}': Exception occured while "
+                "Error unregistering node '{}': Exception occurred while "
                 "waiting to be able to proceed: {}".format(machine['uuid'], e)
             )
 
@@ -364,7 +364,7 @@ class BaremetalCloudMixin(openstackcloud._OpenStackCloudMixin):
 
         :param string name_or_id: A machine name or UUID to be updated.
         :param patch:
-            The JSON Patch document is a list of dictonary objects that comply
+            The JSON Patch document is a list of dictionary objects that comply
             with RFC 6902 which can be found at
             https://tools.ietf.org/html/rfc6902.
 
@@ -399,7 +399,7 @@ class BaremetalCloudMixin(openstackcloud._OpenStackCloudMixin):
         :param string name_or_id: A machine name or UUID to be updated.
         :param attrs: Attributes to updated on the machine.
 
-        :returns: Dictionary containing a machine sub-dictonary consisting
+        :returns: A dictionary containing a machine sub-dictionary consisting
             of the updated data returned from the API update operation, and a
             list named changes which contains all of the API paths that
             received updates.

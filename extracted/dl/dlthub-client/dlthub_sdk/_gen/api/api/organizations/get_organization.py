@@ -7,10 +7,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.error_response_400 import ErrorResponse400
-from ...models.error_response_401 import ErrorResponse401
-from ...models.error_response_403 import ErrorResponse403
-from ...models.error_response_404 import ErrorResponse404
+from ...models.error_response import ErrorResponse
 from ...models.organization_response import OrganizationResponse
 from ...types import Response
 
@@ -30,38 +27,36 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | OrganizationResponse
-    | None
-):
+) -> ErrorResponse | OrganizationResponse | None:
     if response.status_code == 200:
         response_200 = OrganizationResponse.from_dict(response.json())
 
         return response_200
 
     if response.status_code == 400:
-        response_400 = ErrorResponse400.from_dict(response.json())
+        response_400 = ErrorResponse.from_dict(response.json())
 
         return response_400
 
     if response.status_code == 401:
-        response_401 = ErrorResponse401.from_dict(response.json())
+        response_401 = ErrorResponse.from_dict(response.json())
 
         return response_401
 
     if response.status_code == 403:
-        response_403 = ErrorResponse403.from_dict(response.json())
+        response_403 = ErrorResponse.from_dict(response.json())
 
         return response_403
 
     if response.status_code == 404:
-        response_404 = ErrorResponse404.from_dict(response.json())
+        response_404 = ErrorResponse.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 500:
+        response_500 = ErrorResponse.from_dict(response.json())
+
+        return response_500
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -71,13 +66,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | OrganizationResponse
-]:
+) -> Response[ErrorResponse | OrganizationResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -90,13 +79,7 @@ def sync_detailed(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | OrganizationResponse
-]:
+) -> Response[ErrorResponse | OrganizationResponse]:
     """GetOrganization
 
     Gets information about an organization.
@@ -111,7 +94,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | OrganizationResponse]
+        Response[ErrorResponse | OrganizationResponse]
     """
     kwargs = _get_kwargs(
         organization_id=organization_id,
@@ -128,14 +111,7 @@ def sync(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | OrganizationResponse
-    | None
-):
+) -> ErrorResponse | OrganizationResponse | None:
     """GetOrganization
 
     Gets information about an organization.
@@ -150,7 +126,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | OrganizationResponse
+        ErrorResponse | OrganizationResponse
     """
     return sync_detailed(
         organization_id=organization_id,
@@ -162,13 +138,7 @@ async def asyncio_detailed(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | OrganizationResponse
-]:
+) -> Response[ErrorResponse | OrganizationResponse]:
     """GetOrganization
 
     Gets information about an organization.
@@ -183,7 +153,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | OrganizationResponse]
+        Response[ErrorResponse | OrganizationResponse]
     """
     kwargs = _get_kwargs(
         organization_id=organization_id,
@@ -198,14 +168,7 @@ async def asyncio(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | OrganizationResponse
-    | None
-):
+) -> ErrorResponse | OrganizationResponse | None:
     """GetOrganization
 
     Gets information about an organization.
@@ -220,7 +183,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | OrganizationResponse
+        ErrorResponse | OrganizationResponse
     """
     return (
         await asyncio_detailed(

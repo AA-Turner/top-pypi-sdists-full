@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.8.14
+Version: 0.9.11
 Summary: Generated Trajectory API client and high-level workflows
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: httpx>=0.28.1
+Requires-Dist: httpx2>=2.13.1
 Requires-Dist: pathspec>=0.12
 Requires-Dist: pydantic>=2.0
 Requires-Dist: tqdm>=4.67
@@ -78,7 +78,6 @@ reward = float(model_answer.strip() == expected_answer)
 
 client.trajectories.log_reward(
     tid,
-    reward_id="answer",
     name="accuracy",
     value=reward,
 )

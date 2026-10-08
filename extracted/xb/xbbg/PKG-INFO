@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.5.0
+Version: 1.5.1
 Summary: Independent client for Bloomberg-connected data workflows
 Author: xbbg contributors
 Maintainer: xbbg contributors
@@ -68,7 +68,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.5.0 (release: [notes](https://github.com/underloam/xbbg/releases/tag/v1.5.0))
+Latest release: xbbg==1.5.1 (release: [notes](https://github.com/underloam/xbbg/releases/tag/v1.5.1))
 <!-- xbbg:latest-release-end -->
 
 > This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/underloam/xbbg/tree/release/0.x).
@@ -126,7 +126,7 @@ The short version: if all you need is a tiny one-off `bdp()` wrapper, several pa
 | Rust request/parsing engine with Arrow-shaped output | yes | no | no | no | no |
 | Output backends beyond pandas | Narwhals, native, PyArrow, pandas, Polars, DuckDB | application-owned | pandas-first | pandas-first | Polars-first |
 | Typed errors, diagnostics, field cache, testing helpers | yes | application-owned | limited | limited | limited |
-| Usable install footprint (Windows x64, Python 3.14) | xbbg 1.4.12 + narwhals 2.26.0, no `blpapi` = 18.245 MiB | blpapi 3.26.8.1 = 14.702 MiB | pdblp 0.1.8 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.816 MiB / blp 0.0.4 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 131.002 MiB | bbg-fetch 3.2.0 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.863 MiB | polars-bloomberg 0.6.0 + polars 1.44.2 + blpapi 3.26.8.1 = 191.118 MiB |
+| Usable install footprint (Windows x64, Python 3.14) | xbbg 1.5.0 + narwhals 2.26.0, no `blpapi` = 18.634 MiB | blpapi 3.26.8.1 = 14.702 MiB | pdblp 0.1.8 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.816 MiB / blp 0.0.4 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 131.002 MiB | bbg-fetch 3.2.0 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.863 MiB | polars-bloomberg 0.6.0 + polars 1.44.2 + blpapi 3.26.8.1 = 191.118 MiB |
 
 ## Installation
 
@@ -319,7 +319,7 @@ pip install langchain langchain-openai
 pip install "langgraph>=1.2,<2"
 ```
 
-Requires Python 3.10–3.14, xbbg 1.4.12+, and `langchain-core` 1.4+. Graph workflows target LangGraph 1.2+. The adapter installs `langchain-core` and Pydantic; ordinary xbbg installs remain unchanged. Live requests still require authorized Bloomberg connectivity and SDK runtime libraries. Tool creation and schema inspection do not import the native extension or start a session.
+Requires Python 3.10–3.14, xbbg 1.5.0+, and `langchain-core` 1.4+. Graph workflows target LangGraph 1.2+. The adapter installs `langchain-core` and Pydantic; ordinary xbbg installs remain unchanged. Live requests still require authorized Bloomberg connectivity and SDK runtime libraries. Tool creation and schema inspection do not import the native extension or start a session.
 
 ```python
 from langchain.agents import create_agent
@@ -390,7 +390,7 @@ npm install @xbbg/core
 bun add @xbbg/core
 ```
 
-The packages target Node.js 24+ server runtimes. Packaged native addons are provided for macOS arm64, Linux x64 (glibc 2.28+), and Windows x64. You still need Bloomberg access plus Bloomberg SDK runtime libraries on the target system.
+`@xbbg/core` targets Node.js 24+ and Bun 1.4+ server runtimes; `@xbbg/langgraph` targets Node.js 24+. Packaged native addons are provided for macOS arm64, Linux x64 (glibc 2.28+), and Windows x64. You still need Bloomberg access plus Bloomberg SDK runtime libraries on the target system.
 
 ```ts
 import * as xbbg from '@xbbg/core';
@@ -401,7 +401,7 @@ const hist = await xbbg.blp.abdh(['AAPL US Equity'], ['PX_LAST'], '2024-01-01', 
 const ref = await xbbg.blp.abdp(['AAPL US Equity'], ['PX_LAST', 'SECURITY_NAME']);
 ```
 
-See [`js-xbbg/README.md`](js-xbbg/README.md) for platform packaging, runtime prerequisites, and the supported JavaScript API surface.
+See [`js-xbbg/README.md`](js-xbbg/README.md) for installation and a quickstart, and [`js-xbbg/REFERENCE.md`](js-xbbg/REFERENCE.md) for the full JavaScript API notes.
 
 For LangChain and LangGraph agents, use the supported [`@xbbg/langgraph`](js-xbbg-langgraph/README.md) adapter. It exposes reusable server-side Bloomberg tools backed by `@xbbg/core` without making MCP, a chat app, or a browser integration the core path:
 
@@ -644,7 +644,7 @@ Native queues fail closed on any continuity gap: Bloomberg `DATALOSS`, a full `d
 
 Python `stream()` producers share one managed background event-loop thread, not a thread per stream. Each sync bridge has a bounded queue (`stream_capacity`, default **256**, minimum **1**) and asynchronously waits for consumer space; native overflow policy remains separate. A sync stream that only joins existing shared feeds needs no subscription session; one that needs a session waits up to 5 seconds for capacity when all `max_subscription_sessions` are in use and then raises `RuntimeError` instead of blocking forever. Callbacks run on the consuming thread. Close the generator explicitly when stopping early: close cancels and waits for producer cleanup, and a cleanup timeout is reported. In async applications use `astream()` directly and close it explicitly when retaining the generator after an early exit.
 
-In Node, pass `{ allFields: true }` to `stream()` / `subscribe()` helpers for the same top-level field expansion. Default iteration yields scalar `Tick` objects; `sub.arrow()` constructs Arrow JS tables without IPC for supported schemas. Exposed mutable buffers are JS-owned snapshots: exclusive bounded allocations can be transferred, while shared/sliced/oversized storage is copied or canonicalized first. This is not a universal zero-copy Rust/JS boundary. Choose scalar or Arrow reads once per subscription; see the [Node lifecycle and benchmark contracts](js-xbbg/README.md).
+In Node, pass `{ allFields: true }` to `stream()` / `subscribe()` helpers for the same top-level field expansion. Default iteration yields scalar `Tick` objects; `sub.arrow()` constructs Arrow JS tables without IPC for supported schemas. Exposed mutable buffers are JS-owned snapshots: exclusive bounded allocations can be transferred, while shared/sliced/oversized storage is copied or canonicalized first. This is not a universal zero-copy Rust/JS boundary. Choose scalar or Arrow reads once per subscription; see the [Node lifecycle and benchmark contracts](js-xbbg/REFERENCE.md).
 
 ### Recording a stream
 
@@ -720,7 +720,8 @@ Set up the development environment with [pixi](https://pixi.sh/):
 bash ./scripts/sdktool.sh               # macOS/Linux
 # .\scripts\sdktool.ps1                # Windows PowerShell
 
-# Install the environment and compile the Rust extension
+# Install the environment and compile the Rust extension (rerun `pixi run install`
+# after pulling; xbbg warns when the extension was built from another commit)
 pixi install
 pixi run install
 ```

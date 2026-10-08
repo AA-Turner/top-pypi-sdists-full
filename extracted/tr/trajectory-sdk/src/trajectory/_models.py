@@ -7,7 +7,7 @@ from types import UnionType
 from typing import Any, Literal, TypeVar, Union, get_args, get_origin
 from uuid import UUID
 
-import httpx
+import httpx2
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, PrivateAttr, TypeAdapter, ValidationError
 
@@ -146,7 +146,7 @@ class FinalRequestOptions(PydanticBaseModel):
   url: str
   headers: Headers | None = None
   params: Query = {}
-  timeout: float | httpx.Timeout | None | NotGiven = not_given
+  timeout: float | httpx2.Timeout | None | NotGiven = not_given
   content: Any = None
   files: Any = None
   json_data: Any = None  # not `json` - would incompatibly override BaseModel.json()

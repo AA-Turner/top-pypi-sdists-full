@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ariadne
-Version: 1.1.0
+Version: 1.1.1
 Summary: Ariadne is a Python library for implementing GraphQL servers.
 Project-URL: Homepage, https://ariadnegraphql.org/
 Project-URL: Repository, https://github.com/mirumee/ariadne
@@ -26,7 +26,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: graphql-core>=3.2.0
+Requires-Dist: graphql-core<3.4,>=3.2.0
 Requires-Dist: starlette<2.0,>0.17
 Requires-Dist: typing-extensions>=4.6.0
 Provides-Extra: asgi-file-uploads
@@ -35,13 +35,12 @@ Provides-Extra: dev
 Requires-Dist: ipdb; extra == 'dev'
 Provides-Extra: sqlalchemy
 Requires-Dist: aiodataloader>=0.2.0; extra == 'sqlalchemy'
-Requires-Dist: sqlalchemy>=2.0.0; extra == 'sqlalchemy'
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0; extra == 'sqlalchemy'
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api; extra == 'telemetry'
 Provides-Extra: test
 Requires-Dist: aiodataloader; extra == 'test'
 Requires-Dist: freezegun; extra == 'test'
-Requires-Dist: graphql-sync-dataloaders; extra == 'test'
 Requires-Dist: httpx; extra == 'test'
 Requires-Dist: opentelemetry-api; extra == 'test'
 Requires-Dist: pytest; extra == 'test'

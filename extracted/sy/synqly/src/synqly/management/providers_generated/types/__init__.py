@@ -189,6 +189,7 @@ if typing.TYPE_CHECKING:
     from .edr_crowd_strike_mock import EdrCrowdStrikeMock
     from .edr_defender import EdrDefender
     from .edr_eset_connect import EdrEsetConnect
+    from .edr_huntress import EdrHuntress
     from .edr_iru import EdrIru
     from .edr_malwarebytes import EdrMalwarebytes
     from .edr_sentinel_one import EdrSentinelOne
@@ -295,6 +296,7 @@ if typing.TYPE_CHECKING:
         HttpReceiverTokenCredential_TokenId,
     )
     from .http_request_body_format import HttpRequestBodyFormat
+    from .huntress_credential import HuntressCredential, HuntressCredential_Basic, HuntressCredential_BasicId
     from .identity_ashby import IdentityAshby
     from .identity_aws_iam import IdentityAwsIam
     from .identity_crowd_strike import IdentityCrowdStrike
@@ -467,6 +469,7 @@ if typing.TYPE_CHECKING:
         ProviderConfig_EdrCrowdstrikeMock,
         ProviderConfig_EdrDefender,
         ProviderConfig_EdrEsetConnect,
+        ProviderConfig_EdrHuntress,
         ProviderConfig_EdrIru,
         ProviderConfig_EdrMalwarebytes,
         ProviderConfig_EdrSentinelone,
@@ -590,6 +593,7 @@ if typing.TYPE_CHECKING:
         ProviderConfig_VulnerabilitiesServicenowVr,
         ProviderConfig_VulnerabilitiesTaniumCloud,
         ProviderConfig_VulnerabilitiesTaniumCloudMock,
+        ProviderConfig_VulnerabilitiesTenableAsm,
         ProviderConfig_VulnerabilitiesTenableCloud,
         ProviderConfig_VulnerabilitiesTenableSc,
         ProviderConfig_VulnerabilitiesWiz,
@@ -722,6 +726,7 @@ if typing.TYPE_CHECKING:
         TeamsGraphChatCredential_OAuthClient,
         TeamsGraphChatCredential_OAuthClientId,
     )
+    from .tenable_asm_credential import TenableAsmCredential, TenableAsmCredential_Token, TenableAsmCredential_TokenId
     from .tenable_cloud_credential import (
         TenableCloudCredential,
         TenableCloudCredential_Token,
@@ -803,6 +808,7 @@ if typing.TYPE_CHECKING:
     from .vulnerabilities_tanium_cloud import VulnerabilitiesTaniumCloud
     from .vulnerabilities_tanium_cloud_dataset import VulnerabilitiesTaniumCloudDataset
     from .vulnerabilities_tanium_cloud_mock import VulnerabilitiesTaniumCloudMock
+    from .vulnerabilities_tenable_asm import VulnerabilitiesTenableAsm
     from .vulnerabilities_tenable_cloud import VulnerabilitiesTenableCloud
     from .vulnerabilities_tenable_sc import VulnerabilitiesTenableSc
     from .vulnerabilities_wiz import VulnerabilitiesWiz
@@ -976,6 +982,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EdrCrowdStrikeMock": ".edr_crowd_strike_mock",
     "EdrDefender": ".edr_defender",
     "EdrEsetConnect": ".edr_eset_connect",
+    "EdrHuntress": ".edr_huntress",
     "EdrIru": ".edr_iru",
     "EdrMalwarebytes": ".edr_malwarebytes",
     "EdrSentinelOne": ".edr_sentinel_one",
@@ -1076,6 +1083,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "HttpReceiverTokenCredential_Token": ".http_receiver_token_credential",
     "HttpReceiverTokenCredential_TokenId": ".http_receiver_token_credential",
     "HttpRequestBodyFormat": ".http_request_body_format",
+    "HuntressCredential": ".huntress_credential",
+    "HuntressCredential_Basic": ".huntress_credential",
+    "HuntressCredential_BasicId": ".huntress_credential",
     "IdentityAshby": ".identity_ashby",
     "IdentityAwsIam": ".identity_aws_iam",
     "IdentityCrowdStrike": ".identity_crowd_strike",
@@ -1256,6 +1266,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProviderConfig_EdrCrowdstrikeMock": ".provider_config",
     "ProviderConfig_EdrDefender": ".provider_config",
     "ProviderConfig_EdrEsetConnect": ".provider_config",
+    "ProviderConfig_EdrHuntress": ".provider_config",
     "ProviderConfig_EdrIru": ".provider_config",
     "ProviderConfig_EdrMalwarebytes": ".provider_config",
     "ProviderConfig_EdrSentinelone": ".provider_config",
@@ -1379,6 +1390,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProviderConfig_VulnerabilitiesServicenowVr": ".provider_config",
     "ProviderConfig_VulnerabilitiesTaniumCloud": ".provider_config",
     "ProviderConfig_VulnerabilitiesTaniumCloudMock": ".provider_config",
+    "ProviderConfig_VulnerabilitiesTenableAsm": ".provider_config",
     "ProviderConfig_VulnerabilitiesTenableCloud": ".provider_config",
     "ProviderConfig_VulnerabilitiesTenableSc": ".provider_config",
     "ProviderConfig_VulnerabilitiesWiz": ".provider_config",
@@ -1497,6 +1509,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TeamsGraphChatCredential": ".teams_graph_chat_credential",
     "TeamsGraphChatCredential_OAuthClient": ".teams_graph_chat_credential",
     "TeamsGraphChatCredential_OAuthClientId": ".teams_graph_chat_credential",
+    "TenableAsmCredential": ".tenable_asm_credential",
+    "TenableAsmCredential_Token": ".tenable_asm_credential",
+    "TenableAsmCredential_TokenId": ".tenable_asm_credential",
     "TenableCloudCredential": ".tenable_cloud_credential",
     "TenableCloudCredential_Token": ".tenable_cloud_credential",
     "TenableCloudCredential_TokenId": ".tenable_cloud_credential",
@@ -1582,6 +1597,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VulnerabilitiesTaniumCloud": ".vulnerabilities_tanium_cloud",
     "VulnerabilitiesTaniumCloudDataset": ".vulnerabilities_tanium_cloud_dataset",
     "VulnerabilitiesTaniumCloudMock": ".vulnerabilities_tanium_cloud_mock",
+    "VulnerabilitiesTenableAsm": ".vulnerabilities_tenable_asm",
     "VulnerabilitiesTenableCloud": ".vulnerabilities_tenable_cloud",
     "VulnerabilitiesTenableSc": ".vulnerabilities_tenable_sc",
     "VulnerabilitiesWiz": ".vulnerabilities_wiz",
@@ -1787,6 +1803,7 @@ __all__ = [
     "EdrCrowdStrikeMock",
     "EdrDefender",
     "EdrEsetConnect",
+    "EdrHuntress",
     "EdrIru",
     "EdrMalwarebytes",
     "EdrSentinelOne",
@@ -1887,6 +1904,9 @@ __all__ = [
     "HttpReceiverTokenCredential_Token",
     "HttpReceiverTokenCredential_TokenId",
     "HttpRequestBodyFormat",
+    "HuntressCredential",
+    "HuntressCredential_Basic",
+    "HuntressCredential_BasicId",
     "IdentityAshby",
     "IdentityAwsIam",
     "IdentityCrowdStrike",
@@ -2067,6 +2087,7 @@ __all__ = [
     "ProviderConfig_EdrCrowdstrikeMock",
     "ProviderConfig_EdrDefender",
     "ProviderConfig_EdrEsetConnect",
+    "ProviderConfig_EdrHuntress",
     "ProviderConfig_EdrIru",
     "ProviderConfig_EdrMalwarebytes",
     "ProviderConfig_EdrSentinelone",
@@ -2190,6 +2211,7 @@ __all__ = [
     "ProviderConfig_VulnerabilitiesServicenowVr",
     "ProviderConfig_VulnerabilitiesTaniumCloud",
     "ProviderConfig_VulnerabilitiesTaniumCloudMock",
+    "ProviderConfig_VulnerabilitiesTenableAsm",
     "ProviderConfig_VulnerabilitiesTenableCloud",
     "ProviderConfig_VulnerabilitiesTenableSc",
     "ProviderConfig_VulnerabilitiesWiz",
@@ -2308,6 +2330,9 @@ __all__ = [
     "TeamsGraphChatCredential",
     "TeamsGraphChatCredential_OAuthClient",
     "TeamsGraphChatCredential_OAuthClientId",
+    "TenableAsmCredential",
+    "TenableAsmCredential_Token",
+    "TenableAsmCredential_TokenId",
     "TenableCloudCredential",
     "TenableCloudCredential_Token",
     "TenableCloudCredential_TokenId",
@@ -2393,6 +2418,7 @@ __all__ = [
     "VulnerabilitiesTaniumCloud",
     "VulnerabilitiesTaniumCloudDataset",
     "VulnerabilitiesTaniumCloudMock",
+    "VulnerabilitiesTenableAsm",
     "VulnerabilitiesTenableCloud",
     "VulnerabilitiesTenableSc",
     "VulnerabilitiesWiz",

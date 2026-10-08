@@ -124,7 +124,6 @@ from local_operator.network.invite import release
 from local_operator.network.types import (
     CAPABILITY_WORDS,
     GRANTABLE_CAPABILITIES,
-    NEEDS_ASK,
     NET_PAIR_OPS,
     Granted,
     LinkContext,
@@ -305,6 +304,20 @@ STOP_BYE_SETTLE_S = 0.05
 #: done by the time ``stop`` returns, which is what a caller tearing a relay down
 #: and immediately counting fds is entitled to assume. Generous on purpose, since
 #: a page read is milliseconds unless the loop is already wedged.
+#:
+#: IT NOW ALSO BOUNDS THE TEARDOWN'S OWN WORK, by ordering rather than by
+#: arithmetic (M-R-3, agent review round 1). ``_page_loop_main`` cancels the
+#: pending tasks and drains the ready queue BEFORE it closes, so if that work did
+#: not settle then the close has not happened either, and this join is what gives
+#: up: the determinism above is conditional on the collect settling, exactly as it
+#: was already conditional on ``run_forever`` returning. The collect is a cancel
+#: plus one drain (``run_until_complete(sleep(0))`` — three loop iterations, not
+#: one, measured on 3.12.13), which settles in microseconds for the only two
+#: tasks this loop ever carries (a stored-page decode and its shield); a
+#: cancellation handler that blocked would instead cost a lingering loop and its
+#: descriptors for that generation — the fd leak F1/Q2-1 closed — but never a
+#: ``stop`` that fails to return, which is why this is stated rather than given a
+#: second bound of its own.
 PAGE_LOOP_STOP_JOIN_S = 5.0
 
 # ---------------------------------------------------------------------------
@@ -4068,13 +4081,16 @@ class RelayServer:
         self._slow_pool: ThreadPoolExecutor | None = None
         self._slow_slots: threading.BoundedSemaphore | None = None
         #: The ONE event loop every stored-page read runs on, and the lock that
-        #: builds it once (see ``_page_read_loop``). Lazy for the same reason the
-        #: slow pool is: most relays never serve ``net_session_history``.
+        #: builds it once (see ``_page_loop_locked``). Lazy for the same reason the
+        #: slow pool is: most relays never serve ``net_session_history``. The lock
+        #: is ALSO what serialises a read against a ``stop``: it is held across
+        #: both the loop's selection and the submit onto it (M-1), and ``stop``
+        #: shelves the loop in a critical section of the same lock.
         self._page_loop: asyncio.AbstractEventLoop | None = None
         self._page_loop_thread: threading.Thread | None = None
         self._page_loop_lock = threading.Lock()
         #: Set by ``stop``: the next read builds a fresh loop rather than queueing
-        #: work onto one whose thread has finished (see ``_page_read_loop``).
+        #: work onto one whose thread has finished (see ``_page_loop_locked``).
         self._page_loop_shelved = False
         self._install_slices()
         self.started_at = time.time()
@@ -4138,6 +4154,7 @@ class RelayServer:
         self.publish()
         self._flush_outboxes()
         self._run_start_hooks()
+        self._sweep_approvals_once()
 
     def _run_start_hooks(self) -> None:
         """Run each slice's one-shot start hook, on its own daemon thread.
@@ -4160,6 +4177,33 @@ class RelayServer:
 
             thread = threading.Thread(target=_run, name=f"mesh-start-{label}", daemon=True)
             thread.start()
+
+    def _sweep_approvals_once(self) -> None:
+        """One best-effort retention sweep for the device-local approvals store.
+
+        WHY THIS SEAT (2026-10-07). The approvals store's retention rides the
+        CREATE path (``approvals.sweep``'s own docstring: "no timer process" by
+        design), so a device that stops onboarding new devices also stops
+        reaping: measured on the operator's own machine, nine terminal records
+        from a single onboarding week sat untouched, and nothing would have
+        touched them until the next request — which may never come. The relay
+        start is the one non-timer event a device reaches without new approval
+        activity (every update restarts the relay; any mesh verb that finds no
+        relay starts one), so the sweep runs here too: once, off-thread, on the
+        same terms the slice hooks above run under — a failure is reported and
+        swallowed, never a reason a relay or a command fails.
+        """
+
+        def _run() -> None:
+            try:
+                from local_operator.network import approvals
+
+                approvals.sweep(root=self.root)
+            except Exception as exc:  # noqa: BLE001 — see the docstring
+                print(f"mesh relay: approvals sweep failed ({exc})", file=sys.stderr)
+
+        thread = threading.Thread(target=_run, name="mesh-start-approvals", daemon=True)
+        thread.start()
 
     def serve_forever(self) -> None:
         """The foreground runner (``lop network serve``): block until signalled."""
@@ -4251,14 +4295,23 @@ class RelayServer:
         # method returns. A read that arrives after all this builds a FRESH loop
         # rather than hand one to a thread that has finished.
         #
-        # A READ ALREADY SUBMITTED IS NOT RECLAIMED BY THE QUEUE ORDER, only by the
-        # bound, and the earlier comment here claimed the opposite. A coroutine
-        # awaiting ``asyncio.to_thread`` never resolves once the loop carrying it
-        # has stopped — ``run_forever`` returns with the task still pending and
-        # discards it — so a reader parked in ``future.result`` waits out
-        # ``SESSION_HISTORY_PAGE_READ_BOUND_S`` and then sees ``TimeoutError``.
-        # That is the contract the bound exists for: an honest wait with an end,
-        # not a promise that the read completes.
+        # A READ ALREADY SUBMITTED IS NOT RECLAIMED BY THE QUEUE ORDER, and the
+        # earlier comment here claimed it was. A coroutine awaiting
+        # ``asyncio.to_thread`` never resolves once the loop carrying it has
+        # stopped — ``run_forever`` returns with the task still pending and the
+        # callback that would deliver the decode never runs. What ends it is the
+        # loop's OWN teardown, and it ends it in BOTH of the states a submitted
+        # read can be in when the stop lands: ``_page_loop_main`` cancels the
+        # tasks still pending and drains the ready queue before it closes (M-2,
+        # M-R-1), so a reader parked in ``future.result`` is released as soon as
+        # the bounded join below lands — with its PAGE if its task had already
+        # completed and only the completion notification was still queued, with a
+        # cancellation if the task was still pending — rather than after a
+        # minute. The bound is still the belt for a read the teardown never
+        # reaches at all, one whose loop has not closed by the time it gives up;
+        # there it is the answer it always was: ``TimeoutError`` after
+        # ``SESSION_HISTORY_PAGE_READ_BOUND_S``, an honest wait with an end rather
+        # than a promise that the read completes.
         with self._page_loop_lock:
             loop = self._page_loop
             thread = self._page_loop_thread
@@ -5901,7 +5954,17 @@ class RelayServer:
                     "busy": record.busy,
                     "pending": record.pending,
                     "detached": record.detached,
-                    "started": record.started,
+                    # THE RECORD'S EPOCH, NOT ITS ``started`` BOOL (operator
+                    # report). ``record.started`` is "has run at
+                    # least one real turn"; a consumer reading it as a TIME
+                    # minted ``float(True)`` = 1.0 — an epoch second into 1970
+                    # — so the desktop sidebar dated a live session "56y" and
+                    # filed it under "Older". This key is an EPOCH on the two
+                    # sibling halves below (``_mesh_hosted_rows`` /
+                    # ``_stored_rows``) and on every consumer's read of it; the
+                    # bool's own readers read the RECORD, not a federated row
+                    # (the unengaged send gate, the broadcast/steer admission).
+                    "started": float(record.started_at or 0.0),
                     "pid": record.pid,
                     "kind": record.kind,
                     "capabilities": list(record.capabilities),
@@ -6074,18 +6137,30 @@ class RelayServer:
                     "cwd": "",
                     "model_label": "",
                     "busy": False,
-                    # THE FIELD'S CONTRACT IS A STRING (Q-R7-1). This used to
-                    # publish ``bool(entry.unseen)``, which crashed the ONE
-                    # human reader of the field — `lop sessions --all-peers`
-                    # and `--peer <dev>` render `pending` through
-                    # ``rich.cells.cell_len`` — while the live half of the same
-                    # catalogue published ``SessionRecord.pending``, a string.
-                    # "An unread completion is waiting" is a NEEDS claim, so it
-                    # says so in the record's own vocabulary rather than
-                    # answering a what-is-needed question with a yes/no
-                    # (``types.NEEDS_ASK``, beside the normaliser that reads the
-                    # same field off the wire).
-                    "pending": NEEDS_ASK if entry.unseen else None,
+                    # NO NEEDS CLAIM (correction, 2026-10-07). ``pending``
+                    # answers "what is a person being waited on" in the live
+                    # half's own vocabulary (``types.NEEDS_APPROVAL``/
+                    # ``NEEDS_ASK``, ``SessionRecord.pending``), and a stored
+                    # session has no runtime and therefore no gate. An earlier
+                    # cut synthesised ``"ask"`` here from the owner's
+                    # ``unseen`` flag; the defect that removed it is that NO
+                    # surface could ever clear the claim: this row carries no
+                    # completion token, so no receipt can name the completion,
+                    # while every sidebar paints the row as "needs you" for as
+                    # long as the completion stays unread (measured: 20 dead
+                    # probe sessions on one peer = 20 permanent answer-needed
+                    # marks in every sidebar). The owner's unread fact stays
+                    # where it can be seen and cleared — its attention store,
+                    # read by that device's own surfaces and by any viewer that
+                    # opens the conversation (the receipt hop routes the clear
+                    # to the owner). ``peer_rows.park_edges`` already refused to
+                    # announce these as parks ("a turn that finished on the peer
+                    # hours ago ... needs nobody"); the field now agrees.
+                    # Rows from a producer that predates the correction are
+                    # dropped at the row level, not the value level
+                    # (``types.row_needs_claim``), so a mixed-version fleet
+                    # paints this row the same way.
+                    "pending": None,
                     "detached": True,
                     "started": float(getattr(entry.row, "mtime", 0.0) or 0.0),
                     "pid": 0,
@@ -7075,17 +7150,34 @@ class RelayServer:
         and the two also mutate the module-level cache from two threads. One loop
         for every stored-page read in this process is what keeps the façade on one
         thread however many viewer links ask at once.
+
+        THE SUBMIT IS TAKEN INSIDE ``_page_loop_lock`` (M-1, agent review & QA
+        round 2 residual). Choosing the loop and submitting to it used to be two
+        statements with the lock RELEASED in between, so a ``stop()`` landing in
+        that gap closed the loop under this read and
+        ``asyncio.run_coroutine_threadsafe`` raised ``RuntimeError: Event loop is
+        closed`` — not the bounded wait this read promises. ``stop`` stops and
+        shelves the loop in ONE critical section of the SAME lock, so a submit
+        taken under it either lands on the loop while it is still the relay's live
+        loop, or reads ``_page_loop_shelved`` and is handed a fresh one. The
+        release-to-submit gap was the whole window; there is no gap left.
         """
         from local_operator.session.page_cache import load_transcript_page
 
-        loop = self._page_read_loop()
-        future = asyncio.run_coroutine_threadsafe(
-            load_transcript_page(str(directory), before_id=before_id, limit=limit), loop
-        )
+        with self._page_loop_lock:
+            loop = self._page_loop_locked()
+            future = asyncio.run_coroutine_threadsafe(
+                load_transcript_page(str(directory), before_id=before_id, limit=limit), loop
+            )
         return future.result(timeout=SESSION_HISTORY_PAGE_READ_BOUND_S)
 
-    def _page_read_loop(self) -> asyncio.AbstractEventLoop:
+    def _page_loop_locked(self) -> asyncio.AbstractEventLoop:
         """The relay's single page loop, started on first use and kept for its life.
+
+        THE CALLER MUST HOLD ``_page_loop_lock``, and the caller that matters is
+        :meth:`_stored_page_read`: it needs the loop it chooses and the submit
+        onto it to be one critical section, which a lock-taking accessor could
+        not give it (this is a plain ``Lock``, not a re-entrant one).
 
         LAZY, like the slow-op pool: most relays never serve this op, and a thread
         per relay that never reads a page would be paid for nothing. A DAEMON
@@ -7097,19 +7189,18 @@ class RelayServer:
         a loop whose thread has not reached ``run_forever`` yet, so reading it here
         would race the first caller into building a second loop.
         """
-        with self._page_loop_lock:
-            if self._page_loop is None or self._page_loop_shelved:
-                loop = asyncio.new_event_loop()
-                self._page_loop_thread = threading.Thread(
-                    target=self._page_loop_main,
-                    args=(loop,),
-                    name="mesh-page-loop",
-                    daemon=True,
-                )
-                self._page_loop_thread.start()
-                self._page_loop = loop
-                self._page_loop_shelved = False
-            return self._page_loop
+        if self._page_loop is None or self._page_loop_shelved:
+            loop = asyncio.new_event_loop()
+            self._page_loop_thread = threading.Thread(
+                target=self._page_loop_main,
+                args=(loop,),
+                name="mesh-page-loop",
+                daemon=True,
+            )
+            self._page_loop_thread.start()
+            self._page_loop = loop
+            self._page_loop_shelved = False
+        return self._page_loop
 
     @staticmethod
     def _page_loop_main(loop: asyncio.AbstractEventLoop) -> None:
@@ -7133,7 +7224,51 @@ class RelayServer:
         try:
             loop.run_forever()
         finally:
-            loop.close()
+            # THE TASKS STILL PENDING ARE CANCELLED BEFORE THE CLOSE (M-2, agent
+            # review & QA round 2 residual). ``loop.stop`` ends ``run_forever``
+            # with the read's task still PENDING — it is awaiting ``to_thread``,
+            # and the callback that would deliver the decode is one the stopped
+            # loop never runs — so ``loop.close()`` used to destroy a pending
+            # task, which asyncio reports as ``Task was destroyed but it is
+            # pending!`` through asyncio's logger, once per parked read.
+            # Cancelling and collecting them is the standard library's OWN
+            # teardown, the first of the steps ``asyncio.run`` takes before it
+            # closes, and what it buys is that the doomed read ENDS: its waiter is
+            # released at once instead of parking out
+            # ``SESSION_HISTORY_PAGE_READ_BOUND_S``.
+            #
+            # EVERY task on the loop, not only the reader's: ``load_transcript_page``
+            # awaits ``asyncio.shield(task)``, so the decode is a SECOND task
+            # that survives its waiter's cancellation and would itself be the one
+            # destroyed pending.
+            #
+            # AND THE DRAIN IS UNCONDITIONAL (M-R-1, agent review round 1). A read
+            # whose task COMPLETED before the stop landed has nothing left to
+            # cancel — it is not on the pending list — but its completion
+            # notification is a callback still sitting in the loop's ready queue
+            # (``_chain_future``'s ``_call_set_state``, the one that resolves the
+            # ``concurrent.futures.Future`` ``run_coroutine_threadsafe`` returned).
+            # ``close()`` clears that queue, so guarding the drain behind
+            # ``if pending:`` skipped it in exactly that case: the reader parked
+            # out the bound and was told the read failed, with its page already
+            # decoded and thrown away. One drain is the whole difference, so it
+            # runs whether or not anything was pending. ``run_until_complete(
+            # sleep(0))`` is THREE ``_run_once`` iterations, not one (measured on
+            # 3.12.13: the wrapper task's first step, its resume after the bare
+            # yield, then ``_run_until_complete_cb`` that stops the loop), which
+            # is why it also covers a short re-arming ``call_soon`` chain — the reachable
+            # chain here is depth 1 (``_call_set_state``) — and is not a general
+            # quiescence guarantee. The deterministic pin is
+            # ``test_the_page_loop_teardown_delivers_a_completion_still_queued_behind_the_stop``.
+            try:
+                pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(asyncio.sleep(0))
+            finally:
+                loop.close()
 
     def _op_session_stop(self, link: PeerLink, frame: dict[str, Any]) -> dict[str, Any]:
         """Run THIS device's own kill-switch ladder for one of its sessions (§4.3).

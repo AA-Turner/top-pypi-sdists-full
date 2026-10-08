@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: crewai-tools
-Version: 1.15.23
+Version: 1.15.25
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 Requires-Python: <3.14,>=3.10
 Requires-Dist: beautifulsoup4<5,>=4.13.4
-Requires-Dist: crewai==1.15.23
+Requires-Dist: crewai==1.15.25
 Requires-Dist: pymupdf~=1.26.6
 Requires-Dist: python-docx~=1.2.0
 Requires-Dist: pytube~=15.0.0
@@ -55,11 +55,13 @@ Provides-Extra: mcp
 Requires-Dist: mcp<2,>=1.28.1; extra == 'mcp'
 Requires-Dist: mcpadapt>=0.1.9; extra == 'mcp'
 Provides-Extra: mongodb
-Requires-Dist: pymongo>=4.13; extra == 'mongodb'
+Requires-Dist: pymongo>=4.18.2; extra == 'mongodb'
 Provides-Extra: multion
 Requires-Dist: multion>=1.1.0; extra == 'multion'
 Provides-Extra: mysql
 Requires-Dist: pymysql>=1.1.1; extra == 'mysql'
+Provides-Extra: oracledb
+Requires-Dist: oracledb>=2.2.0; extra == 'oracledb'
 Provides-Extra: oxylabs
 Requires-Dist: oxylabs<4,>=2.0.0; extra == 'oxylabs'
 Provides-Extra: patronus
@@ -84,7 +86,7 @@ Requires-Dist: singlestoredb>=1.12.4; extra == 'singlestore'
 Requires-Dist: sqlalchemy>=2.0.40; extra == 'singlestore'
 Provides-Extra: snowflake
 Requires-Dist: cryptography>=43.0.3; extra == 'snowflake'
-Requires-Dist: snowflake-connector-python>=3.12.4; extra == 'snowflake'
+Requires-Dist: snowflake-connector-python<5,>=4.7.3; extra == 'snowflake'
 Requires-Dist: snowflake-sqlalchemy>=1.11.0; extra == 'snowflake'
 Provides-Extra: spider-client
 Requires-Dist: spider-client>=0.1.25; extra == 'spider-client'

@@ -42,6 +42,10 @@ def _assert_every_adjustable_filter_is_off(
         types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: types.HarmBlockThreshold.OFF,
         types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: types.HarmBlockThreshold.OFF,
         types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: types.HarmBlockThreshold.OFF,
+        # Owner rule 2026-10-04: every adjustable category at the provider's
+        # minimum; both probed live and accept OFF (translator.py comment).
+        types.HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY: types.HarmBlockThreshold.OFF,
+        types.HarmCategory.HARM_CATEGORY_JAILBREAK: types.HarmBlockThreshold.OFF,
     }
 
 

@@ -4,8 +4,8 @@ use crate::StatsigOptions;
 fn test_prefer_http2_supported_option() {
     use crate::networking::http2::http2_enabled;
 
-    assert!(http2_enabled(None));
-    assert!(http2_enabled(Some(&StatsigOptions::default())));
+    assert!(!http2_enabled(None));
+    assert!(!http2_enabled(Some(&StatsigOptions::default())));
     for enabled in [true, false] {
         let options = StatsigOptions::builder()
             .prefer_http2(Some(enabled))
@@ -22,7 +22,7 @@ fn test_prefer_http2_supported_option() {
         experimental_flags: Some(["prefer_http2".to_string()].into()),
         ..Default::default()
     };
-    assert!(http2_enabled(Some(&old_flag_only)));
+    assert!(!http2_enabled(Some(&old_flag_only)));
     let explicit_off = StatsigOptions {
         prefer_http2: Some(false),
         ..old_flag_only

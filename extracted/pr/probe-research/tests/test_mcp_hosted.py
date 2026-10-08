@@ -59,6 +59,37 @@ def test_hosted_server_is_stateless() -> None:
     assert create_server(transport_security=_OPEN).settings.stateless_http is True
 
 
+def test_main_http_trusts_no_proxy_headers_and_outlives_the_ingress_keepalive(
+    monkeypatch,
+) -> None:
+    """Behind the pod's loopback TLS sidecar (agent/deploy/mcp-tls) every peer is
+    127.0.0.1, which uvicorn trusts for X-Forwarded-* by default. And uvicorn's 5 s
+    idle close races ingress-nginx's 60 s upstream keep-alive into 502s.
+
+    uvicorn.run is captured, then the SAME kwargs build a real uvicorn.Config: a
+    misspelt option fails there instead of passing as an ignored keyword."""
+    import uvicorn
+
+    import probe.mcp.server as server
+
+    app = object()
+    seen: dict = {}
+    # Not the real http_app(): it switches the scrub cache off for the process.
+    monkeypatch.setattr(server, "http_app", lambda: app)
+    monkeypatch.setattr(uvicorn, "run", lambda target, **kw: seen.update(target=target, kw=kw))
+    monkeypatch.delenv("HOST", raising=False)
+    monkeypatch.delenv("PORT", raising=False)
+
+    server.main_http()
+
+    assert seen["target"] is app
+    config = uvicorn.Config(app, **seen["kw"])
+    assert config.proxy_headers is False
+    assert config.timeout_keep_alive == 75
+    assert config.timeout_keep_alive > 60, "must outlive ingress-nginx's upstream keep-alive"
+    assert (config.host, config.port) == ("::", 8080)
+
+
 def test_tools_list_works_without_a_session_id(service) -> None:
     """The multi-replica path: a follow-up request carries no session the pod knows.
 

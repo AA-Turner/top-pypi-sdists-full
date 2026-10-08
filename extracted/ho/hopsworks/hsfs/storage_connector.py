@@ -31,7 +31,11 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from hopsworks_apigen import public
 from hopsworks_common import client, util
-from hopsworks_common.client.exceptions import DataSourceException
+from hopsworks_common.client.exceptions import (
+    DataSourceException,
+    FeatureStoreException,
+)
+from hopsworks_common.core import trino_catalog_api
 from hopsworks_common.core.constants import HAS_NUMPY, HAS_POLARS
 from hopsworks_common.core.opensearch_api import OPENSEARCH_CONFIG
 from hopsworks_common.core.rest_endpoint import RestEndpointConfig
@@ -72,11 +76,13 @@ class StorageConnector(ABC):
     SQL = "SQL"
     OPENSEARCH = "OPENSEARCH"
     CRM = "CRM"
+    GOOGLE_SHEETS = "GOOGLE_SHEETS"
     REST = "REST"
     ORACLE = "ORACLE"
     UNITY_CATALOG = "UNITY_CATALOG"
     SAP_HANA = "SAP_HANA"
     MONGODB = "MONGODB"
+    GLUE = "GLUE"
 
     NOT_FOUND_ERROR_CODE = 270042
 
@@ -88,6 +94,7 @@ class StorageConnector(ABC):
         SNOWFLAKE: "featurestoreSnowflakeConnectorDTO",
         SAP_HANA: "featureStoreSapHanaConnectorDTO",
         MONGODB: "featurestoreMongoConnectorDTO",
+        GLUE: "featurestoreGlueConnectorDTO",
         JDBC: "featurestoreJdbcConnectorDTO",
         KAFKA: "featurestoreKafkaConnectorDTO",
         GCS: "featureStoreGcsConnectorDTO",
@@ -96,6 +103,7 @@ class StorageConnector(ABC):
         ORACLE: "featurestoreSqlConnectorDTO",
         OPENSEARCH: "featurestoreOpenSearchConnectorDTO",
         CRM: "featurestoreCRMConnectorDTO",
+        GOOGLE_SHEETS: "featurestoreGoogleSheetsConnectorDTO",
         UNITY_CATALOG: "featurestoreUnityCatalogConnectorDTO",
         REST: "featurestoreRESTConnectorDTO",
     }
@@ -114,6 +122,7 @@ class StorageConnector(ABC):
         self._featurestore_id = featurestore_id
 
         self._storage_connector_api = storage_connector_api.StorageConnectorApi()
+        self._trino_catalog_api = trino_catalog_api.TrinoCatalogApi()
         self._data_source_api = data_source_api.DataSourceApi()
 
     @classmethod
@@ -134,6 +143,7 @@ class StorageConnector(ABC):
         | UnityCatalogConnector
         | SapHanaConnector
         | MongoDBConnector
+        | GlueConnector
     ):
         json_decamelized = humps.decamelize(json_dict)
         _ = json_decamelized.pop("type", None)
@@ -164,6 +174,7 @@ class StorageConnector(ABC):
         | UnityCatalogConnector
         | SapHanaConnector
         | MongoDBConnector
+        | GlueConnector
     ):
         json_decamelized = humps.decamelize(json_dict)
         _ = json_decamelized.pop("type", None)
@@ -230,6 +241,110 @@ class StorageConnector(ABC):
             The updated storage connector.
         """
         return self._storage_connector_api._update(self)
+
+    @public
+    def get_trino_catalog_template(self) -> dict[str, Any]:
+        """A Trino catalog proposed from this data source, to review before creating it.
+
+        Nothing is created by asking for this.
+        The connector type and properties are derived from what this data source already holds.
+        Credential properties come back as a reference to a Hopsworks secret or credential-file bundle rather than a value, so no credential is sent to the caller.
+
+        Example:
+            ```python
+            import hopsworks
+
+            project = hopsworks.login()
+            fs = project.get_feature_store()
+
+            sc = fs.get_data_source("my_snowflake_connector").storage_connector
+            template = sc.get_trino_catalog_template()
+            if template["supported"]:
+                print(template["connectorType"], template["properties"])
+            else:
+                print("cannot be mapped:", template["reason"])
+            ```
+
+        Returns:
+            `supported`, and `reason` when it is false. Otherwise `suggestedName`,
+            `connectorType` and `properties`.
+        """
+        return self._trino_catalog_api.get_catalog_template(
+            self._name, self._featurestore_id
+        )
+
+    @public
+    def create_trino_catalog(
+        self,
+        name: str | None = None,
+        properties: dict[str, str] | None = None,
+        test_connection: bool = True,
+    ) -> dict[str, Any]:
+        """Make this data source queryable from the query engine, as a Trino catalog.
+
+        The catalog is derived from this data source, so nothing has to be supplied: credentials are read from the data source when the catalog is created and stored as a reference, never as a plaintext copy.
+        It becomes queryable once the query engine restarts, on the cluster's schedule or immediately via `project.get_trino_catalog_api().restart()` as an administrator.
+
+        Example:
+            ```python
+            import hopsworks
+
+            project = hopsworks.login()
+            fs = project.get_feature_store()
+
+            sc = fs.get_data_source("my_snowflake_connector").storage_connector
+            catalog = sc.create_trino_catalog()
+            print(catalog["name"], catalog["status"])
+            ```
+
+        Parameters:
+            name: Catalog name, which must start with `<project>__` in lowercase. Defaults to the
+                name the template suggests, derived from this data source's own name.
+            properties: Replace the derived properties entirely; keys are not merged with the template's.
+                Start from the template's `properties` and apply your edits.
+            test_connection: Verify the definition can reach the source before creating it, where the cluster supports it.
+                On failure nothing is created and the engine's own error is raised, so an unreachable source is caught now rather than after a restart.
+
+        Returns:
+            The created catalog, including the `status` it is waiting in.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If this data source cannot be mapped
+                to a Trino catalog; the message says why.
+            hopsworks.client.exceptions.RestAPIError: If the connection test fails, or the backend
+                encounters an error when handling the request.
+        """
+        template = self.get_trino_catalog_template()
+        if not template.get("supported"):
+            raise FeatureStoreException(
+                f"Data source '{self._name}' cannot be mapped to a Trino catalog: "
+                f"{template.get('reason')}"
+            )
+
+        catalog_name = name if name is not None else template["suggestedName"]
+        catalog_properties = (
+            properties if properties is not None else template["properties"]
+        )
+        connector_type = template["connectorType"]
+
+        if test_connection and self._trino_catalog_api.get_capabilities().get(
+            "testConnectionAvailable"
+        ):
+            self._trino_catalog_api.test_connection(
+                catalog_name,
+                connector_type,
+                catalog_properties,
+                data_source_name=self._name,
+                featurestore_id=self._featurestore_id,
+            )
+
+        return self._trino_catalog_api.create_catalog(
+            catalog_name,
+            connector_type,
+            catalog_properties,
+            data_source_name=self._name,
+            featurestore_id=self._featurestore_id,
+        )
 
     @public
     @property
@@ -314,8 +429,34 @@ class StorageConnector(ABC):
             The read dataframe.
         """
         return engine._get_instance()._read(
-            self, data_format, options or {}, path, dataframe_type
+            self,
+            data_format,
+            self._with_format_defaults(data_format, options),
+            path,
+            dataframe_type,
         )
+
+    @staticmethod
+    def _with_format_defaults(
+        data_format: str | None, options: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        """Add format-specific read defaults, letting caller options win.
+
+        CSV/TSV carry no schema, so without `header`/`inferSchema` Spark returns
+        positional, all-string columns (`_c0`, ...). Defaulting these lets the
+        schema be inferred automatically while any explicit option still takes
+        precedence.
+        """
+        options = options or {}
+        if data_format and data_format.lower() in ("csv", "tsv"):
+            delimiter = "\t" if data_format.lower() == "tsv" else ","
+            return {
+                "header": "true",
+                "inferSchema": "true",
+                "delimiter": delimiter,
+                **options,
+            }
+        return options
 
     def _refetch(self) -> None:
         """Refetch storage connector."""
@@ -439,7 +580,11 @@ class StorageConnector(ABC):
         Returns:
             A list of database names available in the storage connector.
         """
-        if self.type == StorageConnector.CRM or self.type == StorageConnector.REST:
+        if self.type in [
+            StorageConnector.CRM,
+            StorageConnector.GOOGLE_SHEETS,
+            StorageConnector.REST,
+        ]:
             raise ValueError("This connector type does not support fetching databases.")
         return self._data_source_api._get_databases(self)
 
@@ -461,9 +606,11 @@ class StorageConnector(ABC):
             database:
                 The name of the database to list tables from.
                 If not provided, the default database is used.
+                Not required for Google Sheets connectors — sheet names are fetched from the connector's spreadsheet.
 
         Returns:
             A list of DataSource objects representing the tables.
+            For Google Sheets connectors, each entry represents a sheet name.
         """
         if self.type == StorageConnector.REST:
             raise ValueError("This connector type does not support fetching tables.")
@@ -505,7 +652,19 @@ class StorageConnector(ABC):
                         "explicit `database` to get_tables()."
                     )
                 database = self.database
-            elif self.type in [StorageConnector.S3, StorageConnector.GCS]:
+            elif self.type == StorageConnector.GLUE:
+                if not self.database:
+                    raise ValueError(
+                        "Database name is required for Glue connectors. "
+                        "Set a database on the connector or pass an "
+                        "explicit `database` to get_tables()."
+                    )
+                database = self.database
+            elif self.type in [
+                StorageConnector.S3,
+                StorageConnector.GCS,
+                StorageConnector.GOOGLE_SHEETS,
+            ]:
                 pass
             else:
                 raise ValueError(
@@ -517,6 +676,13 @@ class StorageConnector(ABC):
             return [
                 ds.DataSource(table=resource, storage_connector=self)
                 for resource in (data.supported_resources or [])
+            ]
+        if self.type == StorageConnector.GOOGLE_SHEETS:
+            # Sheet tabs are the spreadsheet's "tables"; the backend lists them
+            # only on the dedicated /sheets endpoint, not data_source/tables.
+            return [
+                ds.DataSource(table=sheet_name, storage_connector=self)
+                for sheet_name in self._data_source_api._get_google_sheet_names(self)
             ]
 
         return self._data_source_api._get_tables(self, database)
@@ -538,12 +704,16 @@ class StorageConnector(ABC):
             ```
         Parameters:
             data_source (DataSource): The data source to retrieve data from.
-            use_cached (bool): Whether to use cached data if available. Only supported for CRM and REST connectors. Defaults to `True`.
+            use_cached (bool): Whether to use cached data if available. Only supported for CRM, Google Sheets, and REST connectors. Defaults to `True`.
 
         Returns:
             An object containing the data retrieved from the data source.
         """
-        if self.type in [StorageConnector.REST, StorageConnector.CRM]:
+        if self.type in [
+            StorageConnector.REST,
+            StorageConnector.CRM,
+            StorageConnector.GOOGLE_SHEETS,
+        ]:
             if not data_source.table:
                 raise ValueError(
                     f"{self.type} data sources require a table name in data_source.table."
@@ -552,6 +722,80 @@ class StorageConnector(ABC):
                 data_source.rest_endpoint = RestEndpointConfig()
             return self._get_no_sql_data(data_source, use_cached)
         return self._data_source_api._get_data(data_source)
+
+    @public
+    def get_data_batch(
+        self, data_sources: list[ds.DataSource], use_cached=True
+    ) -> dict[str, DataSourceData]:
+        """Retrieve the data of several data sources with a single schema-fetch job.
+
+        Only supported for CRM, Google Sheets, and REST connectors.
+        The backend starts ONE job that fetches the schemas of all resources sequentially in one container, instead of one job per resource.
+        This call blocks until every resource has been fetched.
+
+        Example:
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            sc = fs.get_storage_connector("conn_name")
+
+            tables = sc.get_tables()
+
+            data_by_resource = sc.get_data_batch(tables[:3])
+            ```
+        Parameters:
+            data_sources: The data sources to retrieve data for; each needs a table name in `data_source.table`.
+            use_cached: Whether to use cached data if available. Defaults to `True`.
+
+        Returns:
+            A dictionary mapping each resource name to the data retrieved for it.
+
+        Raises:
+            hopsworks.client.exceptions.DataSourceException: If the schema fetch failed for one or more resources.
+        """
+        if self.type not in [
+            StorageConnector.REST,
+            StorageConnector.CRM,
+            StorageConnector.GOOGLE_SHEETS,
+        ]:
+            raise ValueError(
+                "Batch data retrieval is only supported for CRM, Google Sheets, and REST connectors."
+            )
+        if not data_sources:
+            raise ValueError("At least one data source must be provided.")
+        for data_source in data_sources:
+            if not data_source.table:
+                raise ValueError(
+                    f"{self.type} data sources require a table name in data_source.table."
+                )
+            if self.type == StorageConnector.REST and data_source.rest_endpoint is None:
+                data_source.rest_endpoint = RestEndpointConfig()
+
+        results = self._data_source_api._start_no_sql_schema_fetch(
+            self, data_sources, use_cached
+        )
+        while any(data.schema_fetch_in_progress for data in results.values()):
+            time.sleep(3)
+            _logger.info("Schema fetch in progress...")
+            # polling re-uses the batch endpoint without forceRefetch: the running
+            # job is reported, never restarted
+            results = self._data_source_api._start_no_sql_schema_fetch(
+                self, data_sources
+            )
+
+        failed = {
+            name: data for name, data in results.items() if data.schema_fetch_failed
+        }
+        if failed:
+            details = "\n".join(
+                f"{name}:\n{data.schema_fetch_logs}" for name, data in failed.items()
+            )
+            raise DataSourceException(
+                f"Schema fetch failed for {len(failed)} of {len(results)} resource(s):\n{details}"
+            )
+        _logger.info("Schema fetch succeeded for all %d resources.", len(results))
+        return results
 
     @public
     def get_metadata(self, data_source: ds.DataSource) -> dict:
@@ -575,7 +819,11 @@ class StorageConnector(ABC):
         Returns:
             A dictionary containing metadata about the data source.
         """
-        if self.type in [StorageConnector.REST, StorageConnector.CRM]:
+        if self.type in [
+            StorageConnector.REST,
+            StorageConnector.CRM,
+            StorageConnector.GOOGLE_SHEETS,
+        ]:
             raise ValueError("This connector type does not support fetching metadata.")
         return self._data_source_api._get_metadata(data_source)
 
@@ -1559,11 +1807,15 @@ class SnowflakeConnector(StorageConnector):
         }
         if self._password:
             props["password"] = self._password
-        else:
+        elif self._token:
             props["authenticator"] = "oauth"
             props["token"] = self._token
+        elif self._private_key:
+            props["private_key"] = self._private_key_der()
         if self._warehouse:
             props["warehouse"] = self._warehouse
+        if self._role:
+            props["role"] = self._role
         if self._application:
             props["application"] = self._application
         return props
@@ -1595,13 +1847,29 @@ class SnowflakeConnector(StorageConnector):
 
         return props
 
-    def _read_private_key(self) -> str | None:
-        """Reads the private key from the specified key path."""
-        p_key = serialization.load_pem_private_key(
+    def _load_private_key(self):
+        return serialization.load_pem_private_key(
             self._private_key.encode(),
             password=self._passphrase.encode() if self._passphrase else None,
             backend=default_backend(),
         )
+
+    def _private_key_der(self) -> bytes:
+        """Return the private key as unencrypted PKCS#8 DER.
+
+        That is the only form `snowflake.connector.connect` accepts for its
+        `private_key` argument; the spark-snowflake `pem_private_key` option
+        takes the header-stripped string from `_read_private_key` instead.
+        """
+        return self._load_private_key().private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+    def _read_private_key(self) -> str | None:
+        """Reads the private key from the specified key path."""
+        p_key = self._load_private_key()
 
         private_key_bytes = p_key.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -4586,6 +4854,357 @@ class RestConnector(StorageConnector):
                 "clientConfig": (
                     self._client_config.to_dict() if self._client_config else None
                 ),
+            }
+        )
+        return payload
+
+    def spark_options(self) -> dict[str, Any]:
+        return {}
+
+
+@public
+class GlueConnector(StorageConnector):
+    """The Glue storage connector integrates with the AWS Glue Data Catalog.
+
+    The connector points at a Glue database backed by Amazon S3.
+    Data always lives on S3, so the connector provides the same S3 credentials
+    (`access_key`, `secret_key`, `session_token`, `region`) that the
+    [`S3Connector`][hsfs.storage_connector.S3Connector] does.
+    This works for any data format — Apache Iceberg, Delta Lake, Apache Hudi, as
+    well as plain file formats such as `csv` and `parquet`.
+
+    How the Glue Data Catalog itself is used depends on the format:
+
+    - Iceberg: the catalog owns the table's current-metadata pointer, so reads
+      and writes are mediated by the catalog (the table is addressed by
+      `<database>.<table>`).
+    - Delta and Hudi: the on-path transaction log or timeline stays
+      authoritative; the catalog is a discoverability mirror that is registered
+      on create and synced on write so external engines (Athena, EMR, ...) can
+      find the table by name.
+    - Plain file formats (`csv`, `parquet`, ...): the connector is used only for
+      S3 access; nothing is registered in the catalog.
+
+    For direct Spark or PyIceberg access outside the feature group APIs, the
+    connector supplies the matching catalog properties; see
+    [`GlueConnector.catalog_options`][hsfs.storage_connector.GlueConnector.catalog_options]
+    (Spark) and
+    [`GlueConnector.pyiceberg_catalog_options`][hsfs.storage_connector.GlueConnector.pyiceberg_catalog_options]
+    (PyIceberg).
+
+    Note: Feature group path is optional when the Glue database has a location.
+        When creating a feature group from this connector and the Glue database has a location, the feature group path is generated automatically by appending the new table to that database location, so no path needs to be set.
+        Otherwise, the path must be set explicitly on the data source, for example:
+
+        ```python
+        ds = fs.get_data_source("glue")
+        ds.path = "s3://mybucket/iceberg-warehouse/myglue.db/fg_1/"
+        ```
+
+        An explicitly set path always takes precedence over the generated one.
+    """
+
+    type = StorageConnector.GLUE
+    GLUE_CATALOG_IMPL = "org.apache.iceberg.aws.glue.GlueCatalog"
+    GLUE_IO_IMPL = "org.apache.iceberg.aws.s3.S3FileIO"
+    DEFAULT_CATALOG_NAME = "glue_catalog"
+    # PyIceberg identifies the AWS Glue catalog by type rather than impl class.
+    PYICEBERG_CATALOG_TYPE = "glue"
+
+    def __init__(
+        self,
+        id: int | None,
+        name: str,
+        featurestore_id: int | None,
+        description: str | None = None,
+        # members specific to type of connector
+        access_key: str | None = None,
+        secret_key: str | None = None,
+        session_token: str | None = None,
+        iam_role: str | None = None,
+        region: str | None = None,
+        database: str | None = None,
+        table: str | None = None,
+        arguments: list[dict[str, Any]] | dict[str, Any] | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(id, name, description, featurestore_id)
+
+        self._access_key = access_key
+        self._secret_key = secret_key
+        self._session_token = session_token
+        self._iam_role = iam_role
+        self._region = region
+        self._database = database
+        self._table = table
+        self._arguments = (
+            {opt["name"]: opt["value"] for opt in arguments} if arguments else {}
+        )
+
+    @public
+    @property
+    def access_key(self) -> str | None:
+        """Access key."""
+        return self._access_key
+
+    @public
+    @property
+    def secret_key(self) -> str | None:
+        """Secret key."""
+        return self._secret_key
+
+    @public
+    @property
+    def session_token(self) -> str | None:
+        """Session token."""
+        return self._session_token
+
+    @public
+    @property
+    def iam_role(self) -> str | None:
+        """IAM role."""
+        return self._iam_role
+
+    @public
+    @property
+    def region(self) -> str | None:
+        """AWS region of the Glue Data Catalog and the backing S3 bucket."""
+        return self._region
+
+    @public
+    @property
+    def database(self) -> str | None:
+        """Default Glue database for the connector.
+
+        This is only a fallback: when a feature group's data source specifies a
+        database, that one takes precedence over this connector default.
+        """
+        return self._database
+
+    @public
+    @property
+    def table(self) -> str | None:
+        """Name of the table within the Glue database, if any."""
+        return self._table
+
+    @property
+    def server_encryption_algorithm(self) -> str | None:
+        """Server-side encryption algorithm, exposed for reuse of the S3 setup."""
+        return None
+
+    @property
+    def server_encryption_key(self) -> str | None:
+        """Server-side encryption key, exposed for reuse of the S3 setup."""
+        return None
+
+    @property
+    def bucket(self) -> str | None:
+        """No fixed bucket; the bucket is part of the table's S3 location."""
+        return None
+
+    @public
+    @property
+    def arguments(self) -> dict[str, Any]:
+        """Additional Spark options for the connector, passed as a dictionary.
+
+        These are forwarded to the S3 setup the same way as for the
+        [`S3Connector`][hsfs.storage_connector.S3Connector], so any
+        `fs.s3a.*` option (e.g. `{"fs.s3a.endpoint": "..."}`) applies here too.
+        """
+        return self._arguments
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = super().to_dict()
+        payload.update(
+            {
+                "accessKey": self._access_key,
+                "secretKey": self._secret_key,
+                "sessionToken": self._session_token,
+                "iamRole": self._iam_role,
+                "region": self._region,
+                "database": self._database,
+                "table": self._table,
+                "arguments": [
+                    {"name": k, "value": v} for k, v in self._arguments.items()
+                ],
+            }
+        )
+        return payload
+
+    def spark_options(self) -> dict[str, str]:
+        return self._arguments
+
+    def _get_path(self, sub_path: str) -> str | None:
+        # Glue tables carry their full S3 location in the data source path
+        # (there is no connector-level bucket to join against), so the path is
+        # already absolute and is returned unchanged.
+        return sub_path
+
+    @public
+    def prepare_spark(self, path: str | None = None) -> str | None:
+        """Prepare Spark to use this Storage Connector.
+
+        Sets the S3 credentials on the Spark session and rewrites the path to
+        the `s3a://` scheme, so reads and writes to the table's S3 location
+        work, mirroring the [`S3Connector`][hsfs.storage_connector.S3Connector].
+
+        Parameters:
+            path: Path to prepare for reading from cloud storage.
+
+        Returns:
+            The path rewritten to the `s3a://` scheme.
+        """
+        self._refetch()
+        return engine._get_instance()._setup_storage_connector(self, path)
+
+    @public
+    def connector_options(self) -> dict[str, Any]:
+        """Return options to be passed to an external S3 connector library."""
+        self._refetch()
+        return {
+            "access_key": self.access_key,
+            "secret_key": self.secret_key,
+            "session_token": self.session_token,
+            "region": self.region,
+        }
+
+    @public
+    def catalog_options(self, warehouse: str | None = None) -> dict[str, str]:
+        """Return Iceberg catalog properties for committing through the Glue Data Catalog.
+
+        The returned properties configure the Iceberg `GlueCatalog` and its
+        `S3FileIO`, including the connector's S3 credentials.
+        Pass these together with the `iceberg.catalog` write option (prefixed
+        with `iceberg.catalog.`) to register the table in the Glue Data Catalog
+        on write while the data stays on S3.
+
+        Hopsworks routes Glue feature groups through the Glue catalog
+        automatically, so passing these options manually is only needed for
+        direct Spark or PyIceberg access outside the feature group APIs.
+
+        Example:
+            ```python
+            connector = fs.get_data_source("glue").storage_connector
+            options = {
+                "iceberg.catalog": "glue_catalog",
+                **{
+                    f"iceberg.catalog.{k}": v
+                    for k, v in connector.catalog_options().items()
+                },
+            }
+            fg.insert(df, write_options=options)
+            ```
+
+        Parameters:
+            warehouse: S3 warehouse location for the catalog; defaults to the catalog's configured location.
+
+        Returns:
+            A dictionary of Iceberg Glue catalog properties.
+        """
+        options = {
+            "catalog-impl": self.GLUE_CATALOG_IMPL,
+            "io-impl": self.GLUE_IO_IMPL,
+        }
+        if self._region:
+            options["client.region"] = self._region
+        if warehouse:
+            options["warehouse"] = warehouse
+        if self._access_key:
+            options["s3.access-key-id"] = self._access_key
+        if self._secret_key:
+            options["s3.secret-access-key"] = self._secret_key
+        if self._session_token:
+            options["s3.session-token"] = self._session_token
+        return options
+
+    @public
+    def pyiceberg_catalog_options(self, warehouse: str | None = None) -> dict[str, str]:
+        """Return PyIceberg catalog properties for the Glue Data Catalog.
+
+        PyIceberg identifies the catalog by `type` rather than by the
+        implementation class used by the Iceberg Spark connector, and uses its
+        own credential and region property names, so the
+        [`catalog_options`][hsfs.storage_connector.GlueConnector.catalog_options]
+        Spark properties cannot be reused.
+        Use these when reading or writing a Glue table without Spark.
+
+        Parameters:
+            warehouse: S3 warehouse location for the catalog; defaults to the catalog's configured location.
+
+        Returns:
+            A dictionary of PyIceberg Glue catalog properties.
+        """
+        options = {"type": self.PYICEBERG_CATALOG_TYPE}
+        if self._region:
+            options["glue.region"] = self._region
+            options["s3.region"] = self._region
+        if warehouse:
+            options["warehouse"] = warehouse
+        if self._access_key:
+            options["s3.access-key-id"] = self._access_key
+            options["glue.access-key-id"] = self._access_key
+        if self._secret_key:
+            options["s3.secret-access-key"] = self._secret_key
+            options["glue.secret-access-key"] = self._secret_key
+        if self._session_token:
+            options["s3.session-token"] = self._session_token
+            options["glue.session-token"] = self._session_token
+        return options
+
+
+@public
+class GoogleSheetsConnector(StorageConnector):
+    """A Google Sheets storage connector authenticated by a GCP service-account keyfile.
+
+    The connector stores the path to a service-account JSON key uploaded to HopsFS.
+    An optional spreadsheet ID can be set at connector level; if omitted it must be provided per feature group via `DataSource.spreadsheet_id`.
+    """
+
+    type = StorageConnector.GOOGLE_SHEETS
+
+    def __init__(
+        self,
+        id: int | None,
+        name: str,
+        featurestore_id: int,
+        description: str | None = None,
+        key_path: str | None = None,
+        spreadsheet_id: str | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(id, name, description, featurestore_id)
+        self._key_path = key_path
+        self._spreadsheet_id = spreadsheet_id
+
+    @public
+    @property
+    def key_path(self) -> str | None:
+        """Get or set the HopsFS path to the service-account JSON keyfile."""
+        return self._key_path
+
+    @key_path.setter
+    def key_path(self, key_path: str) -> None:
+        self._key_path = key_path
+
+    @public
+    @property
+    def spreadsheet_id(self) -> str | None:
+        """Get or set the Google Spreadsheet ID.
+
+        Optional at connector level — can be provided per feature group via `DataSource.spreadsheet_id` instead.
+        """
+        return self._spreadsheet_id
+
+    @spreadsheet_id.setter
+    def spreadsheet_id(self, spreadsheet_id: str) -> None:
+        self._spreadsheet_id = spreadsheet_id
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = super().to_dict()
+        payload.update(
+            {
+                "keyPath": self._key_path,
+                "spreadsheetId": self._spreadsheet_id,
             }
         )
         return payload

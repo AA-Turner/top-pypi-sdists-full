@@ -764,22 +764,43 @@ def _version_notice() -> None:
         if not sys.stdout.isatty() and not _extension_session_start():
             autoupdate.record_skip(autoupdate.SKIP_NOT_A_TTY, available=latest)
             return
+        # The two skips below can also be pi's session start; the record says
+        # which, for the server's update report (`update_report`).
         if _invoked_command() in _UPDATE_HOT_PATH_COMMANDS:
-            autoupdate.record_skip(autoupdate.SKIP_HOT_PATH_COMMAND, available=latest)
+            autoupdate.record_skip(
+                autoupdate.SKIP_HOT_PATH_COMMAND, available=latest, trigger=_update_trigger()
+            )
             return
 
         from . import run_lock
 
         if run_lock.any_live():
-            autoupdate.record_skip(autoupdate.SKIP_RUN_IN_FLIGHT, available=latest)
+            autoupdate.record_skip(
+                autoupdate.SKIP_RUN_IN_FLIGHT, available=latest, trigger=_update_trigger()
+            )
             return
 
         if _extension_session_start():
-            _spawn_harness_update()
+            _spawn_session_start_update()
         else:
             _spawn_autoupdate()
     except Exception:  # noqa: BLE001 -- a version check must never break a command
         pass
+
+
+def _update_trigger():
+    """`Trigger.SESSION_START` for an extension harness's session start, else
+    `Trigger.CLI` (`autoupdate.Trigger`: stdlib-only, cheap on this path).
+
+    Cheapest test first: this runs on the every-command path, and only an
+    extension harness's `probe session initialize`, which always names its
+    harness in PROBE_AGENT, can be a session start -- so a `probe log` never
+    loads the harness registry to find out it is not one."""
+    from .autoupdate import Trigger
+
+    if not os.environ.get("PROBE_AGENT") or _invoked_command() != "session":
+        return Trigger.CLI
+    return Trigger.SESSION_START if _extension_session_start() else Trigger.CLI
 
 
 def _retry_owed_pi_update() -> None:
@@ -948,7 +969,13 @@ def _spawn_version_refresh() -> None:
         version_policy.release_refresh()
 
 
-def _spawn_update(flag: str, *, harness_pid: int | None = None) -> None:
+def _spawn_update(
+    flag: str,
+    *,
+    harness_pid: int | None = None,
+    trigger: str | None = None,
+    pi_pid: int | None = None,
+) -> None:
     """Launch version_refresh detached, naming OURSELVES as the pid to outlive.
 
     The wait is the whole point, and it is why both update triggers share this
@@ -963,19 +990,59 @@ def _spawn_update(flag: str, *, harness_pid: int | None = None) -> None:
 
     env = dict(os.environ)
     env[autoupdate.WAIT_FOR_PID_ENV] = str(os.getpid())
+    # What asked, for the server's update report: a harness's session start
+    # (named, or implied by a harness to wait for); else the CLI's own trigger.
+    env[autoupdate.TRIGGER_ENV] = trigger or (
+        autoupdate.Trigger.SESSION_START if harness_pid is not None else autoupdate.Trigger.CLI
+    ).value
     if harness_pid is not None:
         env[autoupdate.WAIT_FOR_HARNESS_PID_ENV] = str(harness_pid)
+    # Only the spawn that names it carries it: an inherited one names some
+    # other process's pi.
+    env.pop(autoupdate.PI_PID_ENV, None)
+    if pi_pid is not None and pi_pid > 1:
+        env[autoupdate.PI_PID_ENV] = str(pi_pid)
     _spawn_detached([sys.executable, "-m", "probe.cli.version_refresh", flag], env)
 
 
+def _spawn_session_start_update() -> None:
+    """Apply an update found at an extension harness's session start (pi's), NOW.
+
+    It used to wait for that pi to exit first (`_spawn_harness_update`), since
+    the update rewrites the package folder pi loads from. But the update leaves
+    that folder alone while pi runs anyway -- its pi step defers and the update
+    is owed (`autoupdate.PI_UPDATE_PENDING_FILENAME`) -- and the wait held the
+    CLI back with it: a pi process lives for days, the wait gives up after 12
+    hours, and strand-ai's pi-only laptop sat on CLI 0.219.0 through a day of
+    pi session starts (2026-10-07). So the CLI updates now (it is the only
+    thing this update moves: the update runs as pi, which has no marketplace
+    plugins); pi's package waits for pi, through the owed-update retry at pi's
+    next session start (`_retry_owed_pi_update`). The pi that ran us (our
+    parent) is named to the update (`autoupdate.PI_PID_ENV`), which defers
+    `pi update` while it lives even if no process reads as pi.
+    `--apply-if-newer` re-checks on a fresh manifest under the update lock, so
+    several pi sessions starting at once update once.
+    """
+    from . import autoupdate
+
+    try:
+        _spawn_update(
+            "--apply-if-newer",
+            trigger=autoupdate.Trigger.SESSION_START.value,
+            pi_pid=os.getppid(),
+        )
+    except Exception:  # noqa: BLE001 -- fail-open: never block the command
+        pass
+
+
 def _spawn_harness_update() -> None:
-    """Apply an update found at an extension harness's session start (pi's).
+    """Apply the pi package update a running pi deferred (pi's session start).
 
     The child waits for THAT harness (our parent: pi runs `probe session
     initialize` itself) to exit before it updates, since the update rewrites
-    the package folder pi loads from; and it re-checks that an update is still
-    due (`--apply-if-newer`), so several pi sessions started while one was
-    pending never stack duplicate updates.
+    the package folder pi loads from; and it re-checks what is still due
+    (`--apply-if-newer`), so several pi sessions started while one was pending
+    never stack duplicate updates.
     """
     harness_pid = os.getppid()
     if harness_pid <= 1:
@@ -1352,6 +1419,12 @@ ClickException = next(
     # Never expected; the fallback keeps `import probe.cli` working (a StopIteration at
     # import time would make the whole CLI unusable) and degrades to catching nothing.
     type("_NoClickException", (Exception,), {}),
+)
+#: UsageError (unknown command, missing argument), resolved the same way:
+#: BadParameter's own base under either layout.
+UsageError = next(
+    (base for base in typer.BadParameter.__mro__ if base.__name__ == "UsageError"),
+    type("_NoUsageError", (Exception,), {}),
 )
 
 
@@ -1776,12 +1849,29 @@ def update_compat(
     from probe.cli import tui
 
     with tui.working("Updating the CLI and plugins"):
-        outcome = perform_update(base_url=base, include_plugin=plugin)
+        outcome = perform_update(
+            base_url=base, include_plugin=plugin, trigger=_update_action_trigger(yes)
+        )
     for line in outcome.lines:
         print(line)
     if outcome.restart_needed:
         print("\nRestart Claude Code to apply the plugin update.")
     raise typer.Exit(0 if outcome.ok else 1)
+
+
+def _update_action_trigger(yes: bool):
+    """What asked for an Update the wizard (or `probe update`) is running.
+
+    The plugin's SessionStart hook spawns `probe wizard --action update --yes`
+    (older plugins: `probe update --yes`) with no terminal on either end, and is
+    the only thing that does; a person at Update has one. A spawner that names
+    itself in `TRIGGER_ENV` wins over both readings."""
+    from probe.cli import update_report
+
+    unattended = yes and not (sys.stdin.isatty() and sys.stdout.isatty())
+    return update_report.trigger_from_env(
+        update_report.Trigger.SESSION_START if unattended else update_report.Trigger.MANUAL
+    )
 
 
 @app.command()
@@ -2954,38 +3044,48 @@ def _wizard_session(
                 action_yes = True
             lines = []
             all_backed_out = True
-            for index, source in enumerate(targets):
-                # Uninstall revokes each agent's capture key as it goes, and
-                # the next agent's answer can change under it (the server
-                # state it reads moves). Diagnose and update change nothing
-                # the server reports.
-                current = _collect_agent(
-                    source,
-                    fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
-                )
-                if diagnose_unfiled is not None and current.unfiled_runs is None:
-                    current = dataclasses.replace(current, unfiled_runs=diagnose_unfiled)
-                with _agent_target(source):
-                    result = _run_wizard_action(
-                        chosen_action,
-                        caps=current,
-                        base_now=base_now,
-                        yes=action_yes,
-                        tracking=tracking,
-                        capture=capture,
-                        auto_update=auto_update,
-                        agent_rules=agent_rules,
-                        uninstall=uninstall,
-                        configured=configured,
-                        folder=folder,
-                        selected_agents=agent_sources,
-                        telemetry=tel,
+            # ONE update report for the whole run: each agent's pass would
+            # otherwise overwrite the machine's one server row, and the last
+            # agent (often one with nothing installed) would hide the rest.
+            from probe.cli import update_report
+
+            with (
+                update_report.merged_run()
+                if chosen_action is actions_mod.Action.UPDATE
+                else contextlib.nullcontext()
+            ):
+                for index, source in enumerate(targets):
+                    # Uninstall revokes each agent's capture key as it goes, and
+                    # the next agent's answer can change under it (the server
+                    # state it reads moves). Diagnose and update change nothing
+                    # the server reports.
+                    current = _collect_agent(
+                        source,
+                        fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
                     )
-                if result is not None:
-                    all_backed_out = False
-                if result:
-                    label = wizard.agent_label(source)
-                    lines.extend([f"{label}:", *result, ""])
+                    if diagnose_unfiled is not None and current.unfiled_runs is None:
+                        current = dataclasses.replace(current, unfiled_runs=diagnose_unfiled)
+                    with _agent_target(source):
+                        result = _run_wizard_action(
+                            chosen_action,
+                            caps=current,
+                            base_now=base_now,
+                            yes=action_yes,
+                            tracking=tracking,
+                            capture=capture,
+                            auto_update=auto_update,
+                            agent_rules=agent_rules,
+                            uninstall=uninstall,
+                            configured=configured,
+                            folder=folder,
+                            selected_agents=agent_sources,
+                            telemetry=tel,
+                        )
+                    if result is not None:
+                        all_backed_out = False
+                    if result:
+                        label = wizard.agent_label(source)
+                        lines.extend([f"{label}:", *result, ""])
             # Every target said "nothing happened" (today: only backfill's
             # folder/agent back-outs) -- carry the signal through so the menu
             # comes back without the pause or the state re-read.
@@ -3562,7 +3662,9 @@ def _run_wizard_action(
         # the spinner this sits silent for the whole `uv tool upgrade` +
         # plugin update -- the longest unexplained wait the wizard had.
         with tui.working("Updating the CLI and plugins"):
-            outcome = perform_update(base_url=base_now, include_plugin=True)
+            outcome = perform_update(
+                base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
+            )
         lines = list(outcome.lines)
         if outcome.restart_needed:
             agent_name = wizard.agent_label(caps.agent_source)
@@ -4976,7 +5078,33 @@ app.command("ask")(ask_cmd)
 
 
 # -- mcp read credential ----------------------------------------------------
-mcp_app = typer.Typer(no_args_is_help=True, help="the read-only credential the MCP surface uses")
+class _McpGroup(typer.core.TyperGroup):
+    """`probe mcp`, whose typo suggestions name only its listed commands.
+
+    Typer answers `probe mcp tool` with "Did you mean 'tools'?" from EVERY
+    subcommand, hidden ones included, so a typo outside `/probe inline` would
+    advertise the inline-only `tools`/`call` that `--help` hides. Suggest from
+    the visible commands instead (older Typer, which suggests nothing, gains the
+    same visible-only suggestion)."""
+
+    def resolve_command(self, ctx, args):  # type: ignore[override]
+        import difflib
+
+        self.suggest_commands = False  # Typer's own suggestion lists hidden commands too
+        try:
+            return super().resolve_command(ctx, args)
+        except UsageError as exc:  # Typer's own click's (module top), never `import click`
+            visible = [name for name, command in self.commands.items() if not command.hidden]
+            matches = difflib.get_close_matches(args[0], visible) if args else []
+            if matches:
+                suggestions = ", ".join(repr(match) for match in matches)
+                exc.message = f"{exc.message.rstrip('.')}. Did you mean {suggestions}?"
+            raise
+
+
+mcp_app = typer.Typer(
+    cls=_McpGroup, no_args_is_help=True, help="the read-only credential the MCP surface uses"
+)
 app.add_typer(mcp_app, name="mcp")
 
 mcp_token_app = typer.Typer(no_args_is_help=True, help="manage the read-only MCP token")

@@ -2,6 +2,7 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import copy
 import re
 from collections import defaultdict
 from typing import Any, Optional
@@ -84,6 +85,84 @@ def _get_catalog_database_from_column_map(
     return catalog_database_info
 
 
+def _structured_type(typ: DataType) -> DataType:
+    """Return a copy of *typ* marked structured at every level.
+
+    Snowpark renders an unstructured ``StructType`` / ``MapType`` cast as a bare
+    ``OBJECT``. Nested nullability is kept, so the cast matches ``col.cast(typ)``.
+    A struct with no fields has no structured form and stays a bare ``OBJECT``.
+    """
+    if isinstance(typ, ArrayType):
+        return ArrayType(
+            _structured_type(typ.element_type),
+            structured=True,
+            contains_null=typ.contains_null,
+        )
+    if isinstance(typ, MapType):
+        return MapType(
+            _structured_type(typ.key_type),
+            _structured_type(typ.value_type),
+            structured=True,
+            value_contains_null=typ.value_contains_null,
+        )
+    if isinstance(typ, StructType):
+        if not typ.fields:
+            return StructType([], structured=False)
+        fields = []
+        for field in typ.fields:
+            structured_field = copy.copy(field)
+            structured_field.datatype = _structured_type(field.datatype)
+            fields.append(structured_field)
+        return StructType(fields, structured=True)
+    return typ
+
+
+def _sql_null_if_json_null(col: Column, typ: DataType) -> Column:
+    """Return *col* cast to *typ*, with a JSON null turned into SQL NULL.
+
+    Snowflake has two nulls inside structured and semi-structured values: SQL
+    NULL and the JSON null value. ``GET`` of a scalar field returns SQL NULL for
+    a JSON null, but ``GET`` of an ARRAY, OBJECT, or MAP field returns the JSON
+    null itself, so ``IS NULL`` is false where Spark's ``isNull`` is true. File
+    readers such as ``STAGE_FILE_READER`` store a null nested field or map
+    value as a JSON null.
+
+    ``IS_NULL_VALUE`` only accepts VARIANT, and ``TO_VARIANT`` of a structured
+    value copies all of it. For a large nested array that copy can exceed the
+    128MB value limit. These checks do not copy *col*:
+
+    * ARRAY: ``ARRAY_SIZE`` is NULL only for a JSON null; ``[]`` is 0.
+    * OBJECT / MAP: ``NULLIF`` against ``PARSE_JSON('null')``. ``NULLIF`` needs
+      both sides to have the same type, and a structured value does not match a
+      bare ``OBJECT``, so both sides are cast to ``_structured_type(typ)``.
+
+    The cast to *typ* stays because ``GET`` on a struct read from VARIANT-backed
+    parquet returns VARIANT. On a structured value Snowflake drops the cast.
+    """
+    if isinstance(typ, ArrayType):
+        return snowpark_fn.iff(
+            snowpark_fn.array_size(col).is_null(),
+            snowpark_fn.lit(None),
+            col.cast(typ),
+        )
+
+    if isinstance(typ, StructType) and not typ.fields:
+        # A JSON null cast to a bare OBJECT is SQL NULL, so NULLIF cannot match
+        # it. The value has no fields, so TO_VARIANT copies almost nothing.
+        return snowpark_fn.iff(
+            snowpark_fn.call_function("IS_NULL_VALUE", snowpark_fn.to_variant(col)),
+            snowpark_fn.lit(None),
+            col.cast(typ),
+        )
+
+    structured = _structured_type(typ)
+    return snowpark_fn.call_function(
+        "nullif",
+        col.cast(structured),
+        snowpark_fn.parse_json(snowpark_fn.lit("null")).cast(structured),
+    )
+
+
 def _resolve_struct_field(
     path: list[str], col: Column, typer: ExpressionTyper
 ) -> tuple[Column, str]:
@@ -99,7 +178,7 @@ def _resolve_struct_field(
         else:
             raise
 
-    is_variant_source = isinstance(col_type, (VariantType, StructType))
+    is_variant_source = isinstance(col_type, (VariantType, StructType, MapType))
     field_path = path[1:]
     resolved_col, display_suffix = _match_path_to_struct_with_type(
         field_path,
@@ -746,9 +825,11 @@ def _match_path_to_struct_with_type(
     ``ARRAY(STRUCT(ARRAY(STRUCT(...))))`` paths are handled naturally by
     deeper recursion.
 
-    For variant-sourced columns the ``IFF(IS_NULL_VALUE(...))`` cast is
-    applied at the end to convert JSON nulls to SQL NULLs and cast the
-    extracted value to the expected type.
+    For struct, map, and variant columns the extracted value is cast to the
+    field type, and an array, object, or map leaf goes through
+    ``_sql_null_if_json_null`` so ``isNull`` matches Spark. A scalar ``GET``
+    is already SQL NULL, and ``TRANSFORM`` over a JSON-null array returns SQL
+    NULL, so the array is not wrapped before the lambda.
 
     Returns ``(column, display_suffix)`` where *display_suffix* is the
     Spark-style name fragment built during the walk (``.field`` for struct
@@ -793,16 +874,6 @@ def _match_path_to_struct_with_type(
 
                     inner_sql = analyzer.analyze(inner_col._expression, defaultdict())
 
-                    if is_variant_source:
-                        col = snowpark_fn.iff(
-                            snowpark_fn.call_function(
-                                "IS_NULL_VALUE",
-                                snowpark_fn.to_variant(col),
-                            ),
-                            snowpark_fn.lit(None),
-                            col,
-                        )
-
                     transform_col = snowpark_fn.call_function(
                         "transform",
                         col,
@@ -834,10 +905,9 @@ def _match_path_to_struct_with_type(
     needs_variant_cast = is_variant_source and path and not isinstance(typ, VariantType)
 
     if needs_variant_cast:
-        col = snowpark_fn.iff(
-            snowpark_fn.call_function("IS_NULL_VALUE", snowpark_fn.to_variant(col)),
-            snowpark_fn.lit(None),
-            col.cast(typ),
-        )
+        if isinstance(typ, (ArrayType, MapType, StructType)):
+            col = _sql_null_if_json_null(col, typ)
+        else:
+            col = col.cast(typ)
 
     return col, display

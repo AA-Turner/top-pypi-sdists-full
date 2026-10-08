@@ -132,7 +132,6 @@ class _FrameWork:
     have_frame: bool
     fshape: Tuple[int, int]
     min_frames: int
-    min_conf: float
     max_defer: int
     budget: int
     config: Any
@@ -205,6 +204,29 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
         self._reid_untracked_mode = False
         self._reid_frame_disabled = False
         self._reid_carried_total = 0
+        self._reid_undersized_this_frame = 0
+        self._reid_embeds_total = 0
+        self._reid_frames_seen = 0
+        # Distinct ReID-unique identities seen so far in the CURRENT publish
+        # window, and the identities already counted in some earlier window.
+        #
+        # These two together answer the pair of questions the dashboard asks:
+        #   total_people_in_interval = len(window_identities)
+        #   new_people_in_interval   = identities in the window never seen before
+        #
+        # A set, not a counter: someone who leaves and re-enters inside one
+        # window must be counted once, which is exactly set semantics. The
+        # window set is cleared each publish; the lifetime set is not, so a
+        # person returning after ten minutes is "total" but never "new".
+        self._window_identities: Set[Any] = set()
+        self._window_started: float = time.monotonic()
+        # Mirrors AGGREGATION_INTERVAL_SEC in legacy_analytics_bridge. Not
+        # imported from there: that module imports the use case registry, so
+        # the dependency would run the wrong way. Overridden per-config by
+        # reid_interval_window_seconds if the publish cadence ever changes.
+        self._window_seconds: float = 60.0
+        self._window_new_identities: Set[Any] = set()
+        self._lifetime_identities: Set[Any] = set()
         # canonical id -> its box on the previous frame, for the untracked
         # path's spatial carry-forward.
         self._reid_prev_boxes: Dict[Any, Tuple[int, int, int, int]] = {}
@@ -284,7 +306,10 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
                 dim=getattr(embedder, "dim", EMBEDDING_DIM),
                 capacity=int(getattr(config, "reid_gallery_capacity", 100)),
                 match_threshold=float(getattr(config, "reid_match_threshold", 0.67)),
-                margin=float(getattr(config, "reid_match_margin", 0.06)),
+                # 0.0 fallback, matching the shipped default: the ratio
+                # test vetoed correct matches whenever gallery members
+                # looked alike (see PeopleCountingExtendedConfig).
+                margin=float(getattr(config, "reid_match_margin", 0.0)),
                 min_absence_s=float(getattr(config, "reid_min_absence_s", 3.0)),
             )
         if self._worker is None or not self._worker.alive:
@@ -377,42 +402,30 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
         frame_shape: Tuple[int, int],
         config: Any,
     ) -> bool:
-        """Reject crops that would produce a misleading embedding.
+        """Reject crops too small to embed reliably. Size is the only gate.
 
-        A bad crop is worse than no crop: it becomes a prototype and can
-        cause a false merge later.
+        ``others`` and ``frame_shape`` are unused and kept so the call sites
+        (and any subclass override) do not have to change.
+
+        This deliberately replaced a five-part gate -- aspect ratio, a 6 px
+        frame-edge margin, an occlusion-IoU test and a confidence floor on
+        top of size. On deployed footage that set rejected every single
+        detection: people standing at the bottom of the frame failed the edge
+        margin, and a camera that does not see full bodies failed the 1.6
+        aspect-ratio floor. ReID then never embedded anything while still
+        reporting ``reid_model_state: "ready"``, so the failure was invisible.
+
+        A crop that is merely awkward still produces a usable embedding; the
+        match threshold and the ratio test are what prevent a false merge.
+        Size is different in kind: below roughly 18x36 there are not enough
+        pixels for the descriptor to mean anything.
         """
+        del others, frame_shape  # size is the only criterion
         x1, y1, x2, y2 = box
-        h, w = y2 - y1, x2 - x1
-        if h < int(getattr(config, "reid_min_crop_height", 96)):
+        if (x2 - x1) < int(getattr(config, "reid_min_crop_width", 18)):
             return False
-        if w < int(getattr(config, "reid_min_crop_width", 40)):
-            return False
-        ar = h / float(w) if w > 0 else 0.0
-        if not (
-            float(getattr(config, "reid_min_aspect_ratio", 1.6))
-            <= ar
-            <= float(getattr(config, "reid_max_aspect_ratio", 4.5))
-        ):
-            return False
-        # Truncation at a frame edge is the top source of bad prototypes --
-        # and edges are exactly where tracks appear and disappear, so it is
-        # also the most tempting moment to sample.
-        m = int(getattr(config, "reid_edge_margin_px", 6))
-        fh, fw = frame_shape
-        if x1 < m or y1 < m or x2 > fw - m or y2 > fh - m:
-            return False
-        max_iou = float(getattr(config, "reid_max_occlusion_iou", 0.25))
-        for other in others:
-            if other is box:
-                continue
-            if self._iou(box, other) > max_iou:
-                return False  # occlusion bakes the other person into this crop
-        return True
+        return (y2 - y1) >= int(getattr(config, "reid_min_crop_height", 36))
 
-    # ------------------------------------------------------------------ #
-    # The ReID pass                                                        #
-    # ------------------------------------------------------------------ #
     def _mint_canonical(self) -> str:
         self._reid_counter += 1
         return f"r{self._reid_counter}"
@@ -433,7 +446,6 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
 
         max_defer = int(getattr(config, "reid_max_defer_frames", 15))
         min_frames = int(getattr(config, "reid_min_track_frames", 3))
-        min_conf = float(getattr(config, "reid_min_confidence", 0.5))
         refresh = int(getattr(config, "reid_refresh_interval_frames", 45))
         budget = int(getattr(config, "reid_max_crops_per_frame", 8))
 
@@ -450,6 +462,8 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
         frame = self._pending_frame
         have_frame = frame is not None and getattr(frame, "size", 0) > 0
         fshape = (frame.shape[0], frame.shape[1]) if have_frame else (0, 0)
+        if have_frame:
+            self._reid_frames_seen += 1
 
         # Per-frame constants the refresh path needs, bundled so the helper
         # takes one argument rather than six.
@@ -495,7 +509,6 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
             have_frame=have_frame,
             fshape=fshape,
             min_frames=min_frames,
-            min_conf=min_conf,
             max_defer=max_defer,
             budget=budget,
             config=config,
@@ -565,7 +578,21 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
         # 2. A verdict may have arrived since the last frame.
         vec = self._worker.pop_result(raw)
         if vec is not None:
-            canonical = self._resolve_identity(raw, vec, w.now, w.live_canonicals, w.config)
+            # require_absence=False, as on every other path. The minimum-
+            # absence gate skips any identity seen within reid_min_absence_s,
+            # and a person who stays in view is touched every frame -- so it
+            # permanently excluded them from matching THEMSELVES. On a cafe
+            # feed where people sit for twenty minutes that rejected perfect
+            # (1.0) self-matches and minted a new identity each time the
+            # tracker re-issued an id: 25 reported for ~6 real people.
+            #
+            # The live-elsewhere mask (exclude_ids=live_canonicals) already
+            # provides what this gate was meant to provide -- it refuses to
+            # merge a second simultaneous detection into a live identity --
+            # and it does so without rejecting legitimate re-matches.
+            canonical = self._resolve_identity(
+                raw, vec, w.now, w.live_canonicals, w.config, require_absence=False
+            )
             det["reid_raw_track_id"] = raw
             det["track_id"] = canonical
             det["reid_canonical_id"] = canonical
@@ -581,7 +608,9 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
             and w.have_frame
             and box is not None
             and seen >= w.min_frames
-            and float(det.get("confidence") or 0.0) >= w.min_conf
+            # No ReID-specific confidence floor: the detector's own
+            # confidence_threshold already filtered this list, and a second
+            # floor here silently excluded real people from counting.
             and self._crop_is_usable(box, w.valid_boxes, w.fshape, w.config)
         )
         if eligible and placeholder:
@@ -897,6 +926,9 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
         require_absence: bool = True,
     ) -> Any:
         """Match ``vec`` against the gallery, or mint a new identity."""
+        # Every embedding that comes back funnels through here, so this is
+        # the one place that proves the embedder really produced a vector.
+        self._reid_embeds_total += 1
         match = None
         try:
             match = self._gallery.match(
@@ -1083,6 +1115,108 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
             return float((frame.shape[0] ** 2 + frame.shape[1] ** 2) ** 0.5)
         return 1468.6  # sqrt(1280^2 + 720^2)
 
+    def _record_window_identities(self, counted: list) -> None:
+        """Note which identities were present, for the per-window metrics.
+
+        Called with the detections the parent actually counted -- deferred
+        and undersized ones are already excluded, so the window figures agree
+        with the cumulative total by construction rather than by coincidence.
+        """
+        # Roll the window on the same cadence the bridge publishes on. The
+        # bridge owns the publish clock but has no handle on this instance,
+        # so the window is rolled here on wall time rather than by adding a
+        # callback between the two. Both read the same 60s boundary, and the
+        # bridge takes a max over the window, so a roll landing a frame
+        # either side of a publish cannot lose the figure.
+        now = time.monotonic()
+        if now - self._window_started >= self._window_seconds:
+            self._window_started = now
+            self.reset_interval()
+
+        for det in counted:
+            if not isinstance(det, dict):
+                continue
+            # The SAME confirmed, canonical id the headline count and the
+            # zone totals use. Reading track_id directly counted tracks the
+            # parent had not promoted yet, so the window total ran ahead of
+            # the unique total (6 vs 2 on real footage).
+            ident = self._confirmed_track_id(det)
+            if ident is None:
+                continue
+            self._window_identities.add(ident)
+            if ident not in self._lifetime_identities:
+                self._lifetime_identities.add(ident)
+                self._window_new_identities.add(ident)
+
+    def drain_reid(self, timeout_s: float = 2.0) -> bool:
+        """Wait for every queued embedding to be applied. Offline use only.
+
+        Re-identification runs on a background thread, so the frame a
+        verdict lands on -- and therefore the gallery state it is matched
+        against -- depends on thread scheduling. Replaying one clip twice
+        can give different unique counts for that reason alone.
+
+        Calling this after each :meth:`process` pins the schedule and makes
+        the count repeatable, which is what threshold calibration and
+        regression tests need. It blocks on the embedder, so it must not be
+        used on a live realtime stream.
+        """
+        if self._worker is None:
+            return True
+        return bool(self._worker.drain(timeout_s))
+
+    def interval_counts(self) -> Dict[str, int]:
+        """Distinct people this window, and how many were never seen before.
+
+        Read by the analytics bridge once per publish; see
+        :meth:`reset_interval`, which the bridge calls immediately after.
+        """
+        return {
+            "total_people_in_interval": len(self._window_identities),
+            "new_people_in_interval": len(self._window_new_identities),
+        }
+
+    def reset_interval(self) -> None:
+        """Start a new publish window. Lifetime identities are kept.
+
+        Keeping ``_lifetime_identities`` is the whole point: it is what makes
+        a returning person count toward "total" but never again toward "new".
+        It grows with distinct people, not with time, and is bounded in
+        practice by the gallery capacity that mints the ids.
+        """
+        self._window_identities.clear()
+        self._window_new_identities.clear()
+
+    def _undersized_ids(self, detections: list, config: Any) -> Set[int]:
+        """``id()`` of every detection whose box is below the size gate.
+
+        Identity, not ``track_id``: an untracked feed gives every detection a
+        fresh placeholder id each frame, and two people can briefly share a
+        box signature. ``id()`` is unique per dict and these are only used
+        within this frame, before the list is restored.
+
+        A box that cannot be resolved to pixels (normalized coordinates with
+        no decoded frame in hand) is NOT treated as undersized -- it is
+        unmeasurable, and silently dropping unmeasurable people is the exact
+        failure this change exists to remove.
+        """
+        min_w = int(getattr(config, "reid_min_crop_width", 18))
+        min_h = int(getattr(config, "reid_min_crop_height", 36))
+        frame = self._pending_frame
+        fshape = (
+            (frame.shape[0], frame.shape[1])
+            if frame is not None and getattr(frame, "size", 0) > 0
+            else (0, 0)
+        )
+        small: Set[int] = set()
+        for det in detections:
+            box = self._bbox_xyxy(det.get("bounding_box") or det.get("bbox"), fshape)
+            if box is None:
+                continue
+            if (box[2] - box[0]) < min_w or (box[3] - box[1]) < min_h:
+                small.add(id(det))
+        return small
+
     def _update_tracking_state(self, detections: list) -> Any:
         """Remap ids, then gate promotion behind the ReID verdict.
 
@@ -1103,6 +1237,10 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
         frame with real ids.
         """
         config = getattr(self, "_reid_active_config", None)
+        if config is not None:
+            self._window_seconds = float(
+                getattr(config, "reid_interval_window_seconds", 60.0) or 60.0
+            )
         deferred: Set[Any] = set()
         if self._reid_enabled and config is not None and self._worker is not None:
             try:
@@ -1111,8 +1249,13 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
                 logger.warning("ReID pass failed, counting normally: %s", exc)
                 deferred = set()
 
-        if not deferred:
-            return super()._update_tracking_state(detections)
+        undersized = self._undersized_ids(detections, config)
+        self._reid_undersized_this_frame = len(undersized)
+        if not deferred and not undersized:
+            try:
+                return super()._update_tracking_state(detections)
+            finally:
+                self._record_window_identities(detections)
 
         original = list(detections)
         visible: List[Dict[str, Any]] = []
@@ -1120,6 +1263,12 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
             raw = det.get("reid_raw_track_id", det.get("track_id"))
             if raw in deferred:
                 det["reid_pending"] = True
+            elif id(det) in undersized:
+                # Too small to embed, so too small to count: a person the
+                # gallery can never match would be counted fresh on every
+                # re-entry, inflating the unique total. The two gates must
+                # agree.
+                det["reid_undersized"] = True
             else:
                 visible.append(det)
 
@@ -1131,6 +1280,7 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
             return super()._update_tracking_state(detections)
         finally:
             detections[:] = original
+            self._record_window_identities(visible)
 
     # ------------------------------------------------------------------ #
     # Entry point                                                          #
@@ -1264,6 +1414,25 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
             # Whether this stream is running without tracker ids, so the
             # untracked (synchronous, appearance-only) path is in use.
             "reid_untracked_mode": self._reid_untracked_mode,
+            # --- stage health (cheap scalars; added because a silent
+            # all-crops-rejected failure cost three days to find) ---
+            #
+            # The embedder is loaded AND has returned at least one vector.
+            # reid_model_state alone says "ready" for a model that has never
+            # been handed a crop, which is precisely the case that misled us.
+            "reid_embedder_ok": self._reid_embeds_total > 0,
+            # Decoded frames actually reaching the ReID pass. Zero while
+            # detections exist means the frame channel is the problem, not
+            # the model.
+            "reid_frames_seen": self._reid_frames_seen,
+            # Detections skipped this frame for being below the size gate.
+            # Persistently equal to the detection count means the gate is
+            # mistuned for this camera.
+            "reid_undersized_this_frame": self._reid_undersized_this_frame,
+            # The two published window figures, so what the dashboard shows
+            # is visible in the payload that produced it.
+            "total_people_in_interval": len(self._window_identities),
+            "new_people_in_interval": len(self._window_new_identities),
         }
 
     def _attach_diagnostics(self, result: Any) -> None:
@@ -1297,6 +1466,15 @@ class PeopleCountingExtendedUseCase(PeopleCountingUseCase):
         self._reid_seen_frame.clear()
         self._reid_last_embed.clear()
         self._reid_canonical_last_frame.clear()
+        # The identity sets go with the gallery. Keeping _lifetime_identities
+        # past a reset that cleared the gallery would mean every person is
+        # matched against an empty gallery (so they get a fresh canonical id)
+        # yet compared against a stale lifetime set -- harmless for "total",
+        # but "new" would be permanently wrong in the other direction.
+        self._window_identities.clear()
+        self._window_new_identities.clear()
+        self._lifetime_identities.clear()
+        self._window_started = time.monotonic()
 
     def __del__(self) -> None:  # pragma: no cover - best-effort teardown
         # No logging here: at interpreter shutdown the logging machinery may

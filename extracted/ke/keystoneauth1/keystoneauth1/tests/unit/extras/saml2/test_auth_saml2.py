@@ -199,6 +199,40 @@ class SamlAuth2PluginTests(utils.TestCase):
             saml2_fixtures.AUTHN_REQUEST, matchers.XMLEquals(authn_request)
         )
 
+    def test_standard_workflow_302_relative_redirect(self):
+        text = uuid.uuid4().hex
+        consumer = f'{self.TEST_SP_URL}/Shibboleth.sso/SAML2/ECP'
+        soap_response = utils.make_oneline(
+            saml2_fixtures.soap_response(consumer=consumer)
+        )
+        saml_assertion = saml2_fixtures.saml_assertion(destination=consumer)
+
+        self.requests_mock.get(
+            self.TEST_SP_URL,
+            response_list=[
+                {
+                    'headers': CONTENT_TYPE_PAOS_HEADER,
+                    'content': soap_response,
+                },
+                {'text': text},
+            ],
+        )
+
+        self.requests_mock.post(self.TEST_IDP_URL, content=saml_assertion)
+
+        self.requests_mock.post(
+            consumer, status_code=302, headers={'Location': '/'}
+        )
+
+        resp = requests.get(self.TEST_SP_URL, auth=self.get_plugin())
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(text, resp.text)
+
+        self.assertEqual(
+            self.calls,
+            [self.TEST_SP_URL, self.TEST_IDP_URL, consumer, self.TEST_SP_URL],
+        )
+
     def test_initial_sp_call_invalid_response(self):
         """Send initial SP HTTP request and receive wrong server response."""
         self.requests_mock.get(
@@ -217,7 +251,7 @@ class SamlAuth2PluginTests(utils.TestCase):
         self.assertEqual(self.calls, [self.TEST_SP_URL])
 
     def test_consumer_mismatch_error_workflow(self):
-        consumer1 = 'http://consumer1/Shibboleth.sso/SAML2/ECP'
+        consumer1 = f'{self.TEST_SP_URL}/Shibboleth.sso/SAML2/ECP'
         consumer2 = 'http://consumer2/Shibboleth.sso/SAML2/ECP'
         soap_response = saml2_fixtures.soap_response(consumer=consumer1)
         saml_assertion = saml2_fixtures.saml_assertion(destination=consumer2)
@@ -241,6 +275,55 @@ class SamlAuth2PluginTests(utils.TestCase):
         )
 
         self.assertTrue(saml_error.called)
+
+    def test_consumer_mismatch_skips_fault_to_foreign_host(self):
+        consumer1 = 'http://169.254.169.254/Shibboleth.sso/SAML2/ECP'
+        consumer2 = 'http://consumer2/Shibboleth.sso/SAML2/ECP'
+        soap_response = saml2_fixtures.soap_response(consumer=consumer1)
+        saml_assertion = saml2_fixtures.saml_assertion(destination=consumer2)
+
+        self.requests_mock.get(
+            self.TEST_SP_URL,
+            headers=CONTENT_TYPE_PAOS_HEADER,
+            content=soap_response,
+        )
+
+        self.requests_mock.post(self.TEST_IDP_URL, content=saml_assertion)
+
+        saml_error = self.requests_mock.post(consumer1)
+
+        self.assertRaises(
+            saml2.v3.saml2.ConsumerMismatch,
+            requests.get,
+            self.TEST_SP_URL,
+            auth=self.get_plugin(),
+        )
+
+        self.assertFalse(saml_error.called)
+
+    def test_redirect_rejected_for_foreign_location(self):
+        self.requests_mock.get(
+            self.TEST_SP_URL,
+            headers=CONTENT_TYPE_PAOS_HEADER,
+            content=utils.make_oneline(saml2_fixtures.SP_SOAP_RESPONSE),
+        )
+
+        self.requests_mock.post(
+            self.TEST_IDP_URL, content=saml2_fixtures.SAML2_ASSERTION
+        )
+
+        self.requests_mock.post(
+            self.TEST_CONSUMER_URL,
+            status_code=302,
+            headers={'Location': 'http://evil.test/redirect'},
+        )
+
+        self.assertRaises(
+            saml2.v3.saml2.InvalidResponse,
+            requests.get,
+            self.TEST_SP_URL,
+            auth=self.get_plugin(),
+        )
 
 
 class AuthenticateviaSAML2Tests(utils.TestCase):
@@ -337,7 +420,9 @@ class AuthenticateviaSAML2Tests(utils.TestCase):
         )
 
     def test_consumer_mismatch_error_workflow(self):
-        consumer1 = 'http://keystone.test/Shibboleth.sso/SAML2/ECP'
+        consumer1 = (
+            f'{self.TEST_AUTH_URL.rstrip("/")}/Shibboleth.sso/SAML2/ECP'
+        )
         consumer2 = 'http://consumer2/Shibboleth.sso/SAML2/ECP'
 
         soap_response = saml2_fixtures.soap_response(consumer=consumer1)

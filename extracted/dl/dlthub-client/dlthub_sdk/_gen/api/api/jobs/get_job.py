@@ -1,0 +1,237 @@
+from http import HTTPStatus
+from typing import Any
+from urllib.parse import quote
+from uuid import UUID
+
+import httpx
+
+from ... import errors
+from ...client import AuthenticatedClient, Client
+from ...models.detailed_job_response import DetailedJobResponse
+from ...models.error_response import ErrorResponse
+from ...types import UNSET, Response, Unset
+
+
+def _get_kwargs(
+    workspace_id: UUID,
+    job_id: UUID,
+    *,
+    recent_job_runs_limit: int | None | Unset = UNSET,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+
+    json_recent_job_runs_limit: int | None | Unset
+    if isinstance(recent_job_runs_limit, Unset):
+        json_recent_job_runs_limit = UNSET
+    else:
+        json_recent_job_runs_limit = recent_job_runs_limit
+    params["recent_job_runs_limit"] = json_recent_job_runs_limit
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
+    _kwargs: dict[str, Any] = {
+        "method": "get",
+        "url": "/api/v1/workspaces/{workspace_id}/jobs/{job_id}".format(
+            workspace_id=quote(str(workspace_id), safe=""),
+            job_id=quote(str(job_id), safe=""),
+        ),
+        "params": params,
+    }
+
+    return _kwargs
+
+
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> DetailedJobResponse | ErrorResponse | None:
+    if response.status_code == 200:
+        response_200 = DetailedJobResponse.from_dict(response.json())
+
+        return response_200
+
+    if response.status_code == 400:
+        response_400 = ErrorResponse.from_dict(response.json())
+
+        return response_400
+
+    if response.status_code == 401:
+        response_401 = ErrorResponse.from_dict(response.json())
+
+        return response_401
+
+    if response.status_code == 403:
+        response_403 = ErrorResponse.from_dict(response.json())
+
+        return response_403
+
+    if response.status_code == 404:
+        response_404 = ErrorResponse.from_dict(response.json())
+
+        return response_404
+
+    if response.status_code == 500:
+        response_500 = ErrorResponse.from_dict(response.json())
+
+        return response_500
+
+    if client.raise_on_unexpected_status:
+        raise errors.UnexpectedStatus(response.status_code, response.content)
+    else:
+        return None
+
+
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[DetailedJobResponse | ErrorResponse]:
+    return Response(
+        status_code=HTTPStatus(response.status_code),
+        content=response.content,
+        headers=response.headers,
+        parsed=_parse_response(client=client, response=response),
+    )
+
+
+def sync_detailed(
+    workspace_id: UUID,
+    job_id: UUID,
+    *,
+    client: AuthenticatedClient | Client,
+    recent_job_runs_limit: int | None | Unset = UNSET,
+) -> Response[DetailedJobResponse | ErrorResponse]:
+    """GetJob
+
+    Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
+
+    Requires READ permission on the organization level.
+
+    Args:
+        workspace_id (UUID):
+        job_id (UUID):
+        recent_job_runs_limit (int | None | Unset): Attach this many of the job's most recent
+            runs.
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[DetailedJobResponse | ErrorResponse]
+    """
+    kwargs = _get_kwargs(
+        workspace_id=workspace_id,
+        job_id=job_id,
+        recent_job_runs_limit=recent_job_runs_limit,
+    )
+
+    response = client.get_httpx_client().request(
+        **kwargs,
+    )
+
+    return _build_response(client=client, response=response)
+
+
+def sync(
+    workspace_id: UUID,
+    job_id: UUID,
+    *,
+    client: AuthenticatedClient | Client,
+    recent_job_runs_limit: int | None | Unset = UNSET,
+) -> DetailedJobResponse | ErrorResponse | None:
+    """GetJob
+
+    Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
+
+    Requires READ permission on the organization level.
+
+    Args:
+        workspace_id (UUID):
+        job_id (UUID):
+        recent_job_runs_limit (int | None | Unset): Attach this many of the job's most recent
+            runs.
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        DetailedJobResponse | ErrorResponse
+    """
+    return sync_detailed(
+        workspace_id=workspace_id,
+        job_id=job_id,
+        client=client,
+        recent_job_runs_limit=recent_job_runs_limit,
+    ).parsed
+
+
+async def asyncio_detailed(
+    workspace_id: UUID,
+    job_id: UUID,
+    *,
+    client: AuthenticatedClient | Client,
+    recent_job_runs_limit: int | None | Unset = UNSET,
+) -> Response[DetailedJobResponse | ErrorResponse]:
+    """GetJob
+
+    Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
+
+    Requires READ permission on the organization level.
+
+    Args:
+        workspace_id (UUID):
+        job_id (UUID):
+        recent_job_runs_limit (int | None | Unset): Attach this many of the job's most recent
+            runs.
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[DetailedJobResponse | ErrorResponse]
+    """
+    kwargs = _get_kwargs(
+        workspace_id=workspace_id,
+        job_id=job_id,
+        recent_job_runs_limit=recent_job_runs_limit,
+    )
+
+    response = await client.get_async_httpx_client().request(**kwargs)
+
+    return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    workspace_id: UUID,
+    job_id: UUID,
+    *,
+    client: AuthenticatedClient | Client,
+    recent_job_runs_limit: int | None | Unset = UNSET,
+) -> DetailedJobResponse | ErrorResponse | None:
+    """GetJob
+
+    Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
+
+    Requires READ permission on the organization level.
+
+    Args:
+        workspace_id (UUID):
+        job_id (UUID):
+        recent_job_runs_limit (int | None | Unset): Attach this many of the job's most recent
+            runs.
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        DetailedJobResponse | ErrorResponse
+    """
+    return (
+        await asyncio_detailed(
+            workspace_id=workspace_id,
+            job_id=job_id,
+            client=client,
+            recent_job_runs_limit=recent_job_runs_limit,
+        )
+    ).parsed

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import collections.abc
 import time
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, TypeVar
 from urllib.parse import urlsplit
 
 import grpc
@@ -386,3 +386,34 @@ class ModelCallHandle:
                 raise TimeoutError(
                     f"Model call {self._call_id} ({self._queue_name!r}) timed out (last status: {last_status})"
                 )
+
+
+def gather(handles: Iterable[ModelCallHandle], *, timeout: Optional[float] = None) -> Any:
+    """Collect deferred model results concurrently, preserving input order.
+
+    Pass handles returned by a model's ``defer()`` method. In synchronous code,
+    this blocks and returns a list. Inside a running event loop, use
+    ``await gather(handles)``.
+
+    If a call fails, its exception is raised without returning partial results.
+    Other remote calls continue running. ``timeout`` is passed to each handle's
+    ``get()`` method.
+
+    Requires the ``compute`` extra: ``pip install 'chalkpy[compute]'``.
+
+    Examples
+    --------
+    >>> from chalk import gather
+    >>> from chalk.client import ChalkClient
+    >>> model = ChalkClient().get_model_deployment(name="house-price")
+    >>> prices = gather([
+    ...     model.defer(sqft=1000.0, rooms=3.0),
+    ...     model.defer(sqft=1500.0, rooms=4.0),
+    ... ])
+    """
+    try:
+        from chalkcompute import gather_handles  # pyright: ignore[reportMissingImports]
+    except ImportError as e:
+        raise ImportError("Please install or upgrade chalkcompute to gather model calls.") from e
+
+    return gather_handles(handles, timeout=timeout)

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: sqlbuild
-Version: 0.138.0
+Version: 0.139.0
 Requires-Dist: duckdb>=1.3.2
 Requires-Dist: filelock>=3.20.3
-Requires-Dist: orjson>=3.10.0
+Requires-Dist: orjson>=3.11.7
 Requires-Dist: polyglot-sql-chio==0.13.8
 Requires-Dist: pydantic-settings>=2,<3
 Requires-Dist: pyyaml>=6.0.2
@@ -235,7 +235,6 @@ __source__raw__payments AS (
 __expected__fact_orders AS (
   SELECT 1 AS order_id, 100 AS customer_id, 1500 AS total_cents, 15.00 AS total_dollars
 )
-SELECT 1
 ```
 
 ## Warehouses

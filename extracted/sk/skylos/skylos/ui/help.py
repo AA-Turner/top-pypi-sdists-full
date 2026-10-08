@@ -94,6 +94,15 @@ COMMANDS = [
             "Blocks on deleted or newly skipped tests (SKY-A110/A111), loosened "
             "test settings (SKY-A112), failing tests (SKY-A113), edits to Skylos "
             "settings or hooks (SKY-A114) and added secrets",
+            "Blocks on code that special-cases the tests: an added branch or table "
+            "that answers a test's exact input with its expected value (SKY-A115), "
+            "code that detects the test runner or reads the tests' files "
+            "(SKY-A116), and comparisons rigged to always pass (SKY-A117)",
+            "Advises on silenced checks: weakened linter, type-checker and "
+            "scanner settings (SKY-A119), CI checks that may now fail or no "
+            "longer run (SKY-A121) and added inline suppressions such as "
+            "# noqa, @ts-ignore and //nolint (SKY-A118); "
+            'silenced_checks = "block" makes A119/A121 block',
             "Advises on changed lines no test checks (SKY-A120): no test runs the "
             "line, or no test fails when Skylos deliberately changes it",
             "--base origin/main: compare a pull request with its merge base (CI)",
@@ -294,7 +303,7 @@ COMMANDS = [
         "desc": "Resend scans whose upload to Skylos Cloud did not finish",
         "details": [
             "Scans are saved in ~/.skylos/pending-uploads/ (signed, outside the repository) after a network error, timeout, server error, rate limit or interrupted upload",
-            "Each scan is resent with its original idempotency key, so Cloud never saves or charges it twice",
+            "Each scan is resent with its original idempotency key, so Cloud never saves it twice",
             "Use skylos upload --list to see saved scans; they expire after 7 days",
         ],
         "group": "Account",

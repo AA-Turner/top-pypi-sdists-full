@@ -1,0 +1,677 @@
+use jsonschema::json::stock_enum_value;
+use pyo3::{
+    exceptions,
+    ffi::{
+        PyLong_AsLongLong, PyObject_GetAttr, PyObject_GetAttrString, PyType_IsSubtype,
+        PyUnicode_AsUTF8AndSize, Py_DECREF, Py_TYPE,
+    },
+    prelude::*,
+    types::PyAny,
+    Borrowed,
+};
+use serde::{
+    ser::{self, Serialize, SerializeMap, SerializeSeq},
+    Serializer,
+};
+
+use crate::types;
+use std::{borrow::Cow, cell::Cell, str::FromStr};
+
+#[cfg(not(Py_LIMITED_API))]
+use pyo3::ffi::{
+    PyFloat_AS_DOUBLE, PyList_GET_ITEM, PyList_GET_SIZE, PyTuple_GET_ITEM, PyTuple_GET_SIZE,
+};
+
+pub const RECURSION_LIMIT: u8 = 255;
+// Ends a walk that `walk` redoes holding; the message is never shown.
+pub(crate) const REDO_HOLDING: &str = "Walk redone holding";
+
+#[derive(Clone, Copy)]
+pub enum ObjectType {
+    Str,
+    Int,
+    Bool,
+    None,
+    Float,
+    List,
+    Dict,
+    Tuple,
+    Enum,
+    Decimal,
+    Unknown,
+}
+
+/// `HOLDING` walks keep every object they read alive; see `walk`.
+pub(crate) struct SerializePyObject<const HOLDING: bool> {
+    object: *mut pyo3::ffi::PyObject,
+    object_type: ObjectType,
+    recursion_depth: u8,
+}
+
+impl<const HOLDING: bool> SerializePyObject<HOLDING> {
+    #[inline]
+    pub fn new(object: *mut pyo3::ffi::PyObject, recursion_depth: u8) -> Self {
+        SerializePyObject {
+            object,
+            object_type: get_object_type_from_object(object),
+            recursion_depth,
+        }
+    }
+
+    #[inline]
+    pub const fn with_obtype(
+        object: *mut pyo3::ffi::PyObject,
+        object_type: ObjectType,
+        recursion_depth: u8,
+    ) -> Self {
+        SerializePyObject {
+            object,
+            object_type,
+            recursion_depth,
+        }
+    }
+}
+
+thread_local! {
+    // Set when a walk without holding reached Python code it did not run.
+    static NEEDS_HOLDING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Run `walk` without holding what it reads, redoing it holding when it reached Python code.
+/// Without the GIL another thread may drop a container's references, so every walk holds.
+pub(crate) fn walk<T>(mut walk: impl FnMut(bool) -> T) -> T {
+    let result = walk(cfg!(Py_GIL_DISABLED));
+    if NEEDS_HOLDING.with(|needs| needs.replace(false)) {
+        walk(true)
+    } else {
+        result
+    }
+}
+
+/// The value of the `Enum` member `object`, as a new reference. A `value` override runs Python
+/// code, which may drop what the walk still reads, so a walk without `holding` stops there with
+/// `Err(None)` to be redone holding.
+pub(crate) fn enum_value(
+    object: *mut pyo3::ffi::PyObject,
+    holding: bool,
+) -> Result<*mut pyo3::ffi::PyObject, Option<PyErr>> {
+    let py = unsafe { Python::assume_attached() };
+    if let Some(value) = stock_enum_value(unsafe { Borrowed::from_ptr(py, object) }) {
+        return Ok(value.into_ptr());
+    }
+    if !holding {
+        NEEDS_HOLDING.with(|needs| needs.set(true));
+        return Err(None);
+    }
+    let value = unsafe { PyObject_GetAttr(object, types::VALUE_STR) };
+    if value.is_null() {
+        Err(Some(PyErr::fetch(py)))
+    } else {
+        Ok(value)
+    }
+}
+
+/// Whether the non-`str` key type `object_type` is a `str` enum.
+pub(crate) fn is_str_enum_key(object_type: *mut pyo3::ffi::PyTypeObject) -> bool {
+    let is_str = unsafe { PyType_IsSubtype(object_type, types::STR_TYPE) != 0 };
+    is_str && is_enum_subclass(object_type)
+}
+
+#[inline]
+pub(crate) unsafe fn pyfloat_as_double(object: *mut pyo3::ffi::PyObject) -> f64 {
+    #[cfg(Py_LIMITED_API)]
+    {
+        pyo3::ffi::PyFloat_AsDouble(object)
+    }
+    #[cfg(not(Py_LIMITED_API))]
+    {
+        PyFloat_AS_DOUBLE(object)
+    }
+}
+
+#[inline]
+pub(crate) unsafe fn pylist_len(object: *mut pyo3::ffi::PyObject) -> usize {
+    #[cfg(Py_LIMITED_API)]
+    {
+        pyo3::ffi::PyList_Size(object) as usize
+    }
+    #[cfg(not(Py_LIMITED_API))]
+    {
+        PyList_GET_SIZE(object) as usize
+    }
+}
+
+#[inline]
+pub(crate) unsafe fn pylist_get_item(
+    object: *mut pyo3::ffi::PyObject,
+    index: pyo3::ffi::Py_ssize_t,
+) -> *mut pyo3::ffi::PyObject {
+    #[cfg(Py_LIMITED_API)]
+    {
+        pyo3::ffi::PyList_GetItem(object, index)
+    }
+    #[cfg(not(Py_LIMITED_API))]
+    {
+        PyList_GET_ITEM(object, index)
+    }
+}
+
+/// An item read out of a container. A holding walk keeps its own reference, since Python code the
+/// walk runs (an `Enum` member's `value` override) or, without the GIL, another thread may drop
+/// the container's.
+pub(crate) struct Item<const OWNED: bool> {
+    object: *mut pyo3::ffi::PyObject,
+}
+
+impl<const OWNED: bool> Item<OWNED> {
+    // Without the GIL every item is owned.
+    const OWNS: bool = OWNED || cfg!(Py_GIL_DISABLED);
+
+    #[inline]
+    pub(crate) fn as_ptr(&self) -> *mut pyo3::ffi::PyObject {
+        self.object
+    }
+
+    /// The object, and whether the caller now owns a reference to it.
+    #[inline]
+    pub(crate) fn into_raw(self) -> (*mut pyo3::ffi::PyObject, bool) {
+        let object = self.object;
+        std::mem::forget(self);
+        (object, Self::OWNS)
+    }
+}
+
+impl<const OWNED: bool> Drop for Item<OWNED> {
+    #[inline]
+    fn drop(&mut self) {
+        if Self::OWNS {
+            unsafe { pyo3::ffi::Py_DECREF(self.object) };
+        }
+    }
+}
+
+/// The list item at `index`, or `None` once the list has shrunk below it.
+#[inline]
+pub(crate) unsafe fn pylist_item<const HOLDING: bool>(
+    object: *mut pyo3::ffi::PyObject,
+    index: pyo3::ffi::Py_ssize_t,
+) -> Option<Item<HOLDING>> {
+    #[cfg(Py_GIL_DISABLED)]
+    let item = pyo3::ffi::PyList_GetItemRef(object, index);
+    #[cfg(all(Py_LIMITED_API, not(Py_GIL_DISABLED)))]
+    let item = pyo3::ffi::PyList_GetItem(object, index);
+    #[cfg(not(any(Py_LIMITED_API, Py_GIL_DISABLED)))]
+    let item = if index < PyList_GET_SIZE(object) {
+        PyList_GET_ITEM(object, index)
+    } else {
+        std::ptr::null_mut()
+    };
+    if item.is_null() {
+        pyo3::ffi::PyErr_Clear();
+        None
+    } else {
+        #[cfg(not(Py_GIL_DISABLED))]
+        if HOLDING {
+            pyo3::ffi::Py_INCREF(item);
+        }
+        Some(Item { object: item })
+    }
+}
+
+/// Key and value pairs of a dict; on free-threaded builds each step locks the dict.
+pub(crate) struct DictEntries<const HOLDING: bool> {
+    dict: *mut pyo3::ffi::PyObject,
+    pos: pyo3::ffi::Py_ssize_t,
+}
+
+impl<const HOLDING: bool> DictEntries<HOLDING> {
+    pub(crate) fn new(dict: *mut pyo3::ffi::PyObject) -> Self {
+        Self { dict, pos: 0 }
+    }
+
+    #[inline]
+    pub(crate) unsafe fn next(&mut self) -> Option<(Item<HOLDING>, Item<HOLDING>)> {
+        let mut key: *mut pyo3::ffi::PyObject = std::ptr::null_mut();
+        let mut value: *mut pyo3::ffi::PyObject = std::ptr::null_mut();
+        #[cfg(Py_GIL_DISABLED)]
+        let mut section = std::mem::zeroed::<pyo3::ffi::PyCriticalSection>();
+        #[cfg(Py_GIL_DISABLED)]
+        pyo3::ffi::PyCriticalSection_Begin(&raw mut section, self.dict);
+        let found =
+            pyo3::ffi::PyDict_Next(self.dict, &raw mut self.pos, &raw mut key, &raw mut value) != 0;
+        if found && Item::<HOLDING>::OWNS {
+            pyo3::ffi::Py_INCREF(key);
+            pyo3::ffi::Py_INCREF(value);
+        }
+        #[cfg(Py_GIL_DISABLED)]
+        pyo3::ffi::PyCriticalSection_End(&raw mut section);
+        found.then(|| (Item { object: key }, Item { object: value }))
+    }
+}
+
+#[inline]
+pub(crate) unsafe fn pytuple_len(object: *mut pyo3::ffi::PyObject) -> usize {
+    #[cfg(Py_LIMITED_API)]
+    {
+        pyo3::ffi::PyTuple_Size(object) as usize
+    }
+    #[cfg(not(Py_LIMITED_API))]
+    {
+        PyTuple_GET_SIZE(object) as usize
+    }
+}
+
+#[inline]
+pub(crate) unsafe fn pytuple_get_item(
+    object: *mut pyo3::ffi::PyObject,
+    index: pyo3::ffi::Py_ssize_t,
+) -> *mut pyo3::ffi::PyObject {
+    #[cfg(Py_LIMITED_API)]
+    {
+        pyo3::ffi::PyTuple_GetItem(object, index)
+    }
+    #[cfg(not(Py_LIMITED_API))]
+    {
+        PyTuple_GET_ITEM(object, index)
+    }
+}
+
+#[inline]
+pub(crate) unsafe fn dict_len(object: *mut pyo3::ffi::PyObject) -> usize {
+    let len = pyo3::ffi::PyDict_Size(object);
+    if len < 0 {
+        0
+    } else {
+        len as usize
+    }
+}
+
+#[inline]
+pub(crate) fn is_enum_subclass(object_type: *mut pyo3::ffi::PyTypeObject) -> bool {
+    unsafe { PyType_IsSubtype(object_type, types::ENUM_BASE) != 0 }
+}
+
+#[inline]
+fn is_dict_subclass(object_type: *mut pyo3::ffi::PyTypeObject) -> bool {
+    unsafe { PyType_IsSubtype(object_type, types::DICT_TYPE) != 0 }
+}
+
+pub(crate) fn get_object_type_from_object(object: *mut pyo3::ffi::PyObject) -> ObjectType {
+    unsafe {
+        let object_type = Py_TYPE(object);
+        get_object_type(object_type)
+    }
+}
+
+pub(crate) fn get_type_name(object_type: *mut pyo3::ffi::PyTypeObject) -> Cow<'static, str> {
+    unsafe {
+        let name_obj = PyObject_GetAttrString(
+            object_type.cast::<pyo3::ffi::PyObject>(),
+            c"__name__".as_ptr(),
+        );
+        if name_obj.is_null() {
+            return Cow::Borrowed("<unknown>");
+        }
+        let mut size: pyo3::ffi::Py_ssize_t = 0;
+        let ptr = PyUnicode_AsUTF8AndSize(name_obj, &raw mut size);
+        let cow = if ptr.is_null() {
+            Cow::Borrowed("<unknown>")
+        } else {
+            let slice = std::slice::from_raw_parts(ptr.cast::<u8>(), size as usize);
+            Cow::Owned(std::str::from_utf8_unchecked(slice).to_string())
+        };
+        Py_DECREF(name_obj);
+        cow
+    }
+}
+
+#[inline]
+pub fn get_object_type(object_type: *mut pyo3::ffi::PyTypeObject) -> ObjectType {
+    // Dict & str are the most popular in real-life JSON structures
+    if object_type == unsafe { types::DICT_TYPE } {
+        ObjectType::Dict
+    } else if object_type == unsafe { types::STR_TYPE } {
+        ObjectType::Str
+    } else if object_type == unsafe { types::LIST_TYPE } {
+        ObjectType::List
+    } else if object_type == unsafe { types::INT_TYPE } {
+        ObjectType::Int
+    } else if object_type == unsafe { types::BOOL_TYPE } {
+        ObjectType::Bool
+    } else if object_type == unsafe { types::FLOAT_TYPE } {
+        ObjectType::Float
+    } else if object_type == unsafe { types::NONE_TYPE } {
+        ObjectType::None
+    } else if object_type == unsafe { types::DECIMAL_TYPE } {
+        ObjectType::Decimal
+    } else if is_dict_subclass(object_type) {
+        ObjectType::Dict
+    } else if object_type == unsafe { types::TUPLE_TYPE } {
+        ObjectType::Tuple
+    } else if is_enum_subclass(object_type) {
+        ObjectType::Enum
+    } else {
+        ObjectType::Unknown
+    }
+}
+
+macro_rules! tri {
+    ($expr:expr) => {
+        match $expr {
+            Ok(val) => val,
+            Err(err) => return Err(err),
+        }
+    };
+}
+
+/// Helper function to serialize a large integer that doesn't fit in i64
+/// by converting it to a string and parsing as serde_json::Number
+pub(crate) fn serialize_large_int<S>(
+    object: *mut pyo3::ffi::PyObject,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let str_obj = unsafe { pyo3::ffi::PyObject_Str(object) };
+    if str_obj.is_null() {
+        return Err(ser::Error::custom(
+            "Failed to convert large integer to string",
+        ));
+    }
+    let mut str_size: pyo3::ffi::Py_ssize_t = 0;
+    let ptr = unsafe { pyo3::ffi::PyUnicode_AsUTF8AndSize(str_obj, &raw mut str_size) };
+    if ptr.is_null() {
+        unsafe { pyo3::ffi::Py_DecRef(str_obj) };
+        return Err(ser::Error::custom("Failed to get UTF-8 representation"));
+    }
+    let slice = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+            ptr.cast::<u8>(),
+            str_size as usize,
+        ))
+    };
+    // With arbitrary_precision, serde_json can handle this as a number
+    let result = if let Ok(num) = serde_json::Number::from_str(slice) {
+        serializer.serialize_some(&num)
+    } else {
+        Err(ser::Error::custom("Failed to parse large integer"))
+    };
+    unsafe { pyo3::ffi::Py_DecRef(str_obj) };
+    result
+}
+
+/// Convert a Python value to `serde_json::Value`
+impl<const HOLDING: bool> Serialize for SerializePyObject<HOLDING> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.object_type {
+            ObjectType::Str => {
+                let mut str_size: pyo3::ffi::Py_ssize_t = 0;
+                let ptr = unsafe { PyUnicode_AsUTF8AndSize(self.object, &raw mut str_size) };
+                if ptr.is_null() {
+                    let py = unsafe { Python::assume_attached() };
+                    let py_error = pyo3::PyErr::fetch(py);
+                    return Err(ser::Error::custom(format!(
+                        "Failed to get UTF-8 representation: {py_error}",
+                    )));
+                }
+                let slice = unsafe {
+                    std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                        ptr.cast::<u8>(),
+                        str_size as usize,
+                    ))
+                };
+                serializer.serialize_str(slice)
+            }
+            ObjectType::Int => {
+                let value = unsafe { PyLong_AsLongLong(self.object) };
+                if value == -1 {
+                    #[cfg(Py_3_12)]
+                    {
+                        let exception = unsafe { pyo3::ffi::PyErr_GetRaisedException() };
+                        // Check if this is actually an overflow error
+                        if !exception.is_null() {
+                            unsafe {
+                                pyo3::ffi::PyErr_Clear();
+                                pyo3::ffi::Py_DecRef(exception);
+                            };
+                            return serialize_large_int(self.object, serializer);
+                        }
+                    };
+                    #[cfg(not(Py_3_12))]
+                    {
+                        let mut ptype: *mut pyo3::ffi::PyObject = std::ptr::null_mut();
+                        let mut pvalue: *mut pyo3::ffi::PyObject = std::ptr::null_mut();
+                        let mut ptraceback: *mut pyo3::ffi::PyObject = std::ptr::null_mut();
+                        unsafe {
+                            pyo3::ffi::PyErr_Fetch(
+                                &raw mut ptype,
+                                &raw mut pvalue,
+                                &raw mut ptraceback,
+                            );
+                        }
+                        // Check if this is actually an overflow error
+                        let is_overflow = !pvalue.is_null();
+                        if is_overflow {
+                            unsafe {
+                                if !ptype.is_null() {
+                                    pyo3::ffi::Py_DecRef(ptype);
+                                }
+                                if !pvalue.is_null() {
+                                    pyo3::ffi::Py_DecRef(pvalue);
+                                }
+                                if !ptraceback.is_null() {
+                                    pyo3::ffi::Py_DecRef(ptraceback);
+                                }
+                            };
+                            return serialize_large_int(self.object, serializer);
+                        }
+                    };
+                }
+                serializer.serialize_i64(value)
+            }
+            ObjectType::Float => {
+                serializer.serialize_f64(unsafe { pyfloat_as_double(self.object) })
+            }
+            ObjectType::Bool => serializer.serialize_bool(self.object == unsafe { types::TRUE }),
+            ObjectType::None => serializer.serialize_unit(),
+            ObjectType::Dict => {
+                if self.recursion_depth == RECURSION_LIMIT {
+                    return Err(ser::Error::custom("Recursion limit reached"));
+                }
+                let length = unsafe { dict_len(self.object) };
+                if length == 0 {
+                    tri!(serializer.serialize_map(Some(0))).end()
+                } else {
+                    let mut map = tri!(serializer.serialize_map(Some(length)));
+                    let mut str_size: pyo3::ffi::Py_ssize_t = 0;
+                    let mut entries = DictEntries::<HOLDING>::new(self.object);
+                    while let Some((key_item, value_item)) = unsafe { entries.next() } {
+                        let (key, value) = (key_item.as_ptr(), value_item.as_ptr());
+                        let object_type = unsafe { Py_TYPE(key) };
+                        let (key_unicode, owned) = if object_type == unsafe { types::STR_TYPE } {
+                            // if the key type is string, use it as is
+                            (key, false)
+                        } else {
+                            // cover for both old-style str enums subclassing str and Enum and for new-style
+                            // ones subclassing StrEnum
+                            if is_str_enum_key(object_type) {
+                                match enum_value(key, HOLDING) {
+                                    Ok(attr) => (attr, true),
+                                    Err(Some(py_error)) => {
+                                        return Err(ser::Error::custom(format!(
+                                            "Failed to access enum key value: {py_error}",
+                                        )));
+                                    }
+                                    Err(None) => return Err(ser::Error::custom(REDO_HOLDING)),
+                                }
+                            } else {
+                                return Err(ser::Error::custom(format!(
+                                    "Dict key must be str or str enum. Got '{}'",
+                                    get_type_name(object_type)
+                                )));
+                            }
+                        };
+
+                        let ptr =
+                            unsafe { PyUnicode_AsUTF8AndSize(key_unicode, &raw mut str_size) };
+                        if ptr.is_null() {
+                            let py = unsafe { Python::assume_attached() };
+                            let py_error = pyo3::PyErr::fetch(py);
+                            if owned {
+                                unsafe { pyo3::ffi::Py_DECREF(key_unicode) };
+                            }
+                            return Err(ser::Error::custom(format!(
+                                "Failed to get key as UTF-8: {py_error}",
+                            )));
+                        }
+                        let slice = unsafe {
+                            std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                                ptr.cast::<u8>(),
+                                str_size as usize,
+                            ))
+                        };
+                        let entry_result = map.serialize_entry(
+                            slice,
+                            &SerializePyObject::<HOLDING>::new(value, self.recursion_depth + 1),
+                        );
+                        if owned {
+                            unsafe { pyo3::ffi::Py_DECREF(key_unicode) };
+                        }
+                        tri!(entry_result);
+                    }
+                    map.end()
+                }
+            }
+            ObjectType::List => {
+                if self.recursion_depth == RECURSION_LIMIT {
+                    return Err(ser::Error::custom("Recursion limit reached"));
+                }
+                let length = unsafe { pylist_len(self.object) };
+                if length == 0 {
+                    tri!(serializer.serialize_seq(Some(0))).end()
+                } else {
+                    let mut type_ptr = std::ptr::null_mut();
+                    let mut ob_type = ObjectType::Str;
+                    let mut sequence = tri!(serializer.serialize_seq(Some(length)));
+                    for i in 0..length {
+                        let Some(item) = (unsafe {
+                            pylist_item::<HOLDING>(self.object, i as pyo3::ffi::Py_ssize_t)
+                        }) else {
+                            break;
+                        };
+                        let elem = item.as_ptr();
+                        let current_ob_type = unsafe { Py_TYPE(elem) };
+                        if current_ob_type != type_ptr {
+                            type_ptr = current_ob_type;
+                            ob_type = get_object_type(current_ob_type);
+                        }
+                        tri!(sequence.serialize_element(
+                            &SerializePyObject::<HOLDING>::with_obtype(
+                                elem,
+                                ob_type,
+                                self.recursion_depth + 1,
+                            )
+                        ));
+                    }
+                    sequence.end()
+                }
+            }
+            ObjectType::Tuple => {
+                if self.recursion_depth == RECURSION_LIMIT {
+                    return Err(ser::Error::custom("Recursion limit reached"));
+                }
+                let length = unsafe { pytuple_len(self.object) };
+                if length == 0 {
+                    tri!(serializer.serialize_seq(Some(0))).end()
+                } else {
+                    let mut type_ptr = std::ptr::null_mut();
+                    let mut ob_type = ObjectType::Str;
+                    let mut sequence = tri!(serializer.serialize_seq(Some(length)));
+                    for i in 0..length {
+                        let elem =
+                            unsafe { pytuple_get_item(self.object, i as pyo3::ffi::Py_ssize_t) };
+                        let current_ob_type = unsafe { Py_TYPE(elem) };
+                        if current_ob_type != type_ptr {
+                            type_ptr = current_ob_type;
+                            ob_type = get_object_type(current_ob_type);
+                        }
+                        tri!(sequence.serialize_element(
+                            &SerializePyObject::<HOLDING>::with_obtype(
+                                elem,
+                                ob_type,
+                                self.recursion_depth + 1,
+                            )
+                        ));
+                    }
+                    sequence.end()
+                }
+            }
+            ObjectType::Decimal => {
+                // Convert Decimal to string and parse as serde_json::Number
+                // With arbitrary_precision enabled, this preserves exact decimal precision
+                let str_obj = unsafe { pyo3::ffi::PyObject_Str(self.object) };
+                if str_obj.is_null() {
+                    return Err(ser::Error::custom("Failed to convert Decimal to string"));
+                }
+                let mut str_size: pyo3::ffi::Py_ssize_t = 0;
+                let ptr = unsafe { pyo3::ffi::PyUnicode_AsUTF8AndSize(str_obj, &raw mut str_size) };
+                if ptr.is_null() {
+                    unsafe { pyo3::ffi::Py_DecRef(str_obj) };
+                    return Err(ser::Error::custom("Failed to get UTF-8 representation"));
+                }
+                let slice = unsafe {
+                    std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                        ptr.cast::<u8>(),
+                        str_size as usize,
+                    ))
+                };
+                let result = if let Ok(num) = serde_json::Number::from_str(slice) {
+                    serializer.serialize_some(&num)
+                } else {
+                    Err(ser::Error::custom("Failed to parse Decimal as number"))
+                };
+                unsafe { pyo3::ffi::Py_DecRef(str_obj) };
+                result
+            }
+            ObjectType::Enum => {
+                let value = match enum_value(self.object, HOLDING) {
+                    Ok(value) => value,
+                    Err(Some(py_error)) => {
+                        return Err(ser::Error::custom(format!(
+                            "Failed to access enum value: {py_error}",
+                        )));
+                    }
+                    Err(None) => return Err(ser::Error::custom(REDO_HOLDING)),
+                };
+                #[allow(clippy::arithmetic_side_effects)]
+                let result = SerializePyObject::<HOLDING>::new(value, self.recursion_depth + 1)
+                    .serialize(serializer);
+                unsafe { pyo3::ffi::Py_DECREF(value) };
+                result
+            }
+            ObjectType::Unknown => {
+                let object_type = unsafe { Py_TYPE(self.object) };
+                Err(ser::Error::custom(format!(
+                    "Unsupported type: '{}'",
+                    get_type_name(object_type)
+                )))
+            }
+        }
+    }
+}
+
+#[inline]
+pub(crate) fn to_value(object: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+    walk(|holding| {
+        if holding {
+            serde_json::to_value(SerializePyObject::<true>::new(object.as_ptr(), 0))
+        } else {
+            serde_json::to_value(SerializePyObject::<false>::new(object.as_ptr(), 0))
+        }
+    })
+    .map_err(|err| exceptions::PyValueError::new_err(err.to_string()))
+}

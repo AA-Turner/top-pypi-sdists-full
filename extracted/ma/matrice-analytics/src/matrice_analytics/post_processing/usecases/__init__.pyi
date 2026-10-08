@@ -223,6 +223,14 @@ def assign_person_by_area(detections: Any, _car_areas: Any, staff_areas: Any) ->
     """
     ...
 
+# From cell_microscopy_segmentation
+def get_trend(data: Any, lookback: Any = 900, threshold: Any = 0.6) -> Any:
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    ...
+
 # From color_map_utils
 def extract_major_colors(image: Any.Any, k: int = 3) -> Any: ...
 
@@ -331,6 +339,14 @@ def lift_ai_camera_zones_into_post_processing(doc: Dict[str, Any]) -> Dict[str, 
     """
     ...
 
+# From people_tracking
+def get_trend(data: Any, lookback: Any = 900, threshold: Any = 0.6) -> Any:
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    ...
+
 # From suspicious_activity_detection
 def apply_category_mapping(results: Any, index_to_category: Dict[str, str]) -> Any:
     """
@@ -342,6 +358,14 @@ def apply_category_mapping(results: Any, index_to_category: Dict[str, str]) -> A
     
     Returns:
         Results with mapped category names
+    """
+    ...
+
+# From suspicious_activity_detection
+def get_trend(data: Any, lookback: Any = 900, threshold: Any = 0.6) -> Any:
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
     """
     ...
 
@@ -362,6 +386,12 @@ def lift_ai_camera_zones_into_post_processing(doc: Dict[str, Any]) -> Dict[str, 
     """
     ...
 
+# From vehicle_monitoring_drone_view
+def resolve_category(d: Dict[str, Any], index_to_category: Optional[Dict[int, str]] = None) -> Tuple[str, Optional[int]]: ...
+
+# From vehicle_monitoring_drone_view
+def to_bbox_dict(d: Dict[str, Any]) -> Dict[str, Any]: ...
+
 # From vehicle_type_classification_stats_utils
 def build_count_lists(total_counts_dict: Dict[str, int], detection_count_by_category: Dict[str, int], per_category_count: Dict[str, int], total_detections: int, new_counts_dict: Dict[str, int]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
@@ -377,6 +407,14 @@ def build_detection_objects(raw_detections: List[Dict[str, Any]], create_detecti
     
         ``create_detection_object`` is the use-case's own bound method -- passed in rather than
         imported, so this stays a plain data transform with no dependency on the use-case class.
+    """
+    ...
+
+# From warehouse_object_segmentation
+def get_trend(data: Any, lookback: Any = 900, threshold: Any = 0.6) -> Any:
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
     """
     ...
 
@@ -3781,6 +3819,31 @@ class PeopleCountingExtendedUseCase:
 
     def __init__(self: Any) -> None: ...
 
+    def drain_reid(self: Any, timeout_s: float = 2.0) -> bool:
+        """
+        Wait for every queued embedding to be applied. Offline use only.
+        
+                Re-identification runs on a background thread, so the frame a
+                verdict lands on -- and therefore the gallery state it is matched
+                against -- depends on thread scheduling. Replaying one clip twice
+                can give different unique counts for that reason alone.
+        
+                Calling this after each :meth:`process` pins the schedule and makes
+                the count repeatable, which is what threshold calibration and
+                regression tests need. It blocks on the embedder, so it must not be
+                used on a live realtime stream.
+        """
+        ...
+
+    def interval_counts(self: Any) -> Dict[str, int]:
+        """
+        Distinct people this window, and how many were never seen before.
+        
+                Read by the analytics bridge once per publish; see
+                :meth:`reset_interval`, which the bridge calls immediately after.
+        """
+        ...
+
     def process(self: Any, data: Any, config: Any, input_bytes: Optional[Any] = None, context: Optional[Any] = None, stream_info: Optional[Dict[str, Any]] = None) -> Any: ...
 
     def reid_stats(self: Any) -> Dict[str, Any]: ...
@@ -3788,6 +3851,17 @@ class PeopleCountingExtendedUseCase:
     def reset(self: Any) -> None:
         """
         Release ReID resources. Safe to call repeatedly.
+        """
+        ...
+
+    def reset_interval(self: Any) -> None:
+        """
+        Start a new publish window. Lifetime identities are kept.
+        
+                Keeping ``_lifetime_identities`` is the whole point: it is what makes
+                a returning person count toward "total" but never again toward "new".
+                It grows with distinct people, not with time, and is bounded in
+                practice by the gallery capacity that mints the ids.
         """
         ...
 

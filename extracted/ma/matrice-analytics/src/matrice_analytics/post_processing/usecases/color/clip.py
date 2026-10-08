@@ -106,94 +106,72 @@ def _pip_package_installed(package_name: str) -> bool:
         return False
 
 
-def try_install_clip_dependencies():
-    """
-    Attempt to install missing CLIP dependencies.
-    Only called when ClipProcessor is actually instantiated (lazy installation).
-    Uses singleton pattern to ensure installation only happens ONCE per session.
-    Returns True if successful, False otherwise.
-    """
-    global _installation_attempted, _installation_successful, _installation_error
-
-    # Check if we already attempted installation
-    if _installation_attempted:
-        if _installation_successful:
-            print("✓ CLIP dependencies already available (from previous installation)")
-            return True
-        else:
-            print("✗ CLIP dependencies installation already failed previously")
-            if _installation_error:
-                print(f"  Previous error: {_installation_error}")
-            print("→ Skipping repeated installation attempt")
-            return False
-
-    # Mark that we're attempting installation (prevents concurrent attempts)
-    _installation_attempted = True
-
-    print("→ Color detection is being used but dependencies are missing")
-    print("→ Attempting ONE-TIME auto-installation of missing packages...")
-
+def _detect_platform() -> bool:
+    """Return True when running on a Jetson/ARM platform."""
     import platform
-    import subprocess
 
-    # Detect platform
     machine = platform.machine().lower()
     is_jetson = machine in ["aarch64", "arm64"] or os.path.exists("/etc/nv_tegra_release")
 
     if is_jetson:
-        print(f"→ Detected Jetson/ARM platform ({machine})")
+        _logger.info("→ Detected Jetson/ARM platform (%s)", machine)
     else:
-        print(f"→ Detected x86_64 platform ({machine})")
+        _logger.info("→ Detected x86_64 platform (%s)", machine)
+    return is_jetson
 
-    packages_to_install = []
+
+def _missing_onnxruntime(is_jetson: bool, packages_to_install: List[str]) -> None:
+    """Append the onnxruntime package to install, when it is missing."""
     is_package_installed = _pip_package_installed
-
-    # Check which packages are missing
     try:
         import onnxruntime  # noqa: F401 — import verifies package availability
 
-        print("→ onnxruntime imported successfully")
+        _logger.info("→ onnxruntime imported successfully")
     except ImportError as import_err:
         # Check if onnxruntime is installed but import is failing
         if is_package_installed("onnxruntime"):
-            print(f"→ onnxruntime is installed but import failed: {import_err}")
-            print("→ This may be due to NumPy version mismatch or CUDA library issues")
-            print("→ Skipping installation, will check other dependencies")
+            _logger.info("→ onnxruntime is installed but import failed: %s", import_err)
+            _logger.info("→ This may be due to NumPy version mismatch or CUDA library issues")
+            _logger.info("→ Skipping installation, will check other dependencies")
         elif is_jetson and is_package_installed("onnxruntime-gpu"):
-            print("→ onnxruntime-gpu found on Jetson (this may not work on ARM)")
-            print("→ Attempting import with installed version")
+            _logger.info("→ onnxruntime-gpu found on Jetson (this may not work on ARM)")
+            _logger.info("→ Attempting import with installed version")
         else:
             # Choose appropriate onnxruntime package based on platform
             if is_jetson:
-                print("→ onnxruntime not installed on Jetson platform")
-                print("→ Note: Jetson usually has onnxruntime pre-installed via JetPack")
-                print("→ If you see this, check your JetPack installation")
+                _logger.info("→ onnxruntime not installed on Jetson platform")
+                _logger.info("→ Note: Jetson usually has onnxruntime pre-installed via JetPack")
+                _logger.info("→ If you see this, check your JetPack installation")
                 # Try installing anyway
                 packages_to_install.append("onnxruntime")
             else:
                 packages_to_install.append("onnxruntime-gpu")
 
-    try:
-        from PIL import Image as PILImage
 
-        print("→ PIL/Pillow imported successfully")
+def _missing_support_packages(packages_to_install: List[str]) -> None:
+    """Append pillow / transformers / tqdm to install, when they are missing."""
+    is_package_installed = _pip_package_installed
+    try:
+        from PIL import Image as PILImage  # noqa: F401 — import verifies availability
+
+        _logger.info("→ PIL/Pillow imported successfully")
     except ImportError:
         if not is_package_installed("pillow") and not is_package_installed("PIL"):
             packages_to_install.append("pillow")
         else:
-            print("→ pillow is installed but import failed")
+            _logger.info("→ pillow is installed but import failed")
 
     try:
         from transformers import (
             CLIPProcessor as CLIP,  # noqa: F401 — import verifies package availability
         )
 
-        print("→ transformers imported successfully")
+        _logger.info("→ transformers imported successfully")
     except ImportError:
         if not is_package_installed("transformers"):
             packages_to_install.append("transformers")
         else:
-            print(
+            _logger.info(
                 "→ transformers is installed but import failed (may be incompatible with torch version)"
             )
 
@@ -201,57 +179,58 @@ def try_install_clip_dependencies():
     try:
         import tqdm  # noqa: F401 — import verifies package availability
 
-        print("→ tqdm imported successfully")
+        _logger.info("→ tqdm imported successfully")
     except ImportError:
         if not is_package_installed("tqdm"):
-            print("→ tqdm not found, adding to install list")
+            _logger.info("→ tqdm not found, adding to install list")
             packages_to_install.append("tqdm")
         else:
-            print("→ tqdm is installed but import failed")
+            _logger.info("→ tqdm is installed but import failed")
             # Reinstall tqdm if it's broken
             packages_to_install.append("tqdm")
 
-    if not packages_to_install:
-        print("→ All packages are available, retrying import...")
-    else:
-        print(f"→ Installing: {', '.join(packages_to_install)}")
 
-        import subprocess
+def _pip_install_packages(packages_to_install: List[str]) -> bool:
+    """Install each package with pip. Returns False (and records why) on failure."""
+    global _installation_error
 
-        try:
-            for package in packages_to_install:
-                print(f"  Installing {package}...")
-                result = subprocess.run(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        package,
-                        "--no-warn-script-location",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
-                )
-                if result.returncode == 0:
-                    print(f"  ✓ {package} installed successfully")
-                else:
-                    error_msg = f"Failed to install {package}: {result.stderr}"
-                    print(f"  ✗ {error_msg}")
-                    _installation_error = error_msg
-                    _logger.debug("CLIP install error: %r", _installation_error)
-                    return False
-        except Exception as install_error:  # noqa: BLE001 - install failure is recorded and backed off
-            error_msg = f"Installation failed: {install_error}"
-            print(f"✗ {error_msg}")
-            _installation_error = error_msg
-            _logger.debug("CLIP install error: %r", _installation_error)
-            return False
+    import subprocess
 
-    # Retry imports after installation (or if packages were already installed)
-    print("→ Attempting to import dependencies...")
+    try:
+        for package in packages_to_install:
+            _logger.info("  Installing %s...", package)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    package,
+                    "--no-warn-script-location",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode == 0:
+                _logger.info("  ✓ %s installed successfully", package)
+            else:
+                error_msg = f"Failed to install {package}: {result.stderr}"
+                _logger.info("  ✗ %s", error_msg)
+                _installation_error = error_msg
+                _logger.debug("CLIP install error: %r", _installation_error)
+                return False
+    except Exception as install_error:  # noqa: BLE001 - install failure is recorded and backed off
+        error_msg = f"Installation failed: {install_error}"
+        _logger.info("✗ %s", error_msg)
+        _installation_error = error_msg
+        _logger.debug("CLIP install error: %r", _installation_error)
+        return False
+    return True
 
+
+def _reimport_clip_modules():
+    """Re-import the CLIP dependencies, returning the modules and any errors."""
     ort_module = None
     PILImage = None
     CLIPProc = None
@@ -264,40 +243,110 @@ def try_install_clip_dependencies():
     try:
         import onnxruntime as ort_module
 
-        print("  ✓ onnxruntime imported")
+        _logger.info("  ✓ onnxruntime imported")
     except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"onnxruntime: {pkg_err}")
-        print(f"  ✗ onnxruntime import failed: {pkg_err}")
+        _logger.info("  ✗ onnxruntime import failed: %s", pkg_err)
 
     try:
         from PIL import Image as PILImage
 
-        print("  ✓ PIL imported")
+        _logger.info("  ✓ PIL imported")
     except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"PIL: {pkg_err}")
-        print(f"  ✗ PIL import failed: {pkg_err}")
+        _logger.info("  ✗ PIL import failed: %s", pkg_err)
 
     try:
         from transformers import CLIPProcessor as CLIPProc
 
-        print("  ✓ transformers imported")
+        _logger.info("  ✓ transformers imported")
     except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"transformers: {pkg_err}")
-        print(f"  ✗ transformers import failed: {pkg_err}")
+        _logger.info("  ✗ transformers import failed: %s", pkg_err)
 
     try:
         from importlib.resources import as_file as ir_as_file_module
         from importlib.resources import files as ir_files_module
 
-        print("  ✓ importlib.resources imported")
+        _logger.info("  ✓ importlib.resources imported")
     except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"importlib.resources: {pkg_err}")
-        print(f"  ✗ importlib.resources import failed: {pkg_err}")
+        _logger.info("  ✗ importlib.resources import failed: %s", pkg_err)
+
+    return ort_module, PILImage, CLIPProc, ir_files_module, ir_as_file_module, import_errors
+
+
+def _publish_clip_modules(ort_module, PILImage, CLIPProc, ir_files_module, ir_as_file_module):
+    """Bind the imported modules onto the module globals the rest of the file reads."""
+    globals()["ort"] = ort_module
+    globals()["Image"] = PILImage
+    globals()["CLIPProcessor"] = CLIPProc
+    globals()["ir_files"] = ir_files_module
+    globals()["ir_as_file"] = ir_as_file_module
+
+
+def _previous_attempt_result() -> bool:
+    """Report the outcome of the one installation attempt this process already made."""
+    if _installation_successful:
+        _logger.info("✓ CLIP dependencies already available (from previous installation)")
+        return True
+    _logger.info("✗ CLIP dependencies installation already failed previously")
+    if _installation_error:
+        _logger.info("  Previous error: %s", _installation_error)
+    _logger.info("→ Skipping repeated installation attempt")
+    return False
+
+
+def try_install_clip_dependencies():
+    """
+    Attempt to install missing CLIP dependencies.
+    Only called when ClipProcessor is actually instantiated (lazy installation).
+    Uses singleton pattern to ensure installation only happens ONCE per session.
+    Returns True if successful, False otherwise.
+    """
+    global _installation_attempted, _installation_successful, _installation_error
+
+    # Check if we already attempted installation
+    if _installation_attempted:
+        return _previous_attempt_result()
+
+    # Mark that we're attempting installation (prevents concurrent attempts)
+    _installation_attempted = True
+
+    _logger.info("→ Color detection is being used but dependencies are missing")
+    _logger.info("→ Attempting ONE-TIME auto-installation of missing packages...")
+
+    is_jetson = _detect_platform()
+
+    packages_to_install: List[str] = []
+
+    # Check which packages are missing
+    _missing_onnxruntime(is_jetson, packages_to_install)
+    _missing_support_packages(packages_to_install)
+
+    if not packages_to_install:
+        _logger.info("→ All packages are available, retrying import...")
+    else:
+        _logger.info("→ Installing: %s", ", ".join(packages_to_install))
+        if not _pip_install_packages(packages_to_install):
+            return False
+
+    # Retry imports after installation (or if packages were already installed)
+    _logger.info("→ Attempting to import dependencies...")
+
+    (
+        ort_module,
+        PILImage,
+        CLIPProc,
+        ir_files_module,
+        ir_as_file_module,
+        import_errors,
+    ) = _reimport_clip_modules()
 
     # Check if we have at least the critical dependencies
     if ort_module is None or PILImage is None or CLIPProc is None:
         error_msg = f"Critical dependencies missing: {'; '.join(import_errors)}"
-        print(f"✗ {error_msg}")
+        _logger.info("✗ %s", error_msg)
         _installation_error = error_msg
         _installation_successful = False
         _logger.debug(
@@ -309,13 +358,9 @@ def try_install_clip_dependencies():
         return False
 
     # Update global variables with successfully imported modules
-    globals()["ort"] = ort_module
-    globals()["Image"] = PILImage
-    globals()["CLIPProcessor"] = CLIPProc
-    globals()["ir_files"] = ir_files_module
-    globals()["ir_as_file"] = ir_as_file_module
+    _publish_clip_modules(ort_module, PILImage, CLIPProc, ir_files_module, ir_as_file_module)
 
-    print("✓ CLIP dependencies imported successfully!")
+    _logger.info("✓ CLIP dependencies imported successfully!")
     _installation_successful = True
     _installation_error = None
     _logger.debug(
@@ -338,7 +383,7 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
         )
 
     try:
-        print(f"Loading model from checkpoint: {checkpoint_url}")
+        _logger.info("Loading model from checkpoint: %s", checkpoint_url)
 
         # Download the checkpoint with streaming
         response = requests.get(checkpoint_url, stream=True, timeout=(30, 200))
@@ -364,7 +409,7 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
 
         # Resolve providers
         available = ort.get_available_providers()
-        print("Available providers:", available)
+        _logger.info("Available providers: %s", available)
 
         # Use provided providers or default to CUDA if available, else use first available
         if providers is None:
@@ -372,10 +417,10 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
                 use_providers = ["CUDAExecutionProvider"]
             elif available:
                 use_providers = [available[0]]
-                print(f"CUDA not available, using: {use_providers[0]}")
+                _logger.info("CUDA not available, using: %s", use_providers[0])
             else:
                 use_providers = ["CPUExecutionProvider"]
-                print("No providers detected, using CPUExecutionProvider")
+                _logger.info("No providers detected, using CPUExecutionProvider")
         else:
             use_providers = providers
 
@@ -383,10 +428,12 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
         for provider in use_providers:
             provider_name = provider[0] if isinstance(provider, tuple) else provider
             if provider_name not in available:
-                print(
-                    f"Warning: Requested provider '{provider_name}' not in available providers: {available}"
+                _logger.info(
+                    "Warning: Requested provider '%s' not in available providers: %s",
+                    provider_name,
+                    available,
                 )
-                print("Will attempt to use it anyway, may fall back to available providers")
+                _logger.info("Will attempt to use it anyway, may fall back to available providers")
 
         # Load ONNX model from bytes with enforced providers
         model = ort.InferenceSession(
@@ -395,12 +442,12 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
             providers=use_providers,
         )
 
-        print("Session providers:", model.get_providers())
-        print("Model loaded successfully from checkpoint (in-memory)")
+        _logger.info("Session providers: %s", model.get_providers())
+        _logger.info("Model loaded successfully from checkpoint (in-memory)")
         return model
 
     except Exception as load_err:  # noqa: BLE001 - load failure is reported to the caller
-        print(f"Error loading model from checkpoint: {load_err}")
+        _logger.info("Error loading model from checkpoint: %s", load_err)
         return None
 
 
@@ -413,8 +460,9 @@ def _load_clip_text_processor(processor_path: str):
             return CLIPProcessor.from_pretrained(processor_path, local_files_only=True)  # nosec B615
         return CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")  # nosec B615
     except Exception as processor_err:  # noqa: BLE001 - local processor assets are optional
-        print(
-            f"Falling back to remote CLIPProcessor due to error loading local assets: {processor_err}"
+        _logger.info(
+            "Falling back to remote CLIPProcessor due to error loading local assets: %s",
+            processor_err,
         )
         try:
             return CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")  # nosec B615
@@ -502,7 +550,7 @@ class ClipProcessor:
         _raise_if_init_backing_off()
         # Check if required dependencies are available, try auto-install if not
         if ort is None or CLIPProcessor is None or Image is None:
-            print("⚠ Color detection dependencies missing, attempting auto-installation...")
+            _logger.info("⚠ Color detection dependencies missing, attempting auto-installation...")
 
             # Try to auto-install missing dependencies (lazy installation)
             if not try_install_clip_dependencies():
@@ -521,7 +569,9 @@ class ClipProcessor:
                     _record_init_failure(deps_err)
                 raise deps_err
 
-            print("✓ Auto-installation successful, continuing with ClipProcessor initialization")
+            _logger.info(
+                "✓ Auto-installation successful, continuing with ClipProcessor initialization"
+            )
 
         # self.color_category: List[str] = ["black", "white", "yellow", "gray", "red", "blue", "light blue",
         # "green", "brown"]
@@ -540,22 +590,21 @@ class ClipProcessor:
         self.text_url: str = text_model_path
         # Resolve processor_dir relative to this module, not CWD
         self.processor_path: str = self._resolve_processor_dir(processor_dir)
-        print("PROCESSOR PATH->", self.processor_path)
+        _logger.info("PROCESSOR PATH-> %s", self.processor_path)
         cwd = os.getcwd()
-        print("Current working directory:", cwd)
+        _logger.info("Current working directory: %s", cwd)
 
         # Determine and enforce providers (prefer CUDA only)
         try:
             available = ort.get_available_providers()
         except Exception:  # noqa: BLE001 - provider query failure falls back
-            print(
+            _logger.info(
                 "Error getting ONNX providers - this should not happen if dependencies check passed"
             )
             available = []
-        print(
-            "True OG Available ONNX providers:",
+        _logger.info(
+            "True OG Available ONNX providers: %s providers(if any): %s",
             available,
-            "providers(if any):",
             providers,
         )
 
@@ -564,19 +613,21 @@ class ClipProcessor:
                 self.providers = ["CUDAExecutionProvider"]
             else:
                 # CUDA not available, fall back to CPU or other available providers
-                print("CUDAExecutionProvider not available; falling back to available providers")
+                _logger.info(
+                    "CUDAExecutionProvider not available; falling back to available providers"
+                )
                 if available:
                     self.providers = [available[0]]  # Use first available provider
-                    print(f"Using provider: {self.providers[0]}")
+                    _logger.info("Using provider: %s", self.providers[0])
                 else:
                     self.providers = ["CPUExecutionProvider"]  # Ultimate fallback
-                    print("No providers detected, using CPUExecutionProvider")
+                    _logger.info("No providers detected, using CPUExecutionProvider")
         else:
             self.providers = providers
 
         # Thread-safety to serialize processing
         self._lock = threading.Lock()
-        print("Curr Providersss: ", self.providers)
+        _logger.info("Curr Providersss:  %s", self.providers)
 
         models = _get_shared_models(
             self.image_url, self.text_url, self.processor_path, self.providers, self.color_category
@@ -649,17 +700,17 @@ class ClipProcessor:
         # Serialize processing to avoid concurrent access and potential frame drops
         _ = (_stream_info, _zones)
         with self._lock:
-            print("=== process_color_in_frame called ===")
-            print(f"Number of detections: {len(detections) if detections else 0}")
-            print(f"Input bytes length: {len(input_bytes) if input_bytes else 0}")
+            _logger.info("=== process_color_in_frame called ===")
+            _logger.info("Number of detections: %s", len(detections) if detections else 0)
+            _logger.info("Input bytes length: %s", len(input_bytes) if input_bytes else 0)
 
             boxes = []
             tracked_ids: List[int] = []
-            print(detections)
+            _logger.info("%s", detections)
             self.frame_idx += 1
 
             if not detections:
-                print(f"Frame {self.frame_idx}: No detections provided")
+                _logger.info("Frame %s: No detections provided", self.frame_idx)
                 self.processed_frames += 1
                 return {}
 
@@ -667,7 +718,7 @@ class ClipProcessor:
             image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)  # decode image
 
             if image is None:
-                print(f"Frame {self.frame_idx}: Failed to decode image")
+                _logger.info("Frame %s: Failed to decode image", self.frame_idx)
                 self.processed_frames += 1
                 return {}
 
@@ -686,7 +737,7 @@ class ClipProcessor:
                     tracked_ids.append(tid)
 
             if not boxes:
-                print(f"Frame {self.frame_idx}: No cars in zone")
+                _logger.info("Frame %s: No cars in zone", self.frame_idx)
                 self.processed_frames += 1
                 return {}
 
@@ -747,7 +798,7 @@ class ClipProcessor:
                         "zone_name": zone_name,
                         "last_classified_frame": self.frame_idx,
                     }
-            print(record)
+            _logger.info("%s", record)
 
             return record
 
@@ -758,11 +809,16 @@ class ClipProcessor:
         # crop safely - convert to integers
         y1c, y2c = max(0, int(y1)), min(frame.shape[0], int(y2))
         x1c, x2c = max(0, int(x1)), min(frame.shape[1], int(x2))
-        print(
-            f"Cropping bbox: x1c={x1c}, y1c={y1c}, x2c={x2c}, y2c={y2c}, frame_shape={frame.shape}"
+        _logger.info(
+            "Cropping bbox: x1c=%s, y1c=%s, x2c=%s, y2c=%s, frame_shape=%s",
+            x1c,
+            y1c,
+            x2c,
+            y2c,
+            frame.shape,
         )
         if y2c - y1c <= 0 or x2c - x1c <= 0:
-            print(f"Skipping invalid crop: dimensions {x2c - x1c}x{y2c - y1c}")
+            _logger.info("Skipping invalid crop: dimensions %sx%s", x2c - x1c, y2c - y1c)
             return None
         return cv2.cvtColor(frame[y1c:y2c, x1c:x2c], cv2.COLOR_BGR2RGB)
 
@@ -773,20 +829,20 @@ class ClipProcessor:
             if Image is not None and isinstance(crop, Image.Image):
                 crop = np.array(crop)
             if not isinstance(crop, np.ndarray):
-                print(f"Skipping crop {i}: not a numpy array ({type(crop)})")
+                _logger.info("Skipping crop %s: not a numpy array (%s)", i, type(crop))
                 continue
             if crop.size == 0:
-                print(f"Skipping crop {i}: empty array")
+                _logger.info("Skipping crop %s: empty array", i)
                 continue
 
             try:
                 crop_preprocessed = preprocess_crop_paper_vcr(crop)
                 valid_crops.append(crop_preprocessed)
             except Exception as crop_err:  # noqa: BLE001 - a bad crop is skipped, not fatal
-                print(f"Skipping crop {i}: resize failed ({crop_err})")
+                _logger.info("Skipping crop %s: resize failed (%s)", i, crop_err)
 
         if not valid_crops:
-            print("No valid crops to process")
+            _logger.info("No valid crops to process")
             return np.zeros((0, self.text_embeds.shape[-1]), dtype=np.float32)
 
         # Convert all valid crops at once

@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from matrx_connect.context.app_context import clear_app_context, set_app_context
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.tools.agent_projection import (
     AUTO_INPUT_DESCRIPTION,
@@ -37,7 +38,9 @@ from matrx_ai.tools.specs import (
 )
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_reasoning_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...

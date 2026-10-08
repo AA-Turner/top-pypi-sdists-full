@@ -25,7 +25,11 @@ def mixed_archive(*, clear_member=b"ordinary text"):
 
 
 @pytest.mark.parametrize(
-    "raw", [b"\xff\x00\x80", b"PK\x03\x04broken", b"\x1f\x8bbroken", mixed_archive()]
+    "raw",
+    [b"\xff\x00\x80", b"PK\x03\x04broken", b"\x1f\x8bbroken", mixed_archive()],
+    # Named: the archive's bytes hold the clock, so a byte id differs between
+    # xdist workers that collect on either side of a 2-second zip tick.
+    ids=["binary", "broken-zip", "broken-gzip", "encrypted-member-zip"],
 )
 def test_uninspectable_format_returns_loud_warning_without_changing_bytes(raw):
     result = inspect_bytes(raw)

@@ -26,12 +26,12 @@ _SHORT_TOOL_NAMES = frozenset(
     {
         "context",
         "data",
-        "dataset",
         "document",
         "note",
         "pick_list",
         "skill",
         "sql",
+        "table",
         "task",
         "workbook",
     }

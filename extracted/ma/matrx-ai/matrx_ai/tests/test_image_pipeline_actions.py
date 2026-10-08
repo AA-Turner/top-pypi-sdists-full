@@ -70,7 +70,17 @@ async def test_concept_step_runs_on_its_mandate_holder(monkeypatch):
         {
             module.IMAGE_CONCEPT_MANDATE: {
                 "model": "holder-model",
-                "messages": [{"role": "system", "content": "HOLDER CONCEPT RULES"}],
+                "messages": [
+                    {"role": "system", "content": "HOLDER CONCEPT RULES"},
+                    {
+                        "role": "user",
+                        "content": "Choose {{concept_count}} concepts for: {{topic_text}}\nAudience: {{audience_text}}",
+                    },
+                ],
+                "variables": [
+                    {"name": n, "defaultValue": ""}
+                    for n in ("concept_count", "topic_text", "audience_text", "style_hint_text")
+                ],
             }
         },
     )
@@ -86,6 +96,48 @@ async def test_concept_step_runs_on_its_mandate_holder(monkeypatch):
     assert captured["model"] == "holder-model"
     assert "HOLDER CONCEPT RULES" in captured["system"]
     assert captured["metadata"]["mandate_key"] == module.IMAGE_CONCEPT_MANDATE
+    # What the provider is sent is the turn the HOLDER authors, the values applied.
+    assert captured["user"] == "Choose 3 concepts for: cells\nAudience: "
+
+
+async def test_prompt_write_sends_the_turn_its_holder_authors(monkeypatch):
+    from matrx_ai.graph_nodes import image_pipeline_actions as module
+    from matrx_ai.testing.holders import install_inline_holders
+
+    install_inline_holders(
+        monkeypatch,
+        {
+            module.IMAGE_PROMPT_WRITE_MANDATE: {
+                "model": "holder-model",
+                "messages": [
+                    {"role": "system", "content": "WRITER"},
+                    {
+                        "role": "user",
+                        "content": "Write {{prompt_count}} for {{concept_name}} ({{concept_description}}); style {{style_guidance}}; ratio {{aspect_ratio_text}}",
+                    },
+                ],
+                "variables": [
+                    {"name": n, "defaultValue": ""}
+                    for n in ("prompt_count", "concept_name", "concept_description", "style_guidance", "aspect_ratio_text")
+                ],
+            }
+        },
+    )
+    captured = {}
+
+    async def fake_structured(**kwargs):
+        captured.update(kwargs)
+        return module._PromptWriteLlmOutput(prompts=[ImagePromptSpec(prompt="p")])
+
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", fake_structured)
+    inputs = PromptWriteInput(
+        concept=ImageConcept(name="Cell", description="A cell", suggested_style="flat"),
+        style_preset="watercolor",
+        aspect_ratio="16:9",
+    )
+    await module.image_prompt_write(None, inputs)  # type: ignore[arg-type]
+    assert captured["user"].startswith("Write 1 for Cell (A cell); style flat, loose watercolor")
+    assert captured["user"].endswith("ratio 16:9")
 
 
 def test_concept_output_holds_list():
@@ -192,7 +244,16 @@ async def test_qc_uses_multimodal_funnel_and_friendly_model(monkeypatch):
 
     install_inline_holders(
         monkeypatch,
-        {module.IMAGE_QC_JUDGE_MANDATE: {"model": "holder-model", "messages": [{"role": "system", "content": "QC"}]}},
+        {
+            module.IMAGE_QC_JUDGE_MANDATE: {
+                "model": "holder-model",
+                "messages": [
+                    {"role": "system", "content": "QC"},
+                    {"role": "user", "content": "Judge against:\n{{rubric_text}}"},
+                ],
+                "variables": [{"name": "rubric_text", "defaultValue": ""}],
+            }
+        },
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_messages_to_pydantic", fake_structured)
@@ -211,4 +272,9 @@ async def test_qc_uses_multimodal_funnel_and_friendly_model(monkeypatch):
         "type": "image",
         "base64_data": "aGVsbG8=",
         "mime_type": "image/png",
+    }
+    # The image rides beside the text the Holder authors, in one user turn.
+    assert captured["messages"][0]["content"][1] == {
+        "type": "text",
+        "text": "Judge against:\nCriterion: image is well-composed and on-topic.",
     }

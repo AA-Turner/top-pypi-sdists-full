@@ -92,28 +92,28 @@ class WorkspaceCaller:
     Attributes:
         email: The caller's email.
         user_id: The caller's user uuid.
-        identity_id: The caller's member uuid in the owning organization.
+        organization_membership_id: The caller's member uuid in the owning organization.
         organization_id: The owning organization's uuid.
         organization_role: The caller's role in that organization.
-        role: The caller's role in this workspace.
+        workspace_role: The caller's role in this workspace.
     """
 
     email: str
     user_id: str
-    identity_id: str
+    organization_membership_id: str
     organization_id: str
     organization_role: str
-    role: str
+    workspace_role: str
 
     @staticmethod
     def _from_payload(_ctx: _Ctx[Any], payload: WorkspaceMeResponse) -> WorkspaceCaller:
         return WorkspaceCaller(
             email=payload.email,
             user_id=str(payload.user_id),
-            identity_id=str(payload.organization_identity_id),
+            organization_membership_id=str(payload.organization_membership_id),
             organization_id=str(payload.organization.id),
             organization_role=payload.organization_role,
-            role=payload.workspace_role,
+            workspace_role=payload.workspace_role,
         )
 
 
@@ -127,11 +127,13 @@ class Workspace(Entity[M]):
         description: Free-text description, or ``None``.
         organization_id: Owning organization's uuid.
         dataplane_id: Data plane the workspace is assigned to.
-        playground: Whether this is the caller's auto-created personal
+        is_playground: Whether this is the caller's auto-created personal
             workspace. A playground is single-member and cannot be renamed.
         predefined_profiles: Profile names the platform offers for this workspace,
             keyed by access level. Empty when it declares none.
         created_at: When the workspace was created.
+        archived_at: When the workspace was archived, or ``None`` while it is
+            live. An archived workspace runs nothing and refuses changes.
     """
 
     id: str
@@ -139,9 +141,10 @@ class Workspace(Entity[M]):
     description: str | None
     organization_id: str
     dataplane_id: str
-    playground: bool
+    is_playground: bool
     predefined_profiles: Mapping[str, str]
     created_at: datetime
+    archived_at: datetime | None
 
     _identity = ("id", "name")
     _kind = EntityKind.WORKSPACE
@@ -176,7 +179,7 @@ class Workspace(Entity[M]):
             A fresh snapshot; awaitable in async mode.
 
         Raises:
-            BadRequest: The workspace is a playground (see :attr:`playground`),
+            BadRequest: The workspace is a playground (see :attr:`is_playground`),
                 which cannot be updated.
             NotAuthorized: The caller may not manage this workspace.
             NotFound: The workspace no longer exists.
@@ -186,6 +189,55 @@ class Workspace(Entity[M]):
             lambda t: t.update_workspace(
                 workspace_id=workspace_id, name=name, description=description
             ),
+            Workspace._from_payload,
+        )
+
+    @overload
+    def archive(self: Workspace[Sync]) -> Workspace[Sync]: ...
+
+    @overload
+    def archive(self: Workspace[Async]) -> Awaitable[Workspace[Async]]: ...
+
+    def archive(self) -> Workspace[Any] | Awaitable[Workspace[Any]]:
+        """Freeze the workspace: its schedules stop and it refuses changes.
+
+        Returns:
+            A fresh snapshot with ``archived_at`` set; awaitable in async mode.
+
+        Raises:
+            BadRequest: The workspace is a playground (see :attr:`is_playground`),
+                which cannot be archived.
+            Conflict: The workspace is already archived, or a run in it has
+                not finished yet.
+            NotAuthorized: The caller may not manage this workspace.
+            NotFound: The workspace no longer exists.
+        """
+        workspace_id = self.id
+        return self._ctx.run(
+            lambda t: t.archive_workspace(workspace_id=workspace_id),
+            Workspace._from_payload,
+        )
+
+    @overload
+    def unarchive(self: Workspace[Sync]) -> Workspace[Sync]: ...
+
+    @overload
+    def unarchive(self: Workspace[Async]) -> Awaitable[Workspace[Async]]: ...
+
+    def unarchive(self) -> Workspace[Any] | Awaitable[Workspace[Any]]:
+        """Reopen an archived workspace and restart its schedules.
+
+        Returns:
+            A fresh snapshot with ``archived_at`` cleared; awaitable in async mode.
+
+        Raises:
+            Conflict: The workspace is not archived.
+            NotAuthorized: The caller may not manage this workspace.
+            NotFound: The workspace no longer exists.
+        """
+        workspace_id = self.id
+        return self._ctx.run(
+            lambda t: t.unarchive_workspace(workspace_id=workspace_id),
             Workspace._from_payload,
         )
 
@@ -247,7 +299,7 @@ class Workspace(Entity[M]):
         """
         workspace_id = self.id
         return self._ctx.run(
-            lambda t: t.workspace_me(workspace_id=workspace_id),
+            lambda t: t.get_workspace_me(workspace_id=workspace_id),
             WorkspaceCaller._from_payload,
         )
 
@@ -336,12 +388,17 @@ class Workspace(Entity[M]):
                 description=payload.description,
                 organization_id=str(payload.organization_id),
                 dataplane_id=payload.dataplane_id,
-                playground=bool(payload.is_playground),
+                is_playground=bool(payload.is_playground),
                 predefined_profiles=dict(
                     getattr(payload.predefined_profiles, "additional_properties", {})
                     or {}
                 ),
-                created_at=payload.date_added,
+                created_at=payload.created_at,
+                archived_at=(
+                    payload.archived_at
+                    if isinstance(payload.archived_at, datetime)
+                    else None
+                ),
             ),
         )
 

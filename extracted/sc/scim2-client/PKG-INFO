@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scim2-client
-Version: 0.11.2
+Version: 0.12.0
 Summary: Pythonically build SCIM requests and parse SCIM responses
 Keywords: scim,scim2,provisioning,rfc7643,rfc7644,httpx2,api
 Author: Yaal Coop
@@ -253,7 +253,7 @@ It allows users and groups creations, modifications and deletions to be synchron
 - **Server Discovery**: Automatic retrieval of `ServiceProviderConfig`, `ResourceTypes` and `Schemas`
 - **Search & Filtering**: Support for SCIM filters, sorting, pagination and attribute selection
 - **Sync & Async**: Both synchronous and asynchronous clients available
-- **Multiple HTTP Engines**: Built-in support for [httpx2](https://github.com/pydantic/httpx2) (sync/async) and [werkzeug](https://werkzeug.palletsprojects.com/) (testing). Adaptable to any network engine.
+- **Multiple HTTP Engines**: Built-in support for [httpx2](https://github.com/pydantic/httpx2) (sync/async) and in-process WSGI and ASGI applications (testing), with no dependency. Adaptable to any network engine.
 - **Request & Response Validation**: Automatic payload validation against SCIM schemas
 - **Error Handling**: Structured exceptions for network, request and response errors
 
@@ -315,7 +315,7 @@ except SCIMException as exc:
   tasks.
 - [Explanation](https://scim2-client.readthedocs.io/en/latest/explanation/index.html) covers what
   the client checks and what it knows about a server.
-- [Reference](https://scim2-client.readthedocs.io/en/latest/reference.html) lists the public API.
+- [Reference](https://scim2-client.readthedocs.io/en/latest/reference/index.html) lists the public API.
 
 ## Contributing
 

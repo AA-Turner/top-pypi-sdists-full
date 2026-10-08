@@ -31,13 +31,17 @@ dependencies=[
     "importlib_metadata",
     "python-dateutil",
     "semver < 4.0.0",
-    "yggdrasil-engine >= 1.3.0",
+    "yggdrasil-engine >= 2.0.0",
     "launchdarkly-eventsource",
 ]
 
+[project.optional-dependencies]
+# 3.9 is the floor: it introduced InvalidUrlClientError/NonHttpUrlClientError.
+async = ["aiohttp >= 3.9"]
+
 [project.urls]
 Homepage = "https://github.com/Unleash/unleash-python-sdk"
-Documentation = "https://docs.getunleash.io/unleash-python-sdk"
+Documentation = "https://docs.getunleash.io/reference/sdks/python"
 Changelog = "https://github.com/unleash/unleash-python-sdk/blob/main/CHANGELOG.md"
 Repository = "https://github.com/Unleash/unleash-python-sdk"
 Issues = "https://github.com/Unleash/unleash-python-sdk/issues"
@@ -61,6 +65,7 @@ addopts= """
     --disable-warnings
 """
 log_file_level="INFO"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 lint.select = [

@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Literal
 
-import httpx
+import httpx2
 
 from trajectory._base_client import SyncPage, make_request_options, path_template
 from trajectory._resource import APIResource
@@ -34,7 +34,7 @@ class Secrets(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[Secret]:
     """List User Secrets
 
@@ -76,7 +76,7 @@ class Secrets(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CreateSecretResponse:
     """Create Secret
 
@@ -121,7 +121,7 @@ class Secrets(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> RevokeSecretResponse:
     """Revoke Secret
 

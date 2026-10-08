@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 AOT-biomaps acoustic tools.
 
@@ -22,7 +24,6 @@ Orchestration order (fused pipeline):
   sensor_data_to_grid -> calculate_envelope_squared (time last, full rate)
   -> compute_target_sizes -> resample_field (time -> z -> x) -> to_pipeline_layout
 """
-
 import os
 import numpy as np
 from scipy.io import loadmat as scipy_loadmat

@@ -24,6 +24,9 @@ MODEL_TOKENIZER_ALIASES: dict[str, str] = {
     "moonshotai/Kimi-K3": "moonshotai/Kimi-K3",
     "nvidia/GLM-5.1-NVFP4": "nvidia/GLM-5.1-NVFP4",
     "nvidia/GLM-5.2-NVFP4": "nvidia/GLM-5.2-NVFP4",
+    # Maps to itself so dedicated-deployment suffixes resolve here rather than
+    # being passed to the hub as a repo that does not exist.
+    "deepseek-ai/DeepSeek-V4.1-Flash": "deepseek-ai/DeepSeek-V4.1-Flash",
 }
 
 

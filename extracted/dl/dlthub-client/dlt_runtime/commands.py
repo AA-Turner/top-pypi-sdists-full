@@ -177,9 +177,9 @@ class LogoutCommand(SupportsCliCommand):
 
 class RunCommand(SupportsCliCommand):
     command = "run"
-    help_string = "Deploy code/config and run a script (alias for `dlthub job run`)"
+    help_string = "Deploy code/config and run a batch job (alias for `dlthub job run`)"
     description = (
-        "Deploy current workspace and run a batch script remotely. Use -f/--follow"
+        "Deploy current workspace and run a batch job remotely. Use -f/--follow"
         " to tail logs until completion. A plain `.py` script may also be passed:"
         " if it exposes no jobs it is deployed and executed remotely as a regular"
         " Python script. Alias for `dlthub job run`."
@@ -260,7 +260,7 @@ class JobRunCommand(RunCommand):
     parent: Optional[str] = "job"
     help_string = "Deploy code/config and run a batch job"
     description = (
-        "Deploy current workspace and run a batch script remotely."
+        "Deploy current workspace and run a batch job remotely."
         " Use -f/--follow to tail logs until completion."
         " A plain `.py` script may also be passed: if it exposes no jobs it is"
         " deployed and executed remotely as a regular Python script."
@@ -1009,6 +1009,35 @@ class JobCommand(SupportsCliCommand):
             help="Run number (defaults to latest; not allowed with a run id)",
         )
 
+        runs_result_p = runs_sub.add_parser(
+            "result",
+            help="Show the job result a run declared (from telemetry)",
+            description=(
+                "Display the structured job result the run delivered: its type,"
+                " job, engine version, objects and payload."
+            ),
+        )
+        runs_result_p.add_argument(
+            "selector_or_job_name",
+            help="Run id (UUID), or job name / script path / selector",
+        )
+        runs_result_p.add_argument(
+            "run_number",
+            nargs="?",
+            type=int,
+            help="Run number (defaults to latest; not allowed with a run id)",
+        )
+        runs_result_p.add_argument(
+            "--json",
+            action="store_true",
+            help="Print the job result as JSON",
+        )
+        runs_result_p.add_argument(
+            "--only-payload",
+            action="store_true",
+            help="Print only the result payload, as JSON",
+        )
+
         runs_logs_p = runs_sub.add_parser(
             "logs",
             help="Show logs for the latest or selected job run",
@@ -1139,6 +1168,13 @@ class JobCommand(SupportsCliCommand):
                     )
                 elif op2 == "info":
                     cmd.get_job_run_info(args.selector_or_job_name, args.run_number)
+                elif op2 == "result":
+                    cmd.get_job_run_result(
+                        args.selector_or_job_name,
+                        args.run_number,
+                        as_json=bool(args.json),
+                        only_payload=bool(args.only_payload),
+                    )
                 elif op2 == "logs":
                     cmd.job_run_logs(
                         args.selector_or_job_name,

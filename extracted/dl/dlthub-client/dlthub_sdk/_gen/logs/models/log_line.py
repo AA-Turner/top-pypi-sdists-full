@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
+
+from ..models.log_io_stream import LogIoStream
+from ..models.log_source import LogSource
+from ..models.run_signal_stage import RunSignalStage
 
 T = TypeVar("T", bound="LogLine")
 
@@ -16,35 +20,56 @@ class LogLine:
     """
     Attributes:
         content (str): Contents of the log message
+        io_stream (LogIoStream | str): Stream the line was written to
         line_num (int): Line number of the log
-        phase (str): The phase of execution this log line belongs to. Known values: program, setup, runner, provider.
-            Producers may emit additional values; consumers should treat unknown phases as user-visible.
         reported_at (datetime.datetime): datetime with the constraint that the value must have timezone info
+        source (LogSource | str): Who emitted the line
+        stage (RunSignalStage | str): Stage of the run the line belongs to
     """
 
     content: str
+    io_stream: LogIoStream | str
     line_num: int
-    phase: str
     reported_at: datetime.datetime
+    source: LogSource | str
+    stage: RunSignalStage | str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         content = self.content
 
+        io_stream: str
+        if isinstance(self.io_stream, LogIoStream):
+            io_stream = self.io_stream.value
+        else:
+            io_stream = self.io_stream
+
         line_num = self.line_num
 
-        phase = self.phase
-
         reported_at = self.reported_at.isoformat()
+
+        source: str
+        if isinstance(self.source, LogSource):
+            source = self.source.value
+        else:
+            source = self.source
+
+        stage: str
+        if isinstance(self.stage, RunSignalStage):
+            stage = self.stage.value
+        else:
+            stage = self.stage
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "content": content,
+                "io_stream": io_stream,
                 "line_num": line_num,
-                "phase": phase,
                 "reported_at": reported_at,
+                "source": source,
+                "stage": stage,
             }
         )
 
@@ -55,17 +80,56 @@ class LogLine:
         d = dict(src_dict)
         content = d.pop("content")
 
-        line_num = d.pop("line_num")
+        def _parse_io_stream(data: object) -> LogIoStream | str:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                io_stream_type_0 = LogIoStream(data)
 
-        phase = d.pop("phase")
+                return io_stream_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(LogIoStream | str, data)
+
+        io_stream = _parse_io_stream(d.pop("io_stream"))
+
+        line_num = d.pop("line_num")
 
         reported_at = isoparse(d.pop("reported_at"))
 
+        def _parse_source(data: object) -> LogSource | str:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                source_type_0 = LogSource(data)
+
+                return source_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(LogSource | str, data)
+
+        source = _parse_source(d.pop("source"))
+
+        def _parse_stage(data: object) -> RunSignalStage | str:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                stage_type_0 = RunSignalStage(data)
+
+                return stage_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(RunSignalStage | str, data)
+
+        stage = _parse_stage(d.pop("stage"))
+
         log_line = cls(
             content=content,
+            io_stream=io_stream,
             line_num=line_num,
-            phase=phase,
             reported_at=reported_at,
+            source=source,
+            stage=stage,
         )
 
         log_line.additional_properties = d

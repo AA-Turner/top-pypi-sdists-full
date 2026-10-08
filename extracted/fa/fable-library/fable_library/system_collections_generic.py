@@ -6,13 +6,13 @@ from typing import Any, cast
 from .array_ import Array, copy_to, fill, initialize, zero_create
 from .bases import EnumerableBase
 from .core import FSharpRef, int32, op_division_float64, op_remainder_int32
+from .exception_bases import ExceptionBase
 from .global_ import SR_Arg_KeyNotFound
 from .protocols import IEnumerable_1, IEnumerator
 from .reflection import TypeInfo, class_type
 from .seq import delay, empty, enumerate_while, singleton
 from .seq_native import append
 from .system import ArgumentOutOfRangeException__ctor_Z721C83C5
-from .types import ExceptionBase
 from .util import UNIT, Disposable, Unit, compare, compare_primitives, get_enumerator, max, structural_hash
 from .util import equals as equals_1
 

@@ -62,6 +62,7 @@ from ._bspline_kernels import (
     _EK,
     _HAVE_BSPLINE_OFFEDGE_SWEPT_ACCEL,
     _ek_axis_groups,
+    _ek_cut,
     _normalize_ladder,
     _refuse_complex_k,
     _seg_seg_full_moments_offedge,
@@ -581,9 +582,7 @@ def _ek_slice(ek, rows=None, cols=None):
     """
     if ek is None:
         return None
-    gi = ek.group_i if rows is None or ek.group_i is None else ek.group_i[rows]
-    gj = ek.group_j if cols is None or ek.group_j is None else ek.group_j[cols]
-    return _EK(a=ek.a, group_i=gi, group_j=gj)
+    return _ek_cut(ek, rows, cols)
 
 
 def _xfem_projection_coeffs(d):
@@ -1183,10 +1182,12 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         the longest segment passes kL = 0.5 — in free space that is the only
         tier, so the guard disables the ladder for that block entirely.
 
-        Not every fill honours it: the H-matrix, ArrayBlock and
-        frequency-swept fills have no ladder on either term (`_fill_ladder`
-        is what a fill should ask rather than reading this property
-        directly). The extended kernel honours it since momwire#1362.
+        Not every fill honours it: the ArrayBlock fill has no ladder on
+        either term, and the H-matrix and frequency-swept fills take it under
+        the extended kernel only (momwire#1362) -- their reduced twins have
+        none (`_fill_ladder` is what a fill should ask rather than reading
+        this property directly). The single-k extended kernel honours it
+        since momwire#1362 too.
 
         What it buys: on the 654-segment radial screen the two buried pair
         blocks went from 6.3 s to well under a second at the same Z, because
@@ -1213,14 +1214,14 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         of the theory manual, the O(a²) azimuthal average of the Green's
         function over a source tube of radius a. Unlike `SinusoidalSolver`,
         which transcribes NEC's per-END IND1/IND2 gating, this Galerkin fill
-        applies EK to a segment PAIR iff the two segments are coaxial and of
-        equal radius (`_ek_axis_groups`) — a symmetric rule, so the Galerkin
-        symmetry of Z survives as an error detector. It agrees with NEC
-        exactly on straight wires and on perpendicular ground contacts (via
-        the mirrored source) and is strictly more conservative at bends,
-        radius steps and K ≥ 3 junctions, where NEC still extends the
-        cross-arm pairs and this rule does not (~1 % of Z at Δ/a = 2, O(h)
-        in the refinement limit — #249 §4.3).
+        applies EK to EVERY segment pair (momwire#1368; `_ek_axis_groups`),
+        with NEC Eq 89 in its two-radius form — the observer's radius as ρ,
+        the source's as the tube b, the factor's R floored at b
+        (`_ek_factor_floored`) — so Z is continuous in bend angle and in
+        radius ratio, as licensed NEC-4.2 and NEC-5 are. The rule is
+        symmetric in the pair, so the Galerkin symmetry of Z survives as an
+        error detector. (Before #1368 only coaxial equal-radius pairs were
+        extended, and Z jumped at the first bend angle and radius ratio.)
 
         Every fill an EK-on solve takes is C++-served (momwire#270): the
         same-edge static and reg moments, the off-edge moments single-k and
@@ -1915,6 +1916,14 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         self.rotational_symmetry = bool(rotational_symmetry)
         if self.rotational_symmetry:
             self._rotational_map = self._rotational_check()
+        # momwire#1378: any segment under two radii, anywhere (not only at a gap).
+        # Advisory, once per solver, on the final mesh.
+        _wire_spec.advise_short_segments(
+            type(self).__name__,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            self._radius_per_wire,
+        )
         # momwire#959 (a stopgap until #1330): segments below the radius AT A
         # GAP leave the delta-gap model unreliable. Advisory, once per solver.
         _wire_spec.advise_gap_mesh_floor(
@@ -4034,7 +4043,11 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         return _wire_spec.seg_radius(self._radius_per_wire, np.diff(seg_off))
 
     def _ek_axis_labels(self, geom, mirror):
-        """Cached coaxial-and-equal-radius labels for this geometry.
+        """Cached extended-kernel labels for this geometry: since momwire#1368
+        `_ek_axis_groups` gives every segment one label, so every pair —
+        real/real and real/image — is extended. The scan below is kept as
+        the shape the labels' convention needs (comparable arrays, cached),
+        and the history of the joint scan is kept with it.
 
         Returns `(group_i, group_j)`, both (n_segs,), for the observer and
         source sides of a fill. `mirror=False` is the free-space case, where
@@ -4098,10 +4111,14 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         if not self.extended_kernel:
             return None
         group_i, group_j = self._ek_axis_labels(geom, mirror)
-        # a=None: each kernel call's own regularisation radius IS the EK
-        # radius, because eligibility requires equal radii and the off-edge
-        # kernel already regularises each observer row with its own wire's.
-        return _EK(a=None, group_i=group_i, group_j=group_j)
+        # a=None: each kernel call's own regularisation radius — the
+        # OBSERVER row's — is Eq 89's ρ. b_j is the source tube's radius per
+        # source segment (momwire#1368's two-radius factor; an image segment
+        # carries its own segment's radius). None on a uniform-radius mesh,
+        # where b = a on every pair and nothing needs carrying.
+        seg_a = np.asarray(self._seg_radius(geom), dtype=np.float64)
+        b_j = None if np.all(seg_a == seg_a[0]) else seg_a
+        return _EK(a=None, group_i=group_i, group_j=group_j, b_j=b_j)
 
     def _same_edge_prep(self, geom):
         """k-independent per-same-edge precompute hoisted out of the swept-k
@@ -7787,16 +7804,24 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         ek_se = _EK_SAME_EDGE if self.extended_kernel else None
         ek_img = None
         tangents_mirror = None
+        # The pair-order ladder, under EK only (momwire#1362): the swept EK
+        # twin takes the deck's ladder for both terms, asked for exactly as
+        # the per-k fills ask, so each k's moments are the per-k EK fill's.
+        # The reduced sweep has never taken a ladder and still does not.
+        ladder = ladder_img = None
+        if ek is not None:
+            ladder = self._fill_ladder(k_array, seg_l, seg_r, ek)
         if self.ground_z is not None:
-            # No pair-order ladder on this fill, image term included
-            # (momwire#1304 laddered the per-k image fills only): the swept
-            # batched kernel takes no ladder for its direct term either, so
-            # both terms stay at `n_qp_pair` and on one rule.
+            # Without EK, no pair-order ladder on this fill, image term
+            # included (momwire#1304 laddered the per-k image fills only):
+            # the reduced swept kernel takes no ladder for its direct term
+            # either, so both terms stay at `n_qp_pair` and on one rule.
             tangents_mirror = _ground_mirror.mirror_tangents(tangents)
             seg_l_img = self._image_positions(seg_l)
             seg_r_img = self._image_positions(seg_r)
             if self.extended_kernel:
                 ek_img = self._ek_spec(geom, mirror=True)
+                ladder_img = self._image_fill_ladder(k_array, seg_l, seg_r, ek_img)
 
         # Chunk size from the memory budget. Per k, the transients are
         # the all-pairs J tensor (nm² N² complex) plus the per-edge
@@ -7843,6 +7868,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 d,
                 self.n_qp_pair,
                 ek=ek,
+                ladder=ladder,
             )
             # Same-edge reg moments for this chunk. Computed per chunk —
             # the streaming kernel amortizes its R hoist over the chunk's
@@ -7875,6 +7901,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                     d,
                     self.n_qp_pair,
                     ek=ek_img,
+                    ladder=ladder_img,
                 )
                 # Near-image blocks (momwire#631), the image-side twin of the
                 # same-edge overwrite this loop already does above: a

@@ -425,8 +425,32 @@ DEFAULT_LANGUAGE_FAMILIES: Mapping[str, LanguageFamily] = MappingProxyType(
         "indic": LanguageFamily(
             family_id="indic",
             display_name="Indic transfer group",
-            languages=("as", "bn", "hi", "mr", "or", "ta", "te"),
-            scripts=("Bengali", "Devanagari", "Odia", "Tamil", "Telugu"),
+            languages=(
+                "as",
+                "bn",
+                "gu",
+                "hi",
+                "kn",
+                "ml",
+                "mr",
+                "or",
+                "pa",
+                "ta",
+                "te",
+                "ur",
+            ),
+            scripts=(
+                "Arabic",
+                "Bengali",
+                "Devanagari",
+                "Gujarati",
+                "Gurmukhi",
+                "Kannada",
+                "Malayalam",
+                "Odia",
+                "Tamil",
+                "Telugu",
+            ),
             high_resource_languages=("bn", "hi"),
             notes=(
                 "Operational South Asian transfer group spanning Indo-Aryan and "
@@ -450,7 +474,7 @@ DEFAULT_LANGUAGE_FAMILIES: Mapping[str, LanguageFamily] = MappingProxyType(
         "slavic": LanguageFamily(
             family_id="slavic",
             display_name="Slavic",
-            languages=("cs", "ru", "uk"),
+            languages=("cs", "pl", "ru", "uk"),
             scripts=("Cyrillic", "Latin"),
             high_resource_languages=("ru",),
         ),
@@ -548,6 +572,7 @@ DEFAULT_TRANSFER_GRAPH: Mapping[str, tuple[TransferEdge, ...]] = MappingProxyTyp
     {
         "am": (_edge("am", "ar", "semitic", 1),),
         "as": (_edge("as", "bn", "indic", 1),),
+        "gu": (_edge("gu", "hi", "indic", 1),),
         "cs": (
             _edge("cs", "uk", "slavic", 1),
             _edge("cs", "ru", "slavic", 2),
@@ -570,6 +595,10 @@ DEFAULT_TRANSFER_GRAPH: Mapping[str, tuple[TransferEdge, ...]] = MappingProxyTyp
         "or": (
             _edge("or", "hi", "indic", 1),
             _edge("or", "bn", "indic", 2),
+        ),
+        "pl": (
+            _edge("pl", "cs", "slavic", 1),
+            _edge("pl", "ru", "slavic", 2),
         ),
         "pt": (
             _edge("pt", "es", "romance", 1, expected_f1_floor=0.80),

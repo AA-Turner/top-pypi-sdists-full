@@ -36,8 +36,8 @@ pub struct StatsigOptions {
     pub disable_country_lookup: Option<bool>,
     pub disable_network: Option<bool>, // Disable all out-going network including get configs, log_events...
     pub log_event_connection_reuse: Option<bool>,
-    /// Prefer HTTP/2 for shared HTTP requests while permitting HTTP/1.1. Enabled by default.
-    /// False restores the existing transport, including HTTPS ALPN negotiation.
+    /// Prefer HTTP/2 for shared HTTP requests while permitting HTTP/1.1. Disabled by default.
+    /// Set true to opt in; otherwise retain the existing transport, including HTTPS ALPN negotiation.
     pub prefer_http2: Option<bool>,
 
     pub enable_id_lists: Option<bool>,

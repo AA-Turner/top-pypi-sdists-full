@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linode_api4
-Version: 5.47.0
+Version: 5.48.0
 Summary: The official Python SDK for Linode API v4
 Author-email: Linode <devs@linode.com>
 License: BSD-3-Clause
@@ -25,29 +25,31 @@ License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: polling
 Requires-Dist: deprecated
-Provides-Extra: test
-Requires-Dist: tox>=4.4.0; extra == "test"
-Provides-Extra: dev
-Requires-Dist: tox>=4.4.0; extra == "dev"
-Requires-Dist: mock>=5.0.0; extra == "dev"
-Requires-Dist: pytest>=7.3.1; extra == "dev"
-Requires-Dist: httpretty>=1.1.4; extra == "dev"
-Requires-Dist: black>=23.1.0; extra == "dev"
-Requires-Dist: isort>=5.12.0; extra == "dev"
-Requires-Dist: autoflake>=2.0.1; extra == "dev"
-Requires-Dist: pylint; extra == "dev"
-Requires-Dist: twine>=4.0.2; extra == "dev"
-Requires-Dist: build>=0.10.0; extra == "dev"
-Requires-Dist: Sphinx>=6.0.0; extra == "dev"
-Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "dev"
-Requires-Dist: sphinxcontrib-fulltoc>=1.2.0; extra == "dev"
-Requires-Dist: build>=0.10.0; extra == "dev"
-Requires-Dist: twine>=4.0.2; extra == "dev"
-Requires-Dist: pytest-rerunfailures; extra == "dev"
+Provides-Extra: test-shared
+Requires-Dist: pytest>=7.3.1; extra == "test-shared"
+Requires-Dist: httpretty>=1.1.4; extra == "test-shared"
+Requires-Dist: pytest-rerunfailures; extra == "test-shared"
+Provides-Extra: unit-test
+Requires-Dist: linode_api4[test-shared]; extra == "unit-test"
+Requires-Dist: mock>=5.0.0; extra == "unit-test"
+Provides-Extra: int-test
+Requires-Dist: linode_api4[test-shared]; extra == "int-test"
+Provides-Extra: lint
+Requires-Dist: black>=23.1.0; extra == "lint"
+Requires-Dist: isort>=5.12.0; extra == "lint"
+Requires-Dist: autoflake>=2.0.1; extra == "lint"
+Requires-Dist: pylint; extra == "lint"
+Requires-Dist: twine>=4.0.2; extra == "lint"
+Requires-Dist: build>=0.10.0; extra == "lint"
 Provides-Extra: doc
 Requires-Dist: Sphinx>=6.0.0; extra == "doc"
 Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "doc"
 Requires-Dist: sphinxcontrib-fulltoc>=1.2.0; extra == "doc"
+Provides-Extra: dev
+Requires-Dist: linode_api4[unit-test]; extra == "dev"
+Requires-Dist: linode_api4[int-test]; extra == "dev"
+Requires-Dist: linode_api4[lint]; extra == "dev"
+Requires-Dist: linode_api4[doc]; extra == "dev"
 Dynamic: license-file
 
 linode_api4
@@ -154,14 +156,13 @@ Tests
 -----
 
 Tests live in the ``test`` directory.  When invoking tests, make sure you are
-in the root directory of this project.  To run the full suite across all
-supported python versions, use tox_:
+in the root directory of this project.  Install unit-test dependencies and run
+the mocked unit suite with:
 
 .. code-block:: shell
 
-   tox
-
-Running tox also runs pylint and coverage reports.
+   python3 -m pip install -e ".[unit-test]"
+   make test-unit
 
 The test suite uses fixtures stored as JSON in ``test/fixtures``.  These files
 contain sanitized JSON responses from the API - the file name is the URL called
@@ -182,8 +183,6 @@ from the api base url that should be returned, for example::
    with self.mock_post('/linode/instances/123'):
      linode = self.client.linode.instance_create('g6-standard-2', 'us-east')
      self.assertEqual(linode.id, 123) # passes
-
-.. _tox: http://tox.readthedocs.io
 
 
 Integration Tests

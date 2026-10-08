@@ -867,3 +867,198 @@ def test_nothing_found_withdraws_no_unasked_message(tmp_path):
                                  origin_turn=2)
     lane.publish_pending()
     assert sorted(m.id for m in _waiting()) == ["m-before", "none"]
+
+
+# --- round 3 (~/plans/daemon-cost-round3, tasks 7 and 8) --------------------------
+
+
+def test_a_prompt_past_the_first_batch_still_wakes_the_reader(tmp_path, monkeypatch):
+    """`due()` used to look for a prompt only in the first READ_MAX_EVENTS unread
+    events, so a prompt after a long backlog waited for the timer -- and with the
+    timer off, forever."""
+    monkeypatch.setattr(rl, "READ_MAX_EVENTS", 2)
+    now = [1000.0]
+    w = _worker(tmp_path, clock=lambda: now[0])
+    lane = _lane(w, Reader())
+    with w.store.tx():
+        w.store.set_fact("read_cursor", w.store.events_between(1)[-1].seq)
+    with w.session.transcript.open("a") as handle:
+        for i in range(4):
+            handle.write(_line({"type": "assistant", "message": {"content": [{"type": "text", "text": f"step {i}"}]}}))
+    _append_turn(w, "is C=10 still the best?")
+    w.read_new()
+    lane.last_turn_at = now[0]  # the events timer is not due
+    first = w.store.events_between(lane.cursor() + 1)[:rl.READ_MAX_EVENTS]
+    assert not any(ev.kind == rl.Kind.PROMPT for ev in first), "the prompt is past the first batch"
+    assert lane.due() == "prompt"
+
+
+def test_with_its_timer_off_only_a_prompt_or_an_ask_wakes_the_reader(tmp_path, monkeypatch):
+    monkeypatch.setattr(rl, "READ_EVERY_S", 0.0)
+    now = [1000.0]
+    w = _worker(tmp_path, clock=lambda: now[0])
+    lane = _lane(w, Reader())
+    with w.store.tx():
+        w.store.set_fact("read_cursor", w.store.events_between(1)[-1].seq)
+    with w.session.transcript.open("a") as handle:
+        handle.write(_line({"type": "assistant", "message": {"content": [{"type": "text", "text": "C=100 next"}]}}))
+    w.read_new()
+    lane.last_turn_at = 0.0
+    now[0] += 3600
+    assert lane.due() is None, "new events alone, an hour later: no turn"
+    _append_turn(w, "and now?")
+    w.read_new()
+    assert lane.due() == "prompt"
+
+
+@pytest.mark.parametrize("raw,expected", [("0", 0.0), ("120", 120.0), ("", 1800.0), ("soon", 1800.0), ("-5", 0.0)])
+def test_the_reader_timer_is_read_from_its_variable(monkeypatch, raw, expected):
+    monkeypatch.setenv("PROBE_READER_EVERY_S", raw)
+    assert rl._env_seconds("PROBE_READER_EVERY_S", 1800.0) == expected
+
+
+def test_the_reader_timer_defaults_to_30_minutes():
+    """Richard 2026-10-07: new events alone wake the reader every 30 min (was 20 s)."""
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if k != "PROBE_READER_EVERY_S"}
+    out = subprocess.run([sys.executable, "-c", "from probe.daemon import reader_lane as r; print(r.READ_EVERY_S)"],
+                         env=env, capture_output=True, text=True, check=True).stdout.strip()
+    assert out == "1800.0"
+
+
+def _sized(steps, end: str, prompt_tokens: int):
+    """A Reader whose answers report `prompt_tokens` as the request's size."""
+    from pydantic_ai.usage import RequestUsage
+
+    inner = Reader(steps, end=end)
+
+    def call(messages, info):
+        response = inner(messages, info)
+        response.usage = RequestUsage(input_tokens=prompt_tokens, output_tokens=10)
+        return response
+
+    call.inner = inner
+    return call
+
+
+def test_a_turn_still_over_the_size_after_compaction_makes_the_next_turn_fresh(tmp_path, monkeypatch):
+    """The compaction loop (round 3, task 7): one reader turn added more than
+    compaction took off, so every later turn paid a summary call and re-cached
+    the whole history. The last request was still over the size: the next turn
+    starts fresh."""
+    monkeypatch.setattr(agent_mod, "READ_CONTEXT_TOKENS", 2_000)
+    w = _worker(tmp_path)
+    lane = _lane(w, _sized([], "", 500))
+    asyncio.run(lane.run_turn("prompt"))
+    assert w.store.live_read_conversation() is not None, "under the size: kept"
+    with w.session.transcript.open("a") as handle:  # enough history that compaction must run
+        handle.write(_line({"type": "assistant", "message": {"content": [{"type": "text", "text": "x " * 6000}]}}))
+    _append_turn(w, "and the RBF kernel?")
+    w.read_new()
+    lane._model = FunctionModel(_sized([], "", 5_000))
+    asyncio.run(lane.run_turn("prompt"))
+    assert w.store.live_read_conversation() is None, "ended: the next turn is fresh"
+    [reason] = [r["end_reason"] for r in w.store.db.execute("SELECT end_reason FROM read_conversations")]
+    assert "over the size" in reason
+
+
+def test_a_turn_over_the_size_without_a_compaction_also_starts_fresh(tmp_path):
+    """Rule A (Richard 2026-10-07): over the size by the provider's count is
+    enough -- the next turn would otherwise compact, a summary call and a
+    re-cache, which a fresh start does not pay."""
+    w = _worker(tmp_path)
+    lane = _lane(w, _sized([], "", agent_mod.read_context_tokens() + 1))
+    asyncio.run(lane.run_turn("prompt"))
+    assert w.store.live_read_conversation() is None
+
+
+def test_a_turn_under_the_size_keeps_its_conversation(tmp_path):
+    w = _worker(tmp_path)
+    lane = _lane(w, _sized([], "", agent_mod.read_context_tokens()))
+    asyncio.run(lane.run_turn("prompt"))
+    live = w.store.live_read_conversation()
+    assert live is not None and live["messages"]
+
+
+def _gateway_rejected(messages, info):
+    """What Probe's route answers when the provider refused the prompt as sent
+    (a context overflow included): a 422 `gateway_rejected`, not the provider's
+    own text."""
+    from pydantic_ai.exceptions import ModelHTTPError
+
+    raise ModelHTTPError(status_code=422, model_name="default", body={"error": {
+        "code": "gateway_rejected", "message": "the model provider refused this prompt as sent"}})
+
+
+def test_a_request_the_route_rejects_as_sent_makes_the_retry_fresh_and_lists_what_was_sent(tmp_path):
+    """A failed turn keeps its history for the retry -- unless the route says the
+    provider refused the prompt as sent: the same history would fail the same way.
+    The fresh conversation opens with what the reader already said. (One model
+    throughout: a different one would start fresh anyway, by its fingerprint.)"""
+    w = _worker(tmp_path)
+    current = [Reader(end="digits-svm (run r7): best C=10, 0.9889.")]
+
+    def model(messages, info):
+        return current[0](messages, info)
+
+    lane = _lane(w, model)
+    assert asyncio.run(lane.run_turn("prompt")).outcome == rl.Outcome.SENT
+    first = w.store.live_read_conversation()["id"]
+    _append_turn(w, "and the RBF kernel?")
+    w.read_new()
+    current[0] = _gateway_rejected
+    lane.next_attempt_at = 0.0
+    asyncio.run(lane.run_turn("prompt"))
+    assert w.store.live_read_conversation() is None
+    [reason] = [r["end_reason"] for r in w.store.db.execute("SELECT end_reason FROM read_conversations WHERE id = ?",
+                                                             (first,))]
+    assert "gateway_rejected" in reason, "the conversation the 422 hit is the one that ended"
+    reader = Reader(end="")
+    current[0] = reader
+    lane.next_attempt_at = 0.0
+    asyncio.run(lane.run_turn("prompt"))
+    [(messages, _info)] = reader.seen
+    opening = _prompt(messages[0])
+    assert rl.SENT_HEADER in opening and "digits-svm (run r7): best C=10, 0.9889." in opening
+    assert w.store.db.execute("SELECT count(*) FROM read_conversations").fetchone()[0] == 2
+
+
+def test_a_provider_too_long_error_also_makes_the_retry_fresh(tmp_path):
+    w = _worker(tmp_path)
+
+    def too_long(messages, info):
+        raise RuntimeError("Error code: 400 - {'error': {'code': 'context_length_exceeded'}}")
+
+    lane = _lane(w, too_long)
+    asyncio.run(lane.run_turn("prompt"))
+    assert w.store.live_read_conversation() is None
+
+
+def test_another_failure_keeps_the_history_for_the_retry(tmp_path):
+    w = _worker(tmp_path)
+    lane = _lane(w, Reader(end=""))
+    asyncio.run(lane.run_turn("prompt"))
+
+    def bad_gateway(messages, info):
+        from pydantic_ai.exceptions import ModelHTTPError
+
+        raise ModelHTTPError(status_code=502, model_name="default", body={"error": {"code": "upstream_error"}})
+
+    _append_turn(w, "and now?")
+    w.read_new()
+    lane._model = FunctionModel(bad_gateway)
+    lane.next_attempt_at = 0.0
+    asyncio.run(lane.run_turn("prompt"))
+    assert w.store.live_read_conversation() is not None
+
+
+def test_a_fresh_reader_with_nothing_sent_gets_no_sent_list(tmp_path):
+    w = _worker(tmp_path)
+    reader = Reader(end="")
+    lane = _lane(w, reader)
+    asyncio.run(lane.run_turn("prompt"))
+    [(messages, _info)] = reader.seen
+    assert rl.SENT_HEADER not in _prompt(messages[0])

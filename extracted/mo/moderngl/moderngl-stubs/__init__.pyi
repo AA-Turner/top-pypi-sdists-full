@@ -299,6 +299,11 @@ class UniformBlock:
     binding: int
     """
     The binding of the uniform block.
+    The binding point can be set by assigning a value to this object retrieved by a program
+    
+    Example
+    prog["camera_ubo"] = 1 # sets the binding point to 1
+    buffer.bind_to_uniform_block(1) # binds a buffer to the same binding point
     """
 
     value: int
@@ -733,7 +738,11 @@ class ComputeShader:
         """
     def run_indirect(self, buffer: Buffer, offset: int = 0) -> None:
         """
-        Run the compute shader.
+        Run the compute shader indirectly.
+
+        Args:
+            buffer (Buffer): Buffer with packed args (4 bytes (uint32) x & 4 bytes (uint32) y & 4 bytes (uint32) z).
+            offset: Offset in bytes to look for args inside the buffer.
         """
     def get(self, key: str, default: Any) -> Union[Uniform, UniformBlock, Attribute, Varying]:
         """
@@ -831,22 +840,22 @@ class Context:
 
     LINES_ADJACENCY: int
     """These are special primitives that are expected to be used specifically with
-    geomtry shaders. These primitives give the geometry shader more vertices
+    geometry shaders. These primitives give the geometry shader more vertices
     to work with for each input primitive. Data needs to be duplicated in buffers."""
 
     LINE_STRIP_ADJACENCY: int
     """These are special primitives that are expected to be used specifically with
-    geomtry shaders. These primitives give the geometry shader more vertices
+    geometry shaders. These primitives give the geometry shader more vertices
     to work with for each input primitive. Data needs to be duplicated in buffers."""
 
     TRIANGLES_ADJACENCY: int
     """These are special primitives that are expected to be used specifically with
-    geomtry shaders. These primitives give the geometry shader more vertices
+    geometry shaders. These primitives give the geometry shader more vertices
     to work with for each input primitive. Data needs to be duplicated in buffers."""
 
     TRIANGLE_STRIP_ADJACENCY: int
     """These are special primitives that are expected to be used specifically with
-    geomtry shaders. These primitives give the geometry shader more vertices
+    geometry shaders. These primitives give the geometry shader more vertices
     to work with for each input primitive. Data needs to be duplicated in buffers."""
 
     PATCHES: int
@@ -923,13 +932,13 @@ class Context:
     """(1,1,1,1) - (Rd/kR,Gd/kG,Bd/kB,Ad/kA)"""
 
     DEFAULT_BLENDING: int
-    """Shotcut for the default blending ``SRC_ALPHA, ONE_MINUS_SRC_ALPHA``"""
+    """Shortcut for the default blending ``SRC_ALPHA, ONE_MINUS_SRC_ALPHA``"""
 
     ADDITIVE_BLENDING: int
-    """Shotcut for additive blending ``ONE, ONE``"""
+    """Shortcut for additive blending ``ONE, ONE``"""
 
     PREMULTIPLIED_ALPHA: int
-    """Shotcut for blend mode when using premultiplied alpha ``SRC_ALPHA, ONE``"""
+    """Shortcut for blend mode when using premultiplied alpha ``SRC_ALPHA, ONE``"""
 
     FUNC_ADD: int
     """source + destination"""
@@ -1285,7 +1294,7 @@ class Context:
 
     To just get started with something you can try::
 
-        # Either push the geomtry away or pull it towards you
+        # Either push the geometry away or pull it towards you
         # with support for handling small to medium sloped geometry
         ctx.polygon_offset = 1.0, 1.0
         ctx.polygon_offset = -1.0, -1.0
@@ -1408,8 +1417,8 @@ class Context:
     """
     The result of ``glGetError()`` but human readable.
 
-    This values is provided for debug purposes only and is likely to
-    reduce performace when used in a draw loop.
+    This value is provided for debug purposes only and is likely to
+    reduce performance when used in a draw loop.
     """
 
     extensions: Set[str]
@@ -2037,11 +2046,13 @@ class Context:
         """
     def program(
         self,
-        vertex_shader: str | bytes | ConvertibleToShaderSource,
+        vertex_shader: str | bytes | ConvertibleToShaderSource | None = None,
         fragment_shader: str | bytes | ConvertibleToShaderSource | None = None,
         geometry_shader: str | bytes | ConvertibleToShaderSource | None = None,
         tess_control_shader: str | bytes | ConvertibleToShaderSource | None = None,
         tess_evaluation_shader: str | bytes | ConvertibleToShaderSource | None = None,
+        task_shader: str | bytes | ConvertibleToShaderSource | None = None,
+        mesh_shader: str | bytes | ConvertibleToShaderSource | None = None,
         varyings: Tuple[str, ...] = (),
         fragment_outputs: Optional[Dict[str, int]] = None,
         varyings_capture_mode: str = "interleaved",
@@ -2062,6 +2073,8 @@ class Context:
             geometry_shader (str): The geometry shader source.
             tess_control_shader (str): The tessellation control shader source.
             tess_evaluation_shader (str): The tessellation evaluation shader source.
+            task_shader (str): The task shader source.
+            mesh_shader (str): The mesh shader source.
             varyings (list): A list of varyings.
             fragment_outputs (dict): A dictionary of fragment outputs.
         Returns:
@@ -2377,7 +2390,7 @@ def create_context(
 ) -> Context:
     """
     Create a ModernGL context by loading OpenGL functions from an existing OpenGL context. \
-    An OpenGL context must exists.
+    An OpenGL context must exist.
 
     Example::
 
@@ -2757,7 +2770,7 @@ class Program:
 
         """
     is_transform: bool
-    """If this is a tranform program (no fragment shader)."""
+    """If this is a transform program (no fragment shader)."""
 
     geometry_input: int
     """
@@ -2821,6 +2834,35 @@ class Program:
 
         Returns:
             :py:class:`Uniform`, :py:class:`UniformBlock`, :py:class:`Attribute` or :py:class:`Varying`
+        """
+    def draw_mesh_tasks(self, first: int, count: int) -> None:
+        """
+        Dispatch mesh tasks (requires mesh and optionally task shader).
+
+        Args:
+            first: Index of the first shader workgroup to dispatch.
+            count: Number of workgroups to dispatch.
+        """
+    def draw_mesh_tasks_indirect(self, buffer: Buffer, offset: int = 0, drawcount: int = 1, stride: int = 0) -> None:
+        """
+        Dispatch mesh tasks indirectly (requires mesh and optionally task shader).
+
+        Args:
+            buffer (Buffer): Buffer with packed args (4 bytes (uint32) count & 4 bytes (uint32) first). Note that order in args structure is intentional due to inconsistencies in underlying API.
+            offset: Offset in bytes to look for args inside the buffer.
+            drawcount: Number of drawcalls to dispatch from buffer.
+            stride: Stride in bytes between structures inside the buffer.
+        """
+    def draw_mesh_tasks_indirect_count(self, buffer: Buffer, offset: int, drawcount_offset: int, maxdrawcount: int, stride: int = 0) -> None:
+        """
+        Dispatch mesh tasks indirectly (requires mesh and optionally task shader).
+
+        Args:
+            buffer (Buffer): Buffer with packed args (4 bytes (uint32) count & 4 bytes (uint32) first) and drawcounts (4 bytes (uint32) drawcount). Note that order in args structure is intentional due to inconsistencies in underlying API.
+            offset: Offset in bytes to look for args inside the buffer.
+            drawcount_offset: Offset in bytes to look for number of drawcalls inside the buffer.
+            maxdrawcount: Maximum number of drawcalls to dispatch from buffer.
+            stride: Stride in bytes between structures inside the buffer.
         """
     def release(self) -> None:
         """Release the ModernGL object."""
@@ -3020,7 +3062,7 @@ class Sampler:
 
     Accepted compare functions::
 
-        .compare_func = ''    # Disale depth comparison completely
+        .compare_func = ''    # Disable depth comparison completely
         sampler.compare_func = '<='  # GL_LEQUAL
         sampler.compare_func = '<'   # GL_LESS
         sampler.compare_func = '>='  # GL_GEQUAL
@@ -3448,7 +3490,7 @@ class Texture3D:
             >> texture.get_handle(resident=True)
             4294969856
 
-        Ths same handle is returned if the handle already exists.
+        This same handle is returned if the handle already exists.
 
         .. note:: Limitations from the OpenGL wiki
 
@@ -3650,8 +3692,8 @@ class TextureArray:
         The ``viewport`` can be used for finer control of where the
         data should be written in the array. The valid versions are::
 
-            # Writing multiple layers from the begining of the texture
-            texture.write(data, viewport=(width, hight, num_layers))
+            # Writing multiple layers from the beginning of the texture
+            texture.write(data, viewport=(width, height, num_layers))
 
             # Writing sub-sections of the array
             texture.write(data, viewport=(x, y, layer, width, height, num_layers))
@@ -3773,7 +3815,7 @@ class TextureArray:
             >> texture.get_handle(resident=True)
             4294969856
 
-        Ths same handle is returned if the handle already exists.
+        This same handle is returned if the handle already exists.
 
         .. note:: Limitations from the OpenGL wiki
 
@@ -4113,7 +4155,7 @@ class TextureCube:
             >> texture.get_handle(resident=True)
             4294969856
 
-        Ths same handle is returned if the handle already exists.
+        This same handle is returned if the handle already exists.
 
         .. note:: Limitations from the OpenGL wiki
 
@@ -4480,7 +4522,7 @@ class Texture:
             >> texture.get_handle(resident=True)
             4294969856
 
-        Ths same handle is returned if the handle already exists.
+        This same handle is returned if the handle already exists.
 
         .. note:: Limitations from the OpenGL wiki
 

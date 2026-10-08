@@ -28,8 +28,9 @@ from ._generated import storage as _st
 from ._substrate import RpcSubstrate, Substrate
 from ._transport.contract import UnsignedExtrinsic
 from .balance import Balance
-from .executor import Executor
+from .executor import Executor, estimate_shielded_carrier_fee
 from .intents import Intent, Plan, Policy
+from .intents.base import IntentPreflight
 from .multisig import Multisig
 from .namespaces import (
     Balances,
@@ -297,6 +298,37 @@ class Client:
 
     # Chain / block metadata ---------------------------------------------------
 
+    async def mine_pow_registration(
+        self,
+        netuid: int,
+        hotkey_ss58: str,
+        coldkey_ss58: str,
+        *,
+        workers: int = 4,
+        max_seconds: float = 300,
+        backend: str = "auto",
+        device_ids: tuple[int, ...] | None = None,
+    ):
+        """Mine a fresh PowRegister intent using public addresses only.
+
+        Execute it promptly with the named coldkey and zero tip. Mining does
+        not sign or submit a transaction. PoW must be enabled by the subnet
+        owner; root registration uses its existing separate path.
+        """
+        from .pow_registration import mine_registration
+
+        await self.connect()
+        return await mine_registration(
+            self._substrate,
+            netuid,
+            hotkey_ss58,
+            coldkey_ss58,
+            workers=workers,
+            max_seconds=max_seconds,
+            backend=backend,
+            device_ids=device_ids,
+        )
+
     async def timestamp(self, block: Optional[int] = None) -> datetime:
         """UTC timestamp of a block (defaults to the chain head)."""
         ms = await self.query(_st.Timestamp.Now, block=block)
@@ -413,6 +445,26 @@ class Client:
 
     # Intent layer -----------------------------------------------------------
 
+    async def preflight(
+        self,
+        intent: Intent,
+        wallet: WalletLike,
+        *,
+        proxy_for: Optional[str] = None,
+        proxy_type: Optional[str] = None,
+    ) -> IntentPreflight:
+        """Preview context-sensitive effects and hard stops without fee planning."""
+        return await self._executor.preflight(
+            intent,
+            wallet,
+            proxy_for=proxy_for,
+            proxy_type=proxy_type,
+        )
+
+    async def estimate_shielded_carrier_fee(self, fee_payer: str) -> Balance:
+        """Conservatively estimate the TAO fee of a MevShield carrier."""
+        return await estimate_shielded_carrier_fee(self._substrate, fee_payer)
+
     async def plan(self, intent: Intent, wallet: WalletLike, **kwargs) -> Plan:
         """Preview an intent (fee, effects, warnings, policy) without submitting.
 
@@ -439,7 +491,8 @@ class Client:
     ) -> ExtrinsicResult:
         """Submit an intent MEV-shielded (encrypted until block-author execution).
 
-        Same policy gating as :meth:`execute`; see ``Executor.submit_shielded``.
+        Same ``policy`` / ``proxy_for`` / ``proxy_type`` options as :meth:`execute`;
+        see ``Executor.submit_shielded``.
         """
         return await self._executor.submit_shielded(intent, wallet, **kwargs)
 
@@ -448,7 +501,8 @@ class Client:
 
         No intent, no preview — an active :class:`Policy` refuses this unless it
         sets ``allow_raw_calls=True``. Pass ``signer="hotkey"`` for hotkey-signed
-        extrinsics.
+        extrinsics. ``shielded=True`` encrypts the composed call like
+        :meth:`submit_shielded`.
         """
         return await self._executor.submit_call(call, wallet, **kwargs)
 
@@ -584,6 +638,10 @@ class Client:
     async def block(self) -> int:
         """Current chain block number."""
         return await self._substrate.block_number()
+
+    async def finalized_block(self) -> int:
+        """Current finalized chain block number."""
+        return await self._substrate.finalized_block_number()
 
     async def spec_version(self) -> int:
         """The connected runtime's ``spec_version`` (at the chain head)."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: teradatamodelops
-Version: 7.3.4
+Version: 7.3.5
 Summary: Python client for Teradata ModelOps (TMO)
 Author-email: Christian Axel Schmidt Dick <christianaxel.schmidt@teradata.com>, Anton Zadorozhniy <anton.zadorozhniy@teradata.com>, Sheheryar Ali Bhatti <sheheryar.bhatti@teradata.com>, Will Fleury <will.fleury@teradata.com>, Mengyu Mo <mengyu.mo@teradata.com>, Hiya Devli <hiya.devli@teradata.com>
 Maintainer-email: Christian Axel Schmidt Dick <christianaxel.schmidt@teradata.com>, Anton Zadorozhniy <anton.zadorozhniy@teradata.com>, Mengyu Mo <mengyu.mo@teradata.com>, Hiya Devli <hiya.devli@teradata.com>
@@ -75,18 +75,20 @@ License-File: LICENSE.txt
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: requests>=2.34.2
 Requires-Dist: requests-oauthlib>=2.0.0
-Requires-Dist: oauthlib>=3.3.1
+Requires-Dist: oauthlib>=4.0.0
 Requires-Dist: aia>=0.2.0
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: gitpython>=3.1.50
-Requires-Dist: cryptography>=48.0.1
-Requires-Dist: teradataml>=20.0.0.11
-Requires-Dist: certifi>=2026.5.20
-Requires-Dist: matplotlib>=3.10.9
+Requires-Dist: gitpython>=3.2.0
+Requires-Dist: cryptography>=50.0.2
+Requires-Dist: teradataml>=20.0.0.12
+Requires-Dist: certifi>=2026.7.22
+Requires-Dist: matplotlib>=3.10.9; python_version < "3.11"
+Requires-Dist: matplotlib>=3.11.2; python_version >= "3.11"
 Requires-Dist: numpy==1.26.4; python_version < "3.11"
-Requires-Dist: numpy>=2.4.6; python_version >= "3.11"
+Requires-Dist: numpy>=2.4.6; python_version == "3.11"
+Requires-Dist: numpy>=2.5.3; python_version >= "3.12"
 Requires-Dist: pandas==2.3.3; python_version < "3.11"
-Requires-Dist: pandas>=3.0.3; python_version >= "3.11"
+Requires-Dist: pandas>=3.0.6; python_version >= "3.11"
 Dynamic: license-file
 
 # Teradata ModelOps Client
@@ -826,6 +828,11 @@ artefacts = client.trained_model_artefacts().list_artefacts(trained_model_id)
 ```
 
 ## Release Notes<a id="release-notes"></a>
+### 7.3.5
+- Bug: Fixed `DataFrameUtils._get_database_names` monkey-patch raising `TypeError: _get_database_names() missing 1 required positional argument: 'schema_name'` on every `copy_to_sql`/`to_sql` call once `teradataml>=20.0.0.12` is resolved. teradataml 20.0.0.12 changed `_get_database_names` from a `@staticmethod` `(connection, schema_name)` to a regular instance method `(self, connection, schema_name)`; the previous patch always invoked the captured original with the old 2-arg staticmethod shape.
+- Chore: Bumped the minimum required version to `teradataml>=20.0.0.12`, which guarantees the instance-method `_get_database_names` shape. The patch no longer needs to detect/support the older `@staticmethod` shape from teradataml <= 20.0.0.11.
+- Bug: Made both the `_get_database_names` and `DataFrame.to_sql` patch installations idempotent. Previously, re-running the module-level patch logic against an already-patched class (e.g. via `importlib.reload` in tests) captured the existing wrapper as "the original" instead of unwrapping it, causing infinite recursion (`RecursionError`) on every subsequent call. Both patched functions now carry a reference to the true original, which is unwrapped before re-patching.
+
 ### 7.3.4
 - Bug: Fixed scoring stats backward-compatibility parsing when `data_stats.json` is stored as a top-level JSON string, preventing `TypeError: string indices must be integers, not 'str'` in `_ensure_backward_compatibility`.
 

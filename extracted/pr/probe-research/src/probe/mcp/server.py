@@ -2232,6 +2232,14 @@ def main_http() -> None:
         http_app(),
         host=os.environ.get("HOST", "::"),
         port=int(os.environ.get("PORT", "8080")),
+        # Nothing here reads the client address or scheme. Behind the hosted
+        # pod's loopback TLS sidecar every peer is 127.0.0.1, which uvicorn
+        # trusts by default and would then rewrite both from X-Forwarded-*.
+        proxy_headers=False,
+        # Above ingress-nginx's 60 s upstream keep-alive, so the proxy closes an
+        # idle connection first. At uvicorn's 5 s default the two race, and the
+        # proxy can send a request down a socket this end is closing (502).
+        timeout_keep_alive=75,
     )
 
 

@@ -62,6 +62,43 @@ class VehicleMonitoringDroneViewConfig(BaseConfig):
     )
 
 
+def to_bbox_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+    if "bounding_box" in d and isinstance(d["bounding_box"], dict):
+        return d["bounding_box"]
+    if "bbox" in d:
+        bbox = d["bbox"]
+        if isinstance(bbox, dict):
+            return bbox
+        if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+            x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
+            return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+    if "xyxy" in d and isinstance(d["xyxy"], (list, tuple)) and len(d["xyxy"]) >= 4:
+        x1, y1, x2, y2 = d["xyxy"][0], d["xyxy"][1], d["xyxy"][2], d["xyxy"][3]
+        return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+    if "xywh" in d and isinstance(d["xywh"], (list, tuple)) and len(d["xywh"]) >= 4:
+        cx, cy, w, h = d["xywh"][0], d["xywh"][1], d["xywh"][2], d["xywh"][3]
+        x1, y1, x2, y2 = cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2
+        return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+    return {}
+
+
+def resolve_category(
+    d: Dict[str, Any], index_to_category: Optional[Dict[int, str]] = None
+) -> Tuple[str, Optional[int]]:
+    raw_cls = d.get("category", d.get("category_id", d.get("class", d.get("cls"))))
+    label_name = d.get("name")
+    if isinstance(raw_cls, int):
+        if index_to_category and raw_cls in index_to_category:
+            return index_to_category[raw_cls], raw_cls
+        return str(raw_cls), raw_cls
+    if isinstance(raw_cls, str):
+        # Some YOLO exports provide string labels directly
+        return raw_cls, None
+    if label_name:
+        return str(label_name), None
+    return "unknown", None
+
+
 class VehicleMonitoringDroneViewUseCase(BaseProcessor):
     CATEGORY_DISPLAY = {
         "car": "Car",
@@ -114,7 +151,7 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         context: Optional[ProcessingContext] = None,
         stream_info: Optional[Dict[str, Any]] = None,
     ) -> ProcessingResult:
-        processing_start = time.time()
+        processing_start = time.monotonic()
         if not isinstance(config, VehicleMonitoringDroneViewConfig):
             return self.create_error_result(
                 "Invalid config type",
@@ -147,7 +184,9 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
 
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+            self.logger.debug(
+                f"Applied confidence filtering with threshold {config.confidence_threshold}"
+            )
             # ===== DEBUG POINT 3: AFTER CONFIDENCE FILTER =====
             self._log_detection_stats(processed_data, "03_AFTER_CONFIDENCE_FILTER")
         else:
@@ -161,65 +200,13 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             self._log_detection_stats(processed_data, "04_AFTER_CATEGORY_MAPPING")
 
         # Agnostic-NMS: Apply NMS using reusable module with safety
-        if getattr(config, "enable_nms", False):
-            pre_nms_count = len(processed_data)
-
-            # ===== DEBUG POINT 5: BEFORE NMS =====
-            self._log_detection_stats(processed_data, "05_BEFORE_NMS", show_samples=True)
-
-            # Safety: Log pre-NMS state for debugging
-            if pre_nms_count > 0:
-                sample_det = processed_data[0]
-                self.logger.debug(
-                    f"Pre-NMS sample detection keys: {list(sample_det.keys())}, "
-                    f"category type: {type(sample_det.get('category')).__name__}, "
-                    f"confidence type: {type(sample_det.get('confidence')).__name__}"
-                )
-
-            try:
-                # Initialize NMS module if needed
-                if self._nms_module is None:
-                    self._nms_module = AgnosticNMS(
-                        iou_threshold=getattr(config, "nms_iou_threshold", 0.45),
-                        min_box_size=getattr(config, "nms_min_box_size", 2.0),
-                        use_vectorized=getattr(config, "nms_use_vectorized", True),
-                    )
-                    self.logger.info("AgnosticNMS module initialized")
-
-                # Apply NMS
-                processed_data = self._nms_module.apply(
-                    processed_data,
-                    class_agnostic=getattr(config, "nms_class_agnostic", True),
-                    target_categories=self.target_categories,
-                )
-
-                post_nms_count = len(processed_data)
-                suppressed_count = pre_nms_count - post_nms_count
-
-                # ===== DEBUG POINT 6: AFTER NMS =====
-                self._log_detection_stats(processed_data, "06_AFTER_NMS")
-
-                self.logger.info(
-                    f"NMS applied successfully: {pre_nms_count} -> {post_nms_count} detections "
-                    f"({suppressed_count} suppressed, {100 * suppressed_count / max(pre_nms_count, 1):.1f}%)"
-                )
-
-            except ValueError as ve:
-                # Schema validation error - log detailed diagnostics
-                self.logger.error(f"NMS schema validation failed: {ve}")
-                self.logger.error("Continuing without NMS. Check logs above for detailed diagnostics.")
-
-            except Exception as e:
-                # Unexpected error - log full details
-                import traceback
-
-                self.logger.error(f"NMS failed with unexpected error: {e}")
-                self.logger.error(f"Traceback: {traceback.format_exc()}")
-                self.logger.error("Continuing without NMS.")
+        processed_data = self._apply_agnostic_nms(processed_data, config)
 
         processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
         if config.target_categories:
-            processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
+            processed_data = [
+                d for d in processed_data if d.get("category") in self.target_categories
+            ]
             self.logger.debug("Applied category filtering")
 
             # ===== DEBUG POINT 7: AFTER TARGET CATEGORY FILTER =====
@@ -236,7 +223,9 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                     enable_smoothing=True,
                 )
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+            processed_data = bbox_smoothing(
+                processed_data, self.smoothing_tracker.config, self.smoothing_tracker
+            )
 
             # ===== DEBUG POINT 8: AFTER SMOOTHING =====
             self._log_detection_stats(processed_data, "08_AFTER_SMOOTHING")
@@ -248,7 +237,9 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                     enable_class_aggregation=config.enable_class_aggregation,
                     class_aggregation_window_size=config.class_aggregation_window_size,
                 )
-                self.logger.info("Initialized AdvancedTracker for Vehicle Monitoring Drone View Use Case")
+                self.logger.info(
+                    "Initialized AdvancedTracker for Vehicle Monitoring Drone View Use Case"
+                )
 
                 if config.enable_class_aggregation:
                     self.logger.info(
@@ -263,7 +254,7 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             # ===== DEBUG POINT 9: AFTER TRACKING =====
             self._log_detection_stats(processed_data, "09_AFTER_TRACKING")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - tracking is optional; detections pass through untracked
             self.logger.warning(f"AdvancedTracker failed: {e}")
 
         self._update_tracking_state(processed_data, has_zones=has_zones)
@@ -283,30 +274,41 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         counting_summary["categories"] = {}
         for detection in processed_data:
             category = detection.get("category", "unknown")
-            counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
+            counting_summary["categories"][category] = (
+                counting_summary["categories"].get(category, 0) + 1
+            )
 
         zone_analysis = {}
         if has_zones:
             # Convert single frame to format expected by count_objects_in_zones
             frame_data = processed_data  # [frame_detections]
-            zone_analysis = count_objects_in_zones(frame_data, config.zone_config["zones"], stream_info)
+            zone_analysis = count_objects_in_zones(
+                frame_data, config.zone_config["zones"], stream_info
+            )
 
             if zone_analysis:
-                enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, processed_data, config)
+                enhanced_zone_analysis = self._update_zone_tracking(
+                    zone_analysis, processed_data, config
+                )
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
 
                 # Adjust counting_summary for zones (current counts based on union across zones)
                 per_category_count = {
-                    cat: len(self._current_frame_track_ids.get(cat, set())) for cat in self.target_categories
+                    cat: len(self._current_frame_track_ids.get(cat, set()))
+                    for cat in self.target_categories
                 }
-                counting_summary["per_category_count"] = {k: v for k, v in per_category_count.items() if v > 0}
+                counting_summary["per_category_count"] = {
+                    k: v for k, v in per_category_count.items() if v > 0
+                }
                 counting_summary["total_count"] = sum(per_category_count.values())
 
         alerts = self._check_alerts(counting_summary, zone_analysis, frame_number, config)
         self._extract_predictions(processed_data)
-        _ = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_number, stream_info)
+        _ = self._generate_incidents(
+            counting_summary, zone_analysis, alerts, config, frame_number, stream_info
+        )
         incidents_list = []
         tracking_stats_list = self._generate_tracking_stats(
             counting_summary, zone_analysis, alerts, config, frame_number, stream_info
@@ -346,16 +348,14 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             category=self.category,
             context=context,
         )
-        proc_time = time.time() - processing_start
+        proc_time = time.monotonic() - processing_start
         processing_latency_ms = proc_time * 1000.0
         processing_fps = (1.0 / proc_time) if proc_time > 0 else None
         # Log the performance metrics using the module-level logger
-        print(
-            "latency in ms:",
+        self.logger.debug(
+            "latency in ms: %s | Throughput fps: %s | Frame_Number: %s",
             processing_latency_ms,
-            "| Throughput fps:",
             processing_fps,
-            "| Frame_Number:",
             self._total_frame_counter,
         )
         return result
@@ -384,7 +384,9 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
 
         # Get track to category mapping
         track_to_cat = {
-            det.get("track_id"): det.get("category") for det in detections if det.get("track_id") is not None
+            det.get("track_id"): det.get("category")
+            for det in detections
+            if det.get("track_id") is not None
         }
 
         # Get current frame track IDs in each zone
@@ -466,7 +468,71 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
 
         return enhanced_zone_analysis
 
-    def _normalize_yolo_results(self, data: Any, index_to_category: Optional[Dict[int, str]] = None) -> Any:
+    def _apply_agnostic_nms(self, processed_data: List[Any], config: Any) -> List[Any]:
+        """Apply Agnostic-NMS when enabled; any failure leaves the input untouched."""
+        if not getattr(config, "enable_nms", False):
+            return processed_data
+
+        pre_nms_count = len(processed_data)
+
+        # ===== DEBUG POINT 5: BEFORE NMS =====
+        self._log_detection_stats(processed_data, "05_BEFORE_NMS", show_samples=True)
+
+        # Safety: Log pre-NMS state for debugging
+        if pre_nms_count > 0:
+            sample_det = processed_data[0]
+            self.logger.debug(
+                f"Pre-NMS sample detection keys: {list(sample_det.keys())}, "
+                f"category type: {type(sample_det.get('category')).__name__}, "
+                f"confidence type: {type(sample_det.get('confidence')).__name__}"
+            )
+
+        try:
+            # Initialize NMS module if needed
+            if self._nms_module is None:
+                self._nms_module = AgnosticNMS(
+                    iou_threshold=getattr(config, "nms_iou_threshold", 0.45),
+                    min_box_size=getattr(config, "nms_min_box_size", 2.0),
+                    use_vectorized=getattr(config, "nms_use_vectorized", True),
+                )
+                self.logger.info("AgnosticNMS module initialized")
+
+            # Apply NMS
+            processed_data = self._nms_module.apply(
+                processed_data,
+                class_agnostic=getattr(config, "nms_class_agnostic", True),
+                target_categories=self.target_categories,
+            )
+
+            post_nms_count = len(processed_data)
+            suppressed_count = pre_nms_count - post_nms_count
+
+            # ===== DEBUG POINT 6: AFTER NMS =====
+            self._log_detection_stats(processed_data, "06_AFTER_NMS")
+
+            self.logger.info(
+                f"NMS applied successfully: {pre_nms_count} -> {post_nms_count} detections "
+                f"({suppressed_count} suppressed, {100 * suppressed_count / max(pre_nms_count, 1):.1f}%)"
+            )
+
+        except ValueError as ve:
+            # Schema validation error - log detailed diagnostics
+            self.logger.error(f"NMS schema validation failed: {ve}")
+            self.logger.error("Continuing without NMS. Check logs above for detailed diagnostics.")
+
+        except Exception as e:  # noqa: BLE001 - NMS is optional; any failure falls through
+            # Unexpected error - log full details
+            import traceback
+
+            self.logger.error(f"NMS failed with unexpected error: {e}")
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            self.logger.error("Continuing without NMS.")
+
+        return processed_data
+
+    def _normalize_yolo_results(
+        self, data: Any, index_to_category: Optional[Dict[int, str]] = None
+    ) -> Any:
         """
         Normalize YOLO-style outputs to internal detection schema:
         - category/category_id: prefer string label using COCO mapping if available
@@ -475,41 +541,8 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         - supports list of detections and frame_id -> detections dict
         """
 
-        def to_bbox_dict(d: Dict[str, Any]) -> Dict[str, Any]:
-            if "bounding_box" in d and isinstance(d["bounding_box"], dict):
-                return d["bounding_box"]
-            if "bbox" in d:
-                bbox = d["bbox"]
-                if isinstance(bbox, dict):
-                    return bbox
-                if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
-                    x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
-                    return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
-            if "xyxy" in d and isinstance(d["xyxy"], (list, tuple)) and len(d["xyxy"]) >= 4:
-                x1, y1, x2, y2 = d["xyxy"][0], d["xyxy"][1], d["xyxy"][2], d["xyxy"][3]
-                return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
-            if "xywh" in d and isinstance(d["xywh"], (list, tuple)) and len(d["xywh"]) >= 4:
-                cx, cy, w, h = d["xywh"][0], d["xywh"][1], d["xywh"][2], d["xywh"][3]
-                x1, y1, x2, y2 = cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2
-                return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
-            return {}
-
-        def resolve_category(d: Dict[str, Any]) -> Tuple[str, Optional[int]]:
-            raw_cls = d.get("category", d.get("category_id", d.get("class", d.get("cls"))))
-            label_name = d.get("name")
-            if isinstance(raw_cls, int):
-                if index_to_category and raw_cls in index_to_category:
-                    return index_to_category[raw_cls], raw_cls
-                return str(raw_cls), raw_cls
-            if isinstance(raw_cls, str):
-                # Some YOLO exports provide string labels directly
-                return raw_cls, None
-            if label_name:
-                return str(label_name), None
-            return "unknown", None
-
         def normalize_det(det: Dict[str, Any]) -> Dict[str, Any]:
-            category_name, category_id = resolve_category(det)
+            category_name, category_id = resolve_category(det, index_to_category)
             confidence = det.get("confidence", det.get("conf", det.get("score", 0.0)))
             bbox = to_bbox_dict(det)
             normalized = {
@@ -570,7 +603,10 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         if not config.alert_config:
             return alerts
 
-        if hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds:
+        if (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_detections > threshold:
                     alerts.append(
@@ -579,10 +615,12 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                             "alert_id": f"alert_{category}_{frame_key}",
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
-                                for t, v in zip(
+                                for t, v in zip(  # noqa: B905 - alert_type and alert_value are configured in lockstep
                                     getattr(config.alert_config, "alert_type", ["Default"]),
                                     getattr(config.alert_config, "alert_value", ["JSON"]),
                                 )
@@ -596,10 +634,12 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                             "alert_id": f"alert_{category}_{frame_key}",
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
-                                for t, v in zip(
+                                for t, v in zip(  # noqa: B905 - alert_type and alert_value are configured in lockstep
                                     getattr(config.alert_config, "alert_type", ["Default"]),
                                     getattr(config.alert_config, "alert_value", ["JSON"]),
                                 )
@@ -624,7 +664,9 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         camera_info = self.get_camera_info_from_stream(stream_info)
 
         self._ascending_alert_list = (
-            self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+            self._ascending_alert_list[-900:]
+            if len(self._ascending_alert_list) > 900
+            else self._ascending_alert_list
         )
 
         if total_detections > 0:
@@ -633,7 +675,10 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             if start_timestamp and self.current_incident_end_timestamp == "N/A":
                 self.current_incident_end_timestamp = "Incident still active"
             elif start_timestamp and self.current_incident_end_timestamp == "Incident still active":
-                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                if (
+                    len(self._ascending_alert_list) >= 15
+                    and sum(self._ascending_alert_list[-15:]) / 15 < 1.5
+                ):
                     self.current_incident_end_timestamp = current_timestamp
             elif (
                 self.current_incident_end_timestamp != "Incident still active"
@@ -692,7 +737,7 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                         "ascending": True,
                         "settings": {
                             t: v
-                            for t, v in zip(
+                            for t, v in zip(  # noqa: B905 - alert_type and alert_value are configured in lockstep
                                 getattr(config.alert_config, "alert_type", ["Default"]),
                                 getattr(config.alert_config, "alert_value", ["JSON"]),
                             )
@@ -718,84 +763,67 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             incidents.append({})
         return incidents
 
-    def _generate_tracking_stats(
-        self,
-        counting_summary: Dict,
-        zone_analysis: Dict,
-        alerts: List,
-        config: VehicleMonitoringDroneViewConfig,
-        _frame_number: Optional[int] = None,
-        stream_info: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict]:
-        _ = (_frame_number,)
-        camera_info = self.get_camera_info_from_stream(stream_info)
-        tracking_stats = []
-        total_detections = counting_summary.get("total_count", 0)
-        total_counts_dict = counting_summary.get("total_counts", {})
-        per_category_count = counting_summary.get("per_category_count", {})
-        current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
-        start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
-        self._debug_stream_timing("start_timestamp", start_timestamp)
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
-        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
-
-        # Get new track IDs count (vehicles that appeared for FIRST TIME - requires tracker to be enabled)
-        new_counts_dict = self.get_new_counts_this_frame()
-
-        # DIRECT COUNT from detections list - most reliable source of truth
-        raw_detections = counting_summary.get("detections", [])
-        detection_count_by_category = {}
-        for det in raw_detections:
-            cat = det.get("category", "vehicle")
-            detection_count_by_category[cat] = detection_count_by_category.get(cat, 0) + 1
-
-        total_counts = [{"category": cat, "count": count} for cat, count in total_counts_dict.items() if count > 0]
-        # current_counts: ALL vehicles currently detected in frame - computed directly from detections
-        current_counts = [{"category": cat, "count": count} for cat, count in detection_count_by_category.items()]
-        # Fallback: if detection_count_by_category is empty but we have total_detections, use per_category_count
-        if not current_counts and total_detections > 0:
-            current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items()]
-        # current_new_counts: Only NEW vehicles who appeared for the first time (requires tracker enabled)
-        current_new_counts = [{"category": cat, "count": count} for cat, count in new_counts_dict.items()]
-
+    def _build_detection_objects(self, counting_summary: Dict) -> List[Any]:
+        """Build the detection objects for the tracking stat, mask format aware."""
         detections = []
         for detection in counting_summary.get("detections", []):
             bbox = detection.get("bounding_box", {})
             category = detection.get("category", "vehicle")
             if detection.get("masks"):
                 segmentation = detection.get("masks", [])
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             elif detection.get("segmentation"):
                 segmentation = detection.get("segmentation")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             elif detection.get("mask"):
                 segmentation = detection.get("mask")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             else:
                 detection_obj = self.create_detection_object(category, bbox)
             detections.append(detection_obj)
+        return detections
 
-        alert_settings = []
+    def _build_alert_settings(
+        self, config: "VehicleMonitoringDroneViewConfig"
+    ) -> List[Dict[str, Any]]:
+        """Build the alert-settings block carried on the tracking stat."""
+        alert_settings: List[Dict[str, Any]] = []
         if config.alert_config and hasattr(config.alert_config, "alert_type"):
             alert_settings.append(
                 {
                     "alert_type": getattr(config.alert_config, "alert_type", ["Default"]),
                     "incident_category": self.CASE_TYPE,
                     "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
+                        config.alert_config.count_thresholds
+                        if hasattr(config.alert_config, "count_thresholds")
+                        else {}
                     ),
                     "ascending": True,
                     "settings": {
                         t: v
-                        for t, v in zip(
+                        for t, v in zip(  # noqa: B905 - alert_type and alert_value are configured in lockstep
                             getattr(config.alert_config, "alert_type", ["Default"]),
                             getattr(config.alert_config, "alert_value", ["JSON"]),
                         )
                     },
                 }
             )
+        return alert_settings
 
-        # Generate human text similar to people_counting format
+    @staticmethod
+    def _build_human_text(
+        current_timestamp: str,
+        zone_analysis: Dict,
+        detection_count_by_category: Dict,
+        new_counts_dict: Dict,
+    ) -> str:
+        """Render the human-readable summary block, zone-wise or category-wise."""
         human_text_lines = []
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
 
@@ -825,9 +853,72 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                 human_text_lines.append(f"\t- New Vehicles (just entered) ({cat}): {new_count}")
 
         human_text_lines.append("")
-        human_text = "\n".join(human_text_lines)
+        return "\n".join(human_text_lines)
 
-        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+    def _generate_tracking_stats(
+        self,
+        counting_summary: Dict,
+        zone_analysis: Dict,
+        alerts: List,
+        config: VehicleMonitoringDroneViewConfig,
+        _frame_number: Optional[int] = None,
+        stream_info: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict]:
+        _ = (_frame_number,)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        tracking_stats = []
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts_dict = counting_summary.get("total_counts", {})
+        per_category_count = counting_summary.get("per_category_count", {})
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
+        start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
+        self._debug_stream_timing("start_timestamp", start_timestamp)
+        high_precision_start_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True
+        )
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+        # Get new track IDs count (vehicles that appeared for FIRST TIME - requires tracker to be enabled)
+        new_counts_dict = self.get_new_counts_this_frame()
+
+        # DIRECT COUNT from detections list - most reliable source of truth
+        raw_detections = counting_summary.get("detections", [])
+        detection_count_by_category = {}
+        for det in raw_detections:
+            cat = det.get("category", "vehicle")
+            detection_count_by_category[cat] = detection_count_by_category.get(cat, 0) + 1
+
+        total_counts = [
+            {"category": cat, "count": count}
+            for cat, count in total_counts_dict.items()
+            if count > 0
+        ]
+        # current_counts: ALL vehicles currently detected in frame - computed directly from detections
+        current_counts = [
+            {"category": cat, "count": count} for cat, count in detection_count_by_category.items()
+        ]
+        # Fallback: if detection_count_by_category is empty but we have total_detections, use per_category_count
+        if not current_counts and total_detections > 0:
+            current_counts = [
+                {"category": cat, "count": count} for cat, count in per_category_count.items()
+            ]
+        # current_new_counts: Only NEW vehicles who appeared for the first time (requires tracker enabled)
+        current_new_counts = [
+            {"category": cat, "count": count} for cat, count in new_counts_dict.items()
+        ]
+
+        detections = self._build_detection_objects(counting_summary)
+
+        alert_settings = self._build_alert_settings(config)
+
+        # Generate human text similar to people_counting format
+        human_text = self._build_human_text(
+            current_timestamp, zone_analysis, detection_count_by_category, new_counts_dict
+        )
+
+        reset_settings = [
+            {"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}
+        ]
         tracking_stat = self.create_tracking_stats(
             total_counts=total_counts,
             current_counts=current_counts,
@@ -878,10 +969,13 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         lines.append("Application Name: " + self.CASE_TYPE)
         lines.append("Application Version: " + self.CASE_VERSION)
         if len(incidents) > 0:
-            lines.append("Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
+            lines.append(
+                "Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}"
+            )
         if len(tracking_stats) > 0:
             lines.append(
-                "Tracking Statistics: " + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
+                "Tracking Statistics: "
+                + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
             )
         if len(business_analytics) > 0:
             lines.append(
@@ -935,19 +1029,28 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
 
         # NEW track IDs = present in current frame but NOT in previous frame
         self._new_track_ids_this_frame = {
-            cat: (self._current_frame_track_ids.get(cat, set()) - self._previous_frame_track_ids.get(cat, set()))
+            cat: (
+                self._current_frame_track_ids.get(cat, set())
+                - self._previous_frame_track_ids.get(cat, set())
+            )
             for cat in self.target_categories
         }
 
         # Snapshot current -> previous for next call
-        self._previous_frame_track_ids = {cat: set(ids) for cat, ids in self._current_frame_track_ids.items()}
+        self._previous_frame_track_ids = {
+            cat: set(ids) for cat, ids in self._current_frame_track_ids.items()
+        }
 
     def get_total_counts(self):
-        return {cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()
+        }
 
     def get_new_counts_this_frame(self) -> Dict[str, int]:
         """Get count of NEW track IDs that appeared in this frame/aggregation vs the previous one."""
-        return {cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()
+        }
 
     def get_current_frame_counts(self) -> Dict[str, int]:
         """Get count of ALL track IDs currently in this frame (existing + new)."""
@@ -1004,7 +1107,7 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                     # parts = ['2025', '10', '27', '19:31:20']
                     formatted = f"{parts[0]}:{parts[1]}:{parts[2]} {'-'.join(parts[3:])}"
                     return formatted
-        except Exception:
+        except Exception:  # noqa: S110, BLE001 - timestamp parse is best effort; the raw string is returned below
             # Non-fatal: exception ignored here; execution continues per surrounding logic.
             pass
 
@@ -1024,43 +1127,55 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
-                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                        "original_fps", 30
+                    )
                 else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                        "input_settings", {}
-                    ).get("original_fps", 30)
+                    start_time = stream_info.get("input_settings", {}).get(
+                        "start_frame", 30
+                    ) / stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
                 self._debug_stream_timing("stream_time_str", stream_time_str)
-                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+                return self._format_timestamp(
+                    stream_info.get("input_settings", {}).get("stream_time", "NA")
+                )
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             if frame_id:
-                start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                    "original_fps", 30
+                )
             else:
-                start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                    "input_settings", {}
-                ).get("original_fps", 30)
+                start_time = stream_info.get("input_settings", {}).get(
+                    "start_frame", 30
+                ) / stream_info.get("input_settings", {}).get("original_fps", 30)
 
             stream_time_str = self._format_timestamp_for_video(start_time)
 
             self._debug_stream_timing("stream_time_str", stream_time_str)
-            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            return self._format_timestamp(
+                stream_info.get("input_settings", {}).get("stream_time", "NA")
+            )
         else:
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            stream_time_str = (
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            )
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except Exception:  # noqa: BLE001 - defensive fallback, must not take down the frame
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_start_timestamp_str(
+        self, stream_info: Optional[Dict[str, Any]], precision=False
+    ) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
@@ -1086,16 +1201,20 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             candidate = stream_info.get("input_settings", {}).get("stream_time")
             if not candidate or candidate == "NA":
                 # Fallback to nested stream_info.stream_time used by current timestamp path
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(self._tracking_start_time, timezone.utc).strftime(
-                            "%Y-%m-%d-%H:%M:%S.%f UTC"
-                        )
-                    except Exception:
+                        candidate = datetime.fromtimestamp(
+                            self._tracking_start_time, timezone.utc
+                        ).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                    except Exception:  # noqa: BLE001 - defensive fallback, must not take down the frame
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -1104,14 +1223,20 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
         elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
             candidate = stream_info.get("input_settings", {}).get("stream_time")
             if not candidate or candidate == "NA":
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         ts = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
-                    except Exception:
+                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime(
+                            "%Y-%m-%d-%H:%M:%S.%f UTC"
+                        )
+                    except Exception:  # noqa: BLE001 - defensive fallback, must not take down the frame
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -1123,13 +1248,17 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
                 return self._format_timestamp(self.start_timer)
 
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - defensive fallback, must not take down the frame
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
@@ -1138,7 +1267,9 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime("%Y:%m:%d %H:%M:%S")
 
-    def _count_categories(self, detections: list, _config: VehicleMonitoringDroneViewConfig) -> dict:
+    def _count_categories(
+        self, detections: list, _config: VehicleMonitoringDroneViewConfig
+    ) -> dict:
         _ = (_config,)
         counts = {}
         for det in detections:
@@ -1245,53 +1376,26 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
     def _set_tracking_start_time(self) -> None:
         self._tracking_start_time = time.time()
 
-    def _log_detection_stats(self, data: Any, stage_name: str, show_samples: bool = False) -> None:
-        """
-        Log detailed detection statistics at any pipeline stage with frame identification.
-
-        Args:
-            data: Detection data (list or dict format)
-            stage_name: Name of the pipeline stage for identification
-            show_samples: If True, show sample detection structure
-        """
-        if not getattr(self, "_debug_detection_flow", True):
-            return
-
-        # Use existing frame counter
-        frame_id = self._total_frame_counter
-        timestamp_str = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
-
-        # Create unique log identifier for grep
-        log_id = f"FRAME_{frame_id:06d}"
-
-        separator = "=" * 80
-        print(f"\n{separator}")
-        print(f"[DETECTION_STATS] {log_id} | Time: {timestamp_str} | Stage: {stage_name}")
-        print(separator)
-
-        # Handle different data formats
-        detections = []
+    @staticmethod
+    def _flatten_detections(data: Any) -> List[Any]:
+        """Return the detection list out of either a list or a frame-keyed dict."""
         if isinstance(data, list):
-            detections = data
-        elif isinstance(data, dict):
+            return data
+        detections: List[Any] = []
+        if isinstance(data, dict):
             # Frame-based format
-            for fid, frame_dets in data.items():
+            for frame_dets in data.values():
                 if isinstance(frame_dets, list):
                     detections.extend(frame_dets)
+        return detections
 
-        if not detections:
-            print(f"  Frame: #{frame_id} | Total Detections: 0")
-            print(separator)
-            return
-
-        # Calculate statistics
-        total_count = len(detections)
-
-        # Count by category
-        category_counts = {}
-        confidence_sum = {}
-        confidence_min = {}
-        confidence_max = {}
+    @staticmethod
+    def _collect_detection_stats(detections: List[Any]) -> Dict[str, Any]:
+        """Tally category counts, confidence ranges, bbox formats and track ids."""
+        category_counts: Dict[str, int] = {}
+        confidence_sum: Dict[str, float] = {}
+        confidence_min: Dict[str, float] = {}
+        confidence_max: Dict[str, float] = {}
         bbox_format_count = {"x1/y1/x2/y2": 0, "xmin/ymin/xmax/ymax": 0, "other": 0}
         has_track_id = 0
 
@@ -1327,13 +1431,23 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             if det.get("track_id") is not None:
                 has_track_id += 1
 
-        # Print summary
-        print(f"  Frame: #{frame_id} | Total Detections: {total_count}")
+        return {
+            "category_counts": category_counts,
+            "confidence_sum": confidence_sum,
+            "confidence_min": confidence_min,
+            "confidence_max": confidence_max,
+            "bbox_format_count": bbox_format_count,
+            "has_track_id": has_track_id,
+        }
 
-        if has_track_id > 0:
-            print(f"  Detections with Track ID: {has_track_id} ({100 * has_track_id / total_count:.1f}%)")
+    def _log_category_distribution(self, stats: Dict[str, Any], total_count: int) -> None:
+        """Emit the per-category count / confidence block."""
+        category_counts = stats["category_counts"]
+        confidence_sum = stats["confidence_sum"]
+        confidence_min = stats["confidence_min"]
+        confidence_max = stats["confidence_max"]
 
-        print("\n  Category Distribution:")
+        self.logger.debug("\n  Category Distribution:")
 
         # Sort categories by count (descending)
         sorted_cats = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)
@@ -1344,34 +1458,106 @@ class VehicleMonitoringDroneViewUseCase(BaseProcessor):
             min_conf = confidence_min[cat]
             max_conf = confidence_max[cat]
 
-            print(
-                f"    [{cat:20s}] Count: {count:4d} ({percentage:5.1f}%) | "
-                f"Conf: avg={avg_conf:.3f}, min={min_conf:.3f}, max={max_conf:.3f}"
+            self.logger.debug(
+                "    [%-20s] Count: %4d (%5.1f%%) | Conf: avg=%.3f, min=%.3f, max=%.3f",
+                cat,
+                count,
+                percentage,
+                avg_conf,
+                min_conf,
+                max_conf,
             )
 
         # Print bbox format distribution
-        print("\n  BBox Format Distribution:")
-        for fmt, count in bbox_format_count.items():
+        self.logger.debug("\n  BBox Format Distribution:")
+        for fmt, count in stats["bbox_format_count"].items():
             if count > 0:
                 percentage = (count / total_count) * 100
-                print(f"    {fmt:25s}: {count:4d} ({percentage:5.1f}%)")
+                self.logger.debug("    %-25s: %4d (%5.1f%%)", fmt, count, percentage)
+
+    def _log_sample_detection(self, detections: List[Any]) -> None:
+        """Emit the shape of the first detection, for format debugging."""
+        self.logger.debug("\n  Sample Detection Structure:")
+        sample = detections[0]
+        self.logger.debug("    Keys: %s", list(sample.keys()))
+        self.logger.debug(
+            "    Category: %s (type: %s)",
+            sample.get("category"),
+            type(sample.get("category")).__name__,
+        )
+        self.logger.debug(
+            "    Confidence: %s (type: %s)",
+            sample.get("confidence"),
+            type(sample.get("confidence")).__name__,
+        )
+
+        if sample.get("track_id") is not None:
+            self.logger.debug(
+                "    Track ID: %s (type: %s)",
+                sample.get("track_id"),
+                type(sample.get("track_id")).__name__,
+            )
+
+        bbox = sample.get("bounding_box", sample.get("bbox", {}))
+        if isinstance(bbox, dict):
+            self.logger.debug("    BBox Keys: %s", list(bbox.keys()))
+            if bbox:
+                first_key = list(bbox.keys())[0]
+                self.logger.debug("    BBox Coord Type: %s", type(bbox[first_key]).__name__)
+
+    def _log_detection_stats(self, data: Any, stage_name: str, show_samples: bool = False) -> None:
+        """
+        Log detailed detection statistics at any pipeline stage with frame identification.
+
+        Args:
+            data: Detection data (list or dict format)
+            stage_name: Name of the pipeline stage for identification
+            show_samples: If True, show sample detection structure
+        """
+        if not getattr(self, "_debug_detection_flow", True):
+            return
+
+        # Use existing frame counter
+        frame_id = self._total_frame_counter
+        timestamp_str = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
+
+        # Create unique log identifier for grep
+        log_id = f"FRAME_{frame_id:06d}"
+
+        separator = "=" * 80
+        self.logger.debug("\n%s", separator)
+        self.logger.debug(
+            "[DETECTION_STATS] %s | Time: %s | Stage: %s", log_id, timestamp_str, stage_name
+        )
+        self.logger.debug("%s", separator)
+
+        # Handle different data formats
+        detections = self._flatten_detections(data)
+
+        if not detections:
+            self.logger.debug("  Frame: #%s | Total Detections: 0", frame_id)
+            self.logger.debug("%s", separator)
+            return
+
+        # Calculate statistics
+        total_count = len(detections)
+        stats = self._collect_detection_stats(detections)
+        has_track_id = stats["has_track_id"]
+
+        # Print summary
+        self.logger.debug("  Frame: #%s | Total Detections: %s", frame_id, total_count)
+
+        if has_track_id > 0:
+            self.logger.debug(
+                "  Detections with Track ID: %s (%.1f%%)",
+                has_track_id,
+                100 * has_track_id / total_count,
+            )
+
+        self._log_category_distribution(stats, total_count)
 
         # Show sample detection structure if requested
         if show_samples and detections:
-            print("\n  Sample Detection Structure:")
-            sample = detections[0]
-            print(f"    Keys: {list(sample.keys())}")
-            print(f"    Category: {sample.get('category')} (type: {type(sample.get('category')).__name__})")
-            print(f"    Confidence: {sample.get('confidence')} (type: {type(sample.get('confidence')).__name__})")
+            self._log_sample_detection(detections)
 
-            if sample.get("track_id") is not None:
-                print(f"    Track ID: {sample.get('track_id')} (type: {type(sample.get('track_id')).__name__})")
-
-            bbox = sample.get("bounding_box", sample.get("bbox", {}))
-            if isinstance(bbox, dict):
-                print(f"    BBox Keys: {list(bbox.keys())}")
-                if bbox:
-                    first_key = list(bbox.keys())[0]
-                    print(f"    BBox Coord Type: {type(bbox[first_key]).__name__}")
-
-        print(separator)
+        self.logger.debug("%s", separator)

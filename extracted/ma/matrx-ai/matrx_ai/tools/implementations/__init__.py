@@ -9,15 +9,15 @@ from .code_ingest import git_ingest, llms_txt_fetch, package_info
 from .ctx import context, ctx_batch, ctx_get
 from .ctx_write import context_patch, ctx_create
 from .database import db_insert, db_query, db_schema, db_update
-from .datasets_tools import (
-    dataset_add_rows,
-    dataset_delete_row,
-    dataset_get_all,
-    dataset_get_data,
-    dataset_get_fields,
-    dataset_get_metadata,
-    dataset_search_data,
-    dataset_update_row,
+from .table_tools import (
+    table_add_rows,
+    table_delete_row,
+    table_get_all,
+    table_get_data,
+    table_get_fields,
+    table_get_metadata,
+    table_search_data,
+    table_update_row,
 )
 from .filesystem import fs_list, fs_mkdir, fs_patch, fs_read, fs_search, fs_write
 from .kind_authoring import (
@@ -146,14 +146,14 @@ __all__ = [
     # News
     "news_get_headlines",
     # Datasets (a person's tables, in the record store)
-    "dataset_get_all",
-    "dataset_get_metadata",
-    "dataset_get_fields",
-    "dataset_get_data",
-    "dataset_search_data",
-    "dataset_add_rows",
-    "dataset_update_row",
-    "dataset_delete_row",
+    "table_get_all",
+    "table_get_metadata",
+    "table_get_fields",
+    "table_get_data",
+    "table_search_data",
+    "table_add_rows",
+    "table_update_row",
+    "table_delete_row",
     # Interaction
     "interaction_ask",
     # Tool Component Agent

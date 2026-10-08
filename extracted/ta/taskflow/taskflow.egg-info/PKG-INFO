@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: taskflow
-Version: 6.4.0
+Version: 6.5.0
 Summary: Taskflow structured state management library.
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/taskflow
 Project-URL: Repository, https://opendev.org/openstack/taskflow
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -17,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Distributed Computing
 Requires-Python: >=3.11
@@ -38,7 +38,7 @@ Requires-Dist: pydot>=1.2.4
 Provides-Extra: zookeeper
 Requires-Dist: kazoo>=2.6.0; extra == "zookeeper"
 Provides-Extra: redis
-Requires-Dist: redis>=4.0.0; extra == "redis"
+Requires-Dist: redis>=8.0.0; extra == "redis"
 Provides-Extra: etcd
 Requires-Dist: etcd3gw>=2.0.0; extra == "etcd"
 Provides-Extra: workers
@@ -46,20 +46,17 @@ Requires-Dist: kombu>=4.3.0; extra == "workers"
 Provides-Extra: eventlet
 Requires-Dist: eventlet>=0.18.2; extra == "eventlet"
 Provides-Extra: database
-Requires-Dist: SQLAlchemy>=1.0.10; extra == "database"
+Requires-Dist: SQLAlchemy>=1.1.0; extra == "database"
 Requires-Dist: alembic>=0.8.10; extra == "database"
-Requires-Dist: SQLAlchemy-Utils>=0.30.11; extra == "database"
 Requires-Dist: PyMySQL>=0.7.6; extra == "database"
 Requires-Dist: psycopg2>=2.8.0; extra == "database"
 Provides-Extra: mysql
-Requires-Dist: SQLAlchemy>=1.0.10; extra == "mysql"
+Requires-Dist: SQLAlchemy>=1.1.0; extra == "mysql"
 Requires-Dist: alembic>=0.8.10; extra == "mysql"
-Requires-Dist: SQLAlchemy-Utils>=0.30.11; extra == "mysql"
 Requires-Dist: PyMySQL>=0.7.6; extra == "mysql"
 Provides-Extra: postgresql
-Requires-Dist: SQLAlchemy>=1.0.10; extra == "postgresql"
+Requires-Dist: SQLAlchemy>=1.1.0; extra == "postgresql"
 Requires-Dist: alembic>=0.8.10; extra == "postgresql"
-Requires-Dist: SQLAlchemy-Utils>=0.30.11; extra == "postgresql"
 Requires-Dist: psycopg2>=2.8.0; extra == "postgresql"
 Dynamic: license-file
 Dynamic: requires-dist

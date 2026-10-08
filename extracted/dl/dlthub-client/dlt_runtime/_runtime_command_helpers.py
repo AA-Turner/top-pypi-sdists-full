@@ -69,6 +69,7 @@ from dlt_runtime._runtime_command_views import (  # noqa: F401
 )
 from dlt_runtime.exceptions import (
     AmbiguousWorkspaceName,
+    NoJobResult,
     NoRunsFound,
     RuntimeClientException,
     RuntimeNotAuthenticated,
@@ -89,6 +90,7 @@ from dlt_runtime.strings import (
 )
 from dlt_runtime.typing import (
     CallerInfo,
+    JobResultInfo,
     OrganizationGroup,
     OrganizationInfo,
     RuntimeInfo,
@@ -107,6 +109,7 @@ from dlthub_sdk import (
     JobRun,
     Keep,
     LogLine,
+    LogSource,
     Runtime,
     Sync,
     VariableChange,
@@ -408,7 +411,7 @@ def _resolve_job_ref_from_server(
     include_archived: bool = True,
 ) -> str:
     """Resolve a name / partial ref / UUID to a canonical job_ref. Raises if unresolved."""
-    # UUID — pass through; the API resolves on `id`.
+    # UUID — pass through; `_fetch_job_info` reads it by id.
     try:
         UUID(name_or_ref)
         return name_or_ref
@@ -459,20 +462,20 @@ def _resolve_trigger_selectors(
     """Split CLI args into (selectors, job_refs); bare names resolve to canonical job_refs."""
     out_selectors: list[str] = []
     out_job_refs: list[str] = []
-    scripts: list[Job[Sync]] | None = None
+    jobs: list[Job[Sync]] | None = None
 
     for s in selectors:
         if is_selector(s):
             out_selectors.append(s)
             continue
 
-        if scripts is None:
+        if jobs is None:
             try:
-                scripts = _fetch_jobs(workspace)
+                jobs = _fetch_jobs(workspace)
             except Exception:
-                scripts = []
+                jobs = []
 
-        job_refs = [TJobRef(sc.job_ref) for sc in scripts]
+        job_refs = [TJobRef(job.job_ref) for job in jobs]
         try:
             ref = str(resolve_job_ref(s, job_refs))
             out_job_refs.append(ref)
@@ -588,13 +591,13 @@ def requires_workspace(
 
 def _get_latest_run(
     workspace: Workspace[Sync],
-    script_id_or_name: Optional[str] = None,
+    job_ref: Optional[str] = None,
 ) -> JobRun[Sync]:
-    """Get the latest run for a script or workspace if script is not provided."""
+    """Get the latest run for a job, or for the workspace if no job is given."""
     with handle_client_exceptions():
         runs = (
-            workspace.jobs.get(ref=script_id_or_name).runs
-            if script_id_or_name
+            _job_by_ref_or_id(workspace, job_ref).runs
+            if job_ref
             else workspace.job_runs
         )
     # Translated outside the shim: it wraps everything raised inside it, so a
@@ -609,7 +612,7 @@ def _get_latest_run(
             raise
         raise NoRunsFound(
             "No runs executed for this job"
-            if script_id_or_name
+            if job_ref
             else "No runs executed in this workspace"
         ) from e
 
@@ -624,6 +627,19 @@ def _fetch_run_detail(
         return workspace.job_runs.get(id=str(run_id))
 
 
+def _fetch_job_result(run: JobRun[Sync]) -> JobResultInfo:
+    """Fetch the job result a run declared, keeping only the `TJobResult` fields."""
+    with handle_client_exceptions():
+        try:
+            envelope = run.trace().result
+        except SdkNotFound:
+            raise NoJobResult(f"Run #{run.number} declared no job result") from None
+    return cast(
+        JobResultInfo,
+        {k: envelope[k] for k in JobResultInfo.__annotations__ if k in envelope},
+    )
+
+
 def _fetch_available_regions(*, runtime: Runtime[Sync]) -> Sequence[Dataplane[Sync]]:
     """Fetch available regions."""
     with handle_client_exceptions("Failed to fetch available regions"):
@@ -636,15 +652,13 @@ def _resolve_run_id_by_number(
     script_path_or_job_name: str,
     run_number: int,
 ) -> UUID:
-    # Client-side: the platform cannot address a run by its number.
     with handle_client_exceptions():
-        job = workspace.jobs.get(ref=script_path_or_job_name)
-        for run in job.runs.list():
-            if run.number == run_number:
-                return UUID(run.id)
+        job = _job_by_ref_or_id(workspace, script_path_or_job_name)
+        for run in job.runs.list(number=run_number, limit=1):
+            return UUID(run.id)
     raise CliCommandInnerException(
         cmd="job",
-        msg=f"Run number {run_number} not found for script/job {script_path_or_job_name}",
+        msg=f"Run number {run_number} not found for job {script_path_or_job_name}",
     )
 
 
@@ -782,8 +796,8 @@ def _fetch_runtime_info(
         info["latest_run_status"] = str(latest_run.status)
         if latest_run.started_at is not None:
             info["latest_run_started"] = latest_run.started_at
-        if latest_run.ended_at is not None:
-            info["latest_run_ended"] = latest_run.ended_at
+        if latest_run.finished_at is not None:
+            info["latest_run_ended"] = latest_run.finished_at
 
     # deployment and configuration — a workspace may have neither yet
     with handle_client_exceptions():
@@ -817,14 +831,14 @@ LogStreamEvent = tuple[Literal["log", "warning", "error"], str]
 RECENTLY_FINISHED_LOG_WINDOW = timedelta(minutes=3)
 
 
-def _is_recently_finished_terminal(time_ended: datetime | None) -> bool:
+def _is_recently_finished_terminal(finished_at: datetime | None) -> bool:
     """Return True when a terminal run ended within RECENTLY_FINISHED_LOG_WINDOW."""
-    if time_ended is None:
+    if finished_at is None:
         return False
     ended = (
-        time_ended.replace(tzinfo=timezone.utc)
-        if time_ended.tzinfo is None
-        else time_ended.astimezone(timezone.utc)
+        finished_at.replace(tzinfo=timezone.utc)
+        if finished_at.tzinfo is None
+        else finished_at.astimezone(timezone.utc)
     )
     return datetime.now(timezone.utc) - ended < RECENTLY_FINISHED_LOG_WINDOW
 
@@ -866,8 +880,8 @@ def _change_workspace_variables(
 
 
 def _should_hide_log_line(log: LogLine) -> bool:
-    """Drop runner-internal diagnostics and provider lifecycle noise from user output."""
-    return log.phase in ("runner", "provider")
+    """Drop runner-internal diagnostics from user output."""
+    return log.source is LogSource.RUNNER
 
 
 def _fetch_workspaces(
@@ -908,19 +922,19 @@ def _fetch_runs(
     *,
     running_only: bool = False,
 ) -> list[JobRun[Sync]]:
-    """Fetch runs, optionally filtered by script. Returns runs sorted desc by number."""
+    """Fetch runs, optionally filtered by job. Returns runs sorted desc by number."""
     # `running_only` filters out terminal-state runs client-side; the server
     # endpoint has no equivalent flag yet (issue: TODO follow-up).
     with handle_client_exceptions():
         runs = (
-            workspace.jobs.get(ref=script_path_or_job_name).runs
+            _job_by_ref_or_id(workspace, script_path_or_job_name).runs
             if script_path_or_job_name
             else workspace.job_runs
         )
         items = list(runs.list(limit=100))
     if running_only:
         items = [r for r in items if not r.finished]
-    # Server orders by date_added DESC; trust that — no client-side resort.
+    # Server orders by created_at DESC; trust that — no client-side resort.
     return items
 
 
@@ -969,15 +983,15 @@ def _fetch_jobs(
     *,
     include_archived: bool = False,
 ) -> list[Job[Sync]]:
-    """Fetch all jobs (scripts). Returns list of job models."""
+    """Fetch all jobs. Returns list of job models."""
     # Including archived jobs means dropping the filter, not naming both values.
     with handle_client_exceptions():
         jobs = workspace.jobs
         return list(jobs.list(archived=KEEP if include_archived else False))
 
 
-def _filter_scripts_by_selectors(
-    scripts: list[Job[Sync]],
+def _filter_jobs_by_selectors(
+    jobs: list[Job[Sync]],
     selectors: list[str],
 ) -> list[Job[Sync]]:
     """Filter jobs by trigger selectors (client-side).
@@ -989,14 +1003,14 @@ def _filter_scripts_by_selectors(
 
     return [
         job
-        for job in scripts
+        for job in jobs
         if match_triggers_with_selectors(
             str(job.job_type), [TTrigger(t) for t in job.triggers], selectors
         )
     ]
 
 
-def _resolve_selectors_to_scripts(
+def _resolve_selectors_to_jobs(
     args: list[str],
     *,
     workspace: Workspace[Sync],
@@ -1008,13 +1022,13 @@ def _resolve_selectors_to_scripts(
     applies selector matching and ref resolution, returns the union.
     Returns all jobs when *args* is empty.
     """
-    scripts = _fetch_jobs(workspace, include_archived=include_archived)
+    jobs = _fetch_jobs(workspace, include_archived=include_archived)
     if not args:
-        return scripts
+        return jobs
 
     selectors: list[str] = []
     ref_set: set[str] = set()
-    job_refs = [TJobRef(sc.job_ref) for sc in scripts]
+    job_refs = [TJobRef(job.job_ref) for job in jobs]
 
     for s in args:
         if is_selector(s):
@@ -1025,15 +1039,15 @@ def _resolve_selectors_to_scripts(
             except (InvalidJobRef, JobRefNotFound, AmbiguousJobRef):
                 selectors.append(s)
 
-    selector_matched = _filter_scripts_by_selectors(scripts, selectors)
-    ref_matched = [sc for sc in scripts if sc.job_ref in ref_set]
+    selector_matched = _filter_jobs_by_selectors(jobs, selectors)
+    ref_matched = [job for job in jobs if job.job_ref in ref_set]
 
     seen: set[str] = set()
     result: list[Job[Sync]] = []
-    for sc in [*selector_matched, *ref_matched]:
-        if sc.job_ref not in seen:
-            seen.add(sc.job_ref)
-            result.append(sc)
+    for job in [*selector_matched, *ref_matched]:
+        if job.job_ref not in seen:
+            seen.add(job.job_ref)
+            result.append(job)
     return result
 
 
@@ -1041,9 +1055,17 @@ def _fetch_job_info(
     workspace: Workspace[Sync],
     script_path_or_job_name: str,
 ) -> Job[Sync]:
-    """Fetch a single job (script). Returns job model."""
+    """Fetch a single job by uuid or canonical ref. Returns job model."""
     with handle_client_exceptions():
-        return workspace.jobs.get(ref=script_path_or_job_name)
+        return _job_by_ref_or_id(workspace, script_path_or_job_name)
+
+
+def _job_by_ref_or_id(workspace: Workspace[Sync], job_ref_or_id: str) -> Job[Sync]:
+    try:
+        job_id = UUID(job_ref_or_id)
+    except ValueError:
+        return workspace.jobs.get_by_ref(job_ref_or_id)
+    return workspace.jobs.get(id=str(job_id))
 
 
 def _do_deploy_manifest(

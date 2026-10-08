@@ -2,6 +2,7 @@
 Bindings to serve rolo through Twisted.
 """
 import logging
+import time
 import typing as t
 from io import BytesIO
 from queue import Empty, Queue
@@ -335,6 +336,8 @@ class WebSocketChannel(Protocol):
         self._closeAbortCall = None
         self._transportPaused = False
         self._closeTimeoutPending = False
+        self._messageParts: list[str | bytes] = []
+        self.lastReceivedAt = time.monotonic()
 
     @property
     def closed(self):
@@ -355,6 +358,7 @@ class WebSocketChannel(Protocol):
         self.close()
 
     def dataReceived(self, data: bytes) -> None:
+        self.lastReceivedAt = time.monotonic()
         self.wsproto.receive_data(data)
         for event in self.wsproto.events():
             if isinstance(event, events.Ping):
@@ -363,6 +367,15 @@ class WebSocketChannel(Protocol):
             if self.wsproto.state == ConnectionState.LOCAL_CLOSING:
                 # the server closed the websocket already, the listener doesn't consume any more frames
                 continue
+            if isinstance(event, events.Message):
+                # wsproto emits the data of a message as it arrives, frame by frame and in chunks of a
+                # frame, while the listener receives complete messages
+                self._messageParts.append(event.data)
+                if not event.message_finished:
+                    continue
+                data = event.data[:0].join(self._messageParts)
+                self._messageParts = []
+                event = type(event)(data=data)
             # TODO: filter other event types that are not expected by WebSocketAdapter
             # queue the event before ``close()`` queues its poison pill, so the consumer sees the
             # client's close code and reason
@@ -464,8 +477,12 @@ class WebSocketChannel(Protocol):
             # the 101 upgrade response was written raw to the transport, so ``Request.finish()``
             # must not write its own (never started) HTTP response into the websocket stream
             self.request.startedWriting = 1
+        # the HTTP channel is registered as producer of its transport, and a TLS transport defers its shutdown until
+        # no producer is registered. ``HTTPChannel.loseConnection`` unregisters it first, and ``finish`` detaches
+        # the channel from the request.
+        channel = self.request.channel
         self.request.finish()
-        self.request.transport.loseConnection()
+        channel.loseConnection()
         # special internal poison pill
         self.eventQueue.put_nowait(events.CloseConnection(None))
 
@@ -528,6 +545,10 @@ class TwistedWebSocketAdapter(rolows.WebSocketAdapter):
             self._sendInReactor(events.BytesMessage(event.data))
         else:
             raise TypeError(f"Unexpected event type {event.__class__.__name__}")
+
+    @property
+    def last_received_at(self) -> float:
+        return self.channel.lastReceivedAt
 
     def reject(
         self,

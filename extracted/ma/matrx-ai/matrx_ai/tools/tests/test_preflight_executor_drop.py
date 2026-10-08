@@ -16,6 +16,7 @@ import asyncio
 from typing import Any
 
 from matrx_connect import AppContext
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.config.message_config import MessageList
 from matrx_ai.config.unified_config import UnifiedConfig
@@ -24,7 +25,9 @@ from matrx_ai.tools.models import ToolDefinition, ToolType
 from matrx_ai.tools.registry import ToolRegistry
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_reasoning_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...

@@ -128,7 +128,7 @@ pub struct StatsigOptionsPy {
     pub disable_network: Option<bool>,
     #[pyo3(get, set)]
     pub log_event_connection_reuse: Option<bool>,
-    /// Prefer HTTP/2 while allowing HTTP/1.1. Unset enables it; False restores the existing transport.
+    /// Prefer HTTP/2 while allowing HTTP/1.1. Disabled by default; True opts in.
     #[pyo3(get, set)]
     pub prefer_http2: Option<bool>,
     #[pyo3(get, set)]

@@ -28,7 +28,6 @@ from snowflake.cli._plugins.apps.commands import (
     _ensure_cng_url_cert_ready,
     _ensure_utf8_output,
     _entity_code_storage,
-    _honoured_compute_resource,
     _is_cng_compute_resource,
     _log_service_logs,
     _make_build_log_streamer,
@@ -44,6 +43,7 @@ from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_TIMEOUT_SECONDS,
     MAX_UPLOAD_ATTEMPTS,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
+    SERVERLESS_ACCOUNT_PARAMETERS,
     SNOWFLAKE_APP_ENTITY_TYPE,
     UPLOAD_RETRY_BASE_DELAY_SECONDS,
     UPLOAD_RETRY_MAX_DELAY_SECONDS,
@@ -62,7 +62,6 @@ from snowflake.cli._plugins.apps.manager import (
 from snowflake.cli._plugins.apps.upload_errors import UploadError
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLIMetrics, CLIMetricsSpan
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
@@ -627,27 +626,6 @@ class TestIsCngComputeResource:
         assert _is_cng_compute_resource(value) is expected
 
 
-class TestHonouredComputeResource:
-    """``compute_resource`` is only honoured while the CNG feature flag is on."""
-
-    def test_returns_value_when_flag_on(self):
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            assert _honoured_compute_resource("SERVERLESS") == "SERVERLESS"
-            assert _honoured_compute_resource(None) is None
-
-    def test_returns_none_when_flag_off(self):
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=False,
-        ):
-            assert _honoured_compute_resource("SERVERLESS") is None
-
-
 class TestRequestsEventTableHealthMonitoring:
     """Event-table health monitoring is metric, lifecycle, and windowed logs."""
 
@@ -673,6 +651,64 @@ class TestRequestsEventTableHealthMonitoring:
         assert _requests_event_table_health_monitoring(stream, since, until) is True
 
 
+class TestServerlessAccountParameters:
+    """SERVERLESS is allowed only when every required account parameter is true."""
+
+    def _manager(self, rows):
+        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
+
+        def execute(query, cursor_class=None):
+            name = query.split("'")[1]
+            cursor = Mock()
+            cursor.fetchone.return_value = rows.get(name)
+            return cursor
+
+        mgr.execute_query = Mock(side_effect=execute)
+        return mgr
+
+    def test_enabled_when_all_parameters_are_true(self):
+        rows = {
+            name: {"key": name, "value": "true"}
+            for name in SERVERLESS_ACCOUNT_PARAMETERS
+        }
+        # The feature parameter is ENABLED/DISABLED, not a Boolean.
+        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
+            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+            "value": "ENABLED",
+        }
+        mgr = self._manager(rows)
+        assert mgr.serverless_account_parameters_enabled() is True
+
+    def test_disabled_when_any_parameter_is_false(self):
+        rows = {
+            name: {"key": name, "value": "true"}
+            for name in SERVERLESS_ACCOUNT_PARAMETERS
+        }
+        rows[SERVERLESS_ACCOUNT_PARAMETERS[0]] = {
+            "key": SERVERLESS_ACCOUNT_PARAMETERS[0],
+            "value": "false",
+        }
+        mgr = self._manager(rows)
+        assert mgr.serverless_account_parameters_enabled() is False
+
+    def test_disabled_when_feature_parameter_is_not_enabled(self):
+        rows = {
+            name: {"key": name, "value": "true"}
+            for name in SERVERLESS_ACCOUNT_PARAMETERS
+        }
+        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
+            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+            "value": "DISABLED",
+        }
+        mgr = self._manager(rows)
+        assert mgr.serverless_account_parameters_enabled() is False
+
+    def test_disabled_when_a_parameter_cannot_be_read(self):
+        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
+        mgr.execute_query = Mock(side_effect=ProgrammingError("denied"))
+        assert mgr.serverless_account_parameters_enabled() is False
+
+
 class TestEnsureCngUrlCertReady:
     """Tests for the CNG per-account URL certificate deploy pre-check."""
 
@@ -688,11 +724,20 @@ class TestEnsureCngUrlCertReady:
 
     def test_provisioned_proceeds_without_error(self):
         manager = self._manager(PerAccountCertStatus.PROVISIONED)
-        _ensure_cng_url_cert_ready(manager, provision=False, required=True)  # no raise
+        _ensure_cng_url_cert_ready(manager, skip=False, required=True)  # no raise
         manager.per_account_cert_status_for_host.assert_called_once_with(
             self._PROBE_HOST
         )
         manager.issue_per_account_url_cert.assert_not_called()
+
+    def test_skip_does_not_probe_or_issue(self):
+        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _ensure_cng_url_cert_ready(manager, skip=True, required=True)  # no raise
+        manager.per_account_cert_probe_host.assert_not_called()
+        manager.issue_per_account_url_cert.assert_not_called()
+        mock_cc.warning.assert_not_called()
+        mock_cc.step.assert_not_called()
 
     def test_undeterminable_host_skips_silently(self):
         # No app host could be derived → no evidence about the cert, so skip
@@ -700,7 +745,7 @@ class TestEnsureCngUrlCertReady:
         manager = Mock()
         manager.per_account_cert_probe_host.return_value = None
         with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
+            _ensure_cng_url_cert_ready(manager, skip=False, required=True)
         manager.per_account_cert_status_for_host.assert_not_called()
         mock_cc.warning.assert_not_called()
         manager.issue_per_account_url_cert.assert_not_called()
@@ -708,46 +753,25 @@ class TestEnsureCngUrlCertReady:
     def test_unknown_warns_and_proceeds(self):
         manager = self._manager(PerAccountCertStatus.UNKNOWN)
         with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
+            _ensure_cng_url_cert_ready(manager, skip=False, required=True)
         mock_cc.warning.assert_called_once()
         manager.issue_per_account_url_cert.assert_not_called()
 
-    def test_not_provisioned_raises_with_guidance_when_required(self):
-        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
-        with pytest.raises(CliError) as exc:
-            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
-        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in str(exc.value)
-        assert "--provision-certs" in str(exc.value)
-        manager.issue_per_account_url_cert.assert_not_called()
-
-    def test_not_provisioned_warns_but_does_not_raise_when_not_required(self):
-        # --upload-only / --build-only diagnose early but create no service, so a
-        # missing certificate must warn and let the phase proceed, not abort.
-        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(
-                manager, provision=False, required=False
-            )  # no raise
-        mock_cc.warning.assert_called_once()
-        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in mock_cc.warning.call_args.args[0]
-        manager.issue_per_account_url_cert.assert_not_called()
-
-    def test_not_provisioned_with_provision_triggers_issuance_then_raises(self):
+    def test_not_provisioned_starts_issuance_then_raises_when_required(self):
         manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
         with patch("snowflake.cli._plugins.apps.commands.cli_console"):
             with pytest.raises(CliError) as exc:
-                _ensure_cng_url_cert_ready(manager, provision=True, required=True)
+                _ensure_cng_url_cert_ready(manager, skip=False, required=True)
         manager.issue_per_account_url_cert.assert_called_once()
+        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in str(exc.value)
         assert "Provisioning has been started" in str(exc.value)
 
-    def test_not_provisioned_with_provision_when_not_required_issues_then_warns(self):
-        # --provision-certs --upload-only must still kick off issuance, then warn
-        # (not refuse the upload it was asked to do).
+    def test_not_provisioned_starts_issuance_then_warns_when_not_required(self):
+        # --upload-only / --build-only create no service, so a missing
+        # certificate starts issuance and warns rather than aborting the phase.
         manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
         with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(
-                manager, provision=True, required=False
-            )  # no raise
+            _ensure_cng_url_cert_ready(manager, skip=False, required=False)  # no raise
         manager.issue_per_account_url_cert.assert_called_once()
         mock_cc.warning.assert_called_once()
         assert "Provisioning has been started" in mock_cc.warning.call_args.args[0]
@@ -758,30 +782,13 @@ class TestWarnIfCngUrlCertMissing:
 
     _URL = "https://myapp.sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
 
-    def test_noop_when_flag_disabled(self):
-        manager = Mock()
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=False,
-        ):
-            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-                _warn_if_cng_url_cert_missing(manager, self._URL)
-        manager.per_account_cert_status_for_url.assert_not_called()
-        mock_cc.warning.assert_not_called()
-
     def test_warns_when_not_provisioned(self):
         manager = Mock()
         manager.per_account_cert_status_for_url.return_value = (
             PerAccountCertStatus.NOT_PROVISIONED
         )
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-                _warn_if_cng_url_cert_missing(manager, self._URL)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _warn_if_cng_url_cert_missing(manager, self._URL)
         manager.per_account_cert_status_for_url.assert_called_once_with(self._URL)
         mock_cc.warning.assert_called_once()
 
@@ -791,24 +798,14 @@ class TestWarnIfCngUrlCertMissing:
     def test_quiet_when_provisioned_or_unknown(self, status):
         manager = Mock()
         manager.per_account_cert_status_for_url.return_value = status
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-                _warn_if_cng_url_cert_missing(manager, self._URL)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _warn_if_cng_url_cert_missing(manager, self._URL)
         mock_cc.warning.assert_not_called()
 
     def test_probe_error_swallowed(self):
         manager = Mock()
         manager.per_account_cert_status_for_url.side_effect = RuntimeError("boom")
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            _warn_if_cng_url_cert_missing(manager, self._URL)  # should not raise
+        _warn_if_cng_url_cert_missing(manager, self._URL)  # should not raise
 
 
 class TestPerAccountAppHostname:
@@ -1317,6 +1314,34 @@ class TestSchemaExists:
         mock_execute.return_value = cursor
 
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
+
+
+class TestCreateSchemaIfNotExists:
+    @patch(EXECUTE_QUERY)
+    def test_creates_schema(self, mock_execute):
+        SnowflakeAppManager().create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
+
+        mock_execute.assert_called_once_with(
+            "CREATE SCHEMA IF NOT EXISTS IDENTIFIER('MY_DB.MY_SCHEMA')"
+        )
+
+    def test_continues_when_schema_exists_without_create_privilege(self):
+        manager = SnowflakeAppManager()
+        create_error = ProgrammingError("insufficient privileges")
+        with patch.object(
+            manager, "execute_query", side_effect=create_error
+        ), patch.object(manager, "schema_exists", return_value=True):
+            manager.create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
+
+    def test_raises_create_error_when_schema_is_missing(self):
+        manager = SnowflakeAppManager()
+        create_error = ProgrammingError("insufficient privileges")
+        with patch.object(
+            manager, "execute_query", side_effect=create_error
+        ), patch.object(manager, "schema_exists", return_value=False), pytest.raises(
+            ProgrammingError, match="insufficient privileges"
+        ):
+            manager.create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
 
 
 class TestCurrentRole:
@@ -2528,22 +2553,16 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_create_app_service_never_emits_compute_resource(self, mock_execute):
         """The snowflake.yml path builds ``CREATE APPLICATION SERVICE`` without a
-        ``COMPUTE_RESOURCE`` clause, so CNG stays reachable only from app.yml v2
-        — even with the CNG feature flag on."""
+        ``COMPUTE_RESOURCE`` clause, so CNG stays reachable only from app.yml v2."""
         mock_execute.return_value = Mock()
 
         fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            SnowflakeAppManager().create_app_service(
-                service_fqn=fqn,
-                artifact_repo_fqn="DB.SCHEMA.REPO",
-                package_name="my_app",
-                compute_pool="SVC_POOL",
-            )
+        SnowflakeAppManager().create_app_service(
+            service_fqn=fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            package_name="my_app",
+            compute_pool="SVC_POOL",
+        )
         create_query = self._find_query(
             mock_execute.call_args_list, "CREATE APPLICATION SERVICE"
         )
@@ -3308,25 +3327,22 @@ class TestFetchAppServiceDefaults:
     ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
 
     This is the fallback path ``fetch_app_service_defaults`` uses when the
-    forward-looking ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` table function is
-    unavailable (see :class:`TestFetchDefaultAppArea` and
-    :class:`TestFetchAppServiceDefaultsPrefersAppArea`). The server resolves the
+    App Spaces table function is unavailable (see
+    :class:`TestFetchDefaultAppSpace` and
+    :class:`TestFetchAppServiceDefaultsPrefersAppSpace`). The server resolves the
     ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and applies all authorization-based
     fallbacks (personal database, ``PUBLIC`` schema, current session
     warehouse), so the CLI only has to parse the returned JSON.
 
-    These tests drive the public ``fetch_app_service_defaults`` entry point with
-    the forward-looking app area lookup disabled (it resolves nothing), so they
-    exercise the ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` fallback path end
-    to end.
+    These tests disable the App Space lookup and exercise the
+    ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` fallback.
     """
 
     @pytest.fixture(autouse=True)
-    def _no_default_app_area(self):
-        """Force the app area lookup to resolve nothing so the public method
-        falls through to the system-function path under test."""
+    def _no_default_app_space(self):
+        """Force the App Space lookup to use the fallback under test."""
         with patch.object(
-            SnowflakeAppManager, "_fetch_default_app_area", return_value={}
+            SnowflakeAppManager, "_fetch_default_app_space", return_value={}
         ):
             yield
 
@@ -3338,7 +3354,7 @@ class TestFetchAppServiceDefaults:
             '"query_warehouse": "MY_WH", "build_eai": "MY_EAI"}',
         )
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager().fetch_app_service_defaults()
+        result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
         assert result == {
             "database": "MY_DB",
             "schema": "MY_SCHEMA",
@@ -3358,7 +3374,7 @@ class TestFetchAppServiceDefaults:
             '"query_warehouse": "MY_WH", "build_eai": ""}',
         )
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager().fetch_app_service_defaults()
+        result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
         assert result == {
             "database": "MY_DB",
             "schema": "PUBLIC",
@@ -3376,14 +3392,14 @@ class TestFetchAppServiceDefaults:
             '"query_warehouse": "\\"lower_wh\\"", "build_eai": ""}',
         )
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager().fetch_app_service_defaults()
+        result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
         assert result["database"] == '"lower_db"'
         assert result["schema"] == '"lower_schema"'
         assert result["query_warehouse"] == '"lower_wh"'
 
     @patch(EXECUTE_QUERY, side_effect=ProgrammingError("permission denied"))
     def test_returns_empty_dict_on_error(self, mock_execute):
-        result = SnowflakeAppManager().fetch_app_service_defaults()
+        result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
         assert result == {}
 
     @patch(EXECUTE_QUERY)
@@ -3391,14 +3407,14 @@ class TestFetchAppServiceDefaults:
         cursor = Mock()
         cursor.fetchone.return_value = None
         mock_execute.return_value = cursor
-        assert SnowflakeAppManager().fetch_app_service_defaults() == {}
+        assert SnowflakeAppManager().fetch_app_service_defaults("MY_APP") == {}
 
     @patch(EXECUTE_QUERY)
     def test_returns_empty_dict_on_unparseable_payload(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = ("not json",)
         mock_execute.return_value = cursor
-        assert SnowflakeAppManager().fetch_app_service_defaults() == {}
+        assert SnowflakeAppManager().fetch_app_service_defaults("MY_APP") == {}
 
     def test_falls_back_to_legacy_when_function_unknown(self):
         """On accounts that have not picked up the server change yet, the
@@ -3413,7 +3429,7 @@ class TestFetchAppServiceDefaults:
         with patch.object(manager, "execute_query", side_effect=unknown), patch.object(
             manager, "_fetch_legacy_app_service_defaults", return_value=legacy
         ) as mock_legacy:
-            assert manager.fetch_app_service_defaults() == legacy
+            assert manager.fetch_app_service_defaults("MY_APP") == legacy
         mock_legacy.assert_called_once_with()
 
     @patch(EXECUTE_QUERY, side_effect=ProgrammingError("permission denied"))
@@ -3423,7 +3439,7 @@ class TestFetchAppServiceDefaults:
         with patch.object(
             SnowflakeAppManager, "_fetch_legacy_app_service_defaults"
         ) as mock_legacy:
-            assert SnowflakeAppManager().fetch_app_service_defaults() == {}
+            assert SnowflakeAppManager().fetch_app_service_defaults("MY_APP") == {}
         mock_legacy.assert_not_called()
 
     @patch(MANAGER_CLI_CONSOLE)
@@ -3451,7 +3467,7 @@ class TestFetchAppServiceDefaults:
                 }
             ],
         ):
-            result = manager.fetch_app_service_defaults()
+            result = manager.fetch_app_service_defaults("MY_APP")
         assert result == {"query_warehouse": "WH"}
 
     _SPAN_NAME = "snowflake_app.fetch_app_service_defaults"
@@ -3463,7 +3479,7 @@ class TestFetchAppServiceDefaults:
         mock_execute.return_value = cursor
 
         _reset_command_metrics()
-        SnowflakeAppManager().fetch_app_service_defaults()
+        SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
 
         span = _get_completed_span(self._SPAN_NAME)
         assert span[CLIMetricsSpan.ERROR_KEY] is None
@@ -3484,7 +3500,7 @@ class TestFetchAppServiceDefaults:
         with caplog.at_level(
             logging.DEBUG, logger="snowflake.cli._plugins.apps.manager"
         ):
-            result = SnowflakeAppManager().fetch_app_service_defaults()
+            result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
 
         assert result == {}
         span = _get_completed_span(self._SPAN_NAME)
@@ -3498,7 +3514,7 @@ class TestFetchAppServiceDefaults:
         mock_execute.return_value = cursor
 
         _reset_command_metrics()
-        result = SnowflakeAppManager().fetch_app_service_defaults()
+        result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
 
         assert result == {}
         span = _get_completed_span(self._SPAN_NAME)
@@ -3509,7 +3525,7 @@ class TestFetchAppServiceDefaults:
         """A non-"unknown function" error is recorded on the span (it is not a
         rollout gap that warrants the legacy fallback)."""
         _reset_command_metrics()
-        result = SnowflakeAppManager().fetch_app_service_defaults()
+        result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
 
         assert result == {}
         span = _get_completed_span(self._SPAN_NAME)
@@ -3524,7 +3540,7 @@ class TestFetchAppServiceDefaults:
         mock_execute.return_value = cursor
 
         _reset_command_metrics()
-        SnowflakeAppManager().fetch_app_service_defaults()
+        SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
 
         _get_completed_span("snowflake_app.fetch_app_service_defaults")
 
@@ -3539,7 +3555,7 @@ class TestFetchAppServiceDefaults:
         _reset_command_metrics()
         metrics = get_cli_context_manager().metrics
         with metrics.span("snowflake_app.deploy.resolve_defaults"):
-            SnowflakeAppManager().fetch_app_service_defaults()
+            SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
 
         span = _get_completed_span(
             "snowflake_app.deploy.resolve_defaults.fetch_app_service_defaults"
@@ -3550,58 +3566,53 @@ class TestFetchAppServiceDefaults:
         )
 
 
-# ── _fetch_default_app_area tests ─────────────────────────────────────
+# ── _fetch_default_app_space tests ────────────────────────────────────
 
 
-class TestFetchDefaultAppArea:
-    """``_fetch_default_app_area`` reads the caller's default app area from the
-    forward-looking ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` table function.
+class TestFetchDefaultAppSpace:
+    """Tests App Space default lookup and mapping."""
 
-    It maps the ``DATABASE_NAME`` / ``SCHEMA_NAME`` / ``QUERY_WAREHOUSE`` /
-    ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` columns to the CLI's internal
-    resolution keys and returns ``{}`` on any failure so
-    ``fetch_app_service_defaults`` falls back to the system-function flow.
-    """
-
-    _SPAN_NAME = "snowflake_app.fetch_default_app_area"
+    _SPAN_NAME = "snowflake_app.fetch_default_app_space"
 
     @patch(EXECUTE_QUERY)
     def test_returns_mapped_defaults(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
-            "APP_AREA_NAME": "Production",
+            "APP_SPACE_NAME": "Production",
             "DATABASE_NAME": "MY_DB",
             "SCHEMA_NAME": "MY_SCHEMA",
             "QUERY_WAREHOUSE": "MY_WH",
             "BUILD_EXTERNAL_ACCESS_INTEGRATION": "MY_EAI",
         }
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
         assert result == {
             "database": "MY_DB",
-            "schema": "MY_SCHEMA",
             "query_warehouse": "MY_WH",
             "build_eai": "MY_EAI",
+            "schema": "MY_APP",
         }
         query = mock_execute.call_args[0][0]
-        assert "TABLE(SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA())" in query
+        assert "TABLE(SNOWFLAKE.APPS.GET_DEFAULT_APP_SPACE())" in query
         assert mock_execute.call_args.kwargs["cursor_class"] is DictCursor
 
     @patch(EXECUTE_QUERY)
-    def test_ignores_app_area_name_column(self, mock_execute):
-        """``APP_AREA_NAME`` is informational and is not part of the resolved
-        defaults, so it never appears in the result."""
+    def test_uses_app_name_instead_of_deprecated_schema(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
-            "APP_AREA_NAME": "Production",
+            "APP_SPACE_NAME": "Production",
             "DATABASE_NAME": "MY_DB",
-            "SCHEMA_NAME": "MY_SCHEMA",
+            "SCHEMA_NAME": "DEPRECATED_SCHEMA",
             "QUERY_WAREHOUSE": None,
             "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
         }
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
-        assert result == {"database": "MY_DB", "schema": "MY_SCHEMA"}
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {"database": "MY_DB", "schema": "MY_APP"}
 
     @patch(EXECUTE_QUERY)
     def test_drops_null_optional_columns(self, mock_execute):
@@ -3609,15 +3620,17 @@ class TestFetchDefaultAppArea:
         columns are omitted when NULL (e.g. a global-default row)."""
         cursor = Mock()
         cursor.fetchone.return_value = {
-            "APP_AREA_NAME": None,
+            "APP_SPACE_NAME": None,
             "DATABASE_NAME": "MY_DB",
             "SCHEMA_NAME": "PUBLIC",
             "QUERY_WAREHOUSE": None,
             "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
         }
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
-        assert result == {"database": "MY_DB", "schema": "PUBLIC"}
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {"database": "MY_DB", "schema": "MY_APP"}
 
     @patch(EXECUTE_QUERY)
     def test_quotes_names_that_require_quoting(self, mock_execute):
@@ -3632,9 +3645,11 @@ class TestFetchDefaultAppArea:
             "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
         }
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "my app"
+        )
         assert result["database"] == '"MY DB"'
-        assert result["schema"] == "MY_SCHEMA"
+        assert result["schema"] == '"my app"'
         assert result["query_warehouse"] == '"my wh"'
 
     @patch(EXECUTE_QUERY)
@@ -3649,45 +3664,58 @@ class TestFetchDefaultAppArea:
             "build_external_access_integration": "MY_EAI",
         }
         mock_execute.return_value = cursor
-        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
         assert result == {
             "database": "MY_DB",
-            "schema": "MY_SCHEMA",
             "query_warehouse": "MY_WH",
             "build_eai": "MY_EAI",
+            "schema": "MY_APP",
         }
 
     @patch(EXECUTE_QUERY)
     def test_returns_empty_dict_when_no_row(self, mock_execute):
-        """No default app area for the caller's role → empty dict so the caller
-        falls back to the system-function flow."""
+        """No default App Space falls back to the older defaults flow."""
         cursor = Mock()
         cursor.fetchone.return_value = None
         mock_execute.return_value = cursor
-        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {}
 
     @patch(EXECUTE_QUERY)
     def test_returns_empty_dict_when_row_has_no_usable_values(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
-            "APP_AREA_NAME": "Empty",
+            "APP_SPACE_NAME": "Empty",
             "DATABASE_NAME": None,
             "SCHEMA_NAME": None,
             "QUERY_WAREHOUSE": None,
             "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
         }
         mock_execute.return_value = cursor
-        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {}
 
     @patch(EXECUTE_QUERY, side_effect=ProgrammingError("Unknown function"))
     def test_returns_empty_dict_on_programming_error(self, mock_execute):
         """The function is not yet present on the account → empty dict (fall
         back). Unlike the system function, *any* error falls back."""
-        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {}
 
     @patch(EXECUTE_QUERY, side_effect=RuntimeError("boom"))
     def test_returns_empty_dict_on_any_error(self, mock_execute):
-        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {}
 
     @patch(EXECUTE_QUERY)
     def test_records_span_without_error_on_success(self, mock_execute):
@@ -3696,7 +3724,7 @@ class TestFetchDefaultAppArea:
         mock_execute.return_value = cursor
 
         _reset_command_metrics()
-        SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        SnowflakeAppManager()._fetch_default_app_space("MY_APP")  # noqa: SLF001
 
         span = _get_completed_span(self._SPAN_NAME)
         assert span[CLIMetricsSpan.ERROR_KEY] is None
@@ -3708,7 +3736,10 @@ class TestFetchDefaultAppArea:
         mock_execute.return_value = cursor
 
         _reset_command_metrics()
-        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {}
 
         span = _get_completed_span(self._SPAN_NAME)
         assert span[CLIMetricsSpan.ERROR_KEY] == "CliError"
@@ -3716,7 +3747,10 @@ class TestFetchDefaultAppArea:
     @patch(EXECUTE_QUERY, side_effect=RuntimeError("boom"))
     def test_records_span_error_on_exception(self, mock_execute):
         _reset_command_metrics()
-        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+        result = SnowflakeAppManager()._fetch_default_app_space(  # noqa: SLF001
+            "MY_APP"
+        )
+        assert result == {}
 
         span = _get_completed_span(self._SPAN_NAME)
         assert span[CLIMetricsSpan.ERROR_KEY] == "RuntimeError"
@@ -3730,71 +3764,72 @@ class TestFetchDefaultAppArea:
         _reset_command_metrics()
         metrics = get_cli_context_manager().metrics
         with metrics.span("snowflake_app.deploy.resolve_defaults"):
-            SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+            SnowflakeAppManager()._fetch_default_app_space("MY_APP")  # noqa: SLF001
 
         span = _get_completed_span(
-            "snowflake_app.deploy.resolve_defaults.fetch_default_app_area"
+            "snowflake_app.deploy.resolve_defaults.fetch_default_app_space"
         )
         assert (
             span[CLIMetricsSpan.PARENT_KEY] == "snowflake_app.deploy.resolve_defaults"
         )
 
 
-class TestFetchAppServiceDefaultsPrefersAppArea:
-    """``fetch_app_service_defaults`` prefers ``GET_DEFAULT_APP_AREA()`` and only
-    falls back to ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` when the app area
+class TestFetchAppServiceDefaultsPrefersAppSpace:
+    """``fetch_app_service_defaults`` prefers ``GET_DEFAULT_APP_SPACE()`` and only
+    falls back to ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` when the App Space
     lookup yields nothing."""
 
-    def test_returns_app_area_and_skips_system_function(self):
-        """When the app area function resolves defaults, they are returned as-is
+    def test_returns_app_space_and_skips_system_function(self):
+        """When the App Space function resolves defaults, they are returned as-is
         and the system function is never consulted."""
         manager = SnowflakeAppManager()
-        area = {"database": "AREA_DB", "schema": "AREA_SCHEMA"}
+        space = {"database": "SPACE_DB", "schema": "MY_APP"}
         with patch.object(
-            manager, "_fetch_default_app_area", return_value=area
-        ), patch.object(
+            manager, "_fetch_default_app_space", return_value=space
+        ) as mock_space, patch.object(
             manager, "_fetch_app_service_defaults_via_system_function"
         ) as mock_system:
-            assert manager.fetch_app_service_defaults() == area
+            assert manager.fetch_app_service_defaults("MY_APP") == space
+        mock_space.assert_called_once_with("MY_APP")
         mock_system.assert_not_called()
 
-    def test_falls_back_to_system_function_when_app_area_empty(self):
-        """No default app area (empty dict) → fall back to the system-function
+    def test_falls_back_to_system_function_when_app_space_empty(self):
+        """No default App Space (empty dict) → fall back to the system-function
         flow and return its result."""
         manager = SnowflakeAppManager()
         system = {"database": "SYS_DB", "query_warehouse": "SYS_WH"}
         with patch.object(
-            manager, "_fetch_default_app_area", return_value={}
+            manager, "_fetch_default_app_space", return_value={}
         ), patch.object(
             manager,
             "_fetch_app_service_defaults_via_system_function",
             return_value=system,
         ) as mock_system:
-            assert manager.fetch_app_service_defaults() == system
+            assert manager.fetch_app_service_defaults("MY_APP") == system
         mock_system.assert_called_once_with()
 
     @patch(EXECUTE_QUERY)
-    def test_end_to_end_app_area_failure_falls_back_to_system_function(
+    def test_end_to_end_app_space_failure_falls_back_to_system_function(
         self, mock_execute
     ):
-        """End-to-end through the public method: the app area query errors, so
+        """End-to-end through the public method: the App Space query errors, so
         resolution falls back to the system function using the same
         ``execute_query`` mock."""
-        area_cursor = Mock()
-        area_cursor.fetchone.side_effect = ProgrammingError("Unknown function")
+        space_cursor = Mock()
+        space_cursor.fetchone.side_effect = ProgrammingError("Unknown function")
         system_cursor = Mock()
         system_cursor.fetchone.return_value = ('{"database": "SYS_DB"}',)
 
         def _execute(query, *args, **kwargs):
-            if "GET_DEFAULT_APP_AREA" in query:
-                return area_cursor
+            if "GET_DEFAULT_APP_SPACE" in query:
+                return space_cursor
             return system_cursor
 
         mock_execute.side_effect = _execute
-        result = SnowflakeAppManager().fetch_app_service_defaults()
+        result = SnowflakeAppManager().fetch_app_service_defaults("MY_APP")
         assert result == {"database": "SYS_DB"}
         queries = [call.args[0] for call in mock_execute.call_args_list]
-        assert any("GET_DEFAULT_APP_AREA" in q for q in queries)
+        assert any("GET_DEFAULT_APP_SPACE" in q for q in queries)
         assert any("SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS" in q for q in queries)
 
 
@@ -4329,14 +4364,12 @@ class TestResolveDeployDefaults:
     @patch(FETCH_APP_SERVICE_DEFAULTS, return_value={})
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_calls_fetch_app_service_defaults(self, mock_ctx, mock_params):
-        """``fetch_app_service_defaults`` is invoked without any span plumbing —
-        it reads the enclosing span itself, so the caller need only open the
-        ``resolve_defaults`` span."""
+        """The app name is passed without any span plumbing."""
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity()
         _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        mock_params.assert_called_once_with()
+        mock_params.assert_called_once_with("MY_APP")
 
     @patch.object(SnowflakeAppManager, "get_personal_database", return_value=None)
     @patch(EXECUTE_QUERY)
@@ -4348,18 +4381,18 @@ class TestResolveDeployDefaults:
         ``snowflake_app.deploy.resolve_defaults``. A hardcoded prefix would not
         satisfy the ``PARENT_KEY`` assertion.
 
-        The app area lookup returns no row here, so resolution exercises the
+        The App Space lookup returns no row here, so resolution exercises the
         ``fetch_app_service_defaults`` (system-function) span."""
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
-        area_cursor = Mock()
-        area_cursor.fetchone.return_value = None
+        space_cursor = Mock()
+        space_cursor.fetchone.return_value = None
         system_cursor = Mock()
         system_cursor.fetchone.return_value = ('{"database": "MY_DB"}',)
 
         def _execute(query, *args, **kwargs):
-            if "GET_DEFAULT_APP_AREA" in query:
-                return area_cursor
+            if "GET_DEFAULT_APP_SPACE" in query:
+                return space_cursor
             return system_cursor
 
         mock_execute.side_effect = _execute
@@ -4376,11 +4409,11 @@ class TestResolveDeployDefaults:
         assert (
             span[CLIMetricsSpan.PARENT_KEY] == "snowflake_app.deploy.resolve_defaults"
         )
-        area_span = _get_completed_span(
-            "snowflake_app.deploy.resolve_defaults.fetch_default_app_area"
+        space_span = _get_completed_span(
+            "snowflake_app.deploy.resolve_defaults.fetch_default_app_space"
         )
         assert (
-            area_span[CLIMetricsSpan.PARENT_KEY]
+            space_span[CLIMetricsSpan.PARENT_KEY]
             == "snowflake_app.deploy.resolve_defaults"
         )
 
@@ -4411,6 +4444,31 @@ class TestResolveDeployDefaults:
 
     @patch(
         FETCH_APP_SERVICE_DEFAULTS,
+        return_value={"database": "SPACE_DB", "schema": "MY_APP"},
+    )
+    @patch(
+        GET_CLI_CONTEXT,
+        return_value=_mock_connection_context(database="CONN_DB", schema="CONN_SCHEMA"),
+    )
+    @patch("snowflake.cli.api.cli_global_context.get_cli_context")
+    def test_app_space_location_beats_connection_defaults(
+        self, mock_fqn_ctx, mock_ctx, mock_params
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        mock_fqn_ctx.return_value.connection = Mock(
+            user="TESTUSER", database="CONN_DB", schema="CONN_SCHEMA"
+        )
+        entity = self._make_entity(database=None, schema=None)
+        entity.fqn = FQN(database=None, schema=None, name="MY_APP")
+
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+
+        assert result["database"] == "SPACE_DB"
+        assert result["schema"] == "MY_APP"
+
+    @patch(
+        FETCH_APP_SERVICE_DEFAULTS,
         return_value={"query_warehouse": "PARAM_WH", "build_eai": "PARAM_EAI"},
     )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
@@ -4425,7 +4483,10 @@ class TestResolveDeployDefaults:
         assert result["build_eai"] == "PARAM_EAI"  # param fills gap
         assert result["service_eai"] is None
 
-    @patch(FETCH_APP_SERVICE_DEFAULTS, return_value={})
+    @patch(
+        FETCH_APP_SERVICE_DEFAULTS,
+        return_value={"database": "SPACE_DB", "schema": "MY_APP"},
+    )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_preserves_yml_database_and_schema(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
@@ -4569,6 +4630,7 @@ class TestSetupCommand:
             assert not (tmp_path / "snowflake.yml").exists()
 
         resolved = mock_gen.call_args[0][1]
+        mock_mgr.fetch_app_service_defaults.assert_called_once_with("my_app")
         assert resolved["database"] == "PARAM_DB"
         assert resolved["warehouse"] == "PARAM_WH"
         assert resolved["build_eai"] == "PARAM_EAI"
@@ -6473,6 +6535,51 @@ class TestOpenCommand:
             call_args = mock_mgr.get_service_endpoint_url.call_args[0][0]
             assert str(call_args).startswith("CONN_DB")
 
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_uses_app_space_location_when_manifest_location_is_missing(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_ctx,
+        mock_manager_cls,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock(database=None, schema=None)
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+        mock_ctx.return_value.connection_context = Mock(database=None, schema=None)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "SPACE_DB",
+            "schema": "MY_APP",
+        }
+        mock_mgr.get_service_endpoint_url.return_value = (
+            "https://my-app.snowflakecomputing.app"
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--print-only"])
+
+        assert result.exit_code == 0, result.output
+        mock_mgr.fetch_app_service_defaults.assert_called_once_with("MY_APP")
+        service_fqn = mock_mgr.get_service_endpoint_url.call_args.args[0]
+        assert str(service_fqn) == "SPACE_DB.MY_APP.MY_APP"
+        mock_launch.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -6484,6 +6591,7 @@ class TestOpenCommand:
         mock_resolve,
         mock_get_entity,
         mock_ctx,
+        mock_manager_cls,
         runner,
         tmp_path,
     ):
@@ -6494,6 +6602,7 @@ class TestOpenCommand:
         entity.fqn = fqn
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection_context = Mock(database=None, schema=None)
+        mock_manager_cls.return_value.fetch_app_service_defaults.return_value = {}
 
         from tests_common import change_directory
 
@@ -6629,6 +6738,7 @@ class TestOpenCommand:
             path_arg = mock_snowsight.call_args[0][1]
             assert path_arg == "#/apps/app-service/CONN_DB.CONN_SCHEMA.MY_APP/details"
 
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -6640,6 +6750,7 @@ class TestOpenCommand:
         mock_resolve,
         mock_get_entity,
         mock_ctx,
+        mock_manager_cls,
         runner,
         tmp_path,
     ):
@@ -6650,6 +6761,7 @@ class TestOpenCommand:
         entity.fqn = fqn
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection_context = Mock(database=None, schema=None)
+        mock_manager_cls.return_value.fetch_app_service_defaults.return_value = {}
 
         from tests_common import change_directory
 
@@ -10331,7 +10443,9 @@ class TestDeployCommand:
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
         entity.code_stage = None
         entity.code_workspace = Mock(database=None, schema_=None)
         entity.code_workspace.name = "MY_APP_CODE"
@@ -10588,7 +10702,9 @@ class TestDeployCommand:
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
         entity.code_stage = None
         entity.code_workspace = None
         entity.artifacts = []
@@ -10634,7 +10750,9 @@ class TestDeployCommand:
     ):
         """--build-only should not require service_compute_pool or query_warehouse."""
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
         entity.code_stage = None
         entity.code_workspace = None
         entity.artifacts = []

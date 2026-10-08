@@ -21,7 +21,7 @@ from . import imp_exp
 from .. import api, record_types
 from .importer import SharedFolder, Team, Permission, PathDelimiter, replace_email_domain, BaseDownloadMembership, BaseDownloadRecordType, RecordType
 from .json.json import KeeperJsonImporter, KeeperJsonExporter
-from ..commands.base import raise_parse_exception, suppress_exit, user_choice, Command
+from ..commands.base import dump_report_data, raise_parse_exception, suppress_exit, user_choice, Command
 from ..commands.enterprise_common import EnterpriseCommand
 from ..params import KeeperParams
 from ..proto import record_pb2
@@ -62,6 +62,16 @@ def _cyberark_skip_arg(value):
     return ",".join(skip_targets)
 
 
+def _positive_int_arg(value):
+    try:
+        depth = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError('must be an integer')
+    if depth < 1:
+        raise argparse.ArgumentTypeError('--folder-depth must be >= 1')
+    return depth
+
+
 import_parser = argparse.ArgumentParser(prog='import', description='Import vault data from a local file into Keeper')
 import_parser.add_argument('--display-csv', '-dc', dest='display_csv', action='store_true',
                            help='display Keeper CSV import instructions')
@@ -82,6 +92,14 @@ import_parser.add_argument('-s', '--shared', dest='shared', action='store_true',
 import_parser.add_argument('--nsf', dest='use_nsf', action='store_true',
                            help='import folders and records into Nested Share Folders '
                                 '(json, csv, keepass, cyberark, cyberark_portal, …)')
+import_parser.add_argument('--folder-depth', dest='folder_depth', action='store', type=_positive_int_arg,
+                           help='NSF only: maximum resulting folder depth (default 5); folders beyond this depth '
+                                'are attached directly at the deepest allowed level, keeping their own name and '
+                                'records - names are never merged or renamed')
+import_parser.add_argument('--output', dest='output', action='store',
+                           help='NSF only: write a report of the resulting Keeper folder structure (original path '
+                                '-> new path -> folder UID) to CSV file; use --output=table to print a table. '
+                                'ex.: import --format=<platform/type> --output=test.csv --nsf')
 import_parser.add_argument('-p', '--permissions', dest='permissions', action='store',
                            help='default shared folder permissions: manage (U)sers, manage (R)ecords, can (E)dit, can (S)hare, or (A)ll, (N)one')
 import_parser.add_argument('--update',  dest='update_flag',  action='store_true',
@@ -246,6 +264,27 @@ class RecordImportCommand(ImporterCommand):
     def get_parser(self):
         return import_parser
 
+    @staticmethod
+    def source_path_header(import_format):
+        # type: (str) -> str
+        labels = {
+            '1password': '1Password',
+            'bitwarden': 'Bitwarden',
+            'cyberark': 'CyberArk',
+            'cyberark_portal': 'CyberArk Portal',
+            'dashlane': 'Dashlane',
+            'json': 'JSON',
+            'keepass': 'KeePass',
+            'lastpass': 'LastPass',
+            'manageengine': 'ManageEngine',
+            'proton': 'Proton',
+            'thycotic': 'Thycotic',
+        }
+        label = labels.get(import_format or '')
+        if not label:
+            label = str(import_format or 'Source').replace('_', ' ').title()
+        return f'{label} Path'
+
     def execute(self, params, **kwargs):
         if params.enforcements and 'booleans' in params.enforcements:
             restricted = next((x['value'] for x in params.enforcements['booleans'] if x['key'] == 'restrict_import'), False)
@@ -325,8 +364,19 @@ class RecordImportCommand(ImporterCommand):
             kwargs['skip'] = ''
 
         logging.info('Processing... please wait.')
-        imp_exp._import(params, import_format, import_name, manage_users=manage_users, manage_records=manage_records,
-                        can_edit=can_edit, can_share=can_share, **kwargs)
+        folder_mapping = imp_exp._import(params, import_format, import_name, manage_users=manage_users,
+                                         manage_records=manage_records, can_edit=can_edit, can_share=can_share,
+                                         **kwargs)
+        if kwargs.get('use_nsf') and folder_mapping:
+            output = kwargs.get('output')
+            if output:
+                fmt = 'table' if str(output).lower() == 'table' else 'csv'
+                dump_report_data(
+                    [[orig, new, uid] for orig, new, uid in folder_mapping],
+                    [self.source_path_header(import_format), 'New Path', 'Folder UID'],
+                    fmt=fmt,
+                    filename=None if fmt == 'table' else output,
+                )
 
 
 class RecordExportCommand(ImporterCommand):
@@ -619,6 +669,8 @@ class DownloadRecordTypeCommand(EnterpriseCommand):
 class LoadRecordTypeCommand(EnterpriseCommand):
     def get_parser(self):
         return load_record_type_parser
+        
+    
 
     def execute(self, params, **kwargs):
         file_name = kwargs.get('name') or 'record_types.json'
@@ -652,9 +704,9 @@ class LoadRecordTypeCommand(EnterpriseCommand):
             record_type_name = r_type.get('record_type_name')
             if not record_type_name:
                 continue
-            record_type_name = record_type_name[:30]
+            record_type_name = record_type_name[:32]
             if record_type_name.lower() in loaded_record_types:
-                logging.warning('Custom record type "%s" already exists. Skipping.', record_type_name)
+                logging.warning(_c('yellow',f'Custom record type "{record_type_name}" already exists. Skipping'))
                 continue
             fields = r_type.get('fields')
             if not isinstance(fields, list):
@@ -664,7 +716,7 @@ class LoadRecordTypeCommand(EnterpriseCommand):
             for field in fields:
                 field_type = field.get('$type')
                 if field_type not in record_types.RecordFields:
-                    logging.warning('Custom record type "%s": Invalid field \"%s\". Skipping.', record_type_name, field_type)
+                    logging.warning(_c('red',f'Custom record type "{record_type_name}": Invalid field "{field_type}". Skipping'))
                     is_valid = False
                     break
             if not is_valid:
@@ -688,14 +740,25 @@ class LoadRecordTypeCommand(EnterpriseCommand):
             rq = record_pb2.RecordType()
             rq.content = json.dumps(content)
             rq.scope = record_pb2.RT_ENTERPRISE
-            rs = api.communicate_rest(params, rq, 'vault/record_type_add')
-
-            counter += 1
+            try:
+                rs = api.communicate_rest(params, rq, 'vault/record_type_add')
+                logging.info(_c('green',f'Successfully imported record type "{record_type_name}"'))
+                counter += 1
+            except Exception as e:
+                logging.warning(_c('red',f'Failed to add record type "{record_type_name}" with error:\n   {e}'))
 
         if counter > 0:
             logging.info('Added %d custom record types', counter)
             api.sync_down(params, record_types=True)
 
+def _c(color,text):
+        if color == 'green':
+            return f'\033[92m{text}\033[0m'
+        if color == 'yellow':
+            return f'\033[1;93m{text}\033[0m'
+        if color == 'red':
+            return f'\033[1;91m{text}\033[0m'
+        return text
 
 def importer_for_format(input_format):
     full_name = 'keepercommander.importer.' + input_format

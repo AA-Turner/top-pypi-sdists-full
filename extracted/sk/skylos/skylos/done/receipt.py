@@ -60,6 +60,8 @@ LABELS = {
     "secrets": "No secrets added",
     "unknown_imports": "Every package and import is real",
     "changed_lines_checked": "Tests check the changed lines",
+    "test_special_casing": "Code doesn't special-case the tests",
+    "silenced_checks": "Linters, type checkers, scanners and CI not silenced",
 }
 FIXES = {
     "agent_edits": "Fix the remaining edit findings and run skylos hook recheck --session.",
@@ -69,6 +71,8 @@ FIXES = {
     "secrets": "Remove the secret, rotate it, and load it from the environment or a secret store.",
     "unknown_imports": "Remove the made-up import, or declare the real package that provides it.",
     "changed_lines_checked": "Add a test assertion that fails when the listed line changes.",
+    "test_special_casing": "Remove the code that answers the tests' exact inputs, detects the test run or rigs comparisons, and make the general code right.",
+    "silenced_checks": "Put back the linter, type-checker, scanner and CI settings, and fix what they report instead. A person should change them.",
 }
 
 

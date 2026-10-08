@@ -10,7 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import atexit
 from collections.abc import Iterable, Sequence
 import concurrent.futures
 import copy
@@ -50,6 +49,30 @@ if TYPE_CHECKING:
 
 
 _T = TypeVar('_T', bound=Mapping[str, Any])
+
+
+def _close_requests_session(session: 'ks_session.Session | None') -> None:
+    if session is None:
+        return
+    requests_session = getattr(session, '_session', None)
+    if requests_session is not None:
+        try:
+            requests_session.close()
+        except (OSError, requests.exceptions.RequestException):
+            pass
+
+
+# plain function so nothing keeps ref to connection
+def _run_close(
+    config: cloud_region.CloudRegion,
+    pool_executor_holder: list[concurrent.futures.Executor | None],
+    session_holder: list['ks_session.Session | None'],
+) -> None:
+    config.set_auth_cache()
+    _close_requests_session(session_holder[0])
+    pool_executor = pool_executor_holder[0]
+    if pool_executor:
+        pool_executor.shutdown()
 
 
 class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
@@ -226,9 +249,11 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
                     **kwargs,
                 )
 
-        self._session: ks_session.Session | None = None
+        self._session_holder: list[ks_session.Session | None] = [None]
+        self._pool_executor_holder: list[
+            concurrent.futures.Executor | None
+        ] = [pool_executor]
         self._proxies: dict[str, proxy.Proxy] = {}
-        self.__pool_executor = pool_executor
         self._global_request_id = global_request_id
         self.use_direct_get = use_direct_get or False
         self.strict_mode = strict
@@ -280,8 +305,25 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
             _utils.localhost_supports_ipv6() if not self.force_ipv4 else False
         )
 
-        # Register cleanup steps
-        atexit.register(self.close)
+        # weakref.finalize holds its arguments. Passing a bound method or
+        # `self` would keep this connection, its session and all other
+        # internal objects (including TLS contexts) alive until the process
+        # exits.
+        self._finalizer = weakref.finalize(
+            self,
+            _run_close,
+            self.config,
+            self._pool_executor_holder,
+            self._session_holder,
+        )
+
+    @property
+    def _session(self) -> 'ks_session.Session | None':
+        return self._session_holder[0]
+
+    @_session.setter
+    def _session(self, value: 'ks_session.Session | None') -> None:
+        self._session_holder[0] = value
 
     @property
     def session(self) -> 'ks_session.Session':
@@ -295,18 +337,34 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
 
     @property
     def _pool_executor(self) -> concurrent.futures.Executor:
-        if not self.__pool_executor:
-            self.__pool_executor = concurrent.futures.ThreadPoolExecutor(
-                max_workers=5
-            )
-        return self.__pool_executor
+        executor = self._pool_executor_holder[0]
+        if not executor:
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
+            self._pool_executor_holder[0] = executor
+        return executor
 
     def close(self) -> None:
         """Release any resources held open."""
-        self.config.set_auth_cache()
-        if self.__pool_executor:
-            self.__pool_executor.shutdown()
-        atexit.unregister(self.close)
+        self._finalizer.detach()
+        _run_close(
+            self.config, self._pool_executor_holder, self._session_holder
+        )
+
+    def _close_session(self) -> None:
+        """Release the connection pool of the keystoneauth1 session.
+
+        Closes the underlying ``requests.Session`` directly, but only if
+        keystoneauth1 created it itself. A session constructed with an
+        externally supplied ``requests.Session`` is left untouched, as its
+        ownership belongs to the caller (mirroring the ownership rules
+        keystoneauth1 applies in its own cleanup).
+
+        Tearing down idle pooled connections is best-effort: socket and
+        request errors are swallowed so that releasing the pool can never
+        propagate out of ``close()``, which also runs from the finalizer at
+        interpreter shutdown and from the context manager exit.
+        """
+        _close_requests_session(self._session)
 
     def __enter__(self) -> Self:
         return self

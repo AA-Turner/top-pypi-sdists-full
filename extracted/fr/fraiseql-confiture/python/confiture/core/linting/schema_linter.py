@@ -37,7 +37,13 @@ from confiture.core.linting.inventory import (
 from confiture.core.linting.quoted_names import needs_quotes, quoted_names
 from confiture.core.linting.rule_registry import LINT_RULES, UNPARSEABLE_RULE_ID
 from confiture.core.linting.seed_secrets import secret_kinds
-from confiture.core.linting.soft_delete import null_key_findings, reserved_key_findings
+from confiture.core.linting.soft_delete import (
+    SoftDeleting,
+    null_key_findings,
+    reserved_key_findings,
+    soft_deleting,
+)
+from confiture.core.linting.soft_delete_views import view_findings
 from confiture.core.linting.tenant import rules as tenant_rules
 from confiture.core.linting.tview_rules import tview_findings
 from confiture.core.schema_identity import DEFAULT_SCHEMA
@@ -56,6 +62,7 @@ logger = logging.getLogger(__name__)
 _SOFT_DELETE_RULES = {
     "softdel_001": ("Soft-Delete Reserved Key", reserved_key_findings),
     "softdel_002": ("Soft-Delete Nullable Key", null_key_findings),
+    "softdel_003": ("Soft-Delete View Shows Deleted Rows", view_findings),
 }
 
 #: How long ``build_003``'s live tier waits for a connection. A lint runs in a
@@ -198,6 +205,7 @@ class LintConfig:
         check_tenant_unique_keys: bool = False,
         check_softdel_reserved_keys: bool = False,
         check_softdel_null_keys: bool = False,
+        check_softdel_views: bool = False,
         check_tview_hot: bool = False,
         check_tview_replicas: bool = False,
         has_replicas: bool = False,
@@ -248,6 +256,8 @@ class LintConfig:
                 in ``db/project.yaml``.
             check_softdel_null_keys: Such a key over a nullable column says
                 ``NULLS NOT DISTINCT`` (``softdel_002``).
+            check_softdel_views: Every read of a soft-deleting table in a view tests
+                its tombstone column (``softdel_003``).
             check_tview_hot: No index over ``data`` or ``updated_at`` on a pg_tviews
                 TVIEW (``tview_001``).
             check_tview_replicas: A TVIEW is made LOGGED where replicas are
@@ -301,6 +311,7 @@ class LintConfig:
         self.check_tenant_unique_keys = check_tenant_unique_keys
         self.check_softdel_reserved_keys = check_softdel_reserved_keys
         self.check_softdel_null_keys = check_softdel_null_keys
+        self.check_softdel_views = check_softdel_views
         self.check_tview_hot = check_tview_hot
         self.check_tview_replicas = check_tview_replicas
         self.has_replicas = has_replicas
@@ -407,6 +418,7 @@ class SchemaLinter:
         self._files, rejected = self._parsed_files()
         self._report_rejected_files(report, rejected)
         self._inventory = build_inventory(self._files)
+        self._soft_deleting: SoftDeleting | None = None
         self._file_objects, self._file_schemas = (
             files_alone(self._files) if self._schema_files else ([], [])
         )
@@ -487,6 +499,11 @@ class SchemaLinter:
             (
                 self.config.check_softdel_null_keys,
                 partial(self._check_soft_delete, "softdel_002"),
+                "softdel",
+            ),
+            (
+                self.config.check_softdel_views,
+                partial(self._check_soft_delete, "softdel_003"),
                 "softdel",
             ),
             (self.config.check_tview_hot, partial(self._check_tview, "tview_001"), "tview"),
@@ -689,14 +706,23 @@ class SchemaLinter:
     def _check_duplicates(self, report: LintReport) -> None:
         """``build_001`` / ``build_002``: an object defined more than once in one build (#218).
 
+        ``build_005`` / ``build_006``: a ``CREATE INDEX`` on a relation name its schema
+        already holds — a silent no-op under ``IF NOT EXISTS``, a failed build without (#638).
+
         File-backed runs inventory each schema file on its own so a finding can
         name the files; a run on one string reports offsets into that string.
         """
         # Reason: import cycle (the module is partially initialised when this import runs at module level)
-        from confiture.core.linting.duplicates import duplicate_violations, find_duplicates
+        from confiture.core.linting.duplicates import (
+            duplicate_violations,
+            find_duplicates,
+            index_collision_violations,
+        )
 
         objects = self._file_objects or self._inventory.objects
         for violation in duplicate_violations(find_duplicates(objects)):
+            report.add_violation(violation)
+        for violation in index_collision_violations(self._inventory.index_collisions):
             report.add_violation(violation)
 
     def _check_qualification(self, report: LintReport) -> None:
@@ -1139,9 +1165,16 @@ class SchemaLinter:
                 )
             )
             return
+        if self._soft_deleting is None:
+            self._soft_deleting = soft_deleting(self._inventory, self._files, config)
+        deleting = self._soft_deleting
+        if deleting.notes:
+            report.degraded.append(
+                RuleStatus(code=code, state="degraded", reason="; ".join(deleting.notes))
+            )
         rule, judge = _SOFT_DELETE_RULES[code]
         severity = RuleSeverity(next(r.severity for r in LINT_RULES if r.code == code))
-        for finding in judge(self._inventory, self._files, config):
+        for finding in judge(self._inventory, self._files, deleting):
             report.add_violation(
                 LintViolation(
                     rule_id=code,

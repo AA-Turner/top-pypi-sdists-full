@@ -22,6 +22,7 @@ Usage
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -29,6 +30,33 @@ import cv2
 import numpy as np
 import supervision as sv
 from loitering_common import color_for_class, ensure_loitering_class_names
+
+_logger = logging.getLogger(__name__)
+
+
+def _configure_cli_logging() -> None:
+    """Send INFO to stdout and ERROR to stderr, with no level/name decoration.
+
+    This script is an operator CLI: its stdout IS its output, and the previous
+    print() calls wrote the bare message with no prefix. A plain logger would
+    change both the stream and the text, so the handlers below reproduce the
+    original split exactly -- progress lines on stdout, errors on stderr, format
+    "%(message)s". Writes are flushed per record, matching the former
+    print(..., flush=True).
+    """
+    if _logger.handlers:
+        return
+    out = logging.StreamHandler(sys.stdout)
+    out.setLevel(logging.INFO)
+    out.addFilter(lambda record: record.levelno < logging.ERROR)
+    out.setFormatter(logging.Formatter("%(message)s"))
+    err = logging.StreamHandler(sys.stderr)
+    err.setLevel(logging.ERROR)
+    err.setFormatter(logging.Formatter("%(message)s"))
+    _logger.addHandler(out)
+    _logger.addHandler(err)
+    _logger.setLevel(logging.INFO)
+    _logger.propagate = False
 
 
 def color_for(tid, class_id=0):
@@ -98,7 +126,7 @@ def assign_track_ids(data, frame_rate, track_thresh, match_thresh, lost_buffer):
     n = len(keys)
     for fi, k in enumerate(keys):
         if fi % 100 == 0 or fi == n - 1:
-            print(f"  tracking {fi + 1}/{n} ...", flush=True)
+            _logger.info("  tracking %s/%s ...", fi + 1, n)
         dets = frames[k]
         for d in dets:
             d["track_id"] = -1
@@ -147,19 +175,19 @@ def render(video_path, out_path, data, phase_offset):
     class_names = data.get("class_names", {})
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        print(f"ERROR: cannot open {video_path}", file=sys.stderr)
+        _logger.error("ERROR: cannot open %s", video_path)
         sys.exit(1)
     fps = float(data.get("fps") or cap.get(cv2.CAP_PROP_FPS) or 30.0)
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
     if not writer.isOpened():
-        print(f"ERROR: cannot open writer for {out_path}", file=sys.stderr)
+        _logger.error("ERROR: cannot open writer for %s", out_path)
         sys.exit(1)
     samples = sorted(frames.keys(), key=int)
     for n, k in enumerate(samples):
         if n % 100 == 0:
-            print(f"  rendering {n + 1}/{len(samples)} ...", flush=True)
+            _logger.info("  rendering %s/%s ...", n + 1, len(samples))
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(k) + phase_offset)
         ok, frame = cap.read()
         if not ok:
@@ -191,27 +219,29 @@ def render(video_path, out_path, data, phase_offset):
 
 
 def main():
+    _configure_cli_logging()
     args = parse_args()
-    print(f"Loading verified JSON ({args.json}) ...", flush=True)
+    _logger.info("Loading verified JSON (%s) ...", args.json)
     data = json.loads(Path(args.json).read_text())
     if "frames" not in data:
         sys.exit("ERROR: input JSON has no 'frames' key")
     data["class_names"] = ensure_loitering_class_names(data.get("class_names"))
     frame_rate = args.frame_rate or float(data.get("fps") or 30.0)
 
-    print(
-        f"Running ByteTrack over {len(data['frames'])} sampled frames "
-        f"(frame_rate={int(frame_rate)}, lost_buffer={args.lost_buffer}) ...",
-        flush=True,
+    _logger.info(
+        "Running ByteTrack over %s sampled frames (frame_rate=%s, lost_buffer=%s) ...",
+        len(data["frames"]),
+        int(frame_rate),
+        args.lost_buffer,
     )
     n = assign_track_ids(data, frame_rate, args.track_thresh, args.match_thresh, args.lost_buffer)
     Path(args.out_json).write_text(json.dumps(data, indent=2))
-    print(f"tracking done. unique track ids: {n} -> {args.out_json}", flush=True)
+    _logger.info("tracking done. unique track ids: %s -> %s", n, args.out_json)
 
     if args.out_video:
-        print(f"Rendering overlay -> {args.out_video} ...", flush=True)
+        _logger.info("Rendering overlay -> %s ...", args.out_video)
         render(args.video, args.out_video, data, args.phase_offset)
-        print(f"wrote {args.out_video}", flush=True)
+        _logger.info("wrote %s", args.out_video)
 
 
 if __name__ == "__main__":

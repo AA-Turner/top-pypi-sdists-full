@@ -97,7 +97,7 @@ def test_a_failed_pi_update_is_recorded_as_a_failed_update(monkeypatch):
         upgrading, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  ! x"], ok=False, detail="pi package not updated: x")
     )
     recorded = []
-    monkeypatch.setattr(autoupdate, "record_attempt", recorded.append)
+    monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, **_: recorded.append(attempt))
 
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
@@ -190,7 +190,7 @@ def test_the_owed_pi_step_records_what_pi_update_did(monkeypatch, pi_installed):
     from probe.cli import autoupdate
 
     recorded = []
-    monkeypatch.setattr(autoupdate, "record_attempt", recorded.append)
+    monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, **_: recorded.append(attempt))
 
     upgrading.update_owed_pi_package()
 
@@ -205,7 +205,7 @@ def test_a_second_deferral_is_not_recorded(monkeypatch, pi_dir):
 
     monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: pi_dir)
     monkeypatch.setattr(upgrading, "_pi_running", lambda: True)
-    monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt: pytest.fail("nothing ran"))
+    monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, **_: pytest.fail("nothing ran"))
 
     upgrading.update_owed_pi_package()
 
@@ -246,3 +246,32 @@ def test_without_a_working_ps_a_running_pi_shows_up_in_proc(monkeypatch, ps):
     finally:
         pi.kill()
         pi.wait()
+
+
+def test_the_pi_that_started_the_update_defers_pi_update_while_it_lives(monkeypatch, pi_installed):
+    """pi's session start updates the CLI at once and names its pi to the
+    update: `pi update` waits for it even when no process title reads as pi."""
+    from probe.cli import autoupdate
+
+    child = subprocess.Popen(["sleep", "30"])
+    try:
+        monkeypatch.setenv(autoupdate.PI_PID_ENV, str(child.pid))
+        step = upgrading._update_pi_package()
+        assert step.code is upgrading.update_report.PiStep.DEFERRED
+        assert pi_installed == [], "pi update ran under a live pi"
+        assert autoupdate.pi_update_pending()
+    finally:
+        child.kill()
+        child.wait()
+
+    # That pi exited: the owed update runs.
+    assert upgrading._update_pi_package().ran
+    assert pi_installed == [1]
+
+
+@pytest.mark.parametrize("value", ["", "1", "0", "not-a-pid"])
+def test_no_usable_pi_pid_changes_nothing(monkeypatch, pi_installed, value):
+    from probe.cli import autoupdate
+
+    monkeypatch.setenv(autoupdate.PI_PID_ENV, value)
+    assert upgrading._update_pi_package().ran

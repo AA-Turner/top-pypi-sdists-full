@@ -1,6 +1,6 @@
 """A `relation` cell reaches the model as a NAME, or the seam says so out loud.
 
-``dataset_get_data`` / ``dataset_search_data`` read a table's rows, where a ``relation``
+``table_get_data`` / ``table_search_data`` read a table's rows, where a ``relation``
 column STORES a record's id and MEANS that record's name. The resolver lives in matrx-records
 and matrx-records depends on matrx-ai, so the host injects it
 (``matrx_ai.configure(relation_words_resolver=...)``).
@@ -18,7 +18,7 @@ import pytest
 
 import matrx_ai
 from matrx_ai.tools import relation_words as relation_words_seam
-from matrx_ai.tools.implementations import datasets_tools
+from matrx_ai.tools.implementations import table_tools
 from matrx_ai.tools.models import ToolContext
 
 _TABLE_ID = "11111111-1111-4111-8111-111111111111"
@@ -32,7 +32,7 @@ class _Ctx(ToolContext):
 
 
 def _ctx() -> _Ctx:
-    return _Ctx(call_id="call-1", tool_name="dataset_get_data")
+    return _Ctx(call_id="call-1", tool_name="table_get_data")
 
 
 _PAGE = [
@@ -56,7 +56,7 @@ class _Arm:
 
 @pytest.fixture(autouse=True)
 def _stub_store(monkeypatch):
-    monkeypatch.setattr(datasets_tools, "_store_arm", lambda: _Arm())
+    monkeypatch.setattr(table_tools, "_store_arm", lambda: _Arm())
 
 
 @pytest.fixture(autouse=True)
@@ -77,9 +77,9 @@ async def _resolver(table_id, rows, *, user_id):
 @pytest.mark.parametrize(
     "tool, args",
     [
-        (datasets_tools.dataset_get_data, {"table_id": _TABLE_ID}),
+        (table_tools.table_get_data, {"table_id": _TABLE_ID}),
         (
-            datasets_tools.dataset_search_data,
+            table_tools.table_search_data,
             {"table_id": _TABLE_ID, "search_term": "green"},
         ),
     ],
@@ -95,7 +95,7 @@ async def test_relation_cell_reaches_the_model_as_words(tool, args):
 @pytest.mark.asyncio
 async def test_unwired_host_gets_the_page_unchanged_and_is_told(caplog):
     with caplog.at_level(logging.WARNING, logger=relation_words_seam.__name__):
-        result = await datasets_tools.dataset_get_data({"table_id": _TABLE_ID}, _ctx())
+        result = await table_tools.table_get_data({"table_id": _TABLE_ID}, _ctx())
 
     assert result.success, result.error
     assert result.output["rows"][0]["data"]["account"] == _CUSTOMER_ID
@@ -115,7 +115,7 @@ async def test_a_raising_resolver_never_breaks_the_tool_and_is_announced(caplog)
 
     matrx_ai.configure(relation_words_resolver=_boom)
     with caplog.at_level(logging.WARNING, logger=relation_words_seam.__name__):
-        result = await datasets_tools.dataset_get_data({"table_id": _TABLE_ID}, _ctx())
+        result = await table_tools.table_get_data({"table_id": _TABLE_ID}, _ctx())
 
     assert result.success, result.error
     assert result.output["rows"][0]["data"]["account"] == _CUSTOMER_ID

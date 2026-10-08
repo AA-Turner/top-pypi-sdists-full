@@ -19,6 +19,7 @@ pub use version::Version;
 pub mod analyze;
 pub mod ignore;
 mod ignore_index;
+mod name;
 mod version;
 mod visitors;
 
@@ -68,6 +69,13 @@ use rules::require_enum_value_ordering;
 use rules::require_table_schema;
 use rules::require_timeout_settings;
 use rules::transaction_nesting;
+use rules::{
+    ban_alter_generated_expression, ban_alter_identity, ban_disable_trigger, ban_drop_constraint,
+    ban_drop_domain, ban_drop_extension, ban_drop_generated_expression, ban_drop_index,
+    ban_drop_policy, ban_drop_schema, ban_drop_sequence, ban_replace_view_function,
+    ban_replica_identity, ban_revoke, ban_set_default, ban_set_schema,
+    existing_object_compatibility, renaming_object, security_compatibility,
+};
 // xtask:new-rule:rule-import
 
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq, Sequence)]
@@ -117,6 +125,39 @@ pub enum Rule {
     BanDropType,
     BanDropDefault,
     BanDropTrigger,
+    BanDropSchema,
+    BanDropSequence,
+    BanDropDomain,
+    BanDropConstraint,
+    BanDropGeneratedExpression,
+    RenamingObject,
+    BanSetSchema,
+    BanAlterIdentity,
+    BanDropExtension,
+    BanAlterGeneratedExpression,
+    BanDropIndex,
+    BanSetDefault,
+    BanDisableTrigger,
+    BanReplicaIdentity,
+    BanDropPolicy,
+    BanRevoke,
+    BanReplaceViewFunction,
+    BanAlterPolicyCondition,
+    BanAlterPolicyRoles,
+    BanCreatePolicy,
+    BanAlterFunctionOptions,
+    BanAlterViewOptions,
+    BanAlterRoleOptions,
+    BanAlterDatabaseOptions,
+    BanAlterRowLevelSecurity,
+    BanNewWriteRestriction,
+    BanAddEnumValue,
+    BanAddCompositeAttribute,
+    BanAddColumn,
+    BanDetachInheritance,
+    BanAlterSequenceValues,
+    BanAlterSystemOptions,
+    BanAlterExtension,
     // xtask:new-rule:error-name
 }
 
@@ -127,7 +168,33 @@ impl Rule {
         // require-timeout-settings is an alias, see `Rule::expands_to`
         matches!(
             self,
-            Rule::RequireTableSchema | Rule::RequireTimeoutSettings | Rule::BanDropTrigger
+            Rule::RequireTableSchema
+                | Rule::RequireTimeoutSettings
+                | Rule::BanDropTrigger
+                | Rule::BanAlterGeneratedExpression
+                | Rule::BanDropIndex
+                | Rule::BanSetDefault
+                | Rule::BanDisableTrigger
+                | Rule::BanReplicaIdentity
+                | Rule::BanDropPolicy
+                | Rule::BanRevoke
+                | Rule::BanReplaceViewFunction
+                | Rule::BanAlterPolicyCondition
+                | Rule::BanAlterPolicyRoles
+                | Rule::BanCreatePolicy
+                | Rule::BanAlterFunctionOptions
+                | Rule::BanAlterViewOptions
+                | Rule::BanAlterRoleOptions
+                | Rule::BanAlterDatabaseOptions
+                | Rule::BanAlterRowLevelSecurity
+                | Rule::BanNewWriteRestriction
+                | Rule::BanAddEnumValue
+                | Rule::BanAddCompositeAttribute
+                | Rule::BanAddColumn
+                | Rule::BanDetachInheritance
+                | Rule::BanAlterSequenceValues
+                | Rule::BanAlterSystemOptions
+                | Rule::BanAlterExtension
         )
     }
 
@@ -195,6 +262,39 @@ impl TryFrom<&str> for Rule {
             "ban-drop-type" => Ok(Rule::BanDropType),
             "ban-drop-default" => Ok(Rule::BanDropDefault),
             "ban-drop-trigger" => Ok(Rule::BanDropTrigger),
+            "ban-drop-schema" => Ok(Rule::BanDropSchema),
+            "ban-drop-sequence" => Ok(Rule::BanDropSequence),
+            "ban-drop-domain" => Ok(Rule::BanDropDomain),
+            "ban-drop-constraint" => Ok(Rule::BanDropConstraint),
+            "ban-drop-generated-expression" => Ok(Rule::BanDropGeneratedExpression),
+            "renaming-object" => Ok(Rule::RenamingObject),
+            "ban-set-schema" => Ok(Rule::BanSetSchema),
+            "ban-alter-identity" => Ok(Rule::BanAlterIdentity),
+            "ban-drop-extension" => Ok(Rule::BanDropExtension),
+            "ban-alter-generated-expression" => Ok(Rule::BanAlterGeneratedExpression),
+            "ban-drop-index" => Ok(Rule::BanDropIndex),
+            "ban-set-default" => Ok(Rule::BanSetDefault),
+            "ban-disable-trigger" => Ok(Rule::BanDisableTrigger),
+            "ban-replica-identity" => Ok(Rule::BanReplicaIdentity),
+            "ban-drop-policy" => Ok(Rule::BanDropPolicy),
+            "ban-revoke" => Ok(Rule::BanRevoke),
+            "ban-replace-view-function" => Ok(Rule::BanReplaceViewFunction),
+            "ban-alter-policy-condition" => Ok(Rule::BanAlterPolicyCondition),
+            "ban-alter-policy-roles" => Ok(Rule::BanAlterPolicyRoles),
+            "ban-create-policy" => Ok(Rule::BanCreatePolicy),
+            "ban-alter-function-options" => Ok(Rule::BanAlterFunctionOptions),
+            "ban-alter-view-options" => Ok(Rule::BanAlterViewOptions),
+            "ban-alter-role-options" => Ok(Rule::BanAlterRoleOptions),
+            "ban-alter-database-options" => Ok(Rule::BanAlterDatabaseOptions),
+            "ban-alter-row-level-security" => Ok(Rule::BanAlterRowLevelSecurity),
+            "ban-new-write-restriction" => Ok(Rule::BanNewWriteRestriction),
+            "ban-add-enum-value" => Ok(Rule::BanAddEnumValue),
+            "ban-add-composite-attribute" => Ok(Rule::BanAddCompositeAttribute),
+            "ban-add-column" => Ok(Rule::BanAddColumn),
+            "ban-detach-inheritance" => Ok(Rule::BanDetachInheritance),
+            "ban-alter-sequence-values" => Ok(Rule::BanAlterSequenceValues),
+            "ban-alter-system-options" => Ok(Rule::BanAlterSystemOptions),
+            "ban-alter-extension" => Ok(Rule::BanAlterExtension),
             // xtask:new-rule:str-name
             _ => Err(format!("Unknown violation name: {s}")),
         }
@@ -271,6 +371,39 @@ impl fmt::Display for Rule {
             Rule::BanDropType => "ban-drop-type",
             Rule::BanDropDefault => "ban-drop-default",
             Rule::BanDropTrigger => "ban-drop-trigger",
+            Rule::BanDropSchema => "ban-drop-schema",
+            Rule::BanDropSequence => "ban-drop-sequence",
+            Rule::BanDropDomain => "ban-drop-domain",
+            Rule::BanDropConstraint => "ban-drop-constraint",
+            Rule::BanDropGeneratedExpression => "ban-drop-generated-expression",
+            Rule::RenamingObject => "renaming-object",
+            Rule::BanSetSchema => "ban-set-schema",
+            Rule::BanAlterIdentity => "ban-alter-identity",
+            Rule::BanDropExtension => "ban-drop-extension",
+            Rule::BanAlterGeneratedExpression => "ban-alter-generated-expression",
+            Rule::BanDropIndex => "ban-drop-index",
+            Rule::BanSetDefault => "ban-set-default",
+            Rule::BanDisableTrigger => "ban-disable-trigger",
+            Rule::BanReplicaIdentity => "ban-replica-identity",
+            Rule::BanDropPolicy => "ban-drop-policy",
+            Rule::BanRevoke => "ban-revoke",
+            Rule::BanReplaceViewFunction => "ban-replace-view-function",
+            Rule::BanAlterPolicyCondition => "ban-alter-policy-condition",
+            Rule::BanAlterPolicyRoles => "ban-alter-policy-roles",
+            Rule::BanCreatePolicy => "ban-create-policy",
+            Rule::BanAlterFunctionOptions => "ban-alter-function-options",
+            Rule::BanAlterViewOptions => "ban-alter-view-options",
+            Rule::BanAlterRoleOptions => "ban-alter-role-options",
+            Rule::BanAlterDatabaseOptions => "ban-alter-database-options",
+            Rule::BanAlterRowLevelSecurity => "ban-alter-row-level-security",
+            Rule::BanNewWriteRestriction => "ban-new-write-restriction",
+            Rule::BanAddEnumValue => "ban-add-enum-value",
+            Rule::BanAddCompositeAttribute => "ban-add-composite-attribute",
+            Rule::BanAddColumn => "ban-add-column",
+            Rule::BanDetachInheritance => "ban-detach-inheritance",
+            Rule::BanAlterSequenceValues => "ban-alter-sequence-values",
+            Rule::BanAlterSystemOptions => "ban-alter-system-options",
+            Rule::BanAlterExtension => "ban-alter-extension",
             // xtask:new-rule:variant-to-name
         };
         write!(f, "{val}")
@@ -540,6 +673,87 @@ impl Linter {
         if self.rules.contains(&Rule::BanDropTrigger) {
             ban_drop_trigger(self, file);
         }
+        if self.rules.contains(&Rule::BanDropSchema) {
+            ban_drop_schema(self, file);
+        }
+        if self.rules.contains(&Rule::BanDropSequence) {
+            ban_drop_sequence(self, file);
+        }
+        if self.rules.contains(&Rule::BanDropDomain) {
+            ban_drop_domain(self, file);
+        }
+        if self.rules.contains(&Rule::BanDropConstraint) {
+            ban_drop_constraint(self, file);
+        }
+        if self.rules.contains(&Rule::BanDropGeneratedExpression) {
+            ban_drop_generated_expression(self, file);
+        }
+        if self.rules.contains(&Rule::RenamingObject) {
+            renaming_object(self, file);
+        }
+        if self.rules.contains(&Rule::BanSetSchema) {
+            ban_set_schema(self, file);
+        }
+        if self.rules.contains(&Rule::BanAlterIdentity) {
+            ban_alter_identity(self, file);
+        }
+        if self.rules.contains(&Rule::BanDropExtension) {
+            ban_drop_extension(self, file);
+        }
+        if self.rules.contains(&Rule::BanAlterGeneratedExpression) {
+            ban_alter_generated_expression(self, file);
+        }
+        if self.rules.contains(&Rule::BanDropIndex) {
+            ban_drop_index(self, file);
+        }
+        if self.rules.contains(&Rule::BanSetDefault) {
+            ban_set_default(self, file);
+        }
+        if self.rules.contains(&Rule::BanDisableTrigger) {
+            ban_disable_trigger(self, file);
+        }
+        if self.rules.contains(&Rule::BanReplicaIdentity) {
+            ban_replica_identity(self, file);
+        }
+        if self.rules.contains(&Rule::BanDropPolicy) {
+            ban_drop_policy(self, file);
+        }
+        if self.rules.contains(&Rule::BanRevoke) {
+            ban_revoke(self, file);
+        }
+        if self.rules.contains(&Rule::BanReplaceViewFunction) {
+            ban_replace_view_function(self, file);
+        }
+        if [
+            Rule::BanCreatePolicy,
+            Rule::BanAlterPolicyRoles,
+            Rule::BanAlterPolicyCondition,
+            Rule::BanAlterFunctionOptions,
+            Rule::BanAlterViewOptions,
+            Rule::BanAlterRoleOptions,
+            Rule::BanAlterDatabaseOptions,
+            Rule::BanAlterSystemOptions,
+            Rule::BanAlterExtension,
+            Rule::BanAlterRowLevelSecurity,
+        ]
+        .iter()
+        .any(|rule| self.rules.contains(rule))
+        {
+            security_compatibility(self, file);
+        }
+        if [
+            Rule::BanNewWriteRestriction,
+            Rule::BanAddEnumValue,
+            Rule::BanAddCompositeAttribute,
+            Rule::BanAddColumn,
+            Rule::BanDetachInheritance,
+            Rule::BanAlterSequenceValues,
+        ]
+        .iter()
+        .any(|rule| self.rules.contains(rule))
+        {
+            existing_object_compatibility(self, file);
+        }
         // xtask:new-rule:rule-call
 
         // locate any ignores in the file
@@ -686,5 +900,70 @@ mod tests {
         );
         assert!(linter.rules.contains(&Rule::RequireLockTimeout));
         assert!(!linter.rules.contains(&Rule::RequireStatementTimeout));
+    }
+
+    #[test]
+    fn compatibility_rules_are_enabled_by_default_and_can_be_excluded() {
+        for (rule, sql) in [
+            (Rule::BanDropConstraint, "ALTER TABLE t DROP CONSTRAINT c;"),
+            (
+                Rule::BanAlterIdentity,
+                "ALTER TABLE t ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY;",
+            ),
+            (
+                Rule::BanDropGeneratedExpression,
+                "ALTER TABLE t ALTER COLUMN c DROP EXPRESSION;",
+            ),
+            (Rule::BanDropExtension, "DROP EXTENSION hstore;"),
+        ] {
+            let parse = SourceFile::parse(sql);
+            assert!(parse.errors().is_empty());
+            assert!(
+                Linter::with_default_rules()
+                    .lint(&parse, sql)
+                    .iter()
+                    .any(|v| v.code == rule)
+            );
+            assert!(
+                !Linter::with_rules(&[], &[rule])
+                    .lint(&parse, sql)
+                    .iter()
+                    .any(|v| v.code == rule)
+            );
+        }
+    }
+
+    #[test]
+    fn compatibility_rules_require_explicit_configuration() {
+        for (rule, sql) in [
+            (
+                Rule::BanAlterGeneratedExpression,
+                "ALTER TABLE t ALTER COLUMN c SET EXPRESSION AS (id + 1);",
+            ),
+            (Rule::BanAddColumn, "ALTER TABLE t ADD COLUMN c int;"),
+            (Rule::BanReplicaIdentity, "DROP PUBLICATION p;"),
+            (Rule::BanAddEnumValue, "ALTER TYPE mood ADD VALUE 'new';"),
+        ] {
+            let parse = SourceFile::parse(sql);
+            assert!(parse.errors().is_empty());
+            assert!(
+                !Linter::with_default_rules()
+                    .lint(&parse, sql)
+                    .iter()
+                    .any(|v| v.code == rule)
+            );
+            assert!(
+                Linter::with_rules(&[rule], &[])
+                    .lint(&parse, sql)
+                    .iter()
+                    .any(|v| v.code == rule)
+            );
+            assert!(
+                !Linter::with_rules(&[rule], &[rule])
+                    .lint(&parse, sql)
+                    .iter()
+                    .any(|v| v.code == rule)
+            );
+        }
     }
 }

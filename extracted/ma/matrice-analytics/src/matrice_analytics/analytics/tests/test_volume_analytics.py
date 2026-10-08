@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import logging
 import os
 import pprint
 import sys
@@ -11,6 +12,16 @@ from typing import Any
 
 import cv2
 import numpy as np
+import pytest
+
+# `collect_ignore` in conftest.py skips this module when `ultralytics` is absent,
+# but pytest applies collect_ignore only when it DISCOVERS a path -- naming the
+# file explicitly bypasses it, which is what the pre-push build battery does when
+# a sibling changes. importorskip is checked at import time either way.
+pytest.importorskip(
+    "ultralytics", reason="heavy ML dep; the deployment image provides it (CLAUDE.md 8.9)"
+)
+
 from ultralytics import YOLO
 
 # --- Import bootstrap (analytics + footfall only) ---
@@ -22,6 +33,8 @@ _ROOT = Path(
 _SRC = _ROOT / "src"
 _PKG = _SRC / "matrice_analytics"
 sys.path.insert(0, str(_SRC))
+
+_logger = logging.getLogger(__name__)
 
 
 def _register_pkg(name: str, path: Path) -> None:
@@ -413,6 +426,20 @@ class AnalyticsEngineTestProcessor:
     # Main processing loop
     # ------------------------------------------------------------------
 
+    def _log_frame_progress(
+        self, loop_idx: int, frame_idx: int, det_count: int, frame_result, json_path: str
+    ) -> None:
+        """Emit the per-frame progress line (one print() before PY-09)."""
+        _logger.info(
+            "[Loop %d/%d] Frame %4d | detections: %3d | metrics: %s | saved: %s",
+            loop_idx + 1,
+            self.loop_count,
+            frame_idx,
+            det_count,
+            frame_result,
+            json_path,
+        )
+
     def process_video(self):
         """Run inference + tracking + analytics engine on every frame."""
         cap = cv2.VideoCapture(self.video_path)
@@ -430,21 +457,21 @@ class AnalyticsEngineTestProcessor:
         if write_video:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             video_writer = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
-            print(f"Video output enabled — output video: {self.output_video_path}")
+            _logger.info("Video output enabled — output video: %s", self.output_video_path)
 
         if self.draw_lines:
             zone_geometry = self._parse_zone_geometry(width, height)
             if zone_geometry:
-                print(f"Zone drawing enabled — method: {zone_geometry['method']}")
+                _logger.info("Zone drawing enabled — method: %s", zone_geometry["method"])
             else:
-                print("draw_lines enabled but no zone_config found in manifest")
+                _logger.info("draw_lines enabled but no zone_config found in manifest")
 
-        print(f"Starting video processing: {self.video_path}")
-        print(f"Model: {self.model_path}")
-        print(f"Manifest: people_counting | Engine categories: {self.engine.categories}")
-        print(f"Output directory: {self.json_dir}")
-        print(f"Loop count: {self.loop_count}")
-        print("-" * 60)
+        _logger.info("Starting video processing: %s", self.video_path)
+        _logger.info("Model: %s", self.model_path)
+        _logger.info("Manifest: people_counting | Engine categories: %s", self.engine.categories)
+        _logger.info("Output directory: %s", self.json_dir)
+        _logger.info("Loop count: %s", self.loop_count)
+        _logger.info("%s", "-" * 60)
 
         frame_idx = 0
         done = False
@@ -455,7 +482,7 @@ class AnalyticsEngineTestProcessor:
 
             if loop_idx > 0:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                print(f"\n--- Loop {loop_idx + 1}/{self.loop_count} ---")
+                _logger.info("\n--- Loop %s/%s ---", loop_idx + 1, self.loop_count)
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -484,7 +511,9 @@ class AnalyticsEngineTestProcessor:
                     agg_path = os.path.join(self.json_dir, "agg", f"agg_{frame_idx:04d}.json")
                     with open(agg_path, "w") as f:
                         json.dump(self._serialize(agg_result), f, indent=2)
-                    print(f"  ** Aggregation triggered at frame {frame_idx} — saved: {agg_path}")
+                    _logger.info(
+                        "  ** Aggregation triggered at frame %s — saved: %s", frame_idx, agg_path
+                    )
 
                 # Step 5: Draw overlays and write video frame
                 if write_video and video_writer is not None:
@@ -500,14 +529,13 @@ class AnalyticsEngineTestProcessor:
                 with open(json_path, "w") as f:
                     json.dump(self._serialize(frame_result), f, indent=2)
 
-                print(
-                    f"[Loop {loop_idx + 1}/{self.loop_count}] Frame {frame_idx:4d} | "
-                    f"detections: {len(detections):3d} | metrics: {frame_result} | saved: {json_path}"
+                self._log_frame_progress(
+                    loop_idx, frame_idx, len(detections), frame_result, json_path
                 )
 
                 frame_idx += 1
                 if self.max_frames and frame_idx >= self.max_frames:
-                    print(f"Max frame limit ({self.max_frames}) reached.")
+                    _logger.info("Max frame limit (%s) reached.", self.max_frames)
                     done = True
                     break
 
@@ -516,17 +544,17 @@ class AnalyticsEngineTestProcessor:
         final_agg_path = os.path.join(self.json_dir, "agg", "agg_final.json")
         with open(final_agg_path, "w") as f:
             json.dump(self._serialize(final_agg), f, indent=2)
-        print(f"\nFinal aggregation saved: {final_agg_path}")
-        print("Final aggregation result:")
+        _logger.info("\nFinal aggregation saved: %s", final_agg_path)
+        _logger.info("Final aggregation result:")
         pprint.pprint(self._serialize(final_agg))  # noqa: T203
 
         cap.release()
         if video_writer is not None:
             video_writer.release()
-            print(f"Output video saved to: {self.output_video_path}")
+            _logger.info("Output video saved to: %s", self.output_video_path)
 
-        print(f"\nProcessing complete. {frame_idx} frames processed.")
-        print(f"JSON outputs saved in: {self.json_dir}")
+        _logger.info("\nProcessing complete. %s frames processed.", frame_idx)
+        _logger.info("JSON outputs saved in: %s", self.json_dir)
 
 
 if __name__ == "__main__":

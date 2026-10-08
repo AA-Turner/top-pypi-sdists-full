@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import sys
 import warnings
 from asyncio import Lock
-from contextlib import asynccontextmanager
-from functools import lru_cache
+from collections.abc import Callable
+from contextlib import asynccontextmanager, nullcontext
 from logging import getLogger
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Self, cast
+from weakref import WeakValueDictionary
 
 from aiohttp import ClientSession
 from aiohttp.typedefs import StrOrURL
+from yarl import URL
 
 from aiohttp_client_cache.backends import CacheBackend, get_valid_kwargs
 from aiohttp_client_cache.cache_control import CacheActions, ExpirationTime, compose_refresh_headers
@@ -19,11 +20,13 @@ from aiohttp_client_cache.response import AnyResponse, CachedResponse, set_respo
 from aiohttp_client_cache.signatures import extend_signature
 
 if TYPE_CHECKING:
+    from typing import Unpack
+
     from aiohttp.client import _RequestContextManager, _RequestOptions
-    from typing_extensions import Unpack
 
     class _ExpandedRequestOptions(_RequestOptions, total=False):
         expire_after: ExpirationTime
+        refresh: bool
 
     MIXIN_BASE = ClientSession
 
@@ -31,26 +34,6 @@ else:
     MIXIN_BASE = object
 
 logger = getLogger(__name__)
-
-if sys.version_info >= (3, 10):
-    from contextlib import nullcontext
-else:
-    from contextlib import AbstractAsyncContextManager
-
-    class nullcontext(AbstractAsyncContextManager):
-        async def __aexit__(self, *excinfo):
-            pass
-
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-
-@lru_cache(maxsize=16384)
-def _get_lock(_: int, __: str) -> Lock:
-    return Lock()
 
 
 class CacheMixin(MIXIN_BASE):
@@ -65,11 +48,18 @@ class CacheMixin(MIXIN_BASE):
         **kwargs,
     ):
         self.cache = cache or CacheBackend()
+        # Drops a key's Lock as soon as nothing is contending for it
+        self._locks: WeakValueDictionary[str, Lock] = WeakValueDictionary()
         self._null_lock = nullcontext()
 
         # Pass along any valid kwargs for ClientSession (or custom session superclass)
         session_kwargs = get_valid_kwargs(super().__init__, {**kwargs, 'base_url': base_url})
         super().__init__(**session_kwargs)
+
+    @property
+    def _cache_json_serialize(self) -> Callable[[Any], str | bytes]:
+        json_serialize_bytes = getattr(self, '_json_serialize_bytes', None)
+        return self.json_serialize if json_serialize_bytes is None else json_serialize_bytes
 
     @extend_signature(ClientSession._request)
     async def _request(
@@ -81,26 +71,31 @@ class CacheMixin(MIXIN_BASE):
         **kwargs,
     ) -> CachedResponse:
         """Wrapper around :py:meth:`.SessionClient._request` that adds caching"""
+        if not self.cache.is_method_allowed(method):
+            logger.debug(f'Method {method} is not cached; making request to {str_or_url}')
+            return set_response_defaults(await super()._request(method, str_or_url, **kwargs))
+
         # Attempt to fetch cached response
         headers = self._prepare_headers(kwargs.get('headers', None))
         kwargs['headers'] = headers
-        key = self.cache.create_key(method, str_or_url, **kwargs)
+        url = self._resolve_url(str_or_url)
+        key = self.cache.create_key(
+            method, url, json_serialize=self._cache_json_serialize, **kwargs
+        )
         actions = self.cache.create_cache_actions(
-            key, str_or_url, expire_after=expire_after, refresh=refresh, **kwargs
+            key, url, expire_after=expire_after, refresh=refresh, **kwargs
         )
 
         if actions.skip_read:
             lock: Lock | nullcontext = self._null_lock
         else:
-            lock = _get_lock(id(self), key)
+            try:
+                lock = self._locks[key]
+            except KeyError:
+                lock = self._locks[key] = Lock()
 
         async with lock:
             response = await self.cache.request(actions)
-
-            def restore_cookies(r):
-                self.cookie_jar.update_cookies(r.cookies or {}, r.url)
-                for redirect in r.history:
-                    self.cookie_jar.update_cookies(redirect.cookies or {}, redirect.url)
 
             if actions.revalidate and response:
                 from_cache, new_response = await self._refresh_cached_response(
@@ -109,12 +104,12 @@ class CacheMixin(MIXIN_BASE):
                 if not from_cache:
                     return set_response_defaults(new_response)
                 else:
-                    restore_cookies(new_response)
+                    self._restore_cookies(new_response)
                     return cast(CachedResponse, new_response)
 
             # Restore any cached cookies to the session
             if response:
-                restore_cookies(response)
+                self._restore_cookies(response)
                 return response
             # If the response was missing or expired, send and cache a new request
             else:
@@ -127,6 +122,11 @@ class CacheMixin(MIXIN_BASE):
                 if await self.cache.is_cacheable(new_response, actions):
                     await self.cache.save_response(new_response, actions.key, actions.expires)
                 return set_response_defaults(new_response)
+
+    def _restore_cookies(self, response: AnyResponse):
+        self.cookie_jar.update_cookies(response.cookies or {}, response.url)
+        for redirect in response.history:
+            self.cookie_jar.update_cookies(redirect.cookies or {}, redirect.url)
 
     async def _refresh_cached_response(
         self,
@@ -169,6 +169,31 @@ class CacheMixin(MIXIN_BASE):
             )
             return True, cached_response
 
+    async def delete_url(self, url: StrOrURL, method: str = 'GET', **kwargs: Any):
+        """Like :py:meth:`.CacheBackend.delete_url`, with keys created like this session's requests"""
+        await self.cache.delete_url(
+            self._resolve_url(url), method, **self._cache_key_kwargs(**kwargs)
+        )
+
+    async def has_url(self, url: StrOrURL, method: str = 'GET', **kwargs: Any) -> bool:
+        """Like :py:meth:`.CacheBackend.has_url`, with keys created like this session's requests"""
+        return await self.cache.has_url(
+            self._resolve_url(url), method, **self._cache_key_kwargs(**kwargs)
+        )
+
+    def _resolve_url(self, str_or_url: StrOrURL) -> URL:
+        url = URL(str_or_url)
+        if self._base_url and not url.is_absolute():
+            return self._base_url.join(url)
+        return url
+
+    def _cache_key_kwargs(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            **kwargs,
+            'headers': self._prepare_headers(kwargs.get('headers')),
+            'json_serialize': self._cache_json_serialize,
+        }
+
     async def close(self):
         """Close both aiohttp connector and any backend connection(s) on contextmanager exit"""
         await super().close()
@@ -194,8 +219,7 @@ class CacheMixin(MIXIN_BASE):
         """Remove all expired responses from the cache"""
         await self.cache.delete_expired_responses()
 
-    # The version check is unnecessary but since aiohttp has done it we're forced into it too.
-    if sys.version_info >= (3, 11) and TYPE_CHECKING:
+    if TYPE_CHECKING:
 
         def get(
             self,

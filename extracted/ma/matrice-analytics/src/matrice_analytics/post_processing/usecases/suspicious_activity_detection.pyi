@@ -19,6 +19,12 @@ def apply_category_mapping(results: Any, index_to_category: Dict[str, str]) -> A
         Results with mapped category names
     """
     ...
+def get_trend(data: Any, lookback: Any = 900, threshold: Any = 0.6) -> Any:
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    ...
 def load_model_from_checkpoint(checkpoint_path: Any, local_path: Any) -> Any:
     """
     Load a model from checkpoint URL

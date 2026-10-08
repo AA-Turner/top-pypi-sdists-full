@@ -52,11 +52,37 @@ from probe.sdk.config import STOCK_MCP_URL, mcp_url  # noqa: F401 -- STOCK_MCP_U
 
 log = logging.getLogger("probe.daemon")
 #: Conversation mode compacts once the context passes this many tokens (estimated).
-#: The writer: near its 1M window, leaving room for the 16K output and the tool
-#: schemas (Richard, 2026-09-28: "1m"). The reader: only the immediate reading
-#: matters (Richard, 2026-09-28: "compact to 120k").
-CONTEXT_TOKENS = int(os.environ.get("PROBE_DAEMON_CONTEXT_TOKENS") or 950_000)
+#: The writer: 250K (Richard, 2026-10-07: "lets cap the writer to 250k tokens";
+#: it was 950K, his "1m" of 09-28). Every round re-reads the whole context, and in
+#: the 7 days to 10-07, 78% of writer spend ($763 of $972) was calls over 200K
+#: tokens; under 272K OpenAI also bills gpt-6.1-sol at its short-context rate.
+#: The reader: only the immediate reading matters (Richard, 2026-09-28: "compact
+#: to 120k").
+#: Both are the client's own; the server can lower them (`writer_context_tokens`,
+#: `read_context_tokens`; Richard 2026-10-07, T10: "server-pushed cap").
+CONTEXT_TOKENS = int(os.environ.get("PROBE_DAEMON_CONTEXT_TOKENS") or 250_000)
 READ_CONTEXT_TOKENS = int(os.environ.get("PROBE_READER_CONTEXT_TOKENS") or 120_000)
+
+
+def _lowered_by_server(own: int, lane: str) -> int:
+    from probe.daemon import model as model_mod
+
+    server = model_mod.server_context_tokens(lane)
+    return min(own, server) if server is not None and own > 0 else own
+
+
+def writer_context_tokens() -> int:
+    """The writer's size: CONTEXT_TOKENS, or the server's if that is lower."""
+    from probe.daemon import model as model_mod
+
+    return _lowered_by_server(CONTEXT_TOKENS, model_mod.LANE_WRITE)
+
+
+def read_context_tokens() -> int:
+    """The reader's size: READ_CONTEXT_TOKENS, or the server's if that is lower."""
+    from probe.daemon import model as model_mod
+
+    return _lowered_by_server(READ_CONTEXT_TOKENS, model_mod.LANE_READ)
 #: While a model call runs, the writer's lease is renewed this often (a call may
 #: take 30 minutes; the lease lives 240 s).
 LEASE_RENEW_IN_CALL_S = 60.0
@@ -312,7 +338,7 @@ def counted_compaction(state: RunState):
         estimate_context_tokens,
     )
 
-    size = state.context_tokens or CONTEXT_TOKENS
+    size = state.context_tokens or writer_context_tokens()
     if size <= 0:
         # Would compact before every request: refused, so the worker falls back to
         # bites (`worker._compaction_available`), as the harness's own

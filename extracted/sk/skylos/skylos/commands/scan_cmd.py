@@ -1458,9 +1458,16 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                     raise SystemExit(0)
             elif _is_ci():
                 console.print(
-                    "[warn]No SKYLOS_TOKEN set. To upload from CI, add SKYLOS_TOKEN to your environment.[/warn]"
+                    "[warn]No CI identity token or SKYLOS_TOKEN, so nothing was uploaded.[/warn]"
                 )
-                console.print("  See: https://docs.skylos.dev/ci-setup")
+                console.print(
+                    "  On GitHub Actions: give the job `permissions: id-token: write` and "
+                    "upload from a push to the default branch (pull_request uploads are "
+                    "not accepted). Otherwise set SKYLOS_TOKEN to a project API key."
+                )
+                console.print(
+                    "  See: https://github.com/duriantaco/skylos/blob/main/docs/first-gated-pr.md"
+                )
                 raise SystemExit(1)
             else:
                 from skylos.cloud.login import manual_token_fallback
@@ -1469,30 +1476,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 if login_result is None:
                     raise SystemExit(1)
 
-        from skylos.api import (
-            get_credit_balance,
-            get_project_token as _get_token,
-            BASE_URL,
-        )
-
-        _token = _get_token()
-
-        if _token:
-            _balance_data = get_credit_balance(_token)
-        else:
-            _balance_data = None
-
-        if _balance_data:
-            _plan = _balance_data.get("plan", "free")
-            _bal = _balance_data.get("balance", 0)
-            if _plan != "enterprise" and _bal <= 0:
-                console.print(
-                    f"[bold red]0 credits remaining — upload skipped.[/bold red] "
-                    f"Buy more: [link={BASE_URL}/dashboard/billing]{BASE_URL}/dashboard/billing[/link]"
-                )
-                console.print("[dim]Run 'skylos credits' to check your balance.[/dim]")
-                return
-
+        # Uploads never cost credits, so the CLI never checks the balance first.
         _print_main_upload_manifest(console, args, result)
         _attach_upload_project_context(result, project_root)
         if done_receipt is not None:

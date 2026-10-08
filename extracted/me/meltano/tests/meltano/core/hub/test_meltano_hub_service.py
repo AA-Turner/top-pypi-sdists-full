@@ -25,6 +25,7 @@ from meltano.core.hub.client import (
     HubPluginVariantNotFoundError,
     MeltanoHubService,
     _connection_cause,
+    _index_cache_path,
 )
 from meltano.core.plugin.base import PluginType, Variant
 from meltano.core.plugin.error import PluginNotFoundError
@@ -190,6 +191,46 @@ class TestMeltanoHubService:
 
         assert hub_request_counter["/extractors/index"] == requests
         assert hub_request_counter["/extractors/tap-mock--meltano"] == requests
+
+    def test_a_cache_that_cannot_be_written_does_not_fail_the_fetch(
+        self,
+        project: Project,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A file where the cache folder belongs stops the folder being made.
+        blocker = tmp_path / "blocker"
+        blocker.touch()
+        monkeypatch.setattr(
+            "meltano.core.hub.client.index_cache_dir",
+            lambda: blocker / "hub",
+        )
+
+        definition = project.hub_service.find_definition(
+            PluginType.EXTRACTORS,
+            "tap-mock",
+        )
+
+        assert definition.name == "tap-mock"
+
+    def test_a_cache_that_cannot_be_read_does_not_fail_the_listing(
+        self,
+        project: Project,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("meltano.core.hub.client.index_cache_dir", lambda: tmp_path)
+        # A folder where the cache file belongs exists, but cannot be read.
+        _index_cache_path(
+            project.hub_service.plugin_type_endpoint(PluginType.EXTRACTORS),
+        ).mkdir()
+
+        plugins = project.hub_service.get_plugins_of_type(
+            PluginType.EXTRACTORS,
+            refresh=False,
+        )
+
+        assert "tap-mock" in plugins
 
     @pytest.mark.parametrize(
         ("refresh", "level"),
@@ -383,6 +424,7 @@ class TestMeltanoHubService:
         _stub_cloud_credentials(monkeypatch, Credentials(access_token="s3cr3t"))
         service = MeltanoHubService(project)
         assert service.hub_api_url == "http://localhost:4000/meltano/api/v1"
+        assert "Authorization" not in service.session.headers
         project.settings.unset("hub_url")
 
     @pytest.mark.usefixtures("_restore_hub_session_headers")
@@ -396,6 +438,7 @@ class TestMeltanoHubService:
         _stub_cloud_credentials(monkeypatch, Credentials(access_token="s3cr3t"))
         service = MeltanoHubService(project)
         assert service.hub_api_url == "https://mysite.com/my-plugins"
+        assert "Authorization" not in service.session.headers
         project.settings.unset("hub_api_root")
 
     @pytest.mark.usefixtures("_restore_hub_session_headers")
@@ -636,3 +679,75 @@ class TestMeltanoHubService:
             pytest.raises(HubConnectionError, match=r"Internal Server Error \(500\)"),
         ):
             project.hub_service.get_plugins_of_type(PluginType.EXTRACTORS)
+
+
+@pytest.mark.usefixtures("_restore_hub_session_headers")
+class TestMeltanoHubServiceWithoutProject:
+    @pytest.fixture(autouse=True)
+    def _clear_hub_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for name in ("MELTANO_HUB_URL", "MELTANO_HUB_API_ROOT", "MELTANO_HUB_URL_AUTH"):
+            monkeypatch.delenv(name, raising=False)
+
+    @pytest.mark.parametrize(
+        ("env", "hub_api_url"),
+        (
+            pytest.param({}, "https://hub.meltano.com/meltano/api/v1", id="default"),
+            pytest.param(
+                {"MELTANO_HUB_URL": "https://hub.example.com"},
+                "https://hub.example.com/meltano/api/v1",
+                id="hub-url",
+            ),
+            pytest.param(
+                {"MELTANO_HUB_API_ROOT": "https://api.example.com"},
+                "https://api.example.com",
+                id="hub-api-root",
+            ),
+        ),
+    )
+    def test_hub_api_url_comes_from_the_environment(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        env: dict[str, str],
+        hub_api_url: str,
+    ) -> None:
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        assert MeltanoHubService().hub_api_url == hub_api_url
+
+    @pytest.mark.parametrize(
+        ("env", "hub_api_url"),
+        (
+            pytest.param({}, CLOUD_API_ROOT, id="cloud"),
+            pytest.param(
+                {"MELTANO_HUB_URL": "https://hub.example.com"},
+                "https://hub.example.com/meltano/api/v1",
+                id="own-hub-wins",
+            ),
+        ),
+    )
+    def test_logged_in_user_reads_cloud_unless_a_hub_is_set(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        env: dict[str, str],
+        hub_api_url: str,
+    ) -> None:
+        _stub_cloud_credentials(monkeypatch, Credentials(access_token="s3cr3t"))
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        assert MeltanoHubService().hub_api_url == hub_api_url
+
+    def test_hub_url_auth_comes_from_the_environment(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("MELTANO_HUB_URL_AUTH", "Bearer s3cr3t")
+        service = MeltanoHubService()
+
+        assert service.session.headers["Authorization"] == "Bearer s3cr3t"
+        assert "X-Project-ID" not in service.session.headers
+
+    def test_project_id_of_an_earlier_service_is_not_sent(self) -> None:
+        # The session is shared, so an earlier service for a project leaves its
+        # project ID on it.
+        MeltanoHubService.session.headers["X-Project-ID"] = "from-a-project"
+        assert "X-Project-ID" not in MeltanoHubService().session.headers

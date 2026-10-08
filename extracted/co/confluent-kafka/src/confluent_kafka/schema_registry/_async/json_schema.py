@@ -17,13 +17,14 @@
 import asyncio as _locks
 import io
 import logging
-from typing import Any, Callable, Coroutine, Optional, Tuple, Union, cast
+from typing import Any, Awaitable, Callable, Coroutine, Dict, Optional, Tuple, Union, cast
 
 from cachetools import LRUCache
 from jsonschema import ValidationError
 from jsonschema.protocols import Validator
 from jsonschema.validators import validator_for
 from referencing import Registry, Resource
+from referencing._core import Resolver
 
 from confluent_kafka.schema_registry import (
     AsyncSchemaRegistryClient,
@@ -42,6 +43,7 @@ from confluent_kafka.schema_registry.common.json_schema import (
     _json_loads,
     _retrieve_via_httpx,
     transform,
+    validate_message,
 )
 from confluent_kafka.schema_registry.common.schema_registry_client import RulePhase
 from confluent_kafka.schema_registry.rule_registry import RuleRegistry
@@ -50,10 +52,26 @@ from confluent_kafka.schema_registry.serde import (
     AsyncBaseSerializer,
     ParsedSchemaCache,
     SchemaId,
+    ValidationRulesExecution,
+    async_build_serde,
+    clear_original_key,
+    set_original_key,
 )
-from confluent_kafka.serialization import SerializationContext, SerializationError
+from confluent_kafka.serialization import (
+    DeserializerBuilder,
+    MessageField,
+    SerializationContext,
+    SerializationError,
+    SerializerBuilder,
+)
 
-__all__ = ['_resolve_named_schema', 'AsyncJSONSerializer', 'AsyncJSONDeserializer']
+__all__ = [
+    '_resolve_named_schema',
+    'AsyncJSONSerializer',
+    'AsyncJSONSerializerBuilder',
+    'AsyncJSONDeserializer',
+    'AsyncJSONDeserializerBuilder',
+]
 
 log = logging.getLogger(__name__)
 
@@ -246,6 +264,9 @@ class AsyncJSONSerializer(AsyncBaseSerializer):
         'subject.name.strategy': None,
         'schema.id.serializer': prefix_schema_id_serializer,
         'validate': True,
+        'validation.rules.execution': ValidationRulesExecution.DISABLED,
+        'validation.rules.fail.fast': False,
+        'validation.rules.executor': None,
     }
 
     async def __init_impl(
@@ -326,6 +347,8 @@ class AsyncJSONSerializer(AsyncBaseSerializer):
         if not isinstance(self._validate, bool):
             raise ValueError("validate must be a boolean value")
 
+        self.configure_validation_rules(conf_copy)
+
         if len(conf_copy) > 0:
             raise ValueError("Unrecognized properties: {}".format(", ".join(conf_copy.keys())))
 
@@ -341,6 +364,8 @@ class AsyncJSONSerializer(AsyncBaseSerializer):
 
         for rule in self._rule_registry.get_executors():
             rule.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
+        for action in self._rule_registry.get_actions():
+            action.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
 
     __init__ = __init_impl
 
@@ -350,6 +375,18 @@ class AsyncJSONSerializer(AsyncBaseSerializer):
         return self.__serialize(obj, ctx)
 
     async def __serialize(self, obj: object, ctx: Optional[SerializationContext] = None) -> Optional[bytes]:
+        try:
+            if obj is None:
+                return None
+            return await self.__serialize_impl(obj, ctx)
+        finally:
+            # Track the key for use when serializing the value, such as for a DLQ
+            if ctx is not None and ctx.field == MessageField.KEY:
+                set_original_key(obj)
+            else:
+                clear_original_key()
+
+    async def __serialize_impl(self, obj: object, ctx: Optional[SerializationContext] = None) -> Optional[bytes]:
         """
         Serializes an object to JSON, prepending it with Confluent Schema Registry
         framing.
@@ -428,13 +465,25 @@ class AsyncJSONSerializer(AsyncBaseSerializer):
                         rule_ctx, parsed_schema, ref_registry, ref_resolver, "$", msg, field_transform
                     )
 
+                if self._validation_enabled(ValidationRulesExecution.BEFORE_DOMAIN_RULES):
+                    self._validate_inline_rules(parsed_schema, ref_registry, ref_resolver, value)
+
                 if ctx is not None and subject is not None:
                     value = self._execute_rules(
                         ctx, subject, RuleMode.WRITE, None, latest_schema.schema, value, None, field_transformer
                     )
+
+                if self._validation_enabled(ValidationRulesExecution.AFTER_DOMAIN_RULES):
+                    self._validate_inline_rules(parsed_schema, ref_registry, ref_resolver, value)
         else:
             schema = self._schema
             parsed_schema, ref_registry = self._parsed_schema, self._ref_registry
+            # No domain rules run on this path, so before/after collapse to one point.
+            if self._validation_enabled() and parsed_schema is not None and ref_registry is not None:
+                root_resource = Resource.from_contents(parsed_schema, default_specification=DEFAULT_SPEC)
+                self._validate_inline_rules(
+                    parsed_schema, ref_registry, ref_registry.resolver_with_root(root_resource), value
+                )
 
         if self._validate and schema is not None and parsed_schema is not None and ref_registry is not None:
             try:
@@ -458,6 +507,28 @@ class AsyncJSONSerializer(AsyncBaseSerializer):
                 )
 
             return self._schema_id_serializer(buffer, ctx, schema_id)
+
+    def _validate_inline_rules(
+        self,
+        parsed_schema: Optional[JsonSchema],
+        ref_registry: Registry,
+        ref_resolver: Resolver,
+        value: Any,
+    ) -> None:
+        """
+        Evaluate the schema's inline validation rules against ``value``, raising a
+        single SerializationError listing every violation found.
+        """
+        self._raise_validation_violations(
+            validate_message(
+                self._validation_rule_executor,
+                parsed_schema,
+                ref_registry,
+                ref_resolver,
+                value,
+                self._validation_rules_fail_fast,
+            )
+        )
 
     async def _get_parsed_schema(self, schema: Optional[Schema]) -> Tuple[Optional[JsonSchema], Optional[Registry]]:
         if schema is None:
@@ -488,6 +559,140 @@ class AsyncJSONSerializer(AsyncBaseSerializer):
         async with self._validators_lock:
             self._validators[schema] = validator
         return validator
+
+
+class AsyncJSONSerializerBuilder(SerializerBuilder):
+    """
+    Builds an :py:class:`AsyncJSONSerializer` for a serializing producer.
+
+    *This class is experimental and subject to incompatible API changes in future versions of the library.*
+
+    Pass one to a producer through the ``key.serializer.builder`` or
+    ``value.serializer.builder`` configuration property and it constructs the
+    Schema Registry client and the serializer for you, and lets the producer
+    supply the Kafka cluster id to the serializer::
+
+        producer = await AsyncSerializingProducer({
+            'bootstrap.servers': brokers,
+            'value.serializer.builder': AsyncJSONSerializerBuilder(
+                schema_registry_config={'url': schema_registry_url},
+                schema=schema_str,
+            ),
+        })
+
+    Every value also has a setter, each returning the builder so they chain::
+
+        AsyncJSONSerializerBuilder().set_schema_registry_config(conf).set_schema(schema_str)
+
+    All values are optional: the serde's own defaults apply to whatever is not
+    set, though a Schema Registry client or its configuration is needed in
+    practice.
+
+    See :py:class:`AsyncJSONSerializer` for what the individual values mean.
+    """
+
+    def __init__(
+        self,
+        schema_registry_config: Optional[dict] = None,
+        schema_registry_client: Optional[AsyncSchemaRegistryClient] = None,
+        schema: Union[str, Schema, None] = None,
+        to_dict: Optional[Callable[[object, SerializationContext], dict]] = None,
+        serializer_config: Optional[dict] = None,
+        rule_config: Optional[dict] = None,
+        rule_registry: Optional[RuleRegistry] = None,
+        json_encode: Optional[Callable] = None,
+        serializer_init: Optional[Callable[['AsyncJSONSerializer'], Awaitable[None]]] = None,
+    ) -> None:
+        self._schema_registry_conf = schema_registry_config
+        self._schema_registry_client = schema_registry_client
+        self._schema_str = schema
+        self._to_dict = to_dict
+        self._serializer_conf = serializer_config
+        self._rule_conf = rule_config
+        self._rule_registry = rule_registry
+        self._json_encode = json_encode
+        self._serializer_init = serializer_init
+
+    def set_schema_registry_config(self, schema_registry_conf: dict) -> 'AsyncJSONSerializerBuilder':
+        """Configuration for the Schema Registry client to build. Cannot be combined with a client."""
+        self._schema_registry_conf = schema_registry_conf
+        return self
+
+    def set_schema_registry_client(
+        self, schema_registry_client: AsyncSchemaRegistryClient
+    ) -> 'AsyncJSONSerializerBuilder':
+        """An existing Schema Registry client to use, instead of building one."""
+        self._schema_registry_client = schema_registry_client
+        return self
+
+    def set_schema(self, schema_str: Union[str, Schema]) -> 'AsyncJSONSerializerBuilder':
+        """The writer schema, as a JSON schema string or a :py:class:`Schema`."""
+        self._schema_str = schema_str
+        return self
+
+    def set_to_dict(self, to_dict: Callable[[object, SerializationContext], dict]) -> 'AsyncJSONSerializerBuilder':
+        """Callable converting the object being serialized to a dict."""
+        self._to_dict = to_dict
+        return self
+
+    def set_serializer_config(self, serializer_conf: dict) -> 'AsyncJSONSerializerBuilder':
+        """Serializer configuration, e.g. ``{'auto.register.schemas': False}``."""
+        self._serializer_conf = serializer_conf
+        return self
+
+    def set_rule_config(self, rule_conf: dict) -> 'AsyncJSONSerializerBuilder':
+        """Configuration passed to the rule executors and actions."""
+        self._rule_conf = rule_conf
+        return self
+
+    def set_rule_registry(self, rule_registry: RuleRegistry) -> 'AsyncJSONSerializerBuilder':
+        """Rule registry to use instead of the global one."""
+        self._rule_registry = rule_registry
+        return self
+
+    def set_json_encode(self, json_encode: Callable) -> 'AsyncJSONSerializerBuilder':
+        """JSON encoding callable to use instead of the default."""
+        self._json_encode = json_encode
+        return self
+
+    def set_serializer_init(
+        self, serializer_init: Callable[['AsyncJSONSerializer'], Awaitable[None]]
+    ) -> 'AsyncJSONSerializerBuilder':
+        """
+        Coroutine function awaited with the serializer once built, for
+        any setup that the other setters do not cover.
+        """
+        self._serializer_init = serializer_init
+        return self
+
+    def build(  # type: ignore[override]
+        self, conf: Dict[str, Any], is_key: bool
+    ) -> Coroutine[Any, Any, Tuple['AsyncJSONSerializer', Dict[str, Any]]]:
+        """
+        Build the serializer. See :py:func:`SerializerBuilder.build`.
+
+        No Schema Registry property is read from the client configuration today,
+        so it is handed back unchanged.
+        """
+        return self.__build(conf, is_key)
+
+    async def __build(self, conf: Dict[str, Any], is_key: bool) -> Tuple['AsyncJSONSerializer', Dict[str, Any]]:
+        serializer = await async_build_serde(
+            self._schema_registry_client,
+            self._schema_registry_conf,
+            lambda client: AsyncJSONSerializer(
+                self._schema_str,
+                client,
+                self._to_dict,
+                self._serializer_conf,
+                self._rule_conf,
+                self._rule_registry,
+                self._json_encode,
+            ),
+            self._serializer_init,
+        )
+
+        return serializer, dict(conf)
 
 
 @asyncinit
@@ -664,6 +869,8 @@ class AsyncJSONDeserializer(AsyncBaseDeserializer):
 
         for rule in self._rule_registry.get_executors():
             rule.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
+        for action in self._rule_registry.get_actions():
+            action.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
 
     __init__ = __init_impl
 
@@ -673,6 +880,20 @@ class AsyncJSONDeserializer(AsyncBaseDeserializer):
         return self.__deserialize(data, ctx)
 
     async def __deserialize(self, data: Optional[bytes], ctx: Optional[SerializationContext] = None) -> Optional[bytes]:
+        try:
+            if data is None:
+                return None
+            return await self.__deserialize_impl(data, ctx)
+        finally:
+            # Track the key for use when deserializing the value, such as for a DLQ
+            if ctx is not None and ctx.field == MessageField.KEY:
+                set_original_key(data)
+            else:
+                clear_original_key()
+
+    async def __deserialize_impl(
+        self, data: Optional[bytes], ctx: Optional[SerializationContext] = None
+    ) -> Optional[bytes]:
         """
         Deserialize a JSON encoded record with Confluent Schema Registry framing to
         a dict, or object instance according to from_dict if from_dict is specified.
@@ -725,7 +946,7 @@ class AsyncJSONDeserializer(AsyncBaseDeserializer):
 
         if ctx is not None and subject is not None:
             payload = self._execute_rules_with_phase(
-                ctx, subject, RulePhase.ENCODING, RuleMode.READ, None, writer_schema_raw, payload, None, None
+                ctx, subject, RulePhase.ENCODING, RuleMode.READ, None, writer_schema_raw, payload, None, None, data
             )
         if isinstance(payload, bytes):
             payload = io.BytesIO(payload)
@@ -765,7 +986,7 @@ class AsyncJSONDeserializer(AsyncBaseDeserializer):
 
             if ctx is not None and subject is not None:
                 obj_dict = self._execute_rules(
-                    ctx, subject, RuleMode.READ, None, reader_schema_raw, obj_dict, None, field_transformer
+                    ctx, subject, RuleMode.READ, None, reader_schema_raw, obj_dict, None, field_transformer, data
                 )
 
         if self._validate:
@@ -821,3 +1042,139 @@ class AsyncJSONDeserializer(AsyncBaseDeserializer):
         async with self._validators_lock:
             self._validators[schema] = validator
         return validator
+
+
+class AsyncJSONDeserializerBuilder(DeserializerBuilder):
+    """
+    Builds an :py:class:`AsyncJSONDeserializer` for a deserializing consumer.
+
+    *This class is experimental and subject to incompatible API changes in future versions of the library.*
+
+    The deserializing counterpart of :py:class:`AsyncJSONSerializerBuilder`.
+    Pass one to a consumer through the ``key.deserializer.builder`` or
+    ``value.deserializer.builder`` configuration property::
+
+        consumer = await AsyncDeserializingConsumer[str, User]({
+            'bootstrap.servers': brokers,
+            'group.id': group,
+            'value.deserializer.builder': AsyncJSONDeserializerBuilder(
+                schema_registry_config={'url': schema_registry_url},
+                from_dict=dict_to_user,
+            ),
+        })
+
+    Every value also has a setter, each returning the builder so they chain::
+
+        AsyncJSONDeserializerBuilder().set_schema_registry_config(conf).set_from_dict(dict_to_user)
+
+    All values are optional: the serde's own defaults apply to whatever is not
+    set, though a Schema Registry client or its configuration is needed in
+    practice.
+
+    See :py:class:`AsyncJSONDeserializer` for what the individual values mean.
+    """
+
+    def __init__(
+        self,
+        schema_registry_config: Optional[dict] = None,
+        schema_registry_client: Optional[AsyncSchemaRegistryClient] = None,
+        schema: Union[str, Schema, None] = None,
+        from_dict: Optional[Callable[[dict, SerializationContext], object]] = None,
+        deserializer_config: Optional[dict] = None,
+        rule_config: Optional[dict] = None,
+        rule_registry: Optional[RuleRegistry] = None,
+        json_decode: Optional[Callable] = None,
+        deserializer_init: Optional[Callable[['AsyncJSONDeserializer'], Awaitable[None]]] = None,
+    ) -> None:
+        self._schema_registry_conf = schema_registry_config
+        self._schema_registry_client = schema_registry_client
+        self._schema_str = schema
+        self._from_dict = from_dict
+        self._deserializer_conf = deserializer_config
+        self._rule_conf = rule_config
+        self._rule_registry = rule_registry
+        self._json_decode = json_decode
+        self._deserializer_init = deserializer_init
+
+    def set_schema_registry_config(self, schema_registry_conf: dict) -> 'AsyncJSONDeserializerBuilder':
+        """Configuration for the Schema Registry client to build. Cannot be combined with a client."""
+        self._schema_registry_conf = schema_registry_conf
+        return self
+
+    def set_schema_registry_client(
+        self, schema_registry_client: AsyncSchemaRegistryClient
+    ) -> 'AsyncJSONDeserializerBuilder':
+        """An existing Schema Registry client to use, instead of building one."""
+        self._schema_registry_client = schema_registry_client
+        return self
+
+    def set_schema(self, schema_str: Union[str, Schema]) -> 'AsyncJSONDeserializerBuilder':
+        """The reader schema, as a JSON schema string or a :py:class:`Schema`."""
+        self._schema_str = schema_str
+        return self
+
+    def set_from_dict(
+        self, from_dict: Callable[[dict, SerializationContext], object]
+    ) -> 'AsyncJSONDeserializerBuilder':
+        """Callable converting the deserialized dict to the object handed to the application."""
+        self._from_dict = from_dict
+        return self
+
+    def set_deserializer_config(self, deserializer_conf: dict) -> 'AsyncJSONDeserializerBuilder':
+        """Deserializer configuration, e.g. ``{'use.latest.version': True}``."""
+        self._deserializer_conf = deserializer_conf
+        return self
+
+    def set_rule_config(self, rule_conf: dict) -> 'AsyncJSONDeserializerBuilder':
+        """Configuration passed to the rule executors and actions."""
+        self._rule_conf = rule_conf
+        return self
+
+    def set_rule_registry(self, rule_registry: RuleRegistry) -> 'AsyncJSONDeserializerBuilder':
+        """Rule registry to use instead of the global one."""
+        self._rule_registry = rule_registry
+        return self
+
+    def set_json_decode(self, json_decode: Callable) -> 'AsyncJSONDeserializerBuilder':
+        """JSON decoding callable to use instead of the default."""
+        self._json_decode = json_decode
+        return self
+
+    def set_deserializer_init(
+        self, deserializer_init: Callable[['AsyncJSONDeserializer'], Awaitable[None]]
+    ) -> 'AsyncJSONDeserializerBuilder':
+        """
+        Coroutine function awaited with the deserializer once built, for
+        any setup that the other setters do not cover.
+        """
+        self._deserializer_init = deserializer_init
+        return self
+
+    def build(  # type: ignore[override]
+        self, conf: Dict[str, Any], is_key: bool
+    ) -> Coroutine[Any, Any, Tuple['AsyncJSONDeserializer', Dict[str, Any]]]:
+        """
+        Build the deserializer. See :py:func:`DeserializerBuilder.build`.
+
+        No Schema Registry property is read from the client configuration today,
+        so it is handed back unchanged.
+        """
+        return self.__build(conf, is_key)
+
+    async def __build(self, conf: Dict[str, Any], is_key: bool) -> Tuple['AsyncJSONDeserializer', Dict[str, Any]]:
+        deserializer = await async_build_serde(
+            self._schema_registry_client,
+            self._schema_registry_conf,
+            lambda client: AsyncJSONDeserializer(
+                self._schema_str,
+                self._from_dict,
+                client,
+                self._deserializer_conf,
+                self._rule_conf,
+                self._rule_registry,
+                self._json_decode,
+            ),
+            self._deserializer_init,
+        )
+
+        return deserializer, dict(conf)

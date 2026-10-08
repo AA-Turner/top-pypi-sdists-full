@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 MLEM.py
 
@@ -5,8 +7,6 @@ Maximum Likelihood Expectation Maximization (MLEM) reconstruction algorithm.
 Uses unified SMatrix interface and ReconTools functions.
 Note : Algorithm handles both real and complex data (4-phase quadrature representation) seamlessly, with dynamic kernel selection based on data type.
 """
-import contextlib
-import warnings
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
@@ -22,6 +22,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 # =====================================================================
@@ -251,4 +252,4 @@ def MLEM(
                 saved_indices_list.append(it)
 
         final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
-        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)
+        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else ([final_result], [it + 1], cost_history)

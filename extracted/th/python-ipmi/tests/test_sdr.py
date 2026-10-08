@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+
+from types import SimpleNamespace
 
 import pytest
 
@@ -10,8 +11,10 @@ from pyipmi.sdr import (SdrCommon, SdrFullSensorRecord, SdrCompactSensorRecord,
                         SdrManagementControllerConfirmationRecord,
                         SdrUnknownSensorRecord)
 
+from .ipmi_helper import create_ipmi
 
-class TestSdrFullSensorRecord():
+
+class TestSdrFullSensorRecord:
     def test_convert_complement(self):
         assert SdrFullSensorRecord()._convert_complement(0x8, 4) == -8
         assert SdrFullSensorRecord()._convert_complement(0x80, 8) == -128
@@ -203,6 +206,48 @@ class TestSdrFullSensorRecord():
         assert sdr.convert_sensor_value_to_raw(-1) == 255
         assert sdr.convert_sensor_value_to_raw(-127) == 129
 
+    def test_convert_sensor_value_to_raw_with_offset(self):
+        # 3.3VSB voltage sensor (see issue #124)
+        sdr = SdrFullSensorRecord()
+        sdr.analog_data_format = sdr.DATA_FMT_UNSIGNED
+        sdr.m = 16
+        sdr.b = 163
+        sdr.k1 = 0
+        sdr.k2 = -3
+        sdr.linearization = 0
+
+        assert sdr.convert_sensor_value_to_raw(3.843) == 230
+        assert sdr.convert_sensor_value_to_raw(2.739) == 161
+        for raw in (0, 1, 161, 196, 230, 255):
+            value = sdr.convert_sensor_raw_to_value(raw)
+            assert sdr.convert_sensor_value_to_raw(value) == raw
+
+        with pytest.raises(ValueError):
+            sdr.convert_sensor_value_to_raw(0.1)
+        with pytest.raises(ValueError):
+            sdr.convert_sensor_value_to_raw(5.0)
+
+    def test_convert_sensor_value_to_raw_with_offset_signed(self):
+        sdr = SdrFullSensorRecord()
+        sdr.m = 1
+        sdr.b = 10
+        sdr.k1 = 0
+        sdr.k2 = 0
+        sdr.linearization = 0
+
+        sdr.analog_data_format = sdr.DATA_FMT_2S_COMPLEMENT
+        assert sdr.convert_sensor_value_to_raw(5) == 0xfb
+        for raw in range(256):
+            value = sdr.convert_sensor_raw_to_value(raw)
+            assert sdr.convert_sensor_value_to_raw(value) == raw
+
+        sdr.analog_data_format = sdr.DATA_FMT_1S_COMPLEMENT
+        assert sdr.convert_sensor_value_to_raw(5) == 0xfa
+        # 0x00 and 0xff both encode zero in 1's complement
+        for raw in range(255):
+            value = sdr.convert_sensor_raw_to_value(raw)
+            assert sdr.convert_sensor_value_to_raw(value) == raw
+
     def test_decocde(self):
         data = [0x17, 0x00, 0x51, 0x01, 0x35, 0x17, 0x00, 0x51,
                 0x01, 0x35, 0x17, 0x00, 0x51, 0x01, 0x35, 0x32,
@@ -221,7 +266,7 @@ class TestSdrFullSensorRecord():
         assert sdr.device_id_string == 'A2:Vcc 12V'
 
 
-class TestSdrCommon():
+class TestSdrCommon:
     def test_invalid_data_length(self):
         with pytest.raises(DecodingError):
             data = (0x00, 0x01, 0x02, 0x03)
@@ -236,7 +281,7 @@ class TestSdrCommon():
         assert sdr.length == 0x04
 
 
-class TestSdrCompactSensorRecord():
+class TestSdrCompactSensorRecord:
 
     def test_invalid_length(self):
         with pytest.raises(DecodingError):
@@ -263,7 +308,7 @@ def test_sdreventonlysensorrecord():
         SdrEventOnlySensorRecord(data)
 
 
-class TestSdrFruDeviceLocatorRecord():
+class TestSdrFruDeviceLocatorRecord:
 
     def test_invalid_length(self):
         with pytest.raises(DecodingError):
@@ -281,7 +326,7 @@ class TestSdrFruDeviceLocatorRecord():
                            '10 02 c2 61 00 cc 4b 6f 6e 74 72 6f 6e 20 4d 43 4d 43]'
 
 
-class TestSdrManagementControllerDeviceRecord():
+class TestSdrManagementControllerDeviceRecord:
 
     def test_invalid_length(self):
         with pytest.raises(DecodingError):
@@ -300,7 +345,7 @@ class TestSdrManagementControllerDeviceRecord():
         assert sdr.device_id_string == 'A2:AM4220'
 
 
-class TestSdrManagementControllerConfirmationRecord():
+class TestSdrManagementControllerConfirmationRecord:
 
     def test_decode(self):
         data = [0x45, 0x00, 0x51, 0x13, 0x1b, 0x20, 0x00, 0x01,
@@ -311,6 +356,12 @@ class TestSdrManagementControllerConfirmationRecord():
         assert isinstance(sdr, SdrManagementControllerConfirmationRecord)
         assert str(sdr) == '[45 00 51 13 1b 20 00 01 02 01 51 4a c1 62 06 80 00 ' \
                            '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00]'
+        assert sdr.device_slave_address == 0x10
+        assert sdr.device_id == 0x00
+        assert sdr.channel_number == 0
+        assert sdr.device_revision == 1
+        assert sdr.firmware_revision_1 == 0x02
+        assert sdr.firmware_revision_2 == 0x01
         assert sdr.ipmi_version == 0x51
         assert sdr.manufacturer_id == 0x2c14a
         assert sdr.product_id == 0x8006
@@ -320,3 +371,74 @@ def test_unknown_record_type():
     data = [0x01, 0x0, 0x51, 0x0a, 0x0]
     sdr = SdrCommon.from_data(data, 0xffff)
     assert isinstance(sdr, SdrUnknownSensorRecord)
+
+
+# Full Sensor Record "A2:Vcc 12V" of TestSdrFullSensorRecord.test_decocde
+FULL_SENSOR_RECORD = [
+    0x17, 0x00, 0x51, 0x01, 0x35, 0x17, 0x00, 0x51,
+    0x01, 0x35, 0x17, 0x00, 0x51, 0x01, 0x35, 0x32,
+    0x85, 0x32, 0x1b, 0x1b, 0x00, 0x04, 0x00, 0x00,
+    0x3b, 0x01, 0x00, 0x01, 0x00, 0xd0, 0x07, 0xcc,
+    0xf4, 0xa6, 0xff, 0x00, 0x00, 0xfe, 0xf5, 0x00,
+    0x8e, 0xa5, 0x04, 0x04, 0x00, 0x00, 0x00, 0xca,
+    0x41, 0x32, 0x3a, 0x56, 0x63, 0x63, 0x20, 0x31,
+    0x32, 0x56]
+
+
+def test_full_sensor_record_bit_fields():
+    data = list(FULL_SENSOR_RECORD)
+    # the indexes are the byte numbers of the IPMI specification minus 1
+    data[20] = 0b00101111      # units 1: rate unit 5, modifier unit 3, %
+    data[27] = 0x3f            # accuracy bits 5:0, B bits 9:8 = 0
+    data[28] = 0xf4            # accuracy bits 9:6, accuracy exponent 1
+    data[47] = 0xca            # ID string type 3 (8-bit ASCII), 10 bytes
+    sdr = SdrFullSensorRecord(data)
+    assert sdr.analog_data_format == 0
+    assert sdr.rate_unit == 5
+    assert sdr.modifier_unit == 3
+    assert sdr.percentage == 1
+    assert sdr.accuracy == 0x3ff
+    assert sdr.accuracy_exp == 1
+    assert sdr.device_id_string_type == 3
+    assert sdr.device_id_string == 'A2:Vcc 12V'
+
+
+@pytest.mark.parametrize('capabilities, expected', [
+    (0x00, ['hysteresis_not_supported', 'threshold_not_supported']),
+    (0x14, ['hysteresis_readable', 'threshold_readable']),
+    (0x28, ['hysteresis_read_and_setable', 'threshold_read_and_setable']),
+    (0x3c, ['hysteresis_fixed', 'threshold_fixed']),
+])
+def test_full_sensor_record_threshold_access(capabilities, expected):
+    record = SdrFullSensorRecord()
+    record._decode_capabilities(capabilities)
+    assert record.capabilities == expected
+
+
+def test_delete_sdr_reserves_the_sdr_repository():
+    ipmi = create_ipmi({'ReserveSdrRepository': b'\x00\x34\x12',
+                        'DeleteSdr': b'\x00\x05\x00'})
+    assert ipmi.delete_sdr(5) == 5
+    assert ipmi.requests == [('ReserveSdrRepositoryReq', b''),
+                             ('DeleteSdrReq', b'\x34\x12\x05\x00')]
+
+
+def test_get_repository_sdr_canceled_reservation(monkeypatch):
+    monkeypatch.setattr('pyipmi.helper.time', SimpleNamespace(sleep=lambda s: None))
+    # OEM record 0x0001 with 3 bytes record key, the last record
+    header = b'\x01\x00\x51\xc0\x03'
+    ipmi = create_ipmi({
+        'ReserveSdrRepository': [b'\x00\x01\x00', b'\x00\x02\x00'],
+        'GetSdr': [
+            b'\x00\xff\xff' + header,
+            # the reservation is canceled, e.g. by an added record
+            b'\xc5',
+            b'\x00\xff\xff' + b'\x20\x00\x07',
+        ],
+    })
+    sdr = ipmi.get_repository_sdr(1)
+    assert sdr.id == 1
+    assert sdr.number == 7
+    names = [name for (name, _) in ipmi.requests]
+    assert names == ['ReserveSdrRepositoryReq', 'GetSdrReq', 'GetSdrReq',
+                     'ReserveSdrRepositoryReq', 'GetSdrReq']

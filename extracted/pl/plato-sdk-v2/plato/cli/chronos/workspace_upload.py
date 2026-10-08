@@ -78,7 +78,7 @@ _PLATO_GIT_ENV = {
 # --extract`` and read back by ``upload git`` so the dvc ``dir_name`` (the
 # restore target the world expects, e.g. ``data``) and the workspace repo
 # survive an edit cycle without the user having to remember them.
-_WORKSPACE_MARKER = ".plato-workspace.json"
+_WORKSPACE_MARKER = WorkspaceMarker.ROUND_TRIP_MARKER
 # Default dvc archive dir name used by the world runtime's ``_archive_commit``
 # when a workspace has no FUSE mounts (see plato/worlds/workspace.py).
 _DEFAULT_DIR_NAME = "data"
@@ -359,7 +359,17 @@ def _resolve_upload_target(
                 f"git workspace at '{nested}'. Point at that directory instead, or pass --dir-name to override."
             )
 
-    resolved_dir_name = dir_name or (marker or {}).get("dir_name") or _DEFAULT_DIR_NAME
+    marker_dir_name = (marker or {}).get("dir_name")
+    if dir_name is None and marker_dir_name and marker_dir_name != _DEFAULT_DIR_NAME:
+        # The world restores git workspaces into ``<repo_root>/data`` only; a
+        # marker pinning another name registers a ref the world never reads.
+        raise ValueError(
+            f"round-trip marker pins dir_name '{marker_dir_name}', but the world restores git workspaces into "
+            f"'{_DEFAULT_DIR_NAME}'; a ref registered under '{marker_dir_name}' restores to a location the world "
+            f"never reads and the next resume boots an EMPTY repo. Pass --dir-name {_DEFAULT_DIR_NAME} to register "
+            f"it where the world reads, or --dir-name {marker_dir_name} to keep the pinned layout deliberately."
+        )
+    resolved_dir_name = dir_name or marker_dir_name or _DEFAULT_DIR_NAME
     resolved_repo_name = repo_name or (marker or {}).get("repo_name") or "code"
     resolved_step_name = step_name or _generate_manual_step_name()
     return _UploadTarget(
@@ -369,6 +379,22 @@ def _resolve_upload_target(
         dir_name=resolved_dir_name,
         repo_name=resolved_repo_name,
         step_name=resolved_step_name,
+    )
+
+
+def _refresh_marker(target: _UploadTarget, *, session_id: str) -> None:
+    """Rewrite the payload's round-trip marker to what was just registered.
+
+    Keeps a later flag-less ``upload git`` of the same payload landing in the
+    same place (an explicit ``--dir-name`` override would otherwise have to
+    be repeated forever).
+    """
+    _write_marker(
+        target.payload_dir,
+        dir_name=target.dir_name,
+        repo_name=target.repo_name,
+        session_id=session_id,
+        step_name=target.step_name,
     )
 
 
@@ -1086,6 +1112,10 @@ def upload_git(
             except Exception as ref_exc:
                 console.print(f"[yellow]Warning: archive uploaded but ref registration failed: {ref_exc}[/yellow]")
 
+            else:
+                # Only after a successful registration; an unwritable payload must surface, not hide
+                # behind the registration warning.
+                _refresh_marker(target, session_id=session_id)
             if output is not None:
                 # Tar the already-synced payload directly — do NOT run a second
                 # _sync_repo_to_bare, or the local copy could diverge from the

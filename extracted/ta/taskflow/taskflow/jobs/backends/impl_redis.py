@@ -27,6 +27,7 @@ from oslo_utils import strutils
 from oslo_utils import timeutils
 from oslo_utils import uuidutils
 from redis import exceptions as redis_exceptions
+from redis import maint_notifications
 from redis import sentinel
 
 from taskflow import exceptions as exc
@@ -300,6 +301,12 @@ class RedisJobBoard(base.JobBoard):
             # Connection settings.
             ('socket_timeout', float),
             ('socket_connect_timeout', float),
+            # Retry / health-check behavior. Opt-in; lets deployments make
+            # the client resilient to transient backend disruptions such as
+            # a Redis Sentinel master failover (see bug 2160070).
+            # TODO(tkajinam): retry_on_timeout was deprecated in redis-py 6.0.0
+            ('retry_on_timeout', strutils.bool_from_string),
+            ('health_check_interval', int),
             # This one negates the usage of host, port, socket connection
             # settings as it doesn't use the same kind of underlying socket...
             ('unix_socket_path', str),
@@ -607,6 +614,17 @@ return cmsgpack.pack(result)
                     client_conf[key] = value_type_converter(conf[key])
                 else:
                     client_conf[key] = conf[key]
+        # redis-py 8.0.0 defaults to RESP3 and probes every new
+        # connection with CLIENT MAINT_NOTIFICATIONS. On Redis < 8
+        # the command doesn't exist, so the probe logs a DEBUG
+        # message on every connection. Taskflow does not use these
+        # notifications (it has its own reconnection logic), so
+        # disable the probe entirely to avoid flooding logs.
+        # See: https://bugs.launchpad.net/taskflow/+bug/2155236
+        client_conf.setdefault(
+            'maint_notifications_config',
+            maint_notifications.MaintNotificationsConfig(enabled=False),
+        )
         if conf.get('sentinel') is not None:
             sentinels = [(client_conf.pop('host'), client_conf.pop('port'))]
             for fallback in conf.get('sentinel_fallbacks', []):
@@ -716,13 +734,13 @@ return cmsgpack.pack(result)
                     [str(p) for p in self.MIN_REDIS_VERSION]
                 )
                 if redis_version:
-                    raise exc.JobFailure(
+                    raise exc.IncompatibleVersion(
                         "Redis version %s or greater is"
-                        " required (version %s is to"
+                        " required (version %s is too"
                         " old)" % (wanted_version, redis_version)
                     )
                 else:
-                    raise exc.JobFailure(
+                    raise exc.IncompatibleVersion(
                         "Redis version %s or greater is"
                         " required" % (wanted_version)
                     )

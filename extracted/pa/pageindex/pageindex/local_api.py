@@ -223,7 +223,7 @@ class LocalAPI:
             "summary_model": self._summary_model,
             "if_add_node_id": "yes",
             "if_add_node_summary": "yes",
-            "if_add_node_text": "yes",
+            "if_add_node_text": "no",
             "if_add_doc_description": "yes",
         })
         result = page_index_main(file_path, opt, logger=logger, page_list=page_list)
@@ -268,10 +268,6 @@ class LocalAPI:
         pdf_pages = [(p.get("markdown", ""), 0) for p in pages]
         add_node_text(structure, pdf_pages)
         return structure
-
-    def raw_tree(self, doc_id: str) -> list | None:
-        """Stored tree verbatim, every key kept."""
-        return self._store.get_tree(doc_id)
 
     def get_tree(self, doc_id: str, node_summary: bool = False,
                  include_text: bool = True) -> dict[str, Any]:

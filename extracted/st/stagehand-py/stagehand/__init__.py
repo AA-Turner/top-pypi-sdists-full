@@ -1,3 +1,12 @@
+import warnings
+
+warnings.warn(
+    "stagehand-py is deprecated; install `stagehand` instead "
+    "(https://pypi.org/project/stagehand/).",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from .agent import Agent
 from .client import Stagehand
 from .config import StagehandConfig

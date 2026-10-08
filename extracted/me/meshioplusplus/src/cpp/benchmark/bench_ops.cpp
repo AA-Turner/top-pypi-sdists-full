@@ -63,15 +63,18 @@
 #include "meshioplusplus/mesh.hpp"
 #include "meshioplusplus/detail/value_io.hpp"
 #include "meshioplusplus/mesh_api.hpp"
+#include "meshioplusplus/detail/surface_distance.hpp"
 #include "meshioplusplus/registry.hpp"
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/clean.hpp"
 #include "meshioplusplus/operations/convert_cells.hpp"
+#include "meshioplusplus/operations/data_average.hpp"
 #include "meshioplusplus/operations/curvature.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/decimate.hpp"
 #include "meshioplusplus/operations/diff.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
+#include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/operations/interpolate.hpp"
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/merge.hpp"
@@ -80,6 +83,8 @@
 #include "meshioplusplus/operations/normals.hpp"
 #include "meshioplusplus/operations/optimize_volume.hpp"
 #include "meshioplusplus/operations/partition.hpp"
+#include "meshioplusplus/operations/pipeline.hpp"
+#include "meshioplusplus/operations/quality.hpp"
 #include "meshioplusplus/operations/refine.hpp"
 #include "meshioplusplus/operations/remesh.hpp"
 #include "meshioplusplus/operations/remesh_volume.hpp"
@@ -91,6 +96,7 @@
 #include "meshioplusplus/operations/smooth.hpp"
 #include "meshioplusplus/operations/sobolev_deform.hpp"
 #include "meshioplusplus/operations/split.hpp"
+#include "meshioplusplus/operations/subdivide.hpp"
 #include "meshioplusplus/operations/surface.hpp"
 #include "meshioplusplus/operations/undo_green.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
@@ -158,6 +164,44 @@ Mesh bench_ops_tet_cube(std::size_t n) {
     m.AssignPoints(std::move(pts));
     m.AddCellBlock("tetra", std::move(conn));
     return m;
+}
+
+/**
+ * @brief A planar triangle lattice of `m x m` squares (two triangles each) at
+ * unit size, with two-component points: the 2-D input the Triangle reader
+ * needs, which the 3-D cube cannot supply.
+ */
+Mesh bench_ops_tri_plate(std::size_t m) {
+    const std::size_t np = m + 1;
+    NDArray pts = NDArray::Uninit(DType::Float64, {np * np, 2});
+    double* p = pts.As<double>();
+    for (std::size_t j = 0; j < np; ++j)
+        for (std::size_t i = 0; i < np; ++i) {
+            p[(j * np + i) * 2 + 0] = static_cast<double>(i) / static_cast<double>(m);
+            p[(j * np + i) * 2 + 1] = static_cast<double>(j) / static_cast<double>(m);
+        }
+    NDArray conn = NDArray::Uninit(DType::Int64, {2 * m * m, 3});
+    std::int64_t* c = conn.As<std::int64_t>();
+    std::size_t t = 0;
+    for (std::size_t j = 0; j < m; ++j)
+        for (std::size_t i = 0; i < m; ++i) {
+            const std::int64_t a = static_cast<std::int64_t>(j * np + i);
+            const std::int64_t b = a + 1;
+            const std::int64_t d = a + static_cast<std::int64_t>(np);
+            const std::int64_t e = d + 1;
+            c[t * 3 + 0] = a;
+            c[t * 3 + 1] = b;
+            c[t * 3 + 2] = e;
+            ++t;
+            c[t * 3 + 0] = a;
+            c[t * 3 + 1] = e;
+            c[t * 3 + 2] = d;
+            ++t;
+        }
+    Mesh mesh;
+    mesh.AssignPoints(std::move(pts));
+    mesh.AddCellBlock("triangle", std::move(conn));
+    return mesh;
 }
 
 /**
@@ -408,6 +452,20 @@ int main(int argc, char** argv) {
             if (pD)
                 pD->U64(static_cast<std::uint64_t>(r.mNumNodesMoved));
         });
+        // A topology-preserving step feeding a facet reader: both build their own
+        // facet table over the same cells. The row times the chain, so the cost of
+        // building that table twice is visible next to the `smooth_volume` and
+        // `extract_surface` rows it is made of (doc/benchmarks.md, "Pipeline row:
+        // what a shared facet table could save").
+        row("pipeline_smooth_surface", [&](MeshDigest* pD) {
+            mio::PipelineStep smooth_step;
+            smooth_step.mOp = "Smooth";
+            smooth_step.mParams["Iterations"] = std::int64_t{10};
+            mio::PipelineStep surface_step;
+            surface_step.mOp = "ExtractSurface";
+            mio::PipelineReport report;
+            of(pD, mio::run_pipeline_steps(jittered, {smooth_step, surface_step}, report));
+        });
         row("refine", [&](MeshDigest* pD) {
             auto r = mio::refine(volume);
             of(pD, r.mMesh);
@@ -509,19 +567,88 @@ int main(int argc, char** argv) {
                 pD->Arrays(r.mCellMaps);
             }
         });
-        // Reads of the ragged mesh through the registry: the file is written
-        // once, outside the timed region. A format whose writer declines the
-        // mesh is skipped, so the rows never fail the sweep.
-        const auto read_ragged_row = [&](const char* pOp, const char* pFormat, const char* pExt) {
+        // Linearize of the same ragged mesh changes nothing in either block, so
+        // both pass through convert_cells' staging: the copy of every polyhedron
+        // and polygon into the block that is emitted.
+        row("linearize_ragged", [&](MeshDigest* pD) {
+            mio::ConvertCellsOptions o;
+            o.mMode = mio::ConvertCellsMode::Linearize;
+            auto r = mio::convert_cells(ragged, o);
+            of(pD, r.mMesh);
+            if (pD) {
+                pD->Array(r.mPointMap);
+                pD->Arrays(r.mCellMaps);
+            }
+        });
+        // Subdivide of the same ragged mesh: one apex point per polyhedron,
+        // whose source-node list is the allocation of roadmap §3.2.2.
+        row("subdivide_ragged", [&](MeshDigest* pD) {
+            auto r = mio::subdivide(ragged);
+            of(pD, r.mMesh);
+            if (pD)
+                pD->Arrays(r.mCellMaps);
+        });
+        // The ragged mesh with a smooth point field and one cell field per
+        // block: the per-cell and per-polyhedron scratch rows of roadmap
+        // §3.2.3 (quality, data_average, interpolate's cell_data and the SFC
+        // partition's centroids) run on it.
+        const Mesh ragged_field = [&] {
+            Mesh m = bench_ops_ragged(volume);
+            NDArray u = NDArray::Uninit(DType::Float64, {m.NumPoints()});
+            const double* p = m.Points().As<double>();
+            for (std::size_t i = 0; i < m.NumPoints(); ++i)
+                u.As<double>()[i] = p[3 * i] * p[3 * i] + p[3 * i + 1] * p[3 * i + 2];
+            m.AddPointData("u", std::move(u));
+            std::vector<NDArray> blocks;
+            for (const auto cb : m.CellRange()) {
+                NDArray c = NDArray::Uninit(DType::Float64, {cb.NumCells()});
+                for (std::size_t i = 0; i < cb.NumCells(); ++i)
+                    c.As<double>()[i] = std::sin(0.01 * static_cast<double>(i));
+                blocks.push_back(std::move(c));
+            }
+            m.AddCellData("c", std::move(blocks));
+            return m;
+        }();
+        row("quality", [&](MeshDigest* pD) { of(pD, mio::attach_quality(volume)); });
+        row("quality_ragged", [&](MeshDigest* pD) { of(pD, mio::attach_quality(ragged)); });
+        row("data_average", [&](MeshDigest* pD) { of(pD, mio::point_data_to_cell_data(with_field)); });
+        row("data_average_ragged",
+            [&](MeshDigest* pD) { of(pD, mio::point_data_to_cell_data(ragged_field)); });
+        row("interpolate_cells", [&](MeshDigest* pD) {
+            mio::InterpolateOptions o;
+            o.mArrays = {"c"};
+            o.mOnConflict = mio::InterpolateConflict::Overwrite;
+            of(pD, mio::interpolate(ragged_field, ragged_field, o));
+        });
+        row("partition_ragged", [&](MeshDigest* pD) {
+            mio::PartitionOptions o;
+            o.mNParts = 8;
+            o.mMethod = mio::PartitionMethod::SFC;
+            auto r = mio::partition(ragged, o);
+            if (pD)
+                for (const auto& piece : r.mPieces) {
+                    pD->U64(static_cast<std::uint64_t>(piece.mPartId));
+                    pD->Of(piece.mMesh);
+                    pD->Array(piece.mPointMap);
+                    pD->Arrays(piece.mCellMaps);
+                }
+        });
+        row("feature_edges_ragged",
+            [&](MeshDigest* pD) { of(pD, mio::feature_edges(ragged).mMesh); });
+        // Reads through the registry: the file is written once, outside the
+        // timed region. A format whose writer declines the mesh is skipped, so
+        // the rows never fail the sweep.
+        const auto read_row = [&](const char* pOp, const char* pFormat, const char* pExt,
+                                  const Mesh& rSource) {
             if (!wanted(pOp))
                 return;
             const std::filesystem::path dir =
                 std::filesystem::temp_directory_path() /
-                (std::string("meshioplusplus_bench_ragged_") + pFormat);
+                (std::string("meshioplusplus_bench_read_") + pFormat);
             std::filesystem::create_directories(dir);
-            const std::string path = (dir / (std::string("ragged") + pExt)).string();
+            const std::string path = (dir / (std::string("mesh") + pExt)).string();
             try {
-                mio::registry_writers().at(pFormat)(path, ragged);
+                mio::registry_writers().at(pFormat)(path, rSource);
                 row(pOp, [&](MeshDigest* pD) {
                     of(pD, mio::registry_read(path, pFormat, mio::ReadOptions{}));
                 });
@@ -530,8 +657,69 @@ int main(int argc, char** argv) {
             }
             std::filesystem::remove_all(dir);
         };
-        read_ragged_row("read_ragged_ensight", "ensight", ".case");
-        read_ragged_row("read_ragged_tecplot", "tecplot", ".dat");
+        read_row("read_ragged_ensight", "ensight", ".case", ragged);
+        read_row("read_ragged_tecplot", "tecplot", ".dat", ragged);
+        // The registry's STL writer is ASCII, so this times the ASCII reader
+        // over a triangle surface (roadmap §3.1.1.1).
+        read_row("read_stl", "stl", ".stl", surface);
+        // OBJ over the cube's triangle surface with a normal and a texture
+        // coordinate per point, so the `vn` and `vt` lines are parsed too; the
+        // write row times the same mesh (roadmap §3.1.1.1 keeps an OBJ writer
+        // observation open, and the two rows isolate the read from it).
+        const Mesh obj_surface = [&] {
+            Mesh m = bench_ops_moved(surface, [](std::size_t, double*) {});
+            const std::size_t np = m.NumPoints();
+            const double* p = m.Points().As<double>();
+            NDArray vn = NDArray::Uninit(DType::Float64, {np, std::size_t(3)});
+            NDArray vt = NDArray::Uninit(DType::Float64, {np, std::size_t(2)});
+            for (std::size_t i = 0; i < np; ++i) {
+                for (std::size_t d = 0; d < 3; ++d)
+                    vn.As<double>()[3 * i + d] = 0.5 - p[3 * i + d];
+                vt.As<double>()[2 * i] = p[3 * i];
+                vt.As<double>()[2 * i + 1] = p[3 * i + 1];
+            }
+            m.AddPointData("obj:vn", std::move(vn));
+            m.AddPointData("obj:vt", std::move(vt));
+            return m;
+        }();
+        read_row("read_obj", "obj", ".obj", obj_surface);
+        if (wanted("write_obj")) {
+            const std::filesystem::path dir =
+                std::filesystem::temp_directory_path() / "meshioplusplus_bench_write_obj";
+            std::filesystem::create_directories(dir);
+            const std::string path = (dir / "mesh.obj").string();
+            row("write_obj", [&](MeshDigest* pD) {
+                mio::registry_writers().at("obj")(path, obj_surface);
+                if (pD)
+                    of(pD, mio::registry_read(path, "obj", mio::ReadOptions{}));
+            });
+            std::filesystem::remove_all(dir);
+        }
+        // The text-token readers of roadmap §3.1.1.1: TetGen's `.node`/`.ele`
+        // pair over the cube with its point field (so an attribute column is
+        // parsed too), and Triangle's over a planar lattice of about as many
+        // triangles as the cube has tetrahedra.
+        read_row("read_tetgen", "tetgen", ".node", with_field);
+        const Mesh tri_plate = bench_ops_tri_plate(
+            static_cast<std::size_t>(std::sqrt(3.0 * static_cast<double>(n * n * n))));
+        read_row("read_triangle", "triangle", ".node", tri_plate);
+        // FreeFEM's `.msh` (a name only: the registry is given the format) and
+        // UGRID's ASCII flavour (`.ugrid` carries no binary key), both over the
+        // tetrahedral cube with its point field.
+        read_row("read_freefem", "freefem", ".msh", with_field);
+        read_row("read_ugrid", "ugrid", ".ugrid", with_field);
+        // OpenFOAM's ASCII polyMesh (a `.foam` marker; the case directory is
+        // written beside it) over the tetrahedral cube with its point field.
+        read_row("read_openfoam", "openfoam", ".foam", with_field);
+        // Elmer's text mesh (a directory of `mesh.nodes`, `mesh.elements` and
+        // `mesh.boundary`) over the cube's tetrahedra plus the triangles of its
+        // surface, so a boundary file is parsed too.
+        const Mesh elmer_mesh = [&] {
+            Mesh m = bench_ops_moved(volume, [](std::size_t, double*) {});
+            m.AddCellBlock("triangle", surface.Cells(0).Conn());
+            return m;
+        }();
+        read_row("read_elmer", "elmer", ".elmer", elmer_mesh);
         row("optimize_volume", [&](MeshDigest* pD) {
             auto r = mio::optimize_volume(jittered);
             of(pD, r.mMesh);
@@ -543,6 +731,38 @@ int main(int argc, char** argv) {
             of(pD, r.mMesh);
             if (pD)
                 pD->Array(r.mCellMap);
+        });
+        // The tetrahedral cube cut into two Cell regions (the lower and upper
+        // halves of its cell list, a planar interface), for the interface rows.
+        const Mesh with_halves = [&] {
+            Mesh m = bench_ops_moved(volume, [](std::size_t, double*) {});
+            const std::size_t half = ncells / 2;
+            for (int side = 0; side < 2; ++side) {
+                mio::Region region;
+                region.mName = side == 0 ? "lower" : "upper";
+                region.mKind = mio::RegionKind::Cell;
+                region.mDim = 3;
+                region.mTag = -1;
+                const std::size_t first = side == 0 ? 0 : half;
+                const std::size_t count = side == 0 ? half : ncells - half;
+                region.mEntries = NDArray::Uninit(DType::Int64, {count});
+                std::int64_t* e = region.mEntries.As<std::int64_t>();
+                for (std::size_t i = 0; i < count; ++i)
+                    e[i] = static_cast<std::int64_t>(first + i);
+                m.AddRegion(std::move(region));
+            }
+            return m;
+        }();
+        row("region_adjacency",
+            [&](MeshDigest* pD) { of(pD, mio::region_adjacency(with_halves)); });
+        row("find_interface", [&](MeshDigest* pD) {
+            auto r = mio::find_interface(with_halves, mio::RegionSelector{"lower"},
+                                         mio::RegionSelector{"upper"});
+            of(pD, r.mMesh);
+            if (pD) {
+                pD->U64(static_cast<std::uint64_t>(r.mReport.mNumPairs));
+                pD->Bytes(&r.mReport.mArea, sizeof r.mReport.mArea);
+            }
         });
         row("split", [&](MeshDigest* pD) {
             auto r = mio::split(doubled, mio::SplitBy::Component);
@@ -609,6 +829,35 @@ int main(int argc, char** argv) {
         });
         row("distance_to_surface",
             [&](MeshDigest* pD) { of(pD, mio::distance_to_surface(jittered, surface).mMesh); });
+        // The accelerator alone (roadmap §3.3.1.2): the bucket grid and the
+        // normal tables of a surface's triangle soup, per call. The soup is
+        // made once, by the hashed warm-up call, so it is outside the timed
+        // runs. In hash mode the digest also walks the grid -- every bucket of
+        // the occupied key box, in the traversal order queries use -- so a
+        // change of its layout cannot hide behind the tables.
+        std::optional<mio::detail::TriangleSoup> distance_soup;
+        row("distance_build", [&](MeshDigest* pD) {
+            if (!distance_soup)
+                distance_soup = mio::detail::build_triangle_soup(surface, "");
+            const mio::detail::DistanceQuery q =
+                mio::detail::build_distance_query(*distance_soup, mio::SurfaceDistanceOptions{});
+            if (!pD)
+                return;
+            pD->Bytes(&q.mCellSize, sizeof q.mCellSize);
+            pD->Bytes(q.mFaceNormal.data(), q.mFaceNormal.size() * sizeof(mio::detail::Vec3));
+            pD->Bytes(q.mVertexNormal.data(), q.mVertexNormal.size() * sizeof(mio::detail::Vec3));
+            pD->Bytes(q.mEdgeOfCorner.data(), q.mEdgeOfCorner.size() * sizeof(std::int64_t));
+            pD->Bytes(q.mEdgeNormals.data(), q.mEdgeNormals.size() * sizeof(mio::detail::Vec3));
+            const mio::detail::GridKey lo = q.mGrid.OccupiedLo();
+            const mio::detail::GridKey hi = q.mGrid.OccupiedHi();
+            pD->Bytes(&lo, sizeof lo);
+            pD->Bytes(&hi, sizeof hi);
+            q.mGrid.ForEachInBox(lo, hi, [&](const auto& rIds) {
+                pD->U64(rIds.size());
+                for (const std::int64_t t : rIds)
+                    pD->U64(static_cast<std::uint64_t>(t));
+            });
+        });
         row("isosurface", [&](MeshDigest* pD) {
             mio::IsosurfaceOptions o;
             o.mArrayName = "u";

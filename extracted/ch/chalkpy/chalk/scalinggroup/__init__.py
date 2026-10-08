@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
+    ComputeClass,
     ContainerSpec,
     CronScalingSchedule,
     CronScalingWindow,
@@ -22,6 +23,7 @@ from chalk.scalinggroup.spec import (
 __all__ = (
     "AutoScalingSpec",
     "ContainerSpec",
+    "ComputeClass",
     "CronScalingSchedule",
     "CronScalingWindow",
     "DeleteScalingGroupResponse",

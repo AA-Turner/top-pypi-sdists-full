@@ -1,37 +1,33 @@
 """Contains all the data models used in inputs/outputs"""
 
-from .error_code import ErrorCode
-from .error_response_400 import ErrorResponse400
-from .error_response_401 import ErrorResponse401
-from .login_response import LoginResponse
-from .logout_request import LogoutRequest
-from .refresh_request import RefreshRequest
-from .refresh_response import RefreshResponse
-from .swap_code_request import SwapCodeRequest
-from .swap_code_response import SwapCodeResponse
-from .swap_request import SwapRequest
-from .workos_auth_code_exchange_request import WorkosAuthCodeExchangeRequest
-from .workos_auth_code_start_request import WorkosAuthCodeStartRequest
-from .workos_auth_code_start_response import WorkosAuthCodeStartResponse
-from .workos_device_flow_login_request import WorkosDeviceFlowLoginRequest
-from .workos_device_flow_start_response import WorkosDeviceFlowStartResponse
-from .workos_token_exchange_request import WorkosTokenExchangeRequest
+from .error_response import ErrorResponse
+from .issue_authorization_url_session_request import IssueAuthorizationUrlSessionRequest
+from .issue_authorization_url_session_response import (
+    IssueAuthorizationUrlSessionResponse,
+)
+from .issue_device_code_session_response import IssueDeviceCodeSessionResponse
+from .issue_swap_code_session_request import IssueSwapCodeSessionRequest
+from .issue_swap_code_session_response import IssueSwapCodeSessionResponse
+from .redeem_authorization_code_session_request import (
+    RedeemAuthorizationCodeSessionRequest,
+)
+from .redeem_device_code_session_request import RedeemDeviceCodeSessionRequest
+from .refresh_session_request import RefreshSessionRequest
+from .refresh_session_response import RefreshSessionResponse
+from .revoke_session_request import RevokeSessionRequest
+from .user_session_response import UserSessionResponse
 
 __all__ = (
-    "ErrorCode",
-    "ErrorResponse400",
-    "ErrorResponse401",
-    "LoginResponse",
-    "LogoutRequest",
-    "RefreshRequest",
-    "RefreshResponse",
-    "SwapCodeRequest",
-    "SwapCodeResponse",
-    "SwapRequest",
-    "WorkosAuthCodeExchangeRequest",
-    "WorkosAuthCodeStartRequest",
-    "WorkosAuthCodeStartResponse",
-    "WorkosDeviceFlowLoginRequest",
-    "WorkosDeviceFlowStartResponse",
-    "WorkosTokenExchangeRequest",
+    "ErrorResponse",
+    "IssueAuthorizationUrlSessionRequest",
+    "IssueAuthorizationUrlSessionResponse",
+    "IssueDeviceCodeSessionResponse",
+    "IssueSwapCodeSessionRequest",
+    "IssueSwapCodeSessionResponse",
+    "RedeemAuthorizationCodeSessionRequest",
+    "RedeemDeviceCodeSessionRequest",
+    "RefreshSessionRequest",
+    "RefreshSessionResponse",
+    "RevokeSessionRequest",
+    "UserSessionResponse",
 )

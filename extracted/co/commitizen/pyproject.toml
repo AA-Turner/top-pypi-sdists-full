@@ -1,6 +1,6 @@
 [project]
 name = "commitizen"
-version = "4.19.1"
+version = "4.19.2"
 description = "Python commitizen client tool"
 license = "MIT"
 license-files = ["LICENSE"]

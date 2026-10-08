@@ -69,7 +69,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.5.2'
+__version__ = '4.5.3'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -1404,10 +1404,10 @@ class WrappedNode(ColumnBase):
         self._converter = getattr(node, '_converter', None)
 
     def is_alias(self):
-        return self.node.is_alias()
+        return isinstance(self.node, Node) and self.node.is_alias()
 
     def unwrap(self):
-        return self.node.unwrap()
+        return self.node.unwrap() if isinstance(self.node, Node) else self.node
 
 
 class EntityFactory(object):
@@ -2790,6 +2790,7 @@ class _WriteQuery(Query):
         return self.handle_result(database, cursor)
 
     def execute_returning(self, database):
+        self._cursor_wrapper = None
         return super(_WriteQuery, self)._execute(database)
 
     def handle_result(self, database, cursor):
@@ -3426,9 +3427,11 @@ class PostgresqlJSONMethods(BaseJSONMethods):
         return jsonb_cls(value, dumps=field._dumps)
 
     def _path_array(self, keys):
-        # Build a text[] from keys for jsonb_set / #- operator.
-        parts = [str(k) for k in keys]
-        return Cast(AsIs(parts, False), 'text[]')
+        # Inline the text[] path: psycopg3 binds each occurrence of a key as
+        # a distinct parameter, which breaks GROUP BY on a json lookup.
+        parts = ['"%s"' % str(k).replace('\\', '\\\\').replace('"', '\\"')
+                 for k in keys]
+        return SQL("'{%s}'::text[]" % ','.join(parts).replace("'", "''"))
 
     def extract(self, field, keys):
         if not keys:
@@ -4149,6 +4152,9 @@ class Database(_callable_context_manager):
         raise NotImplementedError
 
     def get_foreign_keys(self, table, schema=None):
+        raise NotImplementedError
+
+    def get_views(self, schema=None):
         raise NotImplementedError
 
     def sequence_exists(self, seq, schema=None):
@@ -5028,7 +5034,7 @@ class MySQLDatabase(Database):
         'ILIKE': 'LIKE',
         'REGEXP': 'REGEXP BINARY',
         'IREGEXP': 'REGEXP',
-        'XOR': 'XOR'}
+        OP.XOR: 'XOR'}
     param = '%s'
     quote = '``'
     json_methods = MySQLJSONMethods
@@ -8839,6 +8845,11 @@ class ModelSelect(BaseModelSelect, Select):
 
     def create_table(self, name, safe=True, **meta):
         return self.model._schema.create_table_as(name, self, safe, **meta)
+
+    @database_required
+    def exists(self, database):
+        query = self.select(SQL('1')) if self._is_default else self
+        return super(ModelSelect, query).exists(database)
 
     def __sql_selection__(self, ctx, is_subquery=False):
         if self._is_default and is_subquery and len(self._returning) > 1 and \

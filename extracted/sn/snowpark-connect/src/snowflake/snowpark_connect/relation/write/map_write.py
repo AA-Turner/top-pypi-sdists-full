@@ -125,8 +125,19 @@ from snowflake.snowpark_connect.type_mapping import (
     snowpark_to_iceberg_type,
 )
 from snowflake.snowpark_connect.type_support import is_integral_types_conversion_enabled
+from snowflake.snowpark_connect.utils.api_surface import (
+    API_SURFACE_DATAFRAME_V1,
+    API_SURFACE_DATAFRAME_V2,
+    set_api_surface,
+)
 from snowflake.snowpark_connect.utils.cld_context import (
     catalog_kind as resolve_catalog_kind,
+    catalog_kind_for_table as resolve_catalog_kind_for_table,
+)
+from snowflake.snowpark_connect.utils.cld_replace import (
+    _attach_cld_replace_recovery,
+    _insert_cld_table_from_result_scan,
+    _run_cld_replace_source_query,
 )
 from snowflake.snowpark_connect.utils.context import (
     get_spark_session_id,
@@ -197,6 +208,95 @@ _FILE_READ_FORMATS = frozenset(("parquet", "csv", "json", "text"))
 _SUPPORTED_ICEBERG_FORMAT_VERSIONS = (1, 2, 3)
 # Milliseconds per day
 _MS_PER_DAY = 86_400_000
+
+
+def _input_has_parquet_read(rel: relation_proto.Relation) -> bool:
+    """Return True when any node in *rel* is a parquet data-source read.
+
+    Unlike ``_input_is_file_read``, this walks the whole plan tree so a
+    parquet read under a join/filter/project is found.  Reads hidden
+    behind a named table or temp view are not visible and return False.
+    """
+    stack = [rel]
+    while stack:
+        msg = stack.pop()
+        if (
+            isinstance(msg, relation_proto.Relation)
+            and msg.WhichOneof("rel_type") == "read"
+            and msg.read.WhichOneof("read_type") == "data_source"
+            and msg.read.data_source.format.lower() == "parquet"
+        ):
+            return True
+        for field, value in msg.ListFields():
+            if field.type != field.TYPE_MESSAGE:
+                continue
+            if hasattr(value, "ListFields"):
+                stack.append(value)
+            else:  # repeated or map field
+                items = value.values() if hasattr(value, "values") else value
+                stack.extend(v for v in items if hasattr(v, "ListFields"))
+    return False
+
+
+def _pd_fdn_write_params(
+    rel: relation_proto.Relation,
+) -> dict[str, str] | None:
+    """Statement params for Parquet Direct sourced new-table FDN writes.
+
+    When Parquet Direct is enabled and the write's input plan contains a
+    parquet read, use HLL_ONLY NDV computation on the CTAS.  This scopes
+    the optimization strictly to PD workloads — CSV/JSON source reads and
+    non-PD regression tests in the same session are unaffected.  HLL_ONLY
+    skips the post-write file scan that DICT_AND_HLL performs, saving
+    ~16-20s per large CTAS on Gen2 Standard warehouses.  The parameter is
+    scoped to this statement only — no session mutation.  CITs (Iceberg
+    tables) already use HLL_ONLY via PARQUET_NDV_COMPUTATION_METHOD and
+    are unaffected.
+
+    Both the base and the Gen2-specific parameter are set so the
+    optimization applies regardless of warehouse generation.  The
+    Adaptive variant already defaults to HLL_ONLY and overrides both.
+    """
+    from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+        parquet_direct_enabled,
+    )
+
+    if parquet_direct_enabled() and _input_has_parquet_read(rel):
+        return {
+            "FDN_NDV_COMPUTATION_METHOD": "HLL_ONLY",
+            "FDN_NDV_COMPUTATION_METHOD_GEN2_WHS": "HLL_ONLY",
+        }
+    return None
+
+
+def _pd_parquet_cache_params(
+    session: snowpark.Session,
+) -> dict[str, str] | None:
+    """Per-statement params to disable XP parquet cache for large-file PD reads (PR #5901)."""
+    from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+        PD_DISABLE_CACHE_FILE_SIZE_THRESHOLD,
+    )
+
+    size = getattr(session, "_pd_max_source_file_size", 0)
+    session._pd_max_source_file_size = 0
+    if size > PD_DISABLE_CACHE_FILE_SIZE_THRESHOLD:
+        return {"DISABLE_PARQUET_CACHE": "true"}
+    return None
+
+
+def _pd_combined_write_params(
+    rel: relation_proto.Relation,
+    session: snowpark.Session,
+) -> dict[str, str] | None:
+    """Merge HLL_ONLY + disable-cache params for PD writes."""
+    params: dict[str, str] = {}
+    hll = _pd_fdn_write_params(rel)
+    if hll:
+        params.update(hll)
+    cache = _pd_parquet_cache_params(session)
+    if cache:
+        params.update(cache)
+    return params or None
 
 
 def _input_is_file_read(rel: relation_proto.Relation) -> bool:
@@ -1051,6 +1151,12 @@ def map_write(request: proto_base.ExecutePlanRequest):
         # (USING-join source columns) before writing — neither is part of the visible
         # schema. SNOW-2443454.
         result = map_relation(write_op.input).without_hidden_columns()
+
+    # Claim the write for the classic DataFrame surface *after* the input is mapped:
+    # the input can be a SQL relation (`spark.sql(...).write.save(...)`), and events
+    # it emitted while being mapped should keep `sql` (SNOW-4168010).
+    set_api_surface(API_SURFACE_DATAFRAME_V1)
+
     (
         input_df,
         snowpark_column_names,
@@ -1680,7 +1786,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 telemetry.report_iceberg_write_options(
                     op=_ICEBERG_WRITE_OPTIONS_V1_OP.get(write_mode, "create"),
                     keys=_write_option_keys,
-                    catalog_kind=resolve_catalog_kind(),
+                    catalog_kind=resolve_catalog_kind_for_table(session, table_name),
                 )
 
             # Fetch once here; all write_mode branches consume it so we avoid
@@ -2144,6 +2250,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             mode=write_mode,
                             copy_grants=True,
                             column_order=_column_order_for_write,
+                            statement_params=_pd_combined_write_params(
+                                write_op.input, session
+                            ),
                         )
                     case "truncate":
                         # Snowpark mode="truncate" on an existing table
@@ -2202,6 +2311,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
                                 table_name=snowpark_table_name,
                                 mode=write_mode,
                                 column_order=_column_order_for_write,
+                                statement_params=_pd_combined_write_params(
+                                    write_op.input, session
+                                ),
                             )
                         except SnowparkSQLException as e:
                             if "already exists" in str(e) and e.sql_error_code == 1998:
@@ -2254,15 +2366,25 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             write_op.provider, get_or_create_snowpark_session()
         )
 
+    # SNOW-2443454: strip both internal and qualified-access-only metadata
+    # (USING-join source columns) up front to match the v1 path and avoid
+    # leaking them into the written table's schema.
+    result = map_relation(write_op.input).without_hidden_columns()
+
+    # Same ordering as the v1 path: set the surface after the input is mapped so a
+    # SQL-derived input keeps `sql` on its own events, while every event this
+    # `df.writeTo(...)` call goes on to emit is attributed to v2 (SNOW-4168010).
+    # Resolve the WAP branch/tag DML target after stamping the surface: it can
+    # itself emit a `report_iceberg_wap` event and that event must be tagged
+    # `dataframe_v2` too, not whatever surface was in effect beforehand.
+    set_api_surface(API_SURFACE_DATAFRAME_V2)
+
     dml_target = resolve_iceberg_ref_dml_target(
         write_op.table_name, _spark_to_snowflake, dml_op=_write_v2_mode_label(write_op)
     )
     snowpark_table_name = dml_target.dml_snowflake_sql
     schema_table_name = dml_target.base_snowflake_sql
-    # SNOW-2443454: strip both internal and qualified-access-only metadata
-    # (USING-join source columns) up front to match the v1 path and avoid
-    # leaking them into the written table's schema.
-    result = map_relation(write_op.input).without_hidden_columns()
+
     (
         input_df,
         snowpark_column_names,
@@ -2334,7 +2456,9 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             telemetry.report_iceberg_write_options(
                 op=_ICEBERG_WRITE_V2_OP.get(write_op.mode, "other"),
                 keys=_write_option_keys,
-                catalog_kind=resolve_catalog_kind(),
+                catalog_kind=resolve_catalog_kind_for_table(
+                    session, write_op.table_name
+                ),
             )
 
     # FDN tables have no user-defined partitioning; reject partitionedBy
@@ -2488,7 +2612,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
     if is_iceberg:
         telemetry.report_iceberg_write_v2(
             _ICEBERG_WRITE_V2_OP.get(write_op.mode, "other"),
-            catalog_kind=resolve_catalog_kind(),
+            catalog_kind=resolve_catalog_kind_for_table(session, write_op.table_name),
             partitioned_by=bool(write_op.partitioning_columns),
             table_property=bool(write_op.table_properties),
         )
@@ -2617,6 +2741,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     write_op.overwrite_condition,
                     updated_result,
                     input_df,
+                    source_container=result,
                 )
 
             if overwrite_cond is not None:
@@ -2855,15 +2980,24 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 schema_table_name, session, table_type, table_schema_or_error
             )
             writer = _validate_schema_and_get_writer(
-                input_df, "replace", schema_table_name, table_schema_or_error
+                input_df,
+                "replace",
+                schema_table_name,
+                table_schema_or_error,
+                check_ordering=check_ordering,
             )
             if is_iceberg and is_cld:
                 # CLD iceberg REPLACE: existing CLD table rejects `CREATE OR
                 # REPLACE` (Snowpark's default for mode="overwrite") and the
                 # iceberg_config form on .saveAsTable also rejects the
                 # uppercased quoted column names. Drop and re-create via
-                # explicit CLD-aware DDL, then append. We checked above that
-                # the table exists and is iceberg.
+                # explicit CLD-aware DDL, then load. We checked above that
+                # the table exists and is iceberg. The source query runs
+                # before the DROP so a failing row leaves the table intact
+                # (SNOW-4195605); the load reads its persisted result.
+                source_query_id = _run_cld_replace_source_query(
+                    writer._dataframe, iceberg_statement_params
+                )
                 session.sql(f"DROP TABLE IF EXISTS {schema_table_name}").collect()
                 _create_cld_iceberg_table_then_load(
                     session,
@@ -2875,6 +3009,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     iceberg_version=table_format_version,
                     statement_params=iceberg_statement_params,
                     op=tp_op,
+                    source_query_id=source_query_id,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -2899,14 +3034,28 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         case commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE:
             if dml_target.has_ref:
                 reject_ref_dml_table_creation(dml_target, "createOrReplace")
+            # Fetch existing schema for check-ordering validation (table may not
+            # exist — _validate_schema_and_get_writer handles None gracefully).
+            cor_schema_or_error = (
+                _get_table_schema_or_error(schema_table_name, session)
+                if check_ordering
+                else None
+            )
             writer = _validate_schema_and_get_writer(
-                input_df, "create_or_replace", schema_table_name
+                input_df,
+                "create_or_replace",
+                schema_table_name,
+                cor_schema_or_error,
+                check_ordering=check_ordering,
             )
             if is_iceberg and is_cld:
                 # CLD iceberg CREATE_OR_REPLACE: same constraints as REPLACE
                 # above. The table may or may not already exist; either way
                 # drop-if-exists + explicit CREATE ICEBERG TABLE produces
                 # the correct column casing on Glue / Unity catalogs.
+                source_query_id = _run_cld_replace_source_query(
+                    writer._dataframe, iceberg_statement_params
+                )
                 session.sql(f"DROP TABLE IF EXISTS {schema_table_name}").collect()
                 _create_cld_iceberg_table_then_load(
                     session,
@@ -2918,6 +3067,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     iceberg_version=table_format_version,
                     statement_params=iceberg_statement_params,
                     op=tp_op,
+                    source_query_id=source_query_id,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -2937,6 +3087,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     column_order=_column_order_for_write,
                     comment=table_comment,
                     data_retention_time=table_data_retention_days,
+                    statement_params=_pd_parquet_cache_params(session),
                 )
 
         case _:
@@ -3001,6 +3152,17 @@ def _validate_schema_and_get_writer(
         "create_or_replace",
         "overwrite",
     ):
+        # SNOW-4201979: validate column ordering even for replace/create_or_replace
+        # before the table is rebuilt. Mirrors Iceberg's SparkWriteOptions behavior
+        # where check-ordering fires regardless of write mode. Skip when no existing
+        # table schema is available (new table — nothing to compare against).
+        if check_ordering and isinstance(table_schema_or_error, DataType):
+            _check_top_level_field_ordering(
+                table_schema_or_error.fields,
+                input_df.schema.fields,
+                snowpark_table_name,
+                comparable_col_name,
+            )
         return _get_writer_for_table_creation(input_df)
 
     table_schema = None
@@ -3809,12 +3971,12 @@ _ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY = (
 def _iceberg_table_properties_ddl_enabled() -> bool:
     """Return True when the client-side gate for TABLE_PROPERTIES(...) emission on
     CREATE / ALTER ICEBERG TABLE is enabled via the config
-    ``snowpark.connect.iceberg.enable_table_properties_ddl`` (default False while
-    the GS-side rollout is pending; settable with ``spark.conf.set``). No Snowflake
-    round trip.
+    ``snowpark.connect.iceberg.enable_table_properties_ddl`` (default True now that
+    the GS-side rollout has landed; set ``spark.conf`` to "false" to suppress
+    emission on an account where GS has not enabled it). No Snowflake round trip.
     """
     return str_to_bool(
-        str(global_config.get(_ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY, "false"))
+        str(global_config.get(_ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY, "true"))
     )
 
 
@@ -4027,6 +4189,7 @@ def _create_cld_iceberg_table_then_load(
     iceberg_version: int | None = None,
     statement_params: dict[str, str] | None = None,
     op: str = "create",
+    source_query_id: str | None = None,
 ) -> None:
     """Emit explicit ``CREATE ICEBERG TABLE`` for a CLD target, then append
     rows via Snowpark against the now-existing table.
@@ -4052,21 +4215,47 @@ def _create_cld_iceberg_table_then_load(
     not supported by any caller — all V2 REPLACE / CREATE_OR_REPLACE arms
     explicitly ``DROP TABLE IF EXISTS`` before invoking this helper.
 
+    When ``source_query_id`` is set (REPLACE / CREATE_OR_REPLACE), the rows
+    come from that already-executed query via ``INSERT INTO ... SELECT *
+    FROM TABLE(RESULT_SCAN(...))``. See :func:`_run_cld_replace_source_query`
+    in :mod:`snowflake.snowpark_connect.utils.cld_replace`.
+
     NB: callers must pass a writer obtained from
     :func:`_get_writer_for_table_creation` so ``writer._dataframe`` is
     already in the create-time shape (force-nullable schema, optional
     upper-cased column aliases on non-case-sensitive sessions).
     """
-    _create_cld_iceberg_table(
-        session,
-        writer._dataframe,
-        snowpark_table_name,
-        options=options,
-        partition_specs=partition_specs,
-        comment=comment,
-        iceberg_version=iceberg_version,
-        op=op,
-    )
+    try:
+        _create_cld_iceberg_table(
+            session,
+            writer._dataframe,
+            snowpark_table_name,
+            options=options,
+            partition_specs=partition_specs,
+            comment=comment,
+            iceberg_version=iceberg_version,
+            op=op,
+        )
+    except Exception as exc:
+        if source_query_id is not None:
+            _attach_cld_replace_recovery(exc, source_query_id)
+        raise
+    if source_query_id is not None:
+        columns = ", ".join(
+            _cld_ddl_identifier(field.name) for field in writer._dataframe.schema.fields
+        )
+        try:
+            _insert_cld_table_from_result_scan(
+                session,
+                snowpark_table_name,
+                columns,
+                source_query_id,
+                statement_params,
+            )
+        except Exception as exc:
+            _attach_cld_replace_recovery(exc, source_query_id)
+            raise
+        return
     writer.saveAsTable(
         table_name=snowpark_table_name,
         mode="append",
@@ -4891,18 +5080,45 @@ def _map_overwrite_condition(
     condition_proto,
     container: DataFrameContainer,
     input_df: snowpark.DataFrame,
+    source_container: DataFrameContainer,
 ) -> snowpark.Column:
     # saveAsTable(overwrite_condition=...) generates SQL against the target
-    # table, so column references must use target-table identifiers (produced
+    # table, so column references resolve to target-table identifiers (produced
     # by spark_to_sf_single_id) rather than the internal Snowpark names that
     # live in the container's column map.
     spark_names = container.column_map.get_spark_columns()
     table_snowpark_names = [
         spark_to_sf_single_id(name, is_column=True) for name in spark_names
     ]
+    # A DataFrame-bound reference (df["id"], not F.col("id")) carries a plan_id
+    # and resolves through the SOURCE DataFrame's own snowpark name -- for a
+    # createDataFrame that is a generated unique name like "id-<uuid>-0", held by
+    # the container the plan_id points to (source_container), *before*
+    # handle_column_names renamed the columns for the write. Register those names
+    # (plus any equivalents they already carry) as equivalents of the target
+    # identifier so a bound reference resolves to the target column instead of
+    # raising RESOLVED_REFERENCE_COLUMN_NOT_FOUND. Unbound F.col("id") resolves by
+    # spark name and is unaffected. source_container is required (not defaulted to
+    # `container`): `container` here is the post-handle_column_names df whose names
+    # are re-quoted ("name"), which does NOT match the plan_id container's
+    # generated name and silently reintroduces the bug. SNOW-4201825.
+    src_map = source_container.column_map
+    equivalent_snowpark_names: list[set[str]] = []
+    for name in spark_names:
+        equivalents: set[str] = set()
+        src_snowpark = src_map.get_snowpark_column_name_from_spark_column_name(
+            name, allow_non_exists=True
+        )
+        if src_snowpark:
+            equivalents.add(src_snowpark)
+            equivalents |= src_map.get_equivalent_snowpark_names_for_snowpark_name(
+                src_snowpark
+            )
+        equivalent_snowpark_names.append(equivalents)
     condition_column_map = ColumnNameMap(
         spark_column_names=spark_names,
         snowpark_column_names=table_snowpark_names,
+        equivalent_snowpark_names=equivalent_snowpark_names,
     )
     typer = ExpressionTyper(input_df)
     _, typed_col = map_expression(condition_proto, condition_column_map, typer)

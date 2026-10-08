@@ -14,6 +14,7 @@ Exceptions:
     - ConfigError: Custom exception for configuration-related errors.
 """
 
+import ssl
 import sys
 import time
 
@@ -60,12 +61,16 @@ class ConfigDict(typing.TypedDict):
 
         num_retries (int): The number of retries to attempt before failing.
 
-        interval_seconds (int): The interval in seconds between retries.
+        retry_interval_seconds (float): The interval in seconds between retries.
+
+        interval_seconds (int): Deprecated alias of ``retry_interval_seconds``.
 
         healthcheck_interval_seconds (int): The interval in seconds between
             health checks.
 
-        verify (bool): Whether to verify the SSL certificate.
+        verify (bool | str | ssl.SSLContext): Whether to verify the SSL
+            certificate. Pass a CA bundle path or an ``ssl.SSLContext`` to verify
+            against custom certificates. Defaults to ``True``.
 
         timeout_seconds (int, deprecated): The connection timeout in seconds.
 
@@ -80,15 +85,39 @@ class ConfigDict(typing.TypedDict):
         connection_timeout_seconds (float): The connection timeout in seconds.
 
         suppress_deprecation_warnings (bool): Whether to suppress deprecation warnings.
+
+        pool_timeout_seconds (float): How long a request waits for a free connection
+            in the pool before raising ``httpx.PoolTimeout``. Defaults to
+            ``connection_timeout_seconds``. Setting it lower than
+            ``connection_timeout_seconds`` makes the httpcore connection leak
+            (encode/httpcore#1093) more likely under load.
+
+        max_connections (int): The maximum number of connections in the pool.
+            Defaults to 100.
+
+        max_keepalive_connections (int): The maximum number of idle connections
+            kept alive in the pool. Defaults to 20.
+
+        max_concurrent_requests (int): The maximum number of requests in flight at
+            once; further requests wait for a slot. Keep it below
+            ``max_connections`` so a burst of slow requests cannot exhaust the pool.
+            Defaults to no limit.
+
+        stream_read_timeout_seconds (float): How long a streaming conversation
+            search waits for the next chunk before raising ``httpx.ReadTimeout``.
+            Replaces the read timeout for streaming requests only, since the first
+            chunk arrives only once the LLM starts answering. Defaults to 60, the
+            server's own limit for an LLM response.
     """
 
     nodes: typing.List[typing.Union[str, NodeConfigDict]]
     nearest_node: typing.NotRequired[typing.Union[str, NodeConfigDict]]
     api_key: str
     num_retries: typing.NotRequired[int]
-    interval_seconds: typing.NotRequired[int]
+    retry_interval_seconds: typing.NotRequired[float]
+    interval_seconds: typing.NotRequired[int]  # deprecated alias
     healthcheck_interval_seconds: typing.NotRequired[int]
-    verify: typing.NotRequired[bool]
+    verify: typing.NotRequired[typing.Union[bool, str, ssl.SSLContext]]
     timeout_seconds: typing.NotRequired[int]  # deprecated
     master_node: typing.NotRequired[typing.Union[str, NodeConfigDict]]  # deprecated
     additional_headers: typing.NotRequired[typing.Dict[str, str]]
@@ -97,6 +126,11 @@ class ConfigDict(typing.TypedDict):
     ]  # deprecated
     connection_timeout_seconds: typing.NotRequired[float]
     suppress_deprecation_warnings: typing.NotRequired[bool]
+    pool_timeout_seconds: typing.NotRequired[float]
+    max_connections: typing.NotRequired[int]
+    max_keepalive_connections: typing.NotRequired[int]
+    max_concurrent_requests: typing.NotRequired[int]
+    stream_read_timeout_seconds: typing.NotRequired[float]
 
 
 class Node:
@@ -184,7 +218,12 @@ class Configuration:
         num_retries (int): The number of retries to attempt before failing.
         retry_interval_seconds (float): The interval in seconds between retries.
         healthcheck_interval_seconds (int): The interval in seconds between health checks.
-        verify (bool): Whether to verify the SSL certificate.
+        verify (bool | str | ssl.SSLContext): Whether to verify the SSL certificate.
+        pool_timeout_seconds (float): How long to wait for a free pooled connection.
+        max_connections (int): The maximum number of connections in the pool.
+        max_keepalive_connections (int): The maximum number of idle pooled connections.
+        max_concurrent_requests (int | None): The maximum number of requests in flight.
+        stream_read_timeout_seconds (float): How long a stream waits for its next chunk.
     """
 
     def __init__(
@@ -211,10 +250,15 @@ class Configuration:
         self.api_key = config_dict.get("api_key", " ")
         self.connection_timeout_seconds = config_dict.get(
             "connection_timeout_seconds",
-            3.0,
+            config_dict.get("timeout_seconds", 3.0),
         )
         self.num_retries = config_dict.get("num_retries", 3)
-        self.retry_interval_seconds = config_dict.get("retry_interval_seconds", 1.0)
+        # ``interval_seconds`` is the historically documented key; ``retry_interval_seconds``
+        # is what this attribute is named. Honor both so the documented spelling works too.
+        self.retry_interval_seconds = config_dict.get(
+            "retry_interval_seconds",
+            config_dict.get("interval_seconds", 1.0),
+        )
         self.healthcheck_interval_seconds = config_dict.get(
             "healthcheck_interval_seconds",
             60,
@@ -223,6 +267,22 @@ class Configuration:
         self.additional_headers = config_dict.get("additional_headers", {})
         self.suppress_deprecation_warnings = config_dict.get(
             "suppress_deprecation_warnings", False
+        )
+        self.pool_timeout_seconds = config_dict.get(
+            "pool_timeout_seconds",
+            self.connection_timeout_seconds,
+        )
+        self.max_connections = config_dict.get("max_connections", 100)
+        self.max_keepalive_connections = config_dict.get(
+            "max_keepalive_connections",
+            20,
+        )
+        self.max_concurrent_requests: typing.Optional[int] = config_dict.get(
+            "max_concurrent_requests",
+        )
+        self.stream_read_timeout_seconds = config_dict.get(
+            "stream_read_timeout_seconds",
+            60.0,
         )
 
     def _handle_nearest_node(
@@ -286,6 +346,35 @@ class ConfigurationValidations:
         nearest_node = config_dict.get("nearest_node", None)
         if nearest_node:
             ConfigurationValidations.validate_nearest_node(nearest_node)
+
+        ConfigurationValidations.validate_connection_pool(config_dict)
+
+    @staticmethod
+    def validate_connection_pool(config_dict: ConfigDict) -> None:
+        """
+        Validate the connection pool and concurrency settings.
+
+        Args:
+            config_dict (ConfigDict): The configuration dictionary to validate.
+
+        Raises:
+            ConfigError: If a pool or concurrency setting is out of range.
+        """
+        positive_settings: typing.Dict[str, typing.Optional[float]] = {
+            "pool_timeout_seconds": config_dict.get("pool_timeout_seconds"),
+            "max_connections": config_dict.get("max_connections"),
+            "max_concurrent_requests": config_dict.get("max_concurrent_requests"),
+            "stream_read_timeout_seconds": config_dict.get(
+                "stream_read_timeout_seconds"
+            ),
+        }
+        for key, config_value in positive_settings.items():
+            if config_value is not None and config_value <= 0:
+                raise ConfigError(f"`{key}` must be greater than 0.")
+
+        max_keepalive_connections = config_dict.get("max_keepalive_connections")
+        if max_keepalive_connections is not None and max_keepalive_connections < 0:
+            raise ConfigError("`max_keepalive_connections` must not be negative.")
 
     @staticmethod
     def validate_required_config_fields(config_dict: ConfigDict) -> None:

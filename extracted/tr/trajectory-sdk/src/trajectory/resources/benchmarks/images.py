@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
@@ -26,7 +26,7 @@ class Images(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkImagesResponse:
     """List the bench's task images with build status, refreshing in-flight provider builds
     (building -> ready/failed) as a side effect.
@@ -63,7 +63,7 @@ class Images(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkImagesResponse:
     """Trigger provider image builds for every unbuilt task image of the bench. Build
     completion is asynchronous; poll listBenchmarkImages until every row reports

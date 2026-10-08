@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import (
+    Any,
+    Literal,
+    TypeVar,
+    cast,
+)
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.t_job_object_input_entity_type import TJobObjectInputEntityType
+from ..models.t_job_object_input_entity_type_type_0 import (
+    TJobObjectInputEntityTypeType0,
+)
 
 T = TypeVar("T", bound="TJobObjectInput")
 
@@ -15,16 +22,20 @@ T = TypeVar("T", bound="TJobObjectInput")
 class TJobObjectInput:
     """
     Attributes:
-        entity_type (TJobObjectInputEntityType):
+        entity_type (Literal['job-run'] | TJobObjectInputEntityTypeType0):
         input_ (str):
     """
 
-    entity_type: TJobObjectInputEntityType
+    entity_type: Literal["job-run"] | TJobObjectInputEntityTypeType0
     input_: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        entity_type = self.entity_type.value
+        entity_type: Literal["job-run"] | str
+        if isinstance(self.entity_type, TJobObjectInputEntityTypeType0):
+            entity_type = self.entity_type.value
+        else:
+            entity_type = self.entity_type
 
         input_ = self.input_
 
@@ -42,7 +53,26 @@ class TJobObjectInput:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        entity_type = TJobObjectInputEntityType(d.pop("entity_type"))
+
+        def _parse_entity_type(
+            data: object,
+        ) -> Literal["job-run"] | TJobObjectInputEntityTypeType0:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                entity_type_type_0 = TJobObjectInputEntityTypeType0(data)
+
+                return entity_type_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            entity_type_type_1 = cast(Literal["job-run"], data)
+            if entity_type_type_1 != "job-run":
+                raise ValueError(
+                    f"entity_type_type_1 must match const 'job-run', got '{entity_type_type_1}'"
+                )
+            return entity_type_type_1
+
+        entity_type = _parse_entity_type(d.pop("entity_type"))
 
         input_ = d.pop("input")
 

@@ -27,22 +27,33 @@ struct Provider {
 impl NetworkProvider for Provider {
     async fn send(&self, _: &HttpMethod, args: &RequestArgs) -> Response {
         self.requests.lock().push(args.clone());
-        let data = if args.url == MANIFEST_URL {
-            Some(ResponseData::from_bytes(
-                serde_json::to_vec(&*self.manifest.lock()).unwrap(),
-            ))
+        let (status_code, data) = if args.url == MANIFEST_URL {
+            (
+                200,
+                Some(ResponseData::from_bytes(
+                    serde_json::to_vec(&*self.manifest.lock()).unwrap(),
+                )),
+            )
         } else {
             let file = self.files.lock()[&args.url].clone();
-            file.body.map(|body| {
-                ResponseData::from_bytes_with_headers(
-                    body.into_bytes(),
-                    file.content_range
-                        .map(|range| HashMap::from([("content-range".into(), range)])),
-                )
-            })
+            let status = if file.content_range.is_some() {
+                206
+            } else {
+                200
+            };
+            (
+                status,
+                file.body.map(|body| {
+                    ResponseData::from_bytes_with_headers(
+                        body.into_bytes(),
+                        file.content_range
+                            .map(|range| HashMap::from([("content-range".into(), range)])),
+                    )
+                }),
+            )
         };
         Response {
-            status_code: Some(200),
+            status_code: Some(status_code),
             data,
             error: None,
         }
@@ -273,6 +284,53 @@ async fn id_list_propagation_first_timestamp_on_existing_list_is_measured() {
 }
 
 #[tokio::test]
+async fn id_list_propagation_waits_for_manifest_size_while_partial_updates_apply() {
+    for partial in [false, true] {
+        let mut fixture = Fixture::new();
+        let (old, new) = source_times();
+        fixture.set("users", "A", 1, 0, "+a\n", Some(old));
+        fixture.adapter.sync_id_lists().await.unwrap();
+        assert!(fixture.metrics().is_empty());
+
+        fixture.set("users", "A", 1, 3, "-a\n+b\n", Some(new));
+        fixture.provider.manifest.lock()["users"]["size"] = json!(12);
+        if !partial {
+            fixture.provider.files.lock().insert(
+                "https://files.test/users".into(),
+                FileResponse {
+                    body: Some("+a\n-a\n+b\n".into()),
+                    content_range: None,
+                },
+            );
+        }
+        fixture.adapter.sync_id_lists().await.unwrap();
+        let data = fixture.store.load_data();
+        assert_eq!(data.id_lists["users"].metadata.size, 9);
+        assert_eq!(
+            *data.id_lists["users"].ids,
+            crate::id_lists_adapter::IdListIds::from([String::from("b")])
+        );
+        assert!(fixture.metrics().is_empty());
+
+        fixture.set("users", "A", 1, 9, "+c\n", Some(new));
+        fixture.adapter.sync_id_lists().await.unwrap();
+        assert_eq!(
+            fixture.store.load_data().id_lists["users"].metadata.size,
+            12
+        );
+        assert!(
+            fixture.store.load_data().id_lists["users"]
+                .ids
+                .contains("c")
+        );
+        let metrics = fixture.metrics();
+        assert_eq!(metrics.len(), 1);
+        assert_eq!(metrics[0].tags.as_ref().unwrap()["lcut"], new.to_string());
+        assert_eq!(fixture.ranges(), ["bytes=0-", "bytes=3-", "bytes=9-"]);
+    }
+}
+
+#[tokio::test]
 async fn id_list_propagation_smaller_replacement_counts_source_once() {
     let mut fixture = Fixture::new();
     let (old, new) = source_times();
@@ -378,24 +436,28 @@ async fn id_list_propagation_replay_cannot_invent_contiguous_coverage() {
     fixture.adapter.sync_id_lists().await.unwrap();
     assert!(fixture.metrics().is_empty());
     // Full replay installs the byte count once. A later response that skips
-    // bytes must still not invent contiguous coverage for telemetry.
+    // bytes must be rejected without changing membership or propagation.
     assert_eq!(fixture.store.load_data().id_lists["users"].metadata.size, 3);
     fixture.set("users", "A", 2, 6, "+p\n", Some(new));
-    fixture.adapter.sync_id_lists().await.unwrap();
+    assert!(fixture.adapter.sync_id_lists().await.is_err());
     assert!(
         fixture.metrics().is_empty(),
         "bytes 3..6 were never downloaded"
     );
     assert!(
-        fixture.store.load_data().id_lists["users"]
+        !fixture.store.load_data().id_lists["users"]
             .ids
             .contains("p")
     );
-    assert_eq!(fixture.ranges(), ["bytes=0-", "bytes=0-", "bytes=3-"]);
+    assert_eq!(fixture.store.load_data().id_lists["users"].metadata.size, 3);
+    assert_eq!(
+        fixture.ranges(),
+        ["bytes=0-", "bytes=0-", "bytes=3-", "bytes=3-", "bytes=3-"]
+    );
 }
 
 #[tokio::test]
-async fn id_list_propagation_unproven_response_range_only_skips_metric() {
+async fn id_list_propagation_unproven_response_range_preserves_membership_and_metric() {
     for range in ["bytes 3-8/9", "bytes 4-6/7", "invalid"] {
         let mut fixture = Fixture::new();
         let (old, new) = source_times();
@@ -409,14 +471,18 @@ async fn id_list_propagation_unproven_response_range_only_skips_metric() {
             .get_mut("https://files.test/users")
             .unwrap()
             .content_range = Some(range.into());
-        fixture.adapter.sync_id_lists().await.unwrap();
+        assert!(fixture.adapter.sync_id_lists().await.is_err());
         assert!(fixture.metrics().is_empty());
         assert!(
-            fixture.store.load_data().id_lists["users"]
+            !fixture.store.load_data().id_lists["users"]
                 .ids
                 .contains("p")
         );
-        assert_eq!(fixture.ranges(), ["bytes=0-", "bytes=3-"]);
+        assert_eq!(fixture.store.load_data().id_lists["users"].metadata.size, 3);
+        assert_eq!(
+            fixture.ranges(),
+            ["bytes=0-", "bytes=3-", "bytes=3-", "bytes=3-"]
+        );
     }
 }
 
@@ -525,12 +591,12 @@ async fn id_list_propagation_replica_switch_cannot_reuse_another_prefix() {
 }
 
 #[tokio::test]
-async fn id_list_propagation_cdn_query_range_accepts_200_without_content_range() {
+async fn id_list_propagation_cdn_range_header_normalizes_full_200() {
     let mut fixture = Fixture::new();
     let (old, new) = source_times();
     let url = "https://statsigcdn.openai.com/file";
-    for (start, body, lcut) in [(0, "+a\n", old), (3, "+p\n", new)] {
-        fixture.set("users", "A", 1, start, body, Some(lcut));
+    for (body, lcut) in [("+a\n", old), ("+a\n+p\n", new)] {
+        fixture.set("users", "A", 1, 0, body, Some(lcut));
         fixture.provider.manifest.lock()["users"]["url"] = json!(url);
         fixture.provider.files.lock().insert(
             url.into(),
@@ -544,13 +610,15 @@ async fn id_list_propagation_cdn_query_range_accepts_200_without_content_range()
     assert_eq!(fixture.metrics().len(), 1);
     let requests = fixture.provider.requests.lock();
     let request = requests.last().unwrap();
-    assert!(
-        request
-            .headers
-            .as_ref()
-            .is_none_or(|headers| !headers.contains_key("Range"))
+    assert_eq!(request.headers.as_ref().unwrap()["Range"], "bytes=3-");
+    assert_eq!(
+        request.headers.as_ref().unwrap()["statsig-id-list-file-size"],
+        "6"
     );
-    assert_eq!(request.query_params.as_ref().unwrap()["range"], "3-");
+    assert!(request.query_params.is_none());
+    let data = fixture.store.load_data();
+    assert_eq!(data.id_lists["users"].metadata.size, 6);
+    assert!(data.id_lists["users"].ids.contains("p"));
 }
 
 #[tokio::test]

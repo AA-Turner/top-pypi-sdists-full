@@ -88,7 +88,7 @@ single choice by setting the `choice` parameter to a single choice from {{__choi
 )
 
 # Deprecated: Use init(default_model="...") to configure the default model instead.
-DEFAULT_MODEL = "gpt-5-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 PLAIN_RESPONSE_SCHEMA = {
     "properties": {"choice": {"description": "The choice", "title": "Choice", "type": "string"}},
@@ -434,7 +434,7 @@ class LLMClassifier(OpenAILLMClassifier):
         if not isinstance(thread, list):
             thread = list(thread)
 
-        computed = compute_thread_template_vars(filter_system_messages_from_thread(thread))
+        computed = compute_thread_template_vars(filter_system_messages_from_thread(thread), thread)
         return {name: computed[name] for name in self._thread_variable_names}
 
     async def _compute_thread_vars_async(self, trace) -> dict[str, object]:
@@ -450,7 +450,7 @@ class LLMClassifier(OpenAILLMClassifier):
         if not isinstance(thread, list):
             thread = list(thread)
 
-        computed = compute_thread_template_vars(filter_system_messages_from_thread(thread))
+        computed = compute_thread_template_vars(filter_system_messages_from_thread(thread), thread)
         return {name: computed[name] for name in self._thread_variable_names}
 
     def _request_args(self, output, expected, **kwargs):

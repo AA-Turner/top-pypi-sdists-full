@@ -1937,6 +1937,7 @@ _ROUTES = dict.fromkeys(
         "tile_held_rows",
         "tile_stores",
         "tile_column_products",
+        "tile_blocks_fast",
         "fused_blocks",
         "fused_mode_stream",
         "fused_mode_post",
@@ -2205,6 +2206,25 @@ class _ProductPlan(NamedTuple):
     def rows(self, ids):
         """The (|ids|, 3) rows (ρ_eff, z, z′), each written from the node
         pair at its first appearance — the floats the grid computed there."""
+        if (
+            self.kept_pos is not None
+            and _TILE_KERNELS
+            and _HAVE_TILE_KERNELS
+            and isinstance(self.line, _KeyLine)
+            and self.line.kid.dtype == np.int32
+        ):
+            # The same element copies in one pass (`product_rows`).
+            return _accel.acc.product_rows(
+                ids,
+                self.kept_pos,
+                int(self.nB),
+                self.slot == "z",
+                self.grank,
+                self.line.kid,
+                self.line.key_r,
+                self.zA,
+                self.zB,
+            )
         a_s, b_s = self.pairs(ids)
         rows = np.empty((a_s.size, 3), dtype=float)
         if self.slot == "z":
@@ -2269,6 +2289,12 @@ _MERGE_BY_Z = True
 _HAVE_MERGE_BY_Z_ACCEL = _accel.acc is not None and bool(
     getattr(_accel.acc, "merge_rows_by_z_1290", False)
 )
+# ...and its rows' grid positions in one C++ pass (`kept_positions`,
+# momwire#1377); False is the numpy spans, the reference (the same integers).
+_KEPT_POS_ACCEL = True
+_HAVE_KEPT_POS_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "kept_positions_1377", False)
+)
 # The plan's key ids by `factorize_line_keys` (momwire#1335); False is
 # `_first_groups` over the raveled line and its broadcast z, the reference
 # (the same integers, ~1.1 GB more transient at razor's inverted L x32).
@@ -2276,9 +2302,65 @@ _LINE_KEYS_ACCEL = True
 _HAVE_LINE_KEYS_ACCEL = _accel.acc is not None and bool(
     getattr(_accel.acc, "factorize_line_keys_1335", False)
 )
+# ...across the physical cores, the keys partitioned by hash
+# (momwire#1377); 1 is the serial walk, the reference (the same integers).
+_LINE_KEYS_THREADS = None  # None: `_physical_cpu_count()`
+# The keys' line z by `take_mod` (momwire#1377); False is `lzv[kf % nL]`,
+# the reference (the same floats, copied).
+_KEY_ZL_ACCEL = True
+_HAVE_TAKE_MOD_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "take_mod_1377", False)
+)
+_HAVE_LINE_KEYS_PAR = _accel.acc is not None and bool(
+    getattr(_accel.acc, "factorize_line_keys_par_1377", False)
+)
+
+
+def _line_keys_threads():
+    """`factorize_line_keys`' thread argument, when its build takes one."""
+    if not _HAVE_LINE_KEYS_PAR:
+        return {}
+    n = _LINE_KEYS_THREADS
+    if n is None:
+        n = _near_interface._physical_cpu_count()
+    return {"n_threads": int(max(1, n))}
+
+
 _HAVE_GROUP_RANKS_ACCEL = _accel.acc is not None and bool(
     getattr(_accel.acc, "group_first_ranks_1290", False)
 )
+# A many-group product's tiles class its keys by exact ρ with
+# `factorize_float_classes` (momwire#1377): `factorize_rows`' groups and
+# numbers in int32, with no first-row array and the table at 4/3 of the keys.
+# False is `_near_interface._factorize`, the reference (the same integers,
+# ~0.18 GB more transient at razor's inverted L x32).
+_LEAN_KEY_CLASSES = True
+# ...and its per-group integer passes (each key's candidate rows, each row's
+# tile) in C++ (`key_row_counts`, `tile_per_row`, momwire#1377); False is the
+# numpy loops over the groups, the reference (the same integers).
+_INIT_PASSES_ACCEL = True
+_HAVE_INIT_PASSES_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "tile_init_passes_1377", False)
+)
+_HAVE_FLOAT_CLASSES_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "factorize_float_classes_1377", False)
+)
+# ...across the physical cores, the values partitioned by hash (the line
+# keys' argument); 1 is the serial walk, the reference.
+_KEY_CLASSES_THREADS = None  # None: `_physical_cpu_count()`
+_HAVE_FLOAT_CLASSES_PAR = _accel.acc is not None and bool(
+    getattr(_accel.acc, "factorize_float_classes_par_1377", False)
+)
+
+
+def _key_classes_threads():
+    """`factorize_float_classes`' thread argument, when its build takes one."""
+    if not _HAVE_FLOAT_CLASSES_PAR:
+        return {}
+    n = _KEY_CLASSES_THREADS
+    if n is None:
+        n = _near_interface._physical_cpu_count()
+    return {"n_threads": int(max(1, n))}
 
 
 def _merge_groups_z(zids, kids, zfirst, kfirst, nz, nk, n_key, nB):
@@ -2351,12 +2433,22 @@ def _merge_groups_z(zids, kids, zfirst, kfirst, nz, nk, n_key, nB):
     # inverted L x32's merge spike); the same integers.
     kcat = np.concatenate(kfirst)
     kept_pos = np.empty(blk.size, dtype=_index_dtype(int(a_s.max(initial=0)) * nB + nB))
-    step = 1 << 20
-    for c0 in range(0, blk.size, step):
-        _cancel.poll()
-        bb = blk[c0 : c0 + step]
-        b = kcat[koff[g_s[bb]] + j_first[c0 : c0 + step]]
-        kept_pos[c0 : c0 + step] = a_s[bb].astype(np.int64) * nB + b
+    if (
+        _KEPT_POS_ACCEL
+        and _HAVE_KEPT_POS_ACCEL
+        and blk.dtype == np.int32
+        and j_first.dtype == np.int32
+        and kcat.dtype == np.int32
+    ):
+        # The same integers in one pass (`kept_positions`, momwire#1377).
+        _accel.acc.kept_positions(blk, j_first, g_s, a_s, koff, kcat, int(nB), kept_pos)
+    else:
+        step = 1 << 20
+        for c0 in range(0, blk.size, step):
+            _cancel.poll()
+            bb = blk[c0 : c0 + step]
+            b = kcat[koff[g_s[bb]] + j_first[c0 : c0 + step]]
+            kept_pos[c0 : c0 + step] = a_s[bb].astype(np.int64) * nB + b
     del kcat
     rowtab = [
         rowflat[off[g] : off[g] + nz[g] * nk[g]].reshape(nz[g], nk[g])
@@ -2482,7 +2574,10 @@ def _product_plan(ctx, eps_t, k_p, A, B, gz):
         # line's z read in place, the ids int32 in the table's own shape,
         # the table grown with the keys rather than sized by the rows.
         kf, kid = _accel.acc.factorize_line_keys(
-            line, np.ascontiguousarray(lzv, dtype=float), cancel_flag=_cancel.ptr()
+            line,
+            np.ascontiguousarray(lzv, dtype=float),
+            cancel_flag=_cancel.ptr(),
+            **_line_keys_threads(),
         )
     else:
         kf, kid = _first_groups(line.ravel(), np.broadcast_to(lzv, line.shape).ravel())
@@ -2490,7 +2585,18 @@ def _product_plan(ctx, eps_t, k_p, A, B, gz):
     # row table are the plan's O(groups x line) part (momwire#1224).
     kid = kid.reshape(nG, nL).astype(_index_dtype(kf.size), copy=False)
     key_r = line.ravel()[kf]
-    key_zl = lzv[kf % nL]
+    if (
+        _KEY_ZL_ACCEL
+        and _HAVE_TAKE_MOD_ACCEL
+        and kf.dtype == np.int64
+        and lzv.dtype == np.float64
+        and lzv.flags.c_contiguous
+    ):
+        # The same element copies, without the int64 remainder array
+        # (`take_mod`, momwire#1377).
+        key_zl = _accel.acc.take_mod(lzv, kf, int(nL))
+    else:
+        key_zl = lzv[kf % nL]
     # Every line value of key k is key_r[k] to the bit (equal under `==` and
     # positive, as rho_eff >= a > 0), so the plan reads its line through the
     # keys and the folded block goes here.
@@ -2730,9 +2836,12 @@ def _column_tiles(plan, key_cls, cls_rows):
     # is one exact ρ), with equal ρ in line order.
     a_cls = plan.key_r[kid[anchor]]
     order = np.argsort(a_cls, kind="stable")
-    pos = np.empty(n_line, dtype=np.int64)
-    pos[order] = np.arange(n_line)
-    first = np.full(cls_rows.size, n_line, dtype=np.int64)
+    # Line positions in the line's own index width: `first` is one per class,
+    # ~11.3 M at razor's inverted L x32 (momwire#1377).
+    pdt = _index_dtype(n_line + 1)
+    pos = np.empty(n_line, dtype=pdt)
+    pos[order] = np.arange(n_line, dtype=pdt)
+    first = np.full(cls_rows.size, n_line, dtype=pdt)
     for g0, g1 in _group_spans(n_groups, n_line):
         _cancel.poll()
         c = key_cls[kid[g0:g1]]
@@ -2740,7 +2849,18 @@ def _column_tiles(plan, key_cls, cls_rows):
         del c
     if np.any(first >= n_line):
         raise AssertionError("a key class no line node asks")
-    new_at = np.bincount(first, weights=cls_rows, minlength=n_line)
+    # `bincount(first, weights=cls_rows)` a span of classes at a time: the
+    # weights are whole row counts, so every partial sum is an integer below
+    # 2^53 and exact, and the per-node totals are the one call's floats in
+    # any grouping, without its class-length intp and float64 copies.
+    new_at = np.zeros(n_line)
+    for c0 in range(0, first.size, _CLASS_SPAN):
+        _cancel.poll()
+        new_at += np.bincount(
+            first[c0 : c0 + _CLASS_SPAN],
+            weights=cls_rows[c0 : c0 + _CLASS_SPAN],
+            minlength=n_line,
+        )
     start = np.cumsum(new_at) - new_at
     t_pos = (start // max(1, int(_TILE_ROWS))).astype(np.int64)
     a_walk = a_cls[order]
@@ -2749,7 +2869,20 @@ def _column_tiles(plan, key_cls, cls_rows):
     t_pos = t_pos[run_head][run]
     _t, t_pos = np.unique(t_pos, return_inverse=True)
     t_pos = np.asarray(t_pos).ravel()
-    return t_pos[first], t_pos[pos], int(_t.size)
+    n_tiles = int(_t.size)
+    # Each class's tile in the width the tiles keep (`tile_of_key`), formed
+    # straight from the line's: the same integers, no int64 class array.
+    t_line = t_pos.astype(_tile_dtype(n_tiles), copy=False)
+    return t_line[first], t_pos[pos], n_tiles
+
+
+def _tile_dtype(n_tiles):
+    """The width of a tile number: `_ProductTiles.tile_of_key`'s."""
+    return np.int16 if n_tiles < 2**15 else np.int64
+
+
+# Classes per pass of the tiles' class-length integer work (momwire#1377).
+_CLASS_SPAN = 1 << 20
 
 
 # A many-group product's held store reuses a slot once the row in it has
@@ -2842,6 +2975,19 @@ def _held_slots(n_tiles, tile_rows, last, hpos=None):
 
 # `_stable_tile_order`'s chunk of rows (momwire#1335).
 _TILE_ORDER_CHUNK = 1 << 20
+# `_stable_tile_order` by `stable_tile_order` in C++ (momwire#1377); False
+# is the chunked numpy counting sort, the reference (the same integers).
+_TILE_ORDER_ACCEL = True
+# `_plan_held_recycled`'s sandwich marks by `late_sandwich_rows` in C++
+# (momwire#1377); False is the per-group numpy walk, the reference (the same
+# `last` and marks: a max of integers in any order).
+_LATE_ROWS_ACCEL = True
+_HAVE_LATE_ROWS_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "late_sandwich_rows_1377", False)
+)
+_HAVE_TILE_ORDER_ACCEL = _accel.acc is not None and bool(
+    getattr(_accel.acc, "stable_tile_order_1377", False)
+)
 
 
 def _stable_tile_order(t_row, n_tiles, dtype):
@@ -2851,7 +2997,18 @@ def _stable_tile_order(t_row, n_tiles, dtype):
     a tile land in its slots in ascending order -- chunks in order, each
     chunk's own stable sort -- which is the stable argsort's answer, without
     its int64 permutation and the narrowing copy of it (~210 MB at razor's
-    inverted L x32)."""
+    inverted L x32). `stable_tile_order` (momwire#1377) is the same counting
+    sort in one C++ pass, 0.69 -> ~0.1 s there."""
+    if (
+        _TILE_ORDER_ACCEL
+        and _HAVE_TILE_ORDER_ACCEL
+        and t_row.dtype == np.int16
+        and dtype in (np.int32, np.int64)
+    ):
+        o, b = _accel.acc.stable_tile_order(
+            t_row, int(n_tiles), dtype == np.int64, cancel_flag=_cancel.ptr()
+        )
+        return o, b
     n = t_row.size
     counts = np.bincount(t_row, minlength=n_tiles).astype(np.int64)
     b = np.zeros(n_tiles + 1, dtype=np.int64)
@@ -2942,23 +3099,63 @@ class _ProductTiles:
         # The one call's columns: exact-ρ classes of the keys, ascending.
         # (the plan's `KeyIndex` formed exactly this `np.unique` already)
         column = plan.slot == "z" and len(plan.rowtab) > 1 and _COLUMN_TILES
-        got = _near_interface._factorize((plan.key_r,)) if column else None
+        lean = (
+            column
+            and _LEAN_KEY_CLASSES
+            and _HAVE_FLOAT_CLASSES_ACCEL
+            and _near_interface._FACTORIZE
+            and _near_interface._HAVE_FACTORIZE_ACCEL
+            and n_key <= _near_interface._FACTORIZE_MAX_ROWS
+        )
+        if lean:
+            # `_factorize`'s groups and numbers (`factorize_float_classes`),
+            # in int32 and without its first-row array.
+            n_cls, key_cls = _accel.acc.factorize_float_classes(
+                np.ascontiguousarray(plan.key_r, dtype=float),
+                cancel_flag=_cancel.ptr(),
+                **_key_classes_threads(),
+            )
+            n_cls = int(n_cls)
+            got = None
+        else:
+            got = _near_interface._factorize((plan.key_r,)) if column else None
         if got is not None:
             # Column tiles read the classes as labels (their walk orders the
             # line by ρ itself, `_column_tiles`), so they are numbered by one
             # hash pass instead of sorted: the same partition of the keys.
             key_cls = np.asarray(got[1]).ravel()
             n_cls = int(got[0].size)
-        else:
+        elif not lean:
             _r_u, key_cls = plan.keys.take_r_classes()
             n_cls = _r_u.size
         del got
-        rows_per_key = np.zeros(n_key, dtype=np.int64)
-        for g, kj in enumerate(plan.kids):
-            if not g & 255:
-                _cancel.poll()
-            rows_per_key[kj] += plan.nz[g]  # a candidate count: an upper bound
-        cls_rows = np.bincount(key_cls, weights=rows_per_key, minlength=n_cls)
+        # A candidate count per key (an upper bound on its rows): at most the
+        # grouped nodes, so 32 bits.
+        passes = (
+            _INIT_PASSES_ACCEL
+            and _HAVE_INIT_PASSES_ACCEL
+            and len(plan.rowtab) > 1
+            and plan.rowflat.dtype == np.int32
+            and all(kj.dtype == np.int32 for kj in plan.kids)
+        )
+        if passes:
+            # The same sums in one C++ pass (`key_row_counts`).
+            rows_per_key = _accel.acc.key_row_counts(plan.kids, plan.nz, n_key)
+        else:
+            rows_per_key = np.zeros(n_key, dtype=np.int32)
+            for g, kj in enumerate(plan.kids):
+                if not g & 255:
+                    _cancel.poll()
+                rows_per_key[kj] += plan.nz[g]
+        if lean:
+            # `bincount(key_cls, weights=rows_per_key)` read in place
+            # (`class_sums`): whole counts, so the same floats.
+            cls_rows = _accel.acc.class_sums(
+                key_cls, rows_per_key, n_cls, cancel_flag=_cancel.ptr()
+            )
+        else:
+            cls_rows = np.bincount(key_cls, weights=rows_per_key, minlength=n_cls)
+        del rows_per_key
         col_ready = None
         if column:
             t_of_cls, col_ready, self.n_tiles = _column_tiles(plan, key_cls, cls_rows)
@@ -2969,19 +3166,33 @@ class _ProductTiles:
             _t, t_of_cls = np.unique(t_of_cls, return_inverse=True)
             t_of_cls = np.asarray(t_of_cls).ravel()
             self.n_tiles = int(_t.size)
+        del cls_rows
         self.tile_of_key = t_of_cls[key_cls].astype(
-            np.int16 if self.n_tiles < 2**15 else np.int64, copy=False
+            _tile_dtype(self.n_tiles), copy=False
         )
+        del t_of_cls, key_cls
         # Per group, its local keys sorted by tile -- or, with many groups,
         # every row in tile order (`_tile_rows`).
         self._gkeys = []
         self._by_tile = None
         if len(plan.rowtab) > 1 and self.n_tiles < 2**15 and _TILE_ROW_ORDER:
-            t_row = np.empty(U, dtype=np.int16)
-            for g, (tab, kj) in enumerate(zip(plan.rowtab, plan.kids)):
-                if not g & 255:
-                    _cancel.poll()
-                t_row[tab] = self.tile_of_key[kj][None, :]
+            if passes and self.tile_of_key.dtype == np.int16:
+                # The same writes in group order, in C++ (`tile_per_row`).
+                t_row = _accel.acc.tile_per_row(
+                    plan.rowflat,
+                    plan.off,
+                    plan.nz,
+                    plan.nk,
+                    plan.kids,
+                    self.tile_of_key,
+                    U,
+                )
+            else:
+                t_row = np.empty(U, dtype=np.int16)
+                for g, (tab, kj) in enumerate(zip(plan.rowtab, plan.kids)):
+                    if not g & 255:
+                        _cancel.poll()
+                    t_row[tab] = self.tile_of_key[kj][None, :]
             # A row's tile is its key's, the same in every group holding it.
             # The rows in tile order, ascending within a tile: a stable sort
             # on the tile, by counting (`_stable_tile_order`).
@@ -3149,7 +3360,31 @@ class _ProductTiles:
             if last is None:
                 last = _late_last(U, self.n_tiles)
             sand = np.zeros(U, dtype=bool)
-            for g0, g1 in _group_spans(*plan.kid.shape):
+            fast = (
+                _LATE_ROWS_ACCEL
+                and _HAVE_LATE_ROWS_ACCEL
+                and self.tile_of_key.dtype == np.int16
+                and last.dtype == np.int16
+                and plan.kid.dtype == np.int32
+                and plan.kl_rank.dtype == np.int32
+                and plan.rowflat.dtype == np.int32
+            )
+            if fast:
+                # The same marks in one C++ walk (`late_sandwich_rows`).
+                _accel.acc.late_sandwich_rows(
+                    self.tile_of_key,
+                    plan.kid,
+                    plan.kl_rank,
+                    ready,
+                    plan.rowflat,
+                    plan.off,
+                    plan.nz,
+                    plan.nk,
+                    last,
+                    sand,
+                    cancel_flag=_cancel.ptr(),
+                )
+            for g0, g1 in [] if fast else _group_spans(*plan.kid.shape):
                 _cancel.poll()
                 late = self.tile_of_key[plan.kid[g0:g1]] < ready[None, :]
                 for g in np.flatnonzero(late.any(axis=1)).tolist():
@@ -3290,34 +3525,63 @@ class _ProductTiles:
         # copied, so the layout moves no bit.
         held = np.empty((self.n_held, len(tb_keys)), dtype=np.complex128, order="F")
         o_ready, b_ready = self._ready
+        kcols = [ki[k] for k in tb_keys]
+        hpos_i32 = _EMPTY_I32_1D if self.hpos is None else self.hpos
         for t in range(self.n_tiles):
             _cancel.poll()
             ids = self._tile_rows(t)
-            if done[ids].any():
-                raise AssertionError("a product row was asked to evaluate twice")
-            done[ids] = True
+            # The tile's stores by `tile_block` (the fused route, 32-bit row
+            # ids): the copies below, element for element, in one pass.
+            fast = (
+                _TILE_KERNELS
+                and _HAVE_TILE_KERNELS
+                and self.store is None
+                and ids.dtype == np.int32
+                and loc.dtype == np.int32
+                and hpos_i32.dtype == np.int32
+            )
+            if not fast:
+                if done[ids].any():
+                    raise AssertionError("a product row was asked to evaluate twice")
+                done[ids] = True
             _ROUTES["tiles"] += 1
             _ROUTES["tile_rows"] += ids.size
             _ROUTES["tile_max_rows"] = max(_ROUTES["tile_max_rows"], ids.size)
             rows = plan.rows(ids)
             vals, pos = self._evaluate(rows)
             del rows
-            if pos is not None:
-                vals = vals[pos]
-            del pos
-            if self.store is not None:
-                self.store[ids, 0] = vals[:, ki["V"]]
-                self.store[ids, 1] = vals[:, ki["W"]]
-            tb = np.empty((ids.size, len(tb_keys)), dtype=np.complex128, order="F")
-            for j, k in enumerate(tb_keys):
-                tb[:, j] = vals[:, ki[k]]
-            del vals
-            if self.hpos is not None:
-                hp = self.hpos[ids]
-                keep = hp >= 0
-                held[hp[keep]] = tb[keep]
-                del hp, keep
-            loc[ids] = np.arange(ids.size)
+            if fast:
+                tb, twice = _accel.acc.tile_block(
+                    vals,
+                    _EMPTY_I64_1D if pos is None else pos,
+                    kcols,
+                    ids,
+                    done,
+                    loc,
+                    hpos_i32,
+                    held,
+                )
+                if twice:
+                    raise AssertionError("a product row was asked to evaluate twice")
+                _ROUTES["tile_blocks_fast"] += 1
+                del vals, pos
+            else:
+                if pos is not None:
+                    vals = vals[pos]
+                del pos
+                if self.store is not None:
+                    self.store[ids, 0] = vals[:, ki["V"]]
+                    self.store[ids, 1] = vals[:, ki["W"]]
+                tb = np.empty((ids.size, len(tb_keys)), dtype=np.complex128, order="F")
+                for j, k in enumerate(tb_keys):
+                    tb[:, j] = vals[:, ki[k]]
+                del vals
+                if self.hpos is not None:
+                    hp = self.hpos[ids]
+                    keep = hp >= 0
+                    held[hp[keep]] = tb[keep]
+                    del hp, keep
+                loc[ids] = np.arange(ids.size)
             if self.listener is not None:
                 # The fused end loops read this tile's V and W (and the held
                 # rows') before the sandwich's columns are served.
@@ -3330,7 +3594,10 @@ class _ProductTiles:
                 # formed their left products, and a name held here across the
                 # yield would keep them alive through the contraction.
                 yield cols, self._gather(cols, loc, tb, held)
-            loc[ids] = -1
+            if fast:
+                _accel.acc.fill_rows_i32(ids, loc, -1)
+            else:
+                loc[ids] = -1
             del tb
         if not done.all():
             raise AssertionError("the tiles left a product row unevaluated")
@@ -3351,6 +3618,15 @@ _CHUNK_INDEX_ACCEL = True
 _HAVE_CHUNK_INDEX_ACCEL = _accel.acc is not None and bool(
     getattr(_accel.acc, "product_chunk_index_1290", False)
 )
+# A many-group product's per-tile bookkeeping in C++ (momwire#1377): the
+# rows' floats (`product_rows`) and, on the fused route, the tile block, the
+# held store, the places and the done marks (`tile_block`). Element copies
+# only; False is numpy's gathers and scatters, the reference.
+_TILE_KERNELS = True
+_HAVE_TILE_KERNELS = _accel.acc is not None and bool(
+    getattr(_accel.acc, "product_tiles_1377", False)
+)
+_EMPTY_I64_1D = np.zeros(0, dtype=np.int64)
 _EMPTY_I32_1D = np.zeros(0, dtype=np.int32)
 
 
@@ -4777,15 +5053,35 @@ def _end_vectors(ctx, eps_t, k_p, ends, ax, w, w_tz, memo, args):
         yield from flush()
 
 
-def _polled_nonzeros(ends):
-    """`[np.flatnonzero(fv) for _p, _s, fv in ends]`, polling every 256 ends:
-    at x32 the whole list is ~0.15 s."""
+def _polled_nonzeros(ends, memo=None):
+    """`[np.flatnonzero(fv) for _p, _s, fv in ends]`, polling every 256 ends.
+
+    `memo` ({id(fv): (fv, nonzeros)}, momwire#1377) answers a vector seen
+    before from the first answer: an axis's two ends of one segment share
+    their vector, and the fused route asks both axes' lists for its live
+    rows and again for its loops -- ~23 k scans of n_basis floats at razor's
+    inverted L x32 where ~6 k are distinct. The same integers (the entry
+    keeps its vector, so an id is never reused under it)."""
     out = []
     for i, (_p, _s, fv) in enumerate(ends):
         if not i & 255:
             _cancel.poll()
-        out.append(np.flatnonzero(fv))
+        if memo is None:
+            out.append(np.flatnonzero(fv))
+            continue
+        got = memo.get(id(fv))
+        if got is None or got[0] is not fv:
+            got = (fv, np.flatnonzero(fv))
+            memo[id(fv)] = got
+        out.append(got[1])
     return out
+
+
+def _live_rows_of(nonzeros):
+    """`_end_live_rows` from the ends' nonzero lists (`_polled_nonzeros`)."""
+    if not nonzeros:
+        return np.zeros(0, dtype=np.int64)
+    return np.unique(np.concatenate(nonzeros))
 
 
 def _vec_batches(items, n):
@@ -4887,6 +5183,12 @@ def _rank1_add_cols(t_ab, nz, a, b, scale, buf):
 # one-node fill asserted. Real crossing nodes stand metres apart
 # (`_below_interface.MIN_CROSSING_NODE_SEPARATION_M`).
 _SAME_NODE_RHO = 1e-9
+
+
+# The fused route scans each end vector once (`_polled_nonzeros`' memo,
+# momwire#1377); False scans every end anew, the reference (the same
+# integers).
+_END_NONZERO_MEMO = True
 
 
 def _end_live_rows(ax):
@@ -5799,7 +6101,11 @@ class _FusedEnds:
         self.others = sup.rows if fwd else sup.cols
         self.posO = sup.pos_r if fwd else sup.pos_c
         nU = self.units.size
-        self.LA, self.LB = _end_live_rows(R), _end_live_rows(C)
+        # Each end vector scanned once for both its uses (`_polled_nonzeros`).
+        nz_memo = {} if _END_NONZERO_MEMO else None
+        nz_R = _polled_nonzeros(R["ends"], nz_memo)
+        nz_C = _polled_nonzeros(C["ends"], nz_memo)
+        self.LA, self.LB = _live_rows_of(nz_R), _live_rows_of(nz_C)
         self.posLA = _positions(R["n_basis"], self.LA)
         self.posLB = _positions(C["n_basis"], self.LB)
         # vector loop: (ends, classes, matrices V/W over the unit axis, their
@@ -5807,8 +6113,8 @@ class _FusedEnds:
         row = (R["ends"], self.row_cls, C, self.wC, self.wC_tz)
         col = (C["ends"], self.col_cls, R, self.wR, self.wR_tz)
         self.vec_loop, self.loc_loop = (row, col) if fwd else (col, row)
-        self.nz_vec = _polled_nonzeros(self.vec_loop[0])
-        self.nz_loc = _polled_nonzeros(self.loc_loop[0])
+        self.nz_vec, self.nz_loc = (nz_R, nz_C) if fwd else (nz_C, nz_R)
+        del nz_memo
         n_line = plan.kid.shape[1]
         self._n_line = n_line
         self._tile_lines = {}  # group -> its keys' tiles along the line

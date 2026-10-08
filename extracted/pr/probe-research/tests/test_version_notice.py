@@ -804,11 +804,65 @@ def test_pis_session_start_applies_an_update_off_a_terminal(spawns, no_network, 
 
     monkeypatch.setattr(run_lock, "any_live", lambda: False)
     monkeypatch.setattr(cli_main, "_spawn_harness_update", lambda: spawns.append(["harness"]))
+    monkeypatch.setattr(
+        cli_main, "_spawn_session_start_update", lambda: spawns.append(["session-start"])
+    )
 
     cli_main._version_notice()
 
-    assert spawns[-1] == ["harness"], "it waits for pi, not just for this command"
+    assert spawns[-1] == ["session-start"]
     assert ["apply"] not in spawns
+
+
+def test_pis_session_start_updates_now_without_waiting_for_pi(monkeypatch):
+    """The CLI does not wait for pi to exit any more: a pi process lives for
+    days, the wait gave up after 12 hours, and strand-ai's pi-only laptop sat
+    on CLI 0.219.0 through a day of pi session starts (2026-10-07). Only pi's
+    own package waits (the pi step defers while pi runs, and the owed update
+    retries at the next start: `_spawn_harness_update`)."""
+    spawned = {}
+    monkeypatch.setattr(
+        cli_main, "_spawn_detached", lambda argv, env: spawned.update(argv=argv, env=env)
+    )
+    monkeypatch.delenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, raising=False)
+
+    cli_main._spawn_session_start_update()
+
+    assert spawned["argv"][-1] == "--apply-if-newer", "it still re-checks under the update lock"
+    assert autoupdate.WAIT_FOR_HARNESS_PID_ENV not in spawned["env"], "no wait for pi"
+    assert spawned["env"][autoupdate.WAIT_FOR_PID_ENV] == str(cli_main.os.getpid())
+    assert spawned["env"][autoupdate.TRIGGER_ENV] == autoupdate.Trigger.SESSION_START.value
+    # Our parent IS that pi: the update defers `pi update` while it lives.
+    assert spawned["env"][autoupdate.PI_PID_ENV] == str(cli_main.os.getppid())
+
+
+def test_only_the_spawn_that_names_a_pi_carries_one(monkeypatch):
+    spawned = {}
+    monkeypatch.setattr(
+        cli_main, "_spawn_detached", lambda argv, env: spawned.update(argv=argv, env=env)
+    )
+    monkeypatch.setenv(autoupdate.PI_PID_ENV, "4242")
+    cli_main._spawn_update("--apply")
+    assert autoupdate.PI_PID_ENV not in spawned["env"]
+
+
+def test_the_harness_restart_drops_the_pi_pid(monkeypatch):
+    """Hours later that pid may be anyone's."""
+    from probe.cli import version_refresh
+
+    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
+    monkeypatch.setenv(autoupdate.PI_PID_ENV, "4243")
+    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: True)
+    restarted = {}
+
+    def execve(path, argv, env):
+        restarted.update(env=env)
+        raise _Restarted
+
+    monkeypatch.setattr(version_refresh.os, "execve", execve)
+    with pytest.raises(_Restarted):
+        version_refresh._apply_if_newer()
+    assert autoupdate.PI_PID_ENV not in restarted["env"]
 
 
 def test_the_harness_update_waits_for_pi_before_taking_the_lock(monkeypatch):

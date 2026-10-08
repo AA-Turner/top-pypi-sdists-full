@@ -25,19 +25,19 @@ T = TypeVar("T", bound="OrganizationWorkspaceResponse")
 class OrganizationWorkspaceResponse:
     """
     Attributes:
+        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
         dataplane_id (str): Identifier of the data plane that holds this workspace's user data. Matches the subdomain of
             the plane's public entrypoint.
         dataplane_url (str): Public base URL of the data plane that holds this workspace's user data (e.g.
-            ``https://<dataplane_id>.dlthub.com``). Clients attach a DataplaneUserJwt (minted via GET
-            /api/v1/workspaces/{id}/dataplane-access-token) when calling data-plane services (telemetry, logs) at this host.
-        date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
-        date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
+            ``https://<dataplane_id>.dlthub.com``). Clients attach a DataplaneUserJwt (minted via POST
+            /api/v1/workspaces/{id}/-issue-dataplane-token) when calling data-plane services (telemetry, logs) at this host.
         description (None | str): The description of the workspace
         id (UUID): The unique ID of the entity
         member_count (int): Number of active human members in the workspace.
         name (str): The name of the workspace
         organization_id (UUID): The ID of the parent organization
-        owners (list[WorkspaceMemberResponse]): The workspace's active human owners, in the order they joined.
+        owner_members (list[WorkspaceMemberResponse]): The workspace's active human owners, in the order they joined.
+        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
         archived_at (datetime.datetime | None | Unset): Timestamp when the workspace was archived; null when live.
             Archived workspaces reject all mutations except unarchive.
         is_playground (bool | Unset): Whether this is the user's auto-created personal playground workspace. Playgrounds
@@ -46,29 +46,27 @@ class OrganizationWorkspaceResponse:
             access level name, e.g. {'DATA_WRITE': 'prod', 'DATA_READ': 'access'}
     """
 
+    created_at: datetime.datetime
     dataplane_id: str
     dataplane_url: str
-    date_added: datetime.datetime
-    date_updated: datetime.datetime
     description: None | str
     id: UUID
     member_count: int
     name: str
     organization_id: UUID
-    owners: list[WorkspaceMemberResponse]
+    owner_members: list[WorkspaceMemberResponse]
+    updated_at: datetime.datetime
     archived_at: datetime.datetime | None | Unset = UNSET
     is_playground: bool | Unset = False
     predefined_profiles: OrganizationWorkspaceResponsePredefinedProfiles | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        created_at = self.created_at.isoformat()
+
         dataplane_id = self.dataplane_id
 
         dataplane_url = self.dataplane_url
-
-        date_added = self.date_added.isoformat()
-
-        date_updated = self.date_updated.isoformat()
 
         description: None | str
         description = self.description
@@ -81,10 +79,12 @@ class OrganizationWorkspaceResponse:
 
         organization_id = str(self.organization_id)
 
-        owners = []
-        for owners_item_data in self.owners:
-            owners_item = owners_item_data.to_dict()
-            owners.append(owners_item)
+        owner_members = []
+        for owner_members_item_data in self.owner_members:
+            owner_members_item = owner_members_item_data.to_dict()
+            owner_members.append(owner_members_item)
+
+        updated_at = self.updated_at.isoformat()
 
         archived_at: None | str | Unset
         if isinstance(self.archived_at, Unset):
@@ -104,16 +104,16 @@ class OrganizationWorkspaceResponse:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "created_at": created_at,
                 "dataplane_id": dataplane_id,
                 "dataplane_url": dataplane_url,
-                "date_added": date_added,
-                "date_updated": date_updated,
                 "description": description,
                 "id": id,
                 "member_count": member_count,
                 "name": name,
                 "organization_id": organization_id,
-                "owners": owners,
+                "owner_members": owner_members,
+                "updated_at": updated_at,
             }
         )
         if archived_at is not UNSET:
@@ -133,13 +133,11 @@ class OrganizationWorkspaceResponse:
         from ..models.workspace_member_response import WorkspaceMemberResponse
 
         d = dict(src_dict)
+        created_at = isoparse(d.pop("created_at"))
+
         dataplane_id = d.pop("dataplane_id")
 
         dataplane_url = d.pop("dataplane_url")
-
-        date_added = isoparse(d.pop("date_added"))
-
-        date_updated = isoparse(d.pop("date_updated"))
 
         def _parse_description(data: object) -> None | str:
             if data is None:
@@ -156,12 +154,16 @@ class OrganizationWorkspaceResponse:
 
         organization_id = UUID(d.pop("organization_id"))
 
-        owners = []
-        _owners = d.pop("owners")
-        for owners_item_data in _owners:
-            owners_item = WorkspaceMemberResponse.from_dict(owners_item_data)
+        owner_members = []
+        _owner_members = d.pop("owner_members")
+        for owner_members_item_data in _owner_members:
+            owner_members_item = WorkspaceMemberResponse.from_dict(
+                owner_members_item_data
+            )
 
-            owners.append(owners_item)
+            owner_members.append(owner_members_item)
+
+        updated_at = isoparse(d.pop("updated_at"))
 
         def _parse_archived_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -194,16 +196,16 @@ class OrganizationWorkspaceResponse:
             )
 
         organization_workspace_response = cls(
+            created_at=created_at,
             dataplane_id=dataplane_id,
             dataplane_url=dataplane_url,
-            date_added=date_added,
-            date_updated=date_updated,
             description=description,
             id=id,
             member_count=member_count,
             name=name,
             organization_id=organization_id,
-            owners=owners,
+            owner_members=owner_members,
+            updated_at=updated_at,
             archived_at=archived_at,
             is_playground=is_playground,
             predefined_profiles=predefined_profiles,

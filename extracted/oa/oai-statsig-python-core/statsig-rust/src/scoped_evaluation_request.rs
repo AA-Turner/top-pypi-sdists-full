@@ -8,7 +8,7 @@ use crate::Statsig;
 use crate::evaluation::evaluation_data::{RuleRef, SpecView};
 use crate::evaluation::evaluation_types::LayerEvaluation;
 use crate::hashing::HashUtil;
-use crate::id_lists_adapter::{IdList, IdListMetadata};
+use crate::id_lists_adapter::{IdList, IdListIds, IdListMetadata};
 use crate::interned_string::InternedString;
 use crate::scoped_id_list_membership_service::{MembershipResults, ScopedIdListMembershipService};
 use crate::scoped_snapshot_registry::EvaluationEngine;
@@ -731,7 +731,7 @@ fn materialize_id_list_memberships(
     mapping: &HashMap<String, String>,
 ) -> HashMap<String, IdList> {
     let hashing = HashUtil::new();
-    let mut lookup_ids: HashMap<&str, Arc<HashSet<String>>> = HashMap::new();
+    let mut lookup_ids: HashMap<&str, Arc<IdListIds>> = HashMap::new();
 
     mapping
         .iter()
@@ -743,7 +743,7 @@ fn materialize_id_list_memberships(
             let ids = Arc::clone(lookup_ids.entry(lookup.as_str()).or_insert_with(|| {
                 // The membership server returns raw IDs; the evaluator uses hashes.
                 let hash = hashing.sha256(lookup).chars().take(8).collect::<String>();
-                Arc::new(HashSet::from([hash]))
+                Arc::new(IdListIds::from([hash]))
             }));
             let name = name.to_string();
 
@@ -783,8 +783,8 @@ mod tests {
     use std::sync::Arc;
 
     use super::{
-        EvaluationOperation, EvaluationRequest, EvaluationResult, ScopedEvaluationRequest,
-        evaluate_static_operation, materialize_id_list_memberships,
+        EvaluationOperation, EvaluationRequest, EvaluationResult, IdListIds,
+        ScopedEvaluationRequest, evaluate_static_operation, materialize_id_list_memberships,
     };
     use crate::{
         ClientInitResponseOptions, HashAlgorithm, SpecsSource, SpecsUpdate, Statsig, StatsigErr,
@@ -923,11 +923,11 @@ mod tests {
         // SHA-256/base64 prefixes, not raw IDs, are stored for local evaluation.
         assert_eq!(
             *id_lists["employees"].ids,
-            HashSet::from(["nFbMUbN0".to_string()])
+            IdListIds::from(["nFbMUbN0".to_string()])
         );
         assert_eq!(
             *id_lists["accounts"].ids,
-            HashSet::from(["73l8gRjw".to_string()])
+            IdListIds::from(["73l8gRjw".to_string()])
         );
     }
 

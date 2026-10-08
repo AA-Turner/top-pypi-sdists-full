@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import logging
 import os
 import pprint
 import sys
@@ -11,6 +12,16 @@ from pathlib import Path
 from typing import Any
 
 import cv2
+import pytest
+
+# `collect_ignore` in conftest.py skips this module when `ultralytics` is absent,
+# but pytest applies collect_ignore only when it DISCOVERS a path -- naming the
+# file explicitly bypasses it, which is what the pre-push build battery does when
+# a sibling changes. importorskip is checked at import time either way.
+pytest.importorskip(
+    "ultralytics", reason="heavy ML dep; the deployment image provides it (CLAUDE.md 8.9)"
+)
+
 from ultralytics import YOLO
 
 # --- Import bootstrap (analytics + footfall only) ---
@@ -20,6 +31,8 @@ _ROOT = Path(__file__).resolve().parents[4]
 _SRC = _ROOT / "src"
 _PKG = _SRC / "matrice_analytics"
 sys.path.insert(0, str(_SRC))
+
+_logger = logging.getLogger(__name__)
 
 
 def _register_pkg(name: str, path: Path) -> None:
@@ -284,6 +297,46 @@ class IncidentAnalyticsTestProcessor:
     # Main processing loop
     # ------------------------------------------------------------------
 
+    def _log_run_header(self) -> None:
+        """Emit the five banner lines that open a run (five print()s before PY-09)."""
+        _logger.info("Starting incident analytics test: %s", self.video_path)
+        _logger.info("Model: %s", self.model_path)
+        _logger.info(
+            "Manifest: %s | Engine categories: %s", self._manifest_name, self.engine.categories
+        )
+        _logger.info("Output directory: %s", self.json_dir)
+        _logger.info("Loop count: %s", self.loop_count)
+
+    def _log_incident_event(self, etype: str, frame_idx: int, sev: Any) -> None:
+        """Emit the per-event line for an incident alert or end signal."""
+        _logger.info("  ** [%s] Incident event at frame %s: severity=%s", etype, frame_idx, sev)
+
+    def _log_aggregation(self, frame_idx: int, agg_path: str) -> None:
+        """Emit the line recording that an aggregation window closed."""
+        _logger.info("  ** Aggregation triggered at frame %s — saved: %s", frame_idx, agg_path)
+
+    def _log_frame_progress(
+        self,
+        loop_idx: int,
+        frame_idx: int,
+        detection_count: int,
+        severity_name: str,
+        quant_val: float,
+        json_path: str,
+    ) -> None:
+        """Emit the per-frame progress line (one print() before PY-09)."""
+        _logger.info(
+            "[Loop %d/%d] Frame %4d | detections: %3d | severity: %-12s | "
+            "quant: %6.2f%% | saved: %s",
+            loop_idx + 1,
+            self.loop_count,
+            frame_idx,
+            detection_count,
+            severity_name,
+            quant_val,
+            json_path,
+        )
+
     def process_video(self):
         """Run inference + incident analytics engine on every frame."""
         cap = cv2.VideoCapture(self.video_path)
@@ -298,14 +351,10 @@ class IncidentAnalyticsTestProcessor:
         if self.draw_bboxes:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             video_writer = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
-            print(f"Video output enabled — output video: {self.output_video_path}")
+            _logger.info("Video output enabled — output video: %s", self.output_video_path)
 
-        print(f"Starting incident analytics test: {self.video_path}")
-        print(f"Model: {self.model_path}")
-        print(f"Manifest: {self._manifest_name} | Engine categories: {self.engine.categories}")
-        print(f"Output directory: {self.json_dir}")
-        print(f"Loop count: {self.loop_count}")
-        print("-" * 60)
+        self._log_run_header()
+        _logger.info("%s", "-" * 60)
 
         frame_idx = 0
         done = False
@@ -317,7 +366,7 @@ class IncidentAnalyticsTestProcessor:
 
             if loop_idx > 0:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                print(f"\n--- Loop {loop_idx + 1}/{self.loop_count} ---")
+                _logger.info("\n--- Loop %s/%s ---", loop_idx + 1, self.loop_count)
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -351,7 +400,7 @@ class IncidentAnalyticsTestProcessor:
                             json.dump(ev_dict, f, indent=2)
                         sev = ev_dict.get("severity_level", "?")
                         etype = "END" if ev_dict.get("is_end_signal") else "ALERT"
-                        print(f"  ** [{etype}] Incident event at frame {frame_idx}: severity={sev}")
+                        self._log_incident_event(etype, frame_idx, sev)
 
                 os.makedirs(os.path.join(self.json_dir, "agg"), exist_ok=True)
 
@@ -361,7 +410,7 @@ class IncidentAnalyticsTestProcessor:
                     agg_path = os.path.join(self.json_dir, "agg", f"agg_{frame_idx:04d}.json")
                     with open(agg_path, "w") as f:
                         json.dump(self._serialize(agg_result), f, indent=2)
-                    print(f"  ** Aggregation triggered at frame {frame_idx} — saved: {agg_path}")
+                    self._log_aggregation(frame_idx, agg_path)
 
                 # Extract severity / quant from ``IncidentFrameResult`` (no metrics[] for INCIDENT)
                 incident_fr = frame_result.get("INCIDENT") or {}
@@ -382,15 +431,13 @@ class IncidentAnalyticsTestProcessor:
                 with open(json_path, "w") as f:
                     json.dump(self._serialize(frame_result), f, indent=2)
 
-                print(
-                    f"[Loop {loop_idx + 1}/{self.loop_count}] Frame {frame_idx:4d} | "
-                    f"detections: {len(detections):3d} | severity: {severity_name:12s} | "
-                    f"quant: {quant_val:6.2f}% | saved: {json_path}"
+                self._log_frame_progress(
+                    loop_idx, frame_idx, len(detections), severity_name, quant_val, json_path
                 )
 
                 frame_idx += 1
                 if self.max_frames and frame_idx >= self.max_frames:
-                    print(f"Max frame limit ({self.max_frames}) reached.")
+                    _logger.info("Max frame limit (%s) reached.", self.max_frames)
                     done = True
                     break
 
@@ -399,8 +446,8 @@ class IncidentAnalyticsTestProcessor:
         final_agg_path = os.path.join(self.json_dir, "agg", "agg_final.json")
         with open(final_agg_path, "w") as f:
             json.dump(self._serialize(final_agg), f, indent=2)
-        print(f"\nFinal aggregation saved: {final_agg_path}")
-        print("Final aggregation result:")
+        _logger.info("\nFinal aggregation saved: %s", final_agg_path)
+        _logger.info("Final aggregation result:")
         pprint.pprint(self._serialize(final_agg))  # noqa: T203
 
         # Save all incident events summary
@@ -408,26 +455,26 @@ class IncidentAnalyticsTestProcessor:
             all_events_path = os.path.join(self.json_dir, "events", "all_events.json")
             with open(all_events_path, "w") as f:
                 json.dump(self._serialize(total_events), f, indent=2)
-            print(f"\n{len(total_events)} incident event(s) saved: {all_events_path}")
+            _logger.info("\n%s incident event(s) saved: %s", len(total_events), all_events_path)
         else:
-            print("\nNo incident events emitted during processing.")
+            _logger.info("\nNo incident events emitted during processing.")
 
         # Print lifecycle state for debugging (``IncidentLifecycleState`` Pydantic model).
         # With no detections yet, the processor may still use ``default_camera``.
         for cid in (self._camera_id, "default_camera"):
             state = self.engine.get_incident_state(cid)
             if state:
-                print(f"\nFinal incident lifecycle state ({cid}):")
+                _logger.info("\nFinal incident lifecycle state (%s):", cid)
                 pprint.pprint(state.model_dump() if hasattr(state, "model_dump") else state)  # noqa: T203
                 break
 
         cap.release()
         if video_writer is not None:
             video_writer.release()
-            print(f"Output video saved to: {self.output_video_path}")
+            _logger.info("Output video saved to: %s", self.output_video_path)
 
-        print(f"\nProcessing complete. {frame_idx} frames processed.")
-        print(f"JSON outputs saved in: {self.json_dir}")
+        _logger.info("\nProcessing complete. %s frames processed.", frame_idx)
+        _logger.info("JSON outputs saved in: %s", self.json_dir)
 
 
 MANIFEST_DEFAULTS: dict[str, dict[str, Any]] = {

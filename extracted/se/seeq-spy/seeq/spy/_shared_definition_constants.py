@@ -9,23 +9,23 @@ import types
 # *********************************************************************************************************************
 
 
-# refer QUARTZ_CRON_PENDING_INPUT in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors QUARTZ_CRON_PENDING_INPUT in sharedDefinition.constants.ts.
 QUARTZ_CRON_PENDING_INPUT = '59 59 23 31 12 ? 2099'
 
-# refer DURATION_SCALAR_UNITS in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors DURATION_SCALAR_UNITS in sharedDefinition.constants.ts.
 DURATION_SCALAR_UNITS = [
     's', 'second', 'seconds', 'min', 'minute', 'minutes', 'h', 'hr', 'hrs', 'hour', 'hours', 'day', 'd', 'days',
     'week', 'wk', 'weeks', 'month', 'mo', 'months', 'year', 'y', 'yr', 'years',
     'ns', 'ms'
 ]
 
-# refer OFFSET_DIRECTION in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors OFFSET_DIRECTION in sharedDefinition.constants.ts.
 OFFSET_DIRECTION = types.SimpleNamespace(
     PAST='past',
     FUTURE='future'
 )
 
-# refer CAPSULE_SELECTION in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors CAPSULE_SELECTION in sharedDefinition.constants.ts.
 CAPSULE_SELECTION = types.SimpleNamespace(
     STRATEGY=types.SimpleNamespace(
         CLOSEST_TO='closestTo',
@@ -37,11 +37,13 @@ CAPSULE_SELECTION = types.SimpleNamespace(
     ),
 )
 
-# refer DEFAULT_DATE_RANGE in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors DEFAULT_DATE_RANGE in sharedDefinition.constants.ts.
 DEFAULT_DATE_RANGE = {
     'auto': {
         'enabled': False,
-        'duration': datetime.timedelta(days=1).total_seconds() * 1000,
+        # moment.duration(1, 'days').valueOf() is an integer number of milliseconds, and the value is interpolated
+        # into generated formulas, so it must not become '86400000.0'.
+        'duration': int(datetime.timedelta(days=1).total_seconds() * 1000),
         'offset': {'value': 0, 'units': 'min'},
         'offsetDirection': OFFSET_DIRECTION.PAST,
         'cronSchedule': [QUARTZ_CRON_PENDING_INPUT],
@@ -57,20 +59,20 @@ DEFAULT_DATE_RANGE = {
     'enabled': True,
 }
 
-# refer AgGridAggregationFunctions in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors AgGridAggregationFunctions in sharedDefinition.constants.ts.
 AG_GRID_AGGREGATION_FUNCTIONS = {
     'none', 'sum', 'min', 'max', 'count', 'avg', 'range', 'stdDev', 'first', 'last'
 }
 
 
-# refer LABEL_LOCATIONS in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors LABEL_LOCATIONS in sharedDefinition.constants.ts.
 class LABEL_LOCATIONS:
     OFF = 'off'
     LANE = 'lane'
     AXIS = 'axis'
 
 
-# refer LABEL_PROPERTIES in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors LABEL_PROPERTIES in sharedDefinition.constants.ts.
 class LABEL_PROPERTIES:
     NAME = 'name'
     DESCRIPTION = 'description'
@@ -81,20 +83,21 @@ class LABEL_PROPERTIES:
     CUSTOM = 'custom'
 
 
-# refer TrendColorMode in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors TrendColorMode in sharedDefinition.constants.ts.
 class TREND_COLOR_MODE:
     ITEM = 'item'
     PROPERTY = 'capsuleProperty'
     GRADIENT = 'capsulePropertyGradient'
 
 
-# refer TableBuilderMode in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors TableBuilderMode in sharedDefinition.constants.ts.
 class TABLE_BUILDER_MODE:
     SIMPLE = 'simple'
     CONDITION = 'condition'
 
 
-# refer TREND_PANELS.CAPSULES/.CHART_CAPSULES in client/packages/webserver/app/src/trendData/trendData.constants.ts.
+# IMPORTANT: Mirrors TREND_PANELS.CAPSULES/.CHART_CAPSULES in
+# client/packages/webserver/app/src/trendData/trendData.constants.ts.
 # That enum has other members not relevant to SPy, so it isn't fully mirrored here; TypeScript enum members can't
 # reference this constant either, so keep both sides in sync manually.
 class TREND_PANELS:
@@ -102,7 +105,7 @@ class TREND_PANELS:
     CHART_CAPSULES = 'CHART_CAPSULES'
 
 
-# refer TableBuilderHeaderType in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors TableBuilderHeaderType in sharedDefinition.constants.ts.
 class TABLE_BUILDER_HEADER_TYPE:
     NONE = 'none'
     START = 'start'
@@ -111,7 +114,7 @@ class TABLE_BUILDER_HEADER_TYPE:
     CAPSULE_PROPERTY = 'capsuleProperty'
 
 
-# refer DASH_STYLES in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors DASH_STYLES in sharedDefinition.constants.ts.
 class DASH_STYLES:
     SOLID = 'Solid'
     SHORT_DASH = 'ShortDash'
@@ -125,7 +128,7 @@ class DASH_STYLES:
     LONG_DASH_DOT_DOT = 'LongDashDotDot'
 
 
-# refer SAMPLE_OPTIONS in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors SAMPLE_OPTIONS in sharedDefinition.constants.ts.
 class SAMPLE_OPTIONS:
     LINE = 'line'
     SAMPLES = 'sample'
@@ -133,13 +136,13 @@ class SAMPLE_OPTIONS:
     BAR = 'bar'
 
 
-# refer Y_AXIS_TYPES in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors Y_AXIS_TYPES in sharedDefinition.constants.ts.
 class Y_AXIS_TYPES:
     LOGARITHMIC = 'logarithmic'
     LINEAR = 'linear'
 
 
-# refer WORKSHEET_VIEW_KEYS in sharedDefinition.constants.ts.
+# IMPORTANT: Mirrors WORKSHEET_VIEW_KEYS in sharedDefinition.constants.ts.
 # Note: This is only the subset of worksheet.constants.ts's  WORKSHEET_VIEW that SPy needs.
 class WORKSHEET_VIEW:
     TREND = 'TREND'
@@ -149,7 +152,7 @@ class WORKSHEET_VIEW:
     ASSET_GROUP_EDITOR = 'ASSET_GROUP_EDITOR'
 
 
-# refer TREND_SIGNAL_STATS in sharedDefinition.constants.ts
+# IMPORTANT: Mirrors TREND_SIGNAL_STATS in sharedDefinition.constants.ts.
 def get_trend_signal_statistic_function_map():
     return {
         "delta": "statistics.delta",

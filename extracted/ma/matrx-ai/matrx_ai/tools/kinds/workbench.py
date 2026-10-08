@@ -108,7 +108,7 @@ class SkillToolResult(KindModel):
 @kind(
     "pick_list_tool_result",
     disposition="record",
-    label="Picklist Tool Result",
+    label="Pick List Tool Result",
     family="picklists",
     example={"list_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "list_name": "Industries", "item_count": 12, "already_existed": False, "message": "List 'Industries' created with 12 items."},
     # PLACEHOLDER — the list/get/create/update_item/batch_update union.

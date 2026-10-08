@@ -15,26 +15,27 @@ import httpx
 
 # Current package
 from dlthub_sdk._auth.types import DeviceFlowStart, Pending, Tokens
-from dlthub_sdk._gen.auth.api.default import create_session_swap_code, refresh
-from dlthub_sdk._gen.auth.api.workos import (
-    workos_auth_code_exchange,
-    workos_auth_code_start,
-    workos_device_flow_complete,
-    workos_device_flow_start,
+from dlthub_sdk._gen.auth.api.default import (
+    issue_authorization_url_session,
+    issue_device_code_session,
+    issue_swap_code_session,
+    redeem_authorization_code_session,
+    redeem_device_code_session,
+    refresh_session,
 )
 from dlthub_sdk._gen.auth.client import Client as AuthClient
 from dlthub_sdk._gen.auth.errors import UnexpectedStatus
 from dlthub_sdk._gen.auth.models import (
-    LoginResponse,
-    RefreshRequest,
-    RefreshResponse,
-    SwapCodeRequest,
-    SwapCodeResponse,
-    WorkosAuthCodeExchangeRequest,
-    WorkosAuthCodeStartRequest,
-    WorkosAuthCodeStartResponse,
-    WorkosDeviceFlowLoginRequest,
-    WorkosDeviceFlowStartResponse,
+    IssueAuthorizationUrlSessionRequest,
+    IssueAuthorizationUrlSessionResponse,
+    IssueDeviceCodeSessionResponse,
+    IssueSwapCodeSessionRequest,
+    IssueSwapCodeSessionResponse,
+    RedeemAuthorizationCodeSessionRequest,
+    RedeemDeviceCodeSessionRequest,
+    RefreshSessionRequest,
+    RefreshSessionResponse,
+    UserSessionResponse,
 )
 from dlthub_sdk.errors import (
     ApiError,
@@ -94,9 +95,9 @@ class AuthTransport:
         """
         parsed = self._unwrap(
             self._call(
-                lambda: workos_device_flow_start.sync_detailed(client=self._client)
+                lambda: issue_device_code_session.sync_detailed(client=self._client)
             ),
-            WorkosDeviceFlowStartResponse,
+            IssueDeviceCodeSessionResponse,
         )
         return DeviceFlowStart(
             device_code=parsed.device_code,
@@ -120,14 +121,14 @@ class AuthTransport:
             ApiError: The code was rejected, or has expired.
         """
         resp = self._call_pollable(
-            lambda: workos_device_flow_complete.sync_detailed(
+            lambda: redeem_device_code_session.sync_detailed(
                 client=self._client,
-                body=WorkosDeviceFlowLoginRequest(device_code=device_code),
+                body=RedeemDeviceCodeSessionRequest(device_code=device_code),
             ),
         )
         if isinstance(resp, Pending):
             return resp
-        login = self._unwrap(resp, LoginResponse)
+        login = self._unwrap(resp, UserSessionResponse)
         return Tokens(access_token=login.jwt, refresh_token=login.refresh_token)
 
     def auth_code_start(
@@ -148,16 +149,16 @@ class AuthTransport:
         """
         parsed = self._unwrap(
             self._call(
-                lambda: workos_auth_code_start.sync_detailed(
+                lambda: issue_authorization_url_session.sync_detailed(
                     client=self._client,
-                    body=WorkosAuthCodeStartRequest(
+                    body=IssueAuthorizationUrlSessionRequest(
                         redirect_uri=redirect_uri,
                         code_challenge=code_challenge,
                         state=state,
                     ),
                 )
             ),
-            WorkosAuthCodeStartResponse,
+            IssueAuthorizationUrlSessionResponse,
         )
         return parsed.authorization_url
 
@@ -176,14 +177,14 @@ class AuthTransport:
         """
         login = self._unwrap(
             self._call(
-                lambda: workos_auth_code_exchange.sync_detailed(
+                lambda: redeem_authorization_code_session.sync_detailed(
                     client=self._client,
-                    body=WorkosAuthCodeExchangeRequest(
+                    body=RedeemAuthorizationCodeSessionRequest(
                         code=code, code_verifier=code_verifier
                     ),
                 )
             ),
-            LoginResponse,
+            UserSessionResponse,
         )
         return Tokens(access_token=login.jwt, refresh_token=login.refresh_token)
 
@@ -202,11 +203,12 @@ class AuthTransport:
             ApiError: The service failed for a reason other than rejection.
         """
         resp = self._call(
-            lambda: refresh.sync_detailed(
-                client=self._client, body=RefreshRequest(refresh_token=refresh_token)
+            lambda: refresh_session.sync_detailed(
+                client=self._client,
+                body=RefreshSessionRequest(refresh_token=refresh_token),
             )
         )
-        if not isinstance(resp.parsed, RefreshResponse):
+        if not isinstance(resp.parsed, RefreshSessionResponse):
             return None
         return Tokens(
             access_token=resp.parsed.jwt, refresh_token=resp.parsed.refresh_token
@@ -225,11 +227,12 @@ class AuthTransport:
             ApiError: The service failed for a reason other than rejection.
         """
         resp = self._call(
-            lambda: create_session_swap_code.sync_detailed(
-                client=self._client, body=SwapCodeRequest(refresh_token=refresh_token)
+            lambda: issue_swap_code_session.sync_detailed(
+                client=self._client,
+                body=IssueSwapCodeSessionRequest(refresh_token=refresh_token),
             )
         )
-        if not isinstance(resp.parsed, SwapCodeResponse):
+        if not isinstance(resp.parsed, IssueSwapCodeSessionResponse):
             return None
         return resp.parsed.swap_code
 

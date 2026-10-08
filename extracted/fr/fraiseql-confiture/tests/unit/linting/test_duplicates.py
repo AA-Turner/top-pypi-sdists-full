@@ -167,9 +167,11 @@ class TestLintRule:
             ("build_002", "info", True),
             ("build_003", "warning", True),
             ("build_004", "error", True),
+            ("build_005", "warning", True),
+            ("build_006", "error", True),
         ]
         assert resolve_selection(["build"], []) == frozenset(
-            {"build_001", "build_002", "build_003", "build_004"}
+            {"build_001", "build_002", "build_003", "build_004", "build_005", "build_006"}
         )
 
     def test_lint_reports_build_001_as_an_error_with_the_locations(self) -> None:
@@ -262,7 +264,7 @@ def test_corpus_has_duplicates_and_every_finding_is_located() -> None:
     corpus = os.environ.get("CONFITURE_SCHEMA_CORPUS_DIR")
     if not corpus:
         pytest.skip(
-            "set CONFITURE_SCHEMA_CORPUS_DIR to a real schema tree (e.g. printoptim_backend/db/0_schema)"
+            "set CONFITURE_SCHEMA_CORPUS_DIR to a real schema tree (e.g. <project>/db/schema)"
         )
     root = Path(corpus)
     objects, _schemas, unparseable = inventory_files(sorted(root.rglob("*.sql")), root=root)

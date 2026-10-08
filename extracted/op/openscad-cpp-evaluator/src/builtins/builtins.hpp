@@ -246,17 +246,11 @@ CSGParams resolveOffset(Evaluator& ev, const oscad::ModularCall& node, EvalConte
 std::vector<ColoredBody> generateOffset(Evaluator& ev, const CSGParams& params,
                                          const std::vector<std::unique_ptr<CSGNode>>& children, const oscad::ASTNode& node);
 
-// roof() -- roof.cpp. Tier 1 (exact straight skeleton, stable single-
-// contour polygons) + Tier 3 (SDF/level-set fallback) only, per the plan --
-// Tier 2 (general multi-contour/hole straight skeleton) is a named,
-// documented follow-up, not silently dropped (see CLAUDE.md).
-// computeRoofParams: UNLIKE computeLinearExtrudeParams and friends above,
-// this is the params-computation half taken from AFTER evalChildren (it
-// calls ev.warn(), an observable side effect that must stay ordered after
-// any child's own echo/warn output) -- takes already-resolved CallArgs,
-// not a raw node+ctx, since Op::PushBuiltinWrap's own runtime handler
-// calls this at POP time. See its own doc comment (roof.cpp).
-CSGParams computeRoofParams(Evaluator& ev, const CallArgs& args, EvalContext& effCtx);
+// roof() -- roof.cpp. method="voronoi" (the default) is the Voronoi-diagram
+// roof, method="straight" the straight-skeleton one.
+// computeRoofParams: the params half, from already-resolved arguments;
+// it warns ($fs/$fa clamping, unknown method), before the children run.
+CSGParams computeRoofParams(Evaluator& ev, const CallArgs& args, EvalContext& effCtx, const oscad::Position* where);
 CSGParams resolveRoof(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx);
 std::vector<ColoredBody> generateRoof(Evaluator& ev, const CSGParams& params,
                                        const std::vector<std::unique_ptr<CSGNode>>& children, const oscad::ASTNode& node);
@@ -267,6 +261,32 @@ std::vector<ColoredBody> generateSurface(Evaluator& ev, const CSGParams& params,
                                           const std::vector<std::unique_ptr<CSGNode>>& children, const oscad::ASTNode& node);
 
 // text() -- text.cpp.
+// Whether a statement that produced no geometry still counts as a boolean
+// operand (and so empties an intersection) -- see resolveCsg.
+bool emptyStatementIsAnOperand(const oscad::ASTNode& stmt);
+
+// OpenSCAD's sin_degrees/cos_degrees/tan_degrees/atan2_degrees: exact at
+// multiples of 30 and 45 degrees.
+double sinDeg(double x);
+double cosDeg(double x);
+double tanDeg(double x);
+double atan2Deg(double y, double x);
+
+// A radius/diameter argument pair: a numeric `d` beats `r`, numbers only.
+std::optional<double> lookupRadius(Evaluator& ev, const CallArgs& args, std::optional<int> rPos,
+                                   std::optional<int> dPos, const std::string& rName, const std::string& dName,
+                                   const oscad::Position* where);
+
+// "ERROR: <text>" at `where`, for input a primitive repairs and carries on with.
+void emitInputError(Evaluator& ev, const std::string& text, const oscad::Position* where);
+
+// Reads polygon() paths or polyhedron() faces (`listName`): each entry a
+// list of point indices. Entries that are not lists and indices that are not
+// numbers are reported as ERRORs and skipped; out-of-range indices are
+// WARNINGs and skipped. Every surviving entry is returned, however short.
+std::vector<std::vector<size_t>> readIndexLists(Evaluator& ev, const ValueList& lists, const std::string& listName,
+                                                size_t pointCount, const oscad::Position* where);
+
 CSGParams resolveText(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx);
 
 // The font size text()/textmetrics()/fontmetrics() draw at: `size`

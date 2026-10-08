@@ -7919,6 +7919,8 @@ class RequireApproval(enum.Enum):
     '''Manual approval required for any change to the stack.'''
     BROADENING = "BROADENING"
     '''Manual approval required if changes involve a broadening of permissions or security group rules.'''
+    DESTRUCTIVE = "DESTRUCTIVE"
+    '''Manual approval required if changes replace, delete or orphan an existing resource.'''
 
 
 @jsii.data_type(

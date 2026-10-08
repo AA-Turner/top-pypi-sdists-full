@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import Any, Iterable, Literal, Mapping
+from uuid import uuid4
 
-import httpx
+import httpx2
 
 from trajectory._base_client import SyncPage, make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
@@ -50,7 +51,7 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CreateTrajectoryResponse:
     """Create a trajectory, or return the existing trajectory for a managed run.
 
@@ -94,7 +95,7 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[TrajectoryMetadata]:
     """List Trajectories Route
 
@@ -144,7 +145,7 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> Trajectory:
     """Detail
 
@@ -189,7 +190,7 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> TrajectoryUploadResponse:
     """Upload
 
@@ -237,7 +238,7 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> LogTrajectoryEventResponse:
     """Log Trajectory Event
 
@@ -295,7 +296,7 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[TrajectoryEvent]:
     """Read customer-submitted trajectory events, newest first, without telemetry metadata.
 
@@ -339,7 +340,6 @@ class Trajectories(APIResource):
     self,
     trajectory_id: str,
     *,
-    reward_id: str,
     name: str,
     value: float,
     explanation: str | Omit = omit,
@@ -347,13 +347,11 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> LogTrajectoryRewardResponse:
     """Log Trajectory Reward
 
     Args:
-      reward_id: Caller-owned id used to dedupe retries of the same reward component.
-
       name: Reward component name.
 
       value: Raw reward value.
@@ -384,7 +382,7 @@ class Trajectories(APIResource):
       cast_to=LogTrajectoryRewardResponse,
       body=maybe_transform(
         {
-          "reward_id": reward_id,
+          "reward_id": str(uuid4()),
           "name": name,
           "value": value,
           "explanation": explanation,
@@ -419,7 +417,7 @@ class Trajectories(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CompleteTrajectoryResponse:
     """Complete Trajectory Route
 

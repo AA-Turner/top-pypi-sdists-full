@@ -371,6 +371,12 @@ nested_share_get_parser.add_argument(
 nested_share_get_parser.add_argument(
     '--include-dag', dest='include_dag', action='store_true', default=False,
     help='Include DAG/GraphSync information in json output (PAM record types only)')
+nested_share_get_parser.add_argument(
+    '--show-inherited', dest='show_inherited', action='store_true', default=False,
+    help='Include inherited (folder-level) permission entries in the accessor list (hidden by default)')
+nested_share_get_parser.add_argument(
+    '--show-denied', dest='show_denied', action='store_true', default=False,
+    help='Include denied-access permission entries in the accessor list (hidden by default)')
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -386,3 +392,23 @@ nested_share_move_parser.add_argument(
     'dst', type=str,
     help="Destination folder UID/title/path, or 'root' for the Nested "
          "Share Folder root")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Classic-to-Nested Share conversion parser
+# ══════════════════════════════════════════════════════════════════════════
+
+nested_share_convert_parser = _make_parser(
+    'nsf-convert',
+    'Convert Classic record(s) to Nested Share Record(s). Conversion is permanent.')
+nested_share_convert_parser.add_argument(
+    'records', nargs='+', metavar='RECORD',
+    help='Classic record UID(s), title(s), or path(s) to convert '
+         '(maximum 100 Classic records per request)')
+nested_share_convert_parser.add_argument(
+    '--folder', dest='folder_uid', metavar='FOLDER',
+    help='Existing Nested Share Folder UID/name/path. '
+         'Omit to target Vault (root).')
+nested_share_convert_parser.add_argument(
+    '-f', '--force', dest='force', action='store_true',
+    help='Skip the confirmation prompt')

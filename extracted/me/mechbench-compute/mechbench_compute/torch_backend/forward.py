@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
 from mechbench_compute._arch import Arch
 from mechbench_compute.cache import ActivationCache
 from mechbench_compute.hooks import HookFn, dispatch, parse_hook_name
+from mechbench_compute.torch_backend.decoding import (
+    read_cache_offset,
+    read_cached_kwargs,
+)
 from mechbench_compute.torch_backend.sites import Site, Sites
 from mechbench_compute.torch_backend.tracing import disarm, use_attention, wrap_model
 
@@ -16,6 +22,23 @@ EAGER_POINTS = frozenset({"attn.weights"})
 INTERFACE_CALL = re.compile(r"^\s*(attention_interface_(\d+))\s+->", re.MULTILINE)
 
 INTERFACE_NAMES: dict[type, str] = {}
+
+GRADIENTS: ContextVar[bool] = ContextVar("gradients", default=False)
+
+
+@contextmanager
+def tracking_gradients() -> Iterator[None]:
+    token = GRADIENTS.set(True)
+    try:
+        yield
+    finally:
+        GRADIENTS.reset(token)
+
+
+def read_grad_mode() -> Any:
+    import torch
+
+    return torch.enable_grad() if GRADIENTS.get() else torch.no_grad()
 
 
 def find_interface_call(attn: Any) -> Any:
@@ -126,9 +149,26 @@ def plan_steps(envoy: Any, module: Any, sites: Sites, wanted: Iterable[str],
     if "final_norm" in top:
         steps.append(make_step("final_norm", None, "final_norm", Site(
             lambda: norm.output, lambda v: setattr(norm, "output", v))))
-    head = envoy.lm_head
     steps.append(make_step("logits", None, "logits", Site(
-        lambda: head.output, lambda v: setattr(head, "output", v))))
+        lambda: envoy.output.logits, lambda v: setattr(envoy.output, "logits", v))))
+    return steps
+
+
+def make_source_step(op: Any, layer: int, point: str) -> Step:
+    return make_step(f"blocks.{layer}.{point}", layer, point, Site(
+        lambda: op.output, lambda value: setattr(op, "output", value)))
+
+
+def plan_rope_qkv(attn: Any, i: int, points: set[str]) -> list[Step]:
+    steps: list[Step] = []
+    if "attn.v" in points:
+        steps.append(make_source_step(attn.source.transpose_2, i, "attn.v"))
+    if points & {"attn.q", "attn.k"}:
+        rope = attn.source.apply_rotary_pos_emb_0
+        named = f"blocks.{i}."
+        steps.append(Step((named + "attn.q", named + "attn.k"), i, ("attn.q", "attn.k"), Site(
+            lambda: rope.output, lambda value: setattr(rope, "output", value)),
+            lambda held: (held[0], held[1]), pack_pair))
     return steps
 
 
@@ -139,15 +179,7 @@ def plan_layer(layer: Any, i: int, points: set[str], sites: Sites) -> list[Step]
         steps.append(make_step(named + "resid_pre", i, "resid_pre", Site(
             lambda: layer.input, lambda v: setattr(layer, "input", v))))
     attn = layer.self_attn
-    if "attn.v" in points:
-        v = attn.source.transpose_2
-        steps.append(make_step(named + "attn.v", i, "attn.v", Site(
-            lambda: v.output, lambda value: setattr(v, "output", value))))
-    if points & {"attn.q", "attn.k"}:
-        rope = attn.source.apply_rotary_pos_emb_0
-        steps.append(Step((named + "attn.q", named + "attn.k"), i, ("attn.q", "attn.k"), Site(
-            lambda: rope.output, lambda value: setattr(rope, "output", value)),
-            lambda held: (held[0], held[1]), pack_pair))
+    steps.extend((sites.qkv or plan_rope_qkv)(attn, i, points))
     if "attn.weights" in points:
         def read_weights() -> Any:
             return find_interface_call(attn).source.nn_functional_dropout_0
@@ -165,6 +197,8 @@ def plan_layer(layer: Any, i: int, points: set[str], sites: Sites) -> list[Step]
         steps.append(make_step(named + "attn_out", i, "attn_out", sites.attn_out(layer)))
     if "mlp_out" in points:
         steps.append(make_step(named + "mlp_out", i, "mlp_out", sites.mlp_out(layer)))
+    if "gate_out" in points:
+        steps.append(make_step(named + "gate_out", i, "gate_out", sites.gate_out(layer)))
     if "resid_post" in points:
         steps.append(make_step(named + "resid_post", i, "resid_post", Site(
             lambda: layer.output, lambda v: setattr(layer, "output", v))))
@@ -180,27 +214,23 @@ def run_steps(steps: list[Step], hooks: dict[str, HookFn], capture_set: set[str]
 def run_forward(model: Any, input_ids: Any, *, sites: Sites, hooks: dict[str, HookFn] | None = None,
                 capture: list[str] | None = None, arch: Arch | None = None,
                 kv_cache: Any = None) -> tuple[Any, ActivationCache]:
-    import torch
 
-    if kv_cache is not None:
-        raise NotImplementedError(
-            "the torch backend runs a whole prompt in one forward; continuing from a "
-            "cache is not on it yet")
     hooks = dict(hooks or {})
     capture_set = set(capture or [])
-    cache = ActivationCache()
+    cache = ActivationCache(offset=read_cache_offset(kv_cache))
+    cached = read_cached_kwargs(kv_cache)
     wanted = set(hooks) | capture_set
     if not wanted - {"logits"}:
-        with torch.no_grad():
-            logits = model(input_ids=input_ids).logits
+        with read_grad_mode():
+            logits = model(input_ids=input_ids, **cached).logits
         return dispatch("logits", None, "logits", logits, hooks, capture_set, cache), cache
     envoy = wrap_model(model)
     steps = plan_steps(envoy, model, sites, wanted, arch)
     eager = any(p in EAGER_POINTS for s in steps for p in s.points)
     held: dict[str, Any] = {}
     try:
-        with use_attention(model, "eager" if eager else None), torch.no_grad(), \
-                envoy.trace(input_ids=input_ids):
+        with use_attention(model, "eager" if eager else None), read_grad_mode(), \
+                envoy.trace(input_ids=input_ids, **cached):
             run_steps(steps, hooks, capture_set, cache, held)
     finally:
         for step in steps:

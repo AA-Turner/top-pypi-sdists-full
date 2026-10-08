@@ -14,9 +14,15 @@
 
 from __future__ import annotations
 
+import time
+
 import typer
 from snowflake.cli._app.version_check import suppress_new_version_banner
 from snowflake.cli._plugins.upgrade.manager import plan_upgrade
+from snowflake.cli._plugins.upgrade.telemetry import (
+    TRIGGER_MANUAL,
+    record_upgrade_event,
+)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperFactory
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -38,6 +44,11 @@ app = _UpgradeTyperFactory(
 
 @app.command(name="upgrade", requires_connection=False)
 def upgrade(
+    revert: bool = typer.Option(
+        False,
+        "--revert",
+        help="Point the shim at the previous direct install version.",
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -45,9 +56,19 @@ def upgrade(
     ),
     **options,
 ) -> CommandResult:
-    """Upgrade the snowflake-managed distribution of Snowflake CLI."""
+    """Upgrade a direct install of Snowflake CLI."""
     suppress_new_version_banner()
-    decision = plan_upgrade(dry_run=dry_run)
+    started = time.monotonic()
+    decision = plan_upgrade(dry_run=dry_run, revert=revert)
+    duration_ms = int((time.monotonic() - started) * 1000)
+    payload = decision.payload
+    record_upgrade_event(
+        trigger=TRIGGER_MANUAL,
+        status=str(payload.get("status", "")),
+        duration_ms=duration_ms,
+        from_version=payload.get("from"),
+        to_version=payload.get("to"),
+    )
     if get_cli_context().output_format.is_json:
         return ObjectResult(decision.payload)
     return MessageResult(decision.message)

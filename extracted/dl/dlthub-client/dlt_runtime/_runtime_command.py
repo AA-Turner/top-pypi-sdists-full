@@ -53,6 +53,7 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _fetch_deployment_info,
     _fetch_deployments,
     _fetch_job_info,
+    _fetch_job_result,
     _fetch_job_run_info,
     _fetch_run_detail,
     _fetch_runs,
@@ -71,7 +72,7 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _resolve_effective_org_id,
     _resolve_job_ref_from_server,
     _resolve_run_id_by_number,
-    _resolve_selectors_to_scripts,
+    _resolve_selectors_to_jobs,
     _resolve_trigger_selectors,
     _resolve_workspace_id,
     _run_id_from_ref,
@@ -96,6 +97,7 @@ from dlt_runtime._runtime_command_views import (
     _print_device_flow_start,
     _print_job_info,
     _print_job_paused,
+    _print_job_result,
     _print_job_resumed,
     _print_job_run_info,
     _print_jobs,
@@ -1264,6 +1266,32 @@ def get_job_run_info(
 
 @requires_auth
 @requires_workspace
+@track_command(operation="job.runs", suboperation="result")
+def get_job_run_result(
+    script_path_or_job_name: Optional[str] = None,
+    run_number: Optional[int] = None,
+    *,
+    as_json: bool = False,
+    only_payload: bool = False,
+    workspace: Workspace[Sync],
+) -> None:
+    if script_path_or_job_name is None:
+        raise ValueError("Script path, job name, or run id is required")
+    if _run_id_from_ref(script_path_or_job_name, run_number) is None:
+        script_path_or_job_name = _resolve_job_ref_from_server(
+            script_path_or_job_name, workspace=workspace
+        )
+    run = _fetch_job_run_info(
+        workspace,
+        script_path_or_job_name=script_path_or_job_name,
+        run_number=run_number,
+    )
+    result = _fetch_job_result(run)
+    _print_job_result(result, as_json=as_json, only_payload=only_payload)
+
+
+@requires_auth
+@requires_workspace
 @track_command(operation="job", suboperation="logs")
 def logs(
     script_path_or_job_name: Optional[str] = None,
@@ -1338,7 +1366,7 @@ def _fetch_run_logs(
                 fmt.echo("\nLog fetch interrupted.")
             fmt.echo(f"========== End of run logs for {run_info} ==========")
             return
-        if not _is_recently_finished_terminal(run.ended_at):
+        if not _is_recently_finished_terminal(run.finished_at):
             fmt.echo("No logs found for this run.")
             return
 
@@ -1361,7 +1389,7 @@ def get_runs(
     workspace: Workspace[Sync],
 ) -> None:
     if script_path_or_job_name is not None and is_selector(script_path_or_job_name):
-        matched = _resolve_selectors_to_scripts(
+        matched = _resolve_selectors_to_jobs(
             [script_path_or_job_name],
             workspace=workspace,
         )
@@ -1410,7 +1438,7 @@ def cancel(
     dry_run: bool = False,
     workspace: Workspace[Sync],
 ) -> None:
-    matched = _resolve_selectors_to_scripts(selectors_or_refs, workspace=workspace)
+    matched = _resolve_selectors_to_jobs(selectors_or_refs, workspace=workspace)
     if not matched:
         raise LookupError(f"No jobs matched: {', '.join(selectors_or_refs)}")
     job_refs = [sc.job_ref for sc in matched]
@@ -1442,7 +1470,7 @@ def _request_run_cancel(
     *,
     workspace: Workspace[Sync],
 ) -> None:
-    """Request the cancellation of a run, for a script or workspace if script is not provided"""
+    """Request the cancellation of a run, for a job or run id"""
     if script_path_or_job_name is None:
         raise ValueError("Script path, job name, or run id is required")
     # Only the by-number path lacks the run itself, so the terminal-state guard
@@ -1519,7 +1547,7 @@ def _deploy_and_trigger_job(
         triggered = workspace.jobs.trigger(refs=[job_ref], refresh=refresh)
     if not triggered:
         raise RuntimeClientException(f"Job '{job_ref}' was not triggered.")
-    # Using job_refs guarantees server-side resolves to exactly one script.
+    # Using job_refs guarantees server-side resolves to exactly one job.
     if len(triggered) != 1:
         refs = ", ".join(t.job_ref for t in triggered)
         raise RuntimeClientException(
@@ -1621,8 +1649,8 @@ def _do_launch(
     _sync_configuration(workspace=workspace)
 
     # The local select_single_job pick is the source of truth — send the
-    # exact job_ref so the server resolves to the same single script (no
-    # fnmatch against other deployed scripts).
+    # exact job_ref so the server resolves to the same single job (no
+    # fnmatch against other deployed jobs).
     triggered = _deploy_and_trigger_job(
         job_def["job_ref"],
         manifest_hash,
@@ -1635,7 +1663,7 @@ def _do_launch(
 
     # TriggeredJob does not carry job_definition, and this line is a
     # copy-paste-runnable identifier — keep the raw job_ref.
-    if not triggered.run_id:
+    if not triggered.job_run_id:
         # Server matched the job but did not start a run — render a friendly
         # message and remediation hints
         status_value = str(triggered.status or "skipped")
@@ -1655,7 +1683,7 @@ def _do_launch(
         # second error on top of the skip message.
         if is_interactive and status_value == "skipped_concurrency_limit":
             try:
-                url = _fetch_job_info(workspace, triggered.job_ref).interactive_url
+                url = _fetch_job_info(workspace, triggered.job_id).job_url
                 if url:
                     skip_info["web_url"] = url
             except Exception:
@@ -1664,7 +1692,7 @@ def _do_launch(
         return
 
     # Profile comes from the run row the server just created
-    run = _fetch_run_detail(UUID(triggered.run_id), workspace=workspace)
+    run = _fetch_run_detail(UUID(triggered.job_run_id), workspace=workspace)
     run_profile = run.profile
 
     manifest_refs = [j["job_ref"] for j in manifest.get("jobs", [])]
@@ -1675,8 +1703,8 @@ def _do_launch(
         "trigger_humanized": humanize_trigger(TTrigger(str(triggered.trigger))),
         "profile": run_profile or "unk",
         "location": "remote",
-        "run_id": str(triggered.run_id),
-        "run_url": urls.job_run_url(workspace.id, triggered.run_id),
+        "run_id": str(triggered.job_run_id),
+        "run_url": urls.job_run_url(workspace.id, triggered.job_run_id),
     }
     banner["workspace_name"] = workspace.name
     _print_run_banner(banner)
@@ -1684,12 +1712,12 @@ def _do_launch(
     if is_interactive:
         # Wait until RUNNING, then show URL
         _follow_run_status(
-            UUID(str(triggered.run_id)),
+            UUID(str(triggered.job_run_id)),
             False,
             workspace=workspace,
         )
         try:
-            url = _fetch_job_info(workspace, triggered.job_ref).interactive_url
+            url = _fetch_job_info(workspace, triggered.job_id).job_url
             if url:
                 fmt.echo(f"Opening {url}")
                 _open_app_url(url, session)
@@ -1699,9 +1727,11 @@ def _do_launch(
 
     if follow:
         if not is_interactive:
-            _follow_run_status(UUID(str(triggered.run_id)), True, workspace=workspace)
+            _follow_run_status(
+                UUID(str(triggered.job_run_id)), True, workspace=workspace
+            )
         _follow_run_logs(
-            UUID(str(triggered.run_id)),
+            UUID(str(triggered.job_run_id)),
             workspace=workspace,
         )
     else:
@@ -1811,15 +1841,15 @@ def trigger(
         for t in runs:
             # Prefer the human-friendly run number; fall back to the id when the
             # server didn't return a run object (e.g. dry-run).
-            if t.run_number is not None:
-                run_info = f" (run #{t.run_number})"
-            elif t.run_id:
-                run_info = f" (run #{t.run_id})"
+            if t.job_run_number is not None:
+                run_info = f" (run #{t.job_run_number})"
+            elif t.job_run_id:
+                run_info = f" (run #{t.job_run_id})"
             else:
                 run_info = ""
             fmt.echo(f"  {fmt.bold(t.job_ref)}: {t.trigger}{run_info}")
-            if t.run_id:
-                fmt.echo(f"    - {urls.job_run_url(workspace.id, t.run_id)}")
+            if t.job_run_id:
+                fmt.echo(f"    - {urls.job_run_url(workspace.id, t.job_run_id)}")
     if skipped:
         fmt.echo(f"{prefix}Skipped ({len(skipped)}):")
         for t in skipped:
@@ -1869,7 +1899,7 @@ def publish(
     *,
     workspace: Workspace[Sync],
 ) -> None:
-    """Enable or disable a public link for an interactive script."""
+    """Enable or disable a public link for an interactive job."""
     _ensure_profile_warning("access")
     if cancel:
         _disable_public_link_impl(script_path, workspace=workspace)
@@ -1878,14 +1908,12 @@ def publish(
     script_path = _resolve_job_ref_from_server(script_path, workspace=workspace)
     job = _fetch_job_info(workspace, script_path)
     if job.public_url:
-        fmt.echo(
-            f"Public link for script {script_path} already enabled: {job.public_url}"
-        )
+        fmt.echo(f"Public link for job {script_path} already enabled: {job.public_url}")
         return
     with handle_client_exceptions("Failed to enable public link"):
         published = job.publish()
     fmt.echo(
-        f"Public link for script {script_path} enabled successfully: "
+        f"Public link for job {script_path} enabled successfully: "
         f"{published.public_url}"
     )
 
@@ -1895,12 +1923,12 @@ def _disable_public_link_impl(script_path: str, *, workspace: Workspace[Sync]) -
     script_path = _resolve_job_ref_from_server(script_path, workspace=workspace)
     job = _fetch_job_info(workspace, script_path)
     if not job.public_url:
-        fmt.echo(f"Public link for script {script_path} already disabled")
+        fmt.echo(f"Public link for job {script_path} already disabled")
         return
 
     with handle_client_exceptions("Failed to disable public link"):
         job.unpublish()
-    fmt.echo(f"Public link for script {script_path} disabled successfully")
+    fmt.echo(f"Public link for job {script_path} disabled successfully")
 
 
 def _follow_run_status(
@@ -1998,12 +2026,12 @@ def open_dashboard(*, session: CliSession, workspace: Workspace[Sync]) -> None:
             _deploy_default_dashboard(workspace=workspace)
         job = _fetch_job_info(workspace, dashboard_ref)
 
-    script_url = job.interactive_url
-    if not script_url:
+    job_url = job.job_url
+    if not job_url:
         fmt.error("Failed to get the URL for the dashboard")
         return
 
-    _print_show_url("Dashboard", script_url, _browser_url_for(script_url, session))
+    _print_show_url("Dashboard", job_url, _browser_url_for(job_url, session))
 
 
 @requires_auth
@@ -2127,7 +2155,7 @@ def jobs_list(
     archived: bool = False,
     workspace: Workspace[Sync],
 ) -> None:
-    jobs = _resolve_selectors_to_scripts(
+    jobs = _resolve_selectors_to_jobs(
         selectors or [],
         workspace=workspace,
         include_archived=archived,
@@ -2158,18 +2186,18 @@ def _toggle_schedule_pause(
     pause: bool,
     workspace: Workspace[Sync],
 ) -> None:
-    scripts = _resolve_selectors_to_scripts(selectors or [], workspace=workspace)
-    if not scripts:
+    jobs = _resolve_selectors_to_jobs(selectors or [], workspace=workspace)
+    if not jobs:
         fmt.echo(JOB_NO_SELECTOR_MATCH)
         return
 
     action = "pause" if pause else "resume"
     # A per-job failure does not stop the rest, but does make the command exit non-zero.
     failed: list[str] = []
-    for script in scripts:
-        job_ref = script.job_ref
+    for job in jobs:
+        job_ref = job.job_ref
         # The endpoints are idempotent, so a no-op is reported rather than written again.
-        if script.paused is pause:
+        if job.is_paused is pause:
             if pause:
                 _print_job_paused(job_ref, already_paused=True)
             else:
@@ -2179,9 +2207,9 @@ def _toggle_schedule_pause(
         try:
             with handle_client_exceptions():
                 if pause:
-                    script.pause()
+                    job.pause()
                 else:
-                    script.resume()
+                    job.resume()
         except RuntimeClientException as exc:
             failed.append(job_ref)
             fmt.error(f"Cannot {action} {job_ref}: {exc}")

@@ -4,7 +4,11 @@
 #include "openscad_cpp_evaluator/utf8.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <optional>
 #include <sstream>
@@ -199,150 +203,166 @@ Value vecSub(const Value& a, const Value& b) {
     return vecCombine(a, b, [](double x, double y) { return x - y; });
 }
 
+// `a * b` for two lists: dot product, matrix*vector, vector*matrix or
+// matrix*matrix. Undef with `*error` set to the diagnostic when the operands
+// do not multiply.
+//
+// Only the first element of each operand decides which product is meant.
+// Every failure leaves its message in `*error`; a vector*matrix failure
+// inside matrix*matrix is reported once, as one message naming the row
+// (OpenSCAD also prints the bare inner message first; that copy is dropped).
 namespace {
 
-// The four element-level products the reference splits `*` into, ported
-// shape-for-shape from Value.cc's multvecvec/multmatvec/multvecmat plus the
-// matrix*matrix branch of multiply_visitor -- including which check fires
-// first, since that decides which diagnostic a malformed operand produces.
-// `fail` records the message and returns undef.
-const ListItems& itemsOf(const Value& v) {
-    static const ListItems kEmpty;
+using Items = ListItems;
+
+const Items* listItems(const Value& v) {
     const ListPtr* l = std::get_if<ListPtr>(&v);
-    return (l && *l) ? (*l)->items : kEmpty;
+    return (l && *l) ? &(*l)->items : nullptr;
 }
-bool isNum(const Value& v) { return std::holds_alternative<double>(v); }
-bool isVec(const Value& v) { return std::holds_alternative<ListPtr>(v); }
 
-Value fail(std::string* error, std::string message) {
-    if (error) *error = std::move(message);
+std::string sizeMismatch(size_t a, size_t b) {
+    return "(" + std::to_string(a) + " != " + std::to_string(b) + ")";
+}
+
+// Vector `v` times matrix `m`, once |v| is known to be m's row count: one
+// entry per column of m's first row.
+Value vectorTimesMatrix(const Items& v, const Items& m, std::string& error) {
+    const size_t cols = listItems(m[0])->size();
+    std::vector<Value> out;
+    out.reserve(cols);
+    for (size_t i = 0; i < cols; ++i) {
+        double sum = 0;
+        for (size_t j = 0; j < m.size(); ++j) {
+            const Items* row = listItems(m[j]);
+            if (!row || row->size() != cols) {
+                error = "Matrix must be rectangular. Problem at row " + std::to_string(j);
+                return Value{};
+            }
+            const double* x = std::get_if<double>(&v[j]);
+            if (!x) {
+                error = "Vector must contain only numbers. Problem at index " + std::to_string(j);
+                return Value{};
+            }
+            const double* y = std::get_if<double>(&(*row)[i]);
+            if (!y) {
+                error = "Matrix must contain only numbers. Problem at row " + std::to_string(j) + ", col " +
+                        std::to_string(i);
+                return Value{};
+            }
+            sum += *x * *y;
+        }
+        out.push_back(Value{sum});
+    }
+    return listValue(std::move(out));
+}
+
+Value multiplyLists(const Items& a, const Items& b, std::string& error) {
+    if (a.empty() || b.empty()) {
+        error = "Multiplication is undefined on empty vectors";
+        return Value{};
+    }
+    const bool aNumber = std::holds_alternative<double>(a[0]);
+    const bool bNumber = std::holds_alternative<double>(b[0]);
+    const Items* aRow0 = listItems(a[0]);
+    const Items* bRow0 = listItems(b[0]);
+
+    if (aNumber && bNumber) {
+        if (a.size() != b.size()) {
+            error = "vector*vector requires matching lengths " + sizeMismatch(a.size(), b.size());
+            return Value{};
+        }
+        double sum = 0;
+        for (size_t i = 0; i < a.size(); ++i) {
+            const double* x = std::get_if<double>(&a[i]);
+            const double* y = std::get_if<double>(&b[i]);
+            if (!x || !y) {
+                error = "undefined operation (" + oscTypeName(a[i]) + " * " + oscTypeName(b[i]) + ")";
+                return Value{};
+            }
+            sum += *x * *y;
+        }
+        return Value{sum};
+    }
+    if (aNumber && bRow0) {
+        if (a.size() != b.size()) {
+            error = "vector*matrix requires vector length to match matrix row count " +
+                    sizeMismatch(a.size(), b.size());
+            return Value{};
+        }
+        return vectorTimesMatrix(a, b, error);
+    }
+    if (aRow0 && bNumber) {
+        if (aRow0->size() != b.size()) {
+            error = "matrix*vector requires matrix column count to match vector length " +
+                    sizeMismatch(aRow0->size(), b.size());
+            return Value{};
+        }
+        std::vector<Value> out;
+        out.reserve(a.size());
+        for (size_t i = 0; i < a.size(); ++i) {
+            const Items* row = listItems(a[i]);
+            if (!row || row->size() != b.size()) {
+                error = "Matrix must be rectangular. Problem at row " + std::to_string(i);
+                return Value{};
+            }
+            double sum = 0;
+            for (size_t j = 0; j < b.size(); ++j) {
+                const double* x = std::get_if<double>(&(*row)[j]);
+                if (!x) {
+                    error = "Matrix must contain only numbers. Problem at row " + std::to_string(i) + ", col " +
+                            std::to_string(j);
+                    return Value{};
+                }
+                const double* y = std::get_if<double>(&b[j]);
+                if (!y) {
+                    error = "Vector must contain only numbers. Problem at index " + std::to_string(j);
+                    return Value{};
+                }
+                sum += *x * *y;
+            }
+            out.push_back(Value{sum});
+        }
+        return listValue(std::move(out));
+    }
+    if (aRow0 && bRow0) {
+        if (aRow0->size() != b.size()) {
+            error = "matrix*matrix requires left operand column count to match right operand row count " +
+                    sizeMismatch(aRow0->size(), b.size());
+            return Value{};
+        }
+        std::vector<Value> out;
+        out.reserve(a.size());
+        for (size_t i = 0; i < a.size(); ++i) {
+            const Items* row = listItems(a[i]);
+            const size_t len = row ? row->size() : 0;
+            if (len != b.size()) {
+                error = "matrix*matrix left operand row length does not match right operand row count " +
+                        sizeMismatch(len, b.size()) + " at row " + std::to_string(i);
+                return Value{};
+            }
+            Value product = vectorTimesMatrix(*row, b, error);
+            if (std::holds_alternative<std::monostate>(product)) {
+                error += "\n\twhile processing left operand at row " + std::to_string(i);
+                return product;
+            }
+            out.push_back(std::move(product));
+        }
+        return listValue(std::move(out));
+    }
+    error = "undefined vector*vector multiplication where first elements are types " + oscTypeName(a[0]) + " and " +
+            oscTypeName(b[0]);
     return Value{};
-}
-
-// Vector dot product. Sizes are equal by the caller's own check.
-Value multVecVec(const ListItems& v1, const ListItems& v2, std::string* error) {
-    double r = 0.0;
-    for (size_t i = 0; i < v1.size(); ++i) {
-        if (!isNum(v1[i]) || !isNum(v2[i])) {
-            return fail(error, "undefined operation (" + oscTypeName(v1[i]) + " * " + oscTypeName(v2[i]) + ")");
-        }
-        r += std::get<double>(v1[i]) * std::get<double>(v2[i]);
-    }
-    return Value{r};
-}
-
-Value multMatVec(const ListItems& mat, const ListItems& vec, std::string* error) {
-    std::vector<Value> out;
-    out.reserve(mat.size());
-    for (size_t i = 0; i < mat.size(); ++i) {
-        const ListItems& row = itemsOf(mat[i]);
-        if (!isVec(mat[i]) || row.size() != vec.size()) {
-            return fail(error, "Matrix must be rectangular. Problem at row " + std::to_string(i));
-        }
-        double re = 0.0;
-        for (size_t j = 0; j < row.size(); ++j) {
-            if (!isNum(row[j])) {
-                return fail(error, "Matrix must contain only numbers. Problem at row " + std::to_string(i) +
-                                        ", col " + std::to_string(j));
-            }
-            if (!isNum(vec[j])) {
-                return fail(error, "Vector must contain only numbers. Problem at index " + std::to_string(j));
-            }
-            re += std::get<double>(row[j]) * std::get<double>(vec[j]);
-        }
-        out.push_back(Value{re});
-    }
-    return listValue(std::move(out));
-}
-
-Value multVecMat(const ListItems& vec, const ListItems& mat, std::string* error) {
-    const size_t firstRowSize = itemsOf(mat[0]).size();
-    std::vector<Value> out;
-    out.reserve(firstRowSize);
-    for (size_t i = 0; i < firstRowSize; ++i) {
-        double re = 0.0;
-        for (size_t j = 0; j < vec.size(); ++j) {
-            const ListItems& row = itemsOf(mat[j]);
-            if (!isVec(mat[j]) || row.size() != firstRowSize) {
-                return fail(error, "Matrix must be rectangular. Problem at row " + std::to_string(j));
-            }
-            if (!isNum(vec[j])) {
-                return fail(error, "Vector must contain only numbers. Problem at index " + std::to_string(j));
-            }
-            if (!isNum(row[i])) {
-                return fail(error, "Matrix must contain only numbers. Problem at row " + std::to_string(j) +
-                                        ", col " + std::to_string(i));
-            }
-            re += std::get<double>(vec[j]) * std::get<double>(row[i]);
-        }
-        out.push_back(Value{re});
-    }
-    return listValue(std::move(out));
 }
 
 } // namespace
 
 Value matmul(const Value& a, const Value& b, std::string* error) {
-    const ListItems& al = itemsOf(a);
-    const ListItems& bl = itemsOf(b);
-    // The reference checks emptiness before anything else, so `[] * [1,2]`
-    // is this message rather than a length mismatch.
-    if (al.empty() || bl.empty()) return fail(error, "Multiplication is undefined on empty vectors");
-
-    const Value& e1 = al.front();
-    const Value& e2 = bl.front();
-
-    // Which of the four shapes this is comes from the FIRST element's type
-    // on each side, exactly as multiply_visitor decides it -- not from
-    // whether the whole operand happens to be a well-formed matrix. A
-    // ragged or non-numeric operand still enters the branch its first
-    // element chose, and fails inside it with that branch's own message.
-    if (isNum(e1)) {
-        if (isNum(e2)) {
-            if (al.size() == bl.size()) return multVecVec(al, bl, error);
-            return fail(error, "vector*vector requires matching lengths (" + std::to_string(al.size()) +
-                                    " != " + std::to_string(bl.size()) + ")");
-        }
-        if (isVec(e2)) {
-            if (al.size() == bl.size()) return multVecMat(al, bl, error);
-            return fail(error, "vector*matrix requires vector length to match matrix row count (" +
-                                    std::to_string(al.size()) + " != " + std::to_string(bl.size()) + ")");
-        }
-    } else if (isVec(e1)) {
-        const size_t cols = itemsOf(e1).size();
-        if (isNum(e2)) {
-            if (cols == bl.size()) return multMatVec(al, bl, error);
-            return fail(error, "matrix*vector requires matrix column count to match vector length (" +
-                                    std::to_string(cols) + " != " + std::to_string(bl.size()) + ")");
-        }
-        if (isVec(e2)) {
-            if (cols != bl.size()) {
-                return fail(error,
-                            "matrix*matrix requires left operand column count to match right operand row count (" +
-                                std::to_string(cols) + " != " + std::to_string(bl.size()) + ")");
-            }
-            std::vector<Value> rows;
-            rows.reserve(al.size());
-            for (size_t i = 0; i < al.size(); ++i) {
-                const ListItems& srcRow = itemsOf(al[i]);
-                if (srcRow.size() != bl.size()) {
-                    return fail(error,
-                                "matrix*matrix left operand row length does not match right operand row count (" +
-                                    std::to_string(srcRow.size()) + " != " + std::to_string(bl.size()) +
-                                    ") at row " + std::to_string(i));
-                }
-                std::string rowError;
-                Value row = multVecMat(srcRow, bl, &rowError);
-                if (!rowError.empty()) {
-                    return fail(error, rowError + ": while processing left operand at row " + std::to_string(i));
-                }
-                rows.push_back(std::move(row));
-            }
-            return listValue(std::move(rows));
-        }
-    }
-    return fail(error, "undefined vector*vector multiplication where first elements are types " + oscTypeName(e1) +
-                            " and " + oscTypeName(e2));
+    std::string message;
+    const Items* la = listItems(a);
+    const Items* lb = listItems(b);
+    Value r = (la && lb) ? multiplyLists(*la, *lb, message) : Value{};
+    if (error) *error = std::move(message);
+    return r;
 }
 
 namespace {
@@ -378,7 +398,7 @@ std::string encodeEscapedCodePoint(std::uint32_t cp) {
 
 } // namespace
 
-std::string unescapeStringLiteral(const std::string& raw) {
+std::string unescapeStringLiteral(const std::string& raw, int* undefinedEscapes) {
     // Most strings need no work at all, and this runs on every evaluation
     // of a literal on the tree-walking path -- so don't build a second copy
     // unless there is something to change. A bare line ending counts as
@@ -425,19 +445,25 @@ std::string unescapeStringLiteral(const std::string& raw) {
                     i += 3;
                     break;
                 }
+                if (undefinedEscapes) ++*undefinedEscapes;
                 out.push_back(next);
                 ++i;
                 break;
             }
-            case 'u': {
-                // \uXXXX, exactly four hex digits. No \u{...} form: the
-                // reference calls that an undefined escape.
+            case 'u':
+            case 'U': {
+                // \uXXXX, exactly four hex digits, or \UXXXXXX, exactly six
+                // (lexer.l). No \u{...} form: the reference calls that an
+                // undefined escape. \U was missing -- "\U01F600" was seven
+                // characters, not one.
+                const size_t n = next == 'u' ? 4 : 6;
                 std::uint32_t cp = 0;
-                if (i + 5 < raw.size() && hexDigits(raw, i + 2, 4, cp)) {
+                if (i + 1 + n < raw.size() && hexDigits(raw, i + 2, n, cp)) {
                     out += encodeEscapedCodePoint(cp);
-                    i += 5;
+                    i += 1 + n;
                     break;
                 }
+                if (undefinedEscapes) ++*undefinedEscapes;
                 out.push_back(next);
                 ++i;
                 break;
@@ -446,51 +472,127 @@ std::string unescapeStringLiteral(const std::string& raw) {
             // LF after a CR is dropped by the loop itself.
             case '\n':
             case '\r': ++i; break;
-            default: out.push_back(next); ++i; break;  // \\ and \" land here too
+            case '\\':
+            case '"': out.push_back(next); ++i; break;
+            // Anything else is OpenSCAD's "Undefined escape sequence": the
+            // backslash goes, the character stays, and the caller warns.
+            default:
+                if (undefinedEscapes) ++*undefinedEscapes;
+                out.push_back(next);
+                ++i;
+                break;
         }
     }
     return out;
 }
 
+namespace {
+// The first 7 significant digits of |v| (all[0..6]) and the power of ten of
+// the first one, plus whether the first 6 round UP: correctly rounded with
+// exact ties rounding up (double-conversion's ToPrecision, which OpenSCAD
+// prints with). A 17-digit rendering decides every case but one: when it
+// reads exactly ...5000000000 past the sixth digit, the true value may sit
+// just either side of the tie, so the exact expansion settles it.
+bool exactSevenDigits(double av, char all[17], int& exp10) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.16e", av);  // d.dddddddddddddddde[+-]x
+    exp10 = std::atoi(std::strchr(buf, 'e') + 1);
+    all[0] = buf[0];
+    std::memcpy(all + 1, buf + 2, 16);
+    if (all[6] == '5' && std::memcmp(all + 7, "0000000000", 10) == 0) {
+        static thread_local char exact[1100];
+        std::snprintf(exact, sizeof exact, "%.1000e", av);  // the exact expansion
+        // exact[7] is the 7th significant digit ("d.dddddd..."); 5 or more
+        // rounds up, an exact tie included.
+        return exact[7] >= '5';
+    }
+    return all[6] >= '5';
+}
+
+// The same answer from the SHORTEST round-trip rendering D (std::to_chars,
+// several times cheaper than printf), which is safe for a normal double:
+// its rounding interval is ~1e-16 relative, far narrower than the 1e-6
+// spacing of 7-digit decimals, so at most one 7-digit decimal lies in it.
+// If the rounding boundary B (a 7-digit ...5) is in the interval, D is B
+// itself; otherwise D and |v| lie on the same side of B and round alike.
+// So D decides every case except D == B exactly, where |v| may be just
+// either side of the tie -- returns false then, for exactSevenDigits. A
+// subnormal's interval is far wider (5e-324 renders shortest as "5e-324"
+// but prints as 4.94066e-324), so subnormals never come here.
+bool shortestSevenDigits(double av, char all[17], int& exp10, bool& up) {
+    char buf[32];
+    const std::to_chars_result res = std::to_chars(buf, buf + sizeof buf, av, std::chars_format::scientific);
+    int n = 0;
+    const char* p = buf;
+    for (; *p != 'e'; ++p)
+        if (*p != '.') all[n++] = *p;
+    if (n == 7 && all[6] == '5') return false;
+    for (; n < 7; ++n) all[n] = '0';
+    std::from_chars(p + (p[1] == '+' ? 2 : 1), res.ptr, exp10);
+    up = all[6] >= '5';
+    return true;
+}
+
+// The first 6 significant digits of |v|, rounded as above, and the power
+// of ten of the first one.
+void sixDigits(double av, char digits[6], int& exp10) {
+    char all[17];
+    bool up;
+    if (av < std::numeric_limits<double>::min() || !shortestSevenDigits(av, all, exp10, up))
+        up = exactSevenDigits(av, all, exp10);
+    std::memcpy(digits, all, 6);
+    if (up) {
+        int k = 5;
+        while (k >= 0 && digits[k] == '9') digits[k--] = '0';
+        if (k >= 0) {
+            ++digits[k];
+        } else {  // 999999.5 -> 1000000
+            digits[0] = '1';
+            ++exp10;
+        }
+    }
+}
+} // namespace
+
+// OpenSCAD's number formatting: double-conversion
+// ToPrecision(v, 6) with up to 5 leading zeros and no trailing padding, so
+// exponent form below 1e-5 and from 1e6 up; trailing zeros trimmed; -0 is
+// 0. This used to round ties to even (123456.5 printed as 123456, not
+// 123457), round twice, and print the smallest subnormals as "infe-323".
 std::string formatNumber(double v) {
     if (std::isnan(v)) return "nan";
     if (std::isinf(v)) return v > 0 ? "inf" : "-inf";
     if (v == 0.0) return "0"; // also covers -0.0 (-0.0 == 0.0 is true)
 
-    const bool neg = v < 0;
-    const double av = std::abs(v);
-    int exp = static_cast<int>(std::floor(std::log10(av)));
-    double mantissa = std::round(av / std::pow(10.0, exp) * 1e5) / 1e5;
-    if (mantissa >= 10.0) {
-        mantissa /= 10.0;
-        ++exp;
-    }
-
-    auto trimTrailing = [](std::string s) {
-        if (s.find('.') == std::string::npos) return s;
-        size_t last = s.find_last_not_of('0');
-        s.erase(last + 1);
-        if (!s.empty() && s.back() == '.') s.pop_back();
-        return s;
-    };
-
-    std::string s;
-    if (exp >= -5 && exp <= 5) {
-        const int decimals = std::max(0, 5 - exp);
-        std::ostringstream oss;
-        oss.setf(std::ios::fixed);
-        oss.precision(decimals);
-        oss << av;
-        s = trimTrailing(oss.str());
+    char d[6];
+    int e = 0;
+    sixDigits(std::fabs(v), d, e);
+    int len = 6;
+    while (len > 1 && d[len - 1] == '0') --len;  // significant digits that matter
+    const int point = e + 1;                    // digits before the decimal point
+    std::string s = v < 0 ? "-" : "";
+    if (point < -4 || point > 6) {
+        s += d[0];
+        if (len > 1) {
+            s += '.';
+            s.append(d + 1, d + len);
+        }
+        s += 'e';
+        s += e < 0 ? '-' : '+';
+        s += std::to_string(std::abs(e));
+    } else if (point <= 0) {
+        s += "0.";
+        s.append(static_cast<size_t>(-point), '0');
+        s.append(d, d + len);
     } else {
-        std::ostringstream oss;
-        oss.setf(std::ios::fixed);
-        oss.precision(5);
-        oss << mantissa;
-        const std::string m = trimTrailing(oss.str());
-        s = m + "e" + (exp >= 0 ? "+" : "-") + std::to_string(std::abs(exp));
+        s.append(d, d + std::min(point, len));
+        if (point > len) s.append(static_cast<size_t>(point - len), '0');
+        if (len > point) {
+            s += '.';
+            s.append(d + point, d + len);
+        }
     }
-    return neg ? "-" + s : s;
+    return s;
 }
 
 std::string fmtValue(const Value& v) {
@@ -541,6 +643,11 @@ std::optional<size_t> rangeElementCount(const OscRange& r) {
     // the reference says nothing about it -- `[for (i = [nan:1:-1]) i]` is
     // [] with no warning there. BOSL2 reaches exactly that through
     // list_rotate() on an empty list, where ((n % 0) + 0) % 0 is NaN.
+    constexpr double kCap = 4294967295.0;
+    // A zero step between finite bounds never reaches its end: the
+    // reference counts it as its uint32 ceiling, so iterating one warns
+    // "too many elements (4294967295)" rather than yielding [] silently.
+    if (r.step == 0.0 && std::isfinite(r.start) && std::isfinite(r.end)) return static_cast<size_t>(kCap);
     if (r.isEmpty()) return std::nullopt;
 
     const double count = std::floor((r.end - r.start) / r.step + 1e-10) + 1.0;
@@ -555,7 +662,6 @@ std::optional<size_t> rangeElementCount(const OscRange& r) {
     // Clamp to what the reference reports for such a range, its own uint32
     // ceiling: `[0:1:1/0]` warns "too many elements (4294967295)" there and
     // yields [].
-    constexpr double kCap = 4294967295.0;
     if (!(count < kCap)) return static_cast<size_t>(kCap);
     return static_cast<size_t>(count);
 }

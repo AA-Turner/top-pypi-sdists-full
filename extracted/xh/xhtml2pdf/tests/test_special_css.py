@@ -1,4 +1,5 @@
 import io
+import re
 import time
 from unittest import TestCase
 
@@ -99,6 +100,81 @@ class BackgroundTest(TestCase):
         func_out = parseSpecialRules(func_in)
         expected = [("background-color", "lightblue", None)]
         self.assertEqual(func_out, expected)
+
+
+class TranslucentBackgroundTest(TestCase):
+    """
+    A background with an alpha is painted once, and leaves the text opaque.
+
+    The words inside a block inherited its background and painted it again
+    behind every line, and that second fill left its opacity on for the text:
+    black text on #0b5e9b33 came out at 20 %.
+    """
+
+    BLUE = ".043137 .368627 .607843 rg"
+
+    @staticmethod
+    def _stream(html: str) -> str:
+        dest = io.BytesIO()
+        pisa.CreatePDF(html, dest=dest)
+        page = PdfReader(io.BytesIO(dest.getvalue())).pages[0]
+        return page.get_contents().get_data().decode("latin-1")
+
+    def _fills(self, html: str) -> int:
+        return self._stream(html).count(self.BLUE)
+
+    @staticmethod
+    def _opacity_at_text(html: str) -> list:
+        """The fill-opacity state in force at every BT, tracking q/Q."""
+        dest = io.BytesIO()
+        pisa.CreatePDF(html, dest=dest)
+        page = PdfReader(io.BytesIO(dest.getvalue())).pages[0]
+        states = page["/Resources"].get("/ExtGState", {})
+        stream = page.get_contents().get_data().decode("latin-1")
+        stack, found = [1.0], []
+        for token in re.finditer(r"\bq\b|\bQ\b|/(\S+) gs|\bBT\b", stream):
+            text = token.group(0)
+            if text == "q":
+                stack.append(stack[-1])
+            elif text == "Q":
+                stack.pop()
+            elif text == "BT":
+                found.append(stack[-1])
+            else:
+                stack[-1] = float(states[f"/{token.group(1)}"].get("/ca", stack[-1]))
+        return found
+
+    def test_a_paragraph_paints_it_once(self) -> None:
+        html = '<p style="background-color:#0b5e9b33">Hola</p>'
+        self.assertEqual(1, self._fills(html))
+        self.assertEqual({1.0}, set(self._opacity_at_text(html)))
+
+    def test_a_block_of_text_paints_it_once(self) -> None:
+        self.assertEqual(
+            1, self._fills('<div style="background-color:#0b5e9b33">Hola</div>')
+        )
+
+    def test_a_cell_paints_it_once(self) -> None:
+        html = (
+            '<table><tr><td style="background-color:#0b5e9b33">Hola</td></tr></table>'
+        )
+        self.assertEqual(1, self._fills(html))
+        self.assertEqual({1.0}, set(self._opacity_at_text(html)))
+
+    def test_a_row_and_a_table_paint_it_once(self) -> None:
+        for attr in ("tr", "table"):
+            html = (
+                f'<table{" style=background-color:#0b5e9b33" if attr == "table" else ""}>'
+                f'<tr{" style=background-color:#0b5e9b33" if attr == "tr" else ""}>'
+                "<td>a</td><td>b</td></tr></table>"
+            )
+            with self.subTest(attr):
+                self.assertEqual(1, self._fills(html))
+
+    def test_a_highlighted_word_keeps_its_background(self) -> None:
+        html = '<p>a <span style="background-color:#0b5e9b33">Hola</span> b</p>'
+        self.assertEqual(1, self._fills(html))
+        self.assertEqual({1.0}, set(self._opacity_at_text(html)))
 
 
 class MarginTest(TestCase):
@@ -941,3 +1017,73 @@ class BorderRadiusShorthandTest(TestCase):
     def test_a_valid_longhand_is_kept(self) -> None:
         declaration = ("border-top-left-radius", [("1", "px"), ("2", "px")], None)
         self.assertEqual([declaration], parseSpecialRules([declaration]))
+
+
+class TransparentColorTest(TestCase):
+    """`color: transparent` and the hex forms with alpha (#811)."""
+
+    @staticmethod
+    def render(html: str) -> str:
+        out = io.BytesIO()
+        result = pisa.CreatePDF(html, dest=out)
+        assert not result.err
+        page = PdfReader(io.BytesIO(out.getvalue())).pages[0]
+        return page.get_contents().get_data().decode("latin-1")
+
+    def text_operators(self, html: str, word: str) -> str:
+        return next(
+            line for line in self.render(html).splitlines() if f"({word})" in line
+        )
+
+    def test_transparent_text_is_drawn_with_no_ink(self) -> None:
+        line = self.text_operators('<p style="color: transparent">HIDDEN</p>', "HIDDEN")
+        # An ExtGState with a zero fill alpha is set before the text.
+        self.assertIn(" gs ", line)
+
+    def test_opaque_text_sets_no_alpha(self) -> None:
+        line = self.text_operators("<p>SHOWN</p>", "SHOWN")
+        self.assertNotIn(" gs ", line)
+
+    def test_four_digit_hex_does_not_abort(self) -> None:
+        line = self.text_operators('<p style="color: #0000">HIDDEN</p>', "HIDDEN")
+        self.assertIn(" gs ", line)
+
+    def test_eight_digit_hex_is_read_as_rgba(self) -> None:
+        line = self.text_operators('<p style="color: #ff000080">RED</p>', "RED")
+        self.assertIn("1 0 0 rg", line)
+
+
+class RootEmTest(TestCase):
+    """rem is relative to the font size of <html> (#726)."""
+
+    @staticmethod
+    def font_sizes(html: str) -> list[str]:
+        out = io.BytesIO()
+        pisa.CreatePDF(html, dest=out)
+        page = PdfReader(io.BytesIO(out.getvalue())).pages[0]
+        data = page.get_contents().get_data().decode("latin-1")
+        return [
+            line.split(" Tf")[0].split()[-1]
+            for line in data.splitlines()
+            if "Tj" in line
+        ]
+
+    def test_rem_ignores_the_parent_font_size(self) -> None:
+        sizes = self.font_sizes(
+            '<html style="font-size: 20px"><body><div style="font-size: 10px">'
+            '<p style="font-size: 2rem">x</p></div></body></html>'
+        )
+        self.assertEqual(["30"], sizes)
+
+    def test_rem_uses_the_default_root_size(self) -> None:
+        # DEFAULT_CSS sets html to 10px, 7.5pt.
+        sizes = self.font_sizes(
+            '<div style="font-size: 30pt"><p style="font-size: 2rem">x</p></div>'
+        )
+        self.assertEqual(["15"], sizes)
+
+    def test_rem_on_html_itself_is_the_initial_size(self) -> None:
+        sizes = self.font_sizes(
+            '<html style="font-size: 1rem"><body><p>x</p></body></html>'
+        )
+        self.assertEqual(["12"], sizes)

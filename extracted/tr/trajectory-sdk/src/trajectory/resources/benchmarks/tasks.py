@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Iterable, Mapping
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
@@ -36,7 +36,7 @@ class Tasks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkTaskCountResponse:
     """Benchmark Task Count
 
@@ -74,7 +74,7 @@ class Tasks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkTaskDiffResponse:
     """Split submitted tasks into new tasks, tasks already stored with identical content, and
     updates whose names are stored with different content. Lets a client upload only what is
@@ -121,7 +121,7 @@ class Tasks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CreateBenchmarkTaskAppendResponse:
     """Return signed artifact URLs for one append batch, staged under a prefix derived from the
     Idempotency-Key. Commit the returned batch_id to publish the batch's tasks.
@@ -171,7 +171,7 @@ class Tasks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkTaskAppendResult:
     """Persist and validate the request manifest, publish new tasks, and replace live tasks
     whose names are stored with different content in one transaction. Task names already
@@ -215,7 +215,7 @@ class Tasks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteBenchmarkTaskResponse:
     """Delete one benchmark task and its cascading task metadata. GCS artifacts are preserved
     because re-ingested benchmark snapshots may still reference them.

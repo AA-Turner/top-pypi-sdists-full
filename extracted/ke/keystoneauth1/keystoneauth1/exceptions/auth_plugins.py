@@ -10,11 +10,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from keystoneauth1.exceptions import base
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from keystoneauth1 import loading
 
 
@@ -39,7 +40,7 @@ class MissingAuthPlugin(AuthPluginException):
 class NoMatchingPlugin(AuthPluginException):
     """No auth plugins could be created from the parameters provided.
 
-    :param str name: The name of the plugin that was attempted to load.
+    :param name: The name of the plugin that was attempted to load.
 
     .. py:attribute:: name
 
@@ -55,14 +56,14 @@ class NoMatchingPlugin(AuthPluginException):
 class UnsupportedParameters(AuthPluginException):
     """A parameter that was provided or returned is not supported.
 
-    :param list(str) names: Names of the unsupported parameters.
+    :param names: Names of the unsupported parameters.
 
     .. py:attribute:: names
 
         Names of the unsupported parameters.
     """
 
-    def __init__(self, names: ty.Sequence[str]):
+    def __init__(self, names: Sequence[str]):
         self.names = names
 
         m = 'The following parameters were given that are unsupported: %s'
@@ -85,14 +86,14 @@ class OptionError(AuthPluginException):
 class MissingRequiredOptions(OptionError):
     """One or more required options were not provided.
 
-    :param list(keystoneauth1.loading.Opt) options: Missing options.
+    :param options: Missing options.
 
     .. py:attribute:: options
 
         List of the missing options.
     """
 
-    def __init__(self, options: ty.Sequence['loading.Opt']):
+    def __init__(self, options: Sequence['loading.Opt']):
         self.options = options
 
         names = ", ".join(o.dest for o in options)

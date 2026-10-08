@@ -73,13 +73,15 @@
 #include <complex>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <limits>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
-#if defined(__AVX2__) && defined(__FMA__) && !defined(_MSC_VER)
-#include <immintrin.h>
-#endif
+#include "_lanes.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -152,6 +154,175 @@ struct NiAborted : std::exception {
 #define NI_THROW_IF_ABORTED()                                               \
     if (ni_aborted.load(std::memory_order_relaxed) || (ni_cancel && *ni_cancel)) \
         throw NiAborted {}
+
+// The column rule's head and mid, shared between columns of one rho.
+//
+// A column's rule is head + mid + tail (`column_rule`). The head and mid
+// nodes, and so their factors, are a function of rho and the extents
+// (a_head, lam_top) alone; the column's smallest s reaches them only through
+// the extents, and on every column the far-pair kill cap leaves alone the
+// extents are the same for every s. A crossing fill asks for the same rho in
+// call after call, each time for a different few members (its memo hands the
+// twin only fresh triples): on the bs2 inverted-L x16 fill, 20,772 columns
+// over 328 calls carried 6,520 distinct rho, 2.3 members a column, and the
+// head and mid (J0 at 465 nodes, and their factors) were 28 % of the
+// kernel's time on one thread.
+//
+// So the fill holds one of these (on its SheetPlan) and the twin keeps the
+// head + mid FACTORS here, keyed by the exact bits of (rho, a_head, lam_top),
+// for the context they were built in (k_p, k_m, p, detour and the Gauss
+// rule; a different context empties it). A hit copies the arrays
+// `column_factors` would have written for those nodes; the tail is built as
+// before; `column_factors_joined` lays the two out exactly as
+// `column_factors` lays out the whole rule. Every float a member reads is
+// therefore the float it read before -- the cache moves when a value is
+// computed, never what it is -- and the gate is uint64 equality against the
+// uncached call (tests/test_near_interface_column_cache.py).
+//
+// Bounded: entries are dropped oldest first past `max_bytes`. A miss costs
+// what the twin cost before, so the bound trades memory for hits, never
+// bits. Thread-safe: lookups and inserts take the mutex, and the twin does
+// both outside its parallel regions.
+namespace mw899 {
+class ColumnCache {
+  public:
+    explicit ColumnCache(size_t max_bytes) : max_bytes_(max_bytes) {}
+
+    struct Key {
+        uint64_t rho, a_head, lam_top;
+        bool operator==(const Key &o) const {
+            return rho == o.rho && a_head == o.a_head && lam_top == o.lam_top;
+        }
+    };
+    struct KeyHash {
+        size_t operator()(const Key &k) const {
+            uint64_t h = k.rho * 0x9E3779B97F4A7C15ULL;
+            h ^= k.a_head + 0x9E3779B97F4A7C15ULL + (h << 6) + (h >> 2);
+            h ^= k.lam_top + 0x9E3779B97F4A7C15ULL + (h << 6) + (h >> 2);
+            return static_cast<size_t>(h);
+        }
+    };
+    static uint64_t bits(double x) {
+        uint64_t u;
+        std::memcpy(&u, &x, sizeof u);
+        return u;
+    }
+    static Key key(double rho, double a_head, double lam_top) {
+        return Key{bits(rho), bits(a_head), bits(lam_top)};
+    }
+
+    // Empties the cache unless (k_p, k_m, p, detour, gx, gw) are the ones its
+    // entries were built under, bit for bit.
+    void set_context(double k_p, const cd &k_m, int p, double detour,
+                     const double *gx, const double *gw, int ng) {
+        std::vector<uint64_t> c;
+        c.reserve(6 + 2 * ng);
+        c.push_back(bits(k_p));
+        c.push_back(bits(k_m.real()));
+        c.push_back(bits(k_m.imag()));
+        c.push_back(static_cast<uint64_t>(p));
+        c.push_back(bits(detour));
+        c.push_back(static_cast<uint64_t>(ng));
+        for (int i = 0; i < ng; ++i) c.push_back(bits(gx[i]));
+        for (int i = 0; i < ng; ++i) c.push_back(bits(gw[i]));
+        std::lock_guard<std::mutex> lk(mu_);
+        if (c != context_) {
+            map_.clear();
+            order_.clear();
+            bytes_ = 0;
+            context_.swap(c);
+        }
+    }
+
+    std::shared_ptr<const HeadMid> find(const Key &k) {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = map_.find(k);
+        if (it == map_.end()) {
+            ++misses_;
+            return nullptr;
+        }
+        ++hits_;
+        return it->second;
+    }
+
+    void insert(const Key &k, std::shared_ptr<const HeadMid> v) {
+        std::lock_guard<std::mutex> lk(mu_);
+        const size_t b = v->bytes();
+        if (b > max_bytes_ || map_.count(k)) return;
+        while (bytes_ + b > max_bytes_ && !order_.empty()) {
+            auto it = map_.find(order_.front());
+            bytes_ -= it->second->bytes();
+            map_.erase(it);
+            order_.pop_front();
+            ++evictions_;
+        }
+        map_.emplace(k, std::move(v));
+        order_.push_back(k);
+        bytes_ += b;
+    }
+
+    size_t hits() const { return hits_; }
+    size_t misses() const { return misses_; }
+    size_t evictions() const { return evictions_; }
+    size_t entries() const { return map_.size(); }
+    size_t bytes() const { return bytes_; }
+    size_t max_bytes() const { return max_bytes_; }
+
+  private:
+    size_t max_bytes_;
+    size_t bytes_ = 0, hits_ = 0, misses_ = 0, evictions_ = 0;
+    std::vector<uint64_t> context_;
+    std::unordered_map<Key, std::shared_ptr<const HeadMid>, KeyHash> map_;
+    std::deque<Key> order_;
+    std::mutex mu_;
+};
+
+// One column's rule and factors into `s`, through `cache` when there is one:
+// the head + mid factors from `hm` (a hit) or built here into `*fresh` (a
+// miss), the tail built as always. Returns K, the rule's node count.
+static size_t column_build(double rho, double k_p, const cd &kpc,
+                           const cd &km, double s_min, double lam_mult, int p,
+                           double detour, const double *gx, const double *gw,
+                           int ng, bool cached, double a_head, double lam_top,
+                           const HeadMid *hm,
+                           std::shared_ptr<const HeadMid> *fresh, Scratch &s) {
+    if (!cached) {
+        column_rule(rho, k_p, km, s_min, lam_mult, p, detour, gx, gw, ng, s);
+        column_factors(kpc, km, s);
+        return s.lam.size();
+    }
+    if (hm == nullptr) {
+        auto h = std::make_shared<HeadMid>();
+        s.lam.clear();
+        s.w.clear();
+        column_head_mid(rho, k_p, km, a_head, lam_top, p, detour, gx, gw, ng, s);
+        head_mid_factors(kpc, km, s, *h);
+        hm = h.get();
+        *fresh = std::move(h);
+    }
+    s.lam.clear();
+    s.w.clear();
+    column_tail(rho, s_min, lam_top, p, gx, gw, ng, s);
+    return column_factors_joined(kpc, km, *hm, s);
+}
+}  // namespace mw899
+
+// The column tail's conjugate identity, H2_0(conj w) = conj(H1_0(w)) bit for
+// bit (`column_tail`), counted over the caller's arguments: the number of w
+// for which xsf's two Hankels are NOT exact conjugates, as uint64. The gate
+// of tests/test_near_interface_hankel_conj.py, run on every build CI makes.
+static py::ssize_t near_interface_hankel_conj_mismatches(
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast> w) {
+    const std::complex<double> *wp = w.data();
+    const py::ssize_t n = w.size();
+    py::ssize_t bad = 0;
+    for (py::ssize_t i = 0; i < n; ++i) {
+        const std::complex<double> a = std::conj(xsf::cyl_hankel_1(0.0, wp[i]));
+        const std::complex<double> b = xsf::cyl_hankel_2(0.0, std::conj(wp[i]));
+        if (std::memcmp(&a, &b, sizeof a) != 0) ++bad;
+    }
+    return bad;
+}
 
 // `six_point` over parallel (rho, z, zp) arrays: the (n, 6) table, OpenMP
 // across points with the GIL released. The wavenumbers arrive DERIVED
@@ -235,7 +406,7 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
     double lam_mult, int p, double detour, int n_threads,
     py::array_t<double, py::array::c_style | py::array::forcecast> gx,
     py::array_t<double, py::array::c_style | py::array::forcecast> gw,
-    uintptr_t cancel_flag = 0) {
+    uintptr_t cancel_flag = 0, py::object cache = py::none()) {
     if (rho.ndim() != 1 || offsets.ndim() != 1 || z.ndim() != 1 ||
         zp.ndim() != 1)
         throw std::invalid_argument("rho, offsets, z and zp must be 1-D");
@@ -324,6 +495,29 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
     const py::ssize_t n_col = static_cast<py::ssize_t>(by_column.size());
     const py::ssize_t n_mem = static_cast<py::ssize_t>(by_member.size());
 
+    // The column cache (see `mw899::ColumnCache`): every column's extents and
+    // its head + mid lookup, here with the GIL held and before any thread
+    // starts; the misses' new entries go in after the parallel regions.
+    mw899::ColumnCache *cc =
+        cache.is_none() ? nullptr : cache.cast<mw899::ColumnCache *>();
+    std::vector<double> c_ah, c_lt;
+    std::vector<std::shared_ptr<const mw899::HeadMid>> c_hit, c_new;
+    if (cc) {
+        cc->set_context(k_p, km, p, detour, gxp, gwp, ng);
+        c_ah.assign(nc, 0.0);
+        c_lt.assign(nc, 0.0);
+        c_hit.resize(nc);
+        c_new.resize(nc);
+        for (py::ssize_t c = 0; c < nc; ++c) {
+            if (ob(c + 1) == ob(c)) continue;
+            mw899::column_extents(k_p, km,
+                                  mw899::s_min_of(zb, pb, ob(c), ob(c + 1)),
+                                  lam_mult, c_ah[c], c_lt[c]);
+            c_hit[c] = cc->find(mw899::ColumnCache::key(rb(c), c_ah[c], c_lt[c]));
+        }
+    }
+    const bool cached = cc != nullptr;
+
     {
         py::gil_scoped_release release;
         NI_CANCEL_SETUP(cancel_flag);
@@ -336,10 +530,11 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
             const py::ssize_t c = by_column[j];
             const py::ssize_t lo = ob(c), hi = ob(c + 1);
             mw899::Scratch s;
-            mw899::column_rule(rb(c), k_p, km, mw899::s_min_of(zb, pb, lo, hi),
-                               lam_mult, p, detour, gxp, gwp, ng, s);
-            mw899::column_factors(kpc, km, s);
-            const size_t K = s.lam.size();
+            const size_t K = mw899::column_build(
+                rb(c), k_p, kpc, km, mw899::s_min_of(zb, pb, lo, hi), lam_mult,
+                p, detour, gxp, gwp, ng, cached, cached ? c_ah[c] : 0.0,
+                cached ? c_lt[c] : 0.0, cached ? c_hit[c].get() : nullptr,
+                cached ? &c_new[c] : nullptr, s);
             for (py::ssize_t i = lo; i < hi; ++i) {
                 mw_contour::cd out[6];
                 mw899::column_member(s, K, zb(i), pb(i), out);
@@ -351,10 +546,11 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
             const py::ssize_t c = by_member[j];
             const py::ssize_t lo = ob(c), hi = ob(c + 1);
             mw899::Scratch s;
-            mw899::column_rule(rb(c), k_p, km, mw899::s_min_of(zb, pb, lo, hi),
-                               lam_mult, p, detour, gxp, gwp, ng, s);
-            mw899::column_factors(kpc, km, s);
-            const size_t K = s.lam.size();
+            const size_t K = mw899::column_build(
+                rb(c), k_p, kpc, km, mw899::s_min_of(zb, pb, lo, hi), lam_mult,
+                p, detour, gxp, gwp, ng, cached, cached ? c_ah[c] : 0.0,
+                cached ? c_lt[c] : 0.0, cached ? c_hit[c].get() : nullptr,
+                cached ? &c_new[c] : nullptr, s);
             // `dynamic`: members of one column do NOT cost the same. The
             // rule is converged for the column's smallest s, so a member
             // with a larger s underflows part of its own tail and skips it
@@ -369,6 +565,12 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
             }
         }
         NI_THROW_IF_ABORTED();
+    }
+    if (cc) {
+        for (py::ssize_t c = 0; c < nc; ++c)
+            if (c_new[c])
+                cc->insert(mw899::ColumnCache::key(rb(c), c_ah[c], c_lt[c]),
+                           std::move(c_new[c]));
     }
     return vals;
 }
@@ -449,8 +651,8 @@ static inline py::ssize_t cell_of(double t, const double *e, py::ssize_t n) {
 //
 // each sum in index order, every step one fused multiply-add, the inner sum
 // started at +0.0 and restarted per i. `cell_sum` spells it for any width;
-// `cell_sum_fixed<NV>` is the same arithmetic at a compile-time width of
-// 4 NV doubles, held in registers (momwire#1290): with `nd` a runtime value
+// `cell_sum_fixed<ND>` is the same arithmetic at a compile-time width of
+// ND doubles, held in registers (momwire#1290): with `nd` a runtime value
 // GCC keeps `inner` in memory and every j step is a store-to-load round
 // trip. It also runs the inner sums of rows i and i + 1 together. They are
 // independent chains, so that changes when each fused op issues, not which
@@ -458,7 +660,7 @@ static inline py::ssize_t cell_of(double t, const double *e, py::ssize_t n) {
 // in order. The two are therefore the same floats entry for entry; the
 // width-generic reference stays reachable (`generic=True`) and is gated
 // against this one as uint64 (tests/test_sheet_fixed_width_1290.py). Only
-// the AVX2 build has the fixed route: the baseline, arm64 and MSVC builds
+// a lanes build (the AVX2 one) has the fixed route: the baseline, arm64 and MSVC builds
 // take the generic loop, which is the same floats anyway.
 static inline void cell_sum(const double *blk, const double *wr,
                             const double *ws, int p, int nd, double *acc) {
@@ -478,51 +680,57 @@ static inline void cell_sum(const double *blk, const double *wr,
     }
 }
 
-#if defined(__AVX2__) && defined(__FMA__) && !defined(_MSC_VER)
+#if MW_LANES_SIMD && MW_LANES_FMA_EXACT
 #define MW_SHEET_FIXED 1
-// ND = 4 NV doubles in NV ymm registers. `_mm256_fmadd_pd` is four
+// ND doubles in ND / W lane-layer vectors (momwire#1372). `fmadd` is W
 // independent fused multiply-adds, one per lane, each rounding exactly as
 // `std::fma` does on that lane's operands, so a lane is the scalar chain.
-// Spelled with intrinsics because GCC 11, left to vectorise the plain loops
-// at a fixed width, spilled the inner sums to the stack and gathered across
-// j, which was barely faster than the generic loop.
-template <int NV>
+// Spelled in vectors because GCC 11, left to vectorise the plain loops at a
+// fixed width, spilled the inner sums to the stack and gathered across j,
+// which was barely faster than the generic loop. A width the backend's W does
+// not divide takes the generic loop, which is the same floats.
+template <int ND>
 static inline void cell_sum_fixed(const double *blk, const double *wr,
                                   const double *ws, int p, double *acc) {
-    constexpr int ND = 4 * NV;
+    using namespace mw_lanes;
+    if constexpr (ND % W != 0) {
+        cell_sum(blk, wr, ws, p, ND, acc);
+    } else {
+    constexpr int NV = ND / W;
     const std::int64_t row = static_cast<std::int64_t>(p) * ND;
-    __m256d a[NV];
-    for (int v = 0; v < NV; ++v) a[v] = _mm256_setzero_pd();
+    vd a[NV];
+    for (int v = 0; v < NV; ++v) a[v] = zero();
     int i = 0;
     for (; i + 2 <= p; i += 2) {
-        __m256d x0[NV], x1[NV];
-        for (int v = 0; v < NV; ++v) x0[v] = x1[v] = _mm256_setzero_pd();
+        vd x0[NV], x1[NV];
+        for (int v = 0; v < NV; ++v) x0[v] = x1[v] = zero();
         const double *V0 = blk + i * row;
         const double *V1 = V0 + row;
         for (int j = 0; j < p; ++j) {
-            const __m256d w = _mm256_set1_pd(ws[j]);
+            const vd w = set1(ws[j]);
             for (int v = 0; v < NV; ++v) {
-                x0[v] = _mm256_fmadd_pd(w, _mm256_loadu_pd(V0 + j * ND + 4 * v), x0[v]);
-                x1[v] = _mm256_fmadd_pd(w, _mm256_loadu_pd(V1 + j * ND + 4 * v), x1[v]);
+                x0[v] = fmadd(w, loadu(V0 + j * ND + W * v), x0[v]);
+                x1[v] = fmadd(w, loadu(V1 + j * ND + W * v), x1[v]);
             }
         }
-        const __m256d w0 = _mm256_set1_pd(wr[i]), w1 = _mm256_set1_pd(wr[i + 1]);
-        for (int v = 0; v < NV; ++v) a[v] = _mm256_fmadd_pd(w0, x0[v], a[v]);
-        for (int v = 0; v < NV; ++v) a[v] = _mm256_fmadd_pd(w1, x1[v], a[v]);
+        const vd w0 = set1(wr[i]), w1 = set1(wr[i + 1]);
+        for (int v = 0; v < NV; ++v) a[v] = fmadd(w0, x0[v], a[v]);
+        for (int v = 0; v < NV; ++v) a[v] = fmadd(w1, x1[v], a[v]);
     }
     for (; i < p; ++i) {
-        __m256d x0[NV];
-        for (int v = 0; v < NV; ++v) x0[v] = _mm256_setzero_pd();
+        vd x0[NV];
+        for (int v = 0; v < NV; ++v) x0[v] = zero();
         const double *V0 = blk + i * row;
         for (int j = 0; j < p; ++j) {
-            const __m256d w = _mm256_set1_pd(ws[j]);
+            const vd w = set1(ws[j]);
             for (int v = 0; v < NV; ++v)
-                x0[v] = _mm256_fmadd_pd(w, _mm256_loadu_pd(V0 + j * ND + 4 * v), x0[v]);
+                x0[v] = fmadd(w, loadu(V0 + j * ND + W * v), x0[v]);
         }
-        const __m256d w0 = _mm256_set1_pd(wr[i]);
-        for (int v = 0; v < NV; ++v) a[v] = _mm256_fmadd_pd(w0, x0[v], a[v]);
+        const vd w0 = set1(wr[i]);
+        for (int v = 0; v < NV; ++v) a[v] = fmadd(w0, x0[v], a[v]);
     }
-    for (int v = 0; v < NV; ++v) _mm256_storeu_pd(acc + 4 * v, a[v]);
+    for (int v = 0; v < NV; ++v) storeu(acc + W * v, a[v]);
+    }
 }
 #else
 #define MW_SHEET_FIXED 0
@@ -644,9 +852,9 @@ static void near_interface_grid_sheet(
             // width, and the reference, through the generic loop.
 #if MW_SHEET_FIXED
             if (fixed_ok && nk == 6)
-                mw_sheet::cell_sum_fixed<3>(blk, wr, ws, p, acc);
+                mw_sheet::cell_sum_fixed<12>(blk, wr, ws, p, acc);
             else if (fixed_ok && nk == 4)
-                mw_sheet::cell_sum_fixed<2>(blk, wr, ws, p, acc);
+                mw_sheet::cell_sum_fixed<8>(blk, wr, ws, p, acc);
             else
 #endif
                 mw_sheet::cell_sum(blk, wr, ws, p, nd, acc);
@@ -697,6 +905,19 @@ PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
     // built between #680 and #899 exports `near_interface_680` and not this
     // one, so the two entries have to be asked about separately.
     m.attr("near_interface_columns_899") = true;
+    m.def("near_interface_hankel_conj_mismatches",
+          &near_interface_hankel_conj_mismatches, py::arg("w"),
+          "How many w break H2_0(conj w) == conj(H1_0(w)) as uint64 -- the "
+          "identity the column tail's down-ray rests on (TEST-ONLY).");
+    // The fill-held head + mid cache of the column twin (`mw899::ColumnCache`).
+    py::class_<mw899::ColumnCache>(m, "ColumnCache")
+        .def(py::init<size_t>(), py::arg("max_bytes"))
+        .def_property_readonly("hits", &mw899::ColumnCache::hits)
+        .def_property_readonly("misses", &mw899::ColumnCache::misses)
+        .def_property_readonly("evictions", &mw899::ColumnCache::evictions)
+        .def_property_readonly("entries", &mw899::ColumnCache::entries)
+        .def_property_readonly("bytes", &mw899::ColumnCache::bytes)
+        .def_property_readonly("max_bytes", &mw899::ColumnCache::max_bytes);
     m.def("near_interface_six_batch", &near_interface_six_batch,
           py::arg("k_p"), py::arg("k_m"), py::arg("rho"), py::arg("z"),
           py::arg("zp"), py::arg("rtol"), py::arg("lam_mult"),
@@ -709,6 +930,7 @@ PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
           py::arg("z"), py::arg("zp"), py::arg("lam_mult"), py::arg("p"),
           py::arg("detour"), py::arg("n_threads"), py::arg("gx"),
           py::arg("gw"), py::arg("cancel_flag") = 0,
+          py::arg("cache") = py::none(),
           "six_columns over CONCATENATED columns -> (n, 6) complex. Column c "
           "owns members offsets[c]..offsets[c+1], all at rho[c]; the answer "
           "keeps the members' order. Parallel over columns, and over the "

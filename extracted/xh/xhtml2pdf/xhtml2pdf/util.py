@@ -130,10 +130,44 @@ class Memoized:
             return self.func(*args, **kwargs)
 
 
+#: (text, font name, size, encoding) -> width, for stringWidth below.
+_string_widths: dict[tuple, float] = {}
+
+#: Entries kept before the cache starts over. A long book reaches a few tens
+#: of thousands of distinct words; this keeps a pathological document from
+#: holding more than some megabytes.
+STRING_WIDTHS_MAX: int = 100_000
+
+
+def stringWidth(text, fontName, fontSize, encoding="utf8") -> float:
+    """
+    pdfmetrics.stringWidth, remembered for the length of a render.
+
+    Breaking a paragraph into lines measures every word, again for every
+    width it is tried at, and ReportLab without its C accelerator measures
+    in Python: encode the word, then sum a width per byte. The same words
+    recur all through a document, so most of those were measured before.
+
+    The cache is dropped at the end of each render, with the memoized
+    results, so a font registered again under the same name between two
+    documents is measured afresh.
+    """
+    key = (text, fontName, fontSize, encoding)
+    width = _string_widths.get(key)
+    if width is None:
+        if len(_string_widths) >= STRING_WIDTHS_MAX:
+            _string_widths.clear()
+        width = _string_widths[key] = pdfmetrics.stringWidth(
+            text, fontName, fontSize, encoding
+        )
+    return width
+
+
 def reset_caches() -> None:
     """Drop every memoized result. Called at the end of each render."""
     for memoized in Memoized._instances:
         memoized.clear()
+    _string_widths.clear()
 
 
 def toList(value: Any, *, cast_tuple: bool = True) -> list:
@@ -222,6 +256,27 @@ def _rgbFunctionColor(function, default):
     return Color(_clamp01(red), _clamp01(green), _clamp01(blue), alpha=_clamp01(alpha))
 
 
+def _hexAlphaColor(value, original, default):
+    """
+    Read `#rgba` or `#rrggbbaa`, the hex forms with an alpha channel.
+
+    reportlab reads neither: `#rgba` failed an assertion and took the
+    document down, and `#rrggbbaa` was read as one big number, a colour
+    nobody wrote.
+    """
+    digits = value[1:]
+    if len(digits) == 4:
+        digits = "".join(digit * 2 for digit in digits)
+    try:
+        red, green, blue, alpha = (
+            int(digits[i : i + 2], 16) / 255.0 for i in range(0, 8, 2)
+        )
+    except ValueError:
+        log.warning("Cannot read the colour %r, using %r", original, default)
+        return default
+    return Color(red, green, blue, alpha=alpha)
+
+
 @Memoized
 def getColor(value, default=None):
     """
@@ -252,6 +307,8 @@ def getColor(value, default=None):
         return default
     if value in COLOR_BY_NAME:
         return COLOR_BY_NAME[value]
+    if value.startswith("#") and len(value) in {5, 9}:
+        return _hexAlphaColor(value, original, default)
     if value.startswith("#") and len(value) == 4:
         value = "#" + value[1] + value[1] + value[2] + value[2] + value[3] + value[3]
     elif rgb_match := rgb_re.match(value):
@@ -263,7 +320,9 @@ def getColor(value, default=None):
 
     try:
         return toColor(value, default)  # Calling the reportlab function
-    except ValueError:
+    except (ValueError, AssertionError):
+        # AssertionError too: toColor asserts on some shapes it cannot read,
+        # a hex of the wrong length among them.
         # reportlab raises rather than handing back the default it was given.
         # A colour nobody can read is worth a line in the log; it is not worth
         # abandoning the document.
@@ -1091,9 +1150,23 @@ def getBackgroundImageReader(file_object):
 
     from reportlab.lib.utils import ImageReader
 
+    from xhtml2pdf.config.resources import ResourceAccessError, current_policy
+
     try:
         data = file_object.getData()
         reader = ImageReader(BytesIO(data)) if data else None
+        if reader is not None:
+            width, height = reader.getSize()
+            current_policy().check_image_pixels(width, height, key)
+            # Decoded now, once: a truncated or corrupt file left to the
+            # drawing raised from inside ReportLab and ended the document.
+            reader.getRGBData()
+    except ResourceAccessError as e:
+        log.warning("Blocked by the resource policy: %s", e)
+        reader = None
+    except (OSError, SyntaxError) as e:
+        log.warning("Cannot decode background image %r: %s", key[:120], e)
+        reader = None
     except Exception:
         log.warning("Could not read background image %r", key, exc_info=True)
         reader = None
@@ -2068,6 +2141,40 @@ class ImageWarning(Exception):  # noqa: N818
 _font_coverage: dict[str, frozenset[int] | None] = {}
 
 
+#: The two base-14 faces with an encoding of their own, and ReportLab's codec
+#: for it. Their glyph names -- "a1" to "a191" in ZapfDingbats -- are not in
+#: the Adobe glyph list, so read by name ZapfDingbats covered only the space
+#: and every dingbat was reported missing. The codec is what ReportLab itself
+#: encodes their text with.
+_SYMBOLIC_CODECS: dict[str, str] = {
+    "SymbolEncoding": "symbol",
+    "ZapfDingbatsEncoding": "zapfdingbats",
+}
+
+
+def _codec_coverage(codec: str) -> frozenset[int]:
+    """
+    Every codepoint `codec` can encode.
+
+    Decoding its 256 codes finds one codepoint per glyph, but a glyph can be
+    reached from more than one: Symbol's mu decodes to the micro sign and
+    encodes from the Greek letter too. Those others are in the same Unicode
+    blocks, so every codepoint of the blocks the decoded ones touch is tried.
+    """
+    decoded: set[int] = set()
+    for code in range(256):
+        with contextlib.suppress(UnicodeDecodeError):
+            decoded.update(ord(char) for char in bytes([code]).decode(codec))
+    codepoints = set(decoded)
+    for block in {cp >> 8 for cp in decoded}:
+        for cp in range(block << 8, (block + 1) << 8):
+            if cp not in codepoints and not 0xD800 <= cp < 0xE000:
+                with contextlib.suppress(UnicodeEncodeError):
+                    chr(cp).encode(codec)
+                    codepoints.add(cp)
+    return frozenset(codepoints)
+
+
 def _coverage(font_name: str) -> frozenset[int] | None:
     """
     Every codepoint `font_name` has a glyph for, or None if it cannot be told.
@@ -2094,6 +2201,8 @@ def _coverage(font_name: str) -> frozenset[int] | None:
     char_to_glyph = getattr(face, "charToGlyph", None)
     if char_to_glyph is not None:
         coverage = frozenset(char_to_glyph)
+    elif getattr(font, "encName", None) in _SYMBOLIC_CODECS:
+        coverage = _codec_coverage(_SYMBOLIC_CODECS[font.encName])
     else:
         vector = getattr(getattr(font, "encoding", None), "vector", None)
         if vector is not None:
@@ -2134,6 +2243,11 @@ def split_by_coverage(text: str, font_names: Sequence[str]) -> list[tuple[str, s
         return [(text, font_names[0])] if text and font_names else []
 
     first = font_names[0]
+    # Nearly always the first face has every character, and a set answers
+    # that in one call where the loop below asks once per character.
+    coverage = _coverage(first)
+    if coverage is None or coverage.issuperset(map(ord, text)):
+        return [(text, first)]
     runs: list[tuple[str, str]] = []
     start = 0
     current = None

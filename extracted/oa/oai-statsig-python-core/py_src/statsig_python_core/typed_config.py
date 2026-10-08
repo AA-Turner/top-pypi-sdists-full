@@ -122,7 +122,7 @@ class _TypedConfigs:
         from google.protobuf.json_format import ParseDict
 
         try:
-            value = ParseDict(raw["value"], message_type())
+            value = ParseDict(raw["value"], message_type(), ignore_unknown_fields=True)
         except Exception as error:
             raise TypedConfigConversionError(
                 f"Failed to convert typed config {name!r}"

@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ops-scenario
-Version: 8.8.3
+Version: 8.9.0
 Summary: Python library providing a state-transition testing API for Operator Framework charms.
+Project-URL: Homepage, https://github.com/canonical/operator
+Project-URL: Bug Tracker, https://github.com/canonical/operator/issues
 Author-email: Pietro Pasotti <pietro.pasotti@canonical.com>
 Maintainer: The Charm Tech team at Canonical Ltd.
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://github.com/canonical/operator
-Project-URL: Bug Tracker, https://github.com/canonical/operator/issues
 Keywords: juju,test
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
@@ -15,10 +15,10 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
+Requires-Dist: ops==3.9.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: typing-extensions>=4.9.0
 Description-Content-Type: text/markdown
-Requires-Dist: ops==3.8.3
-Requires-Dist: PyYAML>=6.0.1
-Requires-Dist: typing_extensions>=4.9.0
 
 # ops-scenario, the unit testing framework for ops charms
 
@@ -142,7 +142,7 @@ constructive feedback.
   Meet us in the #charmhub-charmdev channel on Matrix.
 * [Report bugs](https://github.com/canonical/operator/issues): We want to know
   about the problems so we can fix them.
-* [Contribute docs](https://github.com/canonical/operator/blob/main/HACKING.md#contributing-documentation):
+* [Contribute docs](https://github.com/canonical/operator/blob/main/CONTRIBUTING.md#documentation):
   Get started on GitHub.
 
 ## Contributing and developing
@@ -152,7 +152,7 @@ Anyone can contribute to ops and `ops-scenario`. It's best to start by
 description of the problem or feature request, but you can also
 [open a pull request](https://github.com/canonical/operator/pulls) directly.
 
-Read our [guide](./CONTRIBUTING.md) for more details on how to work on and
+Read our [guide](../CONTRIBUTING.md) for more details on how to work on and
 contribute to `ops-scenario`.
 
 Currently, releases of `ops-scenario` are done in lockstep with releases of ops

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, cast
 
@@ -7,13 +8,18 @@ import pypdf
 from PIL import Image
 from reportlab.pdfgen.canvas import Canvas
 
-from xhtml2pdf.files import pisaFileObject
+from xhtml2pdf.config.resources import ResourceAccessError, current_policy
+from xhtml2pdf.files import InlineDataURI, NetworkFileUri, pisaFileObject
+from xhtml2pdf.util import ImageWarning
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from tempfile import _TemporaryFileWrapper
 
     from xhtml2pdf.xhtml2pdf_reportlab import PmlBaseDoc
+
+
+log = logging.getLogger(__name__)
 
 
 class WaterMarks:
@@ -59,6 +65,8 @@ class WaterMarks:
         if opacity:
             file: BytesIO | _TemporaryFileWrapper | None = pisafile.getFile()
             img: Image.Image = Image.open(file)
+            width, height = img.size
+            current_policy().check_image_pixels(width, height, pisafile.uri)
             img = img.convert("RGBA")
             # Scale the alpha channel that is there rather than replacing it.
             # putalpha with a single number overwrites the whole channel, so
@@ -117,17 +125,49 @@ class WaterMarks:
 
                 if bgfile is not None and not bgfile.notFound():
                     pgcontext = pagetemplate.backgroundContext
+                    if not WaterMarks.pdf_background_allowed(bgfile):
+                        continue
                     if bgfile.getMimeType().startswith("image/"):
                         # The background is an image, we need to generate a PDF backdrop for this
                         # image.
-                        bgfile = WaterMarks.generate_pdf_background(
-                            bgfile,
-                            pagetemplate.pagesize,
-                            is_portrait=pagetemplate.isPortrait(),
-                            context=pagetemplate.backgroundContext,
-                        )
+                        try:
+                            bgfile = WaterMarks.generate_pdf_background(
+                                bgfile,
+                                pagetemplate.pagesize,
+                                is_portrait=pagetemplate.isPortrait(),
+                                context=pagetemplate.backgroundContext,
+                            )
+                        except ResourceAccessError as e:
+                            log.warning("Blocked by the resource policy: %s", e)
+                            continue
+                        except (ImageWarning, OSError, SyntaxError) as e:
+                            # A truncated or corrupt image: the page goes
+                            # without its background rather than the document
+                            # without its pages.
+                            log.warning(
+                                "Cannot use the page background %r: %s",
+                                str(bgfile.uri)[:120],
+                                e,
+                            )
+                            continue
 
                     yield range(page, pages[counter]), bgfile, int(pgcontext["step"])
+
+    @staticmethod
+    def pdf_background_allowed(bgfile: pisaFileObject) -> bool:
+        """Whether the policy lets this background be parsed as a PDF."""
+        if (bgfile.getMimeType() or "").startswith("image/"):
+            return True
+        if current_policy().allow_remote_pdf_backgrounds or not isinstance(
+            bgfile.instance, NetworkFileUri | InlineDataURI
+        ):
+            return True
+        log.warning(
+            "Blocked by the resource policy: a PDF background fetched or inline"
+            " (%s) is not allowed",
+            str(bgfile.getAbsPath() or bgfile.uri)[:120],
+        )
+        return False
 
     @staticmethod
     def has_backgrounds(doc: PmlBaseDoc) -> bool:
@@ -164,8 +204,20 @@ class WaterMarks:
 
         has_bg: bool = False
         for pages, bgouter, step in WaterMarks.get_watermark(doc, len(pdfoutput.pages)):
-            bginput: pypdf.PdfReader = pypdf.PdfReader(bgouter.getBytesIO())
-            pagebg: pypdf.PageObject = bginput.pages[0]
+            try:
+                bginput: pypdf.PdfReader = pypdf.PdfReader(bgouter.getBytesIO())
+                pagebg: pypdf.PageObject = bginput.pages[0]
+            except Exception:
+                # A PDF named by the document is its author's input, and pypdf
+                # raises whatever the malformed part of it leads to. A broken
+                # background is left out, as a broken image is; it used to
+                # abort the whole render.
+                log.warning(
+                    "Could not read the PDF background %r",
+                    bgouter.getAbsPath(),
+                    exc_info=True,
+                )
+                continue
             for index, ctr in enumerate(pages):
                 page: pypdf.PageObject = pdfoutput.pages[ctr - 1]
                 if index % step == 0:

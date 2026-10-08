@@ -316,6 +316,21 @@ class OIDCPasswordTests(BaseOIDCTests, utils.TestCase):
             self.AUTH_URL, self.IDENTITY_PROVIDER, self.PROTOCOL, **params
         )
 
+    def test_sanitize_masks_otp_fields(self):
+        sanitized = self.plugin._sanitize(
+            {
+                'totp': '123456',
+                'idp_otp': '654321',
+                'mfa_code': '999999',
+                'scope': 'openid',
+            }
+        )
+
+        self.assertEqual('***', sanitized['totp'])
+        self.assertEqual('***', sanitized['idp_otp'])
+        self.assertEqual('***', sanitized['mfa_code'])
+        self.assertEqual('openid', sanitized['scope'])
+
     def test_unscoped_cache_id_varies_by_identity_and_credentials(self):
         base_id = self.plugin.get_unscoped_cache_id()
         self.assertIsNotNone(base_id)
@@ -577,6 +592,16 @@ class OIDCDeviceAuthorizationTest(BaseOIDCTests, utils.TestCase):
             oidc_fixtures.DEVICE_CODE_RESP["device_code"],
             result["device_code"],
         )
+
+    def test_device_authorization_defaults_missing_interval(self):
+        device_resp = dict(oidc_fixtures.DEVICE_CODE_RESP)
+        del device_resp['interval']
+
+        self.requests_mock.post(self.DEVICE_AUTH_ENDPOINT, json=device_resp)
+
+        self.plugin.get_payload(self.session)
+
+        self.assertEqual(5, self.plugin.interval)
 
     def test_get_device_authorization_request_without_client_secret(self):
         """Test device authorization request, without client_secret.

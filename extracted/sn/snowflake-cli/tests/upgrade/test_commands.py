@@ -71,14 +71,15 @@ def test_upgrade_help_is_callable_when_hidden(runner):
     result = runner.invoke(["upgrade", "--help"])
     assert result.exit_code == 0, result.output
     assert "--dry-run" in result.output
-    assert "snowflake-managed" in result.output
+    assert "--revert" in result.output
+    assert "direct install" in result.output
 
 
 def test_refuse_pypi_default_install(runner, monkeypatch):
     monkeypatch.setattr(manager.platform, "system", lambda: "Linux")
     result = runner.invoke(["upgrade"])
     assert result.exit_code == 0, result.output
-    assert "snowflake-managed distribution" in result.output
+    assert "direct install of Snowflake CLI" in result.output
     assert "This install is pypi." in result.output
     assert INSTALL_SH_COMMAND in result.output
 
@@ -122,7 +123,7 @@ def test_already_current(runner, monkeypatch):
     result = runner.invoke(["upgrade", "--format", "JSON"])
     assert result.exit_code == 0, result.output
     payload = _parse_json(result.output)
-    assert payload["channel"] == "snowflake-managed"
+    assert payload["channel"] == "direct-install"
     assert payload["status"] == STATUS_ALREADY_CURRENT
     assert payload["from"] == "3.12.0"
     assert payload["to"] == "3.12.0"
@@ -182,11 +183,21 @@ def test_dry_run_does_not_bypass_refuse(runner):
     assert payload["status"] == STATUS_REFUSED
 
 
+def test_revert_refuses_pypi(runner):
+    result = runner.invoke(["upgrade", "--revert", "--format", "JSON"])
+    assert result.exit_code == 0, result.output
+    payload = _parse_json(result.output)
+    assert payload["status"] == STATUS_REFUSED
+    assert payload["channel"] == "pypi"
+    assert "install_command" in payload
+
+
 def test_version_unchanged_by_upgrade_command(runner):
     result = runner.invoke(["--version"])
     assert result.exit_code == 0, result.output
     assert result.output.startswith("Snowflake CLI version: 0.0.0-test_patched")
     assert "snowflake-managed" not in result.output
+    assert "direct-install" not in result.output
     assert "pypi" not in result.output
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quantecon
-Version: 0.12.0
+Version: 0.13.0
 Summary: Import the main names to top level.
 Keywords: quantitative,economics
 Author-email: QuantEcon Project <admin@quantecon.org>
@@ -18,8 +18,8 @@ Classifier: Topic :: Scientific/Engineering
 License-File: LICENSE
 Requires-Dist: numba>=0.56.0
 Requires-Dist: numpy>=1.17.0
-Requires-Dist: requests
 Requires-Dist: scipy>=1.5.0
+Requires-Dist: requests ; extra == "notebooks"
 Requires-Dist: pytest ; extra == "testing"
 Requires-Dist: coverage ; extra == "testing"
 Requires-Dist: flake8 ; extra == "testing"
@@ -32,6 +32,7 @@ Project-URL: Funding, https://quantecon.org
 Project-URL: Homepage, https://quantecon.org/quantecon-py/
 Project-URL: Source, https://github.com/quantecon/QuantEcon.py
 Project-URL: Tracker, https://github.com/quantecon/QuantEcon.py/issues
+Provides-Extra: notebooks
 Provides-Extra: testing
 
 # QuantEcon.py
@@ -54,13 +55,11 @@ A high performance, open source Python code library for economics
 
 ## Installation
 
-Before installing `quantecon` we recommend you install the [Anaconda](https://www.anaconda.com/download/) Python distribution, which includes a full suite of scientific python tools.
-
-Next you can install quantecon by opening a terminal prompt and typing
+Install QuantEcon.py from PyPI:
 
     pip install quantecon
 
-or using conda-forge by typing
+If you use conda, install from conda-forge (Anaconda Distribution is not required):
 
     conda install -c conda-forge quantecon
 

@@ -1,6 +1,6 @@
 [project]
 name = "dlthub-client"
-version = "0.28.6"
+version = "0.28.7"
 description = "CLI tool for accessing dltHub runtime"
 authors = [{ name = "dltHub Inc.", email = "services@dlthub.com" }]
 requires-python = ">=3.10, <3.15"
@@ -29,7 +29,7 @@ classifiers = [
 dependencies = [
     "httpx>=0.26.0",
     "packaging>=23.0",
-    "pyjwt>=2.13.0",
+    "pyjwt>=2.15.0",
     "cron-descriptor>=1.2.32",
     "croniter>=6.0.0",
     "tabulate>=0.9.0",
@@ -74,7 +74,7 @@ docs-lint = [
 [tool.uv]
 # Add constraints for transitory dependencies, usually a result of a dependabot alert
 constraint-dependencies = [
-    "urllib3>=2.7.0",
+    "urllib3>=2.8.0",
     "aiohttp>=3.14.1",
     "pyasn1>=0.6.4",
     "pygments>=2.20.0",
@@ -86,7 +86,7 @@ constraint-dependencies = [
 ]
 
 [tool.uv.sources]
-dlt = { url="https://github.com/dlt-hub/dlt/archive/refs/tags/1.30.1a0.zip"}
+dlt = { url = "https://github.com/dlt-hub/dlt/archive/refs/tags/1.31.0.zip" }
 
 # mark as OSS dlt extension
 [project.entry-points.dlt]

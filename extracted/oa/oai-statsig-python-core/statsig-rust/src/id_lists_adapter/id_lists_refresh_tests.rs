@@ -374,6 +374,7 @@ async fn frozen_retries_and_next_refresh_use_distinct_generations() {
             );
         }
     }
+    provider.set("a", vec![Outcome::Body(b"+a\n+b\n+c\n".to_vec())]);
     gate.add_permits(1);
     adapter.sync_id_lists().await.unwrap();
     let requests = provider.requests.lock();
@@ -434,39 +435,39 @@ async fn empty_manifest_publishes_removal_of_all_lists_without_file_downloads() 
 
 #[tokio::test]
 #[serial]
-async fn cdn_download_uses_query_range_and_accepts_http_200() {
+async fn cdn_download_uses_range_header_and_normalizes_http_200() {
     let (provider, adapter, listener) = setup(&["a"]);
     let url = "https://statsigcdn.openai.com/v1/download_id_list_file/a";
     provider.manifest.lock().get_mut("a").unwrap().url = url.into();
     listener
         .metadata
         .lock()
-        .insert("a".into(), metadata("a", 1, 1));
+        .insert("a".into(), metadata("a", 3, 1));
+    provider.manifest.lock().get_mut("a").unwrap().size = 6;
     provider
         .outcomes
         .lock()
-        .insert(url.into(), vec![Outcome::Body(b"+a\n".to_vec())].into());
+        .insert(url.into(), vec![Outcome::Body(b"+a\n+b\n".to_vec())].into());
     adapter.sync_id_lists().await.unwrap();
     let requests = provider.requests.lock();
     let request = requests.last().unwrap();
+    assert!(request.query_params.is_none());
+    assert_eq!(request.headers.as_ref().unwrap()["Range"], "bytes=3-");
     assert_eq!(
-        request
-            .query_params
-            .as_ref()
-            .unwrap()
-            .get("range")
-            .map(String::as_str),
-        Some("1-")
+        request.headers.as_ref().unwrap()["statsig-id-list-file-size"],
+        "6"
     );
-    assert!(!request.headers.as_ref().unwrap().contains_key("Range"));
-    assert!(
-        !request
-            .headers
-            .as_ref()
-            .unwrap()
-            .contains_key("statsig-id-list-file-size")
+    assert_eq!(
+        request.headers.as_ref().unwrap()["Accept-Encoding"],
+        "identity"
     );
     assert_eq!(listener.publications.lock().len(), 1);
+    assert_eq!(
+        listener.publications.lock()[0]["a"]
+            .raw_changeset
+            .as_deref(),
+        Some("+b\n")
+    );
 }
 
 #[tokio::test]

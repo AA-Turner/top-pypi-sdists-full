@@ -138,6 +138,13 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_mute_unregistered_agents_for_organization(self) -> None:
+        """Test case for mute_unregistered_agents_for_organization
+
+        Mute Organization Unregistered Agents
+        """
+        pass
+
     def test_put_agents(self) -> None:
         """Test case for put_agents
 
@@ -156,6 +163,13 @@ class TestAgentsV1Api(unittest.TestCase):
         """Test case for unmute_unregistered_agents
 
         Unmute Unregistered Agents.
+        """
+        pass
+
+    def test_unmute_unregistered_agents_for_organization(self) -> None:
+        """Test case for unmute_unregistered_agents_for_organization
+
+        Unmute Organization Unregistered Agents
         """
         pass
 

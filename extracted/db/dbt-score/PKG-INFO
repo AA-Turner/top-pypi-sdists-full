@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-score
-Version: 0.18.0
+Version: 0.19.0
 Summary: Linter for dbt metadata.
 Author-email: Picnic Analyst Development Platform <analyst-development-platform@teampicnic.com>
 License: MIT
@@ -10,13 +10,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
 Requires-Dist: click<9.0.0,>=7.1.1
-Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Description-Content-Type: text/markdown
 
 # dbt-score
@@ -232,7 +231,7 @@ Check out the [contributing guide][contributors-guide] to get started. 🚀
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - dbt-core 1.5+
 
 ## License

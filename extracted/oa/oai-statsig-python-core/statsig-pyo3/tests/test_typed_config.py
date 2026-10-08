@@ -274,9 +274,50 @@ def test_unavailable_never_substitutes_previous_value(sdk, payload_state):
     assert sdk.get().value == {}
 
 
+def test_conversion_ignores_unknown_fields_and_enum_names(sdk):
+    sdk.raw = selected(
+        2,
+        {
+            "number": 7,
+            "type": "NEW_UNKNOWN_ENUM_VALUE",
+            "newField": {"enabled": True},
+            "options": {"deprecated": True, "newNestedField": 42},
+        },
+    )
+
+    result = sdk.get(message_type=FieldDescriptorProto)
+
+    assert result.value == FieldDescriptorProto(number=7, options={"deprecated": True})
+    assert result.details.version == 2
+
+
+def test_callback_conversion_ignores_unknown_fields(sdk):
+    callbacks = Queue()
+    sdk.raw = selected(1, {"number": 1, "newField": True})
+    sdk.register(callbacks.put, message_type=FieldDescriptorProto)
+    assert sdk._typed_configs.observers[0].revision == 1
+    assert callbacks.empty()
+
+    sdk.publish(
+        selected(
+            2,
+            {
+                "number": 2,
+                "newField": True,
+                "options": {"deprecated": True, "newNestedField": 42},
+            },
+        )
+    )
+    result = callbacks.get(timeout=5)
+    assert result.value == FieldDescriptorProto(number=2, options={"deprecated": True})
+    assert result.details.version == 2
+    sdk.wait_for_observation()
+    assert sdk._typed_configs.observers[0].error is None
+
+
 def test_conversion_failure_is_explicit_with_cause_for_each_user(sdk):
     sdk.get()
-    sdk.raw = selected(2, {"number": "invalid"})
+    sdk.raw = selected(2, {"number": "invalid", "newField": True})
     for user in (sdk.user, StatsigUser("other")):
         with pytest.raises(TypedConfigConversionError) as caught:
             sdk.get(user=user, message_type=FieldDescriptorProto)

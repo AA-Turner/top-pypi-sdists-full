@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyFrame, PyType};
 #[cfg(test)]
 use std::env::current_dir;
+use std::ops::Deref;
 #[cfg(test)]
 use std::path::Path;
 use std::time::SystemTime;
@@ -65,16 +66,56 @@ impl<'a, 'py> Arg<'a, 'py> {
     }
 }
 
+const FRAME_ID_PREFIX: &[u8; 4] = b"frm_";
+const FRAME_ID_LEN: usize = FRAME_ID_PREFIX.len() + ulid::ULID_LEN;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct FrameId([u8; FRAME_ID_LEN]);
+
+impl FrameId {
+    fn new() -> Self {
+        let mut bytes = [0; FRAME_ID_LEN];
+        bytes[..FRAME_ID_PREFIX.len()].copy_from_slice(FRAME_ID_PREFIX);
+        let mut ulid = [0; ulid::ULID_LEN];
+        Ulid::new().array_to_str(&mut ulid);
+        bytes[FRAME_ID_PREFIX.len()..].copy_from_slice(&ulid);
+        Self(bytes)
+    }
+
+    #[cfg(test)]
+    pub(super) fn from_str(frame_id: &str) -> Self {
+        Self(
+            frame_id
+                .as_bytes()
+                .try_into()
+                .expect("Kolo frame IDs have a fixed length"),
+        )
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        // Values are either generated from ASCII constants or copied from a valid `str`.
+        unsafe { std::str::from_utf8_unchecked(&self.0) }
+    }
+}
+
+impl Deref for FrameId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
 #[derive(Default)]
 pub struct CallFrames {
-    frames: Vec<(Py<PyAny>, String)>,
+    frames: Vec<(Py<PyAny>, FrameId)>,
 }
 
 impl CallFrames {
     pub fn get_bound<'py>(&self, py: Python<'py>) -> Vec<(Bound<'py, PyAny>, String)> {
         self.frames
             .iter()
-            .map(|(frame, frame_id)| (frame.bind(py).clone(), frame_id.clone()))
+            .map(|(frame, frame_id)| (frame.bind(py).clone(), frame_id.as_str().to_owned()))
             .collect()
     }
 
@@ -82,7 +123,7 @@ impl CallFrames {
         &mut self,
         pyframe: &Bound<'_, PyFrame>,
         event: Event,
-        frame_id: &str,
+        frame_id: &FrameId,
     ) -> Result<Option<UserCodeCallSite>, PyErr> {
         let py = pyframe.py();
         let user_code_call_site = match self
@@ -93,7 +134,7 @@ impl CallFrames {
             .find(|(_frame, call_frame_id)| call_frame_id != frame_id)
         {
             Some((call_frame, call_frame_id)) => {
-                build_user_code_call_site(call_frame.bind(py), call_frame_id)?
+                build_user_code_call_site(call_frame.bind(py), *call_frame_id)?
             }
             None => None,
         };
@@ -101,11 +142,10 @@ impl CallFrames {
         Ok(user_code_call_site)
     }
 
-    fn update_call_frames(&mut self, event: Event, frame: &Bound<'_, PyAny>, frame_id: &str) {
+    fn update_call_frames(&mut self, event: Event, frame: &Bound<'_, PyAny>, frame_id: &FrameId) {
         match (event, frame_id) {
             (Event::Call | Event::Resume | Event::Throw, frame_id) => {
-                self.frames
-                    .push((frame.clone().into(), frame_id.to_string()));
+                self.frames.push((frame.clone().into(), *frame_id));
             }
             (Event::Return | Event::Unwind | Event::Yield, _) => {
                 self.frames.pop();
@@ -116,28 +156,28 @@ impl CallFrames {
 
 #[derive(Default)]
 pub struct FrameIds {
-    frame_ids: HashMap<usize, String>,
+    frame_ids: HashMap<usize, FrameId>,
 }
 
 impl FrameIds {
-    fn set(&mut self, pyframe_id: usize) -> String {
-        let frame_id = frame_id();
-        self.frame_ids.insert(pyframe_id, frame_id.clone());
+    fn set(&mut self, pyframe_id: usize) -> FrameId {
+        let frame_id = FrameId::new();
+        self.frame_ids.insert(pyframe_id, frame_id);
         frame_id
     }
 
-    fn get(&self, pyframe_id: usize) -> String {
+    fn get(&self, pyframe_id: usize) -> FrameId {
         match self.frame_ids.get(&pyframe_id) {
-            Some(frame_id) => frame_id.clone(),
-            None => frame_id(),
+            Some(frame_id) => *frame_id,
+            None => FrameId::new(),
         }
     }
 
-    pub fn get_option(&self, pyframe_id: usize) -> Option<String> {
-        self.frame_ids.get(&pyframe_id).cloned()
+    pub(crate) fn get_option(&self, pyframe_id: usize) -> Option<FrameId> {
+        self.frame_ids.get(&pyframe_id).copied()
     }
 
-    pub fn get_or_set(&mut self, event: Event, pyframe_id: usize) -> String {
+    pub(crate) fn get_or_set(&mut self, event: Event, pyframe_id: usize) -> FrameId {
         match event {
             Event::Call | Event::Resume | Event::Throw => self.set(pyframe_id),
             Event::Return | Event::Unwind | Event::Yield => self.get(pyframe_id),
@@ -199,8 +239,7 @@ pub fn timestamp() -> f64 {
 
 /// Create a Kolo frame_id from a ulid.
 pub fn frame_id() -> String {
-    let frame_ulid = Ulid::new();
-    format!("frm_{}", frame_ulid.to_string())
+    FrameId::new().as_str().to_owned()
 }
 
 /// Create a Kolo trace_id from a ulid.
@@ -307,7 +346,7 @@ fn _get_qualname_inner(
             let function = getattr_static.call1((locals_self, co_name))?;
             let builtins = py.import("builtins")?;
             let property = builtins.getattr(intern!(py, "property"))?;
-            let property = property.downcast()?;
+            let property = property.cast()?;
             let function = match function.is_instance(property)? {
                 true => function.getattr(intern!(py, "fget"))?,
                 false => function,

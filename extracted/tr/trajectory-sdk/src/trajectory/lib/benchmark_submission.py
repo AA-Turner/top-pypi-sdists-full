@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-import httpx
+import httpx2
 
 from trajectory import Client
 from trajectory.lib._exceptions import FileUploadError
@@ -177,7 +177,7 @@ class SubmissionUpload:
     client_context = (
       nullcontext(http_client)
       if http_client is not None
-      else httpx.Client(timeout=120.0, follow_redirects=True)
+      else httpx2.Client(timeout=120.0, follow_redirects=True)
     )
     with client_context as upload_client:
       for batch in self._upload_batches():

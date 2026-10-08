@@ -22,7 +22,7 @@ from matrx_ai.tools.arg_models import (
     CloudFileArgs,
     ContextArgs,
     ContextPatchArgs,
-    DatasetArgs,
+    TableArgs,
     DesktopAppsArgs,
     DesktopAudioArgs,
     DesktopClipboardArgs,
@@ -741,8 +741,8 @@ _MODULE_LOADERS = {
     "matrx_ai.tools.implementations.database": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.database"
     ),
-    "matrx_ai.tools.implementations.datasets_tools": lambda: importlib.import_module(
-        "matrx_ai.tools.implementations.datasets_tools"
+    "matrx_ai.tools.implementations.table_tools": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.table_tools"
     ),
     "matrx_ai.tools.implementations.debug_traces_tools": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.debug_traces_tools"
@@ -919,12 +919,12 @@ _reg(
     "context_patch",
 )
 _reg(
-    "dataset",
+    "table",
     "native",
     None,
-    DatasetArgs,
-    "matrx_ai.tools.implementations.datasets_tools",
-    "dataset",
+    TableArgs,
+    "matrx_ai.tools.implementations.table_tools",
+    "table",
 )
 _reg(
     "debug_traces_by_call",

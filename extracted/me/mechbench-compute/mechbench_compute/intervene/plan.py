@@ -76,3 +76,4 @@ def plan(model, params: Mapping[str, Any], inputs: Mapping[str, Any] | None) -> 
         return None
     compiled = compile(model, items, inputs=inputs, seed=int(params.get("seed", 0)))
     return Plan(compiled, sweep_cells(params), params.get("sweep") or {})
+

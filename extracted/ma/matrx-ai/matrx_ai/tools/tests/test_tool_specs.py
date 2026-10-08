@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from matrx_connect import AppContext
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 from pydantic import TypeAdapter, ValidationError
 
 from matrx_ai.config.message_config import MessageList
@@ -26,7 +27,7 @@ from matrx_ai.tools.specs import (
 )
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
     """Minimal stub satisfying the Emitter Protocol shape for tests.
 
     Production code goes through StreamEmitter / ConsoleEmitter; the merge

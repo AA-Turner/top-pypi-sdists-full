@@ -437,6 +437,7 @@ class CanvasProject(BaseModel):
     ref: str | None = Field(None, title='Ref')
     repo: str | None = Field(None, title='Repo')
     slug: str = Field(..., title='Slug')
+    tags: list[str] | None = Field([], title='Tags')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -462,6 +463,22 @@ class CanvasRun(BaseModel):
     slug: str | None = Field(None, title='Slug')
     started_at: AwareDatetime | None = Field(None, title='Started At')
     status: str = Field(..., title='Status')
+    tags: list[str] | None = Field([], title='Tags')
+
+
+class CanvasRunLink(BaseModel):
+    """
+    Stored run-to-run links whose two runs sit at two different nodes,
+    added up per pair of nodes. Same direction as an edge: `source` holds the
+    newer runs, `target` the runs they came from.
+    """
+
+    inferred_pairs: int | None = Field(0, title='Inferred Pairs')
+    newest_at: AwareDatetime = Field(..., title='Newest At')
+    relations: list[str] = Field(..., title='Relations')
+    run_pairs: int = Field(..., title='Run Pairs')
+    source: CanvasRef
+    target: CanvasRef
 
 
 class CanvasSessionStep(BaseModel):
@@ -1905,6 +1922,39 @@ class IntegrationState(StrEnum):
     connected = 'connected'
 
 
+class IntentEntity(StrEnum):
+    run = 'run'
+    experiment = 'experiment'
+    project = 'project'
+
+
+class IntentOut(BaseModel):
+    """
+    Why one entity was started, in the researcher's words (0328).
+
+    `ask` is a quote from the session that created the entity, never a summary.
+    `match` says how it was anchored: `exact` (the run's launch command was found
+    in the session; the ask is the researcher's step before it) or `approximate`
+    (the last researcher step before the entity was created -- candidate context).
+    `context` carries what a short reply ("A", "yes") answered.
+    """
+
+    ask: str = Field(..., title='Ask')
+    ask_truncated: bool = Field(..., title='Ask Truncated')
+    asked_at: str | None = Field(None, title='Asked At')
+    asked_by: str | None = Field(None, title='Asked By')
+    asked_by_name: str | None = Field(None, title='Asked By Name')
+    context: str | None = Field(None, title='Context')
+    entity_id: UUID = Field(..., title='Entity Id')
+    entity_type: str = Field(..., title='Entity Type')
+    match: str = Field(..., title='Match')
+    provisional: bool = Field(..., title='Provisional')
+    queued: bool | None = Field(False, title='Queued')
+    session: str = Field(..., title='Session')
+    session_goal: str | None = Field(None, title='Session Goal')
+    step_id: int = Field(..., title='Step Id')
+
+
 class Role4(StrEnum):
     admin = 'admin'
     member = 'member'
@@ -3213,6 +3263,11 @@ class ProjectExperimentMutationOut(BaseModel):
         description='Unique in the tenant, in one namespace shared with project slugs.',
         title='Slug',
     )
+    tags: list[str] | None = Field(
+        None,
+        description="The experiment's stored tags, in their original order.",
+        title='Tags',
+    )
     updated_at: AwareDatetime = Field(
         ...,
         description="Last substantive activity (a run edit, telemetry, a file, an edit to the experiment). Sort by this for 'recently active'.",
@@ -3264,6 +3319,11 @@ class ProjectExperimentOut(BaseModel):
         ...,
         description='Unique in the tenant, in one namespace shared with project slugs.',
         title='Slug',
+    )
+    tags: list[str] | None = Field(
+        None,
+        description="The experiment's stored tags, in their original order.",
+        title='Tags',
     )
     updated_at: AwareDatetime = Field(
         ...,
@@ -5792,6 +5852,10 @@ class UnresolvedReference(BaseModel):
     reason: str | None = Field(None, title='Reason')
 
 
+class UpdateReportAccepted(BaseModel):
+    recorded: bool = Field(..., title='Recorded')
+
+
 class UploadGcRequest(BaseModel):
     older_than: AwareDatetime = Field(..., title='Older Than')
 
@@ -6485,6 +6549,7 @@ class CanvasExperiment(BaseModel):
     session_ids: list[str] | None = Field([], title='Session Ids')
     slug: str = Field(..., title='Slug')
     status_counts: dict[str, int] | None = Field({}, title='Status Counts')
+    tags: list[str] | None = Field([], title='Tags')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -7572,6 +7637,11 @@ class ProjectExperimentDetailOut(BaseModel):
         None,
         description="The experiment's overview page status (its generation job, why it failed or skipped, its queue position). Null for a service token, which the page's own status route stays closed to.",
     )
+    tags: list[str] | None = Field(
+        None,
+        description="The experiment's stored tags, in their original order.",
+        title='Tags',
+    )
     updated_at: AwareDatetime = Field(
         ...,
         description="Last substantive activity (a run edit, telemetry, a file, an edit to the experiment). Sort by this for 'recently active'.",
@@ -8290,6 +8360,10 @@ class WorkspaceCanvasOut(BaseModel):
     projects: list[CanvasProject] = Field(..., title='Projects')
     projects_truncated: bool = Field(..., title='Projects Truncated')
     references: list[CanvasReference] = Field(..., title='References')
+    run_links: list[CanvasRunLink] | None = Field(
+        [], title='Run Links', validate_default=True
+    )
+    run_links_truncated: bool | None = Field(False, title='Run Links Truncated')
     session_order: list[CanvasSessionStep] = Field(..., title='Session Order')
     totals: CanvasTotals
     workspace: CanvasWorkspace

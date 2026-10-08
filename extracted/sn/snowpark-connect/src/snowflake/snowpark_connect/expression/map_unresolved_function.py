@@ -10,9 +10,10 @@ import random
 import re
 import string
 import sys
+import threading
 import time
 import uuid
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -692,9 +693,23 @@ def _has_unsupported_pcre_syntax(pattern_col: snowpark.Column) -> bool:
     return False
 
 
+# Anchored on the ':' delimiters so an ordinary bracket expression that merely contains a
+# colon — [:,] and [0-9:] are common in log parsing — is not mistaken for a POSIX class.
+_POSIX_CLASS_RE = re.compile(r"\[:\^?[a-zA-Z]+:\]")
+
+
 def _has_posix_character_class(pattern_str: str) -> bool:
-    """POSIX named class, e.g. [[:space:]] — legal Snowflake SQL, illegal java.util.regex."""
-    return "[:" in pattern_str
+    """POSIX named class, e.g. ``[[:space:]]``.
+
+    Snowflake implements these; java.util.regex does NOT — it reads ``[[:alpha:]]`` as a
+    nested bracket expression over the characters ``:alph``. It compiles happily, it just
+    means something else, so this is a semantic difference and not a syntax error.
+
+    Equivalence classes ``[[=a=]]`` and collating symbols ``[[.a.]]`` are intentionally not
+    matched: Snowflake does not implement either (it terminates the bracket at the first
+    ``]``), so there is nothing to preserve.
+    """
+    return _POSIX_CLASS_RE.search(pattern_str) is not None
 
 
 def _has_java_whitespace_shorthand(pattern_str: str) -> bool:
@@ -702,10 +717,281 @@ def _has_java_whitespace_shorthand(pattern_str: str) -> bool:
     return r"\s" in pattern_str or r"\S" in pattern_str
 
 
-def _rlike_use_java_pattern(pattern_col: snowpark.Column) -> bool:
-    """Opt-in Java Pattern for Spark RLIKE with \\s/\\S.
+_REGEX_INTERVAL_RE = re.compile(r"\{\d+(?:,\d*)?\}")
 
-    Flag is session-scoped and defaults false (no fleet change).
+
+def _skip_character_class(pattern_str: str, start: int) -> int:
+    """Index just past the bracket expression opening at ``start`` (its ``[``)."""
+    i = start + 1
+    n = len(pattern_str)
+    if i < n and pattern_str[i] == "^":
+        i += 1
+    if i < n and pattern_str[i] == "]":
+        # A ']' in first position is a literal, not the terminator.
+        i += 1
+    while i < n:
+        if pattern_str[i] == "\\":
+            i += 2
+            continue
+        # POSIX named class, e.g. [:space:] — its ']' does not close the class.
+        if pattern_str.startswith("[:", i):
+            end = pattern_str.find(":]", i + 2)
+            if end != -1:
+                i = end + 2
+                continue
+        if pattern_str[i] == "]":
+            return i + 1
+        i += 1
+    return n
+
+
+def _has_lazy_quantifier(pattern_str: str) -> bool:
+    r"""True if the pattern uses a non-greedy quantifier: ``*?``, ``+?``, ``??``, ``{n,m}?``.
+
+    Snowflake's regex engine documents these as unsupported, and rather than raising it
+    reads the ``?`` as an optional quantifier on the greedy one (``X+?`` as ``(X+)?``),
+    so every regexp function returns different values than Spark with no error.
+
+    Scans instead of substring-matching ``"*?"`` so that a ``?`` quantifying an
+    escaped literal (``\*?`` is an optional asterisk), a ``?`` inside a bracket
+    expression (``[*?]``), a group extension (``(?:``), and a literal ``}`` that
+    never opened an interval (``a}?``) are all left alone.
+    """
+    i = 0
+    n = len(pattern_str)
+    prev_is_quantifier = False
+    while i < n:
+        ch = pattern_str[i]
+        if ch == "\\":
+            # Escape plus its escapee are one literal atom.
+            i += 2
+            prev_is_quantifier = False
+            continue
+        if ch == "[":
+            i = _skip_character_class(pattern_str, i)
+            prev_is_quantifier = False
+            continue
+        if ch == "?":
+            if prev_is_quantifier:
+                return True
+            # A bare '?' is itself a quantifier, so a '?' after it is lazy.
+            prev_is_quantifier = True
+            i += 1
+            continue
+        if ch in "*+":
+            prev_is_quantifier = True
+            i += 1
+            continue
+        if ch == "{":
+            interval = _REGEX_INTERVAL_RE.match(pattern_str, i)
+            if interval:
+                i = interval.end()
+                prev_is_quantifier = True
+                continue
+            i += 1
+            prev_is_quantifier = False
+            continue
+        if ch == "(" and pattern_str.startswith("(?", i):
+            # Group extension: consume the '?' so it is not read as a quantifier.
+            i += 2
+            prev_is_quantifier = False
+            continue
+        i += 1
+        prev_is_quantifier = False
+    return False
+
+
+# Functions the CONFIG FLAG can reroute. Used to keep the warning's advice honest: for
+# anything else the flag is irrelevant and must not be suggested as a remedy.
+# regexp_count belongs here because the flag reroutes it too, even though it *additionally*
+# routes on pattern syntax alone (a pre-existing path the flag has no say over).
+_FLAG_ROUTED_FUNCTIONS = frozenset(
+    {"regexp_extract", "regexp_substr", "regexp_count", "rlike"}
+)
+
+# LRU rather than a plain bounded set: abandoning inserts at the cap would mean every
+# subsequent distinct pattern warns on every translation, forever, since it is never
+# recorded. Evicting keeps "warn once" true no matter how many patterns a server sees.
+_LAZY_QUANTIFIER_WARNED: "OrderedDict[tuple[str, str], None]" = OrderedDict()
+_LAZY_QUANTIFIER_WARNED_MAX = 1_000
+# server.py dispatches gRPC requests on a ThreadPoolExecutor, so translations of different
+# patterns run concurrently. Individual dict operations are atomic under the GIL, but the
+# claim-the-key SEQUENCE below (membership test -> insert -> length check -> evict) is not:
+# two threads can both miss on the same key and both warn, and interleaved inserts can evict
+# in the wrong order. Impact is cosmetic, not corruption, but "warn once" is the whole
+# contract of this cache.
+_LAZY_QUANTIFIER_WARNED_LOCK = threading.Lock()
+
+
+def _warn_lazy_quantifier_unfixed(pattern_col: snowpark.Column, func_name: str) -> None:
+    r"""Warn once per (function, pattern) that a lazy quantifier is misread here.
+
+    Call this only where the pattern is actually left on Snowflake's engine. Calling it
+    unconditionally is what makes the warning useless: a user cannot tell which of their
+    regex columns still diverge if the routed ones warn too.
+
+    Snowflake reads ``X+?`` as ``(X+)?``. When more pattern follows, that over-captures;
+    otherwise it can match the empty string. Measured on hdm_migration_mac, 2026-09-28,
+    against Spark 3.5.3: ``regexp_extract('k=v1;k=v2;', '=(.*?);', 1)`` is ``v1;k=v2``
+    (Spark ``v1``), ``regexp_instr('zzz', 'b+?')`` is 1 (Spark 0),
+    ``regexp_count('abbab', 'b+?')`` is 5 (Spark 3) and ``'ac' rlike 'ab+?c'`` is true
+    (Spark false). So no function on Snowflake's engine is immune. ``split`` is not a
+    caller: its UDF evaluates any pattern with regex metacharacters in Python ``re``,
+    which honours lazy quantifiers as Java does. Its other differences from
+    ``Pattern.split`` are SNOW-4202789.
+
+    A column pattern cannot be inspected at translation time and is never routed
+    (SNOW-4209650), so it warns once per function that it may be affected.
+    """
+    try:
+        pattern_str = str(pattern_col._expression.value)
+    except (AttributeError, TypeError):
+        pattern_str = None
+    if pattern_str is not None and not _has_lazy_quantifier(pattern_str):
+        return
+
+    key = (func_name, pattern_str)
+    # One critical section covering the whole claim: whoever inserts the key owns the single
+    # warning for it. Everything after this block is per-thread work over local values and
+    # touches no shared state, so the lock is not held across logging or the telemetry send —
+    # those are I/O and would serialize unrelated translator threads for no benefit.
+    with _LAZY_QUANTIFIER_WARNED_LOCK:
+        if key in _LAZY_QUANTIFIER_WARNED:
+            _LAZY_QUANTIFIER_WARNED.move_to_end(key)
+            return
+        _LAZY_QUANTIFIER_WARNED[key] = None
+        if len(_LAZY_QUANTIFIER_WARNED) > _LAZY_QUANTIFIER_WARNED_MAX:
+            _LAZY_QUANTIFIER_WARNED.popitem(last=False)
+
+    effect = (
+        "Snowflake's regex engine does not support them and reads `X+?` as `(X+)?`, an "
+        "optional greedy quantifier: it over-captures when more pattern follows and "
+        "otherwise can match the empty string, so this can return a different value "
+        "than Apache Spark without raising an error."
+    )
+    if pattern_str is None:
+        message = (
+            f"`{func_name}` pattern is not a literal, so it cannot be checked for "
+            f"non-greedy quantifiers (`*?`, `+?`, `??` or `{{n,m}}?`). {effect} "
+            "Pattern values containing one are evaluated this way, whatever "
+            "`useJavaRegexSemantics` is set to; rewrite them without the lazy "
+            "quantifier, or pass the pattern as a literal."
+        )
+        logger.warning(message)
+        telemetry.send_warning_msg(message)
+        return
+
+    # Tell the user whether the flag is a fix for *this* pattern, rather than implying it
+    # always is. The two cases where it is not: the function has no Java path at all, and
+    # the pattern is held back by the POSIX carve-out in _java_regex_eligible.
+    if func_name not in _FLAG_ROUTED_FUNCTIONS:
+        remedy = (
+            f"`useJavaRegexSemantics` does NOT cover `{func_name}`, so rewrite the "
+            "pattern without the lazy quantifier"
+        )
+    elif _java_regex_eligible(pattern_col):
+        remedy = (
+            "Set `snowpark.connect.useJavaRegexSemantics=true` to evaluate this pattern "
+            "with Spark semantics, or rewrite it without the lazy quantifier"
+        )
+    else:
+        # Only reachable via the POSIX carve-out: for a literal pattern that got here, a
+        # lazy quantifier is present, so _java_regex_eligible can only be False because
+        # _has_posix_character_class vetoed it.
+        remedy = (
+            "`useJavaRegexSemantics` will NOT change this pattern, because patterns "
+            "containing a POSIX class keep Snowflake's POSIX semantics; rewrite it "
+            "without the lazy quantifier"
+        )
+    message = (
+        f"`{func_name}` pattern uses a non-greedy quantifier "
+        f"(`*?`, `+?`, `??` or `{{n,m}}?`): {pattern_str!r}. {effect} {remedy} — for "
+        "example `(.*?)X` as `([^X]*)X`."
+    )
+    logger.warning(message)
+    telemetry.send_warning_msg(message)
+
+
+def _has_non_capturing_group(pattern_str: str) -> bool:
+    """``(?:...)`` — java.util.regex supports it, Snowflake's engine rejects it."""
+    return "(?:" in pattern_str
+
+
+# ``(?i)``, ``(?-i)``, ``(?is)``, ``(?i-s)``, and the scoped form ``(?i:...)``.
+_INLINE_FLAG_GROUP_RE = re.compile(r"\(\?[a-zA-Z]*-?[a-zA-Z]+[):]")
+
+
+def _has_inline_flag_group(pattern_str: str) -> bool:
+    r"""An embedded flag group at ANY position, including the start of the pattern.
+
+    ``_has_unsupported_pcre_syntax`` deliberately ignores a flag group at position 0,
+    because rlike and regexp_count strip a leading ``(?flags)`` and pass it to Snowflake
+    as a regex parameter. regexp_extract and regexp_substr have no such translation, and
+    Snowflake rejects the group outright ("no argument for repetition operator: ?"), so
+    ``regexp_extract(s, '(?i)foo=(\d)', 1)`` fails on every flag setting unless it is
+    eligible here. The scoped form ``(?i:...)`` is not handled by the leading-flag strip
+    on any function. Measured on hdm_migration_mac, 2026-09-26.
+    """
+    return _INLINE_FLAG_GROUP_RE.search(pattern_str) is not None
+
+
+def _java_regex_eligible(pattern_col: snowpark.Column) -> bool:
+    r"""Flag-independent half of the routing decision: is java.util.regex both needed and safe?
+
+    Needed, because the pattern uses something Snowflake's engine does not honor as Spark
+    does:
+
+    * non-greedy quantifiers — silently read as optional greedy ones (see
+      ``_has_lazy_quantifier``);
+    * ``(?:...)``, lookarounds, inline flag groups — rejected outright, so these queries
+      fail today rather than returning wrong data (see ``_has_inline_flag_group`` for why
+      a *leading* flag group counts too);
+    * ``\s``/``\S`` — does not match a tab.
+
+    A POSIX bracket expression disqualifies the pattern even when one of the above also
+    applies. This is a DELIBERATE non-parity carve-out, not a syntax workaround: Java
+    compiles ``[[:alpha:]]`` fine but reads it as the character set ``:alph``, so Spark and
+    Snowflake genuinely disagree here (Spark ``'a:'`` vs Snowflake ``'a'`` for
+    ``regexp_extract('a:b', '^([[:alpha:]]*)', 1)``). Routing would move such patterns onto
+    Spark's reading, which silently redefines a POSIX class the author almost certainly
+    meant literally. We keep Snowflake's POSIX semantics and accept the known divergence —
+    it is pre-existing, and this flag does not widen it. Revisit only as an explicit
+    product decision.
+    """
+    try:
+        pattern_str = str(pattern_col._expression.value)
+    except (AttributeError, TypeError):
+        # Non-literal pattern — nothing to inspect at translation time.
+        return False
+    if _has_posix_character_class(pattern_str):
+        return False
+    return (
+        _has_lazy_quantifier(pattern_str)
+        or _has_non_capturing_group(pattern_str)
+        or _has_inline_flag_group(pattern_str)
+        or _has_unsupported_pcre_syntax(pattern_col)
+        or _has_java_whitespace_shorthand(pattern_str)
+    )
+
+
+def _java_regex_required(pattern_col: snowpark.Column) -> bool:
+    """Routing gate: the config flag plus flag-independent eligibility."""
+    from snowflake.snowpark_connect.config import is_use_java_regex_semantics_enabled
+
+    return is_use_java_regex_semantics_enabled() and _java_regex_eligible(pattern_col)
+
+
+def _legacy_rlike_whitespace_route(pattern_col: snowpark.Column) -> bool:
+    r"""The RLIKE-only rule of the deprecated ``useJavaRegexForRlikeWhitespace`` key.
+
+    That key shipped in 1.44.0 meaning exactly "RLIKE with ``\s``/``\S`` uses
+    java.util.regex, except POSIX classes". It is honored with that meaning and no wider:
+    aliasing it to ``useJavaRegexSemantics`` would silently move an existing opt-in onto
+    regexp_extract/regexp_substr/regexp_count and onto lazy quantifiers, which is not what
+    anyone who set it asked for. The one difference from 1.44.0 is the POSIX veto, which
+    now recognises a real ``[:name:]`` class instead of any ``[:``, so a pattern such as
+    ``\s[:,]`` (a set containing ':' and ',', no POSIX class) now routes where 1.44.0
+    left it on regexp_instr. That only moves the result toward Spark's.
     """
     from snowflake.snowpark_connect.config import (
         is_use_java_regex_for_rlike_whitespace_enabled,
@@ -720,6 +1006,18 @@ def _rlike_use_java_pattern(pattern_col: snowpark.Column) -> bool:
     if _has_posix_character_class(pattern_str):
         return False
     return _has_java_whitespace_shorthand(pattern_str)
+
+
+def _rlike_use_java_pattern(pattern_col: snowpark.Column) -> bool:
+    """RLIKE routing: the shared rule, or the deprecated RLIKE-only key's narrower rule.
+
+    A plain delegation rather than ``_rlike_use_java_pattern = _java_regex_required``:
+    binding two names to one function object breaks tests that ``monkeypatch.setattr`` one
+    of them, because patching one name leaves the other pointing at the original.
+    """
+    return _java_regex_required(pattern_col) or _legacy_rlike_whitespace_route(
+        pattern_col
+    )
 
 
 def _validate_regex_group_index(
@@ -8834,25 +9132,34 @@ def map_unresolved_function(
             result_type = snowpark_typed_args[0].typ
         case "regexp_count":
             pattern_col, sf_flags = _extract_inline_regex_flags(snowpark_args[1])
-            if _has_unsupported_pcre_syntax(snowpark_args[1]):
+            if _has_unsupported_pcre_syntax(snowpark_args[1]) or _java_regex_required(
+                snowpark_args[1]
+            ):
+                # Two independent reasons to land in java.util.regex. The first is
+                # pre-existing and gated on syntax, not on the flag: Snowflake cannot
+                # compile these patterns at all. The second is the flag. Either way the
+                # lazy quantifier is honored, so this branch must not warn.
                 regexp_count_udf = register_cached_java_udf(
                     "com.snowflake.snowpark_connect.udfs.RegexpUdfs.regexp_count",
                     ["STRING", "STRING"],
                     "INTEGER",
                 )
                 count_call = regexp_count_udf(snowpark_args[0], snowpark_args[1])
-            elif sf_flags:
-                count_call = snowpark_fn.call_function(
-                    "regexp_count",
-                    snowpark_args[0],
-                    pattern_col,
-                    snowpark_fn.lit(1),
-                    snowpark_fn.lit(sf_flags),
-                )
             else:
-                count_call = snowpark_fn.regexp_count(
-                    snowpark_args[0], snowpark_args[1]
-                )
+                # Stays on Snowflake's engine, so a lazy quantifier really is misread.
+                _warn_lazy_quantifier_unfixed(snowpark_args[1], "regexp_count")
+                if sf_flags:
+                    count_call = snowpark_fn.call_function(
+                        "regexp_count",
+                        snowpark_args[0],
+                        pattern_col,
+                        snowpark_fn.lit(1),
+                        snowpark_fn.lit(sf_flags),
+                    )
+                else:
+                    count_call = snowpark_fn.regexp_count(
+                        snowpark_args[0], snowpark_args[1]
+                    )
             result_exp = (
                 snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
                 .when(
@@ -8875,49 +9182,76 @@ def map_unresolved_function(
             _validate_regex_group_index(
                 snowpark_args[0], snowpark_args[1], idx, "regexp_extract"
             )
-            result_exp = (
-                snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
-                .when(
-                    snowpark_fn.is_null(
-                        snowpark_fn.call_function(
-                            "regexp_substr",
-                            snowpark_args[0],
-                            snowpark_args[1],
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit("c"),
-                            snowpark_fn.lit(0),
-                        )
-                    ),
-                    "",
+            if _java_regex_required(snowpark_args[1]):
+                # RegexpUdfs.regexp_extract implements Spark's contract end to end (NULL
+                # in → NULL, no match → "", absent group → ""). The NULL guard, as on
+                # rlike and regexp_count, only skips the per-row Java call for a NULL
+                # subject; it cannot change a value.
+                extract_udf = register_cached_java_udf(
+                    "com.snowflake.snowpark_connect.udfs.RegexpUdfs.regexp_extract",
+                    ["STRING", "STRING", "INT"],
+                    "STRING",
                 )
-                .when(
-                    snowpark_fn.is_null(
-                        snowpark_fn.call_function(
-                            "regexp_substr",
-                            snowpark_args[0],
-                            snowpark_args[1],
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit("c"),
-                            idx,
+                result_exp = snowpark_fn.when(
+                    snowpark_fn.is_null(snowpark_args[0]), None
+                ).otherwise(extract_udf(snowpark_args[0], snowpark_args[1], idx))
+            else:
+                # Only warn on the path that stays on Snowflake's engine.
+                _warn_lazy_quantifier_unfixed(snowpark_args[1], "regexp_extract")
+                result_exp = (
+                    snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
+                    .when(
+                        snowpark_fn.is_null(
+                            snowpark_fn.call_function(
+                                "regexp_substr",
+                                snowpark_args[0],
+                                snowpark_args[1],
+                                snowpark_fn.lit(1),
+                                snowpark_fn.lit(1),
+                                snowpark_fn.lit("c"),
+                                snowpark_fn.lit(0),
+                            )
                         ),
-                    ),
-                    _raise_error_helper(StringType())(
-                        snowpark_fn.lit(
-                            "[INVALID_PARAMETER_VALUE.REGEX_GROUP_INDEX] The value of parameter(s) `idx` in `regexp_extract` is invalid."
+                        "",
+                    )
+                    .when(
+                        snowpark_fn.is_null(
+                            snowpark_fn.call_function(
+                                "regexp_substr",
+                                snowpark_args[0],
+                                snowpark_args[1],
+                                snowpark_fn.lit(1),
+                                snowpark_fn.lit(1),
+                                snowpark_fn.lit("c"),
+                                idx,
+                            ),
+                        ),
+                        _raise_error_helper(StringType())(
+                            snowpark_fn.lit(
+                                "[INVALID_PARAMETER_VALUE.REGEX_GROUP_INDEX] The value of parameter(s) `idx` in `regexp_extract` is invalid."
+                            )
+                        ),
+                    )
+                    .otherwise(
+                        snowpark_fn.regexp_extract(
+                            snowpark_args[0], snowpark_args[1], idx
                         )
-                    ),
+                    )
                 )
-                .otherwise(
-                    snowpark_fn.regexp_extract(snowpark_args[0], snowpark_args[1], idx)
-                )
-            )
 
             result_type = FieldType(
                 StringType(), nullable=_any_arg_nullable(snowpark_typed_args)
             )
         case "regexp_extract_all":
+            # Never routed to java.util.regex, so the warning is unconditional here.
+            #
+            # Not routed for SCOPE, not because it cannot be: an ARRAY-returning Java UDF is
+            # already proven in this file — ``case "xpath"`` registers XPathUdfs.xpath_list
+            # with return type ARRAY(STRING) against a Java method returning String[], and
+            # ``case "sentences"`` returns VARIANT cast to a nested ArrayType. What still
+            # needs pinning before routing is how Spark's per-match group-index check
+            # interacts with the validation below. Tracked in SNOW-4209632.
+            _warn_lazy_quantifier_unfixed(snowpark_args[1], "regexp_extract_all")
             if len(snowpark_args) == 2:
                 idx = snowpark_fn.lit(1)
                 spark_function_name = spark_function_name[:-1] + ", 1)"
@@ -8999,6 +9333,9 @@ def map_unresolved_function(
                 nullable=_any_arg_nullable(snowpark_typed_args),
             )
         case "regexp_instr":
+            # Never routed to java.util.regex (SNOW-4209646), so the warning is
+            # unconditional here.
+            _warn_lazy_quantifier_unfixed(snowpark_args[1], "regexp_instr")
             pattern_col, sf_flags = _extract_inline_regex_flags(snowpark_args[1])
             if sf_flags:
                 instr_call = snowpark_fn.call_function(
@@ -9038,19 +9375,49 @@ def map_unresolved_function(
             if len(snowpark_args) == 2:
                 spark_function_name = spark_function_name[:-1] + ", 0)"
         case "regexp_replace":
+            # Never routed to java.util.regex, so the warning is unconditional here.
+            #
+            # Routing this one would be a REGRESSION, not a deferral, so it must not be
+            # "finished" by copying the regexp_extract arm. The replacement string is a
+            # second, inverted dialect: Spark reads $N as a group reference, Snowflake reads
+            # \N. Measured on regexp_replace('ab', '(a)(b)', R) — Snowflake vs Spark 3.5.3:
+            #   R="$1"    '$1' vs 'a'     R="\1"    'a'  vs '1'
+            #   R="$2$1"  '$2$1' vs 'ba'  R="\2\1"  'ba' vs '21'
+            # (In Matcher.replaceAll a backslash is an escape, so Spark renders \1 as the
+            # bare character 1 — the backslash is consumed, not preserved.) 4 of 5 forms
+            # disagree, so routing would fix $N users and break \N users in one change.
+            # The fix is replacement-string translation at this mapper (SNOW-4202792),
+            # independent of any UDF routing. Routing the pattern once that lands is
+            # tracked in SNOW-4209648.
+            _warn_lazy_quantifier_unfixed(snowpark_args[1], "regexp_replace")
             spark_function_name = spark_function_name[:-1] + ", 1)"
             result_exp = snowpark_fn.regexp_replace(*snowpark_args)
             result_type = FieldType(
                 StringType(), nullable=_any_arg_nullable(snowpark_typed_args)
             )
         case "regexp_substr":
-            # in some cases Snowflake returns an empty string instead of null
-            # but that also counts as no match, for example regexp_substr('', '$')
-            result_exp = snowpark_fn.call_function(
-                "nullif",
-                snowpark_fn.call_function("regexp_substr", *snowpark_args),
-                "",
-            )
+            if _java_regex_required(snowpark_args[1]):
+                # RegexpUdfs.regexp_substr reproduces the NULLIF below internally: Spark
+                # yields NULL for a zero-length first match, not just for no match. NULL
+                # guarded as at regexp_extract.
+                substr_udf = register_cached_java_udf(
+                    "com.snowflake.snowpark_connect.udfs.RegexpUdfs.regexp_substr",
+                    ["STRING", "STRING"],
+                    "STRING",
+                )
+                result_exp = snowpark_fn.when(
+                    snowpark_fn.is_null(snowpark_args[0]), None
+                ).otherwise(substr_udf(snowpark_args[0], snowpark_args[1]))
+            else:
+                # Only warn on the path that stays on Snowflake's engine.
+                _warn_lazy_quantifier_unfixed(snowpark_args[1], "regexp_substr")
+                # in some cases Snowflake returns an empty string instead of null
+                # but that also counts as no match, for example regexp_substr('', '$')
+                result_exp = snowpark_fn.call_function(
+                    "nullif",
+                    snowpark_fn.call_function("regexp_substr", *snowpark_args),
+                    "",
+                )
             result_type = StringType()
             result_exp = TypedColumn(
                 result_exp, lambda: [FieldType(result_type, nullable=True)]
@@ -9216,6 +9583,7 @@ def map_unresolved_function(
                     snowpark_fn.is_null(text), None
                 ).otherwise(rlike_udf(text, pattern))
             else:
+                _warn_lazy_quantifier_unfixed(pattern, "rlike")
                 flag_pyspark_regex_pattern = r"\(\?([a-z]+)\)"
                 begin_flag_pyspark = "(?"
 

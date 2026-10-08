@@ -394,9 +394,8 @@ class RunConversation:
         metadata: dict[str, Any] | None = None,
     ) -> RunHistoryRecord:
         """Append one turn and write it. Raises on failure (the caller reports)."""
-        from copy import copy
-
-        from matrx_ai.config.message_config import MessageList, UnifiedMessage
+        from matrx_ai.config.message_config import UnifiedMessage
+        from matrx_ai.config.send_boundary import config_with_messages
         from matrx_ai.config.unified_config import UnifiedResponse
         from matrx_ai.config.unified_content import TextContent
         from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
@@ -409,8 +408,7 @@ class RunConversation:
                 if output_text
                 else []
             )
-            config = copy(self._request.config)
-            config.messages = MessageList(_messages=[*prior, *user_messages, *answer])
+            config = config_with_messages(self._request.config, [*prior, *user_messages, *answer])
             request = AIMatrixRequest(
                 conversation_id=self.conversation_id,
                 config=config,

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: DracoPy
-Version: 2.1.0
+Version: 2.2.0
 Summary: Python wrapper for Google's Draco Mesh Compression Library
 Home-page: https://github.com/seung-lab/DracoPy
-Author: Manuel Castro, William Silversmith :: Contributors :: Fatih Erol, Faru Nuri Sonmez,  Forrest Collman, Zeyu Zhao, Denis Riviere, Brett Tully, Hanseul Jun,  Afshawn Lotfi, Pan Xinmiao, Kenneth Bongort, Ed Schmerling, Philipp Schlegel
+Author: Manuel Castro, William Silversmith :: Contributors :: Fatih Erol, Faru Nuri Sonmez,  Forrest Collman, Zeyu Zhao, Denis Riviere, Brett Tully, Hanseul Jun,  Afshawn Lotfi, Pan Xinmiao, Kenneth Bongort, Ed Schmerling, Philipp Schlegel,  Aidan Newsome
 Author-email: macastro@princeton.edu, ws9@princeton.edu
 License: Apache-2.0
 Classifier: Intended Audience :: Developers

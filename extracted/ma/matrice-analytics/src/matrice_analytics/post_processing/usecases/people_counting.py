@@ -2,7 +2,10 @@ import os
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+
+if TYPE_CHECKING:
+    import logging
 
 from ..core.base import (
     BaseProcessor,
@@ -51,6 +54,14 @@ def _alert_settings(config: Any) -> Dict[Any, Any]:
 
 
 class PeopleCountingUseCase(BaseProcessor):
+    # BaseProcessor assigns self.logger in __init__ without declaring it, so
+    # mypy cannot see it on the subclass. Declared here rather than on the base
+    # class because that base is shared by ~110 use cases. The annotation is a
+    # string under TYPE_CHECKING so no import lands on line 1: this file is
+    # pre-existing over the 1500-line cap and `file-over-cap` is reported AT
+    # line 1, so touching that line turns backlog into a blocking PY-15 hit.
+    logger: "logging.Logger"
+
     CATEGORY_DISPLAY = {
         "person": "Person",
         "people": "People",
@@ -395,7 +406,9 @@ class PeopleCountingUseCase(BaseProcessor):
             self._zone_total_track_ids.setdefault(zn, set())
 
         for det in detections:
-            track_id = det.get("track_id")
+            # Same confirmed, canonical id the headline count uses, so a
+            # per-zone total can never exceed or contradict total_counts.
+            track_id = self._confirmed_track_id(det)
             if track_id is None:
                 continue
             bbox = det.get("bounding_box")
@@ -420,6 +433,46 @@ class PeopleCountingUseCase(BaseProcessor):
 
         return enhanced
 
+    def _confirmed_track_id(self, det: Dict) -> Optional[Any]:
+        """The canonical id of ``det`` if it is a confirmed person, else None.
+
+        Zone counting must agree with the headline count, and before this
+        existed it did not. Two differences made the zone totals higher than
+        ``total_counts``:
+
+        * **No confirm gate.** ``_update_tracking_state`` only promotes a
+          track once it has been seen ``min_hits_for_new_track`` consecutive
+          frames, so a one-frame detector blip never reaches the total. The
+          zone sets took every raw id on sight, so every blip became a
+          person.
+        * **The raw id, not the canonical one.** ``_merge_or_register_track``
+          (and, in the ReID subclass, appearance matching) rewrites ids so one
+          person keeps one id. Reading ``det["track_id"]`` before that mapping
+          counted the same person again under each new raw id.
+
+        Both are fixed by asking the same question the main counter asks:
+        is this id in the confirmed set for its category?
+        """
+        cat = det.get("category")
+        if cat not in self.target_categories:
+            return None
+        raw = det.get("track_id")
+        if raw is None:
+            return None
+        # The subclass stamps the canonical id onto the detection; fall back
+        # to the alias map, then to the raw id for a plain tracker feed.
+        tid = det.get("reid_canonical_id")
+        if tid is None:
+            tid = (getattr(self, "_track_aliases", None) or {}).get(raw, raw)
+        # getattr, not attribute access: the parent creates this lazily in
+        # _update_tracking_state, and zone analysis can be reached on an
+        # instance that has not completed a counting pass yet.
+        per_cat = getattr(self, "_per_category_total_track_ids", None) or {}
+        confirmed = per_cat.get(cat)
+        if confirmed is None or tid not in confirmed:
+            return None
+        return tid
+
     def _compute_global_zone_analysis(self, detections: List[Dict]) -> Dict[str, Any]:
         """Compute zone_analysis for the ``__global__`` fallback (no zones configured).
 
@@ -429,8 +482,8 @@ class PeopleCountingUseCase(BaseProcessor):
         """
         current_tracks: Set[Any] = set()
         for det in detections:
-            tid = det.get("track_id")
-            if tid is not None and det.get("category") in self.target_categories:
+            tid = self._confirmed_track_id(det)
+            if tid is not None:
                 current_tracks.add(tid)
 
         self._zone_current_track_ids.setdefault("__global__", set())
@@ -707,7 +760,7 @@ class PeopleCountingUseCase(BaseProcessor):
         proc_time = time.monotonic() - processing_start
         processing_latency_ms = proc_time * 1000.0
         processing_fps = (1.0 / proc_time) if proc_time > 0 else None
-        self._dbg and print(
+        self._dbg and self.logger.debug(
             f"[PERF] F{self._total_frame_counter} | latency={processing_latency_ms:.1f}ms fps={processing_fps:.1f}"
             if processing_fps
             else f"[PERF] F{self._total_frame_counter} | latency={processing_latency_ms:.1f}ms"
@@ -953,12 +1006,12 @@ class PeopleCountingUseCase(BaseProcessor):
         curr_total = sum(c.get("count", 0) for c in current_counts)
         new_total = sum(c.get("count", 0) for c in current_new_counts)
         total_total = sum(c.get("count", 0) for c in total_counts)
-        self._dbg and print(
+        self._dbg and self.logger.debug(
             f"[STATS] F{frame_number} | current={curr_total} new={new_total} total={total_total}"
         )
 
         if new_total > total_total:
-            self._dbg and print(
+            self._dbg and self.logger.debug(
                 f"[BUG_DETECTED] F{frame_number} | new({new_total}) > total({total_total})! "
                 f"new_counts_dict={new_counts_dict}, total_counts_dict={total_counts_dict}"
             )
@@ -1253,7 +1306,7 @@ class PeopleCountingUseCase(BaseProcessor):
         person_curr = len(self._current_frame_track_ids.get("person", set()))
         person_new = len(self._new_track_ids_this_frame.get("person", set()))
         person_total = len(self._per_category_total_track_ids.get("person", set()))
-        self._dbg and print(
+        self._dbg and self.logger.debug(
             f"[TRACK] F{self._total_frame_counter} | curr_ids={person_curr} "
             f"confirmed_new={person_new} confirmed_total={person_total} min_hits={min_hits}"
         )

@@ -62,18 +62,43 @@ def _chat_variables(conversation_content: str, recent_titles: str) -> dict[str, 
     }
 
 
+#: At most this many of the person's variable values reach the labeler.
+USER_VARIABLES_MAX_COUNT = 30
+
+
+def _bounded_user_variables(values: dict[str, Any] | str) -> dict[str, Any] | str:
+    """The person's variable values, RAW (the prompt door renders them), each bounded.
+
+    A dict stays a dict — never flattened into "name: value" lines in code — and
+    each value that would blow the budget is trimmed. A string (a caller that
+    already holds text) is trimmed as a whole.
+    """
+    if isinstance(values, str):
+        return _trim_content(values, USER_VARIABLES_MAX_CHARS)
+    kept = list(values.items())[:USER_VARIABLES_MAX_COUNT]
+    per_value = max(200, USER_VARIABLES_MAX_CHARS // max(1, len(kept)))
+    bounded: dict[str, Any] = {}
+    for name, value in kept:
+        text = value if isinstance(value, str) else str(value)
+        if len(text) > per_value:
+            bounded[name] = _trim_content(text, per_value)
+        else:
+            bounded[name] = value
+    return bounded
+
+
 def _agent_variables(
     agent_name: str,
     agent_description: str,
-    user_variables: str,
+    user_variables: dict[str, Any] | str,
     user_prompt: str,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     return {
         "agent_name": _trim_content(agent_name, AGENT_NAME_MAX_CHARS),
         "agent_description": _trim_content(agent_description, AGENT_DESCRIPTION_MAX_CHARS)
         if agent_description
         else NOT_AVAILABLE,
-        "user_variables": _trim_content(user_variables, USER_VARIABLES_MAX_CHARS)
+        "user_variables": _bounded_user_variables(user_variables)
         if user_variables
         else NONE_PROVIDED,
         "user_prompt": _trim_content(user_prompt, USER_PROMPT_MAX_CHARS)
@@ -129,7 +154,7 @@ async def _capture_labeler_failure(
     *,
     mandate_key: str,
     model: str | None,
-    variables: dict[str, str],
+    variables: dict[str, Any],
 ) -> None:
     """Capture a paid labeler failure without persisting conversation text."""
     try:
@@ -149,7 +174,7 @@ async def _capture_labeler_failure(
             error_type=type(exc).__name__,
             error_text=str(exc),
             payload={"mandate_key": mandate_key, "model": model},
-            context={name: len(value) for name, value in variables.items()},
+            context={name: len(str(value)) for name, value in variables.items()},
         )
     except Exception as capture_exc:
         vcprint(
@@ -158,7 +183,7 @@ async def _capture_labeler_failure(
         )
 
 
-async def _run_labeler(mandate_key: str, variables: dict[str, str]) -> LabelResult:
+async def _run_labeler(mandate_key: str, variables: dict[str, Any]) -> LabelResult:
     """One held labeler call: the Holder's model, prompt and settings, nothing else."""
     from matrx_ai.mandates import hold_code_call, run_held_call
 
@@ -197,7 +222,7 @@ async def label_agent_conversation(
     recent_titles: str,
     agent_name: str,
     agent_description: str,
-    user_variables: str,
+    user_variables: dict[str, Any] | str,
     user_prompt: str,
 ) -> LabelResult:
     from matrx_ai.code_call_mandate_keys import CONVERSATION_LABEL_AGENT_RUN_MANDATE

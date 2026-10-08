@@ -62,7 +62,10 @@ async fn http2_body_deadline_preserves_terminal_status_and_retry_classification(
             }
         });
         let provider: Arc<dyn NetworkProvider> = Arc::new(NetworkProviderReqwest::new());
-        let mut client = NetworkClient::new("secret-test", None, None).mute_network_error_log();
+        let mut client = NetworkClient::new("secret-test", None, Some(&StatsigOptions {
+            prefer_http2: Some(true),
+            ..Default::default()
+        })).mute_network_error_log();
         client.set_network_provider_for_test(Arc::downgrade(&provider));
         let args = RequestArgs {
             url,
@@ -128,7 +131,7 @@ async fn http2_limited_body_deadline_retains_received_status() {
 }
 
 isolated_http2_test! {
-async fn http2_default_uses_prior_knowledge_and_reuses_connection() {
+async fn http2_opt_in_uses_prior_knowledge_and_reuses_connection() {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::{TcpListener, TcpStream};
@@ -185,8 +188,9 @@ async fn http2_default_uses_prior_knowledge_and_reuses_connection() {
         (Some(true), 3),
         (None, 3),
     ] {
-        let options = reuse.map(|enabled| StatsigOptions {
-            log_event_connection_reuse: Some(enabled),
+        let options = Some(StatsigOptions {
+            prefer_http2: Some(true),
+            log_event_connection_reuse: reuse,
             ..Default::default()
         });
         let mut client = NetworkClient::new("secret-test", None, options.as_ref());
@@ -234,11 +238,12 @@ fn http2_client_cache_respects_connection_reuse_for_all_routes() {
 }
 
 isolated_http2_test! {
-async fn http2_default_falls_back_before_post_and_explicit_opt_out_uses_http1() {
+async fn http2_opt_in_falls_back_before_post_and_default_uses_http1() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
-    for http2 in [false, true] {
+    for preference in [None, Some(false), Some(true)] {
+        let http2 = preference == Some(true);
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let receiver = tokio::spawn(async move {
@@ -281,8 +286,8 @@ async fn http2_default_falls_back_before_post_and_explicit_opt_out_uses_http1() 
         });
         let provider = Arc::new(NetworkProviderReqwest::new());
         let network_provider: Arc<dyn NetworkProvider> = provider.clone();
-        let options = (!http2).then(|| StatsigOptions {
-            prefer_http2: Some(false),
+        let options = preference.map(|enabled| StatsigOptions {
+            prefer_http2: Some(enabled),
             ..Default::default()
         });
         let mut client = NetworkClient::new("secret-test", None, options.as_ref());

@@ -5,10 +5,10 @@ import inspect
 import pickle
 from abc import ABCMeta, abstractmethod
 from collections import UserDict
-from collections.abc import AsyncIterable, Awaitable, Iterable
+from collections.abc import AsyncIterable, Awaitable, Callable, Iterable
 from datetime import datetime
 from logging import getLogger
-from typing import Any, Callable, Union
+from typing import Any
 
 from aiohttp import ClientResponse
 from aiohttp.typedefs import StrOrURL
@@ -17,11 +17,8 @@ from aiohttp_client_cache.cache_control import CacheActions, ExpirationPatterns,
 from aiohttp_client_cache.cache_keys import create_key
 from aiohttp_client_cache.response import AnyResponse, CachedResponse
 
-ResponseOrKey = Union[CachedResponse, bytes, str, None]
-_FilterFn = Union[
-    Callable[[AnyResponse], bool],
-    Callable[[AnyResponse], Awaitable[bool]],
-]
+ResponseOrKey = CachedResponse | bytes | str | None
+_FilterFn = Callable[[AnyResponse], bool] | Callable[[AnyResponse], Awaitable[bool]]
 
 logger = getLogger(__name__)
 
@@ -83,6 +80,8 @@ class CacheBackend:
         self.responses: BaseCache = DictCache()
 
         self.include_headers = include_headers
+
+        # Converted to `set` for fast `in` checks inside `filter_ignored_params`.
         self.ignored_params = set(ignored_params or [])
 
     @property
@@ -93,6 +92,9 @@ class CacheBackend:
     def disabled(self, value):
         return self._disabled.set(value)
 
+    def is_method_allowed(self, method: str) -> bool:
+        return method.upper() in self.allowed_methods
+
     async def is_cacheable(
         self, response: AnyResponse | None, actions: CacheActions | None = None
     ) -> bool:
@@ -102,7 +104,7 @@ class CacheBackend:
 
         cache_criteria = {
             'disabled cache': self.disabled,
-            'disabled method': str(response.method) not in self.allowed_methods,
+            'disabled method': not self.is_method_allowed(str(response.method)),
             'disabled status': response.status not in self.allowed_codes,
             'disabled by filter': not (
                 await self.filter_fn(response)
@@ -164,7 +166,7 @@ class CacheBackend:
         # Attempt to fetch the cached response
         logger.debug(f'Attempting to get cached response for key: {key}')
         try:
-            response = await self.responses.read(key) or await self._get_redirect_response(str(key))
+            response = await self.responses.read(key) or await self._get_redirect_response(key)
             # Catch "quiet" deserialization errors due to upgrading attrs
             if response is not None:
                 assert response.method  # type: ignore
@@ -396,7 +398,7 @@ class DictCache(BaseCache, UserDict):
         except KeyError:
             pass
 
-    async def clear(self):
+    async def clear(self):  # type: ignore[override]
         self.data.clear()
 
     async def contains(self, key: str) -> bool:

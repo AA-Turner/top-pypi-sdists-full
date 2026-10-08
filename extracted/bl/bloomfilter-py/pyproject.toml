@@ -11,17 +11,22 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-  "bitarray==2.9.2",
-  "mmh3==4.1.0",
+  "bitarray==3.11.0",
+  "mmh3==5.0.1; python_version < '3.9'",
+  "mmh3==5.2.0; python_version >= '3.9' and python_version < '3.10'",
+  "mmh3==5.3.1; python_version >= '3.10'",
 ]
 description = "Yet another bloomfilter implementation in Python"
 keywords = ["bloomfilter"]
@@ -29,7 +34,7 @@ license = {file = "LICENSE"}
 name = "bloomfilter-py"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.8"
-version = "1.1.0"
+version = "1.2.0"
 
 [project.urls]
 Documentation = "https://github.com/OldPanda/bloomfilter-py/blob/master/README.md"

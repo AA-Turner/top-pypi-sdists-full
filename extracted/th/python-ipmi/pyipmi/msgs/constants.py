@@ -80,6 +80,68 @@ COMPLETION_CODE_DESCR = (
     (CC_UNSPECIFIED_ERROR, 'Unspecified error'),
 )
 
+# channel medium types (IPMI v2.0, table 6-3)
+CHANNEL_MEDIUM_IPMB = 0x01
+CHANNEL_MEDIUM_ICMB_1_0 = 0x02
+CHANNEL_MEDIUM_ICMB_0_9 = 0x03
+CHANNEL_MEDIUM_LAN_802_3 = 0x04
+CHANNEL_MEDIUM_RS232 = 0x05
+CHANNEL_MEDIUM_OTHER_LAN = 0x06
+CHANNEL_MEDIUM_PCI_SMBUS = 0x07
+CHANNEL_MEDIUM_SMBUS_1_0 = 0x08
+CHANNEL_MEDIUM_SMBUS_2_0 = 0x09
+CHANNEL_MEDIUM_USB_1 = 0x0a
+CHANNEL_MEDIUM_USB_2 = 0x0b
+CHANNEL_MEDIUM_SYSTEM_INTERFACE = 0x0c
+
+# RMCP+ and RAKP message status codes (IPMI v2.0, table 13-15)
+MSC_OK = 0x00
+MSC_INSUFFICIENT_RESOURCES = 0x01
+MSC_INVALID_SESSION_ID = 0x02
+MSC_INVALID_PAYLOAD_TYPE = 0x03
+MSC_INVALID_AUTHENTICATION_ALGORITHM = 0x04
+MSC_INVALID_INTEGRITY_ALGORITHM = 0x05
+MSC_NO_MATCHING_AUTHENTICATION_PAYLOAD = 0x06
+MSC_NO_MATCHING_INTEGRITY_PAYLOAD = 0x07
+MSC_INACTIVE_SESSION_ID = 0x08
+MSC_INVALID_ROLE = 0x09
+MSC_UNAUTHORIZED_ROLE = 0x0a
+MSC_INSUFFICIENT_RESOURCES_FOR_ROLE = 0x0b
+MSC_INVALID_NAME_LENGTH = 0x0c
+MSC_UNAUTHORIZED_NAME = 0x0d
+MSC_UNAUTHORIZED_GUID = 0x0e
+MSC_INVALID_INTEGRITY_CHECK_VALUE = 0x0f
+MSC_INVALID_CONFIDENTIALITY_ALGORITHM = 0x10
+MSC_NO_CIPHER_SUITE_MATCH = 0x11
+MSC_ILLEGAL_PARAMETER = 0x12
+
+MESSAGE_STATUS_CODE_DESCR = (
+    (MSC_OK, 'No errors'),
+    (MSC_INSUFFICIENT_RESOURCES,
+     'Insufficient resources to create a session'),
+    (MSC_INVALID_SESSION_ID, 'Invalid Session ID'),
+    (MSC_INVALID_PAYLOAD_TYPE, 'Invalid payload type'),
+    (MSC_INVALID_AUTHENTICATION_ALGORITHM, 'Invalid authentication algorithm'),
+    (MSC_INVALID_INTEGRITY_ALGORITHM, 'Invalid integrity algorithm'),
+    (MSC_NO_MATCHING_AUTHENTICATION_PAYLOAD,
+     'No matching authentication payload'),
+    (MSC_NO_MATCHING_INTEGRITY_PAYLOAD, 'No matching integrity payload'),
+    (MSC_INACTIVE_SESSION_ID, 'Inactive Session ID'),
+    (MSC_INVALID_ROLE, 'Invalid role'),
+    (MSC_UNAUTHORIZED_ROLE, 'Unauthorized role or privilege level requested'),
+    (MSC_INSUFFICIENT_RESOURCES_FOR_ROLE,
+     'Insufficient resources to create a session at the requested role'),
+    (MSC_INVALID_NAME_LENGTH, 'Invalid name length'),
+    (MSC_UNAUTHORIZED_NAME, 'Unauthorized name'),
+    (MSC_UNAUTHORIZED_GUID, 'Unauthorized GUID'),
+    (MSC_INVALID_INTEGRITY_CHECK_VALUE, 'Invalid integrity check value'),
+    (MSC_INVALID_CONFIDENTIALITY_ALGORITHM,
+     'Invalid confidentiality algorithm'),
+    (MSC_NO_CIPHER_SUITE_MATCH,
+     'No Cipher Suite match with proposed security algorithms'),
+    (MSC_ILLEGAL_PARAMETER, 'Illegal or unrecognized parameter'),
+)
+
 # network functions
 NETFN_CHASSIS = 0x00
 NETFN_BRIDGE = 0x02
@@ -358,6 +420,7 @@ CMDID_VITA_GET_PAYLOAD_MODE_CAPABILITIES = 0x46
 CMDID_VITA_SET_PAYLOAD_MODE = 0x47
 
 # DCMI commands .. NetFn Group Extension (ID 0xdc)
+GROUP_EXTENSION_DCMI = 0xdc
 CMDID_GET_DCMI_CAPABILITIES_INFO = 0x01
 CMDID_GET_POWER_READING = 0x02
 CMDID_GET_POWER_LIMIT = 0x03
@@ -368,6 +431,11 @@ CMDID_GET_DCMI_SENSOR_INFO = 0x07
 CMDID_SET_ASSET_TAG = 0x08
 CMDID_GET_MANAGEMENT_CONTROLLER_ID_STRING = 0x09
 CMDID_SET_MANAGEMENT_CONTROLLER_ID_STRING = 0x0a
+CMDID_SET_THERMAL_LIMIT = 0x0b
+CMDID_GET_THERMAL_LIMIT = 0x0c
+CMDID_GET_TEMPERATURE_READINGS = 0x10
+CMDID_SET_DCMI_CONFIGURATION_PARAMETERS = 0x12
+CMDID_GET_DCMI_CONFIGURATION_PARAMETERS = 0x13
 
 # Command-specific completion codes. The key in this dictionary is a tuple
 # (NetFn, Command ID, Group extension).
@@ -429,6 +497,36 @@ CC_ERR_CMD_SPECIFIC_DESC = {
     },
     (NETFN_CHASSIS, CMDID_GET_SYSTEM_BOOT_OPTIONS, None): {
         0x80: "parameter not supported:"
+    },
+    (NETFN_GROUP_EXTENSION, CMDID_GET_POWER_LIMIT, GROUP_EXTENSION_DCMI): {
+        0x80: "no active set power limit"
+    },
+    (NETFN_GROUP_EXTENSION, CMDID_SET_POWER_LIMIT, GROUP_EXTENSION_DCMI): {
+        0x84: "power limit out of range",
+        0x85: "correction time out of range",
+        0x89: "statistics reporting period out of range"
+    },
+    (NETFN_GROUP_EXTENSION, CMDID_GET_ASSET_TAG, GROUP_EXTENSION_DCMI): {
+        0x80: "encoding type in FRU is binary / unspecified",
+        0x81: "encoding type in FRU is BCD Plus",
+        0x82: "encoding type in FRU is 6-bit ASCII Packed",
+        0x83: "encoding type in FRU is set to ASCII+Latin1 but language "
+              "code is not set to English"
+    },
+    (NETFN_GROUP_EXTENSION, CMDID_SET_THERMAL_LIMIT, GROUP_EXTENSION_DCMI): {
+        0x84: "temperature limit out of range",
+        0x85: "exception time out of range"
+    },
+    (NETFN_GROUP_EXTENSION, CMDID_SET_DCMI_CONFIGURATION_PARAMETERS,
+     GROUP_EXTENSION_DCMI): {
+        0x80: "parameter not supported",
+        0x81: "attempt to set the 'set in progress' value (in parameter #0) "
+              "when not in the 'set complete' state",
+        0x82: "attempt to write read-only parameter"
+    },
+    (NETFN_GROUP_EXTENSION, CMDID_GET_DCMI_CONFIGURATION_PARAMETERS,
+     GROUP_EXTENSION_DCMI): {
+        0x80: "parameter not supported"
     }
 }
 

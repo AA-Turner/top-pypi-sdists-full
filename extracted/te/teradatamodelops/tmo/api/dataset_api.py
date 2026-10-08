@@ -2,7 +2,6 @@ from __future__ import absolute_import
 
 import logging
 import uuid
-from typing import Union
 
 from teradataml import DataFrame
 
@@ -296,7 +295,7 @@ class DatasetApi(BaseEntityApiMixin):
 
     def find_by_dataset_template_id(
         self,
-        dataset_template_id: Union[str, uuid.UUID],
+        dataset_template_id: str | uuid.UUID,
         archived: bool = False,
         projection: str = None,
         page: int = None,

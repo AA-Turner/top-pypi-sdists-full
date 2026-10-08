@@ -7,11 +7,9 @@ Mirrors: packages/memory/src/processors/observational-memory/reflector-agent.ts
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from .constants import COMPRESSION_LEVELS
 from .types import ModelConfig, ReflectorResult
-
 
 # The Reflector's system prompt (persona, observation format reference, rules,
 # output format) is the memory.reflector mandate Holder's (2026-09-25) — seeded
@@ -24,19 +22,19 @@ from .types import ModelConfig, ReflectorResult
 
 def build_reflector_variables(
     observations: str,
-    current_task: Optional[str] = None,
-    manual_prompt: Optional[str] = None,
+    current_task: str | None = None,
+    manual_prompt: str | None = None,
     compression_level: int = 0,
 ) -> dict[str, str]:
     """
-    Build what the Reflector's Holder receives (memory.reflector).
+    Build what the Reflector's Holder receives BY NAME (memory.reflector).
 
-    The instruction text — the compression guidance for each level and the
-    "## Your Task" statement — is the Holder's own user turn (2026-09-25
-    residue pass). This offers only the material, the config's own extra
-    instruction, and which level's guidance applies: every OTHER level's
-    ``compression_guidance_level_N`` is sent empty, so only the run's level
-    keeps the Holder's text (level 0 = none).
+    The Holder AUTHORS its user turn around these names (2026-10-07) — the
+    framing, the compression guidance for each level and the task statement
+    are its own text. This offers the observations, the current task, the
+    config's own extra instruction, and which level's guidance applies: every
+    OTHER level's ``compression_guidance_level_N`` is sent empty, so only the
+    run's level keeps the Holder's text (level 0 = none).
 
     Args:
         observations: The full current observation text to compress.
@@ -44,23 +42,16 @@ def build_reflector_variables(
         manual_prompt: Optional override instruction from config.
         compression_level: 0-4. Higher = more aggressive compression.
     """
-    parts: list[str] = []
-
-    if current_task:
-        parts.append(f"## Current Task Context\n{current_task}\n")
-
-    parts.append("## Observations to Compress\n")
-    parts.append(observations)
-
     variables: dict[str, str] = {
         f"compression_guidance_level_{level}": ""
         for level in COMPRESSION_LEVELS
         if level != compression_level
     }
-    variables["additional_instructions"] = (
-        f"\n\n## Additional Instructions\n{manual_prompt}" if manual_prompt else ""
-    )
-    variables["material"] = "\n".join(parts)
+    variables["observations"] = observations
+    if current_task:
+        variables["current_task"] = current_task
+    if manual_prompt:
+        variables["memory_instructions"] = manual_prompt
     return variables
 
 
@@ -86,7 +77,7 @@ def parse_reflector_output(
     output: str,
     input_tokens: int = 0,
     output_tokens: int = 0,
-) -> Optional[ReflectorResult]:
+) -> ReflectorResult | None:
     """
     Parse the XML output from the Reflector LLM.
     
@@ -142,11 +133,11 @@ def validate_compression(
 async def run_reflector(
     model_config: ModelConfig,
     observations: str,
-    current_task: Optional[str],
+    current_task: str | None,
     target_threshold: int,
     count_tokens_fn,
     llm_call_fn,
-    instruction: Optional[str] = None,
+    instruction: str | None = None,
     max_compression_levels: int = 4,
 ) -> ReflectorResult:
     """

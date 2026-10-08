@@ -1038,6 +1038,12 @@ _CARD_FIELDS: dict[str, tuple[str, ...]] = {
     # limit, and an agent about to append needs the room left, not a guess.
     EntityType.SUB_NOTE: ("chars", "limit_chars", "remaining_chars", "notes_version"),
 }
+#: The kinds a coding-agent session creates, and so the kinds with an intent.
+_INTENT_KINDS = frozenset({EntityType.RUN, EntityType.EXPERIMENT, EntityType.PROJECT})
+_INTENT_CARD_FIELDS = (
+    "ask", "ask_truncated", "match", "context", "session_goal", "queued",
+    "asked_by_name", "asked_at", "session", "step_id", "provisional",
+)
 _CARD_DESCRIPTION_CHARS = 480
 _CARD_TEXT_CHARS = 240
 _CARD_LIST_ITEMS = 8
@@ -3135,6 +3141,50 @@ class ResearchReadService:
 
     # -- research_get --------------------------------------------------------
 
+    def _card_intent(self, kind: str, entity: Any, hide_session: str | None) -> dict | None:
+        """Why the entity was started, in the researcher's words: the ask from
+        the session that created it (`GET /v1/intent`). `match: approximate`
+        is candidate context, not a claim. Omitted when unknown, and when it
+        comes from the caller's own hidden session (the daemon's reader)."""
+        if kind not in _INTENT_KINDS or not isinstance(entity, dict) or not entity.get("id"):
+            return None
+        reader = getattr(self.source, "intent", None)
+        if reader is None:
+            return None
+        found = reader(kind, str(entity["id"]))
+        if not isinstance(found, dict) or not found.get("ask"):
+            return None
+        session = found.get("session")
+        if hide_session is not None and isinstance(session, str) and session.split("/", 1)[-1] == hide_session:
+            return None
+        return {key: found[key] for key in _INTENT_CARD_FIELDS if found.get(key) is not None}
+
+    def _card_blurb(self, kind: str, entity: Any) -> str | None:
+        """The Overview page's one-line summary for a project or experiment card,
+        read through the page's own read (`project_overview`), so a page the
+        caller would be refused -- written over a family with a project hidden
+        from them -- yields nothing here either (`_saved_overview`). Enrichment
+        only: any failure omits it."""
+        if kind not in (EntityType.PROJECT, EntityType.EXPERIMENT) or not isinstance(entity, dict):
+            return None
+        if not entity.get("id"):
+            return None
+        try:
+            if kind == EntityType.PROJECT:
+                page = self.source.project_overview(str(entity["id"]))
+            else:
+                page = self.source.experiment_overview(
+                    str(entity["id"]),
+                    project_id=entity.get("project_id") or entity.get("parent_project_id"),
+                )
+            saved = self._saved_overview(page).payload["overview"]
+        except Exception:  # enrichment only: never a reason the card fails
+            return None
+        blurb = saved.get("blurb")
+        if not isinstance(blurb, str) or not blurb.strip():
+            return None
+        return blurb.strip()[:_CARD_DESCRIPTION_CHARS]
+
     def get_entity(
         self,
         ref: str,
@@ -3210,6 +3260,12 @@ class ResearchReadService:
             )
             if url:
                 data["url"] = url
+            intent = self._card_intent(kind, entity, hide_session)
+            if intent:
+                data["intent"] = intent
+            blurb = self._card_blurb(kind, entity)
+            if blurb:
+                data["blurb"] = blurb
         missing = list(result.missing)
         next_cursor: str | None = None
         # A row view that emitted every row it has. False for an atomic view,

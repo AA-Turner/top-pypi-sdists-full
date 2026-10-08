@@ -47,7 +47,7 @@ serde_json = { version = "1.0.151", features = [
 ] }
 serde_with = "3.23.0"
 sha2 = "0.11.0"
-oai-statsig-grpc = { path = "../statsig-grpc", version = "0.33.0", optional = true }
+oai-statsig-grpc = { path = "../statsig-grpc", version = "0.35.0", optional = true }
 simple_logger = { version = "5.2.0" }
 tempfile = "3.27.0"
 tokio = { version = "1.53.1", features = ["full"] }
@@ -103,4 +103,14 @@ ordered_user_data_maps = ["dep:indexmap"]
 [[test]]
 name = "fork_random"
 path = "tests/fork_random.rs"
+harness = false
+
+[[test]]
+name = "fork_lifecycle"
+path = "tests/fork_lifecycle.rs"
+harness = false
+
+[[test]]
+name = "fork_pid_change"
+path = "tests/fork_pid_change.rs"
 harness = false

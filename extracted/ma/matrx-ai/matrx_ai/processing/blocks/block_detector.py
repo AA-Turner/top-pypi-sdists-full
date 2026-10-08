@@ -1216,7 +1216,11 @@ def _embedded_kind_json_regions(
             start += 1
             continue
         if source[start] != "{":
-            start += 1
+            # Straight to the next "{" (C speed) — every position before it is skipped
+            # one by one by this same branch, so the answer is unchanged.
+            start = source.find("{", start)
+            if start < 0:
+                break
             continue
         end = _matching_json_object_end(source, start)
         if end is None:
@@ -1636,6 +1640,28 @@ ALLOWED_RAW_HTML_TAGS: frozenset[str] = frozenset(
 
 
 def extract_unrecognized_xml_block(start_index: int, lines: list[str]) -> ExtractionResult | None:
+    # A generic XML container must OPEN the remaining source: its first non-whitespace
+    # character is "<" or there is no container. Asked BEFORE joining every remaining line —
+    # this runs at every line the splitter reaches, so the join made each split quadratic in
+    # the line count (and a streamed answer cubic). Same answer: ``_generic_xml_opening``
+    # reads its tag at the first non-whitespace character and refuses anything but "<".
+    # (Indexed, not sliced: the incremental splitter counts a slice to the end as reading the
+    # line still arriving.)
+    # The tag's NAME sits on that same line, so a closing tag, a nameless "<" and an HTML or
+    # known Matrx tag — every one refused below — are refused here too, without the join.
+    index = start_index
+    while index < len(lines):
+        opened = lines[index].lstrip()
+        if opened:
+            if not opened.startswith("<") or opened.startswith("</"):
+                return None
+            name = _XML_NAME_RE.match(opened, 1)
+            if name is None or _is_html_or_known_tag(name.group()):
+                return None
+            break
+        index += 1
+    else:
+        return None
     source = "\n".join(normalize_line(line) for line in lines[start_index:])
     opening = _generic_xml_opening(source)
     if not opening:
@@ -2113,10 +2139,38 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
 
     Direct port of TypeScript splitContentIntoBlocksV2.
     """
-    blocks: list[DetectedBlock] = []
-    lines = re.split(r"\r?\n", md_content)
-    current_text = ""
-    i = 0
+    return _recover_embedded_kind_json_blocks(_split_lines(re.split(r"\r?\n", md_content)))
+
+
+@dataclass
+class _SplitCheckpoint:
+    """The splitter's whole state at the top of one line — enough to resume there."""
+
+    line_index: int
+    current_text: str
+    blocks: list[DetectedBlock]
+    block_count: int
+
+
+def _split_lines(
+    lines: list[str],
+    resume: _SplitCheckpoint | None = None,
+    at_line: Any = None,
+) -> list[DetectedBlock]:
+    """The splitter's main loop over ``lines`` — unrecovered blocks.
+
+    ``resume`` starts at a checkpoint instead of the first line; ``at_line(i, current_text,
+    blocks)`` is told the state at the top of every line no spliced line is pending on
+    (the incremental splitter decides there whether that state can never change again).
+    """
+    if resume is None:
+        blocks: list[DetectedBlock] = []
+        current_text = ""
+        i = 0
+    else:
+        blocks = resume.blocks[: resume.block_count]
+        current_text = resume.current_text
+        i = resume.line_index
 
     # Keyed by the synthetic tagAndRest string that was spliced into `lines`.
     # Consumed once by step 3a so extract_attribute_xml_block gets the correct rawXml.
@@ -2128,14 +2182,17 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
             blocks.append(DetectedBlock(type="text", content=current_text.rstrip()))
             current_text = ""
 
-    front_matter_lines = front_matter_line_count(lines)
-    if front_matter_lines > 0:
-        current_text = "\n".join(normalize_line(x) for x in lines[:front_matter_lines]) + (
-            "\n" if front_matter_lines < len(lines) else ""
-        )
-        i = front_matter_lines
+    if resume is None:
+        front_matter_lines = front_matter_line_count(lines)
+        if front_matter_lines > 0:
+            current_text = "\n".join(normalize_line(x) for x in lines[:front_matter_lines]) + (
+                "\n" if front_matter_lines < len(lines) else ""
+            )
+            i = front_matter_lines
 
     while i < len(lines):
+        if at_line is not None and not pending_raw_xml_overrides:
+            at_line(i, current_text, blocks)
         line = lines[i]
         processed_line = normalize_line(line)
         trimmed_line = processed_line.strip()
@@ -2622,4 +2679,156 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
         i += 1
 
     flush_text()
-    return _recover_embedded_kind_json_blocks(blocks)
+    return blocks
+
+
+# ---------------------------------------------------------------------------
+# Incremental splitting — the live stream's splitter
+# ---------------------------------------------------------------------------
+#
+# 🚨 WHY THIS EXISTS (2026-10-08, lane S). ``StreamBlockProcessor`` re-split its WHOLE buffer
+# on every token, so a streamed answer cost (tokens x length) — a 9 KB answer took 2 s of CPU,
+# a 200 KB one would take many minutes, and every second of it is the worker's event loop.
+# This splitter gives the SAME answer as ``split_content_into_blocks(buffer)`` on every call
+# while re-reading only the unsettled tail: it resumes the main loop from the last line
+# whose state can never change again.
+#
+# When is a line's state settled? The state at the top of line ``i`` is a function of the
+# lines the loop has READ so far (including every lookahead). Complete lines — those whose
+# newline has arrived — never change, so the state is final when everything read so far is a
+# complete line, with a margin of ``_SETTLED_MARGIN`` complete lines past the furthest read
+# (the detectors also compare indices near what they read against ``len(lines)``, e.g. "is
+# the delimiter row the last line"; the margin makes each such comparison read the same
+# forever). The read set is measured, not assumed: ``_ReadTrackedLines`` records every index
+# and slice the detectors touch, and a run that EDITS its lines (the mid-line splices) takes
+# no checkpoint past the edit. Identity with the full split is held by
+# ``tests/test_incremental_split.py`` on real stored answers, at every token.
+
+_SETTLED_MARGIN = 3
+
+
+class _ReadTrackedLines(list):
+    """A line list that remembers the furthest line anything read, and whether it was edited."""
+
+    __slots__ = ("edits", "furthest")
+
+    def __init__(self, items: list[str], furthest: int) -> None:
+        super().__init__(items)
+        self.furthest = furthest
+        self.edits = 0
+
+    def _read_to_end(self) -> None:
+        self.furthest = list.__len__(self) - 1
+
+    def __getitem__(self, key):  # type: ignore[override]
+        size = list.__len__(self)
+        if isinstance(key, slice):
+            start, stop, step = key.indices(size)
+            if step != 1 or stop >= size:
+                # Reading to the end reads the line still arriving (and that there is no other).
+                self._read_to_end()
+            elif stop > start and stop - 1 > self.furthest:
+                self.furthest = stop - 1
+        else:
+            index = key + size if key < 0 else key
+            if index > self.furthest:
+                self.furthest = index
+        return list.__getitem__(self, key)
+
+    def __iter__(self):  # type: ignore[override]
+        self._read_to_end()
+        return list.__iter__(self)
+
+    def __contains__(self, item: object) -> bool:
+        self._read_to_end()
+        return list.__contains__(self, item)
+
+    def index(self, *args: Any) -> int:  # type: ignore[override]
+        self._read_to_end()
+        return list.index(self, *args)
+
+    def count(self, item: Any) -> int:  # type: ignore[override]
+        self._read_to_end()
+        return list.count(self, item)
+
+    def insert(self, index: Any, item: Any) -> None:  # type: ignore[override]
+        self.edits += 1
+        list.insert(self, index, item)
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        self.edits += 1
+        list.__setitem__(self, key, value)
+
+    def __delitem__(self, key: Any) -> None:
+        self.edits += 1
+        list.__delitem__(self, key)
+
+    def append(self, item: Any) -> None:  # type: ignore[override]
+        self.edits += 1
+        list.append(self, item)
+
+    def extend(self, items: Any) -> None:  # type: ignore[override]
+        self.edits += 1
+        list.extend(self, items)
+
+    def pop(self, *args: Any) -> Any:  # type: ignore[override]
+        self.edits += 1
+        return list.pop(self, *args)
+
+    def remove(self, item: Any) -> None:  # type: ignore[override]
+        self.edits += 1
+        list.remove(self, item)
+
+
+class IncrementalBlockSplitter:
+    """``split_content_into_blocks`` for an APPEND-ONLY buffer, re-reading only its tail.
+
+    ``split(appended)`` takes the text added since the last call and returns exactly what
+    ``split_content_into_blocks(everything so far)`` returns. The first ``settled_count``
+    blocks of every answer are the SAME objects from call to call (a caller may skip them).
+    """
+
+    def __init__(self) -> None:
+        self._complete: list[str] = []  # every line whose newline has arrived
+        self._tail = ""  # the line still arriving (may end in "\r")
+        self._checkpoint: _SplitCheckpoint | None = None
+        self._checkpoint_furthest = -1
+        self._recovered: list[DetectedBlock] = []  # recovered blocks before the checkpoint
+        self._recovered_count = 0  # how many unrecovered blocks ``_recovered`` covers
+
+    @property
+    def settled_count(self) -> int:
+        return len(self._recovered)
+
+    def split(self, appended: str) -> list[DetectedBlock]:
+        pieces = re.split(r"\r?\n", self._tail + appended)
+        self._complete.extend(pieces[:-1])
+        self._tail = pieces[-1]
+        lines = _ReadTrackedLines([*self._complete, self._tail], self._checkpoint_furthest)
+        last_complete = len(lines) - 2
+        best: _SplitCheckpoint | None = None
+        best_furthest = -1
+        open_to_checkpoints = True
+
+        def at_line(i: int, current_text: str, blocks: list[DetectedBlock]) -> None:
+            nonlocal best, best_furthest, open_to_checkpoints
+            if not open_to_checkpoints:
+                return
+            if lines.edits or lines.furthest + _SETTLED_MARGIN > last_complete:
+                open_to_checkpoints = False  # reads only grow; nothing later can settle
+                return
+            best = _SplitCheckpoint(i, current_text, blocks, len(blocks))
+            best_furthest = lines.furthest
+
+        blocks = _split_lines(lines, resume=self._checkpoint, at_line=at_line)
+
+        if best is not None and (
+            self._checkpoint is None or best.line_index > self._checkpoint.line_index
+        ):
+            self._recovered.extend(
+                _recover_embedded_kind_json_blocks(best.blocks[self._recovered_count : best.block_count])
+            )
+            self._recovered_count = best.block_count
+            self._checkpoint = best
+            self._checkpoint_furthest = best_furthest
+        return self._recovered + _recover_embedded_kind_json_blocks(blocks[self._recovered_count :])

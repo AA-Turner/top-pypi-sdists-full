@@ -136,6 +136,9 @@ class NoteClient:
         return {"customer_id": "synthetic"}
 
     def read_version(self, path):
+        if path.startswith("/v1/intent/"):
+            # The card's best-effort intent read: not a notes read.
+            raise errors.NotFoundError("no intent recorded")
         self.reads.append(("version", path))
         assert path == "/v1/projects/p1/notes/versions/7"
         if 7 not in self.saved:

@@ -75,6 +75,7 @@ from hsfs.core import (
     delta_engine,
     feature_group_api,
     feature_view_api,
+    iceberg_engine,
     ingestion_job_conf,
     job,
     job_api,
@@ -360,7 +361,14 @@ class Engine:
             df_list = self._read_hopsfs(
                 location, data_format, read_options, dataframe_type
             )
-        elif storage_connector.type == storage_connector.S3:
+        elif storage_connector.type in (
+            storage_connector.S3,
+            storage_connector.GLUE,
+        ):
+            # This reads raw files at a path (not a Glue table): a Glue
+            # connector's data lives on S3, so path reads go through S3 the same
+            # way as for an S3 connector. Reading a Glue-registered table by
+            # database/table is a Spark-engine, catalog-mediated path instead.
             df_list = self._read_s3(
                 storage_connector, location, data_format, dataframe_type
             )
@@ -502,9 +510,12 @@ class Engine:
     ) -> list[pd.DataFrame | pl.DataFrame]:
         # get key prefix
         path_parts = location.replace("s3://", "").split("/")
-        _ = path_parts.pop(0)  # pop first element -> bucket
+        location_bucket = path_parts.pop(0)  # pop first element -> bucket
 
         prefix = "/".join(path_parts)
+
+        # Connectors without a fixed bucket (e.g. Glue) take it from the path.
+        bucket = storage_connector.bucket or location_bucket
 
         if storage_connector.session_token is not None:
             # This is only for AWS IAM role passthrough.
@@ -529,14 +540,14 @@ class Engine:
         while object_list.get("is_truncated", False):
             if "NextContinuationToken" in object_list:
                 object_list = s3.list_objects_v2(
-                    Bucket=storage_connector.bucket,
+                    Bucket=bucket,
                     Prefix=prefix,
                     MaxKeys=1000,
                     ContinuationToken=object_list["NextContinuationToken"],
                 )
             else:
                 object_list = s3.list_objects_v2(
-                    Bucket=storage_connector.bucket,
+                    Bucket=bucket,
                     Prefix=prefix,
                     MaxKeys=1000,
                 )
@@ -544,7 +555,7 @@ class Engine:
             for obj in object_list["Contents"]:
                 if not self._is_metadata_file(obj["Key"]) and obj["Size"] > 0:
                     obj = s3.get_object(
-                        Bucket=storage_connector.bucket,
+                        Bucket=bucket,
                         Key=obj["Key"],
                     )
                     if dataframe_type.lower() == "polars":
@@ -632,6 +643,23 @@ class Engine:
         ):
             raise FeatureStoreException(
                 "Incremental queries are not supported in the python client."
+                " Read feature group without timestamp to retrieve latest snapshot or switch to "
+                "environment with Spark Engine."
+            )
+
+    def _register_iceberg_temporary_table(
+        self,
+        iceberg_fg_alias: hsfs.constructor.hudi_feature_group_alias.HudiFeatureGroupAlias,
+        feature_store_id: int,
+        feature_store_name: str,
+        read_options: dict[str, Any] | None,
+    ) -> None:
+        if iceberg_fg_alias and (
+            iceberg_fg_alias.left_feature_group_end_timestamp is not None
+            or iceberg_fg_alias.left_feature_group_start_timestamp is not None
+        ):
+            raise FeatureStoreException(
+                "Time travel queries are not supported in the python client."
                 " Read feature group without timestamp to retrieve latest snapshot or switch to "
                 "environment with Spark Engine."
             )
@@ -1095,12 +1123,14 @@ class Engine:
             not isinstance(feature_group, fg_mod.ExternalFeatureGroup)
             and feature_group.stream
         ):
-            # Streaming feature groups require the same data to be written on online and offline storage
+            # Both stores of a streaming feature group are fed from the topic, so
+            # `storage` selects which of its two consumers reads the records rather than
+            # which write happens: it travels with them as the Kafka storage header.
             return self._run_materialization_job(
                 feature_group,
                 dataframe,
                 offline_write_options,
-                None,  # doesnt support storage parameter
+                storage,
             )
 
         inserted = False
@@ -1124,9 +1154,46 @@ class Engine:
                 operation=operation,
             )
             inserted = True
+        if (
+            storage in [None, "offline"]
+            and not isinstance(feature_group, fg_mod.ExternalFeatureGroup)
+            and feature_group.time_travel_format == "ICEBERG"
+        ):
+            # Direct offline writes through PyIceberg, mirroring the delta-rs path.
+            iceberg_engine_instance = iceberg_engine.IcebergEngine(
+                feature_store_id=feature_group.feature_store_id,
+                feature_store_name=feature_group.feature_store_name,
+                feature_group=feature_group,
+                spark_session=None,
+                spark_context=None,
+            )
+            iceberg_engine_instance._save_iceberg_fg(
+                dataframe,
+                write_options=offline_write_options,
+                validation_id=validation_id,
+                operation=operation,
+            )
+            inserted = True
         if storage in [None, "online"] and feature_group.online_enabled:
+            # Mark the records for OnlineFS alone whenever this call has already covered the
+            # offline leg itself — the direct write above (`inserted`), a feature group with
+            # no offline store at all, or a caller that asked for online only — so that a
+            # materialization job cannot write the same rows to the offline table a second
+            # time.
+            # Anything else leaves the offline leg to a consumer of the topic, so the records
+            # stay unmarked and both consumers read them.
+            kafka_storage = (
+                kafka_engine._STORAGE_ONLINE
+                if inserted
+                or isinstance(feature_group, fg_mod.ExternalFeatureGroup)
+                or storage == "online"
+                else None
+            )
             self._write_dataframe_kafka(
-                feature_group, dataframe, offline_write_options, storage
+                feature_group,
+                dataframe,
+                offline_write_options,
+                kafka_storage,
             )
             inserted = True
 
@@ -1466,6 +1533,16 @@ class Engine:
         except ImportError:
             arrow_flight_client_imported = False
 
+        # The Query Service create-training-dataset action does not receive the
+        # training dataset's sink and always materializes to the default HopsFS
+        # location.
+        # If the training dataset targets an external connector or specifies a
+        # non-empty sink path, use the Spark materialization job instead.
+        has_user_supplied_sink = (
+            training_dataset.training_dataset_type == training_dataset.EXTERNAL
+            or bool(training_dataset.data_source and training_dataset.data_source.path)
+        )
+
         if (
             arrow_flight_client_imported
             and arrow_flight_client._is_query_supported(dataset, user_write_options)
@@ -1474,6 +1551,7 @@ class Engine:
             and len(feature_view_obj.transformation_functions) == 0
             and training_dataset.data_format == "parquet"
             and not transformation_context
+            and not has_user_supplied_sink
         ):
             query_obj, _ = dataset._prep_read(False, user_write_options)
             return util._run_with_loading_animation(
@@ -1862,7 +1940,12 @@ class Engine:
     def _wait_for_online_ingestion(
         feature_group: FeatureGroup | ExternalFeatureGroup,
         offline_write_options: dict[str, Any],
+        storage: str | None = None,
     ) -> None:
+        # An offline-only write creates no online ingestion to wait for, so waiting would
+        # block on whichever ingestion happened to run before it.
+        if storage == kafka_engine._STORAGE_OFFLINE:
+            return
         if feature_group.online_enabled and offline_write_options.get(
             "wait_for_online_ingestion", False
         ):
@@ -1877,12 +1960,20 @@ class Engine:
         offline_write_options: dict[str, Any],
         storage: str | None,
     ) -> None:
+        """Produce `dataframe` to the online topic of `feature_group`.
+
+        `storage` is the destination of the records: `"online"` when only OnlineFS is
+        meant to ingest them, `"offline"` when only the offline materialization job is,
+        `None` when both are.
+        It travels with every record as the Kafka storage header, except that a row the
+        online store has no use for is marked `"offline"` individually.
+        """
         # Compute per-row online flags before building the Avro schema so the
         # marker never enters the writer and avoids column name mangling.
         online_flags = None
         if (
             feature_group.online_enabled
-            and storage in [None, "online"]
+            and storage in [None, kafka_engine._STORAGE_ONLINE]
             and offline_write_options.get("online_ingestion_options", {}).get(
                 "mark_online_rows", True
             )
@@ -1893,7 +1984,7 @@ class Engine:
             "disable_online_ingestion_count", False
         ):
             n_rows = None
-        elif online_flags is not None and storage == "online":
+        elif online_flags is not None and storage == kafka_engine._STORAGE_ONLINE:
             # we will only produce rows marked for online ingestion, so count those for accurate progress bar and Kafka producer configuration
             n_rows = sum(online_flags)
         else:
@@ -1904,6 +1995,7 @@ class Engine:
             feature_group,
             offline_write_options,
             num_entries=n_rows,
+            storage=storage,
         )
 
         acked, progress_bar = (
@@ -1920,16 +2012,19 @@ class Engine:
             online_flags if online_flags is not None else itertools.repeat(None),
             strict=False,
         ):
-            # Set per-row storage header based on the online flag when present.
+            # A row the online store has no use for goes to the offline table alone, so
+            # override the destination of the write for that row only.
+            # Rows that do belong online keep the headers of the write: they are the common
+            # case, and leaving the header out of them is what keeps the default insert cheap
+            # on the wire.
             row_headers = headers
-            if online_flag is not None:
-                if not online_flag and storage == "online":
-                    # Online-only write — skip rows not destined for online store.
+            if online_flag is not None and not online_flag:
+                if storage == kafka_engine._STORAGE_ONLINE:
+                    # Online-only write — nobody would read the row, so do not produce it.
                     continue
-                # b"1" = ingest online, b"0" = offline only
                 row_headers = {
                     **headers,
-                    "storage": b"1" if online_flag else b"0",
+                    "storage": kafka_engine._STORAGE_OFFLINE.encode("utf8"),
                 }
 
             self._produce_row_kafka(
@@ -1949,7 +2044,7 @@ class Engine:
             del producer
             progress_bar.close()
 
-        self._wait_for_online_ingestion(feature_group, offline_write_options)
+        self._wait_for_online_ingestion(feature_group, offline_write_options, storage)
 
     def _delete_dataframe_kafka(
         self,
@@ -1970,10 +2065,18 @@ class Engine:
             )
             else len(dataframe)
         )
+        # The tombstone is for OnlineFS alone: remove_rows has already applied the offline
+        # delete directly to the table, so the storage header keeps the materialization job
+        # from re-inserting the key the delete removed.
+        # `operation` is what makes it a delete rather than an upsert: OnlineFsHandler.getRow
+        # turns it into Row.delete.
+        # The materialization job also drops records carrying it, which is what protects the
+        # offline table against tombstones from clients that predate the storage header.
         producer, headers, feature_writers, writer = kafka_engine._get_kafka_resources(
             feature_group,
             offline_write_options,
             num_entries=n_rows,
+            storage=kafka_engine._STORAGE_ONLINE,
         )
 
         acked, progress_bar = (
@@ -1984,13 +2087,6 @@ class Engine:
             )
         )
 
-        # `operation` is the only header the delete needs, and it is what both consumers
-        # read: OnlineFsHandler.getRow turns it into Row.delete, and the offline
-        # materialization drops the record so it does not re-insert the deleted key.
-        # No `storage` header: it gates the online leg alone ("0" makes OnlineFS skip the
-        # row, anything else or absent ingests it), so it cannot express "online only" and
-        # setting it to b"1" here only restated the default. The Spark and Java delete
-        # paths never set it either.
         row_headers = {**headers, "operation": b"delete"}
 
         for row in self._iter_dataframe_rows(dataframe):
@@ -2030,7 +2126,8 @@ class Engine:
     ) -> job.Job | None:
         initial_check_point = ""
 
-        if not feature_group._multi_part_insert:
+        online_only = storage == kafka_engine._STORAGE_ONLINE
+        if not feature_group._multi_part_insert and not online_only:
             # set initial_check_point to the current offset
             initial_check_point = kafka_engine._kafka_get_offsets(
                 topic_name=feature_group._online_topic_name,
@@ -2042,6 +2139,11 @@ class Engine:
         self._write_dataframe_kafka(
             feature_group, dataframe, offline_write_options, storage
         )
+
+        # An online-only write is written for OnlineFS alone and carries a storage header
+        # the materialization job skips, so running that job would materialize nothing.
+        if online_only:
+            return None
 
         # start materialization job if not an external feature group, otherwise return None
         if isinstance(feature_group, ExternalFeatureGroup):

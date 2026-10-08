@@ -21,7 +21,8 @@ class Dataset(BaseDatasetMixin):
     description: str
     query: str
     scope: Scope
-    metadata: Union[Metadata, dict]  # NOSONAR
+    metadata: Union[Metadata, dict]  # NOSONAR: Metadata uses @functional, which
+    # breaks the `X | Y` operator; typing.Union must be used instead.
     catalog_type: CatalogType
 
     def __init__(
@@ -32,7 +33,7 @@ class Dataset(BaseDatasetMixin):
         description: Optional[str] = "VANTAGE dataset",
         query: Optional[str] = None,
         scope: Optional[Scope] = None,
-        metadata: Optional[Union[Metadata, dict]] = None,
+        metadata: Optional[Union[Metadata, dict]] = None,  # NOSONAR
         catalog_type: CatalogType = CatalogType.VANTAGE,
     ):
         self.id = id

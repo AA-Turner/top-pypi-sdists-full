@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dealcloud_sdk
-Version: 0.1.9
+Version: 0.1.10
 Summary: DealCloud SDK is a wrapper around the DealCloud API, designed to assist clients and partners to build on top of our platform quickly and easily.
 License: Intapp License for Supplemental Software
 Author: Intapp

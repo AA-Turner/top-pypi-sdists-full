@@ -349,11 +349,125 @@ def catalog_kind() -> str:
     Replaces the old inline ``"cld" if is_in_cld_context() else "managed"``
     idiom at the Iceberg telemetry call sites so the emitted ``catalog_kind``
     carries the actual provider.
+
+    NOTE: this reflects the *session's current database*. For an operation on a
+    specific (possibly fully-qualified) target table, prefer
+    :func:`catalog_kind_for_database` so the label follows the table's catalog
+    rather than the session default (SNOW: CLD ops mislabeled ``managed``).
     """
-    ctx = _current_cld_context.get()
+    return _catalog_kind_label(_current_cld_context.get())
+
+
+def _catalog_kind_label(ctx: CLDInfo) -> str:
+    """Map a resolved :class:`CLDInfo` to its telemetry catalog-provider label."""
     if ctx.catalog_provider:
         return ctx.catalog_provider
     return CATALOG_PROVIDER_UNKNOWN if ctx.is_cld else CATALOG_PROVIDER_MANAGED
+
+
+def catalog_kind_for_database(
+    session: "snowpark.Session", database_name: str | None
+) -> str:
+    """Catalog-provider label for the catalog of ``database_name``.
+
+    Unlike :func:`catalog_kind`, which reflects the session's current database,
+    this resolves the provider for the database the operation actually targets.
+    A write to a fully-qualified CLD table (e.g. ``GLUE_DB.schema.tbl``) from a
+    session whose default database is Snowflake-managed must be labeled by the
+    *target's* catalog (glue / unity / horizon / ...), not ``managed``.
+
+    Falls back to the session label when ``database_name`` is empty (an
+    unqualified target genuinely resolves against the session's current
+    database).
+    """
+    if not database_name:
+        return catalog_kind()
+    info = get_cld_info(session, database_name)
+    # Distinguish a real Snowflake-managed database from a *failed* lookup. A
+    # successful SHOW DATABASES hit always sets ``database_name`` (and managed
+    # DBs also set ``catalog_provider="managed"``); a no-row result or an
+    # exception returns ``CLDInfo(is_cld=False)`` with both unset. Labeling that
+    # failure "managed" would refill the exact bucket this fix drains (e.g. a
+    # fully-qualified CLD target missed on privilege/case, or a schema mistaken
+    # for a database), so report it as "unknown".
+    if info.database_name is None and info.catalog_provider is None:
+        return CATALOG_PROVIDER_UNKNOWN
+    return _catalog_kind_label(info)
+
+
+def catalog_kind_for_table(session: "snowpark.Session", table_name: str | None) -> str:
+    """Catalog-provider label for the catalog of a (possibly qualified) table.
+
+    A fully-qualified ``db.schema.table`` name identifies a target database that
+    may differ from the session's current database; a 1/2-part name resolves
+    against the session, so fall back to the session label there. Use this at
+    Iceberg telemetry sinks for an operation on a specific table so the label
+    follows the *table's* catalog, not the session default (SNOW-4237460).
+
+    Two subtleties, both of which would otherwise mislabel a real CLD as the
+    session's provider:
+
+    - A trailing ``.branch_<name>`` / ``.tag_<name>`` WAP suffix is its own
+      split part, so ``schema.tbl.branch_x`` is 3 parts whose first segment is
+      the *schema*, not a database. Strip the suffix first (same
+      ``is_iceberg_sql_extensions_enabled`` gate as the read path) before
+      counting parts.
+    - ``split_*`` drops backticks and :func:`get_cld_info` only preserves case
+      for a double-quoted identifier, so a backtick-quoted db (``\\`gd_qa\\`.s.t``)
+      would be up-cased into a lookup miss. Re-quote it as a double-quoted
+      identifier to keep the stored case.
+    """
+    if not table_name:
+        return catalog_kind()
+
+    # Lazy imports: identifiers imports this module, and config / the branch-tag
+    # helper pull in heavier modules — importing at load time risks a cycle.
+    from snowflake.snowpark_connect.config import is_iceberg_sql_extensions_enabled
+    from snowflake.snowpark_connect.relation.iceberg_sql_branch_tag_suffix import (
+        try_parse_iceberg_branch_tag_suffix,
+    )
+    from snowflake.snowpark_connect.utils.identifiers import (
+        split_fully_qualified_spark_name_with_quoting,
+    )
+
+    # Strip a WAP branch/tag suffix so the base name reflects the real
+    # db.schema.table. Best-effort: a malformed suffix must never break the
+    # telemetry path, so fall back to the raw name on any parse error.
+    base_name = table_name
+    try:
+        if is_iceberg_sql_extensions_enabled():
+            parsed = try_parse_iceberg_branch_tag_suffix(table_name)
+            if parsed is not None:
+                base_name = parsed[0]
+    except Exception:  # noqa: BLE001 - labeling must not raise
+        base_name = table_name
+
+    parts, backtick_flags = split_fully_qualified_spark_name_with_quoting(base_name)
+    return catalog_kind_for_table_parts(session, parts, backtick_flags)
+
+
+def catalog_kind_for_table_parts(
+    session: "snowpark.Session",
+    parts: list[str],
+    backtick_flags: list[bool],
+) -> str:
+    """Catalog label from already-split identifier parts (+ per-part backtick flags).
+
+    Shared tail of :func:`catalog_kind_for_table` for callers that have already
+    split *and stripped* an identifier — e.g. the read path, which removes a
+    ``.changes`` (or other metadata-table) suffix before resolving, so the parts
+    passed here are the real ``db.schema.table`` segments. Only a 3-part name
+    identifies a target database distinct from the session; shorter names fall
+    back to the session label. A backtick-quoted database is re-quoted as a
+    double-quoted identifier so :func:`get_cld_info` preserves its case.
+    """
+    if len(parts) < 3 or not parts[0]:
+        return catalog_kind()
+    database = parts[0]
+    if backtick_flags and backtick_flags[0]:
+        # Preserve a case-sensitive CLD name through get_cld_info's normalizer.
+        database = f'"{database}"'
+    return catalog_kind_for_database(session, database)
 
 
 def should_use_cld_identifier_rules(is_cld: bool | None = None) -> bool:

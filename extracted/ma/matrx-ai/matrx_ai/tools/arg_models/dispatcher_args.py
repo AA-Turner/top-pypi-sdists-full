@@ -35,16 +35,16 @@ from matrx_ai.tools.arg_models._coercion import (
 from matrx_ai.tools.declared import ToolArgs
 
 
-# ── dataset ─────────────────────────────────────────────────────────────────
-class DatasetListWire(ToolArgs):
+# ── table (was dataset; renamed 2026-10-07) ─────────────────────────────────────────────────────────────────
+class TableListWire(ToolArgs):
     action: Literal["list"]
     limit: int = 50
     offset: int = 0
 
 
-class DatasetGetWire(ToolArgs):
+class TableGetWire(ToolArgs):
     action: Literal["get"]
-    dataset_id: str
+    table_id: str
     limit: int = 50
     offset: int = 0
     include: str = "all"
@@ -52,16 +52,16 @@ class DatasetGetWire(ToolArgs):
     sort_order: str = "asc"
 
 
-class DatasetSearchWire(ToolArgs):
+class TableSearchWire(ToolArgs):
     action: Literal["search"]
-    dataset_id: str
+    table_id: str
     query: str
     limit: int = 50
 
 
-class DatasetCreateWire(ToolArgs):
+class TableCreateWire(ToolArgs):
     action: Literal["create"]
-    dataset_name: str
+    table_name: str
     data: Any = None
     typed: bool = False
     description: str | None = None
@@ -74,9 +74,9 @@ class DatasetCreateWire(ToolArgs):
         return coerce_json_container(v)
 
 
-class DatasetAddRowsWire(ToolArgs):
+class TableAddRowsWire(ToolArgs):
     action: Literal["add_rows"]
-    dataset_id: str
+    table_id: str
     rows: list
 
     @field_validator("rows", mode="before")
@@ -85,9 +85,9 @@ class DatasetAddRowsWire(ToolArgs):
         return coerce_list(v, field="rows", purpose="row objects")
 
 
-class DatasetUpdateRowWire(ToolArgs):
+class TableUpdateRowWire(ToolArgs):
     action: Literal["update_row"]
-    dataset_id: str
+    table_id: str
     row_id: str
     data: Any = None
 
@@ -99,22 +99,22 @@ class DatasetUpdateRowWire(ToolArgs):
         return coerce_field_values(v)
 
 
-class DatasetDeleteRowWire(ToolArgs):
+class TableDeleteRowWire(ToolArgs):
     action: Literal["delete_row"]
-    dataset_id: str
+    table_id: str
     row_id: str
 
 
-class DatasetArgs(
+class TableArgs(
     RootModel[
         Annotated[
-            DatasetListWire
-            | DatasetGetWire
-            | DatasetSearchWire
-            | DatasetCreateWire
-            | DatasetAddRowsWire
-            | DatasetUpdateRowWire
-            | DatasetDeleteRowWire,
+            TableListWire
+            | TableGetWire
+            | TableSearchWire
+            | TableCreateWire
+            | TableAddRowsWire
+            | TableUpdateRowWire
+            | TableDeleteRowWire,
             Field(discriminator="action"),
         ]
     ]

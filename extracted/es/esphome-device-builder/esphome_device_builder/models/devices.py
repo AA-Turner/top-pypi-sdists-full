@@ -65,7 +65,7 @@ class DeviceRuntimeState(DashboardModel):
 
     Populated by the mDNS / MQTT / ping monitors after startup; the
     fields the metadata sidecar persists (``deployed_version``,
-    ``deployed_config_hash``, ``queued_update``,
+    ``deployed_config_hash``, ``network``, ``queued_update``,
     ``api_encryption_active``) are also seeded from disk on cold load,
     while ``state`` / ``active_source`` / ``ip_addresses`` /
     ``deployed_identity_live`` start empty and repopulate on the next
@@ -98,6 +98,9 @@ class DeviceRuntimeState(DashboardModel):
     # how we tell "flashed with the latest compile" apart from
     # "compile succeeded but device still runs older firmware".
     deployed_config_hash: str = ""
+    # Link from the ``network`` TXT (``"wifi"`` / ``"ethernet"`` / ``"thread"``);
+    # empty until announced.
+    network: str = ""
     # True once a local offline compile finished successfully and is
     # waiting to be flashed via OTA upon the next mDNS check-in.
     queued_update: bool = False
@@ -113,6 +116,9 @@ class DeviceRuntimeState(DashboardModel):
     # evidence for the sidecar-seeded values, which is exactly what the
     # flag reports.
     deployed_identity_live: bool = False
+    # Running firmware broadcasts ``ota_signed=1``: it rejects OTA images not
+    # signed by a key it trusts. Session-only; follows each announce.
+    ota_signed: bool = False
 
     def __post_serialize__(self, d: dict[Any, Any]) -> dict[Any, Any]:
         """Replace the ``offline_since`` stamp with its age."""
@@ -378,6 +384,9 @@ class Device(DashboardModel):
     # *running* firmware has it compiled in is the frontend's half of the
     # gate (deployed hash == expected hash).
     ota_partition_access: bool = False
+    # esp32 whose ``signed_ota_verification`` sets ``signing_key``, so builds
+    # are signed and an ``ota_signed`` device may still accept the OTA.
+    ota_signing_key: bool = False
 
     def to_flat_dict(self) -> dict[str, Any]:
         """Serialise with ``runtime_state`` flattened; HA's dashboard API reads the keys flat."""
@@ -402,6 +411,9 @@ class AdoptableDevice(DashboardModel):
     # server was found — the discovered card then hides the
     # Visit-web-UI affordance.
     web_url: str = ""
+    # Broadcasts ``ota_signed=1``: only accepts OTA images signed by a key
+    # it trusts, so the first install after adoption must go over serial.
+    ota_signed: bool = False
 
 
 @dataclass

@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trajectory-sdk"
-version = "0.8.14"
+version = "0.9.11"
 description = "Generated Trajectory API client and high-level workflows"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "httpx>=0.28.1",
+  "httpx2>=2.13.1",
   "pathspec>=0.12",
   "pydantic>=2.0",
   "tqdm>=4.67",

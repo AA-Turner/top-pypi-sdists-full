@@ -954,7 +954,7 @@ class AsyncChalkClient:
 
     async def prompt_evaluation(
         self,
-        prompts: list[Prompt | str],
+        prompts: list[Prompt],
         dataset_id: str | None = None,
         dataset_name: str | None = None,
         revision_id: str | None = None,
@@ -1022,7 +1022,7 @@ class AsyncChalkClient:
             See https://docs.chalk.ai/docs/prompts#prompt-evaluation for more information.
         prompts
             The list of prompts to use for the evaluation.
-            This can be a list of `Prompt` objects or a list of named prompts.
+            Provide explicit `Prompt` objects. Named prompt references are no longer supported.
         meta
             Arbitrary `key:value` pairs to associate with a query.
         input

@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import os
 import numpy as np
-import warnings
 import matplotlib.pyplot as plt
 
 # Optional kwave imports

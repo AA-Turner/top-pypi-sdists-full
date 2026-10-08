@@ -2,6 +2,8 @@
 
 #include "openscad_cpp_evaluator/bound_args.hpp"
 #include "openscad_cpp_evaluator/bytecode.hpp"
+
+#include <unordered_set>
 #include "openscad_cpp_evaluator/bytecode_vm.hpp"
 #include "openscad_cpp_evaluator/call_args.hpp"
 #include "openscad_cpp_evaluator/csg_node.hpp"
@@ -557,10 +559,46 @@ public:
     // Public: builtins/import.cpp's not-manifold warning is emitted from a
     // free function, same reasoning as tagGenerated()/builtinChildren().
     void warn(const std::string& message, const oscad::Position* position);
+    // OpenSCAD's lexer warns "Undefined escape sequence" once per bad escape
+    // in the source. This warns for a literal the first time it is
+    // evaluated or compiled, and never again for that literal.
+    void warnUndefinedEscapes(const oscad::StringLiteral& lit, int count);
+    // let() keeps the FIRST binding of a repeated name: OpenSCAD evaluates
+    // the later right-hand side, warns with its value, and discards it.
+    // assert(), interpreted: the condition first, and only on failure the
+    // message and any other argument -- see the definition (stmt_eval.cpp)
+    // for why this deliberately diverges from OpenSCAD. `maybeCompiled`
+    // picks evalExprMaybeCompiled (statement form) over evalExpr.
+    void evalAssert(const std::vector<std::unique_ptr<oscad::Argument>>& arguments, const oscad::ASTNode& node,
+                    EvalContext& ctx, bool maybeCompiled);
+    // The unexpected-argument warnings, which a passing assert still prints.
+    void warnAssertArgs(const std::vector<std::unique_ptr<oscad::Argument>>& arguments, const AssertLayout& layout);
+    // A failed (or condition-less) assert, once every non-condition argument
+    // has been evaluated: warns about unexpected arguments, then throws via
+    // error(). `message` is null when none was given; it prints as echo()
+    // would print it.
+    [[noreturn]] void failAssert(const std::vector<std::unique_ptr<oscad::Argument>>& arguments,
+                                 const AssertLayout& layout, const Value* message, const oscad::ASTNode& node);
+    void warnDuplicateLet(const std::string& name, const Value& v, const oscad::Position* position);
+    template <typename Assignments>
+    static bool repeatsEarlierLetName(const Assignments& assignments, size_t i) {
+        for (size_t j = 0; j < i; ++j)
+            if (assignments[j]->name->name == assignments[i]->name->name) return true;
+        return false;
+    }
+    std::unordered_set<const oscad::StringLiteral*> undefinedEscapesWarned_;
+    void warnUndefinedEscapes(const CompiledChunk& chunk) {
+        for (const auto& [lit, n] : chunk.undefinedEscapeLiterals) warnUndefinedEscapes(*lit, n);
+    }
     // Hands one already-formatted warning line to echoFn_, recording it in
     // warnCapture first when one is active. Every warning path goes through
     // here, including a ManifoldCache hit replaying a cached line.
     void emitWarning(const std::string& formatted);
+    // "ERROR: {message}{locSuffix(position)}" that does NOT stop the run:
+    // OpenSCAD logs several of its errors this way and carries on.
+    void nonFatalError(const std::string& message, const oscad::Position* position) {
+        emitWarning("ERROR: " + message + locSuffix(position));
+    }
 
     // Applies OpenSCAD's mixed-2D/3D rules to a node's children just
     // before its GenerateFn runs -- see csg_generate.cpp.

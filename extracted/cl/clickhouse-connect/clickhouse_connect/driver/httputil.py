@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 import http.client
 import logging
@@ -7,12 +8,13 @@ import sys
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Any
 
 import certifi
 import lz4.frame
 import urllib3
+from urllib3.exceptions import HTTPError
 from urllib3.poolmanager import PoolManager, ProxyManager
 from urllib3.response import HTTPResponse
 
@@ -235,6 +237,8 @@ class ResponseSource:
     def __init__(self, response: HTTPResponse, chunk_size: int = 1024 * 1024, exception_tag: str | None = None):
         self.response = response
         self.exception_tag = exception_tag
+        read_lock = threading.RLock()
+        close_requested = threading.Event()
         compression = response.headers.get("content-encoding")
         decompress: Callable | None = None
         if compression == "zstd":
@@ -263,18 +267,52 @@ class ResponseSource:
             decompress = lz_decompress
 
         buffer_size = common.get_setting("http_buffer_size")
+        read_gen: Generator[bytes, None, None] | None = response.stream(chunk_size, decompress is None)
+        reading = False
+        deferred_close = False
+        # Reads and cleanup must use the same HTTP parser, including partially consumed chunks.
+
+        def close_response() -> None:
+            nonlocal read_gen, deferred_close
+            close_requested.set()
+            with read_lock:
+                # A finalizer on the reader thread must let next() return before draining.
+                if reading:
+                    deferred_close = True
+                    return
+                if read_gen is None:
+                    return
+                drain_gen, read_gen = read_gen, None
+                try:
+                    for _ in drain_gen:
+                        pass
+                except (HTTPError, OSError, http.client.HTTPException):
+                    # Match urllib3 drain_conn()'s handling of broken responses.
+                    pass
+                finally:
+                    response.close()
+
+        self._close_response = close_response
 
         def buffered():
+            nonlocal reading
             chunks = deque()
             done = False
             current_size = 0
-            read_gen = response.stream(chunk_size, decompress is None)
             read_error = None
             while True:
                 while not done:
                     chunk = None
                     try:
-                        chunk = next(read_gen, None)  # Always try to read at least one chunk if there are any left
+                        with read_lock:
+                            reading = True
+                            try:
+                                if not close_requested.is_set() and read_gen is not None:
+                                    chunk = next(read_gen, None)
+                            finally:
+                                reading = False
+                                if deferred_close:
+                                    close_response()
                     except Exception as ex:
                         # Store the exception for re-raising later
                         read_error = ex
@@ -301,6 +339,27 @@ class ResponseSource:
 
         self.gen = buffered()
 
-    def close(self):
-        self.response.drain_conn()
-        self.response.close()
+    def close(self) -> None:
+        self._close_response()
+
+    async def aclose(self) -> None:
+        loop = asyncio.get_running_loop()
+        try:
+            future = loop.run_in_executor(None, self.close)
+        except RuntimeError:
+            self.close()
+            return
+        cancelled: asyncio.CancelledError | None = None
+        while not future.done():
+            try:
+                await asyncio.wait((future,))
+            except asyncio.CancelledError as ex:
+                if cancelled is None:
+                    cancelled = ex
+        if cancelled is not None:
+            try:
+                future.result()
+            except BaseException as ex:  # noqa: BLE001 - preserve cancellation after cleanup
+                raise cancelled from ex
+            raise cancelled
+        future.result()

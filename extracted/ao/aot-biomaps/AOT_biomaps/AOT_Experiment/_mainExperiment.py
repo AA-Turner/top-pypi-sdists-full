@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from AOT_biomaps.Settings import Params
 from AOT_biomaps.AOT_Optic._mainOptic import Phantom
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType, FormatSave
@@ -30,6 +32,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 class Experiment(ABC):

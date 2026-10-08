@@ -194,6 +194,7 @@ class AdCampaignsResource:
         customer_id: str | None = None,
         target_cpa: float | None = None,
         target_roas: float | None = None,
+        target_impression_share: Any | None = None,
     ) -> dict[str, Any]:
         """Create portfolio bid strategy"""
         payload = self._build_payload(
@@ -204,6 +205,7 @@ class AdCampaignsResource:
             type=type,
             target_cpa=target_cpa,
             target_roas=target_roas,
+            target_impression_share=target_impression_share,
         )
         return self._client._post("/v1/ads/bid-strategies", data=payload)
 
@@ -218,6 +220,7 @@ class AdCampaignsResource:
         type: str | None = None,
         target_cpa: float | None = None,
         target_roas: float | None = None,
+        target_impression_share: Any | None = None,
     ) -> dict[str, Any]:
         """Update portfolio bid strategy"""
         payload = self._build_payload(
@@ -228,10 +231,40 @@ class AdCampaignsResource:
             type=type,
             target_cpa=target_cpa,
             target_roas=target_roas,
+            target_impression_share=target_impression_share,
         )
         return self._client._patch(
             f"/v1/ads/bid-strategies/{strategy_id}", data=payload
         )
+
+    def list_shared_budgets(
+        self, account_id: str, *, ad_account_id: str | None = None
+    ) -> dict[str, Any]:
+        """List shared budgets"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._get("/v1/ads/shared-budgets", params=params)
+
+    def create_shared_budget(
+        self,
+        account_id: str,
+        name: str,
+        amount: float,
+        *,
+        ad_account_id: str | None = None,
+        type: str | None = "daily",
+    ) -> dict[str, Any]:
+        """Create a shared budget"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            name=name,
+            amount=amount,
+            type=type,
+        )
+        return self._client._post("/v1/ads/shared-budgets", data=payload)
 
     def list_ad_keywords(
         self,
@@ -354,6 +387,9 @@ class AdCampaignsResource:
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        target_impression_share: Any | None = None,
+        manual_cpc: Any | None = None,
+        network_settings: Any | None = None,
     ) -> dict[str, Any]:
         """Create a standalone campaign"""
         payload = self._build_payload(
@@ -374,6 +410,9 @@ class AdCampaignsResource:
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+            target_impression_share=target_impression_share,
+            manual_cpc=manual_cpc,
+            network_settings=network_settings,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -466,6 +505,12 @@ class AdCampaignsResource:
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
         allow_shared_budget_update: bool | None = False,
+        target_impression_share: Any | None = None,
+        manual_cpc: Any | None = None,
+        network_settings: Any | None = None,
+        tracking_url_template: str | None = None,
+        final_url_suffix: str | None = None,
+        shared_budget_id: Any | None = None,
         budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -479,6 +524,12 @@ class AdCampaignsResource:
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
             allow_shared_budget_update=allow_shared_budget_update,
+            target_impression_share=target_impression_share,
+            manual_cpc=manual_cpc,
+            network_settings=network_settings,
+            tracking_url_template=tracking_url_template,
+            final_url_suffix=final_url_suffix,
+            shared_budget_id=shared_budget_id,
             budget=budget,
             name=name,
             platform_specific_data=platform_specific_data,
@@ -565,7 +616,7 @@ class AdCampaignsResource:
     def get_campaign_targeting(
         self, campaign_id: str, *, platform: str | None = None
     ) -> dict[str, Any]:
-        """Read a Google campaign's device, location, and language targeting"""
+        """Read a Google campaign's device, location, excluded location, and language targeting"""
         params = self._build_params(
             platform=platform,
         )
@@ -576,7 +627,7 @@ class AdCampaignsResource:
     def update_campaign_targeting(
         self, campaign_id: str, platform: str, targeting: dict[str, Any]
     ) -> dict[str, Any]:
-        """Edit a Google campaign's device, location, or language targeting"""
+        """Edit a Google campaign's device, location, excluded location, or language targeting"""
         payload = self._build_payload(
             platform=platform,
             targeting=targeting,
@@ -615,6 +666,7 @@ class AdCampaignsResource:
         *,
         idempotency_key: str | None = None,
         status: str | None = "PAUSED",
+        max_cpc: float | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
@@ -625,6 +677,7 @@ class AdCampaignsResource:
             campaign_id=campaign_id,
             name=name,
             status=status,
+            max_cpc=max_cpc,
             ad_account_id=ad_account_id,
             customer_id=customer_id,
         )
@@ -897,6 +950,7 @@ class AdCampaignsResource:
         sitelinks: list[Any] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[Any] | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Attach campaign assets"""
         payload = self._build_payload(
@@ -906,6 +960,7 @@ class AdCampaignsResource:
             sitelinks=sitelinks,
             callouts=callouts,
             structured_snippets=structured_snippets,
+            images=images,
         )
         return self._client._post(
             f"/v1/ads/campaigns/{campaign_id}/assets", data=payload
@@ -979,6 +1034,7 @@ class AdCampaignsResource:
         sitelinks: list[Any] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[Any] | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Attach ad-group assets"""
         payload = self._build_payload(
@@ -988,6 +1044,7 @@ class AdCampaignsResource:
             sitelinks=sitelinks,
             callouts=callouts,
             structured_snippets=structured_snippets,
+            images=images,
         )
         return self._client._post(f"/v1/ads/ad-sets/{ad_set_id}/assets", data=payload)
 
@@ -1409,6 +1466,9 @@ class AdCampaignsResource:
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        target_impression_share: Any | None = None,
+        manual_cpc: Any | None = None,
+        network_settings: Any | None = None,
         value_rule_set_id: str | None = None,
         value_rules_applied: bool | None = None,
         platform_specific_data: Any | None = None,
@@ -1526,6 +1586,9 @@ class AdCampaignsResource:
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+            target_impression_share=target_impression_share,
+            manual_cpc=manual_cpc,
+            network_settings=network_settings,
             value_rule_set_id=value_rule_set_id,
             value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,
@@ -1689,6 +1752,7 @@ class AdCampaignsResource:
         customer_id: str | None = None,
         target_cpa: float | None = None,
         target_roas: float | None = None,
+        target_impression_share: Any | None = None,
     ) -> dict[str, Any]:
         """Create portfolio bid strategy (async)"""
         payload = self._build_payload(
@@ -1699,6 +1763,7 @@ class AdCampaignsResource:
             type=type,
             target_cpa=target_cpa,
             target_roas=target_roas,
+            target_impression_share=target_impression_share,
         )
         return await self._client._apost("/v1/ads/bid-strategies", data=payload)
 
@@ -1713,6 +1778,7 @@ class AdCampaignsResource:
         type: str | None = None,
         target_cpa: float | None = None,
         target_roas: float | None = None,
+        target_impression_share: Any | None = None,
     ) -> dict[str, Any]:
         """Update portfolio bid strategy (async)"""
         payload = self._build_payload(
@@ -1723,10 +1789,40 @@ class AdCampaignsResource:
             type=type,
             target_cpa=target_cpa,
             target_roas=target_roas,
+            target_impression_share=target_impression_share,
         )
         return await self._client._apatch(
             f"/v1/ads/bid-strategies/{strategy_id}", data=payload
         )
+
+    async def alist_shared_budgets(
+        self, account_id: str, *, ad_account_id: str | None = None
+    ) -> dict[str, Any]:
+        """List shared budgets (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._aget("/v1/ads/shared-budgets", params=params)
+
+    async def acreate_shared_budget(
+        self,
+        account_id: str,
+        name: str,
+        amount: float,
+        *,
+        ad_account_id: str | None = None,
+        type: str | None = "daily",
+    ) -> dict[str, Any]:
+        """Create a shared budget (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            name=name,
+            amount=amount,
+            type=type,
+        )
+        return await self._client._apost("/v1/ads/shared-budgets", data=payload)
 
     async def alist_ad_keywords(
         self,
@@ -1851,6 +1947,9 @@ class AdCampaignsResource:
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        target_impression_share: Any | None = None,
+        manual_cpc: Any | None = None,
+        network_settings: Any | None = None,
     ) -> dict[str, Any]:
         """Create a standalone campaign (async)"""
         payload = self._build_payload(
@@ -1871,6 +1970,9 @@ class AdCampaignsResource:
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+            target_impression_share=target_impression_share,
+            manual_cpc=manual_cpc,
+            network_settings=network_settings,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -1967,6 +2069,12 @@ class AdCampaignsResource:
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
         allow_shared_budget_update: bool | None = False,
+        target_impression_share: Any | None = None,
+        manual_cpc: Any | None = None,
+        network_settings: Any | None = None,
+        tracking_url_template: str | None = None,
+        final_url_suffix: str | None = None,
+        shared_budget_id: Any | None = None,
         budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -1980,6 +2088,12 @@ class AdCampaignsResource:
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
             allow_shared_budget_update=allow_shared_budget_update,
+            target_impression_share=target_impression_share,
+            manual_cpc=manual_cpc,
+            network_settings=network_settings,
+            tracking_url_template=tracking_url_template,
+            final_url_suffix=final_url_suffix,
+            shared_budget_id=shared_budget_id,
             budget=budget,
             name=name,
             platform_specific_data=platform_specific_data,
@@ -2070,7 +2184,7 @@ class AdCampaignsResource:
     async def aget_campaign_targeting(
         self, campaign_id: str, *, platform: str | None = None
     ) -> dict[str, Any]:
-        """Read a Google campaign's device, location, and language targeting (async)"""
+        """Read a Google campaign's device, location, excluded location, and language targeting (async)"""
         params = self._build_params(
             platform=platform,
         )
@@ -2081,7 +2195,7 @@ class AdCampaignsResource:
     async def aupdate_campaign_targeting(
         self, campaign_id: str, platform: str, targeting: dict[str, Any]
     ) -> dict[str, Any]:
-        """Edit a Google campaign's device, location, or language targeting (async)"""
+        """Edit a Google campaign's device, location, excluded location, or language targeting (async)"""
         payload = self._build_payload(
             platform=platform,
             targeting=targeting,
@@ -2120,6 +2234,7 @@ class AdCampaignsResource:
         *,
         idempotency_key: str | None = None,
         status: str | None = "PAUSED",
+        max_cpc: float | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
@@ -2130,6 +2245,7 @@ class AdCampaignsResource:
             campaign_id=campaign_id,
             name=name,
             status=status,
+            max_cpc=max_cpc,
             ad_account_id=ad_account_id,
             customer_id=customer_id,
         )
@@ -2406,6 +2522,7 @@ class AdCampaignsResource:
         sitelinks: list[Any] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[Any] | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Attach campaign assets (async)"""
         payload = self._build_payload(
@@ -2415,6 +2532,7 @@ class AdCampaignsResource:
             sitelinks=sitelinks,
             callouts=callouts,
             structured_snippets=structured_snippets,
+            images=images,
         )
         return await self._client._apost(
             f"/v1/ads/campaigns/{campaign_id}/assets", data=payload
@@ -2490,6 +2608,7 @@ class AdCampaignsResource:
         sitelinks: list[Any] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[Any] | None = None,
+        images: list[str] | None = None,
     ) -> dict[str, Any]:
         """Attach ad-group assets (async)"""
         payload = self._build_payload(
@@ -2499,6 +2618,7 @@ class AdCampaignsResource:
             sitelinks=sitelinks,
             callouts=callouts,
             structured_snippets=structured_snippets,
+            images=images,
         )
         return await self._client._apost(
             f"/v1/ads/ad-sets/{ad_set_id}/assets", data=payload
@@ -2924,6 +3044,9 @@ class AdCampaignsResource:
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        target_impression_share: Any | None = None,
+        manual_cpc: Any | None = None,
+        network_settings: Any | None = None,
         value_rule_set_id: str | None = None,
         value_rules_applied: bool | None = None,
         platform_specific_data: Any | None = None,
@@ -3041,6 +3164,9 @@ class AdCampaignsResource:
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+            target_impression_share=target_impression_share,
+            manual_cpc=manual_cpc,
+            network_settings=network_settings,
             value_rule_set_id=value_rule_set_id,
             value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,

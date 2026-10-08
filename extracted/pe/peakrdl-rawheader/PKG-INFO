@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: peakrdl-rawheader
-Version: 0.2.8
+Version: 0.2.9
 Summary: Generate Header files from a SystemRDL register model
 Keywords: SystemRDL,PeakRDL,CSR,compiler,tool,registers,generator,C,header,software,SystemVerilog
 Author: Michael Rogenmoser

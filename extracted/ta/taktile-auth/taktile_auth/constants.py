@@ -6,7 +6,7 @@ INTERNAL_FLOW_PREFIX = "tktl_"
 
 INTERNAL_FLOW_FOLDER_ID = "14ad6914-5a3b-48d3-8fab-fd92f570345e"
 """Folder every internal flow counts as being in for permission checks. It has no folder row:
-services put this id in the folder argument for an internal flow, so roles.yaml can grant it
+services put this id in the folder argument for an internal flow, so the role YAML can grant it
 statically. It is a UUID4 because services parse folder grants as UUID4 and drop anything else."""
 
 

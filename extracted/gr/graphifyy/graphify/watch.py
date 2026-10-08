@@ -957,11 +957,11 @@ def _reconcile_existing_graph(
     # build._load_existing_graph (this reconcile path loads the raw dict
     # separately, so the backfill there does not reach it). Stamping preserved
     # items means the graph self-heals on this write.
-    from graphify.build import _is_ast_tier
+    from graphify.build import _backfill_origin, _is_ast_tier, _is_external_stub
     for _bucket in ("nodes", "links", "edges"):
         for _item in existing.get(_bucket, []):
             if isinstance(_item, dict):
-                _item.setdefault("_origin", "ast" if _is_ast_tier(_item) else "semantic")
+                _backfill_origin(_item)
 
     try:
         from graphify.build import _norm_source_file as _nsf
@@ -1201,6 +1201,25 @@ def _reconcile_existing_graph(
             if isinstance(members, list) and any(member not in all_ids for member in members):
                 continue
             preserved_hyperedges.append(edge)
+
+        # An external import stub exists only so an import edge has a declared
+        # endpoint (#2873); every write mints the ones still needed. Keeping one
+        # whose last edge is gone left a permanent zero-degree node that a fresh
+        # build of the same tree does not have.
+        referenced_ids = {
+            endpoint
+            for edge in result["edges"] + preserved_edges
+            for endpoint in (edge.get("source"), edge.get("target"))
+        }
+        for edge in preserved_hyperedges + result.get("hyperedges", []):
+            members = edge.get("nodes", edge.get("members", edge.get("node_ids", [])))
+            if isinstance(members, list):
+                referenced_ids.update(members)
+        preserved_nodes = [
+            node
+            for node in preserved_nodes
+            if not _is_external_stub(node) or node["id"] in referenced_ids
+        ]
 
         for item in preserved_nodes + preserved_edges + preserved_hyperedges:
             source_paths.rebase_preserved(item)
@@ -2078,14 +2097,22 @@ def _rebuild_code(
                 dedupe_edges as _dedupe_edges,
                 dedupe_nodes as _dedupe_nodes,
                 disambiguate_file_labels_in_nodes as _disamb_labels,
-                mint_external_stubs_in_data as _mint_external_stubs_in_data,
+                finalize_raw_graph_endpoints as _finalize_raw_graph_endpoints,
             )
             raw_nodes = _dedupe_nodes(result.get("nodes", []))
             _disamb_labels(raw_nodes)
+            from graphify.extract import RUN_ONLY_EXTRACTION_KEYS as _RUN_ONLY_KEYS
             candidate_graph_data = {
-                **{k: v for k, v in result.items() if k not in ("edges", "nodes")},
+                **{
+                    k: v for k, v in result.items()
+                    if k not in ("edges", "nodes") and k not in _RUN_ONLY_KEYS
+                },
                 "nodes": raw_nodes,
                 "links": _dedupe_edges(result.get("edges", [])),
+                # A first build's fresh extraction may carry no hyperedges key,
+                # while a reconciled rebuild always does; write it either way so
+                # the two builds of one tree give the same file.
+                "hyperedges": list(result.get("hyperedges", [])),
                 # Inherit the existing graph's directed flag (#2342) so
                 # `graphify update --no-cluster` can't silently drop it -
                 # `result` (the raw merged extraction) never carries one.
@@ -2095,8 +2122,9 @@ def _rebuild_code(
             # graph, so mint the same external stubs the builder does — otherwise
             # an import to stdlib / a third-party module leaves an undeclared
             # endpoint in graph.json that every loader materialises as an
-            # attribute-less phantom (#2873).
-            _mint_external_stubs_in_data(candidate_graph_data)
+            # attribute-less phantom (#2873). Any other edge without two declared
+            # endpoints is dropped, as build_from_json drops it.
+            _finalize_raw_graph_endpoints(candidate_graph_data)
             candidate_graph_text = _json_text(candidate_graph_data)
             same_graph = False
             if existing_graph.exists():

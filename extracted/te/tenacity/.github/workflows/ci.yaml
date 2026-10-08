@@ -2,9 +2,10 @@ name: Continuous Integration
 permissions: read-all
 
 on:
+  # No `branches:` filter: that matches the *base* branch, so restricting it to
+  # `main` silently skipped CI on every stacked pull request, whose base is the
+  # branch below it in the stack rather than `main`.
   pull_request:
-    branches:
-      - main
 
 concurrency:
   # yamllint disable-line rule:line-length
@@ -19,32 +20,60 @@ jobs:
       matrix:
         include:
           - python: "3.10"
-            tox: py310
+            task: check
           - python: "3.11"
-            tox: py311
+            task: check
           - python: "3.12"
-            tox: py312
+            task: check
           - python: "3.13"
-            tox: py313
+            task: check
           - python: "3.14"
-            tox: py314,py314-trio
+            task: check
           - python: "3.14"
-            tox: pep8
+            task: lint
           - python: "3.14"
-            tox: mypy
+            task: mypy
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Setup Python 🔧
-        uses: actions/setup-python@v6.2.0
-        with:
-          python-version: ${{ matrix.python }}
-          allow-prereleases: true
+      - name: Setup uv 🔧
+        uses: astral-sh/setup-uv@v7
 
       - name: Build 🔧 & Test 🔍
-        run: |
-          pip install tox
-          tox -e ${{ matrix.tox }}
+        run: uv run --python ${{ matrix.python }} poe ${{ matrix.task }}
+
+  package:
+    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv 🔧
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build 🔧
+        run: uv build
+
+      # Same metadata check PyPI applies on upload, so a broken long
+      # description fails here rather than in the release workflow.
+      - name: Check distributions 🔍
+        run: uvx twine check --strict dist/*
+
+  ci-gate:
+    if: ${{ !cancelled() }}
+    needs:
+      - test
+      - package
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify all jobs succeeded 🪃
+        uses: Mergifyio/gha-mergify-ci@v26
+        with:
+          action: wait-jobs
+          jobs: ${{ toJSON(needs) }}

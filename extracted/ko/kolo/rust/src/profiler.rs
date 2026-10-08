@@ -7,9 +7,11 @@ use pyo3::types::PyBytes;
 use pyo3::types::PyCode;
 use pyo3::types::PyDict;
 use pyo3::types::PyFrame;
+use pyo3::types::PyNone;
+use pyo3::{Borrowed, BoundObject};
 use std::cell::RefCell;
 use std::os::raw::c_int;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 use thread_local::ThreadLocal;
@@ -81,10 +83,6 @@ struct ProfilerCodeMetadata {
     // Python 3.8-3.10 code objects do not expose co_qualname. None preserves
     // the existing live-frame fallback in utils::get_qualname.
     co_qualname: Option<String>,
-    // Monotonic performance hint, not a guard for other state. Relaxed loads
-    // and stores are sufficient: a racing event may retry the safe fallback,
-    // but it cannot observe or publish an invalid frame.
-    native_msgpack_eligible: AtomicBool,
     include_decision: ProfilerIncludeDecision,
     has_processor_candidates: bool,
 }
@@ -954,7 +952,7 @@ impl KoloProfiler {
         &self,
         pyframe: &Bound<'_, PyFrame>,
         event: Event,
-        arg: Py<PyAny>,
+        arg: &Bound<'_, PyAny>,
         name: &str,
         metadata: &ProfilerCodeMetadata,
         frame_types: &mut Vec<String>,
@@ -973,9 +971,6 @@ impl KoloProfiler {
             .get_or_default()
             .borrow_mut()
             .get_user_code_call_site(pyframe, event, &frame_id)?;
-
-        // Gather frame data and convert to Rust types
-        let arg = arg.downcast_bound::<PyAny>(py)?;
 
         // Resolve the Python thread before native value publication. The
         // cached CPython 3.9+ path stays entirely in Rust; cache misses and
@@ -1015,11 +1010,10 @@ impl KoloProfiler {
             &frame_id,
             self.lightweight_repr,
             self.omit_return_locals,
-            true,
             (
                 metadata.relative_path.as_str(),
                 metadata.co_qualname.as_deref(),
-                Some(&metadata.native_msgpack_eligible),
+                None,
             ),
             value_interning,
         );
@@ -1549,7 +1543,6 @@ impl KoloProfiler {
                         .extract::<String>()
                         .expect("code.co_qualname is always a string when present")
                 }),
-            native_msgpack_eligible: AtomicBool::new(true),
             filename,
             name,
             include_decision,
@@ -1584,15 +1577,13 @@ impl KoloProfiler {
     /// Run the Kolo profiling logic.
     ///
     /// Analagous to `KoloProfiler.__call__`.
-    fn profile(&self, frame: &Py<PyAny>, arg: Py<PyAny>, event: Event, py: Python) {
+    fn profile(&self, frame: &Bound<'_, PyAny>, arg: &Bound<'_, PyAny>, event: Event, py: Python) {
         if *self.suspend_hooks.get_or_default().borrow() {
             return;
         }
 
-        let pyframe = frame.bind(py);
-        let pyframe = pyframe
-            .cast::<PyFrame>()
-            .expect("Python gives us a PyFrame");
+        // SAFETY: `Py_tracefunc` always passes a live `PyFrameObject`.
+        let pyframe = unsafe { frame.cast_unchecked::<PyFrame>() };
         #[cfg(all(
             not(any(PyPy, GraalPy)),
             any(Py_3_10, all(Py_3_9, not(Py_LIMITED_API)))
@@ -1612,9 +1603,9 @@ impl KoloProfiler {
         let f_code = pyframe
             .getattr(intern!(py, "f_code"))
             .expect("A frame always has an `f_code`");
-        let code = f_code
-            .cast::<PyCode>()
-            .expect("f_code is always a code object");
+        // SAFETY: `PyFrame_GetCode` and the `f_code` attribute both return a
+        // code object by definition.
+        let code = unsafe { f_code.cast_unchecked::<PyCode>() };
         let metadata = match self.profiler_code_metadata(code) {
             ProfilerCodeMetadataLookup::Full(metadata) => metadata,
             ProfilerCodeMetadataLookup::Excluded => return,
@@ -1633,7 +1624,14 @@ impl KoloProfiler {
                 .get(name)
                 .expect("cached processor candidate must still exist");
             for processor in processors.iter() {
-                match self.run_frame_processor(py, processor, pyframe, event, &arg, filename) {
+                match self.run_frame_processor(
+                    py,
+                    processor,
+                    pyframe,
+                    event,
+                    arg.as_unbound(),
+                    filename,
+                ) {
                     Ok(Some((frame_type, data))) => {
                         frames.push(data);
                         frame_types.push(frame_type);
@@ -1742,16 +1740,16 @@ pub extern "C" fn profile_callback(
     Python::attach(|py| {
         // Safety:
         //
-        // `from_borrowed_ptr` must be called in an unsafe block.
+        // `Borrowed::from_ptr_or_err` must be called in an unsafe block.
         //
         // `_obj` is a reference to our `KoloProfiler` wrapped up in a Python object, so
-        // we can safely convert it from an `ffi::PyObject` to a `Bound<PyAny>`.
+        // we can safely expose it as a borrowed `PyAny` for this callback.
         //
         // We borrow the object so we don't break reference counting.
         //
-        // https://docs.rs/pyo3/latest/pyo3/struct.Bound.html#method.from_borrowed_ptr
+        // https://docs.rs/pyo3/latest/pyo3/struct.Borrowed.html#method.from_ptr_or_err
         // https://docs.python.org/3/c-api/init.html#c.Py_tracefunc
-        let obj = match unsafe { Bound::from_borrowed_ptr_or_err(py, _obj) } {
+        let obj = match unsafe { Borrowed::from_ptr_or_err(py, _obj) } {
             Ok(obj) => obj,
             Err(err) => {
                 err.restore(py);
@@ -1761,24 +1759,24 @@ pub extern "C" fn profile_callback(
         let profiler = match obj.extract::<PyRef<KoloProfiler>>() {
             Ok(profiler) => profiler,
             Err(err) => {
-                err.restore(py);
+                PyErr::from(err).restore(py);
                 return -1;
             }
         };
 
         // Safety:
         //
-        // `from_borrowed_ptr` must be called in an unsafe block.
+        // `Borrowed::from_ptr_or_err` must be called in an unsafe block.
         //
         // `_frame` is an `ffi::PyFrameObject` which can be converted safely
-        // to a `Bound<PyAny>`. We can later convert it into a `pyo3::types::PyFrame`.
+        // to a borrowed `PyAny`. We later view it as a `pyo3::types::PyFrame`.
         //
         // We borrow the object so we don't break reference counting.
         //
-        // https://docs.rs/pyo3/latest/pyo3/struct.Bound.html#method.from_borrowed_ptr
+        // https://docs.rs/pyo3/latest/pyo3/struct.Borrowed.html#method.from_ptr_or_err
         // https://docs.python.org/3/c-api/init.html#c.Py_tracefunc
-        let frame = match unsafe { Bound::from_borrowed_ptr_or_err(py, _frame) } {
-            Ok(frame) => frame.unbind(),
+        let frame = match unsafe { Borrowed::from_ptr_or_err(py, _frame) } {
+            Ok(frame) => frame,
             Err(err) => {
                 err.restore(py);
                 return -1;
@@ -1787,23 +1785,20 @@ pub extern "C" fn profile_callback(
 
         // Safety:
         //
-        // `from_borrowed_ptr_or_opt` must be called in an unsafe block.
+        // `Borrowed::from_ptr_or_opt` must be called in an unsafe block.
         //
         // `_arg` is either a `Py_None` (PyTrace_CALL) or any PyObject (PyTrace_RETURN) or
-        // NULL (PyTrace_RETURN). The first two can be unwrapped as a Bound<PyAny>. `NULL` we
-        // convert to a `py.None()`.
+        // NULL (PyTrace_RETURN). The first two remain borrowed `PyAny` values. `NULL` maps
+        // to a borrowed `None` singleton.
         //
         // We borrow the object so we don't break reference counting.
         //
-        // https://docs.rs/pyo3/latest/pyo3/struct.Bound.html#method.from_borrowed_ptr_or_opt
+        // https://docs.rs/pyo3/latest/pyo3/struct.Borrowed.html#method.from_ptr_or_opt
         // https://docs.python.org/3/c-api/init.html#c.Py_tracefunc
-        let arg = match unsafe { Bound::from_borrowed_ptr_or_opt(py, _arg) } {
-            Some(arg) => arg.unbind(),
-            // TODO: Perhaps better exception handling here?
-            None => py.None(),
-        };
+        let arg = unsafe { Borrowed::from_ptr_or_opt(py, _arg) }
+            .unwrap_or_else(|| PyNone::get(py).into_any());
 
-        profiler.profile(&frame, arg, event, py);
+        profiler.profile(&frame, &arg, event, py);
         0
     })
 }
@@ -2014,7 +2009,6 @@ mod tests {
                 name: "<module>".to_string(),
                 relative_path: "excluded_with_plugin.py".to_string(),
                 co_qualname: Some("<module>".to_string()),
-                native_msgpack_eligible: AtomicBool::new(true),
                 include_decision: ProfilerIncludeDecision::Never,
                 has_processor_candidates: true,
             });

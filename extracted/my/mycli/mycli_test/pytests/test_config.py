@@ -16,6 +16,7 @@ import pytest
 from mycli import config as config_module
 from mycli.config import (
     LimiitedQuotePreservingConfigObj,
+    TripleQuotedConfigValue,
     _remove_pad,
     create_default_config,
     get_mylogin_cnf_path,
@@ -172,6 +173,78 @@ def test_read_config_file_list_values_off():
     assert config["main"]["weather"] == "'cloudy with a chance of meatballs'"
 
 
+@pytest.mark.parametrize('section', ['init-commands', 'alias_dsn.init-commands'])
+@pytest.mark.parametrize(
+    'query',
+    [
+        'SET @first = 1,  @second = 2',
+        "SET @message = CONCAT('hello', ', world')",
+        '''SET @first = 'a,b', @second = "c,d"''',
+    ],
+)
+def test_init_commands_preserve_unquoted_sql(section: str, query: str) -> None:
+    config = read_config_file(StringIO(f'[{section}]\nstartup = {query}\n'), raise_errors=True)
+
+    assert config is not None
+    assert config[section]['startup'] == query
+
+
+@pytest.mark.parametrize('section', ['init-commands', 'alias_dsn.init-commands'])
+@pytest.mark.parametrize('quote', ['"', "'", '"""', "'''"])
+def test_init_commands_preserve_config_quote_semantics(section: str, quote: str) -> None:
+    query = 'SET @first = 1, @second = 2'
+    config = read_config_file(StringIO(f'[{section}]\nstartup = {quote}{query}{quote}\n'), raise_errors=True)
+
+    assert config is not None
+    assert config[section]['startup'] == query
+
+
+@pytest.mark.parametrize('section', ['init-commands', 'alias_dsn.init-commands'])
+def test_init_commands_preserve_multiline_sql(section: str) -> None:
+    query = "SET @first = 1,\n    @second = 'a,b'"
+    config = read_config_file(StringIO(f'[{section}]\nstartup = """{query}"""\n'), raise_errors=True)
+
+    assert config is not None
+    assert config[section]['startup'] == query
+
+
+@pytest.mark.parametrize('section', ['init-commands', 'alias_dsn.init-commands'])
+def test_init_commands_strip_trailing_config_comment(section: str) -> None:
+    query = 'SET @first = 1, @second = 2'
+    config = read_config_file(StringIO(f'[{section}]\nstartup = {query} # Startup settings.\n'), raise_errors=True)
+
+    assert config is not None
+    assert config[section]['startup'] == query
+
+
+@pytest.mark.parametrize('section', ['init-commands', 'alias_dsn.init-commands'])
+def test_init_commands_accept_spaced_quoted_section_name(section: str) -> None:
+    query = 'SET @first = 1, @second = 2'
+    config = read_config_file(StringIO(f'[ "{section}" ]\nstartup = {query}\n'), raise_errors=True)
+
+    assert config is not None
+    assert config[section]['startup'] == query
+
+
+@pytest.mark.parametrize('section', ['init-commands', 'alias_dsn.init-commands'])
+def test_init_commands_do_not_change_following_section_lists(section: str) -> None:
+    config = read_config_file(
+        StringIO(f'[{section}]\nstartup = SET @first = 1, @second = 2\n[main]\nitems = a, b\n'),
+        raise_errors=True,
+    )
+
+    assert config is not None
+    assert config['main']['items'] == ['a', 'b']
+
+
+@pytest.mark.parametrize('section', ['init-commands', 'alias_dsn.init-commands'])
+def test_nested_init_command_section_keeps_list_parsing(section: str) -> None:
+    config = read_config_file(StringIO(f'[main]\n[[{section}]]\nitems = a, b\n'), raise_errors=True)
+
+    assert config is not None
+    assert config['main'][section]['items'] == ['a', 'b']
+
+
 def test_quote_preserving_config_retains_quotes_and_quotes_multiline_values() -> None:
     config = read_config_file(StringIO('[main]\nquoted = "value"\n'), preserve_quotes=True)
 
@@ -179,6 +252,33 @@ def test_quote_preserving_config_retains_quotes_and_quotes_multiline_values() ->
     assert config['main']['quoted'] == '"value"'
     assert config._quote('one line') == 'one line'
     assert config._quote('first line\nsecond line') == "'''first line\nsecond line'''"
+
+
+@pytest.mark.parametrize('quote', ['"""', "'''"])
+@pytest.mark.parametrize('value', ["SELECT 1, '#tag', 2", "SELECT 1,\n'#tag'"])
+def test_quote_preserving_config_retains_triple_quoted_values(quote: str, value: str) -> None:
+    text = f'[favorite_queries]\nq = {quote}{value}{quote}\n'
+    config = read_config_file(StringIO(text), preserve_quotes=True)
+    assert isinstance(config, LimiitedQuotePreservingConfigObj)
+    output = BytesIO()
+    config.write(output)
+    assert output.getvalue().decode('utf-8') == text
+
+
+def test_quote_preserving_config_quotes_new_marked_value() -> None:
+    config = read_config_file(StringIO('[favorite_queries]\n'), preserve_quotes=True)
+    assert config is not None
+    query = "SELECT 1, '#tag', 2"
+    config['favorite_queries']['q'] = TripleQuotedConfigValue(query)
+    output = BytesIO()
+
+    config.write(output)
+
+    text = output.getvalue().decode('utf-8')
+    assert text == f"[favorite_queries]\nq = '''{query}'''\n"
+    reloaded = read_config_file(StringIO(text), raise_errors=True)
+    assert reloaded is not None
+    assert reloaded['favorite_queries']['q'] == query
 
 
 def test_read_config_files_merges_files_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -266,7 +366,7 @@ def test_read_config_file_permission_error(monkeypatch, caplog) -> None:
     def raise_oserror(*_args, **_kwargs):
         raise OSError(13, 'denied', '/tmp/test.cnf')
 
-    monkeypatch.setattr(config_module, 'ConfigObj', raise_oserror)
+    monkeypatch.setattr(config_module, 'SQLValuePreservingConfigObj', raise_oserror)
 
     with caplog.at_level(logging.WARNING, logger='mycli.config'):
         assert read_config_file('/tmp/test.cnf') is None
@@ -281,13 +381,36 @@ def test_read_config_file_can_raise_parse_errors(tmp_path) -> None:
         read_config_file(str(invalid_path), raise_errors=True)
 
 
+@pytest.mark.parametrize('value', ['"""unterminated', "'''closed''' trailing"])
+def test_read_config_file_raises_for_invalid_multiline_value(value: str) -> None:
+    contents = f'[favorite_queries]\nvalid = SELECT 1\nbroken = {value}\n'
+
+    with pytest.raises(ConfigObjError) as exc_info:
+        read_config_file(StringIO(contents), raise_errors=True)
+
+    assert exc_info.value.line_number == 3
+    assert exc_info.value.config['favorite_queries']['valid'] == 'SELECT 1'
+
+
+def test_read_config_file_recovers_from_invalid_multiline_value(caplog: pytest.LogCaptureFixture) -> None:
+    contents = '[favorite_queries]\nvalid = SELECT 1\nbroken = """unterminated\n'
+
+    with caplog.at_level(logging.WARNING, logger='mycli.config'):
+        config = read_config_file(StringIO(contents))
+
+    assert config is not None
+    assert config['favorite_queries'] == {'valid': 'SELECT 1'}
+    assert 'Unable to parse line 3' in caplog.text
+    assert 'Using successfully parsed config values.' in caplog.text
+
+
 def test_read_config_file_can_raise_io_errors(monkeypatch) -> None:
     error = OSError(13, 'denied', '/tmp/test.cnf')
 
     def raise_oserror(*_args, **_kwargs):
         raise error
 
-    monkeypatch.setattr(config_module, 'ConfigObj', raise_oserror)
+    monkeypatch.setattr(config_module, 'SQLValuePreservingConfigObj', raise_oserror)
 
     with pytest.raises(OSError) as exc_info:
         read_config_file('/tmp/test.cnf', raise_errors=True)

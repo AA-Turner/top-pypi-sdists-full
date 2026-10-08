@@ -436,35 +436,32 @@ def _resolve_read_compression(
     read_format: str,
     options: dict,
     session: snowpark.Session,
-) -> str | None:
+) -> tuple[str | None, int]:
     """Resolve the compression option for reads.
 
     If the user explicitly set a compression option, use it. Otherwise, infer
     from file extensions. For types Snowflake's AUTO can detect (GZIP, BZ2),
     we skip the override to avoid interfering with format-specific readers.
 
-    Returns the first **stage-listed** filename (e.g.
-    ``"stage_name/dir/file.parquet"``) when a stage LIST was performed, or
-    ``None`` when the listing was local, skipped, or empty.  Callers can use
-    this to limit INFER_SCHEMA to a single file without an extra round-trip.
+    Returns ``(first_stage_file, max_file_size_bytes)``.  *first_stage_file* is
+    the first stage-listed filename when a stage LIST was performed, or ``None``
+    when the listing was local, skipped, or empty.  *max_file_size_bytes* is the
+    largest file size seen in the LIST (0 when no stage LIST ran).
     """
     user_compression = get_compression_for_source_and_options(
         read_format, options, from_read=True
     )
     if user_compression is not None:
         options["compression"] = user_compression
-        return None
+        return None, 0
 
     compression = infer_compression_from_file_extension(stage_paths, read_format)
 
-    # For directory paths (no file extension), scan actual filenames to infer
-    # compression. Skip this for specific file paths — Snowflake's LIST treats
-    # paths as prefixes, so listing "file.jsonl" would also match
-    # "file.jsonl.gz", "file.jsonl.bz2", etc.
+    max_file_size = 0
     if compression == "AUTO" and _paths_are_directories(clean_source_paths):
         source_files = _list_local_files(clean_source_paths)
         if not source_files:
-            source_files = _list_stage_files(stage_paths, session)
+            source_files, max_file_size = _list_stage_files(stage_paths, session)
             is_stage_listing = True
         else:
             is_stage_listing = False
@@ -480,9 +477,12 @@ def _resolve_read_compression(
         options["compression"] = compression
 
     return (
-        _first_data_file(source_files, read_format)
-        if (source_files and is_stage_listing)
-        else None
+        (
+            _first_data_file(source_files, read_format)
+            if (source_files and is_stage_listing)
+            else None
+        ),
+        max_file_size,
     )
 
 
@@ -541,9 +541,18 @@ def _list_local_files(source_paths: list[str]) -> list[str]:
     return files
 
 
-def _list_stage_files(stage_paths: list[str], session: snowpark.Session) -> list[str]:
-    """List filenames on a Snowflake stage via LIST command."""
+def _list_stage_files(
+    stage_paths: list[str], session: snowpark.Session
+) -> tuple[list[str], int]:
+    """List filenames on a Snowflake stage via LIST command.
+
+    Returns ``(files, max_file_size_bytes)``.  The size is captured from
+    column 1 of the LIST result (already iterated for filenames) at zero
+    extra cost.  Downstream code uses it to selectively disable the XP
+    parquet cache for very large files where the cache is pure overhead.
+    """
     files: list[str] = []
+    max_file_size = 0
     for path in stage_paths:
         cleaned = path.strip("'\"").replace("'", "\\'")
         try:
@@ -551,9 +560,15 @@ def _list_stage_files(stage_paths: list[str], session: snowpark.Session) -> list
                 name = row[0]
                 if not name.endswith("_SUCCESS"):
                     files.append(name)
+                    try:
+                        size = row[1]
+                        if isinstance(size, (int, float)) and size > max_file_size:
+                            max_file_size = int(size)
+                    except (IndexError, TypeError):
+                        pass
         except Exception as e:
             logger.warning(f"Failed to list stage files at '{cleaned}': {e}")
-    return files
+    return files, max_file_size
 
 
 def _read_file(
@@ -685,8 +700,11 @@ def _read_file(
     paths = [_quote_stage_path(path) for path in paths]
 
     first_stage_file: str | None = None
+    # Reset the PD large-file signal at request start so a stale value from a
+    # previous request on this pooled session never leaks into the write path.
+    session._pd_max_source_file_size = 0
     if read_format in ("csv", "text", "json", "parquet"):
-        first_stage_file = _resolve_read_compression(
+        first_stage_file, max_file_size = _resolve_read_compression(
             paths, clean_source_paths, read_format, options, session
         )
 
@@ -790,6 +808,15 @@ def _read_file(
                 is_recursive=is_recursive,
                 path_glob_filter=user_path_glob_filter,
             )
+
+            # Cache the max file size for PD reads only (not CSV/JSON/text).
+            # Uses max() so concurrent join children (PR #5902) don't race:
+            # a large left + small right keeps the large value.
+            if pd_direct is not None and max_file_size > 0:
+                current = getattr(session, "_pd_max_source_file_size", 0)
+                if max_file_size > current:
+                    session._pd_max_source_file_size = max_file_size
+
             result = map_read_parquet(
                 rel,
                 schema,

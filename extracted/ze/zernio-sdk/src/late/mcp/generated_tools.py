@@ -651,6 +651,9 @@ def register_generated_tools(mcp, _get_client):
         | None = None,
         order: Literal["asc", "desc"] = "asc",
         include_over_limit: bool = False,
+        exclude_hidden: bool = False,
+        include_sandbox: bool = False,
+        include_status_counts: bool = False,
         page: int | None = None,
         limit: int | None = None,
         profile_ids: str | None = None,
@@ -658,23 +661,36 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List accounts
 
-        Returns connected accounts. Only includes accounts within the plan limit by default. Follower data requires analytics add-on.
-        Supports optional server-side pagination via page/limit params. When omitted, returns all accounts (backward-compatible).
-        page and limit must be supplied together; out-of-range page/limit values are rejected with 400 rather than silently clamped.
+            Returns connected accounts. Only includes accounts within the plan limit by default. Follower data requires analytics add-on.
+            Supports optional server-side pagination via page/limit params. When omitted, returns all accounts (backward-compatible).
+            page and limit must be supplied together; out-of-range page/limit values are rejected with 400 rather than silently clamped.
 
-        Args:
-            profile_id: Filter accounts by profile ID. Must be a valid ObjectId.
-            platform: Filter accounts by platform (e.g. "instagram", "twitter").
-            status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
-            search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
-            category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.
-            sort: Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
-            order: Direction for `sort`.
-            include_over_limit: When true, includes accounts from over-limit profiles.
-            page: Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
-            limit: Page size. Must be provided together with page; sending only one of the two returns 400.
-            profile_ids: Comma-separated profile IDs (up to 50) to preview, together with perProfile. The response then also carries `profileTotals`.
-            per_profile: Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page and limit."""
+            Args:
+                profile_id: Filter accounts by profile ID. Must be a valid ObjectId.
+                platform: Filter accounts by platform (e.g. "instagram", "twitter").
+                status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
+                search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
+                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.
+                sort: Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
+                order: Direction for `sort`.
+                include_over_limit: When true, includes accounts from over-limit profiles.
+                exclude_hidden: When true, leaves out accounts the dashboard does not show as connections: posting
+        accounts with `enabled: false` (ads accounts are always kept, whatever their `enabled`
+        value) and the internal `sms` and `phone` accounts behind each phone number. Applied
+        before pagination, so page totals and `statusCounts` count only the remaining accounts.
+        Sandbox accounts added by `includeSandbox` are appended after this filter. Accepts
+        `true` or `false` in any letter case; any other value returns 400.
+                include_sandbox: When true, appends the shared WhatsApp sandbox account and the iMessage sandbox account
+        to the list when they are active, honouring `platform` but no other filter. Ignored on
+        a paginated request (page/limit) and together with `perProfile`. Accepts `true` or
+        `false` in any letter case; any other value returns 400.
+                include_status_counts: When true, the response carries `statusCounts`: how many accounts match every other
+        filter of the request (with `status` lifted) in total and how many of those need a
+        reconnection. Accepts `true` or `false` in any letter case; any other value returns 400.
+                page: Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
+                limit: Page size. Must be provided together with page; sending only one of the two returns 400.
+                profile_ids: Comma-separated profile IDs (up to 50) to preview, together with perProfile. The response then also carries `profileTotals`.
+                per_profile: Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page and limit."""
         client = _get_client()
         try:
             response = client.accounts.list_accounts(
@@ -686,6 +702,9 @@ def register_generated_tools(mcp, _get_client):
                 sort=sort,
                 order=order,
                 include_over_limit=include_over_limit,
+                exclude_hidden=exclude_hidden,
+                include_sandbox=include_sandbox,
+                include_status_counts=include_status_counts,
                 page=page,
                 limit=limit,
                 profile_ids=profile_ids,
@@ -2361,20 +2380,29 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Ad account change / audit log
 
-        Account-level audit log from Meta's `/act_X/activities`: who changed what and when
-        (creates, edits, status flips, budget changes...) with Meta's translated event names and
-        the structured before/after in `extra_data`. Rows are returned verbatim. Meta has no
-        server-side per-object filter on this edge, so `objectId` filters the returned page
-        client-side (combine with paging to walk history for one campaign/ad set/ad).
+        **Google**: reads the customer's `change_event` history, newest first. Google keeps 30 days
+        of it, so `since` defaults to 29 days ago and an older `since` returns 400; `until`
+        defaults to today. Each change is mapped onto the Meta row shape: `event_type` =
+        resource_change_operation (CREATE, UPDATE, REMOVE), `event_time` = change_date_time,
+        `actor_name` = user_email, `object_type` = change_resource_type, `object_id` = the last numeric id
+        of `object_resource_name`, `application_name` = client_type, `changed_fields` (array), and
+        `extra_data` = a JSON string `{ old, new }` with Google's old and new resource.
+        Pass `paging.after` back as `after` for the next page; it is null when nothing older is
+        left. A page never splits a change batch (the changes of one request share an
+        `event_time`), so a page can hold fewer rows than `limit` while more follow, or more
+        when one batch is larger than `limit`. `adAccountId` is the numeric customer id.
 
-        Platforms: meta
+        **Meta**:
+        Account-level audit log from Meta's ...
+
+        Platforms: meta, google
 
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
-            ad_account_id: Meta ad account id (act_<n>). (required)
-            since: Start of range (YYYY-MM-DD).
+            ad_account_id: Meta ad account id (act_<n>), or the Google customer id (digits only). (required)
+            since: Start of range (YYYY-MM-DD). Google: at most 29 days ago, the default.
             until: End of range (YYYY-MM-DD).
-            object_id: Client-side filter to one Meta object id (campaign, ad set or ad).
+            object_id: Client-side filter to one object id (campaign, ad set / ad group or ad).
             limit: Rows per page
             after: Cursor from paging.after of the previous page."""
         client = _get_client()
@@ -4343,33 +4371,33 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Read an ad account's campaigns and ad sets live
 
-            Reads the campaigns and ad sets of one Meta ad account **live from Meta**, in a single
-            Graph call per request (the account's `/campaigns` and `/adsets` edges, filtered by
-            `effective_status`), so it is cheap enough to run before every write: for example a
-            per-ad-account spend ceiling that must see the current `daily_budget` / `lifetime_budget`
-            rather than the synced copy.
+            Reads the campaigns and ad sets of one Meta ad account or TikTok advertiser **live from
+            the platform**, so it is cheap enough to run before every write: for example a
+            per-ad-account spend ceiling that must see the current daily / lifetime budget rather
+            than the synced copy. On Meta it is a single Graph call per request (the account's
+            `/campaigns` and `/adsets` edges, filtered by `effective_status`); on TikTok one
+            `campaign/get` and one `adgroup/get` page (TikTok ad groups are returned as `adSets`).
 
             **Live vs synced.** GET /v1/ads/campaigns and GET /v1/ads/ad-sets serve Zernio's synced
             store, refreshed by background sync (typically 15 to 60 minutes behind Meta), and their
             `live=true` re-reads only the on/off switches of at most 20 objects. This endpoint returns
             what Meta reports at `readAt`, for every matching campaign and ad set, and stores nothing.
 
-            Budgets and bid amounts are converted from Meta's minor units to whole units of
-            `currency`, the same units as the synced rows. A campaign with a campaign budget
-            (Advantage+ campaign budget) carries `budget` and its ad sets have `budget: null`;
-            otherwise each ad ...
+            Budgets and bid amounts are in whole units of `currency`, the same units as the synced
+            rows (Meta's minor units are converted; TikTok ...
 
-            Platforms: meta
+            Platforms: meta, tiktok
 
             Args:
-                account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
-                ad_account_id: Meta ad account id (act_<n>). (required)
+                account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the platform token. (required)
+                ad_account_id: Meta ad account id (act_<n>) or TikTok advertiser id (digits). (required)
                 status: Comma-separated Meta `effective_status` values to keep: ACTIVE, PAUSED, IN_PROCESS,
         WITH_ISSUES, DELETED, ARCHIVED, and CAMPAIGN_PAUSED (ad sets only; the campaigns level
         ignores it). Defaults to every status except DELETED and ARCHIVED. An unknown value is a 400.
+        TikTok takes a single value: ACTIVE, PAUSED or DELETED (see the description).
                 level: Read only one level. Required with `after`. Both levels are read when omitted.
                 limit: Maximum rows per level in this response.
-                after: Cursor from `paging.campaigns.after` or `paging.adSets.after` of a previous response. Requires `level`."""
+                after: Cursor from `paging.campaigns.after` or `paging.adSets.after` of a previous response. Requires `level` (and on TikTok the same `limit`)."""
         client = _get_client()
         try:
             response = client.ad_accounts.get_ad_account_live_entities(
@@ -4527,6 +4555,8 @@ def register_generated_tools(mcp, _get_client):
         reset_amount_spent: bool | None = None,
         default_dsa_beneficiary: str | None = None,
         default_dsa_payor: str | None = None,
+        tracking_url_template: str | None = None,
+        final_url_suffix: str | None = None,
     ) -> str:
         """Update ad account settings
 
@@ -4547,7 +4577,7 @@ def register_generated_tools(mcp, _get_client):
 
         The values are written to the ad account on Meta, the same ...
 
-        Platforms: meta
+        Platforms: meta, google
 
         Args:
             account_id: Account ID (metaads, or a facebook/instagram posting account) (required)
@@ -4556,7 +4586,9 @@ def register_generated_tools(mcp, _get_client):
             spend_cap: Account spend cap in whole currency units; null removes it.
             reset_amount_spent: Restart the amount counted against the cap from zero. Cannot be combined with spendCap null.
             default_dsa_beneficiary: Legal entity benefiting from ads on this ad account
-            default_dsa_payor: Legal entity paying for ads on this ad account. Defaults to defaultDsaBeneficiary when omitted. Requires defaultDsaBeneficiary."""
+            default_dsa_payor: Legal entity paying for ads on this ad account. Defaults to defaultDsaBeneficiary when omitted. Requires defaultDsaBeneficiary.
+            tracking_url_template: **Google only.** Account tracking template (customer.tracking_url_template); an empty string clears it.
+            final_url_suffix: **Google only.** Account final URL suffix (customer.final_url_suffix); an empty string clears it."""
         client = _get_client()
         try:
             response = client.ad_accounts.update_ad_account(
@@ -4567,6 +4599,8 @@ def register_generated_tools(mcp, _get_client):
                 reset_amount_spent=reset_amount_spent,
                 default_dsa_beneficiary=default_dsa_beneficiary,
                 default_dsa_payor=default_dsa_payor,
+                tracking_url_template=tracking_url_template,
+                final_url_suffix=final_url_suffix,
             )
             return _format_response(response)
         except Exception as e:
@@ -5292,11 +5326,13 @@ def register_generated_tools(mcp, _get_client):
             "TARGET_ROAS",
             "MAXIMIZE_CONVERSIONS",
             "MAXIMIZE_CONVERSION_VALUE",
+            "TARGET_IMPRESSION_SHARE",
         ],
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         target_cpa: float | None = None,
         target_roas: float | None = None,
+        target_impression_share: dict[str, Any] | None = None,
     ) -> str:
         """Create portfolio bid strategy
 
@@ -5311,7 +5347,8 @@ def register_generated_tools(mcp, _get_client):
             name: (required)
             type: (required)
             target_cpa: Required when type is TARGET_CPA, in the account's currency units.
-            target_roas: Required when type is TARGET_ROAS; a multiplier (2.0 = 2.0x)."""
+            target_roas: Required when type is TARGET_ROAS; a multiplier (2.0 = 2.0x).
+            target_impression_share: Required when type is TARGET_IMPRESSION_SHARE, and refused with any other type. Object with keys: location (one of: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE; required); percent (number, required) - Target share of impressions, in percent (65 = 65%). Sent to Google as location_fraction_micros (1% = 10,000).; maxCpc (number, required) - Max CPC bid limit, in the account's currency units. Google requires it."""
         client = _get_client()
         try:
             response = client.ad_campaigns.create_bid_strategy(
@@ -5322,6 +5359,7 @@ def register_generated_tools(mcp, _get_client):
                 type=type,
                 target_cpa=target_cpa,
                 target_roas=target_roas,
+                target_impression_share=target_impression_share,
             )
             return _format_response(response)
         except Exception as e:
@@ -5346,10 +5384,12 @@ def register_generated_tools(mcp, _get_client):
             "TARGET_ROAS",
             "MAXIMIZE_CONVERSIONS",
             "MAXIMIZE_CONVERSION_VALUE",
+            "TARGET_IMPRESSION_SHARE",
         ]
         | None = None,
         target_cpa: float | None = None,
         target_roas: float | None = None,
+        target_impression_share: dict[str, Any] | None = None,
     ) -> str:
         """Update portfolio bid strategy
 
@@ -5365,7 +5405,8 @@ def register_generated_tools(mcp, _get_client):
             name
             type
             target_cpa
-            target_roas"""
+            target_roas
+            target_impression_share: Retargets a TARGET_IMPRESSION_SHARE strategy; location, percent and maxCpc are all written. Object with keys: location (one of: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE; required); percent (number, required) - Target share of impressions, in percent (65 = 65%). Sent to Google as location_fraction_micros (1% = 10,000).; maxCpc (number, required) - Max CPC bid limit, in the account's currency units. Google requires it."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_bid_strategy(
@@ -5377,6 +5418,81 @@ def register_generated_tools(mcp, _get_client):
                 type=type,
                 target_cpa=target_cpa,
                 target_roas=target_roas,
+                target_impression_share=target_impression_share,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List shared budgets",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_list_shared_budgets(
+        account_id: str, ad_account_id: str | None = None
+    ) -> str:
+        """List shared budgets
+
+        Lists the Google Ads customer's shared campaign budgets (`campaign_budget.explicitly_shared`
+        = true, not removed), with how many campaigns use each. Move a campaign onto one with
+        `sharedBudgetId` on PUT /v1/ads/campaigns/{campaignId}. Google only; other platforms return 501.
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.list_shared_budgets(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a shared budget",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_create_shared_budget(
+        account_id: str,
+        name: str,
+        amount: float,
+        ad_account_id: str | None = None,
+        type: Literal["daily", "lifetime"] = "daily",
+    ) -> str:
+        """Create a shared budget
+
+        Creates a daily shared campaign budget (`explicitly_shared: true`, standard delivery) that
+        several campaigns can draw from. A lifetime budget returns 422, like every Google budget.
+        Google refuses some bidding strategies on a shared budget; that error surfaces when a
+        campaign is moved onto it.
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer.
+            name: (required)
+            amount: Daily amount in the account's currency units. (required)
+            type: Only daily is accepted (lifetime returns 422)."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.create_shared_budget(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                name=name,
+                amount=amount,
+                type=type,
             )
             return _format_response(response)
         except Exception as e:
@@ -5699,6 +5815,9 @@ def register_generated_tools(mcp, _get_client):
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        target_impression_share: dict[str, Any] | None = None,
+        manual_cpc: dict[str, Any] | None = None,
+        network_settings: dict[str, Any] | None = None,
     ) -> str:
         """Create a standalone campaign
 
@@ -5736,7 +5855,10 @@ def register_generated_tools(mcp, _get_client):
             bid_strategy: Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level on Meta, set the strategy there instead. On Google: LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling; portfolioBidStrategyId attaches a portfolio strategy instead.
             bid_amount: Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. On Meta, validated here but NOT stored: the campaign object has no bid_amount field, only bid_strategy lives on it, and the amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there. On Google, stored directly on the campaign's bidding strategy.
             roas_average_floor: Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS.
-            portfolio_bid_strategy_id: Google only. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy."""
+            portfolio_bid_strategy_id: Google only. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy.
+            target_impression_share: Google Search only. Target impression share bidding. Exclusive with bidStrategy, portfolioBidStrategyId and manualCpc; bidAmount is refused alongside it (the ceiling is maxCpc). Object with keys: location (one of: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE; required); percent (number, required) - Target share of impressions, in percent (65 = 65%). Sent to Google as location_fraction_micros (1% = 10,000).; maxCpc (number, required) - Max CPC bid limit, in the account's currency units. Google requires it.
+            manual_cpc: Object with keys: maxCpc (number, required) - Max CPC of the ad groups, in the account's currency units: set on the ad group created with the campaign, and on every ad group of the campaign when an update ...
+            network_settings: Object with keys: searchPartners (boolean) - campaign.network_settings.target_search_network; displayNetwork (boolean) - campaign.network_settings.target_content_network (Search with Display expansion)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.create_ad_campaign(
@@ -5757,6 +5879,9 @@ def register_generated_tools(mcp, _get_client):
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
                 portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+                target_impression_share=target_impression_share,
+                manual_cpc=manual_cpc,
+                network_settings=network_settings,
             )
             return _format_response(response)
         except Exception as e:
@@ -6026,6 +6151,12 @@ def register_generated_tools(mcp, _get_client):
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
         allow_shared_budget_update: bool = False,
+        target_impression_share: dict[str, Any] | None = None,
+        manual_cpc: dict[str, Any] | None = None,
+        network_settings: dict[str, Any] | None = None,
+        tracking_url_template: str | None = None,
+        final_url_suffix: str | None = None,
+        shared_budget_id: str | None = None,
         budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -6033,7 +6164,8 @@ def register_generated_tools(mcp, _get_client):
         """Update a campaign
 
         Campaign-level edits. Send at least one of `budget`, `bidStrategy`,
-        `portfolioBidStrategyId`, `name` or `platformSpecificData`. An unsupported
+        `portfolioBidStrategyId`, `targetImpressionShare`, `manualCpc`, `networkSettings`,
+        `trackingUrlTemplate`, `finalUrlSuffix`, `sharedBudgetId`, `name` or `platformSpecificData`. An unsupported
         field is always an error, never a silent drop.
 
         | Body field | Meta | Google | Others |
@@ -6041,17 +6173,15 @@ def register_generated_tools(mcp, _get_client):
         | `bidStrategy` | Yes | Yes | 501 |
         | `bidAmount`, `roasAverageFloor` | 400 (ad-set level) | Yes | 400 |
         | `portfolioBidStrategyId` | 400 | Yes | 400 |
+        | `targetImpressionShare` | 400 | Search only | 400 |
+        | `manualCpc` | 400 | Search and Display | 400 |
+        | `networkSettings` | 400 | Search only | 400 |
+        | `trackingUrlTemplate`, `finalUrlSuffix` | 400 | Yes | 400 |
+        | `sharedBudgetId` | 400 | Yes | 400 |
         | `budget` (CBO; ABO returns 409) | Yes | Daily only | OpenAI: daily or lifetime; others 501 |
         | `name` | Yes | 501 | 501 |
         | `platformSpecificData.spendCap` | Yes | 400 | 400 |
-        | `accountId` (empty campaigns) | Yes | - | - |
-
-        Meta budget edits check the live campaign budget, so an older local ABO stamp
-        cannot block a CBO campaign. A successful edit repairs local ad budget fields.
-        A live ABO campaign still returns 409 with the ad-set budget endpoint.
-
-        On Google: `LOWEST_COST_WITHOUT_CAP` = Maximize Conversions, `COST_CAP` +
-        `bidAmount` = Target CPA, `LOWEST_COST_WITH_MIN_ROAS` + ...
+        | `accountId` (empty campaigns) | Yes | - | - | ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
 
@@ -6063,7 +6193,13 @@ def register_generated_tools(mcp, _get_client):
             bid_amount: **Google only.** Whole currency units (USD: 12 = $12.00). Max CPC for LOWEST_COST_WITH_BID_CAP, CPA target for COST_CAP; required for both.
             roas_average_floor: **Google only.** Decimal ROAS multiplier (2.0 = 2.0x), required for LOWEST_COST_WITH_MIN_ROAS.
             portfolio_bid_strategy_id: **Google only.** Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) instead of setting bidStrategy. Exclusive with bidStrategy.
-            allow_shared_budget_update: Google only. Explicitly allow changing a shared campaign budget, affecting every campaign that uses it. Does not bypass an unknown sharing state.
+            allow_shared_budget_update: Google only. Explicitly allow changing a shared campaign budget (flagged as shared by Google, or used by more than one campaign), affecting every campaign that uses it. Does not bypass an unknown sharing state. Also required to move a campaign onto a shared budget with sharedBudgetId.
+            target_impression_share: Google Search only. Target impression share bidding. Exclusive with bidStrategy, portfolioBidStrategyId and manualCpc; bidAmount is refused alongside it (the ceiling is maxCpc). Object with keys: location (one of: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE; required); percent (number, required) - Target share of impressions, in percent (65 = 65%). Sent to Google as location_fraction_micros (1% = 10,000).; maxCpc (number, required) - Max CPC bid limit, in the account's currency units. Google requires it.
+            manual_cpc: Object with keys: maxCpc (number, required) - Max CPC of the ad groups, in the account's currency units: set on the ad group created with the campaign, and on every ad group of the campaign when an update ...
+            network_settings: Object with keys: searchPartners (boolean) - campaign.network_settings.target_search_network; displayNetwork (boolean) - campaign.network_settings.target_content_network (Search with Display expansion)
+            tracking_url_template: **Google only.** campaign.tracking_url_template; an empty string clears it.
+            final_url_suffix: **Google only.** campaign.final_url_suffix; an empty string clears it.
+            shared_budget_id: **Google only.** Move the campaign onto this shared budget (id from GET /v1/ads/shared-budgets), or null to move it back onto a budget of its own sized by `budget`.
             budget: Meta CBO, Google daily, or OpenAI Ads daily or lifetime campaign budget, in whole currency units. Object with keys: amount (number, required) - Budget amount in the ad account's currency; type (one of: daily, lifetime; required)
             name: **Meta only.** Rename the campaign.
             platform_specific_data: **Meta only.** Platform implied by the `platform` body param, same convention as POST /v1/ads/create. Object with keys: spendCap (number or null) - Campaign lifetime spend cap, in the ad account's currency (Meta `spend_cap`). Pass null to remove the cap; 0 is rejected by Meta."""
@@ -6078,6 +6214,12 @@ def register_generated_tools(mcp, _get_client):
                 roas_average_floor=roas_average_floor,
                 portfolio_bid_strategy_id=portfolio_bid_strategy_id,
                 allow_shared_budget_update=allow_shared_budget_update,
+                target_impression_share=target_impression_share,
+                manual_cpc=manual_cpc,
+                network_settings=network_settings,
+                tracking_url_template=tracking_url_template,
+                final_url_suffix=final_url_suffix,
+                shared_budget_id=shared_budget_id,
                 budget=budget,
                 name=name,
                 platform_specific_data=platform_specific_data,
@@ -6333,7 +6475,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Read a Google campaign's device, location, and language targeting",
+            title="Read a Google campaign's device, location, excluded location, and language targe",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -6342,7 +6484,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_get_campaign_targeting(
         campaign_id: str, platform: Literal["google"] | None = None
     ) -> str:
-        """Read a Google campaign's device, location, and language targeting
+        """Read a Google campaign's device, location, excluded location, and language targeting
 
         Google Ads compliance requires geo, language, budget, and bidding targeting
         set at creation to stay editable afterwards; this reads the campaign state
@@ -6355,6 +6497,11 @@ def register_generated_tools(mcp, _get_client):
         campaigns also have CONNECTED_TV. `bidModifier` is Google's bid adjustment
         for that device, `null` when it has none, and `0` when the device is
         switched off; `included` is false for exactly that case.
+
+        `excludedLocations` lists the campaign's negative location criteria (the
+        places it never serves in). `locations` still lists every location criterion,
+        each flagged with `negative`, so a client reading the targeted set filters
+        `negative: false`.
 
         Platforms: google
 
@@ -6372,7 +6519,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Edit a Google campaign's device, location, or language targeting",
+            title="Edit a Google campaign's device, location, excluded location, or language target",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -6381,11 +6528,11 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_update_campaign_targeting(
         campaign_id: str, platform: Literal["google"], targeting: dict[str, Any] | None
     ) -> str:
-        """Edit a Google campaign's device, location, or language targeting
+        """Edit a Google campaign's device, location, excluded location, or language targeting
 
         Google Ads compliance row M.10: geo and language targeting set at
         creation must stay editable afterwards. Send at least one of `devices`,
-        `locations`, `languages`, `locationTargetingType`; each provided field REPLACES that field's
+        `locations`, `excludedLocations`, `languages`, `locationTargetingType`; each provided field REPLACES that field's
         existing criteria on the campaign (a full set, not a delta). Fields left
         out of the body are untouched. Google only; every other platform returns
         501.
@@ -6397,16 +6544,16 @@ def register_generated_tools(mcp, _get_client):
 
         `locations` accepts the same shapes as campaign creation: a bare array of
         ISO country codes, or an object with `countries`/`regions`/`cities`/`zips`/`metros`
-        key lists (`key` from GET /v1/ads/targeting/search?dimension=geo). Negative
-        (excluded) locations are left untouched by this endpoint. An empty location list
-        returns 400 instead ...
+        key lists (`key` from GET /v1/ads/targeting/search?dimension=geo). Excluded
+        locations are left untouched by `locations`. An empty location list
+        returns 400 ...
 
         Platforms: google
 
         Args:
             campaign_id: Google platform campaign ID (required)
             platform: (required)
-            targeting: Object with keys: devices (list of any) - Devices to include. Devices not listed become excluded (negative) criteria, same contract as the existing devices-only edit.; locations (any) - Bare country-code array, or the nested creation-time shape (countries/regions/cities/zips/metros).; languages (list of string) - Google's language codes (ISO 639-1, plus variants such as `zh_CN`), e.g. [\"en\", \"de\"].; locationTargetingType (one of: presence, presence_or_interest) (required)"""
+            targeting: Object with keys: devices (list of any) - Devices to include. Devices not listed become excluded (negative) criteria, same contract as the existing devices-only edit.; locations (any) - Bare country-code array, or the nested creation-time shape (countries/regions/cities/zips/metros).; languages (list of string) - Google's language codes (ISO 639-1, plus variants such as `zh_CN`), e.g. [\"en\", \"de\"].; excludedLocations (any) - Locations the campaign never serves in, as a bare country-code array or the nested countries/regions/cities/zips/metros shape. Replaces the excluded set; [] ...; locationTargetingType (one of: presence, presence_or_interest) (required)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_campaign_targeting(
@@ -6459,7 +6606,7 @@ def register_generated_tools(mcp, _get_client):
         Meta ad account LIVE in one call (for example as a pre-write spend gate), use
         GET /v1/ads/accounts/live ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
 
         Args:
             account_id: Account ID
@@ -6503,6 +6650,7 @@ def register_generated_tools(mcp, _get_client):
         campaign_id: str,
         name: str,
         status: Literal["ACTIVE", "PAUSED"] = "PAUSED",
+        max_cpc: float | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
@@ -6527,6 +6675,7 @@ def register_generated_tools(mcp, _get_client):
             campaign_id: Google platform campaign ID (numeric) the ad group is created under. (required)
             name: (required)
             status
+            max_cpc: Max CPC of the new ad group, in the account's currency units. Send it when the campaign uses Manual CPC: Google gives an ad group without one a 0.01 bid.
             ad_account_id: Platform ad account ID (Google customer ID, digits only). Only required when the connection has more than one.
             customer_id: Alias of adAccountId, kept for existing callers"""
         client = _get_client()
@@ -6537,6 +6686,7 @@ def register_generated_tools(mcp, _get_client):
                 campaign_id=campaign_id,
                 name=name,
                 status=status,
+                max_cpc=max_cpc,
                 ad_account_id=ad_account_id,
                 customer_id=customer_id,
             )
@@ -7318,10 +7468,11 @@ def register_generated_tools(mcp, _get_client):
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[dict[str, Any]] | None = None,
+        images: list[str] | None = None,
     ) -> str:
         """Attach campaign assets
 
-        Creates and attaches sitelinks, callouts and structured snippets in one Google mutation.
+        Creates and attaches sitelinks, callouts, structured snippets and image assets in one Google mutation. Google shows images only on accounts it deems eligible (account age, policy history, vertical).
 
         Platforms: google
 
@@ -7332,7 +7483,8 @@ def register_generated_tools(mcp, _get_client):
             customer_id: Alias of adAccountId, kept for existing callers
             sitelinks: Each item is an object with keys: text (string, required); linkUrl (string, required); description1 (string); description2 (string)
             callouts
-            structured_snippets: Each item is an object with keys: header (one of: Amenities, Brands, Courses, Degree programs, Destinations, Featured hotels, Insurance coverage, Models, Neighborhoods, Service catalog, Shows, Styles, Types; required); values (list of string, required)"""
+            structured_snippets: Each item is an object with keys: header (one of: Amenities, Brands, Courses, Degree programs, Destinations, Featured hotels, Insurance coverage, Models, Neighborhoods, Service catalog, Shows, Styles, Types; required); values (list of string, required)
+            images: Public image URLs, uploaded to Google as image assets. Landscape 1.91:1 (min 600x314) or square 1:1 (min 300x300), up to 5 MB each."""
         client = _get_client()
         try:
             response = client.ad_campaigns.attach_campaign_assets(
@@ -7343,6 +7495,7 @@ def register_generated_tools(mcp, _get_client):
                 sitelinks=sitelinks,
                 callouts=callouts,
                 structured_snippets=structured_snippets,
+                images=images,
             )
             return _format_response(response)
         except Exception as e:
@@ -7484,10 +7637,11 @@ def register_generated_tools(mcp, _get_client):
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[dict[str, Any]] | None = None,
+        images: list[str] | None = None,
     ) -> str:
         """Attach ad-group assets
 
-        Creates and attaches sitelinks, callouts and structured snippets in one Google mutation.
+        Creates and attaches sitelinks, callouts, structured snippets and image assets in one Google mutation. Google shows images only on accounts it deems eligible (account age, policy history, vertical).
 
         Platforms: google
 
@@ -7498,7 +7652,8 @@ def register_generated_tools(mcp, _get_client):
             customer_id: Alias of adAccountId, kept for existing callers
             sitelinks: Each item is an object with keys: text (string, required); linkUrl (string, required); description1 (string); description2 (string)
             callouts
-            structured_snippets: Each item is an object with keys: header (one of: Amenities, Brands, Courses, Degree programs, Destinations, Featured hotels, Insurance coverage, Models, Neighborhoods, Service catalog, Shows, Styles, Types; required); values (list of string, required)"""
+            structured_snippets: Each item is an object with keys: header (one of: Amenities, Brands, Courses, Degree programs, Destinations, Featured hotels, Insurance coverage, Models, Neighborhoods, Service catalog, Shows, Styles, Types; required); values (list of string, required)
+            images: Public image URLs, uploaded to Google as image assets. Landscape 1.91:1 (min 600x314) or square 1:1 (min 300x300), up to 5 MB each."""
         client = _get_client()
         try:
             response = client.ad_campaigns.attach_ad_group_assets(
@@ -7509,6 +7664,7 @@ def register_generated_tools(mcp, _get_client):
                 sitelinks=sitelinks,
                 callouts=callouts,
                 structured_snippets=structured_snippets,
+                images=images,
             )
             return _format_response(response)
         except Exception as e:
@@ -7612,12 +7768,18 @@ def register_generated_tools(mcp, _get_client):
         not deliver, and every rejection reason with TikTok's suggestion and the piece of content it
         refers to. Read-only, so it works on a paused ad without re-enabling it.
 
-        TikTok only (`/ad/review_info/`); every other platform returns 501. Use it alongside the ad's
-        `platformStatus`: TikTok reports `AD_STATUS_AUDIT` while the ad is in review and
-        `AD_STATUS_AD_PRE_ONLINE` once it passed and is about to deliver (both map to
-        `status: pending_review`); `AD_STATUS_AUDIT_DENY` maps to `rejected`.
+        **Google**: reads `ad_group_ad.policy_summary` live. `approvalStatus` and `reviewStatus` are
+        Google's verbatim (`approvalStatus`: APPROVED, APPROVED_LIMITED, AREA_OF_INTEREST_ONLY,
+        DISAPPROVED, UNKNOWN; `reviewStatus`: REVIEW_IN_PROGRESS, REVIEWED, UNDER_APPEAL,
+        ELIGIBLE_MAY_SERVE); `approved` is true for the three approved statuses, false for
+        DISAPPROVED, null otherwise. `policyTopics` carries every policy topic entry with its
+        `type` (PROHIBITED, LIMITED, ...) and Google's `evidences` and `constraints` verbatim; each
+        PROHIBITED topic is also listed in `rejections` (reason = the topic). The `forbidden*`
+        arrays are TikTok-only and always empty on Google.
 
-        Platforms: tiktok
+        TikTok uses `/ad/review_info/`; every other platform returns 501. On TikTok, ...
+
+        Platforms: tiktok, google
 
         Args:
             ad_id: Zernio ad id (24-char hex) or the platform ad id. (required)"""
@@ -8505,6 +8667,9 @@ def register_generated_tools(mcp, _get_client):
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        target_impression_share: dict[str, Any] | None = None,
+        manual_cpc: dict[str, Any] | None = None,
+        network_settings: dict[str, Any] | None = None,
         value_rule_set_id: str | None = None,
         value_rules_applied: bool | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -8861,6 +9026,9 @@ def register_generated_tools(mcp, _get_client):
         ROAS floor lives on the campaign only (set via `POST /v1/ads/campaigns`);
         there is no supported way to set it while joining a CBO campaign here.
                 portfolio_bid_strategy_id: Google Search and Display only. Performance Max rejects portfolio bidding. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy.
+                target_impression_share: Google Search only. Target impression share bidding. Exclusive with bidStrategy, portfolioBidStrategyId and manualCpc; bidAmount is refused alongside it (the ceiling is maxCpc). Object with keys: location (one of: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE; required); percent (number, required) - Target share of impressions, in percent (65 = 65%). Sent to Google as location_fraction_micros (1% = 10,000).; maxCpc (number, required) - Max CPC bid limit, in the account's currency units. Google requires it.
+                manual_cpc: Object with keys: maxCpc (number, required) - Max CPC of the ad groups, in the account's currency units: set on the ad group created with the campaign, and on every ad group of the campaign when an update ...
+                network_settings: Google Search only, when the call creates the campaign (400 with existingCampaignId or adSetId). Object with keys: searchPartners (boolean) - campaign.network_settings.target_search_network; displayNetwork (boolean) - campaign.network_settings.target_content_network (Search with Display expansion)
                 value_rule_set_id: Meta only (facebook, instagram; other platforms return 400). Value rule set
         to attach to the new ad set, from `/v1/ads/value-rule-sets`. Attachment is
         driven by this id, so `valueRulesApplied` is optional alongside it.
@@ -9026,6 +9194,9 @@ def register_generated_tools(mcp, _get_client):
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
                 portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+                target_impression_share=target_impression_share,
+                manual_cpc=manual_cpc,
+                network_settings=network_settings,
                 value_rule_set_id=value_rule_set_id,
                 value_rules_applied=value_rules_applied,
                 platform_specific_data=platform_specific_data,
@@ -9381,7 +9552,11 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_creatives_get_ad_creative(
-        creative_id: str, account_id: str, fields: str | None = None
+        creative_id: str,
+        account_id: str,
+        fields: str | None = None,
+        thumbnail_width: int | None = None,
+        thumbnail_height: int | None = None,
     ) -> str:
         """Creative details
 
@@ -9393,11 +9568,17 @@ def register_generated_tools(mcp, _get_client):
         Args:
             creative_id: Platform creative id (required)
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
-            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently."""
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
+            thumbnail_width: Width in pixels of the `thumbnail_url` rendering, forwarded to Meta as `thumbnail_width`. Without it Meta returns a 64x64 thumbnail.
+            thumbnail_height: Height in pixels of the `thumbnail_url` rendering, forwarded to Meta as `thumbnail_height`. Without it Meta returns a 64x64 thumbnail."""
         client = _get_client()
         try:
             response = client.ad_creatives.get_ad_creative(
-                creative_id=creative_id, account_id=account_id, fields=fields
+                creative_id=creative_id,
+                account_id=account_id,
+                fields=fields,
+                thumbnail_width=thumbnail_width,
+                thumbnail_height=thumbnail_height,
             )
             return _format_response(response)
         except Exception as e:
@@ -21717,6 +21898,35 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
         default_value: float | None = None,
         always_use_default_value: bool | None = None,
+        category: Literal[
+            "DEFAULT",
+            "PAGE_VIEW",
+            "PURCHASE",
+            "SIGNUP",
+            "DOWNLOAD",
+            "ADD_TO_CART",
+            "BEGIN_CHECKOUT",
+            "SUBSCRIBE_PAID",
+            "PHONE_CALL_LEAD",
+            "IMPORTED_LEAD",
+            "SUBMIT_LEAD_FORM",
+            "BOOK_APPOINTMENT",
+            "REQUEST_QUOTE",
+            "GET_DIRECTIONS",
+            "OUTBOUND_CLICK",
+            "CONTACT",
+            "ENGAGEMENT",
+            "STORE_VISIT",
+            "STORE_SALE",
+            "QUALIFIED_LEAD",
+            "CONVERTED_LEAD",
+        ]
+        | None = None,
+        counting_type: Literal["ONE_PER_CLICK", "MANY_PER_CLICK"] | None = None,
+        default_currency: str | None = None,
+        click_through_lookback_window_days: int | None = None,
+        view_through_lookback_window_days: int | None = None,
+        primary_for_goal: bool | None = None,
     ) -> str:
         """Create website conversion action
 
@@ -21735,7 +21945,13 @@ def register_generated_tools(mcp, _get_client):
             name: (required)
             type: Only WEBPAGE is supported for creation today. (required)
             default_value: Default conversion value used when an event doesn't carry its own value.
-            always_use_default_value: When true, always use defaultValue and ignore any value sent with the event. Defaults to true when defaultValue is set."""
+            always_use_default_value: When true, always use defaultValue and ignore any value sent with the event. Defaults to true when defaultValue is set.
+            category: conversion_action.category. Defaults to DEFAULT on create.
+            counting_type: ONE_PER_CLICK counts one conversion per ad click (leads); MANY_PER_CLICK counts every one (purchases).
+            default_currency: ISO 4217 currency of defaultValue (value_settings.default_currency_code).
+            click_through_lookback_window_days: Days after an ad click a conversion still counts.
+            view_through_lookback_window_days: Days after an ad view a view-through conversion still counts.
+            primary_for_goal: true = primary (counts toward bidding when its goal is biddable), false = secondary."""
         client = _get_client()
         try:
             response = client.conversions.create_conversion_action(
@@ -21746,6 +21962,12 @@ def register_generated_tools(mcp, _get_client):
                 type=type,
                 default_value=default_value,
                 always_use_default_value=always_use_default_value,
+                category=category,
+                counting_type=counting_type,
+                default_currency=default_currency,
+                click_through_lookback_window_days=click_through_lookback_window_days,
+                view_through_lookback_window_days=view_through_lookback_window_days,
+                primary_for_goal=primary_for_goal,
             )
             return _format_response(response)
         except Exception as e:
@@ -21831,7 +22053,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Set a conversion action primary or secondary",
+            title="Update a conversion action's settings",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -21840,15 +22062,56 @@ def register_generated_tools(mcp, _get_client):
     def conversions_update_conversion_action(
         action_id: str,
         account_id: str,
-        primary_for_goal: bool,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
+        name: str | None = None,
+        status: Literal["ENABLED", "REMOVED"] | None = None,
+        default_value: float | None = None,
+        always_use_default_value: bool | None = None,
+        category: Literal[
+            "DEFAULT",
+            "PAGE_VIEW",
+            "PURCHASE",
+            "SIGNUP",
+            "DOWNLOAD",
+            "ADD_TO_CART",
+            "BEGIN_CHECKOUT",
+            "SUBSCRIBE_PAID",
+            "PHONE_CALL_LEAD",
+            "IMPORTED_LEAD",
+            "SUBMIT_LEAD_FORM",
+            "BOOK_APPOINTMENT",
+            "REQUEST_QUOTE",
+            "GET_DIRECTIONS",
+            "OUTBOUND_CLICK",
+            "CONTACT",
+            "ENGAGEMENT",
+            "STORE_VISIT",
+            "STORE_SALE",
+            "QUALIFIED_LEAD",
+            "CONVERTED_LEAD",
+        ]
+        | None = None,
+        counting_type: Literal["ONE_PER_CLICK", "MANY_PER_CLICK"] | None = None,
+        default_currency: str | None = None,
+        click_through_lookback_window_days: int | None = None,
+        view_through_lookback_window_days: int | None = None,
+        primary_for_goal: bool | None = None,
     ) -> str:
-        """Set a conversion action primary or secondary
+        """Update a conversion action's settings
 
-        Sets `primary_for_goal` on a Google Ads conversion action. A primary action counts
-        toward its goal's bidding and the Conversions column; a secondary one is
-        observation-only (All conversions).
+        Updates a Google Ads conversion action in one mutate, each field sent written on its own
+        update mask leaf so omitted fields keep their value. Send at least one field.
+
+        `primaryForGoal` sets `primary_for_goal`: a primary action counts toward its goal's
+        bidding and the Conversions column; a secondary one is observation-only (All
+        conversions). `countingType`, `category`, the value settings (`defaultValue`,
+        `defaultCurrency`, `alwaysUseDefaultValue`) and the click-through / view-through
+        lookback windows map to the same-named conversion_action fields.
+
+        `status: REMOVED` removes the action (Google keeps it, with its history, as REMOVED) and
+        must be sent alone; `status: ENABLED` restores a removed action. Google refuses HIDDEN
+        on website actions, so it is not offered.
 
         Platforms: google
 
@@ -21857,7 +22120,16 @@ def register_generated_tools(mcp, _get_client):
             account_id: Zernio SocialAccount id (Google Ads) (required)
             ad_account_id: Google customer id. Required when the connection has multiple customers.
             customer_id: Alias of adAccountId
-            primary_for_goal: true = primary, false = secondary (required)"""
+            name
+            status: REMOVED removes the action and must be sent alone; ENABLED restores a removed one.
+            default_value
+            always_use_default_value
+            category: conversion_action.category. Defaults to DEFAULT on create.
+            counting_type: ONE_PER_CLICK counts one conversion per ad click (leads); MANY_PER_CLICK counts every one (purchases).
+            default_currency: ISO 4217 currency of defaultValue (value_settings.default_currency_code).
+            click_through_lookback_window_days: Days after an ad click a conversion still counts.
+            view_through_lookback_window_days: Days after an ad view a view-through conversion still counts.
+            primary_for_goal: true = primary (counts toward bidding when its goal is biddable), false = secondary."""
         client = _get_client()
         try:
             response = client.conversions.update_conversion_action(
@@ -21865,6 +22137,15 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 customer_id=customer_id,
+                name=name,
+                status=status,
+                default_value=default_value,
+                always_use_default_value=always_use_default_value,
+                category=category,
+                counting_type=counting_type,
+                default_currency=default_currency,
+                click_through_lookback_window_days=click_through_lookback_window_days,
+                view_through_lookback_window_days=view_through_lookback_window_days,
                 primary_for_goal=primary_for_goal,
             )
             return _format_response(response)
@@ -23922,12 +24203,13 @@ def register_generated_tools(mcp, _get_client):
         GET /v1/imessage/senders/{senderId} or subscribe to the
         account.connected webhook. Billing starts at activation (monthly per
         sender, no proration); when the account spend threshold is below the
-        sender price, the first month is charged before the number is bought. Requires usage-based billing and a valid
+        sender price, the first month is charged before the number is bought; when the card's
+        answer takes longer than this request, the order is returned as `status: awaiting_payment`
+        and the number is ordered automatically once it is paid (usually under 5 minutes). Requires usage-based billing and a valid
         payment method. Pass purchaseIntentId to make retries idempotent —
         the provider-side order is never retried automatically. Ordered phone
         senders include SMS/RCS fallback with call forwarding and the ability
-        to message contacts who have not written first (sending intervals
-        still apply).
+        to message contacts who have not written ...
 
         Args:
             profile_id: (required)
@@ -26565,7 +26847,7 @@ def register_generated_tools(mcp, _get_client):
                 existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
                 object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
                 page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
-                whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
+                whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Meta can accept the number yet create the ad set without it; the response then carries a `warnings` entry. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
                 headline: Single-creative shape only. Mutually exclusive with
         `creatives[]`.
                 body: Primary text shown above the image / video. Single-creative
@@ -26972,7 +27254,7 @@ def register_generated_tools(mcp, _get_client):
                 existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
                 object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
                 page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
-                whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
+                whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Meta can accept the number yet create the ad set without it; the response then carries a `warnings` entry. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
                 headline: Single-creative shape only. Mutually exclusive with
         `creatives[]`.
                 body: Primary text shown above the image / video. Single-creative
@@ -27374,7 +27656,7 @@ def register_generated_tools(mcp, _get_client):
                 existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
                 object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
                 page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
-                whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
+                whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Meta can accept the number yet create the ad set without it; the response then carries a `warnings` entry. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
                 headline: Single-creative shape only. Mutually exclusive with
         `creatives[]`.
                 body: Primary text shown above the image / video. Single-creative
@@ -31043,6 +31325,52 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get the comments of a Reddit post",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def reddit_get_reddit_post_comments(
+        post_id: str,
+        account_id: str,
+        sort: Literal["new", "top", "best", "controversial", "old", "qa"] = "new",
+        limit: int = 25,
+        comment_id: str | None = None,
+    ) -> str:
+        """Get the comments of a Reddit post
+
+        Reads the comments of any Reddit post the connected account can see, for example one found
+        through `/v1/reddit/feed` or `/v1/reddit/search`, straight from Reddit on every call. The tree
+        comes flattened in thread order (a reply follows its parent); rebuild it from `parentId`, which
+        is `t3_…` for a reply to the post and `t1_…` for a reply to a comment. Deleted and removed
+        comments are passed through as Reddit sends them (`[deleted]` / `[removed]`). Where Reddit
+        truncates a thread, the ids it left out are listed in `more`; `commentId` fetches one such
+        comment with its replies. A post Reddit no longer serves answers 404 and a private subreddit
+        403, both with `platform_api_error`. For comments on posts published through Zernio,
+        `/v1/inbox/comments/{postId}` adds caching, moderation and replies.
+
+        Args:
+            post_id: Reddit post id, with or without the `t3_` prefix (as `id` or `fullname` on RedditPost). (required)
+            account_id: An active Reddit account the request is made as. (required)
+            sort
+            limit: Maximum number of top-level comments.
+            comment_id: Return only this comment and its replies, with or without the `t1_` prefix; pass an id from `more` to expand it."""
+        client = _get_client()
+        try:
+            response = client.reddit.get_reddit_post_comments(
+                post_id=post_id,
+                account_id=account_id,
+                sort=sort,
+                limit=limit,
+                comment_id=comment_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # REVIEWS
 
     @mcp.tool(
@@ -34178,6 +34506,7 @@ def register_generated_tools(mcp, _get_client):
         transcription_language: Literal["auto", "en", "es"] | None = None,
         amd: bool | None = None,
         voicemail_drop_message: str | None = None,
+        ring_timeout_seconds: int = 30,
     ) -> str:
         """Place an outbound phone call
 
@@ -34204,7 +34533,8 @@ def register_generated_tools(mcp, _get_client):
             transcribe_override: Per-call transcription toggle; defaults to the number's setting.
             transcription_language: 'auto' derives from the callee's country; 'en'/'es' force it.
             amd: Answering-machine detection; defers the bridge until human vs machine is known.
-            voicemail_drop_message: Spoken to a detected machine, then hang up (implies `amd`). For outbound voicemail drops."""
+            voicemail_drop_message: Spoken to a detected machine, then hang up (implies `amd`). For outbound voicemail drops.
+            ring_timeout_seconds: Seconds to let the callee's phone ring before the call ends as no_answer. The destination carrier can end it sooner."""
         client = _get_client()
         try:
             response = client.voice.create_voice_call(
@@ -34217,6 +34547,7 @@ def register_generated_tools(mcp, _get_client):
                 transcription_language=transcription_language,
                 amd=amd,
                 voicemail_drop_message=voicemail_drop_message,
+                ring_timeout_seconds=ring_timeout_seconds,
             )
             return _format_response(response)
         except Exception as e:
@@ -34453,6 +34784,7 @@ def register_generated_tools(mcp, _get_client):
         credential_id: str,
         from_number: str | None = None,
         record_override: bool | None = None,
+        ring_timeout_seconds: int = 30,
     ) -> str:
         """Dial from the browser softphone
 
@@ -34466,7 +34798,8 @@ def register_generated_tools(mcp, _get_client):
             to: The number to call, E.164 with leading +. (required)
             credential_id: The WebRTC credential id returned by POST /v1/voice/calls/web (the registered browser). (required)
             from_number: Which of your voice-enabled numbers to call from (optional when you have one).
-            record_override"""
+            record_override
+            ring_timeout_seconds: Seconds to let the callee's phone ring before the call ends as no_answer. The destination carrier can end it sooner."""
         client = _get_client()
         try:
             response = client.voice.dial_voice_web_call(
@@ -34474,6 +34807,7 @@ def register_generated_tools(mcp, _get_client):
                 credential_id=credential_id,
                 from_number=from_number,
                 record_override=record_override,
+                ring_timeout_seconds=ring_timeout_seconds,
             )
             return _format_response(response)
         except Exception as e:

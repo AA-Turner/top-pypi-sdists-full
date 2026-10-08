@@ -229,6 +229,10 @@ def log_metrics(metrics: Mapping[str, float | int], tags: Mapping[str, str] | No
     CheckpointClass.log_metrics(metrics, tags=tags)
 
 
+# Rollouts are recorded as traces rather than metrics; exported here so the two training
+# reporting calls live side by side.
+from chalk.ml.rollout_traces import log_rollout as log_rollout  # noqa: E402
+
 HyperparameterValue = Union[float, str, bool, int]
 
 MAX_EXPERIMENT_TRAINING_RUNS = 20

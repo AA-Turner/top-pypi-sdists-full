@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.tools.executor import ToolExecutor
 from matrx_ai.tools.logger import ToolExecutionLogger
@@ -30,7 +31,9 @@ MARKER = {
 }
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     def __init__(self) -> None:
         self.tool_events: list[Any] = []
 

@@ -4,11 +4,14 @@ except ImportError:
     cv2 = None
 import argparse
 import base64
+import logging
 import os
 import sys
 import webbrowser
 from pathlib import Path
 from typing import Dict
+
+_logger = logging.getLogger(__name__)
 
 
 class BoundaryDrawingTool:
@@ -57,11 +60,13 @@ class BoundaryDrawingTool:
 
         # Save frame
         cv2.imwrite(output_path, frame)
-        print(f"First frame extracted and saved to: {output_path}")
+        _logger.info("First frame extracted and saved to: %s", output_path)
 
         return output_path
 
-    def create_grid_reference_image(self, frame_path: str, output_path: str = None, grid_step: int = 50) -> str:
+    def create_grid_reference_image(
+        self, frame_path: str, output_path: str = None, grid_step: int = 50
+    ) -> str:
         """
         Create a grid reference image to help users define coordinates.
 
@@ -120,7 +125,7 @@ class BoundaryDrawingTool:
 
         # Save the grid image
         cv2.imwrite(output_path, grid_frame)
-        print(f"Grid reference image saved to: {output_path}")
+        _logger.info("Grid reference image saved to: %s", output_path)
 
         return output_path
 
@@ -143,7 +148,9 @@ class BoundaryDrawingTool:
 
         return f"data:{mime_type};base64,{encoded_string}"
 
-    def create_interactive_html(self, image_path: str, output_html: str = None, embed_image: bool = True) -> str:
+    def create_interactive_html(
+        self, image_path: str, output_html: str = None, embed_image: bool = True
+    ) -> str:
         """
         Create an interactive HTML page for drawing boundaries with custom tags.
 
@@ -175,7 +182,7 @@ class BoundaryDrawingTool:
         with open(output_html, "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        print(f"Interactive HTML boundary tool created: {output_html}")
+        _logger.info("Interactive HTML boundary tool created: %s", output_html)
         return output_html
 
     def _generate_html_template(self, image_src: str, image_name: str) -> str:
@@ -1068,10 +1075,10 @@ zones = {{}}
         """
         try:
             webbrowser.open(f"file://{os.path.abspath(html_path)}")
-            print(f"Opened boundary tool in browser: {html_path}")
-        except Exception as e:
-            print(f"Could not open browser: {e}")
-            print(f"Please manually open: {html_path}")
+            _logger.info("Opened boundary tool in browser: %s", html_path)
+        except Exception as e:  # noqa: BLE001 - browser launch is best-effort, path is logged instead
+            _logger.info("Could not open browser: %s", e)
+            _logger.info("Please manually open: %s", html_path)
 
     def get_file_type(self, file_path: str) -> str:
         """
@@ -1191,7 +1198,9 @@ Examples:
         action="store_true",
         help="Do not open the tool in browser automatically",
     )
-    parser.add_argument("--no-embed", action="store_true", help="Do not embed image as base64 in HTML")
+    parser.add_argument(
+        "--no-embed", action="store_true", help="Do not embed image as base64 in HTML"
+    )
 
     args = parser.parse_args()
 
@@ -1206,27 +1215,27 @@ Examples:
             embed_image=not args.no_embed,
         )
 
-        print("\n" + "=" * 60)
-        print("🎯 Boundary Drawing Tool - Results")
-        print("=" * 60)
+        _logger.info("%s", "\n" + "=" * 60)
+        _logger.info("🎯 Boundary Drawing Tool - Results")
+        _logger.info("%s", "=" * 60)
 
         for file_type, path in results.items():
-            print(f"{file_type.title().replace('_', ' ')}: {path}")
+            _logger.info("%s: %s", file_type.title().replace("_", " "), path)
 
-        print("\n📝 Instructions:")
-        print("1. Use the interactive HTML tool to draw zones")
-        print("2. Select zone types (queue, staff, entry, exit, etc.)")
-        print("3. Click on the image to add points")
-        print("4. Right-click or press Enter to complete a zone")
-        print("5. Copy the generated code for use in your applications")
+        _logger.info("\n📝 Instructions:")
+        _logger.info("1. Use the interactive HTML tool to draw zones")
+        _logger.info("2. Select zone types (queue, staff, entry, exit, etc.)")
+        _logger.info("3. Click on the image to add points")
+        _logger.info("4. Right-click or press Enter to complete a zone")
+        _logger.info("5. Copy the generated code for use in your applications")
 
         if not args.no_browser:
-            print(f"\n🌐 Tool opened in browser: {results['html_tool']}")
+            _logger.info("\n🌐 Tool opened in browser: %s", results["html_tool"])
         else:
-            print(f"\n🌐 Open this file in browser: {results['html_tool']}")
+            _logger.info("\n🌐 Open this file in browser: %s", results["html_tool"])
 
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+    except Exception as e:  # noqa: BLE001 - CLI entry point reports any failure and exits 1
+        _logger.error("Error: %s", e)
         sys.exit(1)
 
 

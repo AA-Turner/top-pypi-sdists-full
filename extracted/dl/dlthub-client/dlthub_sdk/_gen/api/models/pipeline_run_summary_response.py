@@ -9,6 +9,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.pipeline_run_status import PipelineRunStatus
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="PipelineRunSummaryResponse")
@@ -25,7 +26,7 @@ class PipelineRunSummaryResponse:
         finished_at (datetime.datetime | None | Unset): When the pipeline run finished
         pipeline_run_id (None | Unset | UUID): Telemetry ID of the pipeline run
         started_at (datetime.datetime | None | Unset): When the pipeline run started
-        status (None | str | Unset): Status of the pipeline run
+        status (None | PipelineRunStatus | str | Unset): Status of the pipeline run
         total_rows (int | None | Unset): Total number of rows loaded by the pipeline
         transaction_id (None | str | Unset): Transaction ID of the pipeline run
     """
@@ -37,7 +38,7 @@ class PipelineRunSummaryResponse:
     finished_at: datetime.datetime | None | Unset = UNSET
     pipeline_run_id: None | Unset | UUID = UNSET
     started_at: datetime.datetime | None | Unset = UNSET
-    status: None | str | Unset = UNSET
+    status: None | PipelineRunStatus | str | Unset = UNSET
     total_rows: int | None | Unset = UNSET
     transaction_id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -90,6 +91,8 @@ class PipelineRunSummaryResponse:
         status: None | str | Unset
         if isinstance(self.status, Unset):
             status = UNSET
+        elif isinstance(self.status, PipelineRunStatus):
+            status = self.status.value
         else:
             status = self.status
 
@@ -216,12 +219,20 @@ class PipelineRunSummaryResponse:
 
         started_at = _parse_started_at(d.pop("started_at", UNSET))
 
-        def _parse_status(data: object) -> None | str | Unset:
+        def _parse_status(data: object) -> None | PipelineRunStatus | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                status_type_0 = PipelineRunStatus(data)
+
+                return status_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PipelineRunStatus | str | Unset, data)
 
         status = _parse_status(d.pop("status", UNSET))
 

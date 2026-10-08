@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Union
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from io import IOBase
+from json import dumps
+from operator import itemgetter
+from typing import Any
+from urllib.parse import urlencode
 
 from aiohttp.typedefs import StrOrURL
 from multidict import MultiDict
 from url_normalize import url_normalize
 from yarl import URL
 
-RequestParams = Union[Mapping, Sequence, str]
+RequestParams = Mapping | Sequence | str
 
 
 def create_key(
@@ -23,6 +27,7 @@ def create_key(
     headers: dict | None = None,
     include_headers: bool = False,
     ignored_params: Iterable[str] | None = None,
+    json_serialize: Callable[[Any], str | bytes] = dumps,
     **kwargs,
 ) -> str:
     """Create a unique cache key based on request details"""
@@ -36,17 +41,31 @@ def create_key(
         json = filter_ignored_params(json, ignored_params)
 
     # Create a hash based on the normalized and filtered request
-    key = hashlib.sha256()
-    key.update(method.upper().encode())
-    key.update(str(norm_url).encode())
-    key.update(encode_dict(data))
-    key.update(encode_dict(json))
+    components = [
+        method.upper().encode(),
+        str(norm_url).encode(),
+        *encode_data(data),
+        encode_json(json, json_serialize),
+    ]
     if include_headers:
-        key.update(encode_dict(headers))
-    return key.hexdigest()
+        components.append(encode_dict(headers))
+
+    return hash_parts(components).hex()
 
 
-def filter_ignored_params(data, ignored_params: Iterable[str]):
+def hash_parts(parts: Iterable[bytes | memoryview]) -> bytes:
+    key = hashlib.sha256()
+    for part in parts:
+        key.update(memoryview(part).nbytes.to_bytes(8, 'big'))
+        key.update(part)
+    return key.digest()
+
+
+def filter_ignored_params(
+    data,
+    # Always a set internally, but keep the public utility parameter as-is to avoid breaking changes.
+    ignored_params: Iterable[str],
+):
     """Remove any ignored params from an object, if it's dict-like"""
     if not isinstance(data, Mapping) or not ignored_params:
         return data
@@ -70,6 +89,23 @@ def normalize_url_params(url: StrOrURL, params: RequestParams | None = None) -> 
     return URL(url_normalize(str(url)))
 
 
+def encode_data(data: Any) -> tuple[bytes, bytes | memoryview]:
+    if data is None:
+        return b'', b''
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        return b'bytes', memoryview(data)
+    if isinstance(data, str):
+        return b'str', data.encode()
+    if isinstance(data, Mapping):
+        fields = sorted(data.items(), key=itemgetter(0))
+        if any(isinstance(value, (bytes, bytearray, memoryview, IOBase)) for _, value in fields):
+            return b'multipart', hash_parts(
+                part for name, value in fields for part in (str(name).encode(), *encode_data(value))
+            )
+        return b'form', urlencode(fields, doseq=True).encode()
+    return b'other', str(data).encode()
+
+
 def encode_dict(data: Any) -> bytes:
     if not data:
         return b''
@@ -77,5 +113,15 @@ def encode_dict(data: Any) -> bytes:
         return data
     elif not isinstance(data, Mapping):
         return str(data).encode()
-    item_pairs = [f'{k}={v}' for k, v in sorted((data or {}).items())]
-    return '&'.join(item_pairs).encode()
+    return urlencode(sorted(data.items())).encode()
+
+
+def encode_json(data: Any, serializer: Callable[[Any], str | bytes] = dumps) -> bytes:
+    if data is None:
+        return b''
+    if isinstance(data, Mapping):
+        data = dict(data)
+        if all(isinstance(key, str) for key in data):
+            data = dict(sorted(data.items()))
+    serialized = serializer(data)
+    return serialized.encode() if isinstance(serialized, str) else serialized

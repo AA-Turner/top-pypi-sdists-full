@@ -14,13 +14,21 @@ from collections.abc import Callable, Generator
 from typing import Any, ClassVar, Literal, overload
 import warnings
 
+from openstack.placement.v1 import allocation as _allocation
+from openstack.placement.v1 import (
+    allocation_candidate as _allocation_candidate,
+)
 from openstack.placement.v1 import resource_class as _resource_class
 from openstack.placement.v1 import resource_provider as _resource_provider
+from openstack.placement.v1 import (
+    resource_provider_allocation as _resource_provider_allocation,
+)
 from openstack.placement.v1 import (
     resource_provider_inventory as _resource_provider_inventory,
 )
 from openstack.placement.v1 import resource_provider_trait as _rp_trait
 from openstack.placement.v1 import trait as _trait
+from openstack.placement.v1 import usage as _usage
 from openstack import proxy
 from openstack import resource
 from openstack import warnings as os_warnings
@@ -34,7 +42,132 @@ class Proxy(proxy.Proxy):
         "resource_provider": _resource_provider.ResourceProvider,
     }
 
-    # resource classes
+    # ====== Allocations ======
+
+    def allocation_candidates(
+        self,
+        **query: Any,
+    ) -> Generator[_allocation_candidate.AllocationCandidate, None, None]:
+        """Retrieve a generator of allocation candidates.
+
+        Each yielded
+        :class:`~openstack.placement.v1.allocation_candidate.AllocationCandidate`
+        represents one candidate set of allocations and contains:
+
+        - ``allocations`` — a dict mapping resource provider UUID to the
+          resources to request from that provider.
+        - ``mappings`` — a dict mapping request-group suffixes to provider
+          UUIDs (available from microversion 1.34).
+        - ``provider_summaries`` — a dict keyed by resource provider UUID with
+          capacity and trait information for providers in this candidate.
+
+        :param query: Query parameters forwarded directly to placement.
+            Common parameters include:
+
+            - ``resources`` — a comma-separated ``CLASS:AMOUNT`` string,
+              e.g. ``VCPU:1,DISK_GB:10,MEMORY_MB:512``
+            - ``required`` — comma-separated required (or ``!``-prefixed
+              forbidden) traits
+            - ``member_of`` — aggregate UUID filter
+            - ``in_tree`` — restrict to a resource provider subtree
+            - ``limit`` — maximum number of candidates to return
+            - ``group_policy`` — ``isolate`` or ``none``
+            - ``root_required`` — traits required on the root provider
+            - ``same_subtree`` — request-group suffixes that must share a tree
+
+            Numbered variants (``resources1``, ``required1``, ``member_of1``,
+            ``in_tree1``, …) are accepted for granular request groups.
+
+        :returns: A generator of
+            :class:`~openstack.placement.v1.allocation_candidate.AllocationCandidate`
+            instances.
+        """
+        return self._list(_allocation_candidate.AllocationCandidate, **query)
+
+    def get_allocation(
+        self,
+        consumer: str | _allocation.Allocation,
+    ) -> _allocation.Allocation:
+        """Get allocations for a consumer.
+
+        :param consumer: The UUID of the consumer, or an
+            :class:`~openstack.placement.v1.allocation.Allocation` instance.
+
+        :returns: An instance of
+            :class:`~openstack.placement.v1.allocation.Allocation` with all
+            allocations for the given consumer.
+        :raises: :class:`~openstack.exceptions.NotFoundException` when no
+            allocations for the consumer could be found.
+        """
+        return self._get(_allocation.Allocation, consumer)
+
+    def update_allocation(
+        self,
+        consumer: str | _allocation.Allocation,
+        **attrs: Any,
+    ) -> _allocation.Allocation:
+        """Set or update allocations for a consumer.
+
+        Creates or replaces all allocation records for the consumer identified
+        by ``consumer``. If allocations already exist for this consumer they
+        are replaced.
+
+        :param consumer: The UUID of the consumer, or an
+            :class:`~openstack.placement.v1.allocation.Allocation` instance.
+        :param attrs: Keyword arguments which will be used to update the
+            :class:`~openstack.placement.v1.allocation.Allocation`, comprised
+            of the properties on the Allocation class. At a minimum,
+            ``allocations``, ``project_id``, and ``user_id`` must be provided
+            when creating new allocations.
+
+        :returns: The updated
+            :class:`~openstack.placement.v1.allocation.Allocation`.
+        """
+        return self._update(_allocation.Allocation, consumer, **attrs)
+
+    def create_allocations(
+        self,
+        allocations: dict[str, dict[str, Any]],
+    ) -> None:
+        """Create or update allocations for multiple consumers.
+
+        :param allocations: A dict keyed by consumer UUID. Each value must
+            contain ``allocations``, ``project_id``, ``user_id``, and
+            ``consumer_generation``; from microversion 1.38 ``consumer_type``
+            is also required. Pass an empty ``allocations`` value for a
+            consumer to remove all of their allocations.
+
+        :returns: ``None``
+        :raises: :class:`~openstack.exceptions.ConflictException` if any
+            resource provider or consumer generation does not match, or if
+            there is insufficient inventory.
+        """
+        _allocation.Allocation.set(self, allocations=allocations)
+
+    def delete_allocation(
+        self,
+        consumer: str | _allocation.Allocation,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Delete all allocations for a consumer.
+
+        :param consumer: The UUID of the consumer, or an
+            :class:`~openstack.placement.v1.allocation.Allocation` instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when no allocations exist for the consumer. When set to ``True``,
+            no exception will be raised when attempting to delete allocations
+            for a consumer that has none.
+
+        :returns: ``None``
+        """
+        self._delete(
+            _allocation.Allocation,
+            consumer,
+            ignore_missing=ignore_missing,
+        )
+
+    # ====== Resource classes ======
 
     def create_resource_class(
         self, **attrs: Any
@@ -128,7 +261,7 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_resource_class.ResourceClass, **query)
 
-    # resource providers
+    # ====== Resource providers ======
 
     def create_resource_provider(
         self, **attrs: Any
@@ -262,7 +395,7 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_resource_provider.ResourceProvider, **query)
 
-    # resource provider aggregates
+    # ====== Resource provider aggregates ======
 
     def fetch_resource_provider_aggregates(
         self,
@@ -330,7 +463,7 @@ class Proxy(proxy.Proxy):
         )
         return res.set_aggregates(self, aggregates=list(aggregates))
 
-    # resource provider inventories
+    # ====== Resource provider inventories ======
 
     def create_resource_provider_inventory(
         self,
@@ -505,6 +638,63 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
+    def set_resource_provider_inventories(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+        inventories: dict[str, dict[str, Any]],
+        resource_provider_generation: int,
+    ) -> _resource_provider.ResourceProvider:
+        """Replace all inventories for a resource provider in a single request.
+
+        :param resource_provider: The value can be either the ID of a resource
+            provider or a
+            :class:`~openstack.placement.v1.resource_provider.ResourceProvider`
+            instance.
+        :param inventories: A dict mapping resource class names to inventory
+            configuration dicts (keys: ``total``, and optionally
+            ``allocation_ratio``, ``max_unit``, ``min_unit``, ``reserved``,
+            ``step_size``). Pass an empty dict to remove all inventories.
+        :param resource_provider_generation: The current generation of the
+            resource provider, used to detect concurrent updates.
+
+        :returns: The resource provider with its ``generation`` updated to
+            reflect the new state.
+        :raises: :class:`~openstack.exceptions.ConflictException` if the
+            generation does not match or allocations prevent removal.
+        """
+        res = self._get_resource(
+            _resource_provider.ResourceProvider,
+            resource_provider,
+        )
+        return res.set_inventories(
+            self,
+            inventories=inventories,
+            resource_provider_generation=resource_provider_generation,
+        )
+
+    def delete_resource_provider_inventories(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+    ) -> None:
+        """Delete all inventory records for a resource provider.
+
+        :param resource_provider: The value can be either the ID of a resource
+            provider or a
+            :class:`~openstack.placement.v1.resource_provider.ResourceProvider`
+            instance.
+
+        :returns: ``None``
+        :raises: :class:`~openstack.exceptions.ConflictException` if there are
+            active allocations against the resource provider.
+        """
+        res = self._get_resource(
+            _resource_provider.ResourceProvider,
+            resource_provider,
+        )
+        res.delete_inventories(self)
+
+    # ====== Resource provider usages ======
+
     def fetch_resource_provider_usages(
         self,
         resource_provider: str | _resource_provider.ResourceProvider,
@@ -527,7 +717,33 @@ class Proxy(proxy.Proxy):
         )
         return res.fetch_usages(self)
 
-    # ========== Traits ==========
+    # ====== Resource provider allocations ======
+
+    def resource_provider_allocations(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+        **query: Any,
+    ) -> Generator[
+        _resource_provider_allocation.ResourceProviderAllocation, None, None
+    ]:
+        """Retrieve a generator of resource provider allocations
+
+        :param resource_provider: Either the ID of a resource provider or a
+            :class:`~openstack.placement.v1.resource_provider.ResourceProvider`
+            instance.
+        :param query: Optional query parameters to be sent to limit
+            the resources being returned.
+
+        :returns: A generator of resource provider inventory allocations.
+        """
+        resource_provider_id = resource.Resource._get_id(resource_provider)
+        return self._list(
+            _resource_provider_allocation.ResourceProviderAllocation,
+            resource_provider_id=resource_provider_id,
+            **query,
+        )
+
+    # ====== Traits ======
 
     def create_trait(self, name: str) -> _trait.Trait:
         """Create a new trait
@@ -617,7 +833,63 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    # ========== Utilities ==========
+    def delete_resource_provider_trait(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Dissociate all traits from a resource provider.
+
+        :param resource_provider: The value can be either the ID of a resource
+            provider or a
+            :class:`~openstack.placement.v1.resource_provider.ResourceProvider`
+            instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the resource provider does not exist. When set to ``True``,
+            no exception will be raised when attempting to delete traits for a
+            nonexistent resource provider.
+
+        :returns: ``None``
+        """
+        resource_provider_id = resource.Resource._get_id(resource_provider)
+        self._delete(
+            _rp_trait.ResourceProviderTrait,
+            None,
+            resource_provider_id=resource_provider_id,
+            ignore_missing=ignore_missing,
+        )
+
+    # ====== Usages ======
+
+    def usages(
+        self,
+        project_id: str,
+        user_id: str | None = None,
+        consumer_type: str | None = None,
+    ) -> Generator[_usage.Usage, None, None]:
+        """Retrieve a generator of resource usages for a project.
+
+        Each yielded :class:`~openstack.placement.v1.usage.Usage` represents
+        one consumer type and contains the total resource consumption by
+        consumers of that type within the given project.
+
+        :param project_id: The UUID of the project to report usage for.
+        :param user_id: The UUID of the user to further filter by. Optional.
+        :param consumer_type: The consumer type to filter by. Optional;
+            requires placement microversion 1.38 or later.
+
+        :returns: A generator of
+            :class:`~openstack.placement.v1.usage.Usage` instances.
+        """
+        return self._list(
+            _usage.Usage,
+            project_id=project_id,
+            user_id=user_id,
+            consumer_type=consumer_type,
+        )
+
+    # ====== Utilities ======
 
     def wait_for_status(
         self,

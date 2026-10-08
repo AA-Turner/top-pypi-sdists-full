@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-redis
-Version: 5.0.0
+Version: 5.0.1
 Summary: Redis fixtures and fixture factories for Pytest.
 Keywords: fixture,pytest,redis,tests
 Author: Grzegorz Śliwiński
@@ -32,7 +32,7 @@ Requires-Dist: pytest-asyncio>=1.0.0 ; extra == 'async'
 Requires-Python: >=3.10
 Project-URL: Source, https://github.com/dbfixtures/pytest-redis
 Project-URL: Bug Tracker, https://github.com/dbfixtures/pytest-redis/issues
-Project-URL: Changelog, https://github.com/dbfixtures/pytest-redis/blob/v5.0.0/CHANGES.rst
+Project-URL: Changelog, https://github.com/dbfixtures/pytest-redis/blob/v5.0.1/CHANGES.rst
 Provides-Extra: async
 Description-Content-Type: text/x-rst
 

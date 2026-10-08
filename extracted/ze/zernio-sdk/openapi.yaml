@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.226.1"
+  version: "1.240.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -27,16 +27,16 @@ info:
   x-logo:
     url: https://zernio.com/icon.png?v=3
   x-long-description: |
-    Zernio is the social media API that replaces 16 integrations. Schedule posts, retrieve analytics,
+    Zernio is the social media API that replaces 26 integrations. Schedule posts, retrieve analytics,
     manage DMs, comments, and reviews across X, Instagram, WhatsApp, TikTok, LinkedIn,
     Facebook, YouTube, Threads, Reddit, Pinterest, Bluesky, Telegram, Google Business Profile, Snapchat,
-    Discord, and Slack, all from a single REST API. Run paid ads on Meta (Facebook + Instagram), Google,
+    Discord, Slack, and iMessage, all from a single REST API. Run paid ads on Meta (Facebook + Instagram), Google,
     TikTok, LinkedIn, Pinterest, X, and OpenAI from the same account.
 
     Connect Shopify and WordPress as blog accounts to list sites and manage
     articles, drafts, featured images, tags, authors, and native scheduling.
 
-    Key features: Unified posting to 16 platforms, ads management on 7 ad networks (via /v1/ads), aggregated analytics, unified inbox (DMs, comments, reviews), webhooks, OAuth connect, queue scheduling, and white-label support for agencies managing unlimited accounts.
+    Key features: Unified posting to 17 platforms, ads management on 7 ad networks (via /v1/ads), aggregated analytics, unified inbox (DMs, comments, reviews), webhooks, OAuth connect, queue scheduling, and white-label support for agencies managing unlimited accounts.
 
     Supported posting platforms: X, Instagram, WhatsApp, Facebook, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Bluesky, Threads, Google Business Profile, Telegram, Snapchat, Discord, Slack. Supported ad platforms: Meta Ads, Google Ads, TikTok Ads, LinkedIn Ads, Pinterest Ads, X Ads, OpenAI Ads. Snapchat is a closed beta with no public release date: connections are gated behind approval and return 403 `PLATFORM_BETA_RESTRICTED` until then.
   x-category: Social
@@ -70,7 +70,7 @@ x-documentation:
   readme: |
     # Zernio API
 
-    The social media API that replaces 16 integrations. Build social media and blog publishing features into your app in minutes, not months.
+    The social media API that replaces 26 integrations. Build social media and blog publishing features into your app in minutes, not months.
 
     ## Quick Start
 
@@ -1904,7 +1904,7 @@ components:
         region: { type: [string, "null"], enum: [US, GB, null] }
         handle: { type: [string, "null"], description: The sender handle once activation assigns it }
         optInLink: { type: [string, "null"], description: 'imessage:// deep link that opens Messages on this sender with a prefilled text. Share it so contacts message you first (Apple only lets a sender reach contacts who wrote to it first); null until the handle is assigned.' }
-        status: { type: string, enum: [ordering, activating, active, suspended, canceled, failed] }
+        status: { type: string, enum: [ordering, awaiting_payment, activating, active, suspended, canceled, failed], description: '`awaiting_payment`: the first-month charge is still being confirmed by the card; the number is ordered automatically once it is paid (usually under 5 minutes), or the order fails with `failureReason` when the card declines or nothing confirms within 30 minutes.' }
         priceCents: { type: integer, description: Monthly price billed while the sender is active }
         provider: { type: string }
         profileId: { type: string }
@@ -2061,7 +2061,7 @@ components:
         whatsappPhoneNumber:
           type: string
           pattern: '^\+[1-9]\d{6,14}$'
-          description: 'WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.'
+          description: 'WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Meta can accept the number yet create the ad set without it; the response then carries a `warnings` entry. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.'
         headline:
           type: string
           minLength: 1
@@ -2889,6 +2889,24 @@ components:
           type: array
           description: Individual image URLs for gallery posts (only present when isGallery is true)
           items: { type: string, format: uri }
+    RedditComment:
+      type: object
+      description: 'One comment of a Reddit thread as returned by GET /v1/reddit/comments/{postId}; the list is flat and in thread order'
+      properties:
+        id: { type: string, description: Reddit comment ID (without type prefix) }
+        fullname: { type: string, description: "Reddit fullname (e.g. t1_abc123)" }
+        parentId: { type: string, description: 'Fullname of what the comment answers: the post (t3_…) or a parent comment (t1_…)' }
+        author: { type: string, description: 'The username, or [deleted]' }
+        body: { type: string, description: 'Comment text as written (Markdown, not HTML-escaped), or [deleted] / [removed]' }
+        permalink: { type: string, description: Full permalink to the comment }
+        createdUtc: { type: number, description: Unix timestamp of the comment }
+        score: { type: integer }
+        numReplies: { type: integer, description: 'Direct replies included in this response; replies Reddit left out are listed in more' }
+        depth: { type: integer, description: '0 for a top-level comment of this response, 1 for a reply to it, and so on' }
+        isSubmitter: { type: boolean, description: "Whether the author is the post's author" }
+        edited: { type: boolean }
+        stickied: { type: boolean }
+        distinguished: { type: [string, "null"], description: '"moderator" or "admin" when the comment is distinguished, else null' }
     ExternalPostSummary:
       type: object
       description: |
@@ -9713,8 +9731,11 @@ components:
           description: |
             Whether the user explicitly activated this account. false means the account was
             created as a side effect (e.g., posting account auto-created when user connected
-            ads first). Such accounts are hidden from this list, cannot be posted to
-            (`ACCOUNT_NOT_ENABLED_FOR_POSTING`), and are not billed as connected accounts.
+            ads first). GET /v1/accounts still returns such accounts unless `excludeHidden=true`
+            is passed. They cannot be posted to (`ACCOUNT_NOT_ENABLED_FOR_POSTING`) and are not
+            billed as connected accounts. On an ads account (`metaads`, `googleads`, ...) the value
+            does not hide the connection: ads accounts are listed whatever their `enabled` value and
+            keep working for ads.
         metadata:
           type: object
           description: |
@@ -10326,7 +10347,8 @@ components:
         syncStatus: { type: string, enum: [synced, pending, unavailable], description: 'Sync state of analytics for this platform' }
         platformPostUrl: { type: [string, "null"], format: uri }
         errorMessage: { type: [string, "null"], description: 'Failure detail. On failed entries, why the post failed to publish. On unavailable entries, why analytics cannot be synced (e.g. Google Business Profile, a TikTok upload that never received a video id). On pending entries, the most recent analytics sync error for the account (null while no sync has failed), cleared after the next successful sync.' }
-        errorCode: { type: [string, "null"], enum: [post_not_found, permission_missing, null], description: 'Stable machine-readable reason for errorMessage. post_not_found: the post was deleted or is no longer visible to the account. permission_missing: the last analytics sync of the Facebook account failed because the Page no longer grants pages_read_engagement (pending entries only). null: no stable code, read errorMessage. New values may be added.' }
+        errorCode: { type: [string, "null"], enum: [post_not_found, not_post_owner, permission_missing, null], description: 'Stable machine-readable reason for errorMessage. post_not_found: the post was deleted or is no longer visible to the account. not_post_owner: the post is owned by another Page or user (collab or visitor post); its analytics cannot be read with this Page''s token. permission_missing: the last analytics sync of the Facebook account failed because the Page no longer grants pages_read_engagement (pending entries only). null: no stable code, read errorMessage. New values may be added.' }
+        isOwner: { type: [boolean, "null"], description: 'Facebook only: true when the connected Page authored the post, false when Facebook reports another author (a collab post), null when unknown or for other platforms.' }
     AnalyticsOverview:
       type: object
       properties:
@@ -10817,6 +10839,17 @@ components:
           type: object
           additionalProperties: { type: integer }
           description: 'Only with profileIds and perProfile. Accounts matching the filters per profile ID; a profile with none is absent.'
+        statusCounts:
+          type: object
+          description: 'Only with includeStatusCounts=true. Counts over every filter of the request except status.'
+          required: [all, disconnected]
+          properties:
+            all:
+              type: integer
+              description: Accounts matching the filters in any status.
+            disconnected:
+              type: integer
+              description: Of those, the accounts that need reconnection.
     FollowerStatsResponse:
       type: object
       properties:
@@ -11481,13 +11514,37 @@ components:
         managerLinkId: { type: [string, "null"], description: "Null on a validateOnly invitation, where Google creates nothing." }
         status: { type: string, enum: [PENDING, ACTIVE, REFUSED, CANCELED, INACTIVE], description: "Status the link has after this call." }
         validateOnly: { type: boolean }
+    GoogleTargetImpressionShare:
+      type: object
+      additionalProperties: false
+      required: [location, percent, maxCpc]
+      description: "Google only. Target impression share bidding (Search campaigns only): Google sets bids so the ads show in `location` for `percent` of eligible impressions."
+      properties:
+        location: { type: string, enum: [ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE] }
+        percent: { type: number, exclusiveMinimum: 0, maximum: 100, description: "Target share of impressions, in percent (65 = 65%). Sent to Google as location_fraction_micros (1% = 10,000)." }
+        maxCpc: { type: number, exclusiveMinimum: 0, description: "Max CPC bid limit, in the account's currency units. Google requires it." }
+    GoogleManualCpc:
+      type: object
+      additionalProperties: false
+      required: [maxCpc]
+      description: "Google Search and Display only. Manual CPC bidding. Enhanced CPC is not offered: Google no longer lets Search and Display campaigns enable it. Exclusive with every other strategy field."
+      properties:
+        maxCpc: { type: number, exclusiveMinimum: 0, description: "Max CPC of the ad groups, in the account's currency units: set on the ad group created with the campaign, and on every ad group of the campaign when an update switches it to Manual CPC. Google gives an ad group without one a 0.01 bid." }
+    GoogleNetworkSettings:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: "Google Search campaigns only. Which networks the campaign serves on besides Google Search. When omitted at creation, search partners are ON and the Display Network is OFF (the defaults Zernio has always used); on an update only the fields sent change."
+      properties:
+        searchPartners: { type: boolean, description: "campaign.network_settings.target_search_network" }
+        displayNetwork: { type: boolean, description: "campaign.network_settings.target_content_network (Search with Display expansion)" }
     PortfolioBidStrategy:
       type: object
       description: "A Google Ads portfolio bid strategy: a named bidding strategy shared across campaigns, with its R.130 report metrics over the queried date range."
       properties:
         id: { type: string, description: "Numeric bid strategy id; pass as portfolioBidStrategyId or in the {strategyId} path." }
         name: { type: string }
-        type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
+        type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE, TARGET_IMPRESSION_SHARE] }
         status: { type: string, description: "ENABLED or REMOVED." }
         campaignCount: { type: integer, description: "Number of campaigns currently attached." }
         clicks: { type: integer }
@@ -11498,6 +11555,11 @@ components:
         conversions: { type: number }
         targetCpa: { type: [number, "null"], description: "Current target, in the account's currency units. Null for a ROAS-family type (TARGET_ROAS, MAXIMIZE_CONVERSION_VALUE), or a Maximize type with no target set. Pre-fills the edit form's target field." }
         targetRoas: { type: [number, "null"], description: "Current target as a decimal multiplier (2.0 = 2.0x). Null for a CPA-family type (TARGET_CPA, MAXIMIZE_CONVERSIONS), or a Maximize type with no target set." }
+        targetImpressionShare:
+          description: "Current target for a TARGET_IMPRESSION_SHARE strategy, null for every other type."
+          oneOf:
+            - { $ref: '#/components/schemas/GoogleTargetImpressionShare' }
+            - { type: "null" }
     CampaignBidding:
       type: object
       description: "A Google campaign's current bidding, mapped onto the same triplet PUT /v1/ads/campaigns/{campaignId} accepts."
@@ -11757,7 +11819,7 @@ components:
               address: { type: string, description: "Optional label, sent to Meta as `address_string`. latitude/longitude take precedence for the pin location." }
         excludedLocations:
           type: object
-          description: "Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are supported, both on Meta (excluded_geo_locations)."
+          description: "Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are supported, both on Meta (excluded_geo_locations). Google (Search, Display, Performance Max) excludes countries, regions, cities and zips as negative location criteria; countryGroups, places, neighborhoods, customLocations and a city radius return 400 there, and Demand Gen returns 400 for any exclusion."
           properties:
             countries: { type: array, items: { type: string } }
             countryGroups:
@@ -13425,6 +13487,10 @@ components:
         adType: { type: string, enum: [single] }
         ad: { type: object, description: The persisted Ad document. }
         message: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+          description: 'Present when Meta created the ad set differently from the request. Today: Meta kept the ad set without the requested `whatsappPhoneNumber` in its promoted_object (the ads still carry it on their WhatsApp button).'
 
     CtwaMultiResponse:
       type: object
@@ -13445,6 +13511,10 @@ components:
         platformCampaignId: { type: string }
         platformAdSetId: { type: string }
         message: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+          description: 'Present when Meta created the ad set differently from the request. Today: Meta kept the ad set without the requested `whatsappPhoneNumber` in its promoted_object (the ads still carry it on their WhatsApp button).'
 
     CustomConversion:
       type: object
@@ -19989,7 +20059,7 @@ paths:
                     items:
                       type: object
                       properties:
-                        conversationId: { type: string, description: "The platformConversationId (the same identity used by metadata.conversationId)" }
+                        conversationId: { type: string, description: "The platformConversationId. A thread whose events were logged under both its ids comes back as one row." }
                         mongoId: { type: [string, "null"], description: "The Zernio conversation id, when a matching conversation exists" }
                         accountId: { type: string }
                         platform: { type: string }
@@ -20533,6 +20603,128 @@ paths:
             It may have been disconnected or deleted, or it belongs to a profile
             the key cannot access. Re-connecting an account issues a NEW account
             ID, so an ID stored from before a reconnect will not resolve.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/reddit/comments/{postId}:
+    get:
+      x-resource-group: "engagement"
+      operationId: getRedditPostComments
+      tags: [Reddit Search]
+      summary: Get the comments of a Reddit post
+      description: |
+        Reads the comments of any Reddit post the connected account can see, for example one found
+        through `/v1/reddit/feed` or `/v1/reddit/search`, straight from Reddit on every call. The tree
+        comes flattened in thread order (a reply follows its parent); rebuild it from `parentId`, which
+        is `t3_…` for a reply to the post and `t1_…` for a reply to a comment. Deleted and removed
+        comments are passed through as Reddit sends them (`[deleted]` / `[removed]`). Where Reddit
+        truncates a thread, the ids it left out are listed in `more`; `commentId` fetches one such
+        comment with its replies. A post Reddit no longer serves answers 404 and a private subreddit
+        403, both with `platform_api_error`. For comments on posts published through Zernio,
+        `/v1/inbox/comments/{postId}` adds caching, moderation and replies.
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema: { type: string }
+          description: 'Reddit post id, with or without the `t3_` prefix (as `id` or `fullname` on RedditPost).'
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+          description: An active Reddit account the request is made as.
+        - name: sort
+          in: query
+          schema: { type: string, enum: [new, top, best, controversial, old, qa], default: new }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 25, maximum: 100 }
+          description: Maximum number of top-level comments.
+        - name: commentId
+          in: query
+          schema: { type: string }
+          description: 'Return only this comment and its replies, with or without the `t1_` prefix; pass an id from `more` to expand it.'
+      responses:
+        '200':
+          description: The post and its comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    oneOf:
+                      - $ref: '#/components/schemas/RedditPost'
+                      - type: 'null'
+                    description: 'The post header; null when Reddit omits it (deleted post).'
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RedditComment'
+                  more:
+                    type: array
+                    items: { type: string }
+                    description: Ids of comments Reddit left out of this page, at any depth.
+              example:
+                post:
+                  id: "1abc23"
+                  fullname: "t3_1abc23"
+                  title: "We moved our scheduling to an API"
+                  author: "founder_jo"
+                  subreddit: "saas"
+                  url: "https://www.reddit.com/r/saas/comments/1abc23/we_moved_our_scheduling_to_an_api/"
+                  permalink: "https://www.reddit.com/r/saas/comments/1abc23/we_moved_our_scheduling_to_an_api/"
+                  selftext: "Long story short..."
+                  score: 88
+                  numComments: 41
+                  createdUtc: 1791190000
+                  over18: false
+                  stickied: false
+                  flairText: null
+                  isGallery: false
+                items:
+                  - id: "k9x2f1"
+                    fullname: "t1_k9x2f1"
+                    parentId: "t3_1abc23"
+                    author: "someone"
+                    body: "We moved to Zernio last month..."
+                    permalink: "https://www.reddit.com/r/saas/comments/1abc23/we_moved_our_scheduling_to_an_api/k9x2f1/"
+                    createdUtc: 1791200000
+                    score: 12
+                    numReplies: 1
+                    depth: 0
+                    isSubmitter: false
+                    edited: false
+                    stickied: false
+                    distinguished: null
+                  - id: "k9x3aa"
+                    fullname: "t1_k9x3aa"
+                    parentId: "t1_k9x2f1"
+                    author: "founder_jo"
+                    body: "Same here."
+                    permalink: "https://www.reddit.com/r/saas/comments/1abc23/we_moved_our_scheduling_to_an_api/k9x3aa/"
+                    createdUtc: 1791200600
+                    score: 3
+                    numReplies: 0
+                    depth: 1
+                    isSubmitter: true
+                    edited: false
+                    stickied: false
+                    distinguished: null
+                more: ["k9x9zz", "k9xa01"]
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 'Reddit refused the thread, typically a private or quarantined subreddit (`platform_api_error`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: |
+            Either no active Reddit account with this ID is available to the API key
+            (`account_not_found`), or Reddit no longer serves the post, for example because it was
+            deleted (`platform_api_error`).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -23099,6 +23291,40 @@ paths:
             type: boolean
             default: false
           description: When true, includes accounts from over-limit profiles.
+        - name: excludeHidden
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            When true, leaves out accounts the dashboard does not show as connections: posting
+            accounts with `enabled: false` (ads accounts are always kept, whatever their `enabled`
+            value) and the internal `sms` and `phone` accounts behind each phone number. Applied
+            before pagination, so page totals and `statusCounts` count only the remaining accounts.
+            Sandbox accounts added by `includeSandbox` are appended after this filter. Accepts
+            `true` or `false` in any letter case; any other value returns 400.
+        - name: includeSandbox
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            When true, appends the shared WhatsApp sandbox account and the iMessage sandbox account
+            to the list when they are active, honouring `platform` but no other filter. Ignored on
+            a paginated request (page/limit) and together with `perProfile`. Accepts `true` or
+            `false` in any letter case; any other value returns 400.
+        - name: includeStatusCounts
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            When true, the response carries `statusCounts`: how many accounts match every other
+            filter of the request (with `status` lifted) in total and how many of those need a
+            reconnection. Accepts `true` or `false` in any letter case; any other value returns 400.
         - name: page
           in: query
           schema: { type: integer, minimum: 1 }
@@ -25606,6 +25832,9 @@ paths:
                         access_token: { type: string, description: Page-specific access token }
                         category: { type: string, description: Page category }
                         tasks: { type: array, items: { type: string }, description: User permissions for this page }
+                  truncated:
+                    type: boolean
+                    description: "True when Meta still had more Pages after the listing hit its time budget or the 10,000 Page cap, so `pages` is incomplete. Do not ask the user to reconnect with fewer Pages ticked: Meta replaces the Page grant on every authorization, so unticked Pages lose access."
               example:
                 pages:
                   - id: "123456789"
@@ -25614,6 +25843,7 @@ paths:
                     access_token: "EAAxxxxx..."
                     category: "Brand"
                     tasks: ["MANAGE", "CREATE_CONTENT"]
+                truncated: false
         '400': { description: 'Invalid or expired selectionToken, no granted Pages, or missing classic profileId and tempToken.' }
         '403': { description: 'The caller is not the initiating user or no longer has profile access.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -31291,8 +31521,10 @@ paths:
                     description: "Product photography"
                     privacy: "PUBLIC"
         '400': { description: Not a Pinterest account }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '401': { description: 'Missing or invalid API key (missing_credentials / invalid_credentials), or the stored Pinterest token was revoked or expired (reconnect_required): reconnect the account.' }
         '404': { description: Account not found }
+        '409': { description: 'The account has no stored access token (ads_connection_required). Reconnect it.' }
+        '502': { description: 'Pinterest rejected or failed the request.' }
     put:
       x-resource-group: "accounts"
       operationId: updatePinterestBoards
@@ -31564,7 +31796,7 @@ paths:
                     thumbnailUrl: "https://i.ytimg.com/vi/yyy/mqdefault.jpg"
                 defaultPlaylistId: null
         '400': { description: Not a YouTube account }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '401': { description: 'Missing or invalid API key (missing_credentials / invalid_credentials), or the stored YouTube token was revoked or expired (reconnect_required): reconnect the account.' }
         '404': { description: Account not found }
     post:
       x-resource-group: "accounts"
@@ -35216,7 +35448,7 @@ paths:
                       code: { type: string, enum: [rate_limited, new_contact_limit] }
                   - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
         '502':
-          description: The exact approved WhatsApp template definition is unavailable. No message was sent.
+          description: The WhatsApp account has no Business Account ID, so the template definition cannot be looked up (a template with no approved variant in that language is a 400). No message was sent.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
@@ -36571,7 +36803,7 @@ paths:
                   - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
         '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
         '502':
-          description: The exact approved WhatsApp template definition is unavailable, or the platform returned an upstream failure. No WhatsApp template message is sent when definition lookup fails.
+          description: The WhatsApp account has no Business Account ID, or the platform returned an upstream failure (a template with no approved variant in that language is a 400). No WhatsApp template message is sent when definition lookup fails.
           content:
             application/json:
               schema:
@@ -40962,6 +41194,7 @@ paths:
                 transcriptionLanguage: { type: string, enum: [auto, en, es], description: "'auto' derives from the callee's country; 'en'/'es' force it." }
                 amd: { type: boolean, description: Answering-machine detection; defers the bridge until human vs machine is known. }
                 voicemailDropMessage: { type: string, maxLength: 1000, description: "Spoken to a detected machine, then hang up (implies `amd`). For outbound voicemail drops." }
+                ringTimeoutSeconds: { type: integer, minimum: 5, maximum: 120, default: 30, description: "Seconds to let the callee's phone ring before the call ends as no_answer. The destination carrier can end it sooner." }
       responses:
         '200':
           description: Call originated; lifecycle continues asynchronously.
@@ -40982,6 +41215,7 @@ paths:
                   recordingEnabled: { type: boolean }
                   transcriptionEnabled: { type: boolean }
                   transcriptionLanguage: { type: string, enum: [auto, en, es] }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { description: "No voice-enabled number matches `fromNumber`, or no forward destination configured (set the number's forward or pass `forwardTo`)." }
         '429': { description: Outbound call limit reached (per rolling hour). }
@@ -41251,6 +41485,7 @@ paths:
                 credentialId: { type: string, description: "The WebRTC credential id returned by POST /v1/voice/calls/web (the registered browser)." }
                 fromNumber: { type: string, pattern: '^\+\d{6,15}$', description: Which of your voice-enabled numbers to call from (optional when you have one). }
                 recordOverride: { type: boolean }
+                ringTimeoutSeconds: { type: integer, minimum: 5, maximum: 120, default: 30, description: "Seconds to let the callee's phone ring before the call ends as no_answer. The destination carrier can end it sooner." }
       responses:
         '200':
           description: Call originated; answer/bridge continue asynchronously.
@@ -41267,6 +41502,7 @@ paths:
                   from: { type: string }
                   to: { type: string }
                   recordingEnabled: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { description: "Invalid or unknown WebRTC credential, or no voice-enabled number matches `fromNumber`" }
         '429': { description: Outbound call limit reached (per rolling hour). }
@@ -41367,7 +41603,9 @@ paths:
         GET /v1/imessage/senders/{senderId} or subscribe to the
         account.connected webhook. Billing starts at activation (monthly per
         sender, no proration); when the account spend threshold is below the
-        sender price, the first month is charged before the number is bought. Requires usage-based billing and a valid
+        sender price, the first month is charged before the number is bought; when the card's
+        answer takes longer than this request, the order is returned as `status: awaiting_payment`
+        and the number is ordered automatically once it is paid (usually under 5 minutes). Requires usage-based billing and a valid
         payment method. Pass purchaseIntentId to make retries idempotent —
         the provider-side order is never retried automatically. Ordered phone
         senders include SMS/RCS fallback with call forwarding and the ability
@@ -41402,7 +41640,7 @@ paths:
                     photoUrl: { type: string, format: uri }
       responses:
         '202':
-          description: Order accepted; activation continues asynchronously
+          description: 'Order accepted; activation continues asynchronously. `sender.status` is `ordering` or `activating` when the provider has the order, `awaiting_payment` while the first-month charge is still being confirmed (poll the sender; it moves on by itself).'
           content:
             application/json:
               schema:
@@ -41415,7 +41653,7 @@ paths:
         '402': { description: 'A valid payment method is required (code: payment_method_required); the last payment failed and is still unpaid, or the card was declined for the first month (code: payment_required). Nothing is ordered; update the card in Billing, then order again.' }
         '403': { description: 'Sender limit reached (code: imessage_sender_limit)' }
         '404': { description: Profile not found or access denied }
-        '409': { description: 'Billing setup is incomplete and support must finish it (code: billing_setup_incomplete), or the first-month payment was not confirmed in time (code: invalid_resource_state; details.purchase_intent_id): nothing was ordered, retry with that purchaseIntentId within the hour and you are not charged twice.' }
+        '409': { description: 'Billing setup is incomplete and support must finish it (code: billing_setup_incomplete).' }
         '422': { description: 'Workspace is not on usage-based billing (code: usage_billing_required)' }
         '502': { description: 'The provider rejected the order. Nothing was charged, or a first month already billed is given back as account credit.' }
 
@@ -52712,9 +52950,12 @@ paths:
                 adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
                 customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
                 name: { type: string, minLength: 1, maxLength: 255 }
-                type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
+                type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE, TARGET_IMPRESSION_SHARE] }
                 targetCpa: { type: number, exclusiveMinimum: 0, description: "Required when type is TARGET_CPA, in the account's currency units." }
                 targetRoas: { type: number, exclusiveMinimum: 0, description: "Required when type is TARGET_ROAS; a multiplier (2.0 = 2.0x)." }
+                targetImpressionShare:
+                  allOf: [{ $ref: '#/components/schemas/GoogleTargetImpressionShare' }]
+                  description: "Required when type is TARGET_IMPRESSION_SHARE, and refused with any other type." 
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '201':
@@ -52768,9 +53009,12 @@ paths:
                 adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
                 customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
                 name: { type: string, minLength: 1, maxLength: 255 }
-                type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
+                type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE, TARGET_IMPRESSION_SHARE] }
                 targetCpa: { type: number, exclusiveMinimum: 0 }
                 targetRoas: { type: number, exclusiveMinimum: 0 }
+                targetImpressionShare:
+                  allOf: [{ $ref: '#/components/schemas/GoogleTargetImpressionShare' }]
+                  description: "Retargets a TARGET_IMPRESSION_SHARE strategy; location, percent and maxCpc are all written."
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -52789,6 +53033,95 @@ paths:
         '404': { $ref: '#/components/responses/AccountUnavailable' }
 
         '429': { description: "Google Ads operations budget exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/shared-budgets:
+    get:
+      x-resource-group: "ads"
+      operationId: listSharedBudgets
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: List shared budgets
+      description: |
+        Lists the Google Ads customer's shared campaign budgets (`campaign_budget.explicitly_shared`
+        = true, not removed), with how many campaigns use each. Move a campaign onto one with
+        `sharedBudgetId` on PUT /v1/ads/campaigns/{campaignId}. Google only; other platforms return 501.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+      responses:
+        '200':
+          description: Shared budgets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  budgets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: "Numeric budget id; pass as sharedBudgetId." }
+                        name: { type: string }
+                        amount: { type: [number, "null"], description: "In the account's currency units." }
+                        type: { type: [string, "null"], enum: [daily, lifetime, null] }
+                        deliveryMethod: { type: [string, "null"] }
+                        status: { type: [string, "null"] }
+                        campaignCount: { type: integer, description: "campaign_budget.reference_count" }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+    post:
+      x-resource-group: "ads"
+      operationId: createSharedBudget
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Create a shared budget
+      description: |
+        Creates a daily shared campaign budget (`explicitly_shared: true`, standard delivery) that
+        several campaigns can draw from. A lifetime budget returns 422, like every Google budget.
+        Google refuses some bidding strategies on a shared budget; that error surfaces when a
+        campaign is moved onto it.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name, amount]
+              properties:
+                accountId: { type: string, description: "Google ads SocialAccount id." }
+                adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+                name: { type: string, minLength: 1, maxLength: 255 }
+                amount: { type: number, exclusiveMinimum: 0, description: "Daily amount in the account's currency units." }
+                type: { type: string, enum: [daily, lifetime], default: daily, description: "Only daily is accepted (lifetime returns 422)." }
+      responses:
+        '201':
+          description: Shared budget created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  budget:
+                    type: object
+                    properties:
+                      customerId: { type: string }
+                      id: { type: string }
+                      resourceName: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '422': { description: "Lifetime budget requested." }
         '501': { description: Only available on Google Ads accounts }
 
   /v1/ads/local-services/leads:
@@ -53259,6 +53592,11 @@ paths:
                 bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. On Meta, validated here but NOT stored: the campaign object has no bid_amount field, only bid_strategy lives on it, and the amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there. On Google, stored directly on the campaign's bidding strategy." }
                 roasAverageFloor: { type: number, description: "Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS." }
                 portfolioBidStrategyId: { type: string, pattern: '^\d+$', description: "Google only. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy." }
+                targetImpressionShare:
+                  allOf: [{ $ref: '#/components/schemas/GoogleTargetImpressionShare' }]
+                  description: "Google Search only. Target impression share bidding. Exclusive with bidStrategy, portfolioBidStrategyId and manualCpc; bidAmount is refused alongside it (the ceiling is maxCpc)."
+                manualCpc: { $ref: '#/components/schemas/GoogleManualCpc' }
+                networkSettings: { $ref: '#/components/schemas/GoogleNetworkSettings' }
             example:
               accountId: '69fc524892b3d8e85f893e73'
               adAccountId: 'act_757082720485182'
@@ -53617,7 +53955,8 @@ paths:
       summary: Update a campaign
       description: |
         Campaign-level edits. Send at least one of `budget`, `bidStrategy`,
-        `portfolioBidStrategyId`, `name` or `platformSpecificData`. An unsupported
+        `portfolioBidStrategyId`, `targetImpressionShare`, `manualCpc`, `networkSettings`,
+        `trackingUrlTemplate`, `finalUrlSuffix`, `sharedBudgetId`, `name` or `platformSpecificData`. An unsupported
         field is always an error, never a silent drop.
 
         | Body field | Meta | Google | Others |
@@ -53625,6 +53964,11 @@ paths:
         | `bidStrategy` | Yes | Yes | 501 |
         | `bidAmount`, `roasAverageFloor` | 400 (ad-set level) | Yes | 400 |
         | `portfolioBidStrategyId` | 400 | Yes | 400 |
+        | `targetImpressionShare` | 400 | Search only | 400 |
+        | `manualCpc` | 400 | Search and Display | 400 |
+        | `networkSettings` | 400 | Search only | 400 |
+        | `trackingUrlTemplate`, `finalUrlSuffix` | 400 | Yes | 400 |
+        | `sharedBudgetId` | 400 | Yes | 400 |
         | `budget` (CBO; ABO returns 409) | Yes | Daily only | OpenAI: daily or lifetime; others 501 |
         | `name` | Yes | 501 | 501 |
         | `platformSpecificData.spendCap` | Yes | 400 | 400 |
@@ -53638,13 +53982,29 @@ paths:
         `bidAmount` = Target CPA, `LOWEST_COST_WITH_MIN_ROAS` + `roasAverageFloor` =
         Target ROAS, `LOWEST_COST_WITH_BID_CAP` + `bidAmount` = Maximize Clicks with a
         CPC ceiling; `portfolioBidStrategyId` attaches a portfolio strategy instead
-        (exclusive with `bidStrategy`). Setting the standard triplet on a campaign that
+        (exclusive with `bidStrategy`). `targetImpressionShare` switches the campaign to
+        Target impression share and `manualCpc: { maxCpc }` to Manual CPC (every ad group of the campaign gets `maxCpc` as its bid, in the same mutate); each is exclusive with
+        every other strategy field. `networkSettings`, `trackingUrlTemplate` and
+        `finalUrlSuffix` go out in one campaign update, each field sent written on its own
+        leaf, so an omitted one keeps its current value; an empty string clears a URL field.
+        Setting the standard triplet on a campaign that
         is currently on a PORTFOLIO strategy is rejected: detach it in Google Ads
         first, since it is shared across campaigns.
 
         Google budget updates read the current budget before mutation. Shared budgets return
         409 unless allowSharedBudgetUpdate=true is explicitly supplied, because the change
-        affects every campaign using that budget. Unknown sharing state also returns 409.
+        affects every campaign using that budget. A budget counts as shared when Google flags
+        it as shared or when more than one campaign uses it (older budgets can serve several
+        campaigns without the flag). Unknown sharing state also returns 409.
+
+        `sharedBudgetId` (Google) moves the campaign onto a shared budget from
+        GET /v1/ads/shared-budgets, which also needs `allowSharedBudgetUpdate: true` (409
+        otherwise) because the campaign then splits that budget with every campaign on it;
+        `budget` cannot ride along. `sharedBudgetId: null` moves it back onto a new budget of its
+        own, sized by `budget` (required, daily); the new budget and the switch go out in one
+        atomic Google mutate. A campaign that already has its own budget returns 409 for null.
+        The budget a campaign leaves is not removed. The response carries the budget the
+        campaign now uses.
 
         OpenAI Ads campaigns carry exactly one spend cap: `budget.type` daily or lifetime
         replaces whichever cap the campaign had, with a minimum of 1 in the ad account's
@@ -53673,7 +54033,18 @@ paths:
                 bidAmount: { type: number, description: "**Google only.** Whole currency units (USD: 12 = $12.00). Max CPC for LOWEST_COST_WITH_BID_CAP, CPA target for COST_CAP; required for both." }
                 roasAverageFloor: { type: number, description: "**Google only.** Decimal ROAS multiplier (2.0 = 2.0x), required for LOWEST_COST_WITH_MIN_ROAS." }
                 portfolioBidStrategyId: { type: string, pattern: '^\d+$', description: "**Google only.** Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) instead of setting bidStrategy. Exclusive with bidStrategy." }
-                allowSharedBudgetUpdate: { type: boolean, default: false, description: "Google only. Explicitly allow changing a shared campaign budget, affecting every campaign that uses it. Does not bypass an unknown sharing state." }
+                allowSharedBudgetUpdate: { type: boolean, default: false, description: "Google only. Explicitly allow changing a shared campaign budget (flagged as shared by Google, or used by more than one campaign), affecting every campaign that uses it. Does not bypass an unknown sharing state. Also required to move a campaign onto a shared budget with sharedBudgetId." }
+                targetImpressionShare:
+                  allOf: [{ $ref: '#/components/schemas/GoogleTargetImpressionShare' }]
+                  description: "Google Search only. Target impression share bidding. Exclusive with bidStrategy, portfolioBidStrategyId and manualCpc; bidAmount is refused alongside it (the ceiling is maxCpc)."
+                manualCpc: { $ref: '#/components/schemas/GoogleManualCpc' }
+                networkSettings: { $ref: '#/components/schemas/GoogleNetworkSettings' }
+                trackingUrlTemplate: { type: string, description: "**Google only.** campaign.tracking_url_template; an empty string clears it." }
+                finalUrlSuffix: { type: string, description: "**Google only.** campaign.final_url_suffix; an empty string clears it." }
+                sharedBudgetId:
+                  type: [string, "null"]
+                  pattern: '^\d+$'
+                  description: "**Google only.** Move the campaign onto this shared budget (id from GET /v1/ads/shared-budgets), or null to move it back onto a budget of its own sized by `budget`."
                 budget:
                   type: object
                   description: "Meta CBO, Google daily, or OpenAI Ads daily or lifetime campaign budget, in whole currency units."
@@ -53706,6 +54077,12 @@ paths:
                   bidAmount: { type: number }
                   roasAverageFloor: { type: number }
                   portfolioBidStrategyId: { type: string, description: "Google only. Echoed back, but NOT mirrored onto local Ad documents (no column for it yet)." }
+                  targetImpressionShare: { $ref: '#/components/schemas/GoogleTargetImpressionShare' }
+                  manualCpc: { $ref: '#/components/schemas/GoogleManualCpc' }
+                  networkSettings: { $ref: '#/components/schemas/GoogleNetworkSettings' }
+                  trackingUrlTemplate: { type: string }
+                  finalUrlSuffix: { type: string }
+                  sharedBudgetId: { type: [string, "null"], description: "Google only. Echoed back when the campaign moved budgets; `budget` is then the budget it now uses." }
                   platformSpecificData: { type: object }
         '400': { description: "Invalid input, or a field the resolved platform does not support at the campaign level (see the support table)" }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -54041,7 +54418,7 @@ paths:
       operationId: getCampaignTargeting
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      summary: Read a Google campaign's device, location, and language targeting
+      summary: Read a Google campaign's device, location, excluded location, and language targeting
       description: |
         Google Ads compliance requires geo, language, budget, and bidding targeting
         set at creation to stay editable afterwards; this reads the campaign state
@@ -54054,6 +54431,11 @@ paths:
         campaigns also have CONNECTED_TV. `bidModifier` is Google's bid adjustment
         for that device, `null` when it has none, and `0` when the device is
         switched off; `included` is false for exactly that case.
+
+        `excludedLocations` lists the campaign's negative location criteria (the
+        places it never serves in). `locations` still lists every location criterion,
+        each flagged with `negative`, so a client reading the targeted set filters
+        `negative: false`.
       security:
         - bearerAuth: []
       parameters:
@@ -54086,6 +54468,21 @@ paths:
                         canonicalName: { type: [string, "null"], description: "Google's geo_target_constant.canonical_name, e.g. \"California, United States\"; null when the id could not be resolved." }
                         type: { type: [string, "null"], description: "Google's geo_target_constant.target_type, e.g. \"Country\", \"Region\", \"City\"; null when the id could not be resolved." }
                         countryCode: { type: [string, "null"], description: "Google's geo_target_constant.country_code, an ISO 3166-1 alpha-2 code; null when the id could not be resolved." }
+                  excludedLocations:
+                    type: array
+                    description: "The negative (excluded) location criteria, same item shape as `locations` with `negative: true`."
+                    items:
+                      type: object
+                      properties:
+                        geoTargetId: { type: string, description: "Numeric id from Google's geoTargetConstants/{id}." }
+                        negative: { type: boolean, description: "Always true here." }
+                        name: { type: [string, "null"] }
+                        canonicalName: { type: [string, "null"] }
+                        type: { type: [string, "null"] }
+                        countryCode: { type: [string, "null"] }
+                  excludedLocationsEditable:
+                    type: boolean
+                    description: "Whether PUT accepts `excludedLocations` for this campaign. False on Demand Gen, which returns 400 for any exclusion."
                   languages:
                     type: array
                     items:
@@ -54111,11 +54508,11 @@ paths:
       operationId: updateCampaignTargeting
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      summary: Edit a Google campaign's device, location, or language targeting
+      summary: Edit a Google campaign's device, location, excluded location, or language targeting
       description: |
         Google Ads compliance row M.10: geo and language targeting set at
         creation must stay editable afterwards. Send at least one of `devices`,
-        `locations`, `languages`, `locationTargetingType`; each provided field REPLACES that field's
+        `locations`, `excludedLocations`, `languages`, `locationTargetingType`; each provided field REPLACES that field's
         existing criteria on the campaign (a full set, not a delta). Fields left
         out of the body are untouched. Google only; every other platform returns
         501.
@@ -54127,10 +54524,18 @@ paths:
 
         `locations` accepts the same shapes as campaign creation: a bare array of
         ISO country codes, or an object with `countries`/`regions`/`cities`/`zips`/`metros`
-        key lists (`key` from GET /v1/ads/targeting/search?dimension=geo). Negative
-        (excluded) locations are left untouched by this endpoint. An empty location list
+        key lists (`key` from GET /v1/ads/targeting/search?dimension=geo). Excluded
+        locations are left untouched by `locations`. An empty location list
         returns 400 instead of removing every criterion: a Google campaign with no location
         criteria targets every country, so omit `locations` to leave targeting alone.
+
+        `excludedLocations` takes the same two shapes and replaces the campaign's negative
+        location criteria (the places it never serves in), leaving the targeted `locations`
+        untouched. An empty list (or `{}`) removes every exclusion. Radius exclusions are
+        not supported. A place cannot be both targeted and excluded: a request whose result
+        would leave one on both sides returns 400 before anything is written, and moving a
+        place from one side to the other in the same request is applied atomically. Example:
+        `{ "platform": "google", "targeting": { "excludedLocations": { "countries": ["CA"], "regions": ["21137"] } } }`.
 
         The removes and the creates go out in ONE Google `googleAds:mutate`, so a failed
         edit leaves the campaign's previous set intact rather than a half-applied one.
@@ -54143,7 +54548,7 @@ paths:
         (also people searching for or interested in them). Example:
         `{ "platform": "google", "targeting": { "locationTargetingType": "presence" } }`.
 
-        The response includes the refreshed `devices`/`locations`/`languages` state
+        The response includes the refreshed `devices`/`locations`/`excludedLocations`/`languages` state
         read back from Google after the edit, and invalidates the cached copy
         `GET` on this campaign would otherwise keep serving.
 
@@ -54154,6 +54559,7 @@ paths:
         returns 400 naming them: edit each one with PUT /v1/ads/{adId} `targeting` on an ad of
         that ad group. Campaigns migrated from Discovery that still target on the campaign keep
         being written there. `devices` and `locationTargetingType` stay campaign-level.
+        `excludedLocations` is not available on Demand Gen yet and returns 400.
       security:
         - bearerAuth: []
       parameters:
@@ -54204,6 +54610,19 @@ paths:
                               type: array
                               items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] }
                     languages: { type: array, items: { type: string }, description: "Google's language codes (ISO 639-1, plus variants such as `zh_CN`), e.g. [\"en\", \"de\"]." }
+                    excludedLocations:
+                      description: "Locations the campaign never serves in, as a bare country-code array or the nested countries/regions/cities/zips/metros shape. Replaces the excluded set; [] removes every exclusion."
+                      oneOf:
+                        - type: array
+                          items: { type: string, description: "ISO 3166-1 alpha-2 country code." }
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            countries: { type: array, items: { type: string } }
+                            regions: { type: array, items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] } }
+                            cities: { type: array, items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] } }
+                            zips: { type: array, items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] } }
+                            metros: { type: array, items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] } }
                     locationTargetingType: { $ref: '#/components/schemas/GoogleLocationTargetingType' }
       responses:
         '200':
@@ -54215,7 +54634,7 @@ paths:
                 properties:
                   campaignId: { type: string }
                   adGroupId: { type: string, description: "Demand Gen only: the ad group that received the locations and languages." }
-                  updated: { type: array, items: { type: string, enum: [devices, locations, languages, locationTargetingType] }, description: "Which targeting fields were applied." }
+                  updated: { type: array, items: { type: string, enum: [devices, locations, excludedLocations, languages, locationTargetingType] }, description: "Which targeting fields were applied." }
                   locationTargetingType:
                     type: [string, "null"]
                     enum: [presence, presence_or_interest, null]
@@ -54239,6 +54658,18 @@ paths:
                         canonicalName: { type: [string, "null"], description: "Google's geo_target_constant.canonical_name; see GET's description." }
                         type: { type: [string, "null"], description: "Google's geo_target_constant.target_type; see GET's description." }
                         countryCode: { type: [string, "null"], description: "Google's geo_target_constant.country_code; see GET's description." }
+                  excludedLocations:
+                    type: array
+                    description: "The negative (excluded) location criteria read back after the edit, same item shape as `locations`."
+                    items:
+                      type: object
+                      properties:
+                        geoTargetId: { type: string }
+                        negative: { type: boolean }
+                        name: { type: [string, "null"] }
+                        canonicalName: { type: [string, "null"] }
+                        type: { type: [string, "null"] }
+                        countryCode: { type: [string, "null"] }
                   languages:
                     type: array
                     items:
@@ -54259,7 +54690,7 @@ paths:
       x-resource-group: "ads"
       operationId: listAdSets
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x"]
+      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x", "openai"]
       summary: List ad sets
       description: |-
         Ad sets (Google ad groups) synced for the connection, optionally
@@ -54349,14 +54780,32 @@ paths:
                           type: [object, "null"]
                           additionalProperties: true
                           description: |
-                            The audience this ad set delivers to, as the platform reports it at the last sync.
-                            LinkedIn and Meta; null for every other platform and for ad sets not yet re-synced.
+                            The audience this ad set delivers to, as the platform reports it at the last sync,
+                            in the platform's own shape. Every platform; null only for an ad set not re-synced
+                            yet, or when the platform's targeting read failed on every sync so far (a failed read
+                            keeps the last stored value).
 
-                            On Meta it is the ad set's `targeting` verbatim (snake_case: geo_locations,
-                            age_min, custom_audiences, flexible_spec, ...), so it can be read, edited and sent
-                            back as is. On LinkedIn `include` and `exclude` (below) are the campaign's
-                            `targetingCriteria` verbatim, without reconstructing them from our normalized
-                            targeting spec.
+                            - Meta: the ad set's `targeting` verbatim (snake_case: geo_locations, age_min,
+                              custom_audiences, flexible_spec, ...), so it can be read, edited and sent back as is.
+                            - LinkedIn: `include` and `exclude` (below) are the campaign's `targetingCriteria`
+                              verbatim, without reconstructing them from our normalized targeting spec.
+                            - TikTok: the ad group's targeting fields from adgroup/get, verbatim (placement_type,
+                              placements, location_ids, age_groups, gender, languages, interest_category_ids,
+                              actions, audience_ids, excluded_audience_ids, operating_systems, ...). Only fields
+                              TikTok returned are present.
+                            - Google: `campaignCriteria` (LOCATION, LANGUAGE, PROXIMITY, DEVICE, AGE_RANGE, GENDER,
+                              USER_LIST, INCOME_RANGE, PARENTAL_STATUS) and `adGroupCriteria` (AGE_RANGE, GENDER,
+                              USER_LIST, USER_INTEREST, INCOME_RANGE, PARENTAL_STATUS), each a Google criterion
+                              verbatim (camelCase: resourceName, type, negative, bidModifier and the payload its type sets, for
+                              example `location.geoTargetConstant`). Most Google targeting lives on the campaign,
+                              so every ad group of a campaign carries the same `campaignCriteria`. Keywords are
+                              not included (they have their own endpoints). Synced on Google's slower keyword cycle.
+                            - Pinterest: the ad group's `targeting_spec` verbatim (GEO, AGE_BUCKET, GENDER,
+                              INTEREST, AUDIENCE_INCLUDE, LOCALE, ...).
+                            - X: `targeting_criteria`, the line item's criteria as X lists them (targeting_type,
+                              targeting_value, operator_type, name), the same shape X's batch create takes.
+                            - OpenAI: the campaign's `targeting` (OpenAI targets at the campaign), plus the ad
+                              group's `context_hints` when it has any.
                           properties:
                             include: { type: object, description: "LinkedIn `targetingCriteria.include`, verbatim (an `and` of `or` facet clauses)." }
                             exclude: { type: object, description: "LinkedIn `targetingCriteria.exclude`, verbatim. Absent when the campaign excludes nothing." }
@@ -54365,10 +54814,10 @@ paths:
                         isExternal: { type: [boolean, "null"] }
                         platformCreatedAt: { type: [string, "null"], format: date-time }
                         statusReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When `platformAdSetStatus` was read from the platform; null when this row was not read live." }
-                        optimizationGoal: { type: [string, "null"], description: "The ad set's optimization goal as last synced, in the platform's own enum (Meta `optimization_goal`, for example OFFSITE_CONVERSIONS or LINK_CLICKS). On TikTok with `live=true`, rows read live carry the ad group's `optimization_goal` exactly as TikTok's adgroup/get returns it now (for example ENGAGED_VIEW, ENGAGED_VIEW_FIFTEEN, CLICK, CONVERT)." }
-                        billingEvent: { type: [string, "null"], description: "The ad set's billing event as last synced, where the platform reports one. On TikTok with `live=true`, rows read live carry the ad group's `billing_event` exactly as TikTok's adgroup/get returns it now (for example CPV, CPC, OCPM)." }
-                        bidStrategy: { type: [string, "null"], description: "The bid strategy as last synced, in the platform's own enum (Meta `bid_strategy`, for example LOWEST_COST_WITHOUT_CAP, COST_CAP). On Meta under a campaign budget this is the campaign's strategy." }
-                        bidAmount: { type: [number, "null"], description: "Bid cap or cost target in whole units of `currency`, as last synced. Null when the strategy has none." }
+                        optimizationGoal: { type: [string, "null"], description: "The ad set's optimization goal as last synced, in the platform's own enum (Meta `optimization_goal`, for example OFFSITE_CONVERSIONS or LINK_CLICKS; TikTok `optimization_goal`; Pinterest the conversion event of `optimization_goal_metadata`, for example CHECKOUT; X the line item `goal`; OpenAI the campaign `bidding_type`). Always null on Google, which has no per-ad-group optimization goal. On TikTok with `live=true`, rows read live carry the ad group's `optimization_goal` exactly as TikTok's adgroup/get returns it now (for example ENGAGED_VIEW, ENGAGED_VIEW_FIFTEEN, CLICK, CONVERT)." }
+                        billingEvent: { type: [string, "null"], description: "The ad set's billing event as last synced, in the platform's own enum (Meta `billing_event`, TikTok `billing_event`, Pinterest `billable_event`, X `pay_by`, OpenAI `bidding_config.billing_event_type`). Always null on Google, which reports none per ad group. On TikTok with `live=true`, rows read live carry the ad group's `billing_event` exactly as TikTok's adgroup/get returns it now (for example CPV, CPC, OCPM)." }
+                        bidStrategy: { type: [string, "null"], description: "The bid strategy as last synced, in Meta's vocabulary (LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS) on every platform that has an equivalent. On Meta under a campaign budget this is the campaign's strategy. TikTok maps bid_type / deep_bid_type, Pinterest AUTOMATIC_BID / MAX_BID / TARGET_AVG, X AUTO / MAX / TARGET, OpenAI Maximize Results / a max bid. Google bids at the campaign, so an ad group carries its campaign's strategy; one without a Meta equivalent (MANUAL_CPC, TARGET_IMPRESSION_SHARE, or a portfolio strategy's type such as TARGET_CPA) keeps Google's own name. Null on LinkedIn." }
+                        bidAmount: { type: [number, "null"], description: "Bid cap or cost target in whole units of `currency`, as last synced. Null when the strategy has none (automatic bidding, ROAS targets, a Google portfolio strategy). On Google a campaign target CPA, a Maximize clicks ceiling, the ad group's own target CPA override, or its CPC bid under MANUAL_CPC." }
                         promotedObject: { type: [object, "null"], additionalProperties: true, description: "Meta only. The ad set's `promoted_object` verbatim (snake_case, for example pixel_id + custom_event_type, page_id, application_id), as last synced from its most recent ad. Null on other platforms and on an ad set with no ad yet; GET /v1/ads/accounts/live reads it live for every ad set." }
                         nativeSettings: { type: object, additionalProperties: true, description: "TikTok only, only with `live=true` and only on rows read live. TikTok's adgroup/get record verbatim (snake_case, TikTok's own names and enums): operation_status, optimization_goal, optimization_event, billing_event, bid_type, bid_price, budget, budget_mode, pacing, schedule_type, schedule_start_time, schedule_end_time, dayparting, placement_type, placements, location_ids, age_groups, gender, languages, interest_category_ids, interest_keyword_ids, actions, audience_ids, excluded_audience_ids, operating_systems, frequency, frequency_schedule, smart_audience_enabled, smart_interest_behavior_enabled. schedule_start_time and schedule_end_time are UTC wall clocks (YYYY-MM-DD HH:MM:SS). location_ids holds TikTok's native location ids (GeoNames ids for countries); GET /v1/ads/targeting/search?dimension=geo returns them as `platformId` on country results. Plus advertiser_currency and advertiser_timezone from TikTok's advertiser/info. A field TikTok does not return is absent." }
                         configReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When `nativeSettings` was read from the platform. Null on every row whose native settings were not read now (row past the cap, failed read, or a platform without a native read)." }
@@ -54420,6 +54869,7 @@ paths:
                 campaignId: { type: string, description: "Google platform campaign ID (numeric) the ad group is created under." }
                 name: { type: string, minLength: 1, maxLength: 255 }
                 status: { type: string, enum: [ACTIVE, PAUSED], default: PAUSED }
+                maxCpc: { type: number, exclusiveMinimum: 0, description: "Max CPC of the new ad group, in the account's currency units. Send it when the campaign uses Manual CPC: Google gives an ad group without one a 0.01 bid." }
                 adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only). Only required when the connection has more than one." }
                 customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
       responses:
@@ -55651,6 +56101,23 @@ paths:
                           type: array
                           items:
                             type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetResourceName:
+                          type: string
+                        campaignAssetResourceName:
+                          type: string
+                        imageUrl:
+                          type: string
+                          format: uri
+                          description: "Google-hosted copy of the image."
+                        width:
+                          type: integer
+                        height:
+                          type: integer
                   cachedAt:
                     type:
                     - string
@@ -55680,7 +56147,8 @@ paths:
       - Ad Campaigns
       x-platforms:
       - google
-      description: "Creates and attaches sitelinks, callouts and structured snippets in one Google mutation."
+      description: "Creates and attaches sitelinks, callouts, structured snippets and image assets in one Google mutation.\
+        \ Google shows images only on accounts it deems eligible (account age, policy history, vertical)."
       security:
       - bearerAuth: []
       parameters:
@@ -55733,7 +56201,16 @@ paths:
                     $ref: '#/components/schemas/GoogleStructuredSnippet'
                   minItems: 1
                   maxItems: 20
-              description: "Provide at least one of sitelinks, callouts or structuredSnippets. Sitelink description1\
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                  minItems: 1
+                  maxItems: 20
+                  description: "Public image URLs, uploaded to Google as image assets. Landscape 1.91:1 (min 600x314)\
+                    \ or square 1:1 (min 300x300), up to 5 MB each."
+              description: "Provide at least one of sitelinks, callouts, structuredSnippets or images. Sitelink description1\
                 \ and description2 must be supplied together."
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
@@ -55771,6 +56248,10 @@ paths:
                     items:
                       type: string
                   structuredSnippetAssetResourceNames:
+                    type: array
+                    items:
+                      type: string
+                  imageAssetResourceNames:
                     type: array
                     items:
                       type: string
@@ -56010,6 +56491,23 @@ paths:
                           type: array
                           items:
                             type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetResourceName:
+                          type: string
+                        adGroupAssetResourceName:
+                          type: string
+                        imageUrl:
+                          type: string
+                          format: uri
+                          description: "Google-hosted copy of the image."
+                        width:
+                          type: integer
+                        height:
+                          type: integer
                   cachedAt:
                     type:
                     - string
@@ -56039,7 +56537,8 @@ paths:
       - Ad Campaigns
       x-platforms:
       - google
-      description: "Creates and attaches sitelinks, callouts and structured snippets in one Google mutation."
+      description: "Creates and attaches sitelinks, callouts, structured snippets and image assets in one Google mutation.\
+        \ Google shows images only on accounts it deems eligible (account age, policy history, vertical)."
       security:
       - bearerAuth: []
       parameters:
@@ -56092,7 +56591,16 @@ paths:
                     $ref: '#/components/schemas/GoogleStructuredSnippet'
                   minItems: 1
                   maxItems: 20
-              description: "Provide at least one of sitelinks, callouts or structuredSnippets. Sitelink description1\
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                  minItems: 1
+                  maxItems: 20
+                  description: "Public image URLs, uploaded to Google as image assets. Landscape 1.91:1 (min 600x314)\
+                    \ or square 1:1 (min 300x300), up to 5 MB each."
+              description: "Provide at least one of sitelinks, callouts, structuredSnippets or images. Sitelink description1\
                 \ and description2 must be supplied together."
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
@@ -56130,6 +56638,10 @@ paths:
                     items:
                       type: string
                   structuredSnippetAssetResourceNames:
+                    type: array
+                    items:
+                      type: string
+                  imageAssetResourceNames:
                     type: array
                     items:
                       type: string
@@ -56454,14 +56966,23 @@ paths:
       x-resource-group: "ads"
       operationId: getAdReview
       tags: ["Ad Campaigns"]
-      x-platforms: ["tiktok"]
+      x-platforms: ["tiktok", "google"]
       summary: Read the platform's review verdict for an ad
       description: |-
         Reads the ad's review verdict from the platform now: whether it was approved, where it may
         not deliver, and every rejection reason with TikTok's suggestion and the piece of content it
         refers to. Read-only, so it works on a paused ad without re-enabling it.
 
-        TikTok only (`/ad/review_info/`); every other platform returns 501. Use it alongside the ad's
+        **Google**: reads `ad_group_ad.policy_summary` live. `approvalStatus` and `reviewStatus` are
+        Google's verbatim (`approvalStatus`: APPROVED, APPROVED_LIMITED, AREA_OF_INTEREST_ONLY,
+        DISAPPROVED, UNKNOWN; `reviewStatus`: REVIEW_IN_PROGRESS, REVIEWED, UNDER_APPEAL,
+        ELIGIBLE_MAY_SERVE); `approved` is true for the three approved statuses, false for
+        DISAPPROVED, null otherwise. `policyTopics` carries every policy topic entry with its
+        `type` (PROHIBITED, LIMITED, ...) and Google's `evidences` and `constraints` verbatim; each
+        PROHIBITED topic is also listed in `rejections` (reason = the topic). The `forbidden*`
+        arrays are TikTok-only and always empty on Google.
+
+        TikTok uses `/ad/review_info/`; every other platform returns 501. On TikTok, use it alongside the ad's
         `platformStatus`: TikTok reports `AD_STATUS_AUDIT` while the ad is in review and
         `AD_STATUS_AD_PRE_ONLINE` once it passed and is about to deliver (both map to
         `status: pending_review`); `AD_STATUS_AUDIT_DENY` maps to `rejected`.
@@ -56509,11 +57030,22 @@ paths:
                                 imageId: { type: [string, "null"] }
                                 videoId: { type: [string, "null"] }
                                 musicId: { type: [string, "null"] }
-                      readAt: { type: string, format: date-time, description: "When the verdict was read from TikTok." }
+                      approvalStatus: { type: [string, "null"], description: "Google only. ad_group_ad.policy_summary.approval_status, verbatim." }
+                      policyTopics:
+                        type: array
+                        description: "Google only. ad_group_ad.policy_summary.policy_topic_entries."
+                        items:
+                          type: object
+                          properties:
+                            topic: { type: [string, "null"] }
+                            type: { type: [string, "null"], description: "PROHIBITED, LIMITED, FULLY_LIMITED, DESCRIPTIVE, BROADENING, AREA_OF_INTEREST_ONLY." }
+                            evidences: { type: array, items: { type: object }, description: "Google's PolicyTopicEvidence objects, verbatim." }
+                            constraints: { type: array, items: { type: object }, description: "Google's PolicyTopicConstraint objects, verbatim." }
+                      readAt: { type: string, format: date-time, description: "When the verdict was read from the platform." }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { description: "Ad not found, it has no TikTok ad id yet, or TikTok has no review record for it" }
-        '501': { description: Only supported on TikTok }
+        '404': { description: "Ad not found, it has no platform ad id yet, or the platform has no review record for it" }
+        '501': { description: Only supported on TikTok and Google }
 
   /v1/ads/{adId}/media:
     get:
@@ -57463,9 +57995,22 @@ paths:
       x-resource-group: "ads"
       operationId: getAdsActivityLog
       tags: ["Ad Accounts"]
-      x-platforms: ["meta"]
+      x-platforms: ["meta", "google"]
       summary: Ad account change / audit log
       description: |-
+        **Google**: reads the customer's `change_event` history, newest first. Google keeps 30 days
+        of it, so `since` defaults to 29 days ago and an older `since` returns 400; `until`
+        defaults to today. Each change is mapped onto the Meta row shape: `event_type` =
+        resource_change_operation (CREATE, UPDATE, REMOVE), `event_time` = change_date_time,
+        `actor_name` = user_email, `object_type` = change_resource_type, `object_id` = the last numeric id
+        of `object_resource_name`, `application_name` = client_type, `changed_fields` (array), and
+        `extra_data` = a JSON string `{ old, new }` with Google's old and new resource.
+        Pass `paging.after` back as `after` for the next page; it is null when nothing older is
+        left. A page never splits a change batch (the changes of one request share an
+        `event_time`), so a page can hold fewer rows than `limit` while more follow, or more
+        when one batch is larger than `limit`. `adAccountId` is the numeric customer id.
+
+        **Meta**:
         Account-level audit log from Meta's `/act_X/activities`: who changed what and when
         (creates, edits, status flips, budget changes...) with Meta's translated event names and
         the structured before/after in `extra_data`. Rows are returned verbatim. Meta has no
@@ -57475,17 +58020,17 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
-        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
-        - { name: since, in: query, schema: { type: string, format: date }, description: "Start of range (YYYY-MM-DD)." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>), or the Google customer id (digits only)." }
+        - { name: since, in: query, schema: { type: string, format: date }, description: "Start of range (YYYY-MM-DD). Google: at most 29 days ago, the default." }
         - { name: until, in: query, schema: { type: string, format: date }, description: "End of range (YYYY-MM-DD)." }
-        - { name: objectId, in: query, schema: { type: string }, description: "Client-side filter to one Meta object id (campaign, ad set or ad)." }
+        - { name: objectId, in: query, schema: { type: string }, description: "Client-side filter to one object id (campaign, ad set / ad group or ad)." }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 }, description: Rows per page }
         - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
         '200':
-          description: Activity rows (raw Meta shape)
+          description: Activity rows (raw Meta shape; Google changes mapped onto it)
           content:
             application/json:
               schema:
@@ -57494,14 +58039,14 @@ paths:
                   adAccountId: { type: string }
                   data:
                     type: array
-                    items: { type: object, description: "Raw Meta activity row: event_type, translated_event_type, event_time, actor_name, object_id, object_name, object_type, application_name, extra_data (JSON string with before/after)." }
+                    items: { type: object, description: "Raw Meta activity row: event_type, translated_event_type, event_time, actor_name, object_id, object_name, object_type, application_name, extra_data (JSON string with before/after). Google rows carry event_type, event_time, actor_name, object_id, object_type, object_resource_name, application_name, changed_fields and extra_data (see the description)." }
                   paging:
                     type: object
                     properties:
                       after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
-        '400': { description: "Invalid input, or Meta rejected the query" }
+        '400': { description: "Invalid input, a Google since older than 30 days, or the platform rejected the query" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '501': { description: Only supported on Meta (facebook/instagram) }
+        '501': { description: Only supported on Meta (facebook/instagram) and Google }
 
   /v1/ads/rf-predictions:
     post:
@@ -58702,6 +59247,8 @@ paths:
         - { name: creativeId, in: path, required: true, schema: { type: string }, description: Platform creative id }
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
         - { name: fields, in: query, schema: { type: string, example: 'id,name,status,object_story_spec{page_id,link_data{link,message}}' }, description: 'Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.' }
+        - { name: thumbnailWidth, in: query, schema: { type: integer, minimum: 1, maximum: 4096, example: 600 }, description: 'Width in pixels of the `thumbnail_url` rendering, forwarded to Meta as `thumbnail_width`. Without it Meta returns a 64x64 thumbnail.' }
+        - { name: thumbnailHeight, in: query, schema: { type: integer, minimum: 1, maximum: 4096, example: 600 }, description: 'Height in pixels of the `thumbnail_url` rendering, forwarded to Meta as `thumbnail_height`. Without it Meta returns a 64x64 thumbnail.' }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
@@ -61141,33 +61688,48 @@ paths:
       x-resource-group: "ads"
       operationId: getAdAccountLiveEntities
       tags: ["Ad Accounts"]
-      x-platforms: ["meta"]
+      x-platforms: ["meta", "tiktok"]
       summary: Read an ad account's campaigns and ad sets live
       description: |-
-        Reads the campaigns and ad sets of one Meta ad account **live from Meta**, in a single
-        Graph call per request (the account's `/campaigns` and `/adsets` edges, filtered by
-        `effective_status`), so it is cheap enough to run before every write: for example a
-        per-ad-account spend ceiling that must see the current `daily_budget` / `lifetime_budget`
-        rather than the synced copy.
+        Reads the campaigns and ad sets of one Meta ad account or TikTok advertiser **live from
+        the platform**, so it is cheap enough to run before every write: for example a
+        per-ad-account spend ceiling that must see the current daily / lifetime budget rather
+        than the synced copy. On Meta it is a single Graph call per request (the account's
+        `/campaigns` and `/adsets` edges, filtered by `effective_status`); on TikTok one
+        `campaign/get` and one `adgroup/get` page (TikTok ad groups are returned as `adSets`).
 
         **Live vs synced.** GET /v1/ads/campaigns and GET /v1/ads/ad-sets serve Zernio's synced
         store, refreshed by background sync (typically 15 to 60 minutes behind Meta), and their
         `live=true` re-reads only the on/off switches of at most 20 objects. This endpoint returns
         what Meta reports at `readAt`, for every matching campaign and ad set, and stores nothing.
 
-        Budgets and bid amounts are converted from Meta's minor units to whole units of
-        `currency`, the same units as the synced rows. A campaign with a campaign budget
-        (Advantage+ campaign budget) carries `budget` and its ad sets have `budget: null`;
-        otherwise each ad set carries its own.
+        Budgets and bid amounts are in whole units of `currency`, the same units as the synced
+        rows (Meta's minor units are converted; TikTok already reports whole units). A campaign
+        with a campaign budget (Meta Advantage+ campaign budget, TikTok campaign budget
+        optimization) carries `budget`; otherwise each ad set carries its own.
 
         Each level returns at most `limit` rows. When more match, `paging.<level>.after` is a
         cursor: pass it back as `after` together with `level` to read the next page of that
-        level only. Other platforms answer 501 rather than serving synced data.
+        level only. TikTok pages by number, so a TikTok cursor must be sent with the same
+        `limit` that produced it (another `limit` is a 400). Other platforms answer 501 rather
+        than serving synced data.
+
+        **TikTok specifics.** `status` maps to TikTok's `primary_status` filter, which takes one
+        value: ACTIVE = delivering (`STATUS_DELIVERY_OK`), PAUSED = switched off
+        (`STATUS_DISABLE`), DELETED = `STATUS_DELETE`; omitted = every status except deleted
+        (`STATUS_NOT_DELETE`, which includes enabled entities that are not delivering, such as
+        an ad group in review). Several values, or IN_PROCESS, WITH_ISSUES, CAMPAIGN_PAUSED and
+        ARCHIVED, are a 400. `budgetRemaining` and `spendCap` are always null (TikTok reports
+        neither), campaign `bidStrategy` is null (TikTok bids per ad group), ad set `bidStrategy`
+        is normalized to the Meta vocabulary like GET /v1/ads, `promotedObject` is
+        `{ pixelId, customEventType, applicationId, customConversionId }` (the keys TikTok has
+        set, as POST /v1/ads/create takes them), and `targeting` holds TikTok's targeting
+        fields verbatim.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
-        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the platform token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>) or TikTok advertiser id (digits)." }
         - name: status
           in: query
           required: false
@@ -61176,9 +61738,10 @@ paths:
             Comma-separated Meta `effective_status` values to keep: ACTIVE, PAUSED, IN_PROCESS,
             WITH_ISSUES, DELETED, ARCHIVED, and CAMPAIGN_PAUSED (ad sets only; the campaigns level
             ignores it). Defaults to every status except DELETED and ARCHIVED. An unknown value is a 400.
+            TikTok takes a single value: ACTIVE, PAUSED or DELETED (see the description).
         - { name: level, in: query, required: false, schema: { type: string, enum: [campaign, adSet] }, description: "Read only one level. Required with `after`. Both levels are read when omitted." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 200 }, description: "Maximum rows per level in this response." }
-        - { name: after, in: query, required: false, schema: { type: string }, description: "Cursor from `paging.campaigns.after` or `paging.adSets.after` of a previous response. Requires `level`." }
+        - { name: after, in: query, required: false, schema: { type: string }, description: "Cursor from `paging.campaigns.after` or `paging.adSets.after` of a previous response. Requires `level` (and on TikTok the same `limit`)." }
       responses:
         '200':
           description: Live campaigns and ad sets
@@ -61189,9 +61752,9 @@ paths:
                 properties:
                   accountId: { type: string }
                   adAccountId: { type: string }
-                  platform: { type: string, enum: [facebook] }
+                  platform: { type: string, enum: [facebook, tiktok] }
                   currency: { type: string, description: "ISO 4217 code every budget and bid amount is expressed in." }
-                  readAt: { type: string, format: date-time, description: "When Meta was read." }
+                  readAt: { type: string, format: date-time, description: "When the platform was read." }
                   campaigns:
                     type: array
                     description: "Absent when `level=adSet`."
@@ -61200,8 +61763,8 @@ paths:
                       properties:
                         platformCampaignId: { type: string }
                         campaignName: { type: [string, "null"] }
-                        platformCampaignStatus: { type: [string, "null"], description: "Meta `effective_status`, for example ACTIVE, PAUSED, WITH_ISSUES." }
-                        configuredStatus: { type: [string, "null"], description: "Meta `status`: the campaign's own switch (ACTIVE, PAUSED, DELETED, ARCHIVED)." }
+                        platformCampaignStatus: { type: [string, "null"], description: "Meta `effective_status` (ACTIVE, PAUSED, WITH_ISSUES...) or TikTok `secondary_status` (CAMPAIGN_STATUS_ENABLE...)." }
+                        configuredStatus: { type: [string, "null"], description: "The campaign's own switch: Meta `status` (ACTIVE, PAUSED, DELETED, ARCHIVED), or TikTok `operation_status` as ACTIVE (ENABLE) / PAUSED (DISABLE)." }
                         status: { type: string, description: "Zernio's normalized status (active, paused, ...), derived from `platformCampaignStatus`." }
                         budget:
                           type: [object, "null"]
@@ -61209,11 +61772,12 @@ paths:
                           properties:
                             amount: { type: number }
                             type: { type: string, enum: [daily, lifetime] }
-                        dailyBudget: { type: [number, "null"], description: "Meta `daily_budget` in whole units of `currency`." }
-                        lifetimeBudget: { type: [number, "null"], description: "Meta `lifetime_budget` in whole units of `currency`." }
-                        budgetRemaining: { type: [number, "null"], description: "Meta `budget_remaining` in whole units of `currency`. Null when the campaign has no budget of its own." }
-                        spendCap: { type: [number, "null"], description: "Campaign spending limit (Meta `spend_cap`) in whole units of `currency`. Null when none is set." }
-                        bidStrategy: { type: [string, "null"], description: "Meta `bid_strategy`, set on campaigns with a campaign budget." }
+                        dailyBudget: { type: [number, "null"], description: "Daily budget in whole units of `currency` (Meta `daily_budget`; TikTok `budget` under a daily budget mode)." }
+                        lifetimeBudget: { type: [number, "null"], description: "Lifetime budget in whole units of `currency` (Meta `lifetime_budget`; TikTok `budget` under BUDGET_MODE_TOTAL)." }
+                        budgetMode: { type: [string, "null"], description: "TikTok only: `budget_mode` as TikTok reports it (BUDGET_MODE_DAY, BUDGET_MODE_DYNAMIC_DAILY_BUDGET, BUDGET_MODE_TOTAL, BUDGET_MODE_INFINITE)." }
+                        budgetRemaining: { type: [number, "null"], description: "Meta `budget_remaining` in whole units of `currency`. Null when the campaign has no budget of its own, and always on TikTok." }
+                        spendCap: { type: [number, "null"], description: "Campaign spending limit (Meta `spend_cap`) in whole units of `currency`. Null when none is set, and always on TikTok." }
+                        bidStrategy: { type: [string, "null"], description: "Meta `bid_strategy`, set on campaigns with a campaign budget. Null on TikTok." }
                   adSets:
                     type: array
                     description: "Absent when `level=campaign`."
@@ -61223,8 +61787,8 @@ paths:
                         platformAdSetId: { type: string }
                         adSetName: { type: [string, "null"] }
                         platformCampaignId: { type: [string, "null"] }
-                        platformAdSetStatus: { type: [string, "null"], description: "Meta `effective_status`, for example ACTIVE, PAUSED, CAMPAIGN_PAUSED." }
-                        configuredStatus: { type: [string, "null"], description: "Meta `status`: the ad set's own switch." }
+                        platformAdSetStatus: { type: [string, "null"], description: "Meta `effective_status` (ACTIVE, PAUSED, CAMPAIGN_PAUSED...) or TikTok `secondary_status` (ADGROUP_STATUS_DELIVERY_OK, ADGROUP_STATUS_AUDIT...)." }
+                        configuredStatus: { type: [string, "null"], description: "The ad set's own switch: Meta `status`, or TikTok `operation_status` as ACTIVE / PAUSED." }
                         status: { type: string, description: "Zernio's normalized status, derived from `platformAdSetStatus`." }
                         budget:
                           type: [object, "null"]
@@ -61232,15 +61796,16 @@ paths:
                           properties:
                             amount: { type: number }
                             type: { type: string, enum: [daily, lifetime] }
-                        dailyBudget: { type: [number, "null"], description: "Meta `daily_budget` in whole units of `currency`." }
-                        lifetimeBudget: { type: [number, "null"], description: "Meta `lifetime_budget` in whole units of `currency`." }
-                        budgetRemaining: { type: [number, "null"], description: "Meta `budget_remaining` in whole units of `currency`. Null when the ad set has no budget of its own." }
-                        bidStrategy: { type: [string, "null"], description: "Meta `bid_strategy`." }
-                        bidAmount: { type: [number, "null"], description: "Meta `bid_amount` (bid cap or cost target) in whole units of `currency`. Null when the strategy has none." }
-                        optimizationGoal: { type: [string, "null"], description: "Meta `optimization_goal`." }
-                        billingEvent: { type: [string, "null"], description: "Meta `billing_event`." }
-                        promotedObject: { type: [object, "null"], additionalProperties: true, description: "Meta `promoted_object` verbatim (snake_case)." }
-                        targeting: { type: [object, "null"], additionalProperties: true, description: "Meta `targeting` verbatim (snake_case), as Meta returns it now." }
+                        dailyBudget: { type: [number, "null"], description: "Daily budget in whole units of `currency`." }
+                        lifetimeBudget: { type: [number, "null"], description: "Lifetime budget in whole units of `currency`." }
+                        budgetMode: { type: [string, "null"], description: "TikTok only: `budget_mode` as TikTok reports it." }
+                        budgetRemaining: { type: [number, "null"], description: "Meta `budget_remaining` in whole units of `currency`. Null when the ad set has no budget of its own, and always on TikTok." }
+                        bidStrategy: { type: [string, "null"], description: "Meta `bid_strategy`. On TikTok the ad group's `bid_type` normalized to the same vocabulary (LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, LOWEST_COST_WITH_MIN_ROAS)." }
+                        bidAmount: { type: [number, "null"], description: "Bid cap or cost target in whole units of `currency` (Meta `bid_amount`; TikTok `bid_price`, else `conversion_bid_price`, else `deep_cpa_bid`). Null when the strategy has none." }
+                        optimizationGoal: { type: [string, "null"], description: "Meta or TikTok `optimization_goal`." }
+                        billingEvent: { type: [string, "null"], description: "Meta or TikTok `billing_event`." }
+                        promotedObject: { type: [object, "null"], additionalProperties: true, description: "Meta `promoted_object` verbatim (snake_case). On TikTok `{ pixelId, customEventType, applicationId, customConversionId }` from `pixel_id`, `optimization_event`, `app_id` and `custom_conversion_id`, only the keys TikTok has set; null when none is." }
+                        targeting: { type: [object, "null"], additionalProperties: true, description: "The platform's targeting verbatim (snake_case), as it reports it now: Meta `targeting`, or TikTok's ad group targeting fields (location_ids, age_groups, gender, languages, interest_category_ids, audience_ids, placements...)." }
                         schedule:
                           type: [object, "null"]
                           properties:
@@ -61264,9 +61829,9 @@ paths:
           description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
         '404': { $ref: '#/components/responses/AccountUnavailable' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
-        '429': { description: "Meta rate limit reached; retry after the indicated delay." }
-        '501': { description: "The platform has no bulk live read (only Meta today). Use the synced GET /v1/ads/campaigns and GET /v1/ads/ad-sets there." }
-        '502': { description: "Meta did not return the ad account (for example a deleted ad account)." }
+        '429': { description: "Platform rate limit reached; retry later (after the indicated delay on Meta)." }
+        '501': { description: "The platform has no bulk live read (Meta and TikTok today). Use the synced GET /v1/ads/campaigns and GET /v1/ads/ad-sets there." }
+        '502': { description: "The platform did not return the ad account or its currency (for example a deleted ad account)." }
 
   /v1/ads/accounts:
     post:
@@ -61511,7 +62076,7 @@ paths:
       x-resource-group: "ads"
       operationId: updateAdAccount
       tags: ["Ad Accounts"]
-      x-platforms: ["meta"]
+      x-platforms: ["meta", "google"]
       summary: Update ad account settings
       description: |
         Updates a Meta ad account in place: its name, its account-level spend cap, and its
@@ -61539,7 +62104,14 @@ paths:
         covers the common case where the same entity benefits from and pays for the ads.
         Read the current values back with `GET /v1/ads/dsa-defaults`.
 
-        Currently supported for Meta accounts only; other platforms return 400.
+        **Google: account-level URL tracking.** On a Google Ads connection, `adAccountId` is the
+        customer id and only `trackingUrlTemplate` / `finalUrlSuffix` are accepted (the Meta
+        fields return 400). They write `customer.tracking_url_template` and
+        `customer.final_url_suffix`, one update mask leaf per field sent; an empty string clears
+        the field. The response carries `urlTracking` with the values written. For one campaign,
+        send the same fields to PUT /v1/ads/campaigns/{campaignId}.
+
+        Other platforms return 400.
       security:
         - bearerAuth: []
       requestBody:
@@ -61557,6 +62129,8 @@ paths:
                 resetAmountSpent: { type: boolean, description: "Restart the amount counted against the cap from zero. Cannot be combined with spendCap null." }
                 defaultDsaBeneficiary: { type: string, maxLength: 100, description: "Legal entity benefiting from ads on this ad account" }
                 defaultDsaPayor: { type: string, maxLength: 100, description: "Legal entity paying for ads on this ad account. Defaults to defaultDsaBeneficiary when omitted. Requires defaultDsaBeneficiary." }
+                trackingUrlTemplate: { type: string, description: "**Google only.** Account tracking template (customer.tracking_url_template); an empty string clears it." }
+                finalUrlSuffix: { type: string, description: "**Google only.** Account final URL suffix (customer.final_url_suffix); an empty string clears it." }
             example:
               accountId: "64b1f0c8a1b2c3d4e5f60718"
               adAccountId: "act_123456789"
@@ -61571,6 +62145,12 @@ paths:
                 type: object
                 properties:
                   adAccountId: { type: string }
+                  urlTracking:
+                    type: object
+                    description: "Google only. The URL tracking fields written."
+                    properties:
+                      trackingUrlTemplate: { type: string }
+                      finalUrlSuffix: { type: string }
                   dsaDefaults:
                     type: object
                     description: "Present when defaultDsaBeneficiary was passed."
@@ -63442,6 +64022,13 @@ paths:
                   type: string
                   pattern: '^\d+$'
                   description: "Google Search and Display only. Performance Max rejects portfolio bidding. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy."
+                targetImpressionShare:
+                  allOf: [{ $ref: '#/components/schemas/GoogleTargetImpressionShare' }]
+                  description: "Google Search only. Target impression share bidding. Exclusive with bidStrategy, portfolioBidStrategyId and manualCpc; bidAmount is refused alongside it (the ceiling is maxCpc)."
+                manualCpc: { $ref: '#/components/schemas/GoogleManualCpc' }
+                networkSettings:
+                  allOf: [{ $ref: '#/components/schemas/GoogleNetworkSettings' }]
+                  description: "Google Search only, when the call creates the campaign (400 with existingCampaignId or adSetId)."
                 valueRuleSetId:
                   type: string
                   pattern: '^\d+$'
@@ -66672,6 +67259,12 @@ paths:
                 alwaysUseDefaultValue:
                   type: boolean
                   description: "When true, always use defaultValue and ignore any value sent with the event. Defaults to true when defaultValue is set."
+                category: { type: string, enum: [DEFAULT, PAGE_VIEW, PURCHASE, SIGNUP, DOWNLOAD, ADD_TO_CART, BEGIN_CHECKOUT, SUBSCRIBE_PAID, PHONE_CALL_LEAD, IMPORTED_LEAD, SUBMIT_LEAD_FORM, BOOK_APPOINTMENT, REQUEST_QUOTE, GET_DIRECTIONS, OUTBOUND_CLICK, CONTACT, ENGAGEMENT, STORE_VISIT, STORE_SALE, QUALIFIED_LEAD, CONVERTED_LEAD], description: "conversion_action.category. Defaults to DEFAULT on create." }
+                countingType: { type: string, enum: [ONE_PER_CLICK, MANY_PER_CLICK], description: "ONE_PER_CLICK counts one conversion per ad click (leads); MANY_PER_CLICK counts every one (purchases)." }
+                defaultCurrency: { type: string, pattern: '^[A-Z]{3}$', description: "ISO 4217 currency of defaultValue (value_settings.default_currency_code)." }
+                clickThroughLookbackWindowDays: { type: integer, minimum: 1, maximum: 90, description: "Days after an ad click a conversion still counts." }
+                viewThroughLookbackWindowDays: { type: integer, minimum: 1, maximum: 30, description: "Days after an ad view a view-through conversion still counts." }
+                primaryForGoal: { type: boolean, description: 'true = primary (counts toward bidding when its goal is biddable), false = secondary.' }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '201':
@@ -66775,11 +67368,20 @@ paths:
       operationId: updateConversionAction
       tags: [Conversions]
       x-platforms: ["google"]
-      summary: Set a conversion action primary or secondary
+      summary: Update a conversion action's settings
       description: |-
-        Sets `primary_for_goal` on a Google Ads conversion action. A primary action counts
-        toward its goal's bidding and the Conversions column; a secondary one is
-        observation-only (All conversions).
+        Updates a Google Ads conversion action in one mutate, each field sent written on its own
+        update mask leaf so omitted fields keep their value. Send at least one field.
+
+        `primaryForGoal` sets `primary_for_goal`: a primary action counts toward its goal's
+        bidding and the Conversions column; a secondary one is observation-only (All
+        conversions). `countingType`, `category`, the value settings (`defaultValue`,
+        `defaultCurrency`, `alwaysUseDefaultValue`) and the click-through / view-through
+        lookback windows map to the same-named conversion_action fields.
+
+        `status: REMOVED` removes the action (Google keeps it, with its history, as REMOVED) and
+        must be sent alone; `status: ENABLED` restores a removed action. Google refuses HIDDEN
+        on website actions, so it is not offered.
       security:
         - bearerAuth: []
       parameters:
@@ -66791,12 +67393,23 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [accountId, primaryForGoal]
+              required: [accountId]
+              minProperties: 2
               properties:
                 accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
                 adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
                 customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
-                primaryForGoal: { type: boolean, description: 'true = primary, false = secondary' }
+                name: { type: string, minLength: 1, maxLength: 100 }
+                status: { type: string, enum: [ENABLED, REMOVED], description: "REMOVED removes the action and must be sent alone; ENABLED restores a removed one." }
+                defaultValue: { type: number, minimum: 0 }
+                alwaysUseDefaultValue: { type: boolean }
+                category: { type: string, enum: [DEFAULT, PAGE_VIEW, PURCHASE, SIGNUP, DOWNLOAD, ADD_TO_CART, BEGIN_CHECKOUT, SUBSCRIBE_PAID, PHONE_CALL_LEAD, IMPORTED_LEAD, SUBMIT_LEAD_FORM, BOOK_APPOINTMENT, REQUEST_QUOTE, GET_DIRECTIONS, OUTBOUND_CLICK, CONTACT, ENGAGEMENT, STORE_VISIT, STORE_SALE, QUALIFIED_LEAD, CONVERTED_LEAD], description: "conversion_action.category. Defaults to DEFAULT on create." }
+                countingType: { type: string, enum: [ONE_PER_CLICK, MANY_PER_CLICK], description: "ONE_PER_CLICK counts one conversion per ad click (leads); MANY_PER_CLICK counts every one (purchases)." }
+                defaultCurrency: { type: string, pattern: '^[A-Z]{3}$', description: "ISO 4217 currency of defaultValue (value_settings.default_currency_code)." }
+                clickThroughLookbackWindowDays: { type: integer, minimum: 1, maximum: 90, description: "Days after an ad click a conversion still counts." }
+                viewThroughLookbackWindowDays: { type: integer, minimum: 1, maximum: 30, description: "Days after an ad view a view-through conversion still counts." }
+                primaryForGoal: { type: boolean, description: 'true = primary (counts toward bidding when its goal is biddable), false = secondary.' }
+
       responses:
         '200':
           description: Action updated
@@ -66808,9 +67421,19 @@ paths:
                   customerId: { type: string }
                   action:
                     type: object
+                    description: "The action id with the fields written, echoed back."
                     properties:
                       id: { type: string }
+                      name: { type: string }
+                      status: { type: string }
                       primaryForGoal: { type: boolean }
+                      category: { type: string }
+                      countingType: { type: string }
+                      defaultValue: { type: number }
+                      defaultCurrency: { type: string }
+                      alwaysUseDefaultValue: { type: boolean }
+                      clickThroughLookbackWindowDays: { type: integer }
+                      viewThroughLookbackWindowDays: { type: integer }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }

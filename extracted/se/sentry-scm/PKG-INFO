@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-scm
-Version: 1.8.0
+Version: 1.9.0
 Summary: A unified interface for source code management providers
 Author: Colton Allen
 Author-email: Colton Allen <colton.allen@sentry.io>

@@ -184,7 +184,7 @@ dev = [
     # APPROVED_DEPS allow-lists that one too (0.5.10), but it is a DIFFERENT
     # package that installs a conflicting top-level `bson` and would shadow
     # pymongo's. Declare pymongo only; never both.
-    "pymongo==4.18.1",
+    "pymongo==4.18.2",
     # The rest of matrice-common's undeclared imports. matrice-common 0.1.95
     # publishes requires_dist = None -- it declares NO dependencies at all -- so
     # every third-party module it imports is a latent ImportError for every
@@ -249,6 +249,13 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["matrice_analytics*"]
+
+# MANIFEST.in governs the sdist only; a wheel needs this to carry non-.py
+# files. Without it default_configs/*.json was absent from the installed
+# package and ConfigManager silently fell back to the dataclass defaults --
+# so a value tuned in JSON was not the value that ran in production.
+[tool.setuptools.package-data]
+"matrice_analytics.post_processing.usecases.default_configs" = ["*.json"]
 
 [tool.ruff]
 target-version = "py311"
@@ -495,14 +502,19 @@ known_first_party = [
 optional_dependencies_dev_groups = ["dev"]
 # Paths that are not part of the distribution ([tool.setuptools.packages.find]
 # ships only matrice_analytics*): bench tooling with its own requirements.in,
-# repo scripts, in-package test modules, the unpackaged src/ service scaffolding
-# and root scratch files. Anchored regexes, extending deptry's defaults.
+# repo scripts, in-package test modules, the unpackaged src/ scaffolding and
+# root scratch files. Anchored regexes, extending deptry's defaults.
+#
+# The FastAPI service scaffolding that used to be listed here -- src/config/,
+# src/middleware/, src/utils/ and src/observability.py -- was removed with
+# PY-22/REL-16: it arrived with the initial template commit, nothing imported
+# it, it was never packaged, and structlog/sentry-sdk were never declared, so
+# it could not even be imported.
 extend_exclude = [
     "src/matrice_analytics/extract-gt-bench/",
     "src/matrice_analytics/.*/tests/",
     "scripts/",
-    "src/(config|middleware|utils)/",
-    "src/(__init__|observability|logging_config)\\.py$",
+    "src/(__init__|logging_config)\\.py$",
     "local_ppl_test\\.py$",
     "test_build\\.py$",
     "stub_generation\\.py$",

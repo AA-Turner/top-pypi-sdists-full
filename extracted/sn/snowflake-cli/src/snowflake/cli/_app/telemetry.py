@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import platform
 import sys
+import threading
 from enum import Enum, unique
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -31,6 +32,7 @@ from snowflake.cli.api.cli_global_context import (
 )
 from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
+from snowflake.cli.api.constants import TELEMETRY_PENDING_LIMIT
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.cli.api.utils.tty import is_tty_interactive
@@ -104,12 +106,22 @@ class CLITelemetryField(Enum):
     # the flow on the executing_command event should join on
     # COMMAND_EXECUTION_ID across the three events for an invocation.
     APP_FLOW = "app_flow"
+    # snow upgrade / auto-upgrade (spooled until a connection exists)
+    UPGRADE_TRIGGER = "upgrade_trigger"
+    UPGRADE_STATUS = "upgrade_status"
+    UPGRADE_SKIP_REASON = "upgrade_skip_reason"
+    UPGRADE_DURATION_MS = "upgrade_duration_ms"
+    UPGRADE_FROM = "upgrade_from"
+    UPGRADE_TO = "upgrade_to"
+    UPGRADE_ROLLOUT_BUCKET = "upgrade_rollout_bucket"
 
 
 class TelemetryEvent(Enum):
     CMD_EXECUTION = "executing_command"
     CMD_EXECUTION_ERROR = "error_executing_command"
     CMD_EXECUTION_RESULT = "result_executing_command"
+    UPGRADE = "upgrade"
+    REPL_COMPLETION = "repl_completion"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -201,6 +213,22 @@ def _find_command_info() -> TelemetryDict:
         info[CLITelemetryField.APP_FLOW] = app_flow
 
     return info
+
+
+def _command_info_without_click() -> TelemetryDict:
+    """Command fields when Click's thread-local context is absent.
+
+    ``ThreadedCompleter`` runs completion on a worker. Click's context stack
+    does not follow that thread, and telemetry must still queue.
+    """
+    return {
+        CLITelemetryField.COMMAND: [],
+        CLITelemetryField.COMMAND_GROUP: "",
+        CLITelemetryField.COMMAND_FLAGS: {},
+        CLITelemetryField.COMMAND_OUTPUT_TYPE: OutputFormat.TABLE.value,
+        CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
+        CLITelemetryField.MODE: _get_cli_running_mode(),
+    }
 
 
 def _get_cli_running_mode() -> str:
@@ -530,11 +558,12 @@ class CLITelemetryClient:
     # than a batch size: a single run emits at most three events (usage, error,
     # result), and the cap stays well under the connector's own
     # DEFAULT_FORCE_FLUSH_SIZE of 100, so a drain cannot force a larger upload
-    # than the channel already sends on its own.
-    _PENDING_LIMIT = 32
+    # than the channel already sends on its own. Shared with the upgrade spool.
+    _PENDING_LIMIT = TELEMETRY_PENDING_LIMIT
 
     def __init__(self):
         self._pending: List[Tuple[Dict[str, Any], int]] = []
+        self._lock = threading.Lock()
 
     @property
     def _ctx(self) -> _CliGlobalContextAccess:
@@ -543,7 +572,10 @@ class CLITelemetryClient:
     @staticmethod
     def generate_telemetry_data_dict(
         telemetry_payload: TelemetryDict,
+        command_info: TelemetryDict | None = None,
     ) -> Dict[str, Any]:
+        if command_info is None:
+            command_info = _find_command_info()
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
             CLITelemetryField.INSTALLATION_SOURCE: __about__.INSTALLATION_SOURCE.value,
@@ -559,7 +591,7 @@ class CLITelemetryClient:
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
-            **_find_command_info(),
+            **command_info,
             **_get_config_telemetry(),
             **telemetry_payload,
         }
@@ -587,17 +619,44 @@ class CLITelemetryClient:
             return None
         return connection._telemetry  # noqa
 
+    def _enqueue(self, message: Dict[str, Any], timestamp: int) -> None:
+        """Append one event, keeping only the newest ``_PENDING_LIMIT`` entries."""
+        with self._lock:
+            self._pending.append((message, timestamp))
+            # Keep the newest events if a run somehow never connects; the list
+            # holds two entries for a command that succeeds (usage + result)
+            # and three when it also reports an error. REPL completion events
+            # share the same cap, so they must be drained before they evict
+            # the command usage event.
+            del self._pending[: -self._PENDING_LIMIT]
+
     def send(self, payload: TelemetryDict):
         # Timestamp now, but keep the raw dict: _drain backfills the fields that
         # are only knowable once a connection exists.
-        self._pending.append(
-            (self.generate_telemetry_data_dict(payload), get_time_millis())
-        )
-        # Keep the newest events if a run somehow never connects; the list holds
-        # two entries for a command that succeeds (usage + result) and three when
-        # it also reports an error.
-        del self._pending[: -self._PENDING_LIMIT]
+        self._enqueue(self.generate_telemetry_data_dict(payload), get_time_millis())
         self._drain()
+
+    def log_repl_completion(self, payload: Dict[str, Any]) -> None:
+        """Queue a privacy-safe REPL completion event.
+
+        Does not need a Click context. A worker thread omits the command path
+        instead of raising ``RuntimeError`` from ``click.get_current_context``.
+        The worker only enqueues. The REPL drains on the UI thread.
+        """
+        message_payload = {
+            TelemetryField.KEY_TYPE: TelemetryEvent.REPL_COMPLETION.value,
+            **payload,
+        }
+        try:
+            command_info = _find_command_info()
+        except RuntimeError:
+            command_info = _command_info_without_click()
+        self._enqueue(
+            self.generate_telemetry_data_dict(
+                message_payload, command_info=command_info
+            ),
+            get_time_millis(),
+        )
 
     def _drain(self):
         """Hand any buffered events to the channel, if there is one.
@@ -613,7 +672,8 @@ class CLITelemetryClient:
         telemetry = self._telemetry
         if telemetry is None:
             return
-        pending, self._pending = self._pending, []
+        with self._lock:
+            pending, self._pending = self._pending, []
         auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
         for message, timestamp in pending:
             # An event buffered before the connection opened could not resolve the
@@ -627,22 +687,83 @@ class CLITelemetryClient:
                 )
             )
 
+    def _flush_upgrade_spool(
+        self, telemetry, auth_type_field: str
+    ) -> List[Tuple[Dict[str, Any], int]]:
+        """Copy upgrade spool events into the channel without deleting the file.
+
+        ``snow upgrade`` never opens a connection, and auto-upgrade may spawn a
+        child before this process connects. The JSONL spool survives both; we
+        only read it once a channel exists so we never dial a browser. The
+        caller deletes matching records after ``send_batch()`` succeeds.
+        """
+        try:
+            from snowflake.cli._plugins.upgrade.telemetry import read_spool_events
+
+            events = read_spool_events()
+            for message, timestamp in events:
+                payload = dict(message)
+                if not payload.get(auth_type_field):
+                    payload[auth_type_field] = _get_auth_type()
+                telemetry.try_add_log_to_batch(
+                    TelemetryData.from_telemetry_data_dict(
+                        from_dict=payload, timestamp=timestamp
+                    )
+                )
+            return events
+        except Exception:
+            # Fail-open: leave the spool on disk rather than breaking the
+            # command that opened the connection.
+            return []
+
     def flush(self):
+        staged = []
         try:
             self._drain()
             telemetry = self._telemetry
             if telemetry is not None:
+                auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
+                staged = self._flush_upgrade_spool(telemetry, auth_type_field)
                 telemetry.send_batch()
+                if staged:
+                    try:
+                        from snowflake.cli._plugins.upgrade.telemetry import (
+                            drop_spool_events,
+                        )
+
+                        drop_spool_events(staged)
+                    except Exception:
+                        pass
         finally:
             # The command is over, so anything still buffered belongs to a run
             # that never opened a connection and can never be sent. Drop it:
             # this client is a module-level singleton, and leaving events queued
             # would attribute them to whatever command runs next in the same
             # process.
-            self._pending.clear()
+            with self._lock:
+                self._pending.clear()
+
+    def drain_if_open(self) -> None:
+        """Hand queued events to an already-open connection.
+
+        Returns immediately when nothing is connected. Does not call
+        ``_telemetry_may_open_connection`` or ``connection``, so it cannot dial.
+        """
+        if self._ctx.connection_if_open is not None:
+            self._drain()
 
 
 _telemetry = CLITelemetryClient()
+
+
+@ignore_exceptions()
+def log_repl_completion(payload: Dict[str, Any]) -> None:
+    _telemetry.log_repl_completion(payload)
+
+
+@ignore_exceptions()
+def drain_repl_completions() -> None:
+    _telemetry.drain_if_open()
 
 
 @ignore_exceptions()

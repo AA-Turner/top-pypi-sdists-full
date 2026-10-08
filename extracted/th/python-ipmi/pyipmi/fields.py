@@ -1,14 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+
+from __future__ import annotations
 
 import array
+from collections.abc import Sequence
 
 from .errors import DecodingError
 from .utils import py3_array_tobytes
 
 
-class VersionField(object):
+class VersionField:
     """This class represent the Version fields defines by IPMI.
 
     Introduced with HPM the version field can hold additional auxiliary bytes.
@@ -17,25 +19,25 @@ class VersionField(object):
     VERSION_FIELD_LEN = 2
     VERSION_WITH_AUX_FIELD_LEN = 6
 
-    def __init__(self, data=None):
-        self.major = None
-        self.minor = None
+    def __init__(self, data: str | Sequence[int] | None = None) -> None:
+        self.major: int | None = None
+        self.minor: int | None = None
         if data:
             self._from_data(data)
 
-    def _from_data(self, data):
+    def _from_data(self, data: str | Sequence[int]) -> None:
         if isinstance(data, str):
             data = [ord(c) for c in data]
 
-        data = array.array('B', data)
-        self.version = self._decode_data(data[0:2])
-        if len(data) == self.VERSION_WITH_AUX_FIELD_LEN:
-            self.auxiliary = data[2:6]
+        buf = array.array('B', data)
+        self._decode_data(buf[0:2])
+        if len(buf) == self.VERSION_WITH_AUX_FIELD_LEN:
+            self.auxiliary = buf[2:6]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.version_to_string()
 
-    def _decode_data(self, data):
+    def _decode_data(self, data: array.array) -> None:
         """`data` is array.array."""
         self.major = data[0]
 
@@ -46,11 +48,11 @@ class VersionField(object):
         else:
             raise DecodingError()
 
-    def version_to_string(self):
+    def version_to_string(self) -> str:
         return ''.join("%s.%s" % (self.major, self.minor))
 
 
-def _unpack6bitascii(data):
+def _unpack6bitascii(data: Sequence[int]) -> str:
     """Unpack the 6bit ascii encoded string."""
     string = ''
     for i in range(0, len(data), 3):
@@ -62,10 +64,11 @@ def _unpack6bitascii(data):
     return string
 
 
-class TypeLengthString(object):
-    """
-    This is the TYPE/LENGTH BYTE FORMAT field representation according the
-    Platform Management FRU Information Storage Definition v1.0.
+class TypeLengthString:
+    """A field in the TYPE/LENGTH BYTE FORMAT.
+
+    The format is specified by the Platform Management FRU Information
+    Storage Definition v1.0.
 
     In addition the difference to the 'FRU Information Storage Definition' to
     the variant used in Type/Length for the Device ID String used in the SDR.
@@ -77,17 +80,19 @@ class TypeLengthString(object):
     TYPE_6BIT_ASCII = 2
     TYPE_ASCII_OR_UTF16 = 3
 
-    def __init__(self, data=None, offset=0, force_lang_eng=False, sdr=False):
+    def __init__(self, data: Sequence[int] | None = None, offset: int = 0,
+                 force_lang_eng: bool = False, sdr: bool = False) -> None:
         if data:
             self._from_data(data, offset, force_lang_eng)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.field_type is self.TYPE_FRU_BINARY:
             return ' '.join('%02x' % b for b in self.raw)
         else:
             return self.string.replace('\x00', '')
 
-    def _from_data(self, data, offset=0, force_lang_eng=False):
+    def _from_data(self, data: Sequence[int], offset: int = 0,
+                   force_lang_eng: bool = False) -> None:
         self.offset = offset
         self.field_type = data[offset] >> 6 & 0x3
         self.length = data[offset] & 0x3f
@@ -95,7 +100,7 @@ class TypeLengthString(object):
         self.raw = data[offset+1:offset+1+self.length]
 
         if self.field_type == self.TYPE_BCD_PLUS:
-            self.string = self.raw.decode('bcd+')
+            self.string = bytes(self.raw).decode('bcd+')
         elif self.field_type == self.TYPE_6BIT_ASCII:
             self.string = _unpack6bitascii(self.raw)
         else:
@@ -105,13 +110,13 @@ class TypeLengthString(object):
 
 class FruTypeLengthString(TypeLengthString):
 
-    def __init__(self, data=None, offset=0, force_lang_eng=False):
-        super(FruTypeLengthString, self).__init__(data, offset,
-                                                  force_lang_eng,
-                                                  sdr=False)
+    def __init__(self, data: Sequence[int] | None = None, offset: int = 0,
+                 force_lang_eng: bool = False) -> None:
+        super().__init__(data, offset, force_lang_eng, sdr=False)
 
 
 class SdrTypeLengthString(TypeLengthString):
 
-    def __init__(self, data=None, offset=0, force_lang_eng=False):
-        super(SdrTypeLengthString, self).__init__(data, sdr=True)
+    def __init__(self, data: Sequence[int] | None = None, offset: int = 0,
+                 force_lang_eng: bool = False) -> None:
+        super().__init__(data, sdr=True)

@@ -14,26 +14,33 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
+from __future__ import annotations
+
+import logging
 import socket
 import struct
 import hashlib
 import random
 import threading
+import time
 from array import array
-from queue import Queue
+from typing import Any
+from collections.abc import Callable
 
 from .. import Target
 from ..session import Session
-from ..msgs import (create_message, create_request_by_name,
-                    encode_message, decode_message, constants)
+from ..msgs import create_request_by_name, constants, Message
 from ..messaging import ChannelAuthenticationCapabilities
-from ..errors import DecodingError, NotSupportedError, RetryError
-from ..logger import log
+from ..errors import (DecodingError, IpmiConnectionError, NotSupportedError,
+                      RetryError)
+from .base import Interface
 from ..interfaces.ipmb import (IpmbHeaderReq, encode_ipmb_msg,
                                encode_bridged_message, decode_bridged_message,
-                               rx_filter)
+                               rx_filter, target_ipmb_address)
 from ..utils import (check_completion_code, check_rsp_completion_code,
                      py3_array_tobytes)
+
+logger = logging.getLogger(__name__)
 
 
 CLASS_NORMAL_MSG = 0x00
@@ -44,15 +51,16 @@ RMCP_CLASS_IPMI = 0x07
 RMCP_CLASS_OEM = 0x08
 
 
-def call_repeatedly(interval, func, *args):
+def call_repeatedly(interval: float, func: Callable[..., Any],
+                    *args: Any) -> Callable[[], None]:
     stopped = threading.Event()
 
-    def loop():
+    def loop() -> None:
         # the first call is in `interval` secs
         while not stopped.wait(interval):
             try:
                 func(*args)
-            except socket.timeout:
+            except TimeoutError:
                 pass
 
     t = threading.Thread(target=loop)
@@ -62,25 +70,25 @@ def call_repeatedly(interval, func, *args):
     return stopped.set
 
 
-class RmcpMsg(object):
+class RmcpMsg:
     RMCP_HEADER_FORMAT = '!BxBB'
     ASF_RMCP_V_1_0 = 6
-    version = None
-    seq_number = None
-    class_of_msg = None
+    version: int | None = None
+    seq_number: int | None = None
+    class_of_msg: int | None = None
 
-    def __init__(self, class_of_msg=None):
+    def __init__(self, class_of_msg: int | None = None) -> None:
         if class_of_msg is not None:
             self.class_of_msg = class_of_msg
 
-    def pack(self, sdu, seq_number):
+    def pack(self, sdu: bytes | None, seq_number: int) -> bytes:
         pdu = struct.pack(self.RMCP_HEADER_FORMAT, self.ASF_RMCP_V_1_0,
                           seq_number, self.class_of_msg)
         if sdu is not None:
             pdu += sdu
         return pdu
 
-    def unpack(self, pdu):
+    def unpack(self, pdu: bytes) -> bytes:
         header_len = struct.calcsize(self.RMCP_HEADER_FORMAT)
         header = pdu[:header_len]
         (self.version, self.seq_number, self.class_of_msg) = \
@@ -93,7 +101,7 @@ class RmcpMsg(object):
         return sdu
 
 
-class AsfMsg(object):
+class AsfMsg:
     ASF_HEADER_FORMAT = '!IBBxB'
 
     ASF_TYPE_PRESENCE_PONG = 0x40
@@ -101,13 +109,13 @@ class AsfMsg(object):
 
     asf_type = 0
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.iana_enterprise_number = 4542
         self.tag = 0
-        self.data = None
-        self.sdu = None
+        self.data: bytes | None = None
+        self.sdu: bytes | None = None
 
-    def pack(self):
+    def pack(self) -> bytes:
         if self.data:
             data_len = len(self.data)
         else:
@@ -123,7 +131,7 @@ class AsfMsg(object):
 
         return pdu
 
-    def unpack(self, sdu):
+    def unpack(self, sdu: bytes) -> None:
         self.sdu = sdu
         header_len = struct.calcsize(self.ASF_HEADER_FORMAT)
 
@@ -144,7 +152,7 @@ class AsfMsg(object):
         if hasattr(self, 'check_header'):
             self.check_header()
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.data:
             return ' '.join('%02x' % b for b in array('B', self.data))
         if self.sdu:
@@ -152,7 +160,7 @@ class AsfMsg(object):
         return ''
 
     @staticmethod
-    def from_data(sdu):
+    def from_data(sdu: bytes) -> AsfMsg:
         asf = AsfMsg()
         asf.unpack(sdu)
 
@@ -162,7 +170,7 @@ class AsfMsg(object):
                 AsfMsg().ASF_TYPE_PRESENCE_PONG: AsfPong,
             }[asf.asf_type]
         except KeyError:
-            raise DecodingError('Unsupported ASF type(0x%02x)' % asf.asf_type)
+            raise DecodingError('Unsupported ASF type(0x%02x)' % asf.asf_type) from None
 
         instance = cls()
         instance.unpack(sdu)
@@ -170,40 +178,44 @@ class AsfMsg(object):
 
 
 class AsfPing(AsfMsg):
-    def __init__(self):
+    def __init__(self) -> None:
         AsfMsg.__init__(self)
         self.asf_type = self.ASF_TYPE_PRESENCE_PING
 
-    def check_header(self):
+    def check_header(self) -> None:
         if self.asf_type != self.ASF_TYPE_PRESENCE_PING:
             raise DecodingError('type does not match')
         if self.data:
             raise DecodingError('Data length is not zero')
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'ping: ' + super(AsfMsg, self).__str__()
 
 
 class AsfPong(AsfMsg):
     DATA_FORMAT = '!IIBB6x'
 
-    def __init__(self):
+    def __init__(self) -> None:
+        AsfMsg.__init__(self)
         self.asf_type = self.ASF_TYPE_PRESENCE_PONG
         self.oem_iana_enterprise_number = 4542
         self.oem_defined = 0
         self.supported_entities = 0
         self.supported_interactions = 0
 
-    def pack(self):
-        pdu = struct.pack(self.DATA_FORMAT,
-                          self.oem_iana_enterprise_number,
-                          self.oem_defined,
-                          self.supported_entities,
-                          self.supported_interactions)
-        return pdu
+    def pack(self) -> bytes:
+        # the pong data follows the ASF header
+        self.data = struct.pack(self.DATA_FORMAT,
+                                self.oem_iana_enterprise_number,
+                                self.oem_defined,
+                                self.supported_entities,
+                                self.supported_interactions)
+        return AsfMsg.pack(self)
 
-    def unpack(self, sdu):
+    def unpack(self, sdu: bytes) -> None:
         AsfMsg.unpack(self, sdu)
+        # check_header() made sure that the data is present
+        assert self.data is not None
         # header_len = struct.calcsize(self.ASF_HEADER_FORMAT)
         (self.oem_iana_enterprise_number, self.oem_defined,
             self.supported_entities, self.supported_interactions) =\
@@ -211,35 +223,37 @@ class AsfPong(AsfMsg):
 
         self.check_data()
 
-    def check_data(self):
+    def check_data(self) -> None:
         if self.oem_iana_enterprise_number == 4542 and self.oem_defined != 0:
             raise DecodingError('SDU malformed')
         if self.supported_interactions != 0:
             raise DecodingError('SDU malformed')
 
-    def check_header(self):
+    def check_header(self) -> None:
         if self.asf_type != self.ASF_TYPE_PRESENCE_PONG:
             raise DecodingError('type does not match')
-        if len(self.data) != struct.calcsize(self.DATA_FORMAT):
+        if self.data is None \
+                or len(self.data) != struct.calcsize(self.DATA_FORMAT):
             raise DecodingError('Data length mismatch')
 
 
-class IpmiMsg(object):
+class IpmiMsg:
     HEADER_FORMAT_NO_AUTH = '!BIIB'
     HEADER_FORMAT_AUTH = '!BII16BB'
 
-    def __init__(self, session=None, ignore_sdu_length=False):
+    def __init__(self, session: Session | None = None,
+                 ignore_sdu_length: bool = False) -> None:
         self.session = session
         self.ignore_sdu_length = ignore_sdu_length
 
-    def _pack_session_id(self):
+    def _pack_session_id(self) -> int:
         if self.session is not None:
             session_id = self.session.sid
         else:
             session_id = 0
         return struct.unpack("<I", struct.pack(">I", session_id))[0]
 
-    def _pack_sequence_number(self):
+    def _pack_sequence_number(self) -> int:
         if self.session is not None:
             seq = self.session.sequence_number
         else:
@@ -247,22 +261,22 @@ class IpmiMsg(object):
 
         return struct.unpack("<I", struct.pack(">I", seq))[0]
 
-    def _padd_password(self):
+    def _padd_password(self) -> bytes:
         """Pad the password.
 
         The password/key is 0 padded to 16-bytes for all specified
         authentication types.
         """
-        password = self.session._auth_password
-        if isinstance(password, str):
-            password = str.encode(password)
+        password = b''
+        if self.session is not None:
+            password = self.session.auth_password_bytes
         return password.ljust(16, b'\x00')
 
-    def _pack_auth_code_straight(self):
+    def _pack_auth_code_straight(self) -> bytes:
         """Return the auth code as bytestring."""
         return self._padd_password()
 
-    def _pack_auth_code_md5(self, sdu):
+    def _pack_auth_code_md5(self, sdu: bytes) -> bytes:
         auth_code = struct.pack('>16s I %ds I 16s' % len(sdu),
                                 self._pack_auth_code_straight(),
                                 self._pack_session_id(),
@@ -271,7 +285,7 @@ class IpmiMsg(object):
                                 self._pack_auth_code_straight())
         return hashlib.md5(auth_code).digest()
 
-    def pack(self, sdu):
+    def pack(self, sdu: bytes | None) -> bytes:
         if sdu is not None:
             data_len = len(sdu)
         else:
@@ -294,7 +308,7 @@ class IpmiMsg(object):
         elif auth_type == Session.AUTH_TYPE_PASSWORD:
             pdu += self._pack_auth_code_straight()
         elif auth_type == Session.AUTH_TYPE_MD5:
-            pdu += self._pack_auth_code_md5(sdu)
+            pdu += self._pack_auth_code_md5(sdu or b'')
         else:
             raise NotSupportedError('authentication type %s' % auth_type)
 
@@ -305,7 +319,7 @@ class IpmiMsg(object):
 
         return pdu
 
-    def unpack(self, pdu):
+    def unpack(self, pdu: bytes) -> bytes | None:
         auth_type = array('B', pdu)[0]
 
         if auth_type != 0:
@@ -315,7 +329,7 @@ class IpmiMsg(object):
             self.auth_type = array('B', pdu)[0]
             (self.sequence_number,) = struct.unpack('!I', pdu[1:5])
             (self.session_id,) = struct.unpack('!I', pdu[5:9])
-            self.auth_code = [a for a in struct.unpack('!16B', pdu[9:25])]
+            self.auth_code = list(struct.unpack('!16B', pdu[9:25]))
             data_len = array('B', pdu)[25]
         else:
             header_len = struct.calcsize(self.HEADER_FORMAT_NO_AUTH)
@@ -328,8 +342,7 @@ class IpmiMsg(object):
                 raise DecodingError('short SDU')
             elif len(pdu) > header_len + data_len:
                 raise DecodingError(
-                    'SDU has extra bytes ({:d},{:d},{:d} )'.format(
-                        len(pdu), header_len, data_len))
+                    f'SDU has extra bytes ({len(pdu):d},{header_len:d},{data_len:d} )')
 
         if hasattr(self, 'check_header'):
             self.check_header()
@@ -348,123 +361,140 @@ class IpmiMsg(object):
 
         return sdu
 
-    def check_data(self):
+    def check_data(self) -> None:
         pass
 
-    def check_header(self):
+    def check_header(self) -> None:
         pass
 
 
-class Rmcp(object):
+class Rmcp(Interface):
     NAME = 'rmcp'
+    # 45 bytes LAN message length minus 7 bytes message header and checksums
+    MAX_REQUEST_DATA_SIZE = 38
 
-    _session = None
+    _session: Session | None = None
 
-    def __init__(self, slave_address=0x81, host_target_address=0x20,
-                 keep_alive_interval=1, max_retries=0, quirks_cfg=dict()):
-        """Native RMCP interface constructor
+    def __init__(self, slave_address: int = 0x81,
+                 host_target_address: int = 0x20,
+                 keep_alive_interval: int = 1, max_retries: int = 0,
+                 quirks_cfg: dict | None = None) -> None:
+        """Native RMCP interface constructor.
 
-        Parameter `quirks_cfg`: a dict of additional configuration parameters
-        for the RMCP object. Supported keys/values are :
+        Args:
+            slave_address: The IPMB address of this requester.
+            host_target_address: The IPMB address of the BMC.
+            keep_alive_interval: The interval in seconds of the requests
+                that keep the session alive, 0 disables them.
+            max_retries: The number of times a request is sent again after
+                a timeout.
+            quirks_cfg: Additional configuration parameters:
 
-        - `rmcp_ignore_sdu_length: bool` whether or not to verify the SDU length
-        of a received IPMI message. If absent or `False` (default), an exception
-        will be raised if there is a mismatch between the received SDU length
-        and the value stored in `payload_length` field of the PDU header. If
-        `True`, ignore the header field `payload_length` and unpack the PDU
-        anyway.
+                - ``rmcp_ignore_sdu_length`` (bool): Don't verify the SDU
+                  length of a received IPMI message. By default a
+                  mismatch between the received SDU length and the
+                  ``payload_length`` field of the PDU header raises an
+                  exception. With True the header field is ignored and the
+                  PDU is unpacked anyway.
+                - ``rmcp_ignore_rq_seq`` (bool): Don't verify the sequence
+                  number of a response. The default is False.
 
-            Example:
+        Example:
+            Create an interface that ignores the SDU length::
 
-            interfaces.create_interface(
-                interface="rmcp",
-                quirks_cfg={'rmcp_ignore_sdu_length': True}
-            )
-
-        - `rmcp_ignore_rq_seq: bool` wheater or not to verify the req_seq field
-        for rx_filter. The default value is `False`.
-
-            Example:
-
-            interfaces.create_interface(
-                interface="rmcp",
-                quirks_cfg={'rmcp_ignore_rq_seq': True}
-            )
+                interfaces.create_interface(
+                    interface="rmcp",
+                    quirks_cfg={'rmcp_ignore_sdu_length': True}
+                )
         """
-        self.host = None
-        self.port = None
+        self.host: str | None = None
+        self.port: int | None = None
         self.seq_number = 0xff
         self.slave_address = slave_address
         self.host_target = Target(host_target_address)
         self.max_retries = max_retries
         self.next_sequence_number = 0
         self.keep_alive_interval = keep_alive_interval
-        self._stop_keep_alive = None
-        self._q = Queue()
+        self._stop_keep_alive: Callable[[], None] | None = None
+        self._last_request_time = 0.0
+        self._timeout: float | None = None
         self.transaction_lock = threading.Lock()
+        if quirks_cfg is None:
+            quirks_cfg = {}
         self.quirks_cfg = quirks_cfg
         self.ignore_sdu_length = quirks_cfg.get('rmcp_ignore_sdu_length', False)
         self.ignore_rq_seq = quirks_cfg.get('rmcp_ignore_rq_seq', False)
 
-    def open(self):
+    def open(self) -> None:
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.set_timeout(2.0)
 
-    def close(self):
+    def close(self) -> None:
         pass
 
-    def _send_rmcp_msg(self, sdu, class_of_msg):
+    def _send_rmcp_msg(self, sdu: bytes | None, class_of_msg: int) -> None:
         rmcp = RmcpMsg(class_of_msg)
         pdu = rmcp.pack(sdu, self.seq_number)
-        self._sock.sendto(pdu, (self.host, self.port))
+        self._sock.send(pdu)
         if self.seq_number != 255:
             self.seq_number = (self.seq_number + 1) % 254
 
-    def _receive_rmcp_msg(self):
-        (pdu, _) = self._sock.recvfrom(4096)
+    def _receive_rmcp_msg(self) -> tuple[int | None, int | None, bytes]:
+        pdu = self._sock.recv(4096)
         rmcp = RmcpMsg()
         sdu = rmcp.unpack(pdu)
         return (rmcp.seq_number, rmcp.class_of_msg, sdu)
 
-    def set_timeout(self, timeout):
+    def set_timeout(self, timeout: float) -> None:
+        self._timeout = timeout
         self._sock.settimeout(timeout)
 
-    def _send_ipmi_msg(self, data):
-        log().debug('IPMI TX: {:s}'.format(
+    def _send_ipmi_msg(self, data: bytes) -> None:
+        logger.debug('IPMI TX: {:s}'.format(
             ' '.join('%02x' % b for b in array('B', data))))
         ipmi = IpmiMsg(self._session)
         tx_data = ipmi.pack(data)
         self._send_rmcp_msg(tx_data, RMCP_CLASS_IPMI)
 
-    def _receive_ipmi_msg(self, ignore_sdu_length=False):
+    def _receive_ipmi_msg(self, ignore_sdu_length: bool = False) -> bytes:
         (_, class_of_msg, pdu) = self._receive_rmcp_msg()
         if class_of_msg != RMCP_CLASS_IPMI:
             raise DecodingError('invalid class field in ASF message')
         msg = IpmiMsg(ignore_sdu_length=ignore_sdu_length)
-        data = msg.unpack(pdu)
-        log().debug('IPMI RX: {:s}'.format(
+        data = msg.unpack(pdu) or b''
+        logger.debug('IPMI RX: {:s}'.format(
             ' '.join('%02x' % b for b in array('B', data))))
         return data
 
-    def _send_asf_msg(self, msg):
-        log().debug('ASF TX: msg')
+    def _send_asf_msg(self, msg: AsfMsg) -> None:
+        logger.debug('ASF TX: msg')
         self._send_rmcp_msg(msg.pack(), RMCP_CLASS_ASF)
 
-    def _receive_asf_msg(self, cls):
+    def _receive_asf_msg(self, cls: type[AsfMsg]) -> AsfMsg:
         (_, class_of_msg, data) = self._receive_rmcp_msg()
-        log().debug('ASF RX: msg')
+        logger.debug('ASF RX: msg')
         if class_of_msg != RMCP_CLASS_ASF:
             raise DecodingError('invalid class field in ASF message')
         msg = cls()
         msg.unpack(data)
         return msg
 
-    def ping(self):
+    def ping(self) -> None:
         ping = AsfPing()
-        self._send_asf_msg(ping)
-        self._receive_asf_msg(AsfPong)
+        try:
+            self._send_asf_msg(ping)
+            self._receive_asf_msg(AsfPong)
+        except TimeoutError:
+            raise IpmiConnectionError(
+                f'no response to RMCP ping from {self.host}:{self.port}, '
+                'check host, port and network connectivity') from None
+        except ConnectionRefusedError:
+            raise IpmiConnectionError(
+                f'connection to {self.host}:{self.port} refused, '
+                'is the BMC listening on this port?') from None
 
-    def _get_channel_auth_cap(self, session):
+    def _get_channel_auth_cap(
+            self, session: Session) -> ChannelAuthenticationCapabilities:
         CHANNEL_NUMBER_FOR_THIS = 0xe
         # get channel auth cap
         req = create_request_by_name('GetChannelAuthenticationCapabilities')
@@ -476,31 +506,31 @@ class Rmcp(object):
         caps = ChannelAuthenticationCapabilities(rsp)
         return caps
 
-    def _get_session_challenge(self, session):
+    def _get_session_challenge(self, session: Session) -> Message:
         # get session challenge
         req = create_request_by_name('GetSessionChallenge')
         req.target = self.host_target
         req.authentication.type = session.auth_type
-        if session._auth_username:
-            req.user_name = session._auth_username.ljust(16, '\x00')
+        if session.auth_username:
+            req.user_name = session.auth_username_bytes.ljust(16, b'\x00')
         rsp = self.send_and_receive(req)
         check_rsp_completion_code(rsp)
         return rsp
 
-    def _activate_session(self, session, challenge):
+    def _activate_session(self, session: Session, challenge: bytes) -> Message:
         # activate session
         req = create_request_by_name('ActivateSession')
         req.target = self.host_target
         req.authentication.type = session.auth_type
         req.privilege_level.maximum_requested = session.priv_level
         req.challenge_string = challenge
-        req.session_id = self._session.sid
+        req.session_id = session.sid
         req.initial_outbound_sequence_number = random.randrange(1, 0xffffffff)
         rsp = self.send_and_receive(req)
         check_rsp_completion_code(rsp)
         return rsp
 
-    def _set_session_privilege_level(self, level):
+    def _set_session_privilege_level(self, level: int) -> Message:
         req = create_request_by_name('SetSessionPrivilegeLevel')
         req.target = self.host_target
         req.privilege_level.requested = level
@@ -508,27 +538,35 @@ class Rmcp(object):
         check_rsp_completion_code(rsp)
         return rsp
 
-    def _get_device_id(self):
+    def _get_device_id(self) -> None:
         req = create_request_by_name('GetDeviceId')
         req.target = self.host_target
         rsp = self.send_and_receive(req)
         check_completion_code(rsp.completion_code)
 
-    def establish_session(self, session):
+    def _keep_alive(self) -> None:
+        # every request keeps the session alive, so only send a keep-alive
+        # request if the session was idle for the whole interval
+        idle = time.monotonic() - self._last_request_time
+        if idle >= self.keep_alive_interval:
+            self._get_device_id()
+
+    def establish_session(self, session: Session) -> None:
         self._session = None
-        self.host = session._rmcp_host
-        self.port = session._rmcp_port
+        self.host = session.rmcp_host
+        self.port = session.rmcp_port
+        self._sock.connect((self.host, self.port))
 
         # 0 - Ping
         self.ping()
 
         # 1 - Get Channel Authentication Capabilities
-        log().debug('Get Channel Authentication Capabilities')
+        logger.debug('Get Channel Authentication Capabilities')
         caps = self._get_channel_auth_cap(session)
-        log().debug('%s' % caps)
+        logger.debug('%s' % caps)
 
         # 2 - Get Session Challenge
-        log().debug('Get Session Challenge')
+        logger.debug('Get Session Challenge')
         session.auth_type = caps.get_max_auth_type()
         rsp = self._get_session_challenge(session)
         session_challenge = rsp.challenge_string
@@ -537,31 +575,32 @@ class Rmcp(object):
         self._session = session
 
         # 3 - Activate Session
-        log().debug('Activate Session')
+        logger.debug('Activate Session')
         rsp = self._activate_session(session, session_challenge)
-        self._session.sid = rsp.session_id
-        self._session.sequence_number = rsp.initial_inbound_sequence_number
-        self._session.activated = True
+        session.sid = rsp.session_id
+        session.sequence_number = rsp.initial_inbound_sequence_number
+        session.activated = True
 
-        log().debug('Set Session Privilege Level')
+        logger.debug('Set Session Privilege Level')
         # 4 - Set Session Privilege Level
         self._set_session_privilege_level(session.priv_level)
 
-        log().debug('Session opened')
+        logger.debug('Session opened')
 
         if self.keep_alive_interval:
             self._stop_keep_alive = call_repeatedly(
-                    self.keep_alive_interval, self._get_device_id)
+                    self.keep_alive_interval, self._keep_alive)
 
-    def close_session(self):
+    def close_session(self) -> None:
         if self._stop_keep_alive:
             self._stop_keep_alive()
 
-        if self._session.activated is False:
-            log().debug('Session already closed')
+        if self._session is None or self._session.activated is False:
+            # never established or already closed
+            logger.debug('Session already closed')
             return
 
-        log().debug('Close Session %s' % self._session)
+        logger.debug('Close Session %s' % self._session)
         req = create_request_by_name('CloseSession')
         req.target = self.host_target
         req.session_id = self._session.sid
@@ -569,12 +608,41 @@ class Rmcp(object):
         check_completion_code(rsp.completion_code)
         self._session.activated = False
 
-#        self._q.join()
-
-    def _inc_sequence_number(self):
+    def _inc_sequence_number(self) -> None:
         self.next_sequence_number = (self.next_sequence_number + 1) % 64
 
-    def _send_and_receive(self, target, lun, netfn, cmdid, payload):
+    def _receive_response(self, header: IpmbHeaderReq) -> bytes:
+        """Receive the response that matches the request `header`.
+
+        Requests are serialized by the transaction lock, so a message that
+        does not match is the late response of an earlier request (e.g. one
+        that timed out) and is discarded. Raises TimeoutError if the
+        response is not received within the timeout.
+        """
+        deadline = None
+        if self._timeout is not None:
+            deadline = time.monotonic() + self._timeout
+
+        while True:
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError()
+
+            rx_data = self._receive_ipmi_msg(self.ignore_sdu_length)
+
+            if (len(rx_data) > 5 and
+                    array('B', rx_data)[5] == constants.CMDID_SEND_MESSAGE):
+                rx_data = decode_bridged_message(rx_data)
+                if not rx_data:
+                    # the forwarded reply is expected in the next packet
+                    continue
+
+            if rx_filter(header, rx_data, rq_seq=not self.ignore_rq_seq):
+                return rx_data
+
+            logger.debug('discarding message that does not match the request')
+
+    def _send_and_receive(self, target: Target, lun: int, netfn: int,
+                          cmdid: int, payload: bytes) -> bytes:
         """Send and receive data using RMCP interface.
 
         target:
@@ -590,7 +658,7 @@ class Rmcp(object):
         header = IpmbHeaderReq()
         header.netfn = netfn
         header.rs_lun = lun
-        header.rs_sa = target.ipmb_address
+        header.rs_sa = target_ipmb_address(target)
         header.rq_seq = self.next_sequence_number
         header.rq_lun = 0
         header.rq_sa = self.slave_address
@@ -608,38 +676,10 @@ class Rmcp(object):
             while retry <= self.max_retries:
                 try:
                     self._send_ipmi_msg(tx_data)
-
-                    received = False
-                    received_retry = 0
-                    while received is False and received_retry <= self.max_retries:
-                        if not self._q.empty():
-                            rx_data = self._q.get()
-                        else:
-                            rx_data = self._receive_ipmi_msg(self.ignore_sdu_length)
-
-                        if array('B', rx_data)[5] == constants.CMDID_SEND_MESSAGE:
-                            rx_data = decode_bridged_message(rx_data)
-                            if not rx_data:
-                                # the forwarded reply is expected in the next packet
-                                # so we do not increment the retry counter as
-                                # it's not really a retry
-                                continue
-
-                        received = rx_filter(header, rx_data,
-                                             rq_seq=not self.ignore_rq_seq)
-
-                        if not received:
-                            self._q.put(rx_data)
-
-                        received_retry += 1
-
-                    if not received:
-                        raise RetryError("Max retry while checking received"
-                                         "data against request header for rmcp"
-                                         f"host {self.host}")
+                    self._last_request_time = time.monotonic()
+                    rx_data = self._receive_response(header)
                     break
-
-                except socket.timeout:
+                except TimeoutError:
                     retry += 1
 
         if retry > self.max_retries:
@@ -648,7 +688,8 @@ class Rmcp(object):
 
         return rx_data[6:-1]
 
-    def send_and_receive_raw(self, target, lun, netfn, raw_bytes):
+    def send_and_receive_raw(self, target: Target, lun: int, netfn: int,
+                             raw_bytes: bytes) -> bytes:
         """Interface function to send and receive raw message.
 
         target: IPMI target
@@ -663,20 +704,3 @@ class Rmcp(object):
                                       netfn=netfn,
                                       cmdid=array('B', raw_bytes)[0],
                                       payload=raw_bytes[1:])
-
-    def send_and_receive(self, req):
-        """Interface function to send and receive an IPMI message.
-
-        target: IPMI target
-        req: IPMI message request
-
-        Returns the IPMI message response.
-        """
-        rx_data = self._send_and_receive(target=req.target,
-                                         lun=req.lun,
-                                         netfn=req.netfn,
-                                         cmdid=req.cmdid,
-                                         payload=encode_message(req))
-        rsp = create_message(req.netfn + 1, req.cmdid, req.group_extension)
-        decode_message(rsp, rx_data)
-        return rsp

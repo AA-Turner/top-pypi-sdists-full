@@ -28,7 +28,7 @@ class ListSpansResponse(BaseModel):
     """
     ListSpansResponse
     """ # noqa: E501
-    spans: List[Span] = Field(description="A list of spans")
+    spans: List[Span] = Field(description="A list of spans ordered by `start_time` from newest to oldest. Spans with the same start time use their trace and span identifiers for a stable order. ")
     pagination: PaginationMetadata
     __properties: ClassVar[List[str]] = ["spans", "pagination"]
 

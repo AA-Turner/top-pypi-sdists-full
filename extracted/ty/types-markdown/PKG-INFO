@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Markdown
-Version: 3.10.2.20260712
+Version: 3.10.2.20261007
 Summary: Typing stubs for Markdown
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -31,8 +31,10 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [mypy](https://www.mypy-lang.org/) 2.3.1
+* [pyrefly](https://pyrefly.org/) 1.3.2
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.84
 
 It was generated from typeshed commit
-[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
+[`d84a8cfc93c29ef703d1295cd1f7e7b150d05310`](https://github.com/python/typeshed/commit/d84a8cfc93c29ef703d1295cd1f7e7b150d05310).

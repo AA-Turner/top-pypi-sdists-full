@@ -12,12 +12,12 @@
 
 import argparse
 import os
-import typing as ty
+from typing import Any, TYPE_CHECKING
 
 from keystoneauth1.loading import base
 from keystoneauth1 import session
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from oslo_config import cfg
 
     from keystoneauth1.loading import opts
@@ -61,7 +61,7 @@ class Session(base._BaseLoader[session.Session]):
         cacert: str | None = None,
         cert: str | None = None,
         key: str | None = None,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ) -> session.Session:
         """Create a session with individual certificate parameters.
 
@@ -83,8 +83,9 @@ class Session(base._BaseLoader[session.Session]):
 
         return super().load_from_options(verify=verify, cert=cert_, **kwargs)
 
+    @classmethod
     def register_argparse_arguments(
-        self, parser: argparse.ArgumentParser
+        cls, parser: argparse.ArgumentParser
     ) -> None:
         session_group = parser.add_argument_group(
             'API Connection Options',
@@ -169,7 +170,7 @@ class Session(base._BaseLoader[session.Session]):
         )
 
     def load_from_argparse_arguments(
-        self, namespace: argparse.Namespace, **kwargs: ty.Any
+        self, namespace: argparse.Namespace, **kwargs: Any
     ) -> session.Session:
         kwargs.setdefault('insecure', namespace.insecure)
         kwargs.setdefault('cacert', namespace.os_cacert)
@@ -182,8 +183,8 @@ class Session(base._BaseLoader[session.Session]):
 
         return self.load_from_options(**kwargs)
 
+    @staticmethod
     def get_conf_options(
-        self,
         deprecated_opts: dict[str, list['cfg.DeprecatedOpt']] | None = None,
     ) -> list['cfg.Opt']:
         """Get oslo_config options that are needed for a :py:class:`.Session`.
@@ -202,16 +203,16 @@ class Session(base._BaseLoader[session.Session]):
             :tls-ciphers: OpenSSL cipher string for TLS.
             :tls-min-version: Minimum TLS version to require.
 
-        :param dict deprecated_opts: Deprecated options that should be included
-             in the definition of new options. This should be a dict from the
-             name of the new option to a list of oslo.DeprecatedOpts that
-             correspond to the new option. (optional)
+        :param deprecated_opts: Deprecated options that should be included in
+            the definition of new options. This should be a dict from the name
+            of the new option to a list of oslo.DeprecatedOpts that correspond
+            to the new option. (optional)
 
-             For example, to support the ``ca_file`` option pointing to the new
-             ``cafile`` option name::
+            For example, to support the ``ca_file`` option pointing to the new
+            ``cafile`` option name::
 
-                 old_opt = oslo_cfg.DeprecatedOpt('ca_file', 'old_group')
-                 deprecated_opts = {'cafile': [old_opt]}
+                old_opt = oslo_cfg.DeprecatedOpt('ca_file', 'old_group')
+                deprecated_opts = {'cafile': [old_opt]}
 
         :returns: A list of oslo_config options.
         """
@@ -289,10 +290,11 @@ class Session(base._BaseLoader[session.Session]):
             ),
         ]
 
+    @classmethod
     def register_conf_options(
-        self,
+        cls,
         conf: 'cfg.ConfigOpts',
-        group: str,
+        group: 'str | cfg.OptGroup',
         deprecated_opts: dict[str, list['cfg.DeprecatedOpt']] | None = None,
     ) -> list['cfg.Opt']:
         """Register the oslo_config options that are needed for a session.
@@ -308,43 +310,51 @@ class Session(base._BaseLoader[session.Session]):
             :tls-ciphers: OpenSSL cipher string for TLS.
             :tls-min-version: Minimum TLS version to require.
 
-        :param oslo_config.Cfg conf: config object to register with.
-        :param string group: The ini group to register options in.
-        :param dict deprecated_opts: Deprecated options that should be included
-             in the definition of new options. This should be a dict from the
-             name of the new option to a list of oslo.DeprecatedOpts that
-             correspond to the new option. (optional)
+        :param conf: config object to register with.
+        :param group: The ini group to register options in.
+        :param deprecated_opts: Deprecated options that should be included in
+            the definition of new options. This should be a dict from the name
+            of the new option to a list of oslo.DeprecatedOpts that correspond
+            to the new option. (optional)
 
-             For example, to support the ``ca_file`` option pointing to the new
-             ``cafile`` option name::
+            For example, to support the ``ca_file`` option pointing to the new
+            ``cafile`` option name::
 
-                 old_opt = oslo_cfg.DeprecatedOpt('ca_file', 'old_group')
-                 deprecated_opts = {'cafile': [old_opt]}
+                old_opt = oslo_cfg.DeprecatedOpt('ca_file', 'old_group')
+                deprecated_opts = {'cafile': [old_opt]}
 
         :returns: The list of options that was registered.
         """
         from oslo_config import cfg
 
-        opts = self.get_conf_options(deprecated_opts=deprecated_opts)
-        conf.register_group(cfg.OptGroup(group))
+        if isinstance(group, str):
+            group = cfg.OptGroup(group)
+
+        opts = cls.get_conf_options(deprecated_opts=deprecated_opts)
+        conf.register_group(group)
         conf.register_opts(opts, group=group)
         return opts
 
     def load_from_conf_options(
-        self, conf: 'cfg.ConfigOpts', group: str, **kwargs: ty.Any
+        self,
+        conf: 'cfg.ConfigOpts',
+        group: 'str | cfg.OptGroup',
+        **kwargs: Any,
     ) -> session.Session:
         """Create a session object from an oslo_config object.
 
         The options must have been previously registered with
         register_conf_options.
 
-        :param oslo_config.Cfg conf: config object to register with.
-        :param string group: The ini group to register options in.
-        :param dict kwargs: Additional parameters to pass to session
-                            construction.
+        :param conf: config object to register with.
+        :param group: The ini group to register options in.
+        :param kwargs: Additional parameters to pass to session construction.
         :returns: A new session object.
-        :rtype: :py:class:`.Session`
         """
+        from oslo_config import cfg
+
+        if isinstance(group, cfg.OptGroup):
+            group = group.name
         c = conf[group]
 
         kwargs.setdefault('insecure', c.insecure)
@@ -365,23 +375,23 @@ def register_argparse_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def load_from_argparse_arguments(
-    namespace: argparse.Namespace, **kwargs: ty.Any
+    namespace: argparse.Namespace, **kwargs: Any
 ) -> session.Session:
     return Session().load_from_argparse_arguments(namespace, **kwargs)
 
 
 def register_conf_options(
     conf: 'cfg.ConfigOpts',
-    group: str,
+    group: 'str | cfg.OptGroup',
     deprecated_opts: dict[str, list['cfg.DeprecatedOpt']] | None = None,
 ) -> list['cfg.Opt']:
-    return Session().register_conf_options(
+    return Session.register_conf_options(
         conf, group, deprecated_opts=deprecated_opts
     )
 
 
 def load_from_conf_options(
-    conf: 'cfg.ConfigOpts', group: str, **kwargs: ty.Any
+    conf: 'cfg.ConfigOpts', group: 'str | cfg.OptGroup', **kwargs: Any
 ) -> session.Session:
     return Session().load_from_conf_options(conf, group, **kwargs)
 
@@ -389,4 +399,4 @@ def load_from_conf_options(
 def get_conf_options(
     deprecated_opts: dict[str, list['cfg.DeprecatedOpt']] | None = None,
 ) -> list['cfg.Opt']:
-    return Session().get_conf_options(deprecated_opts=deprecated_opts)
+    return Session.get_conf_options(deprecated_opts=deprecated_opts)

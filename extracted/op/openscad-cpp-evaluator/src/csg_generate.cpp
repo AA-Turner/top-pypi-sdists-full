@@ -2,6 +2,9 @@
 #include "openscad_cpp_evaluator/evaluator.hpp"
 
 #include <algorithm>
+#include <unordered_set>
+#include <cstring>
+#include <exception>
 
 namespace oscadeval {
 
@@ -130,7 +133,37 @@ std::vector<ColoredBody> Evaluator::generateTreeImpl(const std::vector<CSGNode*>
                 const uint32_t savedCallChain = generateCallChain;
                 generateWarnEntry = node.warnEntry;
                 generateCallChain = node.callChain;
-                node.bodies = it->second(*this, node.params, node.children, *node.node);
+                // An operation (union, offset, hull, linear_extrude, ...)
+                // sees its 2D children where OpenSCAD's F6 would: with any
+                // transform they carry projected onto the plane. Only the
+                // transforms, color() and the modifier wrappers pass the
+                // carried transform on untouched, so a lifted or tilted 2D
+                // shape still displays in place. See projectSectionXform.
+                static const std::unordered_set<std::string> kCarriesSectionXform = {
+                    "translate", "rotate", "scale", "mirror", "multmatrix", "resize",
+                    "color", "highlight", "background", "show_only", "children"};
+                if (!kCarriesSectionXform.count(node.kind)) {
+                    for (const std::unique_ptr<CSGNode>& c : node.children)
+                        for (ColoredBody& b : c->bodies)
+                            if (!projectSectionXform(b)) warn(kZeroScale2dWarning, nullptr);
+                }
+                try {
+                    node.bodies = it->second(*this, node.params, node.children, *node.node);
+                } catch (const std::exception& e) {
+                    // ponytail: matched on Clipper2's fixed message rather than
+                    // its Clipper2Exception type, whose header is internal to
+                    // Manifold's build; anything else is rethrown untouched.
+                    if (std::strcmp(e.what(), "Values exceed permitted range") != 0) throw;
+                    // Clipper2, under every 2D boolean and offset, refuses
+                    // coordinates beyond ~2.3e18 and throws. Uncaught, one
+                    // oversized shape -- union(){ square(1e20); ... } --
+                    // aborted the whole render. OpenSCAD itself silently
+                    // draws nothing for such a node; this draws nothing too,
+                    // but says why, and keeps the rest of the model.
+                    warn(node.kind + "(): " + e.what() + " -- coordinates too large for 2D geometry; skipped",
+                         &node.node->position());
+                    node.bodies.clear();
+                }
                 if (!measuring_) tagSections(node.bodies, *node.node, node.callChain);
                 generateWarnEntry = savedWarnEntry;
                 generateCallChain = savedCallChain;
@@ -275,7 +308,7 @@ void Evaluator::applyDimensionRulesTo(const std::vector<CSGNode*>& children, int
         kept.reserve(child->bodies.size());
         for (ColoredBody& b : child->bodies) {
             const int dim = dimensionOf(b);
-            if (b.role == BodyRole::Background || dim == 0 || isEmptyBody(b)) {
+            if (b.role == BodyRole::Background || b.role == BodyRole::HighlightGhost || dim == 0 || isEmptyBody(b)) {
                 kept.push_back(std::move(b));
                 continue;
             }
@@ -289,24 +322,18 @@ void Evaluator::applyDimensionRulesTo(const std::vector<CSGNode*>& children, int
                 continue;
             }
             const oscad::Position* pos = child->node ? &child->node->position() : nullptr;
-            // Silent when both are kept: the reference says nothing for
-            // `cube(1); square(4);`, `translate(...) { ... }` or `union()
-            // { ... }` -- checked by running it -- and a warning here would
-            // fail any docs example that legitimately draws a 2D annotation
-            // beside a 3D part.
-            if (rule == DimRule::Group && !keepMixed && !warnedMixing) {
-                warn("Mixing 2D and 3D objects is not supported", pos);
-                warnedMixing = true;
-            }
             if (keepMixed) {
-                // Kept, not dropped: at the top level there is no single
-                // result to build, so nothing downstream can be confused by
-                // the other dimension, and the reference's own preview shows
-                // both. The warning above still stands -- an export cannot
-                // represent the mix -- but silently losing the 2D geometry
-                // from the picture is worse than showing it.
+                // Kept, and silently: the viewport shows both, as OpenSCAD's
+                // PREVIEW does (also silent -- checked, 2026.02.01). Its
+                // RENDER drops the other dimension with two warnings, and
+                // that is what export does (topLevelDimension in export.cpp),
+                // warnings included, so a file never holds the mix.
                 kept.push_back(std::move(b));
                 continue;
+            }
+            if (rule == DimRule::Group && !warnedMixing) {
+                warn("Mixing 2D and 3D objects is not supported", pos);
+                warnedMixing = true;
             }
             warn(std::string("Ignoring ") + (dim == 3 ? "3D" : "2D") + " child object for " +
                      (target == 3 ? "3D" : "2D") + " operation",

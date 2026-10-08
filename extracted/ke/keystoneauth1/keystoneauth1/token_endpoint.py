@@ -10,14 +10,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from typing import Any
 
+from keystoneauth1.access import access
 from keystoneauth1 import discover
 from keystoneauth1 import plugin
-
-if ty.TYPE_CHECKING:
-    from keystoneauth1.access import access
-    from keystoneauth1 import session as ks_session
+from keystoneauth1 import session as ks_session
 
 
 class Token(plugin.BaseAuthPlugin):
@@ -34,36 +32,28 @@ class Token(plugin.BaseAuthPlugin):
         self.endpoint = endpoint
         self.token = token
 
-    def get_token(self, session: 'ks_session.Session') -> str | None:
+    def get_token(self, session: ks_session.Session) -> str | None:
         return self.token
 
     def get_endpoint_data(
         self,
-        session: 'ks_session.Session',
+        session: ks_session.Session,
         *,
         endpoint_override: str | None = None,
         discover_versions: bool = True,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ) -> discover.EndpointData | None:
         """Return a valid endpoint data for a the service.
 
         :param session: A session object that can be used for communication.
-        :type session: keystoneauth1.session.Session
-        :param str endpoint_override: URL to use for version discovery other
-                                      than the endpoint stored in the plugin.
-                                      (optional, defaults to None)
-        :param bool discover_versions: Whether to get version metadata from
-                                       the version discovery document even
-                                       if it major api version info can be
-                                       inferred from the url.
-                                       (optional, defaults to True)
-        :param kwargs: Ignored.
-
+        :param endpoint_override: URL to use for version discovery other than
+            the endpoint stored in the plugin. (optional, defaults to None)
+        :param discover_versions: Whether to get version metadata from the
+            version discovery document even if it major api version info can be
+            inferred from the url. (optional, defaults to True)
         :raises keystoneauth1.exceptions.http.HttpError: An error from an
-                                                         invalid HTTP response.
-
+            invalid HTTP response.
         :return: Valid EndpointData or None if not available.
-        :rtype: `keystoneauth1.discover.EndpointData` or None
         """
         return super().get_endpoint_data(
             session,
@@ -73,7 +63,7 @@ class Token(plugin.BaseAuthPlugin):
         )
 
     def get_endpoint(
-        self, session: 'ks_session.Session', **kwargs: ty.Any
+        self, session: ks_session.Session, **kwargs: Any
     ) -> str | None:
         """Return the supplied endpoint.
 
@@ -83,12 +73,11 @@ class Token(plugin.BaseAuthPlugin):
         return self.endpoint
 
     def get_auth_ref(
-        self, session: 'ks_session.Session'
-    ) -> ty.Optional['access.AccessInfo']:
+        self, session: ks_session.Session
+    ) -> access.AccessInfo | None:
         """Return the authentication reference of an auth plugin.
 
         :param session: A session object to be used for communication
-        :type session: keystoneauth1.session.session
         """
         # token plugin does not have an auth ref, because it's a
         # "static" authentication using a pre-existing token.

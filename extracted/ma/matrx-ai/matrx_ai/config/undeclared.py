@@ -44,6 +44,28 @@ _undelivered: ContextVar[dict[str, None] | None] = ContextVar(
 )
 
 
+def taught_placeholders(text: str) -> set[str]:
+    """Names whose EVERY ``{{name}}`` in ``text`` sits inside backticks or a code fence.
+
+    That is the author SHOWING the syntax — a merge-field vocabulary the model is
+    told to write out (`{{party.first_name}}`), a template example — not a slot the
+    run failed to fill. Telling the model such a name "was not delivered, do not
+    repeat it" countermands the very instruction that taught it (the Pitch
+    Assistant, 2026-10-06). A placeholder written in plain prose is still a slot.
+    """
+    if not text or "{{" not in text:
+        return set()
+    quoted: dict[str, bool] = {}
+    for m in PLACEHOLDER_RE.finditer(text):
+        before = text[: m.start()]
+        in_fence = before.count("```") % 2 == 1
+        line_start = before.rfind("\n") + 1
+        in_tick = text[line_start : m.start()].count("`") % 2 == 1
+        name = m.group(1)
+        quoted[name] = quoted.get(name, True) and (in_fence or in_tick)
+    return {name for name, q in quoted.items() if q}
+
+
 def begin_turn() -> None:
     """Start a fresh record for this turn. Safe to call more than once."""
     _undelivered.set({})
@@ -67,6 +89,8 @@ def note_unresolved(text: str, *, template: str | None = None) -> tuple[str, ...
     if template is not None:
         authored = {m.group(1) for m in PLACEHOLDER_RE.finditer(template)}
         found = tuple(name for name in found if name in authored)
+    taught = taught_placeholders(template if template is not None else text)
+    found = tuple(name for name in found if name not in taught)
     if not found:
         return ()
     record = _undelivered.get()
@@ -109,6 +133,7 @@ def omission_sentence(names: tuple[str, ...] | None = None) -> str | None:
 __all__ = [
     "PLACEHOLDER_RE",
     "begin_turn",
+    "taught_placeholders",
     "note_unresolved",
     "omission_sentence",
     "undelivered",

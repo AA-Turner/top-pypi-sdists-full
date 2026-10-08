@@ -123,6 +123,17 @@ def test_add_keeps_int_dtype() -> None:
     np.testing.assert_array_equal(result["storage"]["values"], [0, 2, 4, 0, 0])
 
 
+def test_add_empty_sparse_keeps_uint64() -> None:
+    h = bh.Histogram(bh.axis.Integer(0, 3), storage=bh.storage.Int64())
+    empty = to_sparse(_ir(h))
+    empty["storage"]["values"] = np.zeros(0, dtype=np.uint64)
+    full = _ir(h)
+    full["storage"]["values"] = np.asarray([0, 2**53 + 1, 0, 0, 0], dtype=np.uint64)
+    result = add(empty, full)["storage"]["values"]
+    assert result.dtype == np.uint64
+    assert result[1] == 2**53 + 1
+
+
 def test_add_scalar_int_is_json_serializable() -> None:
     h = bh.Histogram(storage=bh.storage.Int64())
     h.fill()
@@ -512,3 +523,22 @@ def test_cli_add_hdf5_errors(tmp_path: Path) -> None:
         main(["add", str(target), f"{files[0]}:nope"])
     with pytest.raises(SystemExit, match="is not a histogram or group"):
         main(["add", str(target), f"{files[0]}:h/storage/values"])
+
+
+def test_cli_add_bad_zip(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.zip"
+    bad.write_text("x", encoding="utf-8")
+    with pytest.raises(SystemExit, match="not a zip file"):
+        main(["add", str(tmp_path / "out.json"), str(bad)])
+
+
+def test_cli_add_unknown_storage(tmp_path: Path) -> None:
+    src = tmp_path / "in.json"
+    src.write_text(
+        json.dumps(
+            {"uhi_schema": 1, "axes": [], "storage": {"type": "unlimited", "values": 3}}
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="Unknown storage type 'unlimited'"):
+        main(["add", str(tmp_path / "out.json"), str(src), str(src)])

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from matrx_ai.tools.implementations.datasets_tools import _bounded_dataset_rows
+from matrx_ai.tools.implementations.table_tools import _bounded_dataset_rows
 from matrx_ai.tools.result_gate import apply_size_gate
 
 
@@ -16,7 +16,7 @@ def test_oversized_dataset_page_stays_structured_and_bypasses_blunt_gate() -> No
     gated, truncated = apply_size_gate(
         {"content": content, "call_id": "forced-dataset-cap"},
         output_self_capped=True,
-        tool_name="dataset",
+        tool_name="table",
         tool_kind="native",
         conversation_id="forced-conversation",
         user_id="forced-user",

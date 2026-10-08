@@ -106,7 +106,7 @@ class BlockStorageCloudMixin(openstackcloud._OpenStackCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
                 "'search_volumes' instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
             entities = self.search_volumes(name_or_id, filters)
             if not entities:
@@ -157,7 +157,7 @@ class BlockStorageCloudMixin(openstackcloud._OpenStackCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
                 "'search_volume_types' instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
             entities = self.search_volume_types(name_or_id, filters)
             if not entities:
@@ -208,7 +208,7 @@ class BlockStorageCloudMixin(openstackcloud._OpenStackCloudMixin):
                         "Support for passing image as a raw dict has "
                         "been deprecated for removal. Consider passing a "
                         "string name or ID or an Image object instead.",
-                        os_warnings.RemovedInSDK60Warning,
+                        os_warnings.RemovedInSDK50Warning,
                     )
                 kwargs['imageRef'] = image['id']
             else:  # object
@@ -582,7 +582,7 @@ class BlockStorageCloudMixin(openstackcloud._OpenStackCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
                 "'search_volume_snapshots' instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
             entities = self.search_volume_snapshots(name_or_id, filters)
             if not entities:
@@ -692,7 +692,7 @@ class BlockStorageCloudMixin(openstackcloud._OpenStackCloudMixin):
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
                 "'search_volume_backups' instead",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
             entities = self.search_volume_backups(name_or_id, filters)
             if not entities:

@@ -6,6 +6,7 @@ from videos or images with just a few lines of code.
 """
 
 import datetime
+import logging
 import os
 import uuid
 import webbrowser
@@ -13,6 +14,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .boundary_drawing_internal import BoundaryDrawingTool
+
+_logger = logging.getLogger(__name__)
 
 
 # codeql[py/should-be-context-manager]
@@ -112,12 +115,12 @@ class EasyBoundaryTool:
             embed_image=True,
         )
 
-        print(f"🎯 Boundary drawing tool created from video: {video_path}")
-        print(f"📁 Files saved to: {output_dir}")
+        _logger.info("🎯 Boundary drawing tool created from video: %s", video_path)
+        _logger.info("📁 Files saved to: %s", output_dir)
         if self.auto_open_browser:
-            print("🌐 Interactive tool opened in your browser")
+            _logger.info("🌐 Interactive tool opened in your browser")
         else:
-            print(f"🌐 Open this file in browser: {results['html_tool']}")
+            _logger.info("🌐 Open this file in browser: %s", results["html_tool"])
 
         return results["html_tool"]
 
@@ -156,12 +159,12 @@ class EasyBoundaryTool:
             embed_image=True,
         )
 
-        print(f"🎯 Boundary drawing tool created from image: {image_path}")
-        print(f"📁 Files saved to: {output_dir}")
+        _logger.info("🎯 Boundary drawing tool created from image: %s", image_path)
+        _logger.info("📁 Files saved to: %s", output_dir)
         if self.auto_open_browser:
-            print("🌐 Interactive tool opened in your browser")
+            _logger.info("🌐 Interactive tool opened in your browser")
         else:
-            print(f"🌐 Open this file in browser: {results['html_tool']}")
+            _logger.info("🌐 Open this file in browser: %s", results["html_tool"])
 
         return results["html_tool"]
 
@@ -196,14 +199,14 @@ class EasyBoundaryTool:
 
         # Print helpful information
         if zones_needed:
-            print(f"\n📝 Zones you plan to create: {', '.join(zones_needed)}")
+            _logger.info("\n📝 Zones you plan to create: %s", ", ".join(zones_needed))
 
-        print("\n💡 Tips:")
-        print("1. Select a zone type from the sidebar")
-        print("2. Click on the image to add points")
-        print("3. Right-click or press Enter to complete a zone")
-        print("4. Use the 'Generate Code' button to get Python code")
-        print("5. Copy the generated code for use in your applications")
+        _logger.info("\n💡 Tips:")
+        _logger.info("1. Select a zone type from the sidebar")
+        _logger.info("2. Click on the image to add points")
+        _logger.info("3. Right-click or press Enter to complete a zone")
+        _logger.info("4. Use the 'Generate Code' button to get Python code")
+        _logger.info("5. Copy the generated code for use in your applications")
 
         return html_path
 
@@ -236,23 +239,23 @@ class EasyBoundaryTool:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        print(f"🎯 Standalone boundary drawing tool created: {output_path}")
+        _logger.info("🎯 Standalone boundary drawing tool created: %s", output_path)
 
         if self.auto_open_browser:
             try:
                 webbrowser.open(f"file://{os.path.abspath(output_path)}")
-                print("🌐 Standalone tool opened in your browser")
-            except Exception as e:
-                print(f"Could not open browser: {e}")
-                print(f"🌐 Please manually open: {output_path}")
+                _logger.info("🌐 Standalone tool opened in your browser")
+            except Exception as e:  # noqa: BLE001 - browser launch is best-effort, path is printed instead
+                _logger.info("Could not open browser: %s", e)
+                _logger.info("🌐 Please manually open: %s", output_path)
         else:
-            print(f"🌐 Open this file in browser: {output_path}")
+            _logger.info("🌐 Open this file in browser: %s", output_path)
 
-        print("\n💡 With the standalone tool you can:")
-        print("- Drag & drop any video or image file")
-        print("- Create multiple zone configurations")
-        print("- Save and load configurations")
-        print("- Generate code for different projects")
+        _logger.info("\n💡 With the standalone tool you can:")
+        _logger.info("- Drag & drop any video or image file")
+        _logger.info("- Create multiple zone configurations")
+        _logger.info("- Save and load configurations")
+        _logger.info("- Generate code for different projects")
 
         return output_path
 
@@ -341,14 +344,16 @@ print("Zone counts:", count_results)
             import shutil
 
             try:
-                response = input(f"🗂️  Delete saved boundary tool files in {self._data_dir}? (y/N): ")
+                response = input(
+                    f"🗂️  Delete saved boundary tool files in {self._data_dir}? (y/N): "
+                )
                 if response.lower() in ["y", "yes"]:
                     shutil.rmtree(self._data_dir)
-                    print(f"🧹 Cleaned up boundary tool files: {self._data_dir}")
+                    _logger.info("🧹 Cleaned up boundary tool files: %s", self._data_dir)
                 else:
-                    print(f"📁 Files preserved in: {self._data_dir}")
-            except Exception as e:
-                print(f"Warning: Could not clean up files: {e}")
+                    _logger.info("📁 Files preserved in: %s", self._data_dir)
+            except Exception as e:  # noqa: BLE001 - cleanup is best-effort, never fatal to the caller
+                _logger.info("Warning: Could not clean up files: %s", e)
 
     def get_data_directory(self) -> Optional[str]:
         """

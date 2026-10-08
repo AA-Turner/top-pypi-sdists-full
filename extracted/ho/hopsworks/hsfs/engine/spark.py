@@ -57,13 +57,18 @@ try:
         col,
         concat,
         current_timestamp,
+        datediff,
+        expr,
         from_json,
+        length,
         lit,
         monotonically_increasing_id,
         regexp_replace,
         row_number,
         struct,
         udf,
+        unix_millis,
+        when,
     )
     from pyspark.sql.types import (
         ArrayType,
@@ -80,6 +85,7 @@ try:
         StringType,
         StructField,
         StructType,
+        TimestampNTZType,
         TimestampType,
     )
 
@@ -114,6 +120,7 @@ from hsfs.core import (
     dataset_api,
     delta_engine,
     hudi_engine,
+    iceberg_engine,
     kafka_engine,
     transformation_execution_dag,
     transformation_function_engine,
@@ -354,6 +361,26 @@ class Engine:
             delta_fg_alias=delta_fg_alias,
             read_options=read_options,
             is_cdc_query=is_cdc_query,
+        )
+
+    def _register_iceberg_temporary_table(
+        self,
+        iceberg_fg_alias: hudi_feature_group_alias.HudiFeatureGroupAlias,
+        feature_store_id: int,
+        feature_store_name: str,
+        read_options: dict[str, Any] | None,
+    ):
+        iceberg_engine_instance = iceberg_engine.IcebergEngine(
+            feature_store_id,
+            feature_store_name,
+            iceberg_fg_alias.feature_group,
+            self._spark_session,
+            None if self._is_connect else self._spark_context,
+        )
+
+        iceberg_engine_instance._register_temporary_table(
+            iceberg_fg_alias,
+            read_options=read_options,
         )
 
     def _return_dataframe_type(self, dataframe, dataframe_type):
@@ -647,7 +674,10 @@ class Engine:
 
         query = (
             serialized_df.withColumn(
-                "headers", self._get_headers(feature_group, options=write_options)
+                # No storage header: the topic is the only source of both stores here, so
+                # OnlineFS and the offline materialization job both read these records.
+                "headers",
+                self._get_headers(feature_group, options=write_options),
             )
             .writeStream.outputMode(output_mode)
             .format(self.KAFKA_FORMAT)
@@ -715,6 +745,17 @@ class Engine:
                 None if self._is_connect else self._spark_context,
             )
             delta_engine_instance._save_delta_fg(
+                dataframe, write_options, validation_id, operation=operation
+            )
+        elif feature_group.time_travel_format == "ICEBERG":
+            iceberg_engine_instance = iceberg_engine.IcebergEngine(
+                feature_group.feature_store_id,
+                feature_group.feature_store_name,
+                feature_group,
+                self._spark_session,
+                None if self._is_connect else self._spark_context,
+            )
+            iceberg_engine_instance._save_iceberg_fg(
                 dataframe, write_options, validation_id, operation=operation
             )
         else:
@@ -792,6 +833,10 @@ class Engine:
                     else dataframe.count(),
                     write_options,
                     operation=operation,
+                    # Spark writes the offline leg straight to the table, so these records
+                    # are for OnlineFS alone: without the header the materialization job
+                    # would write them to the offline table a second time.
+                    storage=kafka_engine._STORAGE_ONLINE,
                 ),
             )
             .write.format(self.KAFKA_FORMAT)
@@ -842,12 +887,13 @@ class Engine:
         num_entries: int | None = None,
         options: dict | None = None,
         operation: str | None = None,
+        storage: str | None = None,
     ) -> array:
         return array(
             *[
                 struct(lit(key).alias("key"), lit(value).alias("value"))
                 for key, value in kafka_engine._get_headers(
-                    feature_group, num_entries, options, operation
+                    feature_group, num_entries, options, operation, storage
                 ).items()
             ]
         )
@@ -1098,15 +1144,20 @@ class Engine:
             # Statistics are always refit (training_dataset_version not
             # passed): an unsplit in-memory training dataset retrieved by
             # version is not consistent.
+            # coalesce(1) must land between the fit and the transformations
+            # (FSTORE-2109), so the engine applies it.
             dataset = transformation_function_engine.TransformationFunctionEngine._fit_and_transform(
                 training_dataset,
                 feature_view_obj,
                 dataset,
                 transformation_context=transformation_context,
+                pre_transform=(
+                    (lambda frame: frame.coalesce(1))
+                    if training_dataset.coalesce
+                    else None
+                ),
             )
 
-            if training_dataset.coalesce:
-                dataset = dataset.coalesce(1)
             path = training_dataset.location + "/" + training_dataset.name
             return self._write_training_dataset_single(
                 dataset,
@@ -1286,13 +1337,14 @@ class Engine:
                 "Given event time should be in `datetime`, `date`, `str` or `int` type"
             )
 
-        # registering the UDF
-        _convert_event_time_to_timestamp = udf(
-            convert_event_time_to_timestamp, LongType()
-        )
+        # A Python UDF below the coalesced write pins a 64 MB HybridRowQueue
+        # per shuffle partition (FSTORE-2109); use a native expression when
+        # the column type allows one.
+        ts_col = self._event_time_epoch_millis(dataset, event_time)
+        if ts_col is None:
+            ts_col = udf(convert_event_time_to_timestamp, LongType())(col(event_time))
 
         result_dfs = {}
-        ts_col = _convert_event_time_to_timestamp(col(event_time))
         for split in training_dataset.splits:
             result_df = dataset.filter(ts_col >= split.start_time).filter(
                 ts_col < split.end_time
@@ -1301,6 +1353,40 @@ class Engine:
                 result_df = result_df.drop(event_time)
             result_dfs[split.name] = result_df
         return result_dfs
+
+    @staticmethod
+    def _event_time_epoch_millis(dataset, event_time):
+        """Epoch milliseconds of the event time column as a native expression.
+
+        Returns None when the column type has no native form.
+        """
+        # not schema[event_time]: that subscript is case sensitive, col() is not
+        event_time_type = next(
+            (f.dataType for f in dataset.schema.fields if f.name == event_time), None
+        )
+        if isinstance(event_time_type, TimestampNTZType):
+            # unix_millis rejects timestamp_ntz; with both operands NTZ the
+            # result does not depend on spark.sql.session.timeZone.
+            quoted = event_time.replace("`", "``")
+            return expr(
+                "timestampdiff(MILLISECOND, TIMESTAMP_NTZ '1970-01-01 00:00:00', "
+                f"`{quoted}`)"
+            )
+        if isinstance(event_time_type, TimestampType):
+            return unix_millis(col(event_time))
+        if isinstance(event_time_type, DateType):
+            # midnight UTC of that day, independent of the session zone
+            days = datediff(col(event_time), lit("1970-01-01")).cast(LongType())
+            return days * lit(86_400_000)
+        if isinstance(event_time_type, (IntegerType, LongType)):
+            # up to ten digits is seconds
+            value = col(event_time).cast(LongType())
+            return (
+                when(value == 0, lit(None).cast(LongType()))
+                .when(length(value.cast("string")) <= 10, value * lit(1000))
+                .otherwise(value)
+            )
+        return None
 
     def _write_training_dataset_splits(
         self,
@@ -1368,7 +1454,14 @@ class Engine:
         read_options = self._read_options(data_format, read_options)
 
         if isinstance(location, str):
-            if data_format.lower() in ["delta", "parquet", "hudi", "orc", "bigquery"]:
+            if data_format.lower() in [
+                "delta",
+                "parquet",
+                "hudi",
+                "iceberg",
+                "orc",
+                "bigquery",
+            ]:
                 # All the above data format readers can handle partitioning
                 # by their own, they don't need /**
                 # for bigquery, argument location can be a SQL query
@@ -1770,7 +1863,9 @@ class Engine:
         ]
 
     def _setup_storage_connector(self, storage_connector, path=None):
-        if storage_connector.type == StorageConnector.S3:
+        if storage_connector.type in (StorageConnector.S3, StorageConnector.GLUE):
+            # Glue tables are backed by S3 (in any format: Iceberg, Delta, CSV,
+            # ...), so the S3 credentials setup applies to them as well.
             return self._setup_s3_hadoop_conf(storage_connector, path)
         if storage_connector.type == StorageConnector.ADLS:
             return self._setup_adls_hadoop_conf(storage_connector, path)
@@ -1836,10 +1931,13 @@ class Engine:
             self._set_s3_hadoop_conf(storage_connector, "fs.s3a")
 
         # Set credentials at bucket level as well to allow users to use multiple
-        # storage connector in the same application.
-        self._set_s3_hadoop_conf(
-            storage_connector, f"fs.s3a.bucket.{storage_connector.bucket}"
-        )
+        # storage connector in the same application. Connectors without a fixed
+        # bucket (e.g. Glue, where the bucket is part of the table location)
+        # only configure the global level.
+        if storage_connector.bucket:
+            self._set_s3_hadoop_conf(
+                storage_connector, f"fs.s3a.bucket.{storage_connector.bucket}"
+            )
         return path.replace("s3://", "s3a://", 1) if path is not None else None
 
     def _set_s3_hadoop_conf(self, storage_connector, prefix):
@@ -1913,6 +2011,8 @@ class Engine:
     def _update_table_schema(self, feature_group):
         if feature_group.time_travel_format == "DELTA":
             self._add_cols_to_delta_table(feature_group)
+        elif feature_group.time_travel_format == "ICEBERG":
+            self._add_cols_to_iceberg_table(feature_group)
         else:
             self._save_empty_dataframe(feature_group)
 
@@ -1957,6 +2057,69 @@ class Engine:
         ).option("spark.databricks.delta.schema.autoMerge.enabled", "true").save(
             location
         )
+
+    def _add_cols_to_iceberg_table(self, feature_group):
+        iceberg_engine_instance = iceberg_engine.IcebergEngine(
+            feature_group.feature_store_id,
+            feature_group.feature_store_name,
+            feature_group,
+            self._spark_session,
+            None if self._is_connect else self._spark_context,
+        )
+        glue = iceberg_engine_instance._glue_catalog()
+        if glue is not None:
+            # The table's metadata pointer lives in Glue, so the schema must be
+            # evolved through the catalog rather than the path-based API.
+            iceberg_engine_instance._add_columns_via_catalog(glue)
+            return
+
+        if self._is_connect:
+            raise FeatureStoreException(
+                "Updating the schema of an Iceberg feature group is not supported "
+                "in Spark Connect mode because it requires JVM bridge access."
+            )
+        location = feature_group.prepare_spark_location()
+
+        # Evolve the schema through the Iceberg API as a metadata-only commit.
+        # Writing an empty dataframe with a merge-schema option does not work
+        # here: Spark's analyzer rejects the extra columns before the Iceberg
+        # writer gets to merge them.
+        # Only the missing columns are added; existing columns are never
+        # altered, so type-mapping differences between writers (for example
+        # timestamp vs timestamptz) cannot conflict.
+        table = self._jvm.org.apache.iceberg.hadoop.HadoopTables(
+            self._spark_context._jsc.hadoopConfiguration()
+        ).load(location)
+        existing_columns = {field.name() for field in table.schema().columns()}
+        new_features = [
+            _feature
+            for _feature in feature_group.columns
+            if _feature.name not in existing_columns
+        ]
+        if not new_features:
+            return
+
+        update_schema = table.updateSchema()
+        for _feature in new_features:
+            # Spark's TimestampType converts to Iceberg timestamptz, while
+            # Hopsworks stores Hive-style timestamps without a zone, so map
+            # the type through Spark's timestamp_ntz instead.
+            # The lookahead keeps struct field names (which precede ':')
+            # untouched.
+            feature_type = re.sub(
+                r"(?<![\w])timestamp(?![\w:])", "timestamp_ntz", _feature.type
+            )
+            spark_schema = self._jvm.org.apache.spark.sql.types.StructType.fromDDL(
+                f"{_feature.name} {feature_type}"
+            )
+            iceberg_type = (
+                self._jvm.org.apache.iceberg.spark.SparkSchemaUtil.convert(spark_schema)
+                .columns()
+                .get(0)
+                .type()
+            )
+            update_schema.addColumn(_feature.name, iceberg_type)
+        update_schema.commit()
 
     def _shallow_copy_dataframe(self, dataframe: DataFrame) -> DataFrame:
         return dataframe.copy(deep=False)

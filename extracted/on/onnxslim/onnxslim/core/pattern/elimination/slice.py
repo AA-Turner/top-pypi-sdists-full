@@ -40,6 +40,12 @@ class SlicePatternMatcher(PatternMatcher):
                 first_slice_node_ends = first_slice_node_inputs[2].values.tolist()
                 first_slice_node_axes = first_slice_node_inputs[3].values.tolist()
                 first_slice_node_steps = first_slice_node_inputs[4].values.tolist()
+                input_shape = first_slice_node_inputs[0].shape
+                if input_shape is None and any(axis < 0 for axis in first_slice_node_axes):
+                    return match_case
+                if input_shape is not None:
+                    rank = len(input_shape)
+                    first_slice_node_axes = [axis + rank if axis < 0 else axis for axis in first_slice_node_axes]
 
                 # Check all users upfront before modifying the graph.
                 # If any user has overlapping axes, skip the optimization entirely
@@ -47,6 +53,10 @@ class SlicePatternMatcher(PatternMatcher):
                 for user_node in first_slice_node_users:
                     second_slice_node_inputs = list(user_node.inputs)
                     second_slice_node_axes = second_slice_node_inputs[3].values.tolist()
+                    if input_shape is None and any(axis < 0 for axis in second_slice_node_axes):
+                        return match_case
+                    if input_shape is not None:
+                        second_slice_node_axes = [axis + rank if axis < 0 else axis for axis in second_slice_node_axes]
                     new_axes = first_slice_node_axes + second_slice_node_axes
                     if len(new_axes) != len(set(new_axes)):
                         return match_case
@@ -58,6 +68,8 @@ class SlicePatternMatcher(PatternMatcher):
                     second_slice_node_ends = second_slice_node_inputs[2].values.tolist()
                     second_slice_node_axes = second_slice_node_inputs[3].values.tolist()
                     second_slice_node_steps = second_slice_node_inputs[4].values.tolist()
+                    if input_shape is not None:
+                        second_slice_node_axes = [axis + rank if axis < 0 else axis for axis in second_slice_node_axes]
 
                     new_starts = first_slice_node_starts + second_slice_node_starts
                     new_ends = first_slice_node_ends + second_slice_node_ends
@@ -67,23 +79,31 @@ class SlicePatternMatcher(PatternMatcher):
                     inputs = []
                     output_name = second_slice_node.outputs[0].name
                     second_slice_name = output_name
+                    # Name the merged constants after the slice that keys the match
+                    # case: the first slice when it has a single user, otherwise the
+                    # second slice. Using the first slice's name for single-user merges
+                    # keeps the constant names unique across optimization passes. A
+                    # chain of 3+ Slices is merged over multiple passes, and each pass
+                    # would otherwise reuse the terminal output name and produce a
+                    # colliding constant name whose stale value shadows the new one.
+                    name_base = first_slice_name if len(first_slice_node_users) == 1 else second_slice_name
                     inputs.extend(
                         (
                             next(iter(first_slice_node.inputs)),
                             gs.Constant(
-                                output_name + "_starts",
+                                name_base + "_starts",
                                 values=np.array(new_starts, dtype=np.int64),
                             ),
                             gs.Constant(
-                                output_name + "_ends",
+                                name_base + "_ends",
                                 values=np.array(new_ends, dtype=np.int64),
                             ),
                             gs.Constant(
-                                output_name + "_axes",
+                                name_base + "_axes",
                                 values=np.array(new_axes, dtype=np.int64),
                             ),
                             gs.Constant(
-                                output_name + "_steps",
+                                name_base + "_steps",
                                 values=np.array(new_steps, dtype=np.int64),
                             ),
                         )

@@ -14,24 +14,35 @@
 
 import io
 import logging
+import reprlib
 import warnings
 from html import escape as html_escape
 
 from reportlab.lib import pdfencrypt
+from reportlab.platypus.doctemplate import NextPageTemplate
 from reportlab.platypus.flowables import Spacer
-from reportlab.platypus.frames import Frame
 
+from xhtml2pdf.builders.position import PositionAnchor
 from xhtml2pdf.builders.signs import PDFSignature
 from xhtml2pdf.builders.watermarks import WaterMarks
-from xhtml2pdf.config.resources import active_policy, default_policy, use_policy
+from xhtml2pdf.config.resources import (
+    active_policy,
+    default_policy,
+    render_budget,
+    use_policy,
+)
 from xhtml2pdf.context import pisaContext
 from xhtml2pdf.default import DEFAULT_CSS, DEFAULT_PAGE_NAME
 from xhtml2pdf.files import cleanFiles, pisaTempFile
 from xhtml2pdf.parser import pisaParser
 from xhtml2pdf.util import getBox, reset_caches
-from xhtml2pdf.xhtml2pdf_reportlab import PmlBaseDoc, PmlPageTemplate
+from xhtml2pdf.xhtml2pdf_reportlab import PmlBaseDoc, PmlFrame, PmlPageTemplate
 
 log = logging.getLogger(__name__)
+
+_SHORT_REPR = reprlib.Repr()
+_SHORT_REPR.maxstring = 200
+_SHORT_REPR.maxother = 200
 
 
 def pisaErrorDocument(dest, c):
@@ -84,7 +95,7 @@ def pisaStory(
     # Parse and fill the story. Everything the markup asks the renderer to
     # fetch happens inside this block, including the paths that do not go
     # through link_callback.
-    with use_policy(context.resource_policy):
+    with use_policy(context.resource_policy), render_budget(context.resource_policy):
         pisaParser(src, context, default_css, xhtml, encoding, xml_output)
 
     # Avoid empty documents
@@ -103,12 +114,21 @@ def pisaStory(
         # Only the start of the story. Further pages begin with content
         # carried over, and neither engine reintroduces a margin at a page
         # break.
-        first = context.story[0]
+        # A zero-size anchor of a positioned box is not the first block.
+        index = next(
+            (
+                i
+                for i, f in enumerate(context.story)
+                if not isinstance(f, PositionAnchor)
+            ),
+            0,
+        )
+        first = context.story[index]
         style = getattr(first, "style", None)
         space_before = getattr(style, "spaceBefore", 0) or 0
         if space_before > 0:
             style.spaceBefore = 0
-            context.story.insert(0, Spacer(1, space_before))
+            context.story.insert(index, Spacer(1, space_before))
 
     if context.indexing_story:
         context.story.append(context.indexing_story)
@@ -156,6 +176,56 @@ def start_on_mirrored_pair(doc, templates, *, declared_body: bool) -> None:
         # Names, not indexes: PmlBaseDoc.handle_nextPageTemplate resolves a
         # list of template ids into the cycle.
         doc._firstPageTemplateIndex = mirrored
+
+
+def start_on_leading_template(
+    doc, templates, story, *, declared_body: bool, body_named: bool = False
+) -> None:
+    """
+    Begin the document on the template a leading <pdf:nexttemplate> names.
+
+    A <pdf:nexttemplate> is reportlab's NextPageTemplate: it takes effect at
+    the next page break. Written before any content, as in
+
+        <body><pdf:nexttemplate name="cover"/><h1>Title</h1>
+
+    it came too late for the first page, which had already begun on the
+    synthetic body template -- 1cm margins -- so the template it named was
+    never used for the page it was written on (#455). When the stylesheet has
+    no unnamed @page, nothing else says what the first page is, and this is
+    taken to: the last of the leading ones names the first page's template,
+    and they are dropped from the story, having done their work.
+
+    With an unnamed @page the first page is that, as it always was, and a
+    leading <pdf:nexttemplate> keeps its reportlab meaning, "from the second
+    page on" -- a cover followed by the rest is written that way.
+
+    "@page body" is the unnamed @page by its own name, which reads as one
+    more named template: whoever wrote it next to "@page cover" and began
+    with <pdf:nexttemplate name="cover"/> is told why the cover is not the
+    first page.
+    """
+    leading = 0
+    name = None
+    while leading < len(story) and isinstance(story[leading], NextPageTemplate):
+        name = story[leading].action[1]
+        leading += 1
+    ids = [template.id for template in templates]
+    if not isinstance(name, str) or name not in ids:
+        return
+    if declared_body:
+        if body_named and name != DEFAULT_PAGE_NAME:
+            log.warning(
+                '<pdf:nexttemplate name="%s"/> before any content applies from'
+                ' the second page: "@page body" is the unnamed @page, which'
+                " the first page uses. Give that @page another name for the"
+                ' first page to be "%s".',
+                name,
+                name,
+            )
+        return
+    doc._firstPageTemplateIndex = ids.index(name)
+    del story[:leading]
 
 
 def pisaDocument(
@@ -207,7 +277,9 @@ def pisaDocument(
     log.debug(
         "pisaDocument options:\n  src = %r\n  dest = %r\n  path = %r\n  link_callback ="
         " %r\n  xhtml = %r\n  context_meta = %r",
-        src,
+        # The source may be the whole document, megabytes of it, and a debug
+        # log is no place to read it again.
+        _SHORT_REPR.repr(src),
         dest,
         path,
         link_callback,
@@ -233,7 +305,10 @@ def pisaDocument(
     )
 
     try:
-        with use_policy(context.resource_policy):
+        with (
+            use_policy(context.resource_policy),
+            render_budget(context.resource_policy),
+        ):
             return _build(
                 src,
                 context,
@@ -330,7 +405,7 @@ def _build(
         body = PmlPageTemplate(
             id="body",
             frames=[
-                Frame(
+                PmlFrame(
                     x,
                     y,
                     w,
@@ -351,7 +426,15 @@ def _build(
         for template in templates:
             template.canvasBackground = context.pageCanvasBackground
     doc.addPageTemplates(templates)
+    doc.pisaPositioned = context.positioned
     start_on_mirrored_pair(doc, templates, declared_body=declared_body)
+    start_on_leading_template(
+        doc,
+        templates,
+        context.story,
+        declared_body=declared_body,
+        body_named=context.bodyPageNamed,
+    )
 
     # Use multibuild e.g. if a TOC has to be created
     if context.multiBuild:

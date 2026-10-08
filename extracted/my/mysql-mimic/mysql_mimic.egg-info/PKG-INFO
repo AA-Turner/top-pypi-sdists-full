@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mysql-mimic
-Version: 3.0.4
+Version: 3.0.5
 Summary: A python implementation of the mysql server protocol
 Home-page: https://github.com/kelsin/mysql-mimic
 Author: Christopher Giroir

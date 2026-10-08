@@ -30,6 +30,28 @@ from ..utils import (
 )
 
 
+def get_trend(data, lookback=900, threshold=0.6):
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    window = data[-lookback:] if len(data) >= lookback else data
+    if len(window) < 2:
+        return True  # not enough data to determine trend
+    increasing = 0
+    total = 0
+    for i in range(1, len(window)):
+        if window[i] >= window[i - 1]:
+            increasing += 1
+        total += 1
+    ratio = increasing / total
+    if ratio >= threshold:
+        return True
+    elif ratio <= (1 - threshold):
+        return False
+    return None
+
+
 @dataclass
 class WarehouseObjectConfig(BaseConfig):
     """Configuration for Warehouse pallet detection use case in warehouse pallet monitoring."""
@@ -97,6 +119,81 @@ class WarehouseObjectUseCase(BaseProcessor):
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
 
+    def _preprocess_detections(self, data, config, stream_info):
+        """Filter, map, smooth, track and re-attach masks for one frame.
+
+        Split out of process() verbatim. `processed_data` is the only value
+        the block produced for the code that follows it.
+        """
+        # Step 1: Confidence filtering
+        if config.confidence_threshold is not None:
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+        else:
+            processed_data = data
+            self.logger.debug(
+                "Did not apply confidence filtering with threshold since nothing was provided"
+            )
+
+        # Step 2: Apply category mapping if provided
+        if config.index_to_category:
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
+
+        # Step 3: Category filtering
+        if config.target_categories:
+            processed_data = [
+                d for d in processed_data if d.get("category") in self.target_categories
+            ]
+
+        # Step 4: Apply bbox smoothing if enabled
+        # Deep-copy detections so that we preserve the original masks before any
+        # smoothing/tracking logic potentially removes them.
+        raw_processed_data = [copy.deepcopy(det) for det in processed_data]
+        if config.enable_smoothing:
+            if self.smoothing_tracker is None:
+                smoothing_config = BBoxSmoothingConfig(
+                    smoothing_algorithm=config.smoothing_algorithm,
+                    window_size=config.smoothing_window_size,
+                    cooldown_frames=config.smoothing_cooldown_frames,
+                    confidence_threshold=config.confidence_threshold,
+                    confidence_range_factor=config.smoothing_confidence_range_factor,
+                    enable_smoothing=True,
+                )
+                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+
+            processed_data = bbox_smoothing(
+                processed_data, self.smoothing_tracker.config, self.smoothing_tracker
+            )
+            # Restore masks after smoothing
+
+        # Step 5: Advanced tracking (BYTETracker-like)
+        try:
+            # Create tracker instance if it doesn't exist (preserves state across frames)
+            if self.tracker is None:
+                self.tracker = self._tracker_seam.get_shared_tracker(
+                    config, stream_info, profile=TrackerProfile.DEFAULT
+                )
+
+            processed_data = self.tracker.update(processed_data)
+        except Exception as e:  # noqa: BLE001 — argued below, and BLE001 blocks in strict mode
+            # Bare except is correct HERE: AdvancedTracker is a third-party
+            # component reached through a seam, so its failure set is not knowable
+            # from this module. The failure direction is already safe -- the
+            # warning is recorded and the frame continues with unsmoothed
+            # detections instead of being dropped.
+            self.logger.warning(f"AdvancedTracker failed: {e}")
+
+        # Update tracking state for total count per label
+        self._update_tracking_state(processed_data)
+
+        # ------------------------------------------------------------------ #
+        # Re-attach segmentation masks that were present in the original input
+        # but may have been stripped during smoothing/tracking. We match each
+        # processed detection back to the raw detection with the highest IoU
+        # and copy over its "masks" field (if available).
+        # ------------------------------------------------------------------ #
+        processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
+        return processed_data
+
     def process(
         self,
         data: Any,
@@ -127,63 +224,7 @@ class WarehouseObjectUseCase(BaseProcessor):
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
 
-        # Step 1: Confidence filtering
-        if config.confidence_threshold is not None:
-            processed_data = filter_by_confidence(data, config.confidence_threshold)
-        else:
-            processed_data = data
-            self.logger.debug("Did not apply confidence filtering with threshold since nothing was provided")
-
-        # Step 2: Apply category mapping if provided
-        if config.index_to_category:
-            processed_data = apply_category_mapping(processed_data, config.index_to_category)
-
-        # Step 3: Category filtering
-        if config.target_categories:
-            processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
-
-        # Step 4: Apply bbox smoothing if enabled
-        # Deep-copy detections so that we preserve the original masks before any
-        # smoothing/tracking logic potentially removes them.
-        raw_processed_data = [copy.deepcopy(det) for det in processed_data]
-        if config.enable_smoothing:
-            if self.smoothing_tracker is None:
-                smoothing_config = BBoxSmoothingConfig(
-                    smoothing_algorithm=config.smoothing_algorithm,
-                    window_size=config.smoothing_window_size,
-                    cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,
-                    confidence_range_factor=config.smoothing_confidence_range_factor,
-                    enable_smoothing=True,
-                )
-                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-
-            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            # Restore masks after smoothing
-
-        # Step 5: Advanced tracking (BYTETracker-like)
-        try:
-            # Create tracker instance if it doesn't exist (preserves state across frames)
-            if self.tracker is None:
-                self.tracker = self._tracker_seam.get_shared_tracker(
-                    config, stream_info, profile=TrackerProfile.DEFAULT
-                )
-
-            processed_data = self.tracker.update(processed_data)
-        except Exception as e:
-            # If advanced tracker fails, fallback to unsmoothed detections
-            self.logger.warning(f"AdvancedTracker failed: {e}")
-
-        # Update tracking state for total count per label
-        self._update_tracking_state(processed_data)
-
-        # ------------------------------------------------------------------ #
-        # Re-attach segmentation masks that were present in the original input
-        # but may have been stripped during smoothing/tracking. We match each
-        # processed detection back to the raw detection with the highest IoU
-        # and copy over its "masks" field (if available).
-        # ------------------------------------------------------------------ #
-        processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
+        processed_data = self._preprocess_detections(data, config, stream_info)
 
         # Update frame counter
         self._total_frame_counter += 1
@@ -206,8 +247,12 @@ class WarehouseObjectUseCase(BaseProcessor):
 
         alerts = self._check_alerts(counting_summary, frame_number, config)
         self._extract_predictions(processed_data)
-        incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number, stream_info)
+        incidents_list = self._generate_incidents(
+            counting_summary, alerts, config, frame_number, stream_info
+        )
+        tracking_stats_list = self._generate_tracking_stats(
+            counting_summary, alerts, config, frame_number, stream_info
+        )
         # business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, frame_number, stream_info, is_empty=False)
         business_analytics_list = []
         summary_list = self._generate_summary(
@@ -247,142 +292,19 @@ class WarehouseObjectUseCase(BaseProcessor):
         self._debug_elapsed_since(start_time)
         return result
 
-    def _check_alerts(self, summary: dict, frame_number: Any, config: WarehouseObjectConfig) -> List[Dict]:
-        """
-        Check if any alert thresholds are exceeded and return alert dicts.
-        """
-
-        def get_trend(data, lookback=900, threshold=0.6):
-            """
-            Determine if the trend is ascending or descending based on actual value progression.
-            Now works with values 0,1,2,3 (not just binary).
-            """
-            window = data[-lookback:] if len(data) >= lookback else data
-            if len(window) < 2:
-                return True  # not enough data to determine trend
-            increasing = 0
-            total = 0
-            for i in range(1, len(window)):
-                if window[i] >= window[i - 1]:
-                    increasing += 1
-                total += 1
-            ratio = increasing / total
-            if ratio >= threshold:
-                return True
-            elif ratio <= (1 - threshold):
-                return False
-            return None
-
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        alerts = []
-
-        if not config.alert_config:
-            return alerts
-
-        total = summary.get("total_count", 0)
-        # self._ascending_alert_list
-        if hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds:
-            for category, threshold in config.alert_config.count_thresholds.items():
-                if category == "all" and total > threshold:
-                    alerts.append(
-                        {
-                            "alert_type": (
-                                getattr(config.alert_config, "alert_type", ["Default"])
-                                if hasattr(config.alert_config, "alert_type")
-                                else ["Default"]
-                            ),
-                            "alert_id": "alert_" + category + "_" + frame_key,
-                            "incident_category": self.CASE_TYPE,
-                            "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
-                            "settings": {
-                                t: v
-                                for t, v in zip(
-                                    (
-                                        getattr(
-                                            config.alert_config,
-                                            "alert_type",
-                                            ["Default"],
-                                        )
-                                        if hasattr(config.alert_config, "alert_type")
-                                        else ["Default"]
-                                    ),
-                                    (
-                                        getattr(config.alert_config, "alert_value", ["JSON"])
-                                        if hasattr(config.alert_config, "alert_value")
-                                        else ["JSON"]
-                                    ),
-                                )
-                            },
-                        }
-                    )
-                elif category in summary.get("per_category_count", {}):
-                    count = summary.get("per_category_count", {})[category]
-                    if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
-                        alerts.append(
-                            {
-                                "alert_type": (
-                                    getattr(config.alert_config, "alert_type", ["Default"])
-                                    if hasattr(config.alert_config, "alert_type")
-                                    else ["Default"]
-                                ),
-                                "alert_id": "alert_" + category + "_" + frame_key,
-                                "incident_category": self.CASE_TYPE,
-                                "threshold_level": threshold,
-                                "ascending": get_trend(
-                                    self._ascending_alert_list,
-                                    lookback=900,
-                                    threshold=0.8,
-                                ),
-                                "settings": {
-                                    t: v
-                                    for t, v in zip(
-                                        (
-                                            getattr(
-                                                config.alert_config,
-                                                "alert_type",
-                                                ["Default"],
-                                            )
-                                            if hasattr(config.alert_config, "alert_type")
-                                            else ["Default"]
-                                        ),
-                                        (
-                                            getattr(
-                                                config.alert_config,
-                                                "alert_value",
-                                                ["JSON"],
-                                            )
-                                            if hasattr(config.alert_config, "alert_value")
-                                            else ["JSON"]
-                                        ),
-                                    )
-                                },
-                            }
-                        )
-        else:
-            pass
-        return alerts
-
-    def _generate_incidents(
+    def _collect_detection_incidents(
         self,
-        counting_summary: Dict,
-        alerts: List,
-        config: WarehouseObjectConfig,
-        frame_number: Optional[int] = None,
-        stream_info: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict]:
-        """Generate structured events for the output format with frame-based keys."""
-
-        # Use frame number as key, fallback to 'current_frame' if not available
-        incidents = []
-        total_detections = counting_summary.get("total_count", 0)
-        current_timestamp = self._get_current_timestamp_str(stream_info)
-        camera_info = self.get_camera_info_from_stream(stream_info)
-
-        self._ascending_alert_list = (
-            self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
-        )
-
+        config,
+        counting_summary,
+        incidents,
+        frame_number,
+        total_detections,
+        stream_info,
+        current_timestamp,
+        camera_info,
+        alerts,
+    ):
+        """Incidents for this frame. Split out of _generate_incidents."""
         if total_detections > 0:
             # Determine event level based on thresholds
             start_timestamp = self._get_start_timestamp_str(stream_info)
@@ -390,7 +312,10 @@ class WarehouseObjectUseCase(BaseProcessor):
             if start_timestamp and self.current_incident_end_timestamp == "N/A":
                 self.current_incident_end_timestamp = "Incident still active"
             elif start_timestamp and self.current_incident_end_timestamp == "Incident still active":
-                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                if (
+                    len(self._ascending_alert_list) >= 15
+                    and sum(self._ascending_alert_list[-15:]) / 15 < 1.5
+                ):
                     self.current_incident_end_timestamp = current_timestamp
             elif (
                 self.current_incident_end_timestamp != "Incident still active"
@@ -462,6 +387,7 @@ class WarehouseObjectUseCase(BaseProcessor):
                                     if hasattr(config.alert_config, "alert_value")
                                     else ["JSON"]
                                 ),
+                                strict=False,
                             )
                         },
                     }
@@ -484,6 +410,210 @@ class WarehouseObjectUseCase(BaseProcessor):
         else:
             self._ascending_alert_list.append(0)
             incidents.append({})
+        return incidents
+
+    def _build_detection_objects(self, counting_summary):
+        """Detection objects for the tracking stat. Split out of _generate_tracking_stats."""
+        detections = []
+        for detection in counting_summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "person")
+            # Include segmentation if available (like in eg.json)
+            if detection.get("masks"):
+                segmentation = detection.get("masks", [])
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
+            elif detection.get("segmentation"):
+                segmentation = detection.get("segmentation")
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
+            elif detection.get("mask"):
+                segmentation = detection.get("mask")
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
+        return detections
+
+    def _build_alert_settings(self, config):
+        """Alert-settings array. Split out of _generate_tracking_stats."""
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, "alert_type"):
+            alert_settings.append(
+                {
+                    "alert_type": (
+                        getattr(config.alert_config, "alert_type", ["Default"])
+                        if hasattr(config.alert_config, "alert_type")
+                        else ["Default"]
+                    ),
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": (
+                        config.alert_config.count_thresholds
+                        if hasattr(config.alert_config, "count_thresholds")
+                        else {}
+                    ),
+                    "ascending": True,
+                    "settings": {
+                        t: v
+                        for t, v in zip(
+                            (
+                                getattr(config.alert_config, "alert_type", ["Default"])
+                                if hasattr(config.alert_config, "alert_type")
+                                else ["Default"]
+                            ),
+                            (
+                                getattr(config.alert_config, "alert_value", ["JSON"])
+                                if hasattr(config.alert_config, "alert_value")
+                                else ["JSON"]
+                            ),
+                            strict=False,
+                        )
+                    },
+                }
+            )
+        return alert_settings
+
+    def _check_alerts(
+        self, summary: dict, frame_number: Any, config: WarehouseObjectConfig
+    ) -> List[Dict]:
+        """
+        Check if any alert thresholds are exceeded and return alert dicts.
+        """
+
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        alerts = []
+
+        if not config.alert_config:
+            return alerts
+
+        total = summary.get("total_count", 0)
+        # self._ascending_alert_list
+        if (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
+            for category, threshold in config.alert_config.count_thresholds.items():
+                if category == "all" and total > threshold:
+                    alerts.append(
+                        {
+                            "alert_type": (
+                                getattr(config.alert_config, "alert_type", ["Default"])
+                                if hasattr(config.alert_config, "alert_type")
+                                else ["Default"]
+                            ),
+                            "alert_id": "alert_" + category + "_" + frame_key,
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": threshold,
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
+                            "settings": {
+                                t: v
+                                for t, v in zip(
+                                    (
+                                        getattr(
+                                            config.alert_config,
+                                            "alert_type",
+                                            ["Default"],
+                                        )
+                                        if hasattr(config.alert_config, "alert_type")
+                                        else ["Default"]
+                                    ),
+                                    (
+                                        getattr(config.alert_config, "alert_value", ["JSON"])
+                                        if hasattr(config.alert_config, "alert_value")
+                                        else ["JSON"]
+                                    ),
+                                    strict=False,
+                                )
+                            },
+                        }
+                    )
+                elif category in summary.get("per_category_count", {}):
+                    count = summary.get("per_category_count", {})[category]
+                    if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
+                        alerts.append(
+                            {
+                                "alert_type": (
+                                    getattr(config.alert_config, "alert_type", ["Default"])
+                                    if hasattr(config.alert_config, "alert_type")
+                                    else ["Default"]
+                                ),
+                                "alert_id": "alert_" + category + "_" + frame_key,
+                                "incident_category": self.CASE_TYPE,
+                                "threshold_level": threshold,
+                                "ascending": get_trend(
+                                    self._ascending_alert_list,
+                                    lookback=900,
+                                    threshold=0.8,
+                                ),
+                                "settings": {
+                                    t: v
+                                    for t, v in zip(
+                                        (
+                                            getattr(
+                                                config.alert_config,
+                                                "alert_type",
+                                                ["Default"],
+                                            )
+                                            if hasattr(config.alert_config, "alert_type")
+                                            else ["Default"]
+                                        ),
+                                        (
+                                            getattr(
+                                                config.alert_config,
+                                                "alert_value",
+                                                ["JSON"],
+                                            )
+                                            if hasattr(config.alert_config, "alert_value")
+                                            else ["JSON"]
+                                        ),
+                                        strict=False,
+                                    )
+                                },
+                            }
+                        )
+        else:
+            pass
+        return alerts
+
+    def _generate_incidents(
+        self,
+        counting_summary: Dict,
+        alerts: List,
+        config: WarehouseObjectConfig,
+        frame_number: Optional[int] = None,
+        stream_info: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict]:
+        """Generate structured events for the output format with frame-based keys."""
+
+        # Use frame number as key, fallback to 'current_frame' if not available
+        incidents = []
+        total_detections = counting_summary.get("total_count", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+
+        self._ascending_alert_list = (
+            self._ascending_alert_list[-900:]
+            if len(self._ascending_alert_list) > 900
+            else self._ascending_alert_list
+        )
+
+        incidents = self._collect_detection_incidents(
+            config,
+            counting_summary,
+            incidents,
+            frame_number,
+            total_detections,
+            stream_info,
+            current_timestamp,
+            camera_info,
+            alerts,
+        )
 
         return incidents
 
@@ -504,16 +634,24 @@ class WarehouseObjectUseCase(BaseProcessor):
         # tracking_stats = [{frame_key: []}]
         # frame_tracking_stats = tracking_stats[0][frame_key]
 
-        total_detections = counting_summary.get("total_count", 0)  # CURRENT total count of all classes
-        total_counts_dict = counting_summary.get("total_counts", {})  # TOTAL cumulative counts per class
-        per_category_count = counting_summary.get("per_category_count", {})  # CURRENT count per class
+        total_detections = counting_summary.get(
+            "total_count", 0
+        )  # CURRENT total count of all classes
+        total_counts_dict = counting_summary.get(
+            "total_counts", {}
+        )  # TOTAL cumulative counts per class
+        per_category_count = counting_summary.get(
+            "per_category_count", {}
+        )  # CURRENT count per class
 
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
         start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
         self._debug_stream_timing("start_timestamp", start_timestamp)
 
         # Create high precision timestamps for input_timestamp and reset_timestamp
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_start_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True
+        )
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         # Build total_counts array in expected format
@@ -521,65 +659,19 @@ class WarehouseObjectUseCase(BaseProcessor):
         for cat, count in total_counts_dict.items():
             if count > 0:
                 total_counts.append({"category": cat, "count": count})
-        print(total_counts)
+        self.logger.debug("%s", total_counts)
         # Build current_counts array in expected format
         current_counts = []
         for cat, count in per_category_count.items():
             if count > 0 or total_detections > 0:  # Include even if 0 when there are detections
                 current_counts.append({"category": cat, "count": count})
-        print(current_counts)
+        self.logger.debug("%s", current_counts)
         # Prepare detections without confidence scores (as per eg.json)
-        detections = []
-        for detection in counting_summary.get("detections", []):
-            bbox = detection.get("bounding_box", {})
-            category = detection.get("category", "person")
-            # Include segmentation if available (like in eg.json)
-            if detection.get("masks"):
-                segmentation = detection.get("masks", [])
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            elif detection.get("segmentation"):
-                segmentation = detection.get("segmentation")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            elif detection.get("mask"):
-                segmentation = detection.get("mask")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            else:
-                detection_obj = self.create_detection_object(category, bbox)
-            detections.append(detection_obj)
-        print(detections)
+        detections = self._build_detection_objects(counting_summary)
+        self.logger.debug("%s", detections)
         # Build alert_settings array in expected format
-        alert_settings = []
-        if config.alert_config and hasattr(config.alert_config, "alert_type"):
-            alert_settings.append(
-                {
-                    "alert_type": (
-                        getattr(config.alert_config, "alert_type", ["Default"])
-                        if hasattr(config.alert_config, "alert_type")
-                        else ["Default"]
-                    ),
-                    "incident_category": self.CASE_TYPE,
-                    "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
-                    ),
-                    "ascending": True,
-                    "settings": {
-                        t: v
-                        for t, v in zip(
-                            (
-                                getattr(config.alert_config, "alert_type", ["Default"])
-                                if hasattr(config.alert_config, "alert_type")
-                                else ["Default"]
-                            ),
-                            (
-                                getattr(config.alert_config, "alert_value", ["JSON"])
-                                if hasattr(config.alert_config, "alert_value")
-                                else ["JSON"]
-                            ),
-                        )
-                    },
-                }
-            )
-        print(alert_settings)
+        alert_settings = self._build_alert_settings(config)
+        self.logger.debug("%s", alert_settings)
         # Generate human_text in expected format
         human_text_lines = ["Tracking Statistics:"]
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
@@ -594,13 +686,17 @@ class WarehouseObjectUseCase(BaseProcessor):
 
         if alerts:
             for alert in alerts:
-                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+                human_text_lines.append(
+                    f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}"
+                )
         else:
             human_text_lines.append("Alerts: None")
 
         human_text = "\n".join(human_text_lines)
-        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
-        print(human_text)
+        reset_settings = [
+            {"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}
+        ]
+        self.logger.debug("%s", human_text)
         tracking_stat = self.create_tracking_stats(
             total_counts=total_counts,
             current_counts=current_counts,
@@ -615,7 +711,7 @@ class WarehouseObjectUseCase(BaseProcessor):
         )
 
         tracking_stats.append(tracking_stat)
-        print(tracking_stats)
+        self.logger.debug("%s", tracking_stats)
         return tracking_stats
 
     def _generate_business_analytics(
@@ -682,7 +778,9 @@ class WarehouseObjectUseCase(BaseProcessor):
         valid_detections = []
         for det in detections:
             cat = det.get("category", "unknown")
-            if not all(k in det for k in ["category", "confidence", "bounding_box"]):  # Validate required fields
+            if not all(
+                k in det for k in ["category", "confidence", "bounding_box"]
+            ):  # Validate required fields
                 self.logger.warning(f"Skipping invalid detection: {det}")
                 continue
             counts[cat] = counts.get(cat, 0) + 1
@@ -693,7 +791,9 @@ class WarehouseObjectUseCase(BaseProcessor):
                     "confidence": det.get("confidence"),
                     "track_id": det.get("track_id"),
                     "frame_id": det.get("frame_id"),
-                    "masks": det.get("masks", det.get("mask", [])),  # Include masks, fallback to empty list
+                    "masks": det.get(
+                        "masks", det.get("mask", [])
+                    ),  # Include masks, fallback to empty list
                 }
             )
         self.logger.debug(f"Valid detections after filtering: {len(valid_detections)}")
@@ -754,7 +854,9 @@ class WarehouseObjectUseCase(BaseProcessor):
         """
         Return total unique track_id count for each category.
         """
-        return {cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()
+        }
 
     def _format_timestamp_for_video(self, timestamp: float) -> str:
         """Format timestamp for video chunks (HH:MM:SS.ms format)."""
@@ -781,11 +883,13 @@ class WarehouseObjectUseCase(BaseProcessor):
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
-                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                        "original_fps", 30
+                    )
                 else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                        "input_settings", {}
-                    ).get("original_fps", 30)
+                    start_time = stream_info.get("input_settings", {}).get(
+                        "start_frame", 30
+                    ) / stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
                 return stream_time_str
             else:
@@ -793,16 +897,20 @@ class WarehouseObjectUseCase(BaseProcessor):
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             if frame_id:
-                start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                    "original_fps", 30
+                )
             else:
-                start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                    "input_settings", {}
-                ).get("original_fps", 30)
+                start_time = stream_info.get("input_settings", {}).get(
+                    "start_frame", 30
+                ) / stream_info.get("input_settings", {}).get("original_fps", 30)
             stream_time_str = self._format_timestamp_for_video(start_time)
             return stream_time_str
         else:
             # For streams, use stream_time from stream_info
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            stream_time_str = (
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            )
             if stream_time_str:
                 # Parse the high precision timestamp string to get timestamp
                 try:
@@ -811,13 +919,16 @@ class WarehouseObjectUseCase(BaseProcessor):
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
-                    # Fallback to current time if parsing fails
+                except (ValueError, AttributeError):
+                    # strptime raises ValueError on any malformed/wrongly-typed
+                    # value; .replace on a non-str raises AttributeError.
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_start_timestamp_str(
+        self, stream_info: Optional[Dict[str, Any]], precision=False
+    ) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
@@ -834,15 +945,20 @@ class WarehouseObjectUseCase(BaseProcessor):
             # For streams, use tracking start time or current time with minutes/seconds reset
             if self._tracking_start_time is None:
                 # Try to extract timestamp from stream_time string
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         # Remove " UTC" suffix and parse
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
-                        # Fallback to current time if parsing fails
+                    except (ValueError, AttributeError):
+                        # Same parse as above: ValueError from strptime, or
+                        # AttributeError from .replace on a non-str.
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()

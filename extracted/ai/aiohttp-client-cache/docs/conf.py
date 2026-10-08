@@ -1,23 +1,19 @@
 # Sphinx documentation build configuration file
-import sys
-from os.path import abspath, dirname, join
+from importlib.metadata import version as pkg_version
+from pathlib import Path
 
-DOCS_DIR = abspath(dirname(__file__))
-PROJECT_DIR = dirname(DOCS_DIR)
-PACKAGE_DIR = join(PROJECT_DIR, 'aiohttp_client_cache')
-
-# Add project path so we can import our package
-sys.path.insert(0, PROJECT_DIR)
-from aiohttp_client_cache import __version__  # noqa
+DOCS_DIR = Path(__file__).parent.absolute()
+PROJECT_DIR = DOCS_DIR.parent
+PACKAGE_DIR = PROJECT_DIR / 'aiohttp_client_cache'
 
 # General project info
 project = 'aiohttp-client-cache'
-needs_sphinx = '5.0'
-version = release = __version__
+needs_sphinx = '9.0'
+version = release = pkg_version('aiohttp-client-cache')
 
 # General source info
 master_doc = 'index'
-source_suffix = ['.rst', '.md']
+source_suffix = {'.rst': 'restructuredtext', '.md': 'restructuredtext'}
 html_static_path = ['_static']
 templates_path = ['_templates']
 
@@ -42,9 +38,8 @@ intersphinx_mapping = {
     'aioboto3': ('https://aioboto3.readthedocs.io/en/latest/', None),
     'aiohttp': ('https://docs.aiohttp.org/en/stable/', None),
     'aiosqlite': ('https://aiosqlite.omnilib.dev/en/latest/', None),
-    'botocore': ('http://botocore.readthedocs.io/en/latest/', None),
+    'botocore': ('https://botocore.amazonaws.com/v1/documentation/api/latest', None),
     'boto3': ('https://boto3.amazonaws.com/v1/documentation/api/latest', None),
-    'motor': ('https://motor.readthedocs.io/en/stable/', None),
     'pymongo': ('https://pymongo.readthedocs.io/en/stable/', None),
     'python': ('https://docs.python.org/3', None),
     'redis': ('https://redis-py.readthedocs.io/en/stable/', None),
@@ -82,11 +77,10 @@ copybutton_prompt_is_regexp = True
 # Move type hint info to function description instead of signature
 autodoc_typehints = 'description'
 always_document_param_types = True
-set_type_checking_flag = False
 
 # Use apidoc to auto-generate rst sources
-apidoc_excluded_paths = ['forge_utils.py']
-apidoc_module_dir = PACKAGE_DIR
+apidoc_excluded_paths = ['signatures.py']
+apidoc_module_dir = str(PACKAGE_DIR)
 apidoc_module_first = True
 apidoc_output_dir = 'modules'
 apidoc_separate_modules = True
@@ -97,7 +91,6 @@ add_module_names = False
 # Options for automodapi and autosectionlabel
 automodsumm_inherited_members = False
 autosectionlabel_prefix_document = True
-numpydoc_show_class_members = False
 
 # HTML general settings
 # html_favicon = join('images', 'favicon.ico')

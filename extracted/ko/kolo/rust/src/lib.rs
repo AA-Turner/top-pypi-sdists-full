@@ -5,8 +5,8 @@ mod _kolo {
     use pyo3::ffi;
     use pyo3::intern;
     use pyo3::prelude::*;
-    use pyo3::types::PyDict;
     use pyo3::types::PyTuple;
+    use pyo3::types::{PyBytes, PyDict};
     use std::os::raw::c_int;
     use std::ptr;
 
@@ -105,6 +105,19 @@ mod _kolo {
     }
 
     #[pyfunction]
+    #[pyo3(signature = (value, lightweight_repr=false))]
+    /// Encode `value` with the native serializer used for traced frames.
+    /// Exposed so tests can compare it with `kolo.serialize.dump_msgpack`.
+    fn _native_dump_msgpack<'py>(
+        value: &Bound<'py, PyAny>,
+        lightweight_repr: bool,
+    ) -> Result<Bound<'py, PyBytes>, PyErr> {
+        let py = value.py();
+        let encoded = utils::Serializer::new(py)?.dump_msgpack(py, value, lightweight_repr)?;
+        Ok(PyBytes::new(py, &encoded))
+    }
+
+    #[pyfunction]
     fn writer_circuit_open() -> bool {
         trace_container::writer_circuit_open()
     }
@@ -146,11 +159,16 @@ mod _kolo {
         })
     }
 
-    #[pymodule]
+    // PyO3 0.28 flipped the default to gil_used = false. Keep the GIL-requiring
+    // declaration we had before: value serialization iterates user containers
+    // without a critical section, so concurrent mutation on a free-threaded
+    // build can panic mid-capture.
+    #[pymodule(gil_used = true)]
     mod _kolo {
         #[pymodule_export]
         use super::{
-            register_monitor, register_noop_profiler, register_profiler, writer_circuit_open,
+            _native_dump_msgpack, register_monitor, register_noop_profiler, register_profiler,
+            writer_circuit_open,
         };
     }
 

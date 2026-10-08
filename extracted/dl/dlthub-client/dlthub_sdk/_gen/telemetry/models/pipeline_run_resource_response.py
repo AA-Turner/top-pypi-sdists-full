@@ -6,6 +6,7 @@ from typing import Any, TypeVar, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.write_disposition import WriteDisposition
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="PipelineRunResourceResponse")
@@ -20,7 +21,7 @@ class PipelineRunResourceResponse:
         parent_resource_name (None | str | Unset):
         rows_extracted (int | None | Unset):
         schema_name (str | Unset):  Default: ''.
-        write_disposition (None | str | Unset):
+        write_disposition (None | str | Unset | WriteDisposition):
     """
 
     resource_name: str
@@ -28,7 +29,7 @@ class PipelineRunResourceResponse:
     parent_resource_name: None | str | Unset = UNSET
     rows_extracted: int | None | Unset = UNSET
     schema_name: str | Unset = ""
-    write_disposition: None | str | Unset = UNSET
+    write_disposition: None | str | Unset | WriteDisposition = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,6 +58,8 @@ class PipelineRunResourceResponse:
         write_disposition: None | str | Unset
         if isinstance(self.write_disposition, Unset):
             write_disposition = UNSET
+        elif isinstance(self.write_disposition, WriteDisposition):
+            write_disposition = self.write_disposition.value
         else:
             write_disposition = self.write_disposition
 
@@ -116,12 +119,22 @@ class PipelineRunResourceResponse:
 
         schema_name = d.pop("schema_name", UNSET)
 
-        def _parse_write_disposition(data: object) -> None | str | Unset:
+        def _parse_write_disposition(
+            data: object,
+        ) -> None | str | Unset | WriteDisposition:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                write_disposition_type_0 = WriteDisposition(data)
+
+                return write_disposition_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | str | Unset | WriteDisposition, data)
 
         write_disposition = _parse_write_disposition(d.pop("write_disposition", UNSET))
 

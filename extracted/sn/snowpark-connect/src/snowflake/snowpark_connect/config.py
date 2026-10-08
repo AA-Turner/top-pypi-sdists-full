@@ -379,12 +379,10 @@ class GlobalConfig:
         "snowpark.connect.handleIntegralOverflow": "false",
         # SNOW-4061004: client-side gate for emitting TABLE_PROPERTIES(...) on
         # CLD CREATE / ALTER ICEBERG TABLE. Global (settable via spark.conf.set).
-        # Default OFF: the GS parameter ENABLE_ICEBERG_TABLE_PROPERTIES_DDL must
-        # also be on for GS to accept the clause, and that server-side rollout is
-        # postponed, so keep emission suppressed by default until GS is enabled
-        # (set spark.conf to "true" to opt in on an account where GS supports it).
-        # TODO(SNOW-4061004): flip back to "true" once the GS rollout lands.
-        "snowpark.connect.iceberg.enable_table_properties_ddl": "false",
+        # Default ON now that the GS parameter ENABLE_ICEBERG_TABLE_PROPERTIES_DDL
+        # rollout has landed. Set spark.conf to "false" to suppress emission on an
+        # account where GS has not enabled it yet.
+        "snowpark.connect.iceberg.enable_table_properties_ddl": "true",
         # Internal gate (SNOW-3778487): when true (default), an atomic overwrite /
         # overwrite-partitions on an unmanaged (CLD / external-catalog) Iceberg
         # table that GS rejects as a multi-statement transaction (091586) raises an
@@ -455,18 +453,18 @@ class GlobalConfig:
         # emitted instead, allowing us to observe impact before enabling the BCR.
         "snowpark.connect.config.raiseForUnknownKeys": "false",
         # Master switch for SNOW-3585737 (java.time-based datetime UDF fallback +
-        # Spark-faithful datetime format validation). When true, patterns that
-        # Snowflake's TO_CHAR/TO_TIMESTAMP cannot reproduce are routed through the
-        # DatetimeFormatUdfs Java UDF, and formats are validated as Spark would.
-        # When false (default), both behaviors revert to the native
-        # TO_CHAR/TO_TIMESTAMP mapping that predates the feature branch.
-        # Defaulted off as a BCR mode 3
-        "snowpark.connect.useUdfForUnsupportedDateTimeFormats": "false",
-        # SNOW-3585745 BCR: when false (default), cast(string → LongType) uses
-        # the DOUBLE intermediate (lossy near Long.MIN/MAX). When true,
-        # uses a DecimalType(38,18) intermediate for full 19-digit precision.
-        # Set true to opt into the corrected near-boundary values.
-        "snowpark.connect.cast.stringToIntegralHighPrecision": "false",
+        # Spark-faithful datetime format validation). When true (default), patterns
+        # that Snowflake's TO_CHAR/TO_TIMESTAMP cannot reproduce are routed through
+        # the DatetimeFormatUdfs Java UDF, and formats are validated as Spark would.
+        # When false, both behaviors revert to the native TO_CHAR/TO_TIMESTAMP
+        # mapping that predates the feature branch (escape hatch).
+        # Default flipped to true by SNOW-3745567 (BCR).
+        "snowpark.connect.useUdfForUnsupportedDateTimeFormats": "true",
+        # SNOW-3585745 BCR: when true (default), cast(string → LongType) uses a
+        # DecimalType(38,18) intermediate for full 19-digit precision. When
+        # false, reverts to the pre-BCR DOUBLE intermediate (lossy near
+        # Long.MIN/MAX). Set false to restore the prior near-boundary values.
+        "snowpark.connect.cast.stringToIntegralHighPrecision": "true",
         # SNOW-3585745 : when true (default), sum/avg/mean/abs over a
         # StringType column use TRY_CAST (non-ANSI: malformed → NULL, ignored
         # by the aggregate). When false, reverts to the pre-BCR strict CAST
@@ -474,14 +472,15 @@ class GlobalConfig:
         # non-ANSI mode. Set false to restore prior behavior if a workload
         # relies on the 100038 error as a data-quality gate.
         "snowpark.connect.aggregate.coerceStringToNumeric": "true",
-        # SNOW-3644027: Spark maps a standalone two-digit year ('yy') to the
-        # 2000-2099 window, while Snowflake's native 'YY' parsing follows the
-        # TWO_DIGIT_CENTURY_START session parameter (default 1970: 00-69 ->
-        # 2000-2069, 70-99 -> 1970-1999). When true, sets
-        # TWO_DIGIT_CENTURY_START = 2000 for the session, giving the Spark
-        # 2000-2099 window. When false (default), TWO_DIGIT_CENTURY_START is
-        # left untouched.
-        "snowpark.connect.use2000AsTwoDigitCenturyStart": "false",
+        # SNOW-3644027 / SNOW-3730644 BCR: Spark maps a standalone two-digit
+        # year ('yy') to the 2000-2099 window, while Snowflake's native 'YY'
+        # parsing follows the TWO_DIGIT_CENTURY_START session parameter
+        # (native default 1970: 00-69 -> 2000-2069, 70-99 -> 1970-1999). When
+        # true (default), sets TWO_DIGIT_CENTURY_START = 2000 for the session,
+        # giving the Spark 2000-2099 window. When false, reverts to Snowflake's
+        # native 1970 window (pre-BCR behavior) as an escape hatch for
+        # workloads that relied on the old parsing.
+        "snowpark.connect.use2000AsTwoDigitCenturyStart": "true",
         # SNOW-3585769: from_json requires a STRING (or untyped NULL) input. When
         # true (default), a non-string input (ARRAY/STRUCT/MAP or scalar non-string)
         # is rejected at analysis time with DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE,
@@ -795,7 +794,8 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.large_query_breakdown.complexity_lower_bound",
     "snowpark.connect.large_query_breakdown.complexity_upper_bound",
     "snowpark.connect.useUdfForUnsupportedDateTimeFormats",
-    "snowpark.connect.useJavaRegexForRlikeWhitespace",
+    "snowpark.connect.useJavaRegexSemantics",
+    "snowpark.connect.useJavaRegexForRlikeWhitespace",  # Deprecated: use useJavaRegexSemantics
     "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
     "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
     "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
@@ -1061,9 +1061,14 @@ class SessionConfig:
         "snowpark.connect.sql.returnDmlMetadata": "false",
         # SNOW-3859781: opt-in; default off preserves existing SQL shape.
         "snowpark.connect.sql.flattenChainedUnion": "false",
-        # Opt-in Java Pattern for Spark RLIKE with \\s/\\S (tab vs POSIX
+        # Opt-in java.util.regex evaluation for patterns Snowflake's engine cannot
+        # honor: non-greedy quantifiers (silently matched greedily), (?:...) groups
+        # and lookarounds (rejected outright), and RLIKE \\s/\\S (tab vs POSIX
         # regexp_instr). Session-scoped so spark.conf.set does not flip other
         # sessions on the same SCOS process. Default false: no fleet change.
+        "snowpark.connect.useJavaRegexSemantics": "false",
+        # Deprecated, shipped in 1.44.0: RLIKE-only \s/\S routing. Still honored with
+        # exactly that meaning; it is NOT an alias for useJavaRegexSemantics.
         "snowpark.connect.useJavaRegexForRlikeWhitespace": "false",
         "snowpark.connect.csv.continueOnError": "false",  # Deprecated
         "snowpark.connect.csv.skipBlankLines": "true",  # SNOW-3295599
@@ -1985,11 +1990,25 @@ def is_use_udf_for_unsupported_datetime_formats_enabled() -> bool:
     )
 
 
-def is_use_java_regex_for_rlike_whitespace_enabled() -> bool:
-    """Opt-in: Spark RLIKE with Java \\s/\\S uses RegexpUdfs.rlike.
+def is_use_java_regex_semantics_enabled() -> bool:
+    """Opt-in: evaluate regex through java.util.regex instead of Snowflake's engine.
 
-    Session-scoped (``get_boolean_session_config_param``). Default false =
-    today's regexp_instr for all rlike (no fleet impact).
+    Gates every affected surface: ``regexp_extract``, ``regexp_substr``,
+    ``regexp_count`` and RLIKE. Supersedes ``useJavaRegexForRlikeWhitespace`` (see
+    ``is_use_java_regex_for_rlike_whitespace_enabled``), which shipped in 1.44.0 and is
+    still honored with its own, narrower meaning rather than as an alias.
+    Session-scoped (``get_boolean_session_config_param``); default false = today's
+    native-SQL behavior everywhere (no fleet impact).
+    """
+    return get_boolean_session_config_param("snowpark.connect.useJavaRegexSemantics")
+
+
+def is_use_java_regex_for_rlike_whitespace_enabled() -> bool:
+    """Deprecated 1.44.0 key: RLIKE with Java ``\\s``/``\\S`` uses RegexpUdfs.rlike.
+
+    Kept for backward compatibility with sessions that set it after 1.44.0. It keeps its
+    RLIKE-only, whitespace-only meaning; it does not turn on the wider routing that
+    ``useJavaRegexSemantics`` controls. Session-scoped; default false.
     """
     return get_boolean_session_config_param(
         "snowpark.connect.useJavaRegexForRlikeWhitespace"
@@ -2380,9 +2399,7 @@ def is_native_function_calls_enabled() -> bool:
 
 def is_cast_string_to_integral_high_precision_enabled() -> bool:
     return str_to_bool(
-        global_config.get(
-            "snowpark.connect.cast.stringToIntegralHighPrecision", "false"
-        )
+        global_config.get("snowpark.connect.cast.stringToIntegralHighPrecision", "true")
     )
 
 

@@ -19,14 +19,13 @@ Key Features:
 - Normalizes boolean parameters for API requests
 - Supports both sync (httpx.Client) and async (httpx.AsyncClient) HTTP clients
 
-Note: This module relies on the 'httpx' library for both sync and async operations.
+Note: This module sends requests with an httpx or httpx2 client, sync or async.
 """
 
 import json
 import sys
 from types import MappingProxyType
 
-import httpx
 
 if sys.version_info >= (3, 11):
     import typing
@@ -46,10 +45,38 @@ from typesense.exceptions import (
     ServiceUnavailable,
     TypesenseClientError,
 )
+from typesense.http_backend import (
+    ASYNC_CLIENT_TYPES,
+    CLIENT_TYPES,
+    AsyncClientType,
+    SyncClientType,
+    ResponseType,
+    backend_errors,
+)
+
+_DECODING_ERRORS: typing.Final[typing.Tuple[typing.Type[Exception], ...]] = (
+    json.JSONDecodeError,
+    *backend_errors("DecodingError"),
+)
 
 TEntityDict = typing.TypeVar("TEntityDict")
-TParams = typing.TypeVar("TParams", bound=typing.Dict[str, typing.Any])
-TBody = typing.TypeVar("TBody", bound=typing.Union[str, bytes])
+TParams = typing.TypeVar("TParams", bound=typing.Mapping[str, object])
+TBody = typing.TypeVar(
+    "TBody", bound=typing.Union[str, bytes, typing.Mapping[str, typing.Any]]
+)
+
+# The query parameter values httpx accepts, once booleans are normalized to strings.
+_QueryParams = typing.Mapping[
+    str,
+    typing.Union[
+        str,
+        int,
+        float,
+        bool,
+        None,
+        typing.Sequence[typing.Union[str, int, float, bool, None]],
+    ],
+]
 
 _ERROR_CODE_MAP: typing.Mapping[str, typing.Type[TypesenseClientError]] = (
     MappingProxyType(
@@ -99,7 +126,7 @@ class SessionFunctionKwargs(typing.Generic[TParams, TBody], typing.TypedDict):
     data: typing.NotRequired[
         typing.Union[TBody, str, typing.Dict[str, typing.Any], None]
     ]
-    content: typing.NotRequired[typing.Union[TBody, str, None]]
+    content: typing.NotRequired[typing.Union[str, bytes, None]]
     headers: typing.NotRequired[typing.Dict[str, str]]
     timeout: typing.NotRequired[float]
 
@@ -128,6 +155,7 @@ class RequestHandler:
         """
         self.config = config
 
+    @typing.overload
     def make_request(
         self,
         *,
@@ -135,7 +163,30 @@ class RequestHandler:
         url: str,
         entity_type: typing.Type[TEntityDict],
         as_json: typing.Union[typing.Literal[True], typing.Literal[False]] = True,
-        client: typing.Union[httpx.Client, httpx.AsyncClient],
+        client: AsyncClientType,
+        **kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
+    ) -> typing.Coroutine[typing.Any, typing.Any, typing.Union[TEntityDict, str]]: ...
+
+    @typing.overload
+    def make_request(
+        self,
+        *,
+        method: str,
+        url: str,
+        entity_type: typing.Type[TEntityDict],
+        as_json: typing.Union[typing.Literal[True], typing.Literal[False]] = True,
+        client: SyncClientType,
+        **kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
+    ) -> typing.Union[TEntityDict, str]: ...
+
+    def make_request(
+        self,
+        *,
+        method: str,
+        url: str,
+        entity_type: typing.Type[TEntityDict],
+        as_json: typing.Union[typing.Literal[True], typing.Literal[False]] = True,
+        client: typing.Union[SyncClientType, AsyncClientType],
         **kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
     ) -> typing.Union[
         TEntityDict,
@@ -165,6 +216,91 @@ class RequestHandler:
         Raises:
             TypesenseClientError: If the API returns an error response.
         """
+        request_kwargs = self.build_request_kwargs(**kwargs)
+
+        if isinstance(client, ASYNC_CLIENT_TYPES):
+            return self._make_async_request(
+                method, url, entity_type, as_json, client, **request_kwargs
+            )
+        if isinstance(client, CLIENT_TYPES):
+            return self._make_sync_request(
+                method, url, entity_type, as_json, client, **request_kwargs
+            )
+        raise TypeError("`client` must be an httpx or httpx2 client.")
+
+    def _make_sync_request(
+        self,
+        method: str,
+        url: str,
+        entity_type: typing.Type[TEntityDict],
+        as_json: bool,
+        client: SyncClientType,
+        **request_kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
+    ) -> typing.Union[TEntityDict, str]:
+        """Make a synchronous HTTP request using httpx.Client."""
+        params: typing.Union[TParams, None] = request_kwargs.get("params")
+        content: typing.Union[str, bytes, None] = request_kwargs.get("content")
+        headers: typing.Dict[str, str] = request_kwargs.get("headers", {})
+
+        response: ResponseType = client.request(
+            method,
+            url,
+            params=typing.cast(typing.Optional[_QueryParams], params),
+            content=content,
+            headers=headers,
+        )
+
+        self.raise_for_status(response)
+
+        if as_json:
+            res: TEntityDict = typing.cast(TEntityDict, response.json())
+            return res
+
+        return response.text
+
+    async def _make_async_request(
+        self,
+        method: str,
+        url: str,
+        entity_type: typing.Type[TEntityDict],
+        as_json: bool,
+        client: AsyncClientType,
+        **request_kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
+    ) -> typing.Union[TEntityDict, str]:
+        """Make an asynchronous HTTP request using httpx.AsyncClient."""
+        params: typing.Union[TParams, None] = request_kwargs.get("params")
+        content: typing.Union[str, bytes, None] = request_kwargs.get("content")
+        headers: typing.Dict[str, str] = request_kwargs.get("headers", {})
+
+        response: ResponseType = await client.request(
+            method,
+            url,
+            params=typing.cast(typing.Optional[_QueryParams], params),
+            content=content,
+            headers=headers,
+        )
+
+        self.raise_for_status(response)
+
+        if as_json:
+            res: TEntityDict = typing.cast(TEntityDict, response.json())
+            return res
+
+        return response.text
+
+    def build_request_kwargs(
+        self,
+        **kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
+    ) -> SessionFunctionKwargs[TParams, TBody]:
+        """
+        Build the headers, query parameters and body for a request.
+
+        Args:
+            kwargs: The request's ``params`` and ``data``.
+
+        Returns:
+            SessionFunctionKwargs: The ``headers``, ``params`` and ``content`` to send.
+        """
         headers = {
             self.api_key_header_name: self.config.api_key,
         }
@@ -183,113 +319,57 @@ class RequestHandler:
             request_kwargs["params"] = params
 
         if body := kwargs.get("data"):
-            if not isinstance(body, (str, bytes)):
-                body = json.dumps(body)
-            request_kwargs["content"] = typing.cast(TBody, body)
-
-        if isinstance(client, httpx.AsyncClient):
-            return self._make_async_request(
-                method, url, entity_type, as_json, client, **request_kwargs
-            )
-        else:
-            return self._make_sync_request(
-                method, url, entity_type, as_json, client, **request_kwargs
+            request_kwargs["content"] = (
+                body if isinstance(body, (str, bytes)) else json.dumps(body)
             )
 
-    def _make_sync_request(
-        self,
-        method: str,
-        url: str,
-        entity_type: typing.Type[TEntityDict],
-        as_json: bool,
-        client: httpx.Client,
-        **request_kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
-    ) -> typing.Union[TEntityDict, str]:
-        """Make a synchronous HTTP request using httpx.Client."""
-        params: typing.Union[TParams, None] = request_kwargs.get("params")
-        content: typing.Union[TBody, str, None] = request_kwargs.get("content")
-        headers: typing.Dict[str, str] = request_kwargs.get("headers", {})
+        return request_kwargs
 
-        response = client.request(
-            method,
-            url,
-            params=params,
-            content=content,
-            headers=headers,
-        )
-
-        if response.status_code < 200 or response.status_code >= 300:
-            error_message = self._get_error_message(response)
-            raise self._get_exception(response.status_code)(
-                response.status_code,
-                error_message,
-            )
-
-        if as_json:
-            res: TEntityDict = typing.cast(TEntityDict, response.json())
-            return res
-
-        return response.text
-
-    async def _make_async_request(
-        self,
-        method: str,
-        url: str,
-        entity_type: typing.Type[TEntityDict],
-        as_json: bool,
-        client: httpx.AsyncClient,
-        **request_kwargs: typing.Unpack[SessionFunctionKwargs[TParams, TBody]],
-    ) -> typing.Union[TEntityDict, str]:
-        """Make an asynchronous HTTP request using httpx.AsyncClient."""
-        params: typing.Union[TParams, None] = request_kwargs.get("params")
-        content: typing.Union[TBody, str, None] = request_kwargs.get("content")
-        headers: typing.Dict[str, str] = request_kwargs.get("headers", {})
-
-        response = await client.request(
-            method,
-            url,
-            params=params,
-            content=content,
-            headers=headers,
-        )
-
-        if response.status_code < 200 or response.status_code >= 300:
-            error_message = self._get_error_message(response)
-            raise self._get_exception(response.status_code)(
-                response.status_code,
-                error_message,
-            )
-
-        if as_json:
-            res: TEntityDict = typing.cast(TEntityDict, response.json())
-            return res
-
-        return response.text
-
-    @staticmethod
-    def normalize_params(params: typing.Dict[str, typing.Any]) -> None:
+    def raise_for_status(self, response: ResponseType) -> None:
         """
-        Normalize boolean parameters in the request.
+        Raise the client error matching a non-2xx response.
+
+        The response body must already be read.
 
         Args:
-            params (Dict[str, Any]): The parameters to normalize.
+            response (httpx.Response | httpx2.Response): The API response.
+
+        Raises:
+            TypesenseClientError: If the response status is not 2xx.
+        """
+        if response.status_code < 200 or response.status_code >= 300:
+            error_message = self._get_error_message(response)
+            raise self._get_exception(response.status_code)(
+                response.status_code,
+                error_message,
+            )
+
+    @staticmethod
+    def normalize_params(params: typing.Mapping[str, object]) -> None:
+        """
+        Normalize boolean parameters in the request, in place.
+
+        Args:
+            params (Mapping[str, object]): The parameters to normalize. They are
+                typed as read-only so TypedDict parameters are accepted, but must
+                be a ``dict`` at runtime.
 
         Raises:
             ValueError: If params is not a dictionary.
         """
-        if not isinstance(params, typing.Dict):
+        if not isinstance(params, dict):
             raise ValueError("Params must be a dictionary.")
         for key, parameter_value in params.items():
             if isinstance(parameter_value, bool):
                 params[key] = str(parameter_value).lower()
 
     @staticmethod
-    def _get_error_message(response: httpx.Response) -> str:
+    def _get_error_message(response: ResponseType) -> str:
         """
         Extract the error message from an API response.
 
         Args:
-            response (httpx.Response): The API response.
+            response (httpx.Response | httpx2.Response): The API response.
 
         Returns:
             str: The extracted error message or a default message.
@@ -298,7 +378,7 @@ class RequestHandler:
         if content_type.startswith("application/json"):
             try:
                 return typing.cast(str, response.json().get("message", "API error."))
-            except (json.JSONDecodeError, httpx.DecodingError):
+            except _DECODING_ERRORS:
                 return f"API error: Invalid JSON response: {response.text}"
         if response.text:
             return f"API error. {response.text}"
@@ -309,10 +389,15 @@ class RequestHandler:
         """
         Map an HTTP status code to the appropriate exception type.
 
+        Any 5xx code without a dedicated exception (e.g. 502, 504 from a proxy
+        in front of a restarting node) maps to ServerError, so the request is
+        retried on another node.
+
         Args:
             http_code (int): The HTTP status code.
 
         Returns:
             Type[TypesenseClientError]: The exception type corresponding to the status code.
         """
-        return _ERROR_CODE_MAP.get(str(http_code), TypesenseClientError)
+        default = ServerError if 500 <= http_code <= 599 else TypesenseClientError
+        return _ERROR_CODE_MAP.get(str(http_code), default)

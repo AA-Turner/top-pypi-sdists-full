@@ -17,7 +17,7 @@ except ImportError:
 try:
     import xgboost as xgb
 except ImportError:
-    logging.warning("xgboost is not installed")
+    logging.getLogger(__name__).warning("xgboost is not installed")
     xgb = None
 
 from ..core.base import (
@@ -36,6 +36,8 @@ from ..utils import (
     match_results_structure,
 )
 
+_logger = logging.getLogger(__name__)
+
 
 def apply_category_mapping(results: Any, index_to_category: Dict[str, str]) -> Any:
     """
@@ -49,7 +51,9 @@ def apply_category_mapping(results: Any, index_to_category: Dict[str, str]) -> A
         Results with mapped category names
     """
 
-    def map_detection(detection: Dict[str, Any], index_to_category: Dict[str, str]) -> Dict[str, Any]:
+    def map_detection(
+        detection: Dict[str, Any], index_to_category: Dict[str, str]
+    ) -> Dict[str, Any]:
         """Map a single detection."""
         detection = detection.copy()
         category_id = str(detection.get("class_id", detection.get("class_id")))
@@ -86,7 +90,7 @@ def load_model_from_checkpoint(checkpoint_path, local_path):
     Load a model from checkpoint URL
     """
     try:
-        print(f"Loading model from checkpoint: {checkpoint_path}")
+        _logger.debug("Loading model from checkpoint: %s", checkpoint_path)
 
         # Check if checkpoint is a URL
         if checkpoint_path.startswith(("http://", "https://")):
@@ -96,19 +100,19 @@ def load_model_from_checkpoint(checkpoint_path, local_path):
                 with open(local_path, "wb") as f:
                     f.write(response.content)
                 checkpoint_path = local_path
-                print(f"Downloaded checkpoint to {local_path}")
+                _logger.debug("Downloaded checkpoint to %s", local_path)
             else:
-                print(f"Failed to download checkpoint from {checkpoint_path}")
+                _logger.error("Failed to download checkpoint from %s", checkpoint_path)
                 return None
 
         # Load the model from the checkpoint
         model = xgb.Booster()
         model.load_model(checkpoint_path)
-        print(f"{local_path} Model loaded successfully from checkpoint")
+        _logger.debug("%s Model loaded successfully from checkpoint", local_path)
         return model
 
-    except Exception as e:
-        print(f"Error loading model from checkpoint: {e}")
+    except Exception as e:  # noqa: BLE001 - a bad checkpoint yields None, never a crash
+        _logger.error("Error loading model from checkpoint: %s", e)
         return None
 
 
@@ -123,9 +127,7 @@ class SusActivityConfig(BaseConfig):
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
     usecase: str = "suspicious_activity_detection"
-    model_url: str = (
-        "https://s3.us-west-2.amazonaws.com/testing.resources/datasets/suspicous_detection_xgb-model_weights.json"
-    )
+    model_url: str = "https://s3.us-west-2.amazonaws.com/testing.resources/datasets/suspicous_detection_xgb-model_weights.json"
 
     # confidence thresholds
     confidence_threshold: float = 0.3
@@ -140,9 +142,33 @@ class SusActivityConfig(BaseConfig):
 
     def __post_init__(self):
         if self.model_url:
-            self.model_url = load_model_from_checkpoint(self.model_url, "suspicous_detection_xgb-model_weights.json")
+            self.model_url = load_model_from_checkpoint(
+                self.model_url, "suspicous_detection_xgb-model_weights.json"
+            )
         else:
             raise ValueError("Age and Gender model URL must be passed!")
+
+
+def get_trend(data, lookback=900, threshold=0.6):
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    window = data[-lookback:] if len(data) >= lookback else data
+    if len(window) < 2:
+        return True  # not enough data to determine trend
+    increasing = 0
+    total = 0
+    for i in range(1, len(window)):
+        if window[i] >= window[i - 1]:
+            increasing += 1
+        total += 1
+    ratio = increasing / total
+    if ratio >= threshold:
+        return True
+    elif ratio <= (1 - threshold):
+        return False
+    return None
 
 
 class SusActivityUseCase(BaseProcessor):
@@ -198,7 +224,7 @@ class SusActivityUseCase(BaseProcessor):
                 dmatrix = xgb.DMatrix(df)
                 cut = config.model_url.predict(dmatrix)
                 binary_predictions = (cut > 0.5).astype(int)
-                print(f"Prediction: {binary_predictions}")
+                self.logger.debug("Prediction: %s", binary_predictions)
 
                 if binary_predictions == 0:
                     curr_sus_data[index] = "SUSPICIOUS"
@@ -248,59 +274,41 @@ class SusActivityUseCase(BaseProcessor):
 
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+            self.logger.debug(
+                f"Applied confidence filtering with threshold {config.confidence_threshold}"
+            )
         else:
             processed_data = data
 
-            self.logger.debug("Did not apply confidence filtering with threshold since nothing was provided")
+            self.logger.debug(
+                "Did not apply confidence filtering with threshold since nothing was provided"
+            )
 
-        print("---------DATA1--------------", processed_data)
+        self.logger.debug("---------DATA1-------------- %s", processed_data)
         # Step 2: Apply category mapping if provided
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
             self.logger.debug("Applied category mapping")
-            print("---------DATA2--------------", processed_data)
+            self.logger.debug("---------DATA2-------------- %s", processed_data)
         # print(processed_data)
 
         if self.target_categories:
-            processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
+            processed_data = [
+                d for d in processed_data if d.get("category") in self.target_categories
+            ]
             self.logger.debug("Applied category filtering")
 
         # Apply bbox smoothing if enabled
-        print("---------DATA2--------------", processed_data)
-        if config.enable_smoothing:
-            if self.smoothing_tracker is None:
-                smoothing_config = BBoxSmoothingConfig(
-                    smoothing_algorithm=config.smoothing_algorithm,
-                    window_size=config.smoothing_window_size,
-                    cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,  # Use mask threshold as default
-                    confidence_range_factor=config.smoothing_confidence_range_factor,
-                    enable_smoothing=True,
-                )
-                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+        self.logger.debug("---------DATA2-------------- %s", processed_data)
+        processed_data = self._apply_bbox_smoothing(processed_data, config)
 
         # Advanced tracking (BYTETracker-like)
-        try:
-            # Create tracker instance if it doesn't exist (preserves state across frames)
-            if self.tracker is None:
-                self.tracker = self._tracker_seam.get_shared_tracker(
-                    config, stream_info, profile=TrackerProfile.DEFAULT
-                )
+        processed_data = self._apply_advanced_tracking(processed_data, config, stream_info)
 
-            # The tracker expects the data in the same format as input
-            # It will add track_id and frame_id to each detection
-            processed_data = self.tracker.update(processed_data)
-
-        except Exception as e:
-            # If advanced tracker fails, fallback to unsmoothed detections
-            self.logger.warning(f"AdvancedTracker failed: {e}")
-
-        print("---------DATA3--------------", processed_data)
+        self.logger.debug("---------DATA3-------------- %s", processed_data)
         # Update  tracking state for total count per label
         self._update_tracking_state(processed_data)
-        print("---------DATA4--------------", processed_data)
+        self.logger.debug("---------DATA4-------------- %s", processed_data)
 
         # Update frame counter
         self._total_frame_counter += 1
@@ -317,9 +325,9 @@ class SusActivityUseCase(BaseProcessor):
 
         # Call helper method for additional processing
         det = self.helper(processed_data, config)
-        print("----------------------HELPER--------------------------------")
-        print(det)
-        print("----------------------HELPER--------------------------------")
+        self.logger.debug("----------------------HELPER--------------------------------")
+        self.logger.debug("%s", det)
+        self.logger.debug("----------------------HELPER--------------------------------")
         # Compute summaries and alerts
         counting_summary = self._count_categories(processed_data, config)
 
@@ -327,14 +335,22 @@ class SusActivityUseCase(BaseProcessor):
         total_counts = self.get_total_counts()
         counting_summary["total_counts"] = total_counts
         counting_summary["sus_data"] = det
-        print("---------------------------------COUNTING SUMMARY------------------------------")
-        print(counting_summary)
-        print("---------------------------------COUNTING SUMMARY------------------------------")
+        self.logger.debug(
+            "---------------------------------COUNTING SUMMARY------------------------------"
+        )
+        self.logger.debug("%s", counting_summary)
+        self.logger.debug(
+            "---------------------------------COUNTING SUMMARY------------------------------"
+        )
 
         alerts = self._check_alerts(counting_summary, frame_number, config)
         self._extract_predictions(processed_data)
-        incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number, stream_info)
+        incidents_list = self._generate_incidents(
+            counting_summary, alerts, config, frame_number, stream_info
+        )
+        tracking_stats_list = self._generate_tracking_stats(
+            counting_summary, alerts, config, frame_number, stream_info
+        )
         business_analytics_list = self._generate_business_analytics(
             counting_summary, alerts, config, stream_info, is_empty=True
         )
@@ -375,31 +391,12 @@ class SusActivityUseCase(BaseProcessor):
         self._debug_elapsed_since(start_time)
         return result
 
-    def _check_alerts(self, summary: dict, frame_number: Any, config: SusActivityConfig) -> List[Dict]:
+    def _check_alerts(
+        self, summary: dict, frame_number: Any, config: SusActivityConfig
+    ) -> List[Dict]:
         """
         Check if any alert thresholds are exceeded and return alert dicts.
         """
-
-        def get_trend(data, lookback=900, threshold=0.6):
-            """
-            Determine if the trend is ascending or descending based on actual value progression.
-            Now works with values 0,1,2,3 (not just binary).
-            """
-            window = data[-lookback:] if len(data) >= lookback else data
-            if len(window) < 2:
-                return True  # not enough data to determine trend
-            increasing = 0
-            total = 0
-            for i in range(1, len(window)):
-                if window[i] >= window[i - 1]:
-                    increasing += 1
-                total += 1
-            ratio = increasing / total
-            if ratio >= threshold:
-                return True
-            elif ratio <= (1 - threshold):
-                return False
-            return None
 
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         alerts = []
@@ -409,7 +406,10 @@ class SusActivityUseCase(BaseProcessor):
 
         total = summary.get("total_count", 0)
         # self._ascending_alert_list
-        if hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds:
+        if (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total > threshold:
                     alerts.append(
@@ -422,10 +422,12 @@ class SusActivityUseCase(BaseProcessor):
                             "alert_id": "alert_" + category + "_" + frame_key,
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
-                                for t, v in zip(
+                                for t, v in zip(  # noqa: B905 - alert_type/alert_value are set in lockstep
                                     (
                                         getattr(
                                             config.alert_config,
@@ -464,7 +466,7 @@ class SusActivityUseCase(BaseProcessor):
                                 ),
                                 "settings": {
                                     t: v
-                                    for t, v in zip(
+                                    for t, v in zip(  # noqa: B905 - alert_type/alert_value are set in lockstep
                                         (
                                             getattr(
                                                 config.alert_config,
@@ -505,7 +507,9 @@ class SusActivityUseCase(BaseProcessor):
         camera_info = self.get_camera_info_from_stream(stream_info)
 
         self._ascending_alert_list = (
-            self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+            self._ascending_alert_list[-900:]
+            if len(self._ascending_alert_list) > 900
+            else self._ascending_alert_list
         )
 
         if total_detections > 0:
@@ -515,7 +519,10 @@ class SusActivityUseCase(BaseProcessor):
             if start_timestamp and self.current_incident_end_timestamp == "N/A":
                 self.current_incident_end_timestamp = "Incident still active"
             elif start_timestamp and self.current_incident_end_timestamp == "Incident still active":
-                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                if (
+                    len(self._ascending_alert_list) >= 15
+                    and sum(self._ascending_alert_list[-15:]) / 15 < 1.5
+                ):
                     self.current_incident_end_timestamp = current_timestamp
             elif (
                 self.current_incident_end_timestamp != "Incident still active"
@@ -558,39 +565,8 @@ class SusActivityUseCase(BaseProcessor):
             human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE, level)}")
             human_text = "\n".join(human_text_lines)
 
-            alert_settings = []
-            if config.alert_config and hasattr(config.alert_config, "alert_type"):
-                alert_settings.append(
-                    {
-                        "alert_type": (
-                            getattr(config.alert_config, "alert_type", ["Default"])
-                            if hasattr(config.alert_config, "alert_type")
-                            else ["Default"]
-                        ),
-                        "incident_category": self.CASE_TYPE,
-                        "threshold_level": (
-                            config.alert_config.count_thresholds
-                            if hasattr(config.alert_config, "count_thresholds")
-                            else {}
-                        ),
-                        "ascending": True,
-                        "settings": {
-                            t: v
-                            for t, v in zip(
-                                (
-                                    getattr(config.alert_config, "alert_type", ["Default"])
-                                    if hasattr(config.alert_config, "alert_type")
-                                    else ["Default"]
-                                ),
-                                (
-                                    getattr(config.alert_config, "alert_value", ["JSON"])
-                                    if hasattr(config.alert_config, "alert_value")
-                                    else ["JSON"]
-                                ),
-                            )
-                        },
-                    }
-                )
+            # Identical to the tracking-stat block; built by the same helper.
+            alert_settings = self._build_alert_settings(config)
 
             event = self.create_incident(
                 incident_id=self.CASE_TYPE + "_" + str(frame_number),
@@ -612,6 +588,106 @@ class SusActivityUseCase(BaseProcessor):
 
         return incidents
 
+    def _apply_bbox_smoothing(self, processed_data: List[Any], config: Any) -> List[Any]:
+        """Smooth detection boxes when enabled, building the tracker on first use."""
+        if not config.enable_smoothing:
+            return processed_data
+        if self.smoothing_tracker is None:
+            smoothing_config = BBoxSmoothingConfig(
+                smoothing_algorithm=config.smoothing_algorithm,
+                window_size=config.smoothing_window_size,
+                cooldown_frames=config.smoothing_cooldown_frames,
+                confidence_threshold=config.confidence_threshold,  # Use mask threshold as default
+                confidence_range_factor=config.smoothing_confidence_range_factor,
+                enable_smoothing=True,
+            )
+            self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+        return bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+
+    def _apply_advanced_tracking(
+        self, processed_data: List[Any], config: Any, stream_info: Optional[Dict[str, Any]]
+    ) -> List[Any]:
+        """Attach track ids; on tracker failure the detections pass through untracked."""
+        try:
+            # Create tracker instance if it doesn't exist (preserves state across frames)
+            if self.tracker is None:
+                self.tracker = self._tracker_seam.get_shared_tracker(
+                    config, stream_info, profile=TrackerProfile.DEFAULT
+                )
+
+            # The tracker expects the data in the same format as input
+            # It will add track_id and frame_id to each detection
+            processed_data = self.tracker.update(processed_data)
+
+        except Exception as e:  # noqa: BLE001 - tracking is optional; detections pass through
+            # If advanced tracker fails, fallback to unsmoothed detections
+            self.logger.warning(f"AdvancedTracker failed: {e}")
+        return processed_data
+
+    def _build_alert_settings(self, config: "SusActivityConfig") -> List[Dict[str, Any]]:
+        """Build the alert-settings block carried on the tracking stat."""
+        alert_settings: List[Dict[str, Any]] = []
+        if config.alert_config and hasattr(config.alert_config, "alert_type"):
+            alert_settings.append(
+                {
+                    "alert_type": (
+                        getattr(config.alert_config, "alert_type", ["Default"])
+                        if hasattr(config.alert_config, "alert_type")
+                        else ["Default"]
+                    ),
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": (
+                        config.alert_config.count_thresholds
+                        if hasattr(config.alert_config, "count_thresholds")
+                        else {}
+                    ),
+                    "ascending": True,
+                    "settings": {
+                        t: v
+                        for t, v in zip(  # noqa: B905 - alert_type/alert_value are set in lockstep
+                            (
+                                getattr(config.alert_config, "alert_type", ["Default"])
+                                if hasattr(config.alert_config, "alert_type")
+                                else ["Default"]
+                            ),
+                            (
+                                getattr(config.alert_config, "alert_value", ["JSON"])
+                                if hasattr(config.alert_config, "alert_value")
+                                else ["JSON"]
+                            ),
+                        )
+                    },
+                }
+            )
+        return alert_settings
+
+    @staticmethod
+    def _build_tracking_human_text(
+        current_timestamp: str, start_timestamp: str, sus_data: Dict, alerts: List
+    ) -> str:
+        """Render the human-readable tracking summary."""
+        human_text_lines = ["Tracking Statistics:"]
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+        if len(sus_data["curr_data"]) > 0:
+            human_text_lines.append(
+                f"\t Suspicious Activity Detected - {len(sus_data['curr_data'])}"
+            )
+        else:
+            human_text_lines.append("\t- No Suspicious Activity Detected")
+
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
+        human_text_lines.append(f"Total Suspicious Activity Detected:- {len(sus_data['sus_data'])}")
+
+        if alerts:
+            for alert in alerts:
+                human_text_lines.append(
+                    f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}"
+                )
+        else:
+            human_text_lines.append("Alerts: None")
+
+        return "\n".join(human_text_lines)
+
     def _generate_tracking_stats(
         self,
         counting_summary: Dict,
@@ -629,9 +705,15 @@ class SusActivityUseCase(BaseProcessor):
         # frame_tracking_stats = tracking_stats[0][frame_key]
         tracking_stats = []
 
-        total_detections = counting_summary.get("total_count", 0)  # CURRENT total count of all classes
-        total_counts_dict = counting_summary.get("total_counts", {})  # TOTAL cumulative counts per class
-        per_category_count = counting_summary.get("per_category_count", {})  # CURRENT count per class
+        total_detections = counting_summary.get(
+            "total_count", 0
+        )  # CURRENT total count of all classes
+        total_counts_dict = counting_summary.get(
+            "total_counts", {}
+        )  # TOTAL cumulative counts per class
+        per_category_count = counting_summary.get(
+            "per_category_count", {}
+        )  # CURRENT count per class
         sus_data = counting_summary.get("sus_data")
 
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
@@ -639,7 +721,9 @@ class SusActivityUseCase(BaseProcessor):
         self._debug_stream_timing("start_timestamp", start_timestamp)
 
         # Create high precision timestamps for input_timestamp and reset_timestamp
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_start_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True
+        )
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         # Build total_counts array in expected format
@@ -662,69 +746,33 @@ class SusActivityUseCase(BaseProcessor):
             # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
                 segmentation = detection.get("masks", [])
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             elif detection.get("segmentation"):
                 segmentation = detection.get("segmentation")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             elif detection.get("mask"):
                 segmentation = detection.get("mask")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             else:
                 detection_obj = self.create_detection_object(category, bbox)
             detections.append(detection_obj)
 
         # Build alert_settings array in expected format
-        alert_settings = []
-        if config.alert_config and hasattr(config.alert_config, "alert_type"):
-            alert_settings.append(
-                {
-                    "alert_type": (
-                        getattr(config.alert_config, "alert_type", ["Default"])
-                        if hasattr(config.alert_config, "alert_type")
-                        else ["Default"]
-                    ),
-                    "incident_category": self.CASE_TYPE,
-                    "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
-                    ),
-                    "ascending": True,
-                    "settings": {
-                        t: v
-                        for t, v in zip(
-                            (
-                                getattr(config.alert_config, "alert_type", ["Default"])
-                                if hasattr(config.alert_config, "alert_type")
-                                else ["Default"]
-                            ),
-                            (
-                                getattr(config.alert_config, "alert_value", ["JSON"])
-                                if hasattr(config.alert_config, "alert_value")
-                                else ["JSON"]
-                            ),
-                        )
-                    },
-                }
-            )
+        alert_settings = self._build_alert_settings(config)
 
         # Generate human_text in expected format
-        human_text_lines = ["Tracking Statistics:"]
-        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if len(sus_data["curr_data"]) > 0:
-            human_text_lines.append(f"\t Suspicious Activity Detected - {len(sus_data['curr_data'])}")
-        else:
-            human_text_lines.append("\t- No Suspicious Activity Detected")
-
-        human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
-        human_text_lines.append(f"Total Suspicious Activity Detected:- {len(sus_data['sus_data'])}")
-
-        if alerts:
-            for alert in alerts:
-                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
-        else:
-            human_text_lines.append("Alerts: None")
-
-        human_text = "\n".join(human_text_lines)
-        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+        human_text = self._build_tracking_human_text(
+            current_timestamp, start_timestamp, sus_data, alerts
+        )
+        reset_settings = [
+            {"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}
+        ]
 
         tracking_stat = self.create_tracking_stats(
             total_counts=total_counts,
@@ -846,7 +894,9 @@ class SusActivityUseCase(BaseProcessor):
         """
         Return total unique track_id count for each category.
         """
-        return {cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()
+        }
 
     def _format_timestamp(self, timestamp: Any) -> str:
         """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
@@ -867,7 +917,9 @@ class SusActivityUseCase(BaseProcessor):
 
         # Convert numeric timestamps to the expected string representation first
         if isinstance(timestamp, (int, float)):
-            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                "%Y-%m-%d-%H:%M:%S.%f UTC"
+            )
 
         # Ensure we are working with a string from here on
         if not isinstance(timestamp, str):
@@ -917,43 +969,55 @@ class SusActivityUseCase(BaseProcessor):
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
-                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                        "original_fps", 30
+                    )
                 else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                        "input_settings", {}
-                    ).get("original_fps", 30)
+                    start_time = stream_info.get("input_settings", {}).get(
+                        "start_frame", 30
+                    ) / stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
                 self._debug_stream_timing("stream_time_str", stream_time_str)
-                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+                return self._format_timestamp(
+                    stream_info.get("input_settings", {}).get("stream_time", "NA")
+                )
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             if frame_id:
-                start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                    "original_fps", 30
+                )
             else:
-                start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                    "input_settings", {}
-                ).get("original_fps", 30)
+                start_time = stream_info.get("input_settings", {}).get(
+                    "start_frame", 30
+                ) / stream_info.get("input_settings", {}).get("original_fps", 30)
 
             stream_time_str = self._format_timestamp_for_video(start_time)
 
             self._debug_stream_timing("stream_time_str", stream_time_str)
-            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            return self._format_timestamp(
+                stream_info.get("input_settings", {}).get("stream_time", "NA")
+            )
         else:
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            stream_time_str = (
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            )
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except Exception:  # noqa: BLE001 - timestamp parse falls back to now
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_start_timestamp_str(
+        self, stream_info: Optional[Dict[str, Any]], precision=False
+    ) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
@@ -980,13 +1044,17 @@ class SusActivityUseCase(BaseProcessor):
                 return self._format_timestamp(self.start_timer)
 
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - timestamp parse falls back to now
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()

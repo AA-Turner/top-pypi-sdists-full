@@ -24,6 +24,7 @@ from __future__ import annotations
 import csv
 import importlib.util
 import json
+import logging
 import os
 import pprint
 import sys
@@ -33,6 +34,16 @@ from typing import Any
 
 import cv2
 import numpy as np
+import pytest
+
+# `collect_ignore` in conftest.py skips this module when `ultralytics` is absent,
+# but pytest applies collect_ignore only when it DISCOVERS a path -- naming the
+# file explicitly bypasses it, which is what the pre-push build battery does when
+# a sibling changes. importorskip is checked at import time either way.
+pytest.importorskip(
+    "ultralytics", reason="heavy ML dep; the deployment image provides it (CLAUDE.md 8.9)"
+)
+
 from ultralytics import YOLO
 
 # ---------------------------------------------------------------------------
@@ -43,6 +54,8 @@ _ROOT = _THIS_FILE.parents[4]  # …/py_analytics
 _SRC = _ROOT / "src"
 _PKG = _SRC / "matrice_analytics"
 sys.path.insert(0, str(_SRC))
+
+_logger = logging.getLogger(__name__)
 
 
 def _register_pkg(name: str, path: Path) -> None:
@@ -421,6 +434,33 @@ class IdentityAnalyticsTestProcessor:
     # ------------------------------------------------------------------
     # Main processing loop
     # ------------------------------------------------------------------
+    def _log_aggregation(self, frame_idx: int, agg_path: str, row: dict) -> None:
+        """Emit the aggregation line (one print() before PY-09)."""
+        _logger.info(
+            "  ** Aggregation at frame %s → %s | win total=%.0f matched=%.0f "
+            "unknown=%.0f blk=%.0f conf=%.2f | cum total=%.0f matched=%.0f",
+            frame_idx,
+            agg_path,
+            row["window_total"],
+            row["window_matched"],
+            row["window_unknown"],
+            row["window_blacklist"],
+            row["window_match_conf_avg"],
+            row["cum_total"],
+            row["cum_matched"],
+        )
+
+    def _log_frame_progress(self, loop_idx: int, frame_idx: int, det_count: int) -> None:
+        """Emit the per-frame progress line (one print() before PY-09)."""
+        _logger.info(
+            "[Loop %d/%d] Frame %4d | dets: %3d | plates seen: %d",
+            loop_idx + 1,
+            self.loop_count,
+            frame_idx,
+            det_count,
+            len(self.ocr._cache),
+        )
+
     def process_video(self):
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
@@ -434,7 +474,7 @@ class IdentityAnalyticsTestProcessor:
         if self.draw_bboxes:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             video_writer = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
-            print(f"Video output enabled — {self.output_video_path}")
+            _logger.info("Video output enabled — %s", self.output_video_path)
 
         csv_file = None
         csv_writer = None
@@ -456,13 +496,13 @@ class IdentityAnalyticsTestProcessor:
                     "plate_texts",
                 ]
             )
-            print(f"CSV output enabled — {self.csv_path}")
+            _logger.info("CSV output enabled — %s", self.csv_path)
 
-        print(f"Starting processing: {self.video_path}")
-        print(f"Model: {self.model_path}")
-        print(f"Manifest: {self.manifest_name} | categories: {self.engine.categories}")
-        print(f"JSON dir: {self.json_dir} | Loop count: {self.loop_count}")
-        print("-" * 70)
+        _logger.info("Starting processing: %s", self.video_path)
+        _logger.info("Model: %s", self.model_path)
+        _logger.info("Manifest: %s | categories: %s", self.manifest_name, self.engine.categories)
+        _logger.info("JSON dir: %s | Loop count: %s", self.json_dir, self.loop_count)
+        _logger.info("%s", "-" * 70)
 
         frame_idx = 0
         done = False
@@ -472,7 +512,7 @@ class IdentityAnalyticsTestProcessor:
                 break
             if loop_idx > 0:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                print(f"\n--- Loop {loop_idx + 1}/{self.loop_count} ---")
+                _logger.info("\n--- Loop %s/%s ---", loop_idx + 1, self.loop_count)
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -515,16 +555,7 @@ class IdentityAnalyticsTestProcessor:
                     agg_path = os.path.join(self.json_dir, "agg", f"agg_{frame_idx:04d}.json")
                     with open(agg_path, "w") as f:
                         json.dump(serialized_with_cum, f, indent=2)
-                    print(
-                        f"  ** Aggregation at frame {frame_idx} → {agg_path} "
-                        f"| win total={row['window_total']:.0f} "
-                        f"matched={row['window_matched']:.0f} "
-                        f"unknown={row['window_unknown']:.0f} "
-                        f"blk={row['window_blacklist']:.0f} "
-                        f"conf={row['window_match_conf_avg']:.2f} "
-                        f"| cum total={row['cum_total']:.0f} "
-                        f"matched={row['cum_matched']:.0f}"
-                    )
+                    self._log_aggregation(frame_idx, agg_path, row)
 
                 if video_writer is not None:
                     annotated = self._draw_bboxes_on_frame(frame.copy(), detections)
@@ -560,15 +591,11 @@ class IdentityAnalyticsTestProcessor:
                     )
 
                 if frame_idx % 30 == 0:
-                    print(
-                        f"[Loop {loop_idx + 1}/{self.loop_count}] "
-                        f"Frame {frame_idx:4d} | dets: {len(detections):3d} "
-                        f"| plates seen: {len(self.ocr._cache)}"
-                    )
+                    self._log_frame_progress(loop_idx, frame_idx, len(detections))
 
                 frame_idx += 1
                 if self.max_frames and frame_idx >= self.max_frames:
-                    print(f"Max frame limit ({self.max_frames}) reached.")
+                    _logger.info("Max frame limit (%s) reached.", self.max_frames)
                     done = True
                     break
 
@@ -597,8 +624,8 @@ class IdentityAnalyticsTestProcessor:
                 f,
                 indent=2,
             )
-        print(f"\nFinal aggregation saved: {final_agg_path}")
-        print("Final aggregation result:")
+        _logger.info("\nFinal aggregation saved: %s", final_agg_path)
+        _logger.info("Final aggregation result:")
         pprint.pprint(final_serialized)  # noqa: T203
 
         # Per-window summary CSV
@@ -642,7 +669,7 @@ class IdentityAnalyticsTestProcessor:
                         r["cum_match_rate"],
                     ]
                 )
-        print(f"Aggregation summary CSV: {summary_csv_path}")
+        _logger.info("Aggregation summary CSV: %s", summary_csv_path)
 
         # Dump the final plate-text cache (all unique plates the OCR saw)
         plates_dump_path = os.path.join(self.json_dir, "agg", "plates_seen.json")
@@ -656,18 +683,18 @@ class IdentityAnalyticsTestProcessor:
         }
         with open(plates_dump_path, "w") as f:
             json.dump(plates_out, f, indent=2)
-        print(f"Plates-seen dump: {plates_dump_path}  ({len(plates_out)} unique tracks)")
+        _logger.info("Plates-seen dump: %s  (%s unique tracks)", plates_dump_path, len(plates_out))
 
         cap.release()
         if video_writer is not None:
             video_writer.release()
-            print(f"Output video saved: {self.output_video_path}")
+            _logger.info("Output video saved: %s", self.output_video_path)
         if csv_file is not None:
             csv_file.close()
-            print(f"CSV saved: {self.csv_path}")
+            _logger.info("CSV saved: %s", self.csv_path)
 
-        print(f"\nDone. {frame_idx} frames processed.")
-        print(f"JSON outputs: {self.json_dir}")
+        _logger.info("\nDone. %s frames processed.", frame_idx)
+        _logger.info("JSON outputs: %s", self.json_dir)
 
 
 if __name__ == "__main__":

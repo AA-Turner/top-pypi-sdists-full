@@ -1,27 +1,23 @@
 Metadata-Version: 2.4
 Name: dbt-coverage
-Version: 0.4.2
+Version: 0.5.0
 Summary: One-stop-shop for docs and test coverage of dbt projects
 License: MIT
 License-File: LICENSE.md
 Author: Andrej Švec
 Author-email: asvec@slido.com
-Requires-Python: >=3.7,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Requires-Dist: typer (>=0.4,<1)
 Project-URL: Documentation, https://github.com/slidoapp/dbt-coverage
 Project-URL: Homepage, https://github.com/slidoapp/dbt-coverage
@@ -286,14 +282,16 @@ $ dbt-coverage compare after.json before.json  # Generate a detailed coverage de
 
 ## Supported `dbt` versions
 
-Different version of `dbt-coverage` support different versions of `dbt`. Here is
+Different versions of `dbt-coverage` support different versions of `dbt`. Here is
 the support matrix.
 
-| `dbt`       | `dbt-coverage` |
-|-------------|----------------|
-| <0.20       | not tested     |
-| 0.20 - 0.21 | 0.1            |
-| 1.0 - 1.11  | 0.2 - 0.4      |
+| `dbt-coverage` | `dbt`       |
+|----------------|-------------|
+| 0.1            | 0.20 - 0.21 |
+| 0.2 - 0.4      | 1.0 - 1.11  |
+| 0.5            | 1.1 - 1.12  |
+
+`dbt` versions older than 0.20 are not tested.
 
 ## Related packages
 

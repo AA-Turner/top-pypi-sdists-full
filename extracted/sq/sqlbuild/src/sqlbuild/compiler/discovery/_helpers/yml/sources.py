@@ -87,12 +87,43 @@ _SOURCE_FRESHNESS_STRATEGIES: frozenset[str] = frozenset(
 _SOURCE_FRESHNESS_VALUE_KINDS: frozenset[str] = frozenset(
     value_kind.value for value_kind in SourceFreshnessValueKind
 )
+_FRESHNESS_TIMESTAMP_TYPE_NAMES: frozenset[str] = frozenset(
+    {
+        "DATETIME",
+        "DATETIME2",
+        "DATETIMEOFFSET",
+        "SMALLDATETIME",
+        "TIMESTAMP",
+        "TIMESTAMPTZ",
+        "TIMESTAMP_LTZ",
+        "TIMESTAMP_NTZ",
+        "TIMESTAMP_TZ",
+    }
+)
+_FRESHNESS_TIMESTAMP_WITH_ZONE_PREFIXES: tuple[str, ...] = (
+    "TIMESTAMP WITH TIME ZONE",
+    "TIMESTAMP WITHOUT TIME ZONE",
+)
+_FRESHNESS_INTEGER_TYPE_NAMES: frozenset[str] = frozenset(
+    {"BIGINT", "INT", "INT2", "INT4", "INT8", "INT64", "INTEGER", "SMALLINT", "TINYINT"}
+)
+_FRESHNESS_STRING_TYPE_NAMES: frozenset[str] = frozenset(
+    {"CHAR", "CHARACTER", "CHARACTER VARYING", "NCHAR", "NVARCHAR", "STRING", "TEXT", "VARCHAR"}
+)
 
 
 def parse_sources_yml(*, contents: str, file_path: Path) -> tuple[SourceEntry, ...]:
     """Parse one sources/*.yml file into raw source declarations."""
 
-    payload: dict[str, object] = _load_sources_payload(contents=contents, file_path=file_path)
+    return parse_loaded_sources_yml(
+        loaded=_load_sources_yaml(contents=contents, file_path=file_path), file_path=file_path
+    )
+
+
+def parse_loaded_sources_yml(*, loaded: object, file_path: Path) -> tuple[SourceEntry, ...]:
+    """Parse the document one sources/*.yml file loads to into raw source declarations."""
+
+    payload: dict[str, object] = _sources_mapping(loaded=loaded, file_path=file_path)
     _reject_unknown_source_keys(
         mapping=payload, allowed=_SOURCE_FILE_KEYS, file_path=file_path, label="sources file"
     )
@@ -112,12 +143,16 @@ def parse_sources_yml(*, contents: str, file_path: Path) -> tuple[SourceEntry, .
     return tuple(parsed_sources)
 
 
-def _load_sources_payload(*, contents: str, file_path: Path) -> dict[str, object]:
+def _load_sources_yaml(*, contents: str, file_path: Path) -> object:
     try:
         loader: type[yaml.SafeLoader] = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
-        payload: object = yaml.load(contents, Loader=loader)
+        return yaml.load(contents, Loader=loader)
     except YAMLError as error:
         raise SourceParseError(f"{file_path} contains invalid YAML: {error}") from error
+
+
+def _sources_mapping(*, loaded: object, file_path: Path) -> dict[str, object]:
+    payload: object = loaded
     if payload is None:
         return {}
     if not isinstance(payload, dict):
@@ -215,7 +250,7 @@ def _parse_source_entry(*, entry: dict[str, object], file_path: Path) -> SourceE
         managed=managed,
         loader=resolved_loader,
         integration_loader=integration_loader,
-        freshness=_optional_freshness_config(entry=entry, file_path=file_path),
+        freshness=_optional_freshness_config(entry=entry, columns=columns, file_path=file_path),
         write_strategy=_optional_write_strategy(entry=entry, file_path=file_path),
         load_batch_size=_optional_positive_int(
             entry=entry,
@@ -388,7 +423,7 @@ def _optional_write_strategy(
 
 
 def _optional_freshness_config(
-    *, entry: dict[str, object], file_path: Path
+    *, entry: dict[str, object], columns: tuple[SourceColumnEntry, ...], file_path: Path
 ) -> SourceFreshnessConfig | None:
     raw_freshness: object | None = entry.get("freshness")
     if raw_freshness is None:
@@ -402,19 +437,18 @@ def _optional_freshness_config(
         file_path=file_path,
         label="source freshness",
     )
-    raw_strategy: str = require_non_empty_string(
+    raw_strategy: str | None = optional_non_empty_string(
         entry=freshness,
         key="strategy",
         file_path=file_path,
         label="source freshness",
         error_class=SourceParseError,
     )
-    if raw_strategy not in _SOURCE_FRESHNESS_STRATEGIES:
+    if raw_strategy is not None and raw_strategy not in _SOURCE_FRESHNESS_STRATEGIES:
         strategies: str = ", ".join(sorted(_SOURCE_FRESHNESS_STRATEGIES))
         raise SourceParseError(
             f"{file_path} source freshness 'strategy' must be one of: {strategies}"
         )
-    strategy: SourceFreshnessStrategy = SourceFreshnessStrategy(raw_strategy)
     raw_value_kind: str | None = optional_non_empty_string(
         entry=freshness,
         key="type",
@@ -462,6 +496,21 @@ def _optional_freshness_config(
         freshness=freshness,
         file_path=file_path,
     )
+    strategy: SourceFreshnessStrategy = (
+        SourceFreshnessStrategy(raw_strategy)
+        if raw_strategy is not None
+        else _implied_freshness_strategy(
+            column=column,
+            query=query,
+            has_type=value_kind is not None,
+            has_filter=freshness_filter is not None,
+            file_path=file_path,
+        )
+    )
+    if strategy == SourceFreshnessStrategy.COLUMN and column is not None:
+        value_kind = _resolve_column_freshness_value_kind(
+            column=column, explicit=value_kind, columns=columns, file_path=file_path
+        )
     config: SourceFreshnessConfig = SourceFreshnessConfig(
         strategy=strategy,
         value_kind=value_kind,
@@ -473,6 +522,80 @@ def _optional_freshness_config(
     )
     _validate_freshness_config(config=config, file_path=file_path)
     return config
+
+
+def _implied_freshness_strategy(
+    *, column: str | None, query: str | None, has_type: bool, has_filter: bool, file_path: Path
+) -> SourceFreshnessStrategy:
+    if column is not None and query is not None:
+        raise SourceParseError(
+            f"{file_path} source freshness cannot set both column and query; set strategy "
+            "or remove one of them"
+        )
+    if column is not None:
+        return SourceFreshnessStrategy.COLUMN
+    if query is not None:
+        return SourceFreshnessStrategy.SQL
+    if has_type or has_filter:
+        raise SourceParseError(
+            f"{file_path} source freshness type and filter require column or query"
+        )
+    return SourceFreshnessStrategy.ADAPTER
+
+
+def _resolve_column_freshness_value_kind(
+    *,
+    column: str,
+    explicit: SourceFreshnessValueKind | None,
+    columns: tuple[SourceColumnEntry, ...],
+    file_path: Path,
+) -> SourceFreshnessValueKind | None:
+    declared: SourceColumnEntry | None = _find_source_column(columns=columns, name=column)
+    declared_type: str | None = None if declared is None else declared.type
+    inferred: SourceFreshnessValueKind | None = (
+        None if declared_type is None else _freshness_value_kind_for_type(declared_type)
+    )
+    if explicit is None:
+        if inferred is None and declared_type is not None:
+            raise SourceParseError(
+                f"{file_path} source freshness cannot infer type from column '{column}' "
+                f"declared as {declared_type}; set type to timestamp, integer, or string"
+            )
+        return inferred
+    if inferred is not None and inferred != explicit:
+        raise SourceParseError(
+            f"{file_path} source freshness type {explicit.value} contradicts column "
+            f"'{column}' declared as {declared_type}; remove type or set it to {inferred.value}"
+        )
+    return explicit
+
+
+def _find_source_column(
+    *, columns: tuple[SourceColumnEntry, ...], name: str
+) -> SourceColumnEntry | None:
+    exact: SourceColumnEntry | None = next(
+        (column for column in columns if column.name == name), None
+    )
+    if exact is not None:
+        return exact
+    folded: list[SourceColumnEntry] = [
+        column for column in columns if column.name.casefold() == name.casefold()
+    ]
+    return folded[0] if len(folded) == 1 else None
+
+
+def _freshness_value_kind_for_type(type_sql: str) -> SourceFreshnessValueKind | None:
+    normalized: str = " ".join(type_sql.upper().split())
+    base_name: str = normalized.partition("(")[0].strip()
+    if base_name in _FRESHNESS_TIMESTAMP_TYPE_NAMES or normalized.startswith(
+        _FRESHNESS_TIMESTAMP_WITH_ZONE_PREFIXES
+    ):
+        return SourceFreshnessValueKind.TIMESTAMP
+    if base_name in _FRESHNESS_INTEGER_TYPE_NAMES:
+        return SourceFreshnessValueKind.INTEGER
+    if base_name in _FRESHNESS_STRING_TYPE_NAMES:
+        return SourceFreshnessValueKind.STRING
+    return None
 
 
 def _validate_freshness_config(*, config: SourceFreshnessConfig, file_path: Path) -> None:
@@ -501,7 +624,10 @@ def _validate_freshness_config(*, config: SourceFreshnessConfig, file_path: Path
                 "use strategy sql for expressions"
             )
         if config.value_kind is None:
-            raise SourceParseError(f"{file_path} source freshness strategy column requires type")
+            raise SourceParseError(
+                f"{file_path} source freshness strategy column requires type; set type or "
+                "declare the column with a type under columns"
+            )
         if config.query is not None:
             raise SourceParseError(
                 f"{file_path} source freshness strategy column does not support query"

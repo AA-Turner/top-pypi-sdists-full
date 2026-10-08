@@ -2,7 +2,7 @@ import json
 import logging
 import math
 from decimal import Decimal
-from typing import Optional, Any, Union
+from typing import Optional, Any
 
 import numpy as np
 import pandas as pd
@@ -397,7 +397,7 @@ def _validate_dataframe_type(df, df_name: str):
         raise TypeError(f"We only support teradataml DataFrame for {df_name}")
 
 
-def _ensure_backward_compatibility(data_stats: Union[dict, str]) -> dict:
+def _ensure_backward_compatibility(data_stats: dict | str) -> dict:
     """
     Ensure backward compatibility by renaming 'predictors' to 'targets' if present,
     and deserializing any string-encoded feature/target values to dicts.
@@ -653,7 +653,7 @@ def _process_continuous_variables(
     available_continuous_vars = []
 
     for v in continuous_vars:
-        if v.lower() in stats_metadata.keys():
+        if v.lower() in stats_metadata:
             reference_edges.append(stats_metadata[v.lower()]["edges"])
             available_continuous_vars.append(v)
         else:
@@ -700,7 +700,7 @@ def _process_categorical_variables(
     available_categorical_vars = []
 
     for v in categorical_vars:
-        if v.lower() in stats_metadata.keys():
+        if v.lower() in stats_metadata:
             reference_categories.append(stats_metadata[v.lower()]["categories"])
             available_categorical_vars.append(v)
         else:

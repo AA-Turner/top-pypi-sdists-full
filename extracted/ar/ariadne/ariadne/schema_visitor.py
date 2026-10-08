@@ -580,7 +580,7 @@ class SchemaDirectiveVisitor(SchemaVisitor):
                 else:
                     #  If this directive was not explicitly declared, just convert the
                     #  argument nodes to their corresponding values.
-                    for arg in directive_node.arguments:
+                    for arg in directive_node.arguments or ():
                         args[arg.name.value] = value_from_ast_untyped(arg.value)
 
                 #  As foretold in comments near the top of the visit_schema_directives
@@ -717,7 +717,7 @@ def heal_schema(schema: GraphQLSchema) -> GraphQLSchema:  # noqa: C901
     ) -> GraphQLList | GraphQLNamedType | GraphQLNonNull:
         # Unwrap the two known wrapper types
         if isinstance(type_, GraphQLList):
-            type_ = GraphQLList(heal_type(type_.of_type))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            type_ = GraphQLList(heal_type(type_.of_type))  # type: ignore[arg-type]
         elif isinstance(type_, GraphQLNonNull):
             type_ = GraphQLNonNull(heal_type(type_.of_type))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         elif is_named_type(type_):

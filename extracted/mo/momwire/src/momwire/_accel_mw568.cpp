@@ -9,12 +9,14 @@
 // (momwire#696) should rebuild one TU, not five.
 #include "_contour_engine_inline.h"
 
-// The AVX2 build's vector lanes (momwire#1290): the below/below replay's
-// stages and the field-form Galerkin assembly's first stage. GCC/clang AVX2
-// only; the baseline, arm64 and MSVC builds run the scalar loops the lanes
-// are gated against.
-#if defined(__AVX2__) && defined(__FMA__) && !defined(_MSC_VER)
-#include <immintrin.h>
+// The vector lanes (momwire#1290, on the lane layer `_lanes.h` since
+// momwire#1372): the below/below replay's stages, the below extents and the
+// field-form Galerkin assembly's first stage. Only where the layer has a
+// vector backend whose fmadd is the scalar mw_fma::fma (GCC/clang AVX2); the
+// baseline, arm64 and MSVC builds run the scalar loops the lanes are gated
+// against.
+#include "_lanes.h"
+#if MW_LANES_SIMD && MW_LANES_FMA_EXACT && MW_LANES_PACKED
 #define MW568_LANES 1
 #else
 #define MW568_LANES 0
@@ -512,6 +514,75 @@ static inline cd below_divide_out(double k_p, const cd &k_m, double rho,
     return std::exp(-MW_BJ * arg) / r1;
 }
 
+// `below_divide_out` with the exponential's MODULUS held across pairs of one
+// depth sum (momwire queue item 4). The exponent -j (k_p rho + k_m hh) has
+// real part 0.0 + Im(k_m) hh, a function of hh alone, and on a buried radial
+// screen every pair of one observer row has the same hh. glibc's cexp is
+// exp(Re z) * (cos Im z, sin Im z) with one sincos, for a finite z whose real
+// part is at most (DBL_MAX_EXP - 1) ln 2 (s_cexp_template.c), and so is this
+// -- the real part here is <= 0 -- with exp(Re z) taken from `ex` when hh is
+// the previous pair's. The same libm calls on the same arguments: the same
+// floats. Used only where `cexp_split_ok()` has checked that claim against
+// this process's libm (`below_cexp_split_check`), and only on glibc builds.
+#if defined(__GLIBC__)
+#define MW568_CEXP_SPLIT 1
+static inline cd cexp_split(const cd &z, double ex) {
+    double sn, cs;
+    if (std::fabs(z.imag()) > std::numeric_limits<double>::min()) {
+        sincos(z.imag(), &sn, &cs);
+    } else {
+        sn = z.imag();
+        cs = 1.0;
+    }
+    return cd(ex * cs, ex * sn);
+}
+
+// Whether std::exp(complex) is cexp_split here, bit for bit, over a spread
+// of exponents like the divide-out's (real part -40 .. 0, imaginary part
+// -60 .. 0, tiny and zero imaginary parts included). Evaluated once.
+static bool below_cexp_split_check() {
+    uint64_t st = 0x9E3779B97F4A7C15ULL;
+    auto u01 = [&st]() {
+        st ^= st << 13;
+        st ^= st >> 7;
+        st ^= st << 17;
+        return (double)(st >> 11) * (1.0 / 9007199254740992.0);
+    };
+    for (int i = 0; i < 4096; ++i) {
+        double x = -40.0 * u01() * u01();
+        double y = -60.0 * u01();
+        if (i % 64 == 0) y = 0.0;
+        if (i % 64 == 1) y = -1e-310;
+        if (i % 64 == 2) x = 0.0;
+        const cd z(x, y);
+        const cd a = std::exp(z);
+        const cd b = cexp_split(z, std::exp(z.real()));
+        if (std::memcmp(&a, &b, sizeof a) != 0) return false;
+    }
+    return true;
+}
+
+static bool cexp_split_ok() {
+    static const bool ok = below_cexp_split_check();
+    return ok;
+}
+
+static inline cd below_divide_out_held(double k_p, const cd &k_m, double rho,
+                                       double hh, double r1, double &held_hh,
+                                       double &held_ex) {
+    const cd arg(mw_fma::fma(k_m.real(), hh, k_p * rho),
+                 0.0 + k_m.imag() * hh);
+    const cd z = -MW_BJ * arg;
+    if (!(hh == held_hh)) {
+        held_ex = std::exp(z.real());
+        held_hh = hh;
+    }
+    return cexp_split(z, held_ex) / r1;
+}
+#else
+#define MW568_CEXP_SPLIT 0
+#endif
+
 // Stage 5: the projection (eqs 143-147), over g.
 static inline cd below_project(const somm_proj::GridView &G, const cd *surf,
                                const cd &g, double rho, double dx, double dy,
@@ -575,7 +646,7 @@ static inline cd proj_one_below(const somm_proj::GridView &G, double th_min,
 constexpr int BELOW_BLOCK = 64;
 
 #if MW568_LANES
-// The blocked loop's stencil, read and projection stages, four pairs to a
+// The blocked loop's stencil, read and projection stages, W pairs to a
 // vector (momwire#1290). The blocked loop spent most of a pair's ~120 ns in
 // scalar arithmetic: six divisions in the stencil weights, sixteen complex
 // fused sums per surface read, and the projection's products, around three
@@ -585,18 +656,19 @@ constexpr int BELOW_BLOCK = 64;
 // Every lane does a stage function's own operations on its own pair, in that
 // function's order: the same comparisons in the same nesting, the same
 // divisions (correctly rounded in any lane), and each `mw_fma` helper's fused
-// op as `_mm256_fmadd_pd`, which is per lane exactly `std::fma`. A negated
-// product is `fnmadd`: fma(-a, b, c) and -(a b) + c are one exact product and
-// one rounding. Nothing is reassociated and no reduction crosses lanes, so a
+// op as `fmadd`, which is per lane exactly `std::fma`. A negated product is
+// `fnmadd`: fma(-a, b, c) and -(a b) + c are one exact product and one
+// rounding. Nothing is reassociated and no reduction crosses lanes, so a
 // lane's floats are the scalar stage's floats (gated as uint64 against
 // `lanes=False` and against the per-pair composition,
-// tests/test_below_lanes_1290.py). Only this AVX2 build has the lanes: the
-// baseline, arm64 and MSVC builds keep the scalar blocked loop.
+// tests/test_below_lanes_1290.py). The stencil's tail and the surface read
+// are shared with the above grid (`somm_proj_lanes`, in
+// `_accel_somm_proj_inline.h`).
+using namespace mw_lanes;
 
-// `below_stencil` for pairs b .. b+3: the region, the clamped first stencil
+// `below_stencil` for pairs b .. b+W-1: theta and r1 clamped, the band and
+// zone selects, then the shared tail -- the region's clamped first stencil
 // node (i0, j0) and the two Lagrange weight vectors, into SoA arrays.
-// nR32/nTh32 are G.nR/G.nTh as int32, for the gathers (a table is a few
-// hundred nodes a side, far inside int32).
 static inline void below_stencil_lanes(const somm_proj::GridView &G,
                                        const int *nR32, const int *nTh32,
                                        double th_min, double th_band_floor_hi,
@@ -605,188 +677,79 @@ static inline void below_stencil_lanes(const somm_proj::GridView &G,
                                        int *reg_o, int *i0_o, int *j0_o,
                                        double (*wr)[BELOW_BLOCK],
                                        double (*wt)[BELOW_BLOCK], int b) {
-    const __m256d c_thmin = _mm256_set1_pd(th_min);
-    const __m256d c_hpi = _mm256_set1_pd(G.half_pi);
-    const __m256d c_r1max = _mm256_set1_pd(G.r1_max);
-    __m256d t = _mm256_loadu_pd(th + b);
+    const vd c_thmin = set1(th_min);
+    const vd c_hpi = set1(G.half_pi);
+    const vd c_r1max = set1(G.r1_max);
+    vd t = loadu(th + b);
     // if (theta < th_min) theta = th_min; else if (theta > half_pi) ...
-    const __m256d t_lo = _mm256_cmp_pd(t, c_thmin, _CMP_LT_OQ);
-    const __m256d t_hi = _mm256_cmp_pd(t, c_hpi, _CMP_GT_OQ);
-    t = _mm256_blendv_pd(_mm256_blendv_pd(t, c_hpi, t_hi), c_thmin, t_lo);
-    __m256d rc = _mm256_loadu_pd(r1 + b);
-    rc = _mm256_blendv_pd(rc, c_r1max, _mm256_cmp_pd(rc, c_r1max, _CMP_GT_OQ));
+    const vm t_lo = cmp_lt(t, c_thmin);
+    const vm t_hi = cmp_gt(t, c_hpi);
+    t = blend(blend(t, c_hpi, t_hi), c_thmin, t_lo);
+    vd rc = loadu(r1 + b);
+    rc = blend(rc, c_r1max, cmp_gt(rc, c_r1max));
     // The band and zone selects, innermost alternative first so that each
     // outer test overrides it as the scalar ternaries nest. Small integers in
     // double lanes: exact, and the sum converts exactly.
-    __m256d band = _mm256_blendv_pd(
-        _mm256_set1_pd(4.0), _mm256_set1_pd(3.0),
-        _mm256_cmp_pd(t, _mm256_set1_pd(G.th_split), _CMP_LE_OQ));
-    band = _mm256_blendv_pd(
-        band, _mm256_set1_pd(2.0),
-        _mm256_cmp_pd(t, _mm256_set1_pd(th_band_hi), _CMP_LT_OQ));
-    band = _mm256_blendv_pd(
-        band, _mm256_set1_pd(1.0),
-        _mm256_cmp_pd(t, _mm256_set1_pd(th_band_lo_hi), _CMP_LT_OQ));
-    band = _mm256_blendv_pd(
-        band, _mm256_setzero_pd(),
-        _mm256_cmp_pd(t, _mm256_set1_pd(th_band_floor_hi), _CMP_LT_OQ));
-    __m256d zone = _mm256_blendv_pd(
-        _mm256_set1_pd(10.0), _mm256_set1_pd(5.0),
-        _mm256_cmp_pd(rc, _mm256_set1_pd(G.r_near), _CMP_LE_OQ));
-    zone = _mm256_blendv_pd(
-        zone, _mm256_setzero_pd(),
-        _mm256_cmp_pd(rc, _mm256_set1_pd(G.r_break), _CMP_LE_OQ));
-    const __m128i reg = _mm256_cvttpd_epi32(_mm256_add_pd(zone, band));
-    const __m256d fr =
-        _mm256_div_pd(_mm256_sub_pd(rc, _mm256_i32gather_pd(G.rr0, reg, 8)),
-                      _mm256_i32gather_pd(G.rdr, reg, 8));
-    const __m256d ft =
-        _mm256_div_pd(_mm256_sub_pd(t, _mm256_i32gather_pd(G.rth0, reg, 8)),
-                      _mm256_i32gather_pd(G.rdth, reg, 8));
-    // i0 = (int)floor(fr) - 1, then `if (i0 < 0) i0 = 0; else if (i0 > nR - 4)
-    // i0 = nR - 4`, in int32 lanes.
-    const __m128i one = _mm_set1_epi32(1), four = _mm_set1_epi32(4);
-    const __m128i zero = _mm_setzero_si128();
-    auto clamp = [&](__m256d f, const int *n32) {
-        __m128i i = _mm_sub_epi32(_mm256_cvttpd_epi32(_mm256_floor_pd(f)), one);
-        const __m128i nm4 = _mm_sub_epi32(_mm_i32gather_epi32(n32, reg, 4), four);
-        const __m128i neg = _mm_cmpgt_epi32(zero, i);
-        const __m128i big = _mm_cmpgt_epi32(i, nm4);
-        return _mm_blendv_epi8(_mm_blendv_epi8(i, nm4, big), zero, neg);
-    };
-    const __m128i i0 = clamp(fr, nR32);
-    const __m128i j0 = clamp(ft, nTh32);
-    _mm_storeu_si128(reinterpret_cast<__m128i *>(reg_o + b), reg);
-    _mm_storeu_si128(reinterpret_cast<__m128i *>(i0_o + b), i0);
-    _mm_storeu_si128(reinterpret_cast<__m128i *>(j0_o + b), j0);
-    // somm_proj::lagrange4 at fr - i0 and ft - j0.
-    const __m256d sgn = _mm256_set1_pd(-0.0);
-    const __m256d c1 = _mm256_set1_pd(1.0), c2 = _mm256_set1_pd(2.0),
-                  c3 = _mm256_set1_pd(3.0), c6 = _mm256_set1_pd(6.0);
-    auto lagrange = [&](__m256d u, double (*w)[BELOW_BLOCK]) {
-        const __m256d u0 = u, u1 = _mm256_sub_pd(u, c1),
-                      u2 = _mm256_sub_pd(u, c2), u3 = _mm256_sub_pd(u, c3);
-        _mm256_storeu_pd(
-            w[0] + b,
-            _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(_mm256_xor_pd(u1, sgn), u2), u3), c6));
-        _mm256_storeu_pd(
-            w[1] + b, _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(u0, u2), u3), c2));
-        _mm256_storeu_pd(
-            w[2] + b,
-            _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(_mm256_xor_pd(u0, sgn), u1), u3), c2));
-        _mm256_storeu_pd(
-            w[3] + b, _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(u0, u1), u2), c6));
-    };
-    lagrange(_mm256_sub_pd(fr, _mm256_cvtepi32_pd(i0)), wr);
-    lagrange(_mm256_sub_pd(ft, _mm256_cvtepi32_pd(j0)), wt);
+    vd band = blend(set1(4.0), set1(3.0), cmp_le(t, set1(G.th_split)));
+    band = blend(band, set1(2.0), cmp_lt(t, set1(th_band_hi)));
+    band = blend(band, set1(1.0), cmp_lt(t, set1(th_band_lo_hi)));
+    band = blend(band, zero(), cmp_lt(t, set1(th_band_floor_hi)));
+    vd zone = blend(set1(10.0), set1(5.0), cmp_le(rc, set1(G.r_near)));
+    zone = blend(zone, zero(), cmp_le(rc, set1(G.r_break)));
+    somm_proj_lanes::stencil_tail<BELOW_BLOCK>(G, nR32, nTh32, rc, t,
+                                               cvtt_i32(add(zone, band)), reg_o,
+                                               i0_o, j0_o, wr, wt, b);
 }
 
-// `below_surfaces` for one pair, two surfaces to a vector: lanes (re, im) of
-// surface s and of surface s + 1, so each step is the scalar step on all four
-// parts at once. Written SoA, surface s's part into sre/sim[s][b].
-static inline void below_surfaces_lanes(const somm_proj::GridView &G,
-                                        int reg, int i0, int j0,
-                                        const double (*wr)[BELOW_BLOCK],
-                                        const double (*wt)[BELOW_BLOCK],
-                                        double (*sre)[BELOW_BLOCK],
-                                        double (*sim)[BELOW_BLOCK], int b) {
-    const py::ssize_t nth = G.nTh[reg];
-    const py::ssize_t plane = G.nR[reg] * nth;
-    const cd *base = G.vptr[reg] + (py::ssize_t)i0 * nth + j0;
-    const __m256d w0 = _mm256_set1_pd(wt[0][b]), w1 = _mm256_set1_pd(wt[1][b]),
-                  w2 = _mm256_set1_pd(wt[2][b]), w3 = _mm256_set1_pd(wt[3][b]);
-    for (int s = 0; s < 4; s += 2) {
-        const double *pa = reinterpret_cast<const double *>(base + s * plane);
-        const double *pb = reinterpret_cast<const double *>(base + (s + 1) * plane);
-        __m256d acc = _mm256_setzero_pd();
-        for (int i = 0; i < 4; ++i) {
-            const double *ra = pa + 2 * i * nth, *rb = pb + 2 * i * nth;
-            auto ld = [&](int j) {
-                return _mm256_insertf128_pd(
-                    _mm256_castpd128_pd256(_mm_loadu_pd(ra + 2 * j)),
-                    _mm_loadu_pd(rb + 2 * j), 1);
-            };
-            // (((row0 w0 + row1 w1) + row2 w2) + row3 w3), the first product
-            // unfused, then `acc = fma(rs, wr[i], acc)` from +0.0.
-            __m256d rs = _mm256_mul_pd(ld(0), w0);
-            rs = _mm256_fmadd_pd(ld(1), w1, rs);
-            rs = _mm256_fmadd_pd(ld(2), w2, rs);
-            rs = _mm256_fmadd_pd(ld(3), w3, rs);
-            acc = _mm256_fmadd_pd(rs, _mm256_set1_pd(wr[i][b]), acc);
-        }
-        alignas(32) double v[4];
-        _mm256_store_pd(v, acc);
-        sre[s][b] = v[0];
-        sim[s][b] = v[1];
-        sre[s + 1][b] = v[2];
-        sim[s + 1][b] = v[3];
-    }
-}
-
-// `below_project` for pairs b .. b+3, every complex helper spelled out per
-// part exactly as `_fma_inline.h` defines it; writes the four entries.
+// `below_project` for pairs b .. b+W-1, every complex helper spelled out per
+// part exactly as `_fma_inline.h` defines it; writes the W entries.
 static inline void below_project_lanes(
     const somm_proj::GridView &G, const double (*sre)[BELOW_BLOCK],
     const double (*sim)[BELOW_BLOCK], const double *gre, const double *gim,
     const double *rho_, const double *dx_, const double *dy_, double tox,
     double toy, double toz, const double *ux, const double *uy,
     const double *thsrc, const double *tzsrc, int b, cd *out) {
-    const __m256d sgn = _mm256_set1_pd(-0.0);
-    auto neg = [&](__m256d x) { return _mm256_xor_pd(x, sgn); };
-    auto L = [&](const double *p) { return _mm256_loadu_pd(p + b); };
-    const __m256d rho = L(rho_), dx = L(dx_), dy = L(dy_);
-    const __m256d sux = _mm256_loadu_pd(ux), suy = _mm256_loadu_pd(uy);
-    const __m256d sth = _mm256_loadu_pd(thsrc), stz = _mm256_loadu_pd(tzsrc);
-    const __m256d gr = L(gre), gi = L(gim);
-    const __m256d safe = _mm256_cmp_pd(rho, _mm256_set1_pd(G.tiny), _CMP_GT_OQ);
-    const __m256d inv = _mm256_blendv_pd(
-        _mm256_setzero_pd(), _mm256_div_pd(_mm256_set1_pd(1.0), rho), safe);
-    const __m256d dhx = _mm256_blendv_pd(sux, _mm256_mul_pd(dx, inv), safe);
-    const __m256d dhy = _mm256_blendv_pd(suy, _mm256_mul_pd(dy, inv), safe);
-    const __m256d cphi = _mm256_fmadd_pd(sux, dhx, _mm256_mul_pd(suy, dhy));
-    const __m256d sphi = _mm256_fmadd_pd(sux, dhy, neg(_mm256_mul_pd(suy, dhx)));
-    const __m256d sc = _mm256_mul_pd(sth, cphi);
-    const __m256d s0r = L(sre[0]), s0i = L(sim[0]), s1r = L(sre[1]),
-                  s1i = L(sim[1]), s2r = L(sre[2]), s2i = L(sim[2]),
-                  s3r = L(sre[3]), s3i = L(sim[3]);
+    auto L = [&](const double *p) { return loadu(p + b); };
+    const vd rho = L(rho_), dx = L(dx_), dy = L(dy_);
+    const vd sux = loadu(ux), suy = loadu(uy);
+    const vd sth = loadu(thsrc), stz = loadu(tzsrc);
+    const vd gr = L(gre), gi = L(gim);
+    const vm safe = cmp_gt(rho, set1(G.tiny));
+    const vd inv = blend(zero(), div(set1(1.0), rho), safe);
+    const vd dhx = blend(sux, mul(dx, inv), safe);
+    const vd dhy = blend(suy, mul(dy, inv), safe);
+    const vd cphi = fmadd(sux, dhx, mul(suy, dhy));
+    const vd sphi = fmadd(sux, dhy, neg(mul(suy, dhx)));
+    const vd sc = mul(sth, cphi);
+    const vd s0r = L(sre[0]), s0i = L(sim[0]), s1r = L(sre[1]), s1i = L(sim[1]),
+             s2r = L(sre[2]), s2i = L(sim[2]), s3r = L(sre[3]), s3i = L(sim[3]);
     // mw_fma::mul(x, y): (fma(xr, yr, -(xi yi)), fma(xr, yi, xi yr)).
-    auto cmul_re = [&](__m256d xr, __m256d xi, __m256d yr, __m256d yi) {
-        return _mm256_fmadd_pd(xr, yr, neg(_mm256_mul_pd(xi, yi)));
-    };
-    auto cmul_im = [&](__m256d xr, __m256d xi, __m256d yr, __m256d yi) {
-        return _mm256_fmadd_pd(xr, yi, _mm256_mul_pd(xi, yr));
-    };
+    auto cmul_re = [](vd xr, vd xi, vd yr, vd yi) { return fmadd(xr, yr, neg(mul(xi, yi))); };
+    auto cmul_im = [](vd xr, vd xi, vd yr, vd yi) { return fmadd(xr, yi, mul(xi, yr)); };
     // e_rho = mul(mul_add(IrhoH, sc, stzsrc * IrhoV), g)
-    const __m256d ar = _mm256_fmadd_pd(s2r, sc, _mm256_mul_pd(stz, s0r));
-    const __m256d ai = _mm256_fmadd_pd(s2i, sc, _mm256_mul_pd(stz, s0i));
-    const __m256d er = cmul_re(ar, ai, gr, gi), ei = cmul_im(ar, ai, gr, gi);
+    const vd ar = fmadd(s2r, sc, mul(stz, s0r));
+    const vd ai = fmadd(s2i, sc, mul(stz, s0i));
+    const vd er = cmul_re(ar, ai, gr, gi), ei = cmul_im(ar, ai, gr, gi);
     // e_phi = mul(g, sthsrc * sphi * IphiH)
-    const __m256d f = _mm256_mul_pd(sth, sphi);
-    const __m256d br = _mm256_mul_pd(f, s3r), bi = _mm256_mul_pd(f, s3i);
-    const __m256d pr = cmul_re(gr, gi, br, bi), pi = cmul_im(gr, gi, br, bi);
+    const vd f = mul(sth, sphi);
+    const vd br = mul(f, s3r), bi = mul(f, s3i);
+    const vd pr = cmul_re(gr, gi, br, bi), pi = cmul_im(gr, gi, br, bi);
     // e_z = mul(sub_scaled(stzsrc * IzV, IrhoV, sc), g)
-    const __m256d cr = _mm256_fnmadd_pd(s0r, sc, _mm256_mul_pd(stz, s1r));
-    const __m256d ci = _mm256_fnmadd_pd(s0i, sc, _mm256_mul_pd(stz, s1i));
-    const __m256d zr = cmul_re(cr, ci, gr, gi), zi = cmul_im(cr, ci, gr, gi);
+    const vd cr = fnmadd(s0r, sc, mul(stz, s1r));
+    const vd ci = fnmadd(s0i, sc, mul(stz, s1i));
+    const vd zr = cmul_re(cr, ci, gr, gi), zi = cmul_im(cr, ci, gr, gi);
     // r = mul_add(mul_add(e_phi, dhx, dhy * e_rho), toy,
     //             tox * sub_scaled(dhx * e_rho, e_phi, dhy))
-    const __m256d vtox = _mm256_set1_pd(tox), vtoy = _mm256_set1_pd(toy),
-                  vtoz = _mm256_set1_pd(toz);
-    const __m256d i1r = _mm256_fmadd_pd(pr, dhx, _mm256_mul_pd(dhy, er));
-    const __m256d i1i = _mm256_fmadd_pd(pi, dhx, _mm256_mul_pd(dhy, ei));
-    const __m256d i2r = _mm256_fnmadd_pd(pr, dhy, _mm256_mul_pd(dhx, er));
-    const __m256d i2i = _mm256_fnmadd_pd(pi, dhy, _mm256_mul_pd(dhx, ei));
-    const __m256d rr = _mm256_fmadd_pd(i1r, vtoy, _mm256_mul_pd(vtox, i2r));
-    const __m256d ri = _mm256_fmadd_pd(i1i, vtoy, _mm256_mul_pd(vtox, i2i));
+    const vd vtox = set1(tox), vtoy = set1(toy), vtoz = set1(toz);
+    const vd i1r = fmadd(pr, dhx, mul(dhy, er));
+    const vd i1i = fmadd(pi, dhx, mul(dhy, ei));
+    const vd i2r = fnmadd(pr, dhy, mul(dhx, er));
+    const vd i2i = fnmadd(pi, dhy, mul(dhx, ei));
+    const vd rr = fmadd(i1r, vtoy, mul(vtox, i2r));
+    const vd ri = fmadd(i1i, vtoy, mul(vtox, i2i));
     // mul_add(e_z, toz, r)
-    const __m256d o_r = _mm256_fmadd_pd(zr, vtoz, rr);
-    const __m256d o_i = _mm256_fmadd_pd(zi, vtoz, ri);
-    // (re0 re1 re2 re3), (im0 ...) -> (re0 im0 re1 im1), (re2 im2 re3 im3)
-    const __m256d lo = _mm256_unpacklo_pd(o_r, o_i);  // re0 im0 re2 im2
-    const __m256d hi = _mm256_unpackhi_pd(o_r, o_i);  // re1 im1 re3 im3
-    double *op = reinterpret_cast<double *>(out);
-    _mm256_storeu_pd(op, _mm256_permute2f128_pd(lo, hi, 0x20));
-    _mm256_storeu_pd(op + 4, _mm256_permute2f128_pd(lo, hi, 0x31));
+    store_interleaved(reinterpret_cast<double *>(out), fmadd(zr, vtoz, rr),
+                      fmadd(zi, vtoz, ri));
 }
 #endif  // MW568_LANES
 }  // namespace mw568_below
@@ -944,6 +907,9 @@ static py::tuple remainder_field_proj_batch_below(
         nTh32[g] = static_cast<int>(G.nTh[g]);
     }
     const bool use_lanes = blocked && lanes;
+#if MW568_CEXP_SPLIT
+    const bool split = use_lanes && mw568_below::cexp_split_ok();
+#endif
 #else
     (void)lanes;
 #endif
@@ -1007,6 +973,12 @@ static py::tuple remainder_field_proj_batch_below(
                 // in its order; only WHEN each runs moves.
                 constexpr int B = mw568_below::BELOW_BLOCK;
                 double dx[B], dy[B], rho[B], hh[B], r1[B], th[B];
+#if MW568_CEXP_SPLIT
+                // The held modulus (`below_divide_out_held`): per work item,
+                // so no thread reads another's. NaN matches no hh.
+                double held_hh = std::numeric_limits<double>::quiet_NaN();
+                double held_ex = 0.0;
+#endif
                 mw568_below::BelowStencil st[B];
                 cd surf[B][4];
                 cd g[B];
@@ -1031,25 +1003,36 @@ static py::tuple remainder_field_proj_batch_below(
                     }
 #if MW568_LANES
                     if (use_lanes) {
-                        // Whole quads through the lanes, the last nb % 4
-                        // pairs through the scalar stages below.
-                        const int nq = nb & ~3;
-                        for (int b = 0; b < nq; b += 4)
+                        // Whole lane groups through the lanes, the last
+                        // nb % W pairs through the scalar stages below.
+                        const int nq = nb - nb % mw_lanes::W;
+                        for (int b = 0; b < nq; b += mw_lanes::W)
                             mw568_below::below_stencil_lanes(
                                 G, nR32, nTh32, th_min, th_band_floor_hi,
                                 th_band_lo_hi, th_band_hi, r1, th, l_reg, l_i0,
                                 l_j0, l_wr, l_wt, b);
                         for (int b = 0; b < nq; ++b)
-                            mw568_below::below_surfaces_lanes(
+                            somm_proj_lanes::surfaces_lanes<B, true>(
                                 G, l_reg[b], l_i0[b], l_j0[b], l_wr, l_wt,
                                 l_sre, l_sim, b);
+#if MW568_CEXP_SPLIT
+                        if (split) {
+                            for (int b = 0; b < nq; ++b) {
+                                const cd gb = mw568_below::below_divide_out_held(
+                                    k_p, km, rho[b], hh[b], r1[b], held_hh,
+                                    held_ex);
+                                l_gre[b] = gb.real();
+                                l_gim[b] = gb.imag();
+                            }
+                        } else
+#endif
                         for (int b = 0; b < nq; ++b) {
                             const cd gb = mw568_below::below_divide_out(
                                 k_p, km, rho[b], hh[b], r1[b]);
                             l_gre[b] = gb.real();
                             l_gim[b] = gb.imag();
                         }
-                        for (int b = 0; b < nq; b += 4) {
+                        for (int b = 0; b < nq; b += mw_lanes::W) {
                             const py::ssize_t nn = n0 + b;
                             mw568_below::below_project_lanes(
                                 G, l_sre, l_sim, l_gre, l_gim, rho, dx, dy,
@@ -1915,15 +1898,15 @@ static py::tuple transmitted_field_proj_batch(
 // numpy" on the assumption that numpy propagated — it did not, and that
 // assumption was the only thing making the physical cases disagree.
 
-// LANES (perf item 9). In the AVX2 build the row's columns go four to a
+// LANES (perf item 9). In the lanes build the row's columns go W to a
 // vector: each lane forms the scalar loop's dx, dy, rho2, hh, r1sq and
 // quotient with the same operations in the same order (separate multiplies
 // and adds, a correctly rounded division), and keeps a running max and min.
 // A max or a min is a selection, not an arithmetic result, so the order the
 // lanes and the scalar tail are combined in moves nothing: the values are
-// non-negative and never -0 (squares and their quotient), and
-// `_mm256_min_pd(q, acc)` returns `acc` when q is NaN, which drops the 0/0
-// pair exactly as the scalar compare does. The division was the loop's cost
+// non-negative and never -0 (squares and their quotient), and the lane
+// layer's `min(q, acc)` returns `acc` when q is NaN, which drops the 0/0 pair
+// exactly as the scalar compare does. The division was the loop's cost
 // (one divsd a pair, ~1 s of SG buried x16 and ~4 s of invl x32 on Haswell).
 // `lanes=false` is the scalar loop, the reference the lanes are gated
 // against (tests/test_pair_extents_lanes_1290.py); the baseline, arm64 and
@@ -1963,25 +1946,25 @@ static py::tuple pair_extents_below(py::array_t<double, py::array::c_style |
             double q_row = std::numeric_limits<double>::infinity();
             py::ssize_t j0 = i;
 #if MW568_LANES
-            if (lanes && n - i >= 4) {
-                const __m256d vx = _mm256_set1_pd(xi), vy = _mm256_set1_pd(yi);
-                const __m256d vd = _mm256_set1_pd(di);
-                __m256d vr = _mm256_setzero_pd();
-                __m256d vq = _mm256_set1_pd(std::numeric_limits<double>::infinity());
-                for (; j0 + 4 <= n; j0 += 4) {
-                    const __m256d dx = _mm256_sub_pd(vx, _mm256_loadu_pd(xp + j0));
-                    const __m256d dy = _mm256_sub_pd(vy, _mm256_loadu_pd(yp + j0));
-                    const __m256d rho2 = _mm256_add_pd(_mm256_mul_pd(dx, dx),
-                                                       _mm256_mul_pd(dy, dy));
-                    const __m256d hh = _mm256_add_pd(vd, _mm256_loadu_pd(dp + j0));
-                    const __m256d hh2 = _mm256_mul_pd(hh, hh);
-                    vr = _mm256_max_pd(_mm256_add_pd(rho2, hh2), vr);
-                    vq = _mm256_min_pd(_mm256_div_pd(hh2, rho2), vq);
+            if (lanes && n - i >= mw_lanes::W) {
+                using namespace mw_lanes;
+                const vd vx = set1(xi), vy = set1(yi);
+                const vd vdi = set1(di);
+                vd vr = zero();
+                vd vq = set1(std::numeric_limits<double>::infinity());
+                for (; j0 + W <= n; j0 += W) {
+                    const vd dx = sub(vx, loadu(xp + j0));
+                    const vd dy = sub(vy, loadu(yp + j0));
+                    const vd rho2 = add(mul(dx, dx), mul(dy, dy));
+                    const vd hh = add(vdi, loadu(dp + j0));
+                    const vd hh2 = mul(hh, hh);
+                    vr = max(add(rho2, hh2), vr);
+                    vq = min(div(hh2, rho2), vq);
                 }
-                alignas(32) double lr[4], lq[4];
-                _mm256_store_pd(lr, vr);
-                _mm256_store_pd(lq, vq);
-                for (int l = 0; l < 4; ++l) {
+                alignas(ALIGN) double lr[W], lq[W];
+                store(lr, vr);
+                store(lq, vq);
+                for (int l = 0; l < W; ++l) {
                     if (lr[l] > r1_row) r1_row = lr[l];
                     if (lq[l] < q_row) q_row = lq[l];
                 }
@@ -2120,24 +2103,23 @@ static void fg_stage2(FgTarget &T, const FgBatch &bt, const cd_fg *F,
 }
 
 #if MW568_LANES
-// Stage 1 for two adjacent (j, r) entries, NK row-wings: each lane is the
-// scalar step `acc += g * v` -- the real product of each part, then the add,
-// q in order from +0.0 -- on its own part.
+// Stage 1 for W/2 adjacent (j, r) entries, NK row-wings, (re, im) per lane
+// pair: each lane is the scalar step `acc += g * v` -- the real product of
+// each part, then the add, q in order from +0.0 -- on its own part.
 template <int NK>
-static inline void fg_stage1_two(const cd_fg *col, py::ssize_t nsq,
-                                 py::ssize_t q, const double *g, cd_fg *F,
-                                 py::ssize_t jr) {
-    __m256d acc[NK];
-    for (int k = 0; k < NK; ++k) acc[k] = _mm256_setzero_pd();
+static inline void fg_stage1_lanes(const cd_fg *col, py::ssize_t nsq,
+                                   py::ssize_t q, const double *g, cd_fg *F,
+                                   py::ssize_t jr) {
+    using namespace mw_lanes;
+    vd acc[NK];
+    for (int k = 0; k < NK; ++k) acc[k] = zero();
     for (py::ssize_t iq = 0; iq < q; ++iq) {
-        const __m256d v = _mm256_loadu_pd(
-            reinterpret_cast<const double *>(col + iq * nsq + jr));
+        const vd v = loadu(reinterpret_cast<const double *>(col + iq * nsq + jr));
         for (int k = 0; k < NK; ++k)
-            acc[k] = _mm256_add_pd(
-                acc[k], _mm256_mul_pd(_mm256_set1_pd(g[k * q + iq]), v));
+            acc[k] = add(acc[k], mul(set1(g[k * q + iq]), v));
     }
     for (int k = 0; k < NK; ++k)
-        _mm256_storeu_pd(reinterpret_cast<double *>(F + k * nsq + jr), acc[k]);
+        storeu(reinterpret_cast<double *>(F + k * nsq + jr), acc[k]);
 }
 #endif
 
@@ -2446,19 +2428,19 @@ static void assemble_field_galerkin(
                 // Stage 1: F[k, j, r] = sum_q g[k,q] * proj[ic*q+q, j*q+r]
 #if MW568_LANES
                 if (use_lanes) {
-                    const py::ssize_t npair = nsq / 2;
+                    constexpr py::ssize_t CPV = mw_lanes::W / 2;
+                    const py::ssize_t ngrp = nsq / CPV;
                     #pragma omp parallel for schedule(static)
-                    for (py::ssize_t jp = 0; jp < npair; ++jp) {
-                        const py::ssize_t jr = 2 * jp;
+                    for (py::ssize_t jp = 0; jp < ngrp; ++jp) {
+                        const py::ssize_t jr = CPV * jp;
                         switch (nk) {
-                            case 1: fg_stage1_two<1>(col, nsq, q, g, Fb, jr); break;
-                            case 2: fg_stage1_two<2>(col, nsq, q, g, Fb, jr); break;
-                            case 3: fg_stage1_two<3>(col, nsq, q, g, Fb, jr); break;
-                            default: fg_stage1_two<4>(col, nsq, q, g, Fb, jr); break;
+                            case 1: fg_stage1_lanes<1>(col, nsq, q, g, Fb, jr); break;
+                            case 2: fg_stage1_lanes<2>(col, nsq, q, g, Fb, jr); break;
+                            case 3: fg_stage1_lanes<3>(col, nsq, q, g, Fb, jr); break;
+                            default: fg_stage1_lanes<4>(col, nsq, q, g, Fb, jr); break;
                         }
                     }
-                    if (nsq % 2) {
-                        const py::ssize_t jr = nsq - 1;
+                    for (py::ssize_t jr = ngrp * CPV; jr < nsq; ++jr) {
                         cd acc[FG_BATCH];
                         for (py::ssize_t k = 0; k < nk; ++k) acc[k] = cd(0.0, 0.0);
                         for (py::ssize_t iq = 0; iq < q; ++iq) {
@@ -2562,6 +2544,12 @@ void register_mw568(py::module_ &m) {
     // carry U2's contract too, handing `_sommerfeld_below` a missing symbol
     // instead of the graceful numpy fallback the guard exists to give.
     m.attr("below_fills_568") = true;
+#if MW568_CEXP_SPLIT
+    m.def("below_cexp_split_ok", []() { return mw568_below::cexp_split_ok(); },
+          "Whether this process's libm computes std::exp(complex) as "
+          "exp(re) * sincos(im) bit for bit, the claim batch_below's lane path "
+          "holds the modulus on (TEST-ONLY).");
+#endif
     // momwire#568 unit 3: the transmitted fills on that engine. Its OWN
     // capability flag, deliberately neither `contour_engine_568` nor
     // `below_fills_568` — a .so built at U1 or U2 exports those symbols and

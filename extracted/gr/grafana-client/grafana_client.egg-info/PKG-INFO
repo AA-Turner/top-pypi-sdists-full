@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grafana-client
-Version: 5.1.2
+Version: 5.1.3
 Summary: A client library for accessing the Grafana HTTP API, written in Python
 Home-page: https://github.com/grafana-toolbox/grafana-client
 Author: Andrew Prokhorenkov
@@ -72,7 +72,7 @@ Provides-Extra: develop
 Requires-Dist: poethepoet<1; extra == "develop"
 Requires-Dist: pip-review<2; extra == "develop"
 Requires-Dist: ruff==0.16.*; python_version >= "3.7" and extra == "develop"
-Requires-Dist: ty==0.0.78; extra == "develop"
+Requires-Dist: ty==0.0.84; extra == "develop"
 Provides-Extra: release
 Requires-Dist: build<2; extra == "release"
 Requires-Dist: twine<8; extra == "release"
@@ -81,7 +81,6 @@ Dynamic: license-file
 # grafana-client
 
 [![Tests with Grafana stable](https://img.shields.io/github/actions/workflow/status/grafana-toolbox/grafana-client/stable.yml?branch=main&label=Grafana%20stable)](https://github.com/grafana-toolbox/grafana-client/actions/workflows/stable.yml)
-[![Tests with Grafana nightly](https://img.shields.io/github/actions/workflow/status/grafana-toolbox/grafana-client/nightly.yml?branch=main&label=Grafana%20nightly)](https://github.com/grafana-toolbox/grafana-client/actions/workflows/nightly.yml)
 [![Test coverage](https://img.shields.io/codecov/c/gh/grafana-toolbox/grafana-client.svg?style=flat-square)](https://codecov.io/gh/grafana-toolbox/grafana-client/)
 [![License](https://img.shields.io/github/license/grafana-toolbox/grafana-client.svg?style=flat-square)](https://github.com/grafana-toolbox/grafana-client/blob/main/LICENSE)
 
@@ -90,7 +89,7 @@ Dynamic: license-file
 
 [![Status](https://img.shields.io/pypi/status/grafana-client.svg?style=flat-square)](https://pypi.org/project/grafana-client/)
 [![PyPI](https://img.shields.io/pypi/v/grafana-client.svg?style=flat-square)](https://pypi.org/project/grafana-client/)
-[![Downloads](https://img.shields.io/pypi/dm/grafana-client.svg?style=flat-square)](https://pypi.org/project/grafana-client/)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/grafana-client?period=monthly&left_color=GREY&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/grafana-client)
 <!-- [![Conda](https://img.shields.io/conda/v/grafana-toolbox/grafana-client.svg?style=flat-square)](https://anaconda.org/grafana-toolbox/grafana-client) -->
 
 

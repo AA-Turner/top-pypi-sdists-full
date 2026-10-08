@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient, MongoClient
 from pymongo.errors import ConnectionFailure
 
 from aiohttp_client_cache.backends.mongodb import MongoDBBackend, MongoDBCache, MongoDBPickleCache
@@ -30,10 +30,21 @@ class TestMongoDBCache(BaseStorageTest):
     storage_class = MongoDBCache
 
     async def test_connection_kwargs(self):
-        loop = asyncio.get_running_loop()
-        async with self.init_cache(self.storage_class, host='127.0.0.1', io_loop=loop) as cache:
-            assert cache.connection.address == ('127.0.0.1', 27017)
-            assert cache.connection.io_loop is loop
+        async with self.init_cache(self.storage_class, host='127.0.0.1') as cache:
+            assert await cache.connection.address == ('127.0.0.1', 27017)
+
+    async def test_close(self):
+        async with self.init_cache(self.storage_class) as cache:
+            cache.connection.close = AsyncMock()
+            await cache.close()
+            cache.connection.close.assert_awaited_once()
+
+    async def test_close__user_provided_connection(self):
+        connection = AsyncMongoClient()
+        connection.close = AsyncMock()
+        async with self.init_cache(self.storage_class, connection=connection) as cache:
+            await cache.close()
+            connection.close.assert_not_awaited()
 
     async def test_values_many(self):
         # If some entries are missing the "data" field for some reason, they

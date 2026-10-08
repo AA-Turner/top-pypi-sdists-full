@@ -2,7 +2,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Optional, Sequence
+
+
+class ComputeClass(str, Enum):
+    """Execution environment for a scaling group container.
+
+    ``HOST`` runs directly on a compute host and requires fixed replicas without
+    autoscaling triggers. ``K8S`` runs in a Kubernetes pod.
+    """
+
+    K8S = "K8S"
+    HOST = "HOST"
 
 
 @dataclass

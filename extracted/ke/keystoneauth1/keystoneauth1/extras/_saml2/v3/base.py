@@ -10,7 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from collections.abc import Mapping
+from typing import Any, cast, TypeVar
 
 try:
     # explicitly re-export symbol
@@ -33,13 +34,13 @@ class _Saml2TokenAuthMethod(v3.AuthMethod):
         auth: v3.Auth,
         headers: dict[str, str],
         request_kwargs: dict[str, object],
-    ) -> tuple[None, None] | tuple[str, ty.Mapping[str, object]]:
+    ) -> tuple[None, None] | tuple[str, Mapping[str, object]]:
         raise exceptions.HttpNotImplemented(
             'This method should never be called'
         )
 
 
-_T = ty.TypeVar('_T')
+_T = TypeVar('_T')
 
 
 class BaseSAMLPlugin(v3.FederationBaseAuth):
@@ -71,32 +72,17 @@ class BaseSAMLPlugin(v3.FederationBaseAuth):
         """Class constructor accepting following parameters.
 
         :param auth_url: URL of the Identity Service
-        :type auth_url: string
-
-        :param identity_provider: Name of the Identity Provider the client
-                                  will authenticate against. This parameter
-                                  will be used to build a dynamic URL used to
-                                  obtain unscoped OpenStack token.
-        :type identity_provider: string
-
-        :param identity_provider_url: An Identity Provider URL, where the
-                                      SAML2 auhentication request will be
-                                      sent.
-        :type identity_provider_url: string
-
+        :param identity_provider: Name of the Identity Provider the client will
+            authenticate against. This parameter will be used to build a
+            dynamic URL used to obtain unscoped OpenStack token.
+        :param identity_provider_url: An Identity Provider URL, where the SAML2
+            auhentication request will be sent.
         :param username: User's login
-        :type username: string
-
         :param password: User's password
-        :type password: string
-
-        :param protocol: Protocol to be used for the authentication.
-                         The name must be equal to one configured at the
-                         keystone sp side. This value is used for building
-                         dynamic authentication URL.
-                         Typical value would be: saml2
-        :type protocol: string
-
+        :param protocol: Protocol to be used for the authentication. The name
+            must be equal to one configured at the keystone sp side. This value
+            is used for building dynamic authentication URL. Typical value
+            would be: saml2
         """
         super().__init__(
             auth_url=auth_url,
@@ -137,5 +123,5 @@ class BaseSAMLPlugin(v3.FederationBaseAuth):
             raise exceptions.AuthorizationFailure(msg)
 
     @staticmethod
-    def xml_to_str(content: etree._Element, **kwargs: ty.Any) -> bytes:
-        return ty.cast(bytes, etree.tostring(content, **kwargs))
+    def xml_to_str(content: etree._Element, **kwargs: Any) -> bytes:
+        return cast(bytes, etree.tostring(content, **kwargs))

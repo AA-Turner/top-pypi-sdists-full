@@ -1690,6 +1690,41 @@ def _python_receiver_shadow_checker(root, source: bytes):
 
     return is_shadowed
 
+def _python_self_attr(node, source: bytes) -> str | None:
+    """``X`` when ``node`` is the attribute ``self.X`` (#2860), else None."""
+    if node is None or node.type != "attribute":
+        return None
+    obj, attr = node.child_by_field_name("object"), node.child_by_field_name("attribute")
+    if obj is None or attr is None or _read_text(obj, source) != "self":
+        return None
+    return _read_text(attr, source)
+
+def _python_self_attr_bindings(body, source: bytes):
+    """Yield ``(attr, type_name)`` for every ``self.attr = ...`` in a method body
+    (#2860). ``type_name`` is the annotation (``self.attr: T = ...``) or the bare
+    class of ``self.attr = Ctor(...)``, and None for any other value so the
+    caller can poison the field; ``self.attr = None`` binds nothing."""
+    stack = list(body.named_children)
+    while stack:
+        node = stack.pop()
+        if node.type in ("function_definition", "class_definition", "lambda"):
+            continue
+        stack.extend(node.named_children)
+        left = node.child_by_field_name("left") if node.type == "assignment" else None
+        if left is None:
+            continue
+        value, right = node.child_by_field_name("type"), node.child_by_field_name("right")
+        if value is None and right is not None:
+            if right.type == "none":
+                continue
+            value = right.child_by_field_name("function") if right.type == "call" else None
+        name = _read_text(value, source) if value is not None else ""
+        typed = name.isidentifier() and name[:1].isupper()
+        for target in (left.named_children if left.type == "pattern_list" else [left]):
+            attr = _python_self_attr(target, source)
+            if attr:
+                yield attr, (name if typed and target is left else None)
+
 _JS_SCOPE_BOUNDARY = frozenset({
     "function_declaration", "function_expression", "function", "arrow_function",
     "method_definition", "class_declaration", "class", "generator_function",
@@ -3690,6 +3725,172 @@ def _ruby_new_class_name(node, source: bytes) -> str | None:
     if recv.type != "constant" or _read_text(meth, source) != "new":
         return None
     return _read_text(recv, source)
+
+def _python_class_ref(node, source: bytes) -> str | None:
+    """The single class a Python annotation or constructor callee names, else None.
+
+    ``Request``, ``httpx.Request``, ``"Request"``, ``Optional[Request]`` and
+    ``Request | None`` all name ``Request``. A container (``list[Request]``), a
+    union of two classes, or a lowercase callee (``make_client``,
+    ``Client.from_url``) names no single class, so it stays untyped.
+    """
+    if node is None:
+        return None
+    kind = node.type
+    if kind == "type":
+        named = [c for c in node.children if c.is_named]
+        return _python_class_ref(named[0], source) if len(named) == 1 else None
+    if kind == "identifier":
+        name = _read_text(node, source)
+        return name if name[:1].isupper() else None
+    if kind == "attribute":
+        return _python_class_ref(node.child_by_field_name("attribute"), source)
+    if kind == "string":
+        name = _read_text(node, source).strip("\"'").split(".")[-1].strip()
+        return name if name.isidentifier() and name[:1].isupper() else None
+    if kind == "subscript":  # typing.Optional[X]
+        value = node.child_by_field_name("value")
+        subs = node.children_by_field_name("subscript")
+        if value is not None and _read_text(value, source).split(".")[-1] == "Optional" and len(subs) == 1:
+            return _python_class_ref(subs[0], source)
+        return None
+    if kind == "generic_type":  # Optional[X]
+        named = [c for c in node.children if c.is_named]
+        if (
+            len(named) == 2
+            and named[0].type == "identifier"
+            and _read_text(named[0], source) == "Optional"
+            and named[1].type == "type_parameter"
+        ):
+            inner = [c for c in named[1].children if c.is_named]
+            return _python_class_ref(inner[0], source) if len(inner) == 1 else None
+        return None
+    if kind == "binary_operator":
+        left, right = node.child_by_field_name("left"), node.child_by_field_name("right")
+        if right is not None and right.type == "none":
+            return _python_class_ref(left, source)
+        if left is not None and left.type == "none":
+            return _python_class_ref(right, source)
+    return None
+
+def _python_local_class_bindings(body_node, source: bytes) -> dict[str, str | None]:
+    """Map ``name -> ClassName`` for the parameters and locals of one Python function.
+
+    Typed from a class annotation on a parameter or local (``request: Request``,
+    ``x: Client = ...``), a constructor call (``client = Client(...)``) or a
+    context manager (``with Client(...) as client``). Same 100%-confidence
+    contract as the Ruby table: the table is flow-insensitive, so a name bound
+    to anything that is not one class -- an untyped parameter, a factory call, a
+    loop target, a second class, tuple unpacking, a lambda parameter, a ``match``
+    capture, an import -- maps to ``None`` for the whole function and is never
+    resolved. Nested functions are their own caller and are not entered. Calls
+    inside a lambda or a nested class body are attributed to this function, so
+    every name those bind is poisoned rather than typed.
+    """
+    bindings: dict[str, str | None] = {}
+    poison_only = False
+
+    def bind(name: str, cls: str | None) -> None:
+        if poison_only or cls is None or bindings.get(name, cls) != cls:
+            bindings[name] = None
+        elif name not in bindings:
+            bindings[name] = cls
+
+    def poison(target) -> None:
+        names: set[str] = set()
+        _python_collect_assignment_targets(target, source, names)
+        for name in names:
+            bindings[name] = None
+
+    def poison_identifiers(node) -> None:
+        stack = [node]
+        while stack:
+            cur = stack.pop()
+            if cur.type == "identifier":
+                bindings[_read_text(cur, source)] = None
+            stack.extend(cur.children)
+
+    func = body_node.parent
+    params = func.child_by_field_name("parameters") if func is not None and func.type == "function_definition" else None
+    for name in _python_param_names(params, source):
+        bindings[name] = None  # an untyped parameter: unknown, and a later assignment must not type it
+    if params is not None:
+        for child in params.children:
+            if child.type in ("typed_parameter", "typed_default_parameter"):
+                name_n = child.child_by_field_name("name") or next(
+                    (c for c in child.children if c.type == "identifier"), None
+                )
+                if name_n is not None:
+                    name = _read_text(name_n, source)
+                    bindings.pop(name, None)
+                    bind(name, _python_class_ref(child.child_by_field_name("type"), source))
+
+    def visit(n) -> None:
+        nonlocal poison_only
+        for child in n.children:
+            if child.type == "function_definition":
+                # Its own caller, but `nonlocal c` inside it can rebind this function's `c`.
+                stack = [child]
+                while stack:
+                    cur = stack.pop()
+                    if cur.type == "nonlocal_statement":
+                        poison_identifiers(cur)
+                    stack.extend(cur.children)
+                continue
+            if child.type in ("lambda", "class_definition"):
+                # Their own scope, but their calls are still this function's: a name
+                # they bind (`lambda c: c.send()`, `class K: c = Cache()`) must not
+                # keep the outer type, and must not gain one either.
+                params = child.child_by_field_name("parameters")
+                if child.type == "lambda" and params is not None:
+                    poison_identifiers(params)
+                outer, poison_only = poison_only, True
+                visit(child)
+                poison_only = outer
+                continue
+            if child.type in ("case_pattern", "import_statement", "import_from_statement"):
+                poison_identifiers(child)  # `case c:` / `import c` rebind the name
+                continue
+            if child.type == "assignment":
+                left = child.child_by_field_name("left")
+                if left is not None and left.type == "identifier":
+                    name = _read_text(left, source)
+                    annotation = child.child_by_field_name("type")
+                    right = child.child_by_field_name("right")
+                    if annotation is not None:
+                        bind(name, _python_class_ref(annotation, source))
+                    elif right is not None and right.type == "call":
+                        bind(name, _python_class_ref(right.child_by_field_name("function"), source))
+                    else:
+                        bindings[name] = None
+                else:
+                    poison(left)
+            elif child.type == "augmented_assignment":
+                poison(child.child_by_field_name("left"))
+            elif child.type == "as_pattern":
+                alias = child.child_by_field_name("alias")
+                target = next((c for c in alias.children if c.type == "identifier"), None) if alias is not None else None
+                value = next((c for c in child.children if c.is_named), None)
+                if target is not None:
+                    name = _read_text(target, source)
+                    if child.parent is not None and child.parent.type == "with_item" and value is not None and value.type == "call":
+                        bind(name, _python_class_ref(value.child_by_field_name("function"), source))
+                    else:
+                        bindings[name] = None  # `except E as e`, other patterns: not a constructor result
+                elif alias is not None:
+                    poison_identifiers(alias)  # `with A() as (x, y)`
+            elif child.type in ("for_statement", "for_in_clause"):
+                poison(child.child_by_field_name("left"))
+            elif child.type == "named_expression":
+                poison(child.child_by_field_name("name"))
+            elif child.type in ("global_statement", "nonlocal_statement"):
+                for c in child.children:
+                    if c.type == "identifier":
+                        bindings[_read_text(c, source)] = None
+            visit(child)
+
+    visit(body_node)
+    return bindings
 
 def _ruby_local_class_bindings(body_node, source: bytes) -> dict[str, str | None]:
     """Map ``local_var -> ClassName`` for ``var = ClassName.new`` within one Ruby
@@ -6422,6 +6623,56 @@ def _extract_generic(
                         if lit_body is not None:
                             for child in lit_body.children:
                                 walk(child, parent_class_nid=obj_nid)
+                if config.ts_module in ("tree_sitter_java", "tree_sitter_groovy"):
+                    # Java/Groovy anonymous classes (`new Runnable() { … }`): the
+                    # body hangs off an `object_creation_expression` as a
+                    # `class_body`. The function branch never recurses into
+                    # bodies and object_creation_expression is not a class_type,
+                    # so the anonymous class's methods — and every call inside
+                    # them — got no nodes at all (the Java/Groovy twin of Kotlin
+                    # #2347). Scan this body for anonymous classes without
+                    # crossing a nested method/lambda boundary and without
+                    # descending into a found one, then emit an owner node per
+                    # anonymous class and walk its class_body like the class
+                    # branch so members and their calls flow through the normal
+                    # machinery. The base type is recorded only as the node's
+                    # label, not an implements/inherits edge: an anonymous class
+                    # usually realises a library interface/class whose kind is
+                    # unknowable from this file, so a guessed subtype relation is
+                    # withheld (fail-closed).
+                    _jv_anon = []
+                    _jv_stack = list(body.children)
+                    while _jv_stack:
+                        _jv_node = _jv_stack.pop()
+                        if _jv_node.type in ("method_declaration",
+                                             "lambda_expression"):
+                            continue
+                        if _jv_node.type == "object_creation_expression" and any(
+                            c.type == "class_body" for c in _jv_node.children
+                        ):
+                            _jv_anon.append(_jv_node)
+                            continue
+                        _jv_stack.extend(_jv_node.children)
+                    _jv_anon.sort(key=lambda n: n.start_byte)
+                    for anon in _jv_anon:
+                        anon_line = anon.start_point[0] + 1
+                        type_node = anon.child_by_field_name("type")
+                        base = _read_text(type_node, source).strip() if type_node else ""
+                        obj_label = base or f"object@L{anon_line}"
+                        obj_nid = _make_id(
+                            func_nid, f"object:{obj_label}", f"L{anon_line}"
+                        )
+                        add_node(obj_nid, obj_label, anon_line)
+                        add_edge(func_nid, obj_nid, "contains", anon_line)
+                        callable_def_nids.add(obj_nid)
+                        callable_class_nids.add(obj_nid)
+                        anon_body = next(
+                            (c for c in anon.children if c.type == "class_body"),
+                            None,
+                        )
+                        if anon_body is not None:
+                            for child in anon_body.children:
+                                walk(child, parent_class_nid=obj_nid)
             return
 
         # JS/TS arrow functions and C# namespaces — language-specific extra handling
@@ -6638,6 +6889,9 @@ def _extract_generic(
     # populated before walk_calls runs. Lets member-call raw_calls carry a
     # receiver_type so the cross-file pass resolves `var.method` by type (#ruby).
     ruby_var_types: dict[str, dict[str, str | None]] = {}
+    # Python: per-function `name -> ClassName` for typed parameters and locals,
+    # stamped on member calls so the corpus resolver can type `obj.method()`.
+    python_var_types: dict[str, dict[str, str | None]] = {}
     # Ruby: per-method set of bound local/parameter names, so the call-walk can
     # tell a paren-less self-send (`build`) from a plain variable read (`x`).
     ruby_local_names: dict[str, frozenset[str]] = {}
@@ -7578,6 +7832,15 @@ def _extract_generic(
                             rc_entry["_python_receiver_shadowed"] = python_receiver_shadowed(
                                 node, member_receiver or ""
                             )
+                        # Python `self.X.m()`: stamp X's class when the
+                        # enclosing class bound it to exactly one (#2860).
+                        if config.ts_module == "tree_sitter_python" and is_member_call:
+                            _fn = node.child_by_field_name("function")
+                            _recv = _fn.child_by_field_name("object") if _fn is not None else None
+                            _fields = python_attr_types.get(method_owner.get(caller_nid, ""), {})
+                            _attr_type = _fields.get(_python_self_attr(_recv, source) or "")
+                            if _attr_type:
+                                rc_entry["_python_self_attr_type"] = _attr_type
                         # This file already named the callee as a type it does
                         # not define, so extract() binds it cross-file only with
                         # import or namespace evidence (#3888).
@@ -7589,6 +7852,11 @@ def _extract_generic(
                             rc_entry["receiver_type"] = ruby_var_types.get(
                                 caller_nid, {}
                             ).get(member_receiver)
+                        # Python: the same, from typed parameters and locals.
+                        if member_receiver and config.ts_module == "tree_sitter_python":
+                            _py_type = python_var_types.get(caller_nid, {}).get(member_receiver)
+                            if _py_type:
+                                rc_entry["receiver_type"] = _py_type
                         # Tag the C++ raw_call's language so the cross-file C++ resolver
                         # claims it unambiguously: a `.h` file routes to extract_cpp or
                         # extract_objc by content, and both resolvers see `.h` in their
@@ -7889,10 +8157,25 @@ def _extract_generic(
         for child in node.children:
             walk_calls(child, caller_nid, receiver_types, extra_locals)
 
+    # Python: type `self.X` per class from the bindings in its methods so
+    # `self.X.m()` can resolve corpus-side (#2860). Conflicting or untypable
+    # bindings poison the field to None.
+    python_attr_types: dict[str, dict[str, str | None]] = {}
+    if config.ts_module == "tree_sitter_python":
+        for caller_nid, body_node in function_bodies:
+            if caller_nid in method_owner:
+                fields = python_attr_types.setdefault(method_owner[caller_nid], {})
+                for attr, type_name in _python_self_attr_bindings(body_node, source):
+                    fields[attr] = type_name if fields.get(attr, type_name) == type_name else None
+
     if config.ts_module == "tree_sitter_ruby":
         for caller_nid, body_node in function_bodies:
             ruby_var_types[caller_nid] = _ruby_local_class_bindings(body_node, source)
             ruby_local_names[caller_nid] = _ruby_local_names(body_node, source)
+
+    if config.ts_module == "tree_sitter_python":
+        for caller_nid, body_node in function_bodies:
+            python_var_types[caller_nid] = _python_local_class_bindings(body_node, source)
 
     # C++: build the per-file `var -> ClassName` table from local declarations in
     # every function body so the cross-file member-call pass can type a receiver

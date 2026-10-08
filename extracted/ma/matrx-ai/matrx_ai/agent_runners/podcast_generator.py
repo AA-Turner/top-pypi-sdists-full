@@ -62,7 +62,7 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from matrx_utils import vcprint
 from pydantic import BaseModel, Field
@@ -562,6 +562,9 @@ class _EducationalScriptAgent(_PodcastAgent):
 
     class Inputs(BaseModel):
         podcast_topic_or_content: str
+        # The speech budget (matrx_graph.speech_pace); None when no length was asked.
+        target_word_count: int | None = None
+        target_duration_seconds: int | None = None
 
 
 class _NewsScriptAgent(_PodcastAgent):
@@ -570,6 +573,9 @@ class _NewsScriptAgent(_PodcastAgent):
 
     class Inputs(BaseModel):
         podcast_topic_or_content: str
+        # The speech budget (matrx_graph.speech_pace); None when no length was asked.
+        target_word_count: int | None = None
+        target_duration_seconds: int | None = None
 
 
 class _PersianScriptAgent(_PodcastAgent):
@@ -578,6 +584,9 @@ class _PersianScriptAgent(_PodcastAgent):
 
     class Inputs(BaseModel):
         podcast_topic_or_content: str
+        # The speech budget (matrx_graph.speech_pace); None when no length was asked.
+        target_word_count: int | None = None
+        target_duration_seconds: int | None = None
 
 
 class _MultihostScriptAgent(_PodcastAgent):
@@ -599,6 +608,9 @@ class _MultihostScriptAgent(_PodcastAgent):
         theme: str
         language: str
         speaker_names: str
+        # The speech budget (matrx_graph.speech_pace); None when no length was asked.
+        target_word_count: int | None = None
+        target_duration_seconds: int | None = None
 
 
 # These three used to exist only IF a version-id constant was set in this file
@@ -621,6 +633,9 @@ class _SoloScriptAgent(_PodcastAgent):
         theme: str
         language: str
         speaker_name: str
+        # The speech budget (matrx_graph.speech_pace); None when no length was asked.
+        target_word_count: int | None = None
+        target_duration_seconds: int | None = None
 
 
 class _RoundtableScriptAgent(_PodcastAgent):
@@ -637,6 +652,9 @@ class _RoundtableScriptAgent(_PodcastAgent):
         language: str
         speaker_personas: str
         speaker_names: str
+        # The speech budget (matrx_graph.speech_pace); None when no length was asked.
+        target_word_count: int | None = None
+        target_duration_seconds: int | None = None
 
 
 class _AudioDialogueAgent(_PodcastAgent):
@@ -995,6 +1013,10 @@ class PodcastRequest(BaseModel):
     # round-trips every resume. Consumers read it off the ROW via the host's
     # `is_shadow_run(run)` helper, never from ambient request context.
     run_mode: Literal["live", "shadow"] = "live"
+    # How long the spoken episode should run, in seconds. The script writer is
+    # given the matching word target from the ONE speaking pace
+    # (matrx_graph.speech_pace — setting speech/pace_wpm). None → no length target.
+    target_duration_seconds: int | None = Field(default=None, ge=1)
 
 
 class StageResult(BaseModel):
@@ -1192,6 +1214,19 @@ def _usage_from_agent_result(result: AgentRunResult) -> dict[str, object] | None
         cost_usd=total.total_cost or 0.0,
         models=models,
     ).model_dump()
+
+
+def _with_revision_cost(
+    usage: dict[str, object] | None, result: AgentRunResult
+) -> dict[str, object] | None:
+    """Add the check-and-revise turns' cost (each paid once) to the agent's usage."""
+    check = (result.metadata or {}).get("response_check") or {}
+    cost = float(check.get("revision_cost_usd") or 0.0)
+    if not cost:
+        return usage
+    merged = dict(usage) if usage else AiUsage().model_dump()
+    merged["cost_usd"] = float(merged.get("cost_usd") or 0.0) + cost
+    return merged
 
 
 def _to_stage(stage: str, result: AgentRunResult) -> StageResult:
@@ -1899,7 +1934,80 @@ def _canonical_script(script: str) -> str:
     return "\n\n".join(parts)
 
 
-def _validated_script_stage(result: AgentRunResult, request: PodcastRequest) -> StageResult:
+async def _revise_script(result: AgentRunResult, request: PodcastRequest) -> AgentRunResult:
+    """Check the script and revise it IN ITS OWN CONVERSATION — the W3 step's function.
+
+    The code path calls :func:`matrx_ai.revision.revise_until_passing` with the
+    SAME host check (``podcast.script``, GATE 2) and the same spoken-text length
+    check the W3 "Check and Revise" step names. The length check runs only when
+    the request states a word target (``target_word_count``); blank = no length
+    check. Returns the result to validate — the revised answer when one passed,
+    or the closest attempt.
+    """
+    from matrx_graph.checks import ResponseCheckSpec
+    from matrx_graph.knobs import response_check_policy
+
+    from matrx_ai._ext import get_ext, has_ext
+    from matrx_ai.revision import (
+        agent_revision_request,
+        host_continue_sender,
+        persisted_turns,
+        revise_until_passing,
+    )
+    from matrx_connect.context.app_context import get_app_context
+
+    conversation_id = str((result.metadata or {}).get("conversation_id") or "") or None
+    values = {
+        "host_count": request.host_count or _DEFAULT_SPEAKER_COUNT,
+        "speaker_names": [s.name for s in request.speakers if s.name.strip()],
+        "target_word_count": getattr(request, "target_word_count", None),
+    }
+    checks = [
+        ResponseCheckSpec(key="script", type="host", host_check="podcast.script", on_exhausted="fail"),
+        ResponseCheckSpec(key="length", type="length", projection="podcast.spoken_text",
+                          unit="words", target_value="target_word_count"),
+    ]
+    revisable = has_ext("conversation_continuer") and has_ext("ConversationContinueRequest")
+
+    async def run(cid: str, req: Any) -> Any:
+        return await get_ext("conversation_continuer")(cid, req, get_app_context())
+
+    policy = await response_check_policy()
+    outcome = await revise_until_passing(
+        conversation_id=conversation_id,
+        answer=result.output,
+        checks=checks,
+        values=values,
+        max_revisions=policy.max_revisions,
+        key_base=f"podcast:{conversation_id}:create_script",
+        send_turn=host_continue_sender(
+            build_request=lambda payload: get_ext("ConversationContinueRequest").model_validate(payload),
+            run=run,
+        ),
+        read_turns=persisted_turns,
+        resolve_request=agent_revision_request,
+        tolerance_pct=policy.length_tolerance_pct,
+        revisable=revisable and conversation_id is not None,
+        not_revisable_reason="" if revisable else "this server registered no conversation continuer",
+    )
+    if outcome.outcome in ("passed",) and not outcome.final.check.misses():
+        return result
+    vcprint(
+        f"[PodcastGenerator] script check: {outcome.outcome} after {outcome.revision_turns} "
+        f"revision(s) — {outcome.final.check.rendered}",
+        color="yellow",
+    )
+    # Revision cost rides in ``metadata.response_check.revision_cost_usd``;
+    # ``_validated_script_stage`` adds it to the stage usage ONCE. (It used to be
+    # written to ``result.usage``, which the stage never reads — the stage
+    # usage is rebuilt from ``usage_aggregated`` — so every revision turn was free.)
+    return result.model_copy(update={
+        "output": outcome.final.text,
+        "metadata": {**(result.metadata or {}), "response_check": outcome.payload()},
+    })
+
+
+async def _validated_script_stage(result: AgentRunResult, request: PodcastRequest) -> StageResult:
     """GATE 2 wrapper for a script-agent result.
 
     A script agent that "succeeds" but returns prose/thinking, an empty block, or
@@ -1922,6 +2030,9 @@ def _validated_script_stage(result: AgentRunResult, request: PodcastRequest) -> 
         # recurse into itself with identical args — a guaranteed RecursionError
         # on any failed script agent run.)
         return _to_stage("create_script", result)
+    # Check and revise in the script's own conversation (same function as W3).
+    result = await _revise_script(result, request)
+    usage = _with_revision_cost(_usage_from_agent_result(result), result)
     try:
         _validate_script(result.output, request)
     except ScriptValidationError as exc:
@@ -1941,6 +2052,24 @@ def _validated_script_stage(result: AgentRunResult, request: PodcastRequest) -> 
         output=_canonical_script(result.output),
         usage=usage,
     )
+
+
+async def _script_length_variables(request: PodcastRequest) -> dict[str, int | None]:
+    """The word target every script band receives — the same resolver W3's
+    ``speech.budget`` step uses, so the code path and the workflow agree."""
+    if request.target_duration_seconds is None:
+        return {"target_word_count": None, "target_duration_seconds": None}
+    from matrx_connect.context.app_context import try_get_app_context
+    from matrx_graph.speech_pace import speech_budget
+
+    budget = await speech_budget(
+        request.target_duration_seconds,
+        organization_id=getattr(try_get_app_context(), "organization_id", None),
+    )
+    return {
+        "target_word_count": budget.target_word_count,
+        "target_duration_seconds": budget.target_duration_seconds,
+    }
 
 
 async def _create_script(request: PodcastRequest, prepared_content: str) -> StageResult:
@@ -1968,6 +2097,8 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             stage="create_script", success=True, output=_canonical_script(prepared_content)
         )
 
+    length = await _script_length_variables(request)
+
     if _is_legacy_script_request(request):
         match request.podcast_type:
             case PodcastType.NEWS:
@@ -1980,7 +2111,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             legacy_cls = _NewsScriptAgent
         result = await _run_mandated(
             legacy_cls,
-            inputs=legacy_cls.Inputs(podcast_topic_or_content=prepared_content),
+            inputs=legacy_cls.Inputs(podcast_topic_or_content=prepared_content, **length),
             label="Podcast Script",
             # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
             # parent stream — the /podcast/generate endpoint's emitter, or the
@@ -1992,7 +2123,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             # AgentRunResult.
             suppress_stream=True,
         )
-        return _validated_script_stage(result, request)
+        return await _validated_script_stage(result, request)
 
     n = request.host_count
     if n == 1:
@@ -2005,6 +2136,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
                 "theme": request.theme,
                 "language": _derived_language(request),
                 "speaker_name": solo_name,
+                **length,
             },
             label="Podcast Script",
             # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
@@ -2017,7 +2149,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             # AgentRunResult.
             suppress_stream=True,
         )
-        return _validated_script_stage(result, request)
+        return await _validated_script_stage(result, request)
 
     if n >= 5:
         result = await _run_mandated(
@@ -2038,6 +2170,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
                 # grows real personas, fill this from them — never a constant.
                 "speaker_personas": "",
                 "speaker_names": _speaker_names_json(request),
+                **length,
             },
             label="Podcast Script",
             # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
@@ -2050,7 +2183,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             # AgentRunResult.
             suppress_stream=True,
         )
-        return _validated_script_stage(result, request)
+        return await _validated_script_stage(result, request)
 
     # 2–4 hosts off the legacy path → the built multihost agent.
     result = await _run_mandated(
@@ -2062,6 +2195,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             theme=request.theme,
             language=_derived_language(request),
             speaker_names=_speaker_names_json(request),
+            **length,
         ),
         label="Podcast Script",
         # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
@@ -2074,7 +2208,7 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
         # AgentRunResult.
         suppress_stream=True,
     )
-    return _validated_script_stage(result, request)
+    return await _validated_script_stage(result, request)
 
 
 # ---------------------------------------------------------------------------
@@ -3229,15 +3363,17 @@ async def _read_media_handle_bytes(fm, handle: str) -> bytes:
     episode whose media went public failed official-video composition for
     that reason (fixed 2026-08-17).
     """
-    from matrx_files import MediaRef
+    from matrx_files import MediaRef, file_id_from_our_url
     from matrx_utils.ctx import system_file_access
 
     candidate = (handle or "").strip()
-    ref = (
-        MediaRef(file_id=candidate)
-        if _MEDIA_FILE_ID_RE.match(candidate)
-        else MediaRef(url=candidate)
-    )
+    # file_id is identity: recover it from any URL WE minted (the durable
+    # ``/files/{id}/download?inline=1`` route, CDN, S3) so the read goes
+    # file_id → files row → access gate → S3, never an HTTP fetch of our own
+    # authenticated route (which answers 401 to an anonymous fetch — the
+    # podcast W8 compose failure, 2026-10-07).
+    file_id = file_id_from_our_url(candidate)
+    ref = MediaRef(file_id=file_id) if file_id else MediaRef(url=candidate)
     # Internal pipeline reading media it just generated — declare it so a
     # background (no-request-context) run authorizes; an in-request run still
     # authorizes as the request user.
@@ -4268,3 +4404,60 @@ async def generate_podcast(
         # run that is no longer collecting results.
         if feature_image_task is not None and not feature_image_task.done():
             feature_image_task.cancel()
+
+
+# ── Response checks: the podcast's host check and host projection ─────────────
+#
+# Registered with ``matrx_graph.checks`` by the host at boot (aidream
+# package_integration). ONE validator with two callers: the W3 "Check and
+# Revise" step and this file's own code path name the same check.
+
+
+def podcast_spoken_text(script: str) -> str:
+    """Exactly the words the TTS stage voices: the dialogue's spoken lines.
+
+    Speaker labels are dropped by the same parser audio segmentation uses
+    (``_dialogue_speaker_lines``); bracketed voice tags / stage directions
+    (``[laughs]``, ``<break/>``) are not spoken and are removed. No dialogue
+    block → empty (GATE 2 reports that separately).
+    """
+    import re
+
+    blocks = [m.strip() for m in _DIALOGUE_BLOCK_RE.findall(script or "") if m.strip()]
+    if not blocks:
+        return ""
+    lines = [text for _name, text in _dialogue_speaker_lines(max(blocks, key=len))]
+    spoken = " ".join(lines)
+    return re.sub(r"\[[^\]\n]{0,80}\]|<[^>\n]{0,80}>", " ", spoken)
+
+
+def podcast_script_check(script: str, values: Any) -> str | None:
+    """GATE 2 as a host check. ``values``: ``host_count`` and ``speaker_names``.
+
+    Returns None when the script passes, else the failure as a fact.
+    """
+    import json as _json
+    from types import SimpleNamespace
+
+    raw_names = values.get("speaker_names") if hasattr(values, "get") else None
+    if isinstance(raw_names, str):
+        try:
+            raw_names = _json.loads(raw_names) if raw_names.strip().startswith("[") else [
+                n.strip() for n in raw_names.split(",")
+            ]
+        except ValueError:
+            raw_names = []
+    names = [str(n.get("name", "") if isinstance(n, dict) else n) for n in (raw_names or [])]
+    try:
+        host_count = int(values.get("host_count") or 0) if hasattr(values, "get") else 0
+    except (TypeError, ValueError):
+        host_count = 0
+    request = SimpleNamespace(
+        host_count=host_count or len([n for n in names if n.strip()]) or None,
+        speakers=[SimpleNamespace(name=n) for n in names if n.strip()],
+    )
+    try:
+        _validate_script(script, request)  # type: ignore[arg-type]
+    except ScriptValidationError as exc:
+        return str(exc)
+    return None

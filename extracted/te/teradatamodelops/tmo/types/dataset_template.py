@@ -39,7 +39,8 @@ class DatasetTemplate(BaseDatasetMixin):
     project_id: uuid.UUID
     owner_id: str
     catalog_type: CatalogType
-    metadata: Union[Metadata, dict]  # NOSONAR
+    metadata: Union[Metadata, dict]  # NOSONAR: Metadata uses @functional, which
+    # breaks the `X | Y` operator; typing.Union must be used instead.
     feature_metadata: FeatureMetadata
     entity: str
     target: list[str]
@@ -52,7 +53,7 @@ class DatasetTemplate(BaseDatasetMixin):
         project_id: Optional[uuid.UUID] = None,
         owner_id: Optional[str] = None,
         catalog_type: Optional[CatalogType] = CatalogType.VANTAGE,
-        metadata: Optional[Union[Metadata, dict]] = None,
+        metadata: Optional[Union[Metadata, dict]] = None,  # NOSONAR
         feature_metadata: Optional[FeatureMetadata] = FeatureMetadata(),
     ):
         self.id = id

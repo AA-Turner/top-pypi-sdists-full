@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -12,6 +13,8 @@ from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.agents.types import AgentConfig
 from matrx_ai.agents.variables import AgentVariable
 from matrx_ai.config.unified_config import UnifiedConfig
+
+logger = logging.getLogger(__name__)
 
 EXECUTION_AGENT_SOURCE_KEY = "execution_agent_source"
 
@@ -212,8 +215,26 @@ def definition_from_row(row: Any, *, is_version: bool) -> ExecutionAgentDefiniti
 def definition_to_agent_config(definition: ExecutionAgentDefinition) -> AgentConfig:
     """The one canonical definition -> AgentConfig -> UnifiedConfig mapper."""
 
+    settings = dict(definition.settings)
+    if definition.output_schema:
+        # THE ONE CONTRACT. An agent's ``output_schema`` is its executable output
+        # contract. A ``settings.response_format`` saved beside it (the agent
+        # builder's old "response format" control) can only drift from it, and a
+        # copy carrying a schema or ``{"type": "text"}`` would read downstream as
+        # caller-supplied and stop the real schema from binding. Drop it here —
+        # every run built from a definition (run_agent, ai_task hydration) passes
+        # this mapper. A response_format the CALLER sends for a run is applied
+        # later and is untouched.
+        stale = settings.pop("response_format", None)
+        if stale is not None:
+            logger.warning(
+                "agent %r (%s): ignoring settings.response_format; output_schema is the contract",
+                definition.name,
+                definition.agent_id,
+            )
+
     config_dict: dict[str, Any] = {
-        **definition.settings,
+        **settings,
         "messages": definition.messages,
         "model": definition.model_id,
         "tools": definition.tools,
@@ -221,7 +242,7 @@ def definition_to_agent_config(definition: ExecutionAgentDefinition) -> AgentCon
         "mcp_servers": definition.mcp_servers,
     }
     config = UnifiedConfig.from_dict(config_dict)
-    if definition.output_schema and config.response_format is None:
+    if definition.output_schema:
         config.response_format = {
             "type": "json_schema",
             "json_schema": definition.output_schema,

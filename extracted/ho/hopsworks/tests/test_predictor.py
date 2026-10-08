@@ -34,6 +34,20 @@ SERVING_NUM_INSTANCES_NO_LIMIT = [-1]
 SERVING_NUM_INSTANCES_SCALE_TO_ZERO = [0]
 SERVING_NUM_INSTANCES_ONE = [0]
 
+# The relation between a project's name and the Kubernetes namespace its
+# deployments run in: coinciding, derived from the name, pre-created and
+# unrelated to it, or reported before the client has stamped a name on. The URL
+# these getters render is the one users paste into an external client, so it has
+# to address the namespace in all four. See tests/core/test_serving_api.py.
+NAMESPACE_CASES = [
+    pytest.param("myproject", "myproject", id="identical"),
+    pytest.param("my_project", "my-project", id="derived"),
+    pytest.param(
+        "model_serving_int_MhGJP", "loadtest-kserve-0-main-000", id="unrelated"
+    ),
+    pytest.param(None, "pre-created-ns", id="unstamped"),
+]
+
 
 class TestPredictor:
     # from response json
@@ -743,7 +757,8 @@ class TestPredictor:
 
     # get_endpoint_url
 
-    def test_get_endpoint_url_with_istio(self, mocker):
+    @pytest.mark.parametrize(("project_name", "project_namespace"), NAMESPACE_CASES)
+    def test_get_endpoint_url_with_istio(self, mocker, project_name, project_namespace):
         # Arrange
         self._mock_serving_variables(mocker, SERVING_NUM_INSTANCES_NO_LIMIT)
         mock_istio_client = mocker.MagicMock()
@@ -760,13 +775,14 @@ class TestPredictor:
             model_version=1,
             model_framework=MODEL.FRAMEWORK_SKLEARN,
         )
-        p._project_name = "my_project"
+        p._project_name = project_name
+        p._project_namespace = project_namespace
 
         # Act
         url = p.get_endpoint_url()
 
         # Assert
-        assert url == "https://istio.example.com/v1/my_project/my_model"
+        assert url == f"https://istio.example.com/v1/{project_namespace}/my_model"
 
     def test_get_endpoint_url_no_istio_returns_none(self, mocker):
         # Arrange
@@ -793,7 +809,10 @@ class TestPredictor:
 
     # get_openai_url
 
-    def test_get_openai_url_vllm_with_istio(self, mocker):
+    @pytest.mark.parametrize(("project_name", "project_namespace"), NAMESPACE_CASES)
+    def test_get_openai_url_vllm_with_istio(
+        self, mocker, project_name, project_namespace
+    ):
         # Arrange
         self._mock_serving_variables(mocker, SERVING_NUM_INSTANCES_NO_LIMIT)
         mock_istio_client = mocker.MagicMock()
@@ -810,13 +829,14 @@ class TestPredictor:
             model_version=1,
             model_framework=MODEL.FRAMEWORK_LLM,
         )
-        p._project_name = "my_project"
+        p._project_name = project_name
+        p._project_namespace = project_namespace
 
         # Act
         url = p.get_openai_url()
 
         # Assert
-        assert url == "https://istio.example.com/v1/my_project/my_llm/v1"
+        assert url == f"https://istio.example.com/v1/{project_namespace}/my_llm/v1"
 
     def test_get_openai_url_non_vllm_returns_none(self, mocker):
         # Arrange
@@ -891,7 +911,10 @@ class TestPredictor:
 
     # get_inference_url
 
-    def test_get_inference_url_standard_model_with_istio(self, mocker):
+    @pytest.mark.parametrize(("project_name", "project_namespace"), NAMESPACE_CASES)
+    def test_get_inference_url_standard_model_with_istio(
+        self, mocker, project_name, project_namespace
+    ):
         # Arrange
         self._mock_serving_variables(mocker, SERVING_NUM_INSTANCES_NO_LIMIT)
         mock_istio_client = mocker.MagicMock()
@@ -908,15 +931,16 @@ class TestPredictor:
             model_version=1,
             model_framework=MODEL.FRAMEWORK_SKLEARN,
         )
-        p._project_name = "my_project"
+        p._project_name = project_name
+        p._project_namespace = project_namespace
 
         # Act
         url = p.get_inference_url()
 
         # Assert
-        assert (
-            url
-            == "https://istio.example.com/v1/my_project/my_model/v1/models/my_model:predict"
+        assert url == (
+            f"https://istio.example.com/v1/{project_namespace}"
+            "/my_model/v1/models/my_model:predict"
         )
 
     def test_get_inference_url_standard_model_fallback_hopsworks(self, mocker):
@@ -1243,6 +1267,91 @@ class TestPredictor:
         assert restored.git_url == "https://github.com/org/repo.git"
         assert restored.git_provider == "GitHub"
         assert restored.git_branch == "main"
+        # Defaults off, but still serialised so an update can turn it back off.
+        assert serialized["gitAutoRedeploy"] is False
+        assert restored.git_auto_redeploy is False
+
+    def test_git_auto_redeploy_round_trip(self, mocker):
+        self._mock_serving_variables(mocker, SERVING_NUM_INSTANCES_NO_LIMIT)
+        mocker.patch(
+            "hsml.predictor.Predictor._validate_serving_tool",
+            return_value=PREDICTOR.SERVING_TOOL_KSERVE,
+        )
+        mocker.patch(
+            "hsml.predictor.Predictor._validate_resources",
+            return_value=resources.PredictorResources(0),
+        )
+
+        p = predictor.Predictor(
+            name="my_agent",
+            model_server=PREDICTOR.MODEL_SERVER_PYTHON,
+            script_file="src/agent.py",
+            model_framework=MODEL.FRAMEWORK_PYTHON,
+            git_url="https://github.com/org/repo.git",
+            git_provider="GitHub",
+            git_branch="main",
+            git_auto_redeploy=True,
+        )
+
+        serialized = p.to_dict()
+        restored = predictor.Predictor.from_response_json(serialized)
+
+        assert serialized["gitAutoRedeploy"] is True
+        assert restored.git_auto_redeploy is True
+
+    def test_git_state_is_read_back_but_never_sent(self, mocker):
+        self._mock_serving_variables(mocker, SERVING_NUM_INSTANCES_NO_LIMIT)
+        mocker.patch(
+            "hsml.predictor.Predictor._validate_serving_tool",
+            return_value=PREDICTOR.SERVING_TOOL_KSERVE,
+        )
+        mocker.patch(
+            "hsml.predictor.Predictor._validate_resources",
+            return_value=resources.PredictorResources(0),
+        )
+
+        p = predictor.Predictor(
+            name="my_agent",
+            model_server=PREDICTOR.MODEL_SERVER_PYTHON,
+            script_file="src/agent.py",
+            model_framework=MODEL.FRAMEWORK_PYTHON,
+            git_url="https://github.com/org/repo.git",
+            git_provider="GitHub",
+            git_current_commit="abc123",
+            git_resolved_branch="main",
+        )
+
+        assert p.git_current_commit == "abc123"
+        assert p.git_resolved_branch == "main"
+
+        # Both are server-managed, and the backend does not copy them back on update. Sending
+        # gitResolvedBranch in particular would risk pinning a deployment that tracks the
+        # repository default onto the branch it happened to resolve to.
+        serialized = p.to_dict()
+        assert "gitCurrentCommit" not in serialized
+        assert "gitResolvedBranch" not in serialized
+
+    def test_git_auto_redeploy_omitted_without_git_source(self, mocker):
+        self._mock_serving_variables(mocker, SERVING_NUM_INSTANCES_NO_LIMIT)
+        mocker.patch(
+            "hsml.predictor.Predictor._validate_serving_tool",
+            return_value=PREDICTOR.SERVING_TOOL_KSERVE,
+        )
+        mocker.patch(
+            "hsml.predictor.Predictor._validate_resources",
+            return_value=resources.PredictorResources(0),
+        )
+
+        p = predictor.Predictor(
+            name="my_agent",
+            model_server=PREDICTOR.MODEL_SERVER_PYTHON,
+            script_file="src/agent.py",
+            model_framework=MODEL.FRAMEWORK_PYTHON,
+        )
+
+        # The backend rejects the flag without a git source, so it must not be sent.
+        assert "gitAutoRedeploy" not in p.to_dict()
+        assert p.git_auto_redeploy is False
 
     # vLLM variant round-trip
 

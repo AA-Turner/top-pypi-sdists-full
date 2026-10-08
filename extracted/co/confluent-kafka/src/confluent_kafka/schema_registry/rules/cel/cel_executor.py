@@ -24,12 +24,45 @@ from google.protobuf import message
 
 from confluent_kafka.schema_registry import RuleKind, Schema
 from confluent_kafka.schema_registry.rule_registry import RuleRegistry
+from confluent_kafka.schema_registry.rules.cel import protobuf_result_writer
 from confluent_kafka.schema_registry.rules.cel.cel_field_presence import InterpretedRunner
 from confluent_kafka.schema_registry.rules.cel.constraints import _msg_to_cel, _scalar_field_value_to_cel
 from confluent_kafka.schema_registry.rules.cel.extra_func import EXTRA_FUNCS
 from confluent_kafka.schema_registry.serde import FieldContext, RuleContext, RuleExecutor
 
 log = logging.getLogger(__name__)
+
+
+def _to_plain_containers(value: Any) -> Any:
+    """Replaces celpy's container types with the plain ones, all the way down.
+
+    ``celtypes.MapType`` is a dict subclass, so an Avro record it stands in for looks usable -
+    but it overrides ``get`` to *raise* KeyError when the key is absent and the default is
+    ``None``, where ``dict.get`` returns ``None``. fastavro fills an omitted field with
+    ``datum.get(name, field.get("default"))``, so a field whose declared default is ``null``
+    passes ``None`` as that default and raises instead of taking the default. The effect was
+    that a message-level transform omitting a nullable field failed with a bare
+    ``KeyError: 'nullable'``, while a field with a non-null default worked - a split with no
+    reason behind it. Handing fastavro a plain dict gets the JVM's behaviour for free.
+
+    Keys are normalised too: a celpy ``StringType`` is a str subclass and hashes alike, so this
+    is for the benefit of anything downstream that checks the type rather than the value.
+
+    A tuple stays a tuple. fastavro selects a union branch from a ``(record_name, value)``
+    pair, which is the only way to disambiguate two branches of the same shape, and
+    ``common/avro.py`` preserves that pair through the field-level walk for exactly that
+    reason. ``_value_to_cel`` has no tuple arm, so such a pair reaches a rule unconverted and
+    comes back out of an identity transform unchanged - and flattening it to a list left
+    fastavro with a value it refuses outright ("['B', {'x': 5}] (type list) do not match ...").
+    """
+    if isinstance(value, dict):
+        return {str(k): _to_plain_containers(v) for k, v in value.items()}
+    if isinstance(value, tuple):
+        return tuple(_to_plain_containers(v) for v in value)
+    if isinstance(value, list):
+        return [_to_plain_containers(v) for v in value]
+    return value
+
 
 # A date logical type annotates an Avro int, where the int stores the number
 # of days from the unix epoch, 1 January 1970 (ISO calendar).
@@ -69,7 +102,21 @@ class CelExecutor(RuleExecutor):
                     return msg
             expr = expr[index + 1 :]
 
-        return self.execute_rule(ctx, expr, args)
+        return self._write_back(ctx, msg, self.execute_rule(ctx, expr, args))
+
+    def _write_back(self, ctx: RuleContext, msg: Any, result: Any) -> Any:
+        """Shapes a rule result back into the form the serializer for this format expects.
+
+        An Avro record is a dict in this client, so the celpy map a rule returns is nearly
+        usable as-is - but only nearly, hence ``_to_plain_containers``. A protobuf message is
+        not a dict at all: the result has to be rebuilt into one, which is also where the
+        transform's replace semantics live.
+        """
+        if ctx.rule.kind == RuleKind.CONDITION:
+            return result
+        if isinstance(msg, message.Message):
+            return protobuf_result_writer.convert(result, msg)
+        return _to_plain_containers(result)
 
     def execute_rule(self, ctx: RuleContext, expr: str, args: Any) -> Any:
         schema = ctx.target
@@ -85,6 +132,12 @@ class CelExecutor(RuleExecutor):
             ast = self._env.compile(expr)
             prog = self._env.program(ast, functions=self._funcs)
             self._cache.set(expr, script_type, schema, prog)
+        # `now` is bound lazily, fresh per evaluation. Only inject when the
+        # expression references it — substring check matches protovalidate-
+        # python's pattern. Each rule evaluation sees a freshly-captured UTC
+        # instant.
+        if "now" in expr and "now" not in args:
+            args["now"] = celtypes.TimestampType(datetime.datetime.now(tz=datetime.timezone.utc))
         result = prog.evaluate(args)
         if isinstance(result, celtypes.BoolType):
             return bool(result)
@@ -121,13 +174,14 @@ def msg_to_cel(msg: Any) -> Any:
 
 
 def field_value_to_cel(field_ctx: FieldContext, field_value: Any) -> Any:
-    msg = field_ctx.containing_message
-    if isinstance(msg, message.Message):
-        desc = msg.DESCRIPTOR
-        field_desc = desc.fields_by_name[field_ctx.name]
+    # Protobuf values are converted through the field's own descriptor, which the walk carries
+    # on the context. Resolving it by name off the containing message instead would raise for
+    # a compatibly renamed field: field_ctx.name is the registered schema's name for it, and
+    # the producer's message knows the field under its own.
+    field_desc = field_ctx.field_descriptor
+    if field_desc is not None:
         return _scalar_field_value_to_cel(field_value, field_desc)
-    else:
-        return _value_to_cel(field_value)
+    return _value_to_cel(field_value)
 
 
 def _value_to_cel(msg: Any) -> Any:
@@ -139,12 +193,15 @@ def _value_to_cel(msg: Any) -> Any:
         return celtypes.StringType(msg)
     elif isinstance(msg, bytes):
         return celtypes.BytesType(msg)
+    # bool before int: bool is a subclass of int, so testing int first would bind every
+    # boolean as a CEL int and leave this branch unreachable - `this`, `!this` and
+    # `this == true` all fail against an int.
+    elif isinstance(msg, bool):
+        return celtypes.BoolType(msg)
     elif isinstance(msg, int):
         return celtypes.IntType(msg)
     elif isinstance(msg, float):
         return celtypes.DoubleType(msg)
-    elif isinstance(msg, bool):
-        return celtypes.BoolType(msg)
     elif isinstance(msg, datetime.datetime):
         # this impl differs from the other clients
         return celtypes.TimestampType(msg)

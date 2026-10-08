@@ -413,6 +413,23 @@ def _fx_conversation_continue(monkeypatch):
     )
 
 
+@node_fixture("ai.conversation.revise")
+def _fx_conversation_revise(monkeypatch):
+    from matrx_graph.checks import ResponseCheckSpec
+
+    from matrx_ai.graph_nodes.revise_action import ConversationReviseInput
+
+    return (
+        ConversationReviseInput(
+            answer="one two three",
+            conversation_id="conv-1",
+            checks=[ResponseCheckSpec(key="length", type="length", target=3)],
+            max_revisions=0,
+        ),
+        _ctx(),
+    )
+
+
 @node_fixture("ai.generate_image")
 def _fx_generate_image(monkeypatch):
     from matrx_ai.graph_nodes.image_action import GenerateImageInput
@@ -476,7 +493,13 @@ def _image_pipeline_holders(monkeypatch) -> None:
     )
     from matrx_ai.testing.holders import install_inline_holders
 
-    holder = {"model": "holder-model", "messages": [{"role": "system", "content": "HOLDER"}]}
+    holder = {
+        "model": "holder-model",
+        "messages": [
+            {"role": "system", "content": "HOLDER"},
+            {"role": "user", "content": "The Holder's authored user turn."},
+        ],
+    }
     install_inline_holders(
         monkeypatch,
         {

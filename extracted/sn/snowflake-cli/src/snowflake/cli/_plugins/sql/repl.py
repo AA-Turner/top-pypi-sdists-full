@@ -1,21 +1,37 @@
+import threading
 import time
 from contextlib import contextmanager
 from logging import getLogger
 from typing import Iterable, Tuple
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import ThreadedCompleter
 from prompt_toolkit.filters import Condition, is_done, is_searching
+from prompt_toolkit.formatted_text import AnyFormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
-from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
+from snowflake.cli._plugins.sql.completion import telemetry as completion_telemetry
+from snowflake.cli._plugins.sql.completion.acceptance import (
+    CompletionAcceptanceTracker,
+)
+from snowflake.cli._plugins.sql.completion.catalog import ObjectCatalog, SessionScope
+from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
+from snowflake.cli._plugins.sql.completion.fetch_indicator import (
+    FetchIndicator,
+    IndicatingProvider,
+)
+from snowflake.cli._plugins.sql.completion.introspection import (
+    SnowflakeMetadataProvider,
+)
+from snowflake.cli._plugins.sql.lexer import CliLexer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
     DEFAULT_REPL_PROMPT,
-    format_repl_prompt,
+    format_repl_prompt_for_terminal,
     session_prompt_values,
 )
 from snowflake.cli._plugins.sql.repl_commands import detect_command
@@ -82,6 +98,7 @@ class Repl:
         local_only: bool = False,
         no_prompt_exit_repl: bool = False,
         prompt_format: str | None = None,
+        auto_completion: bool = True,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
@@ -97,6 +114,7 @@ class Repl:
         self._local_only = local_only
         self._no_prompt_exit_repl = no_prompt_exit_repl
         self._prompt_format = prompt_format
+        self._auto_completion = auto_completion
         # Live SnowflakeConnection captured after a successful query so
         # drawing a prompt never looks up the connection cache (that lookup
         # can redial). Only captured when a format is set, and re-read after
@@ -105,12 +123,39 @@ class Repl:
         self._session_connection = None
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
-        self._completer = cli_completer
+        self._user_sql_in_flight = False
+        self._connection_lock = threading.Lock()
+        self._sql_manager = sql_manager
+        self._catalog = ObjectCatalog(provider=None) if auto_completion else None
+        self._completer = (
+            SqlReplCompleter(catalog=self._catalog) if auto_completion else None
+        )
+        self._fetch_indicator = FetchIndicator(invalidate=self._redraw_prompt)
+        if self._catalog is not None:
+            catalog = self._catalog
+            catalog.set_provider(
+                IndicatingProvider(
+                    SnowflakeMetadataProvider(
+                        connection_factory=lambda: self._sql_manager.connection,
+                        is_busy=lambda: self._user_sql_in_flight,
+                        generation=lambda: catalog.generation,
+                        connection_lock=self._connection_lock,
+                    ),
+                    self._fetch_indicator,
+                )
+            )
+            sql_manager.on_compiled_success = catalog.on_success
         self._repl_key_bindings = self._setup_key_bindings()
         self._yes_no_keybindings = self._setup_yn_key_bindings()
-        self._sql_manager = sql_manager
         self.session = PromptSession(history=self._history)
         self._next_input: str | None = None
+        self._acceptance = (
+            CompletionAcceptanceTracker(
+                self.session.default_buffer, self._completer.notify_accepted
+            )
+            if self._completer is not None
+            else None
+        )
 
     def _setup_key_bindings(self) -> KeyBindings:
         """Key bindings for repl. Helps detecting ; at end of buffer."""
@@ -141,21 +186,17 @@ class Repl:
             Execution priority:
             1. Exit keywords (exit, quit) - execute immediately
             2. REPL commands (starting with !) - execute immediately
-            3. SQL with trailing semicolon - execute immediately
+            3. Semicolon-terminated buffer - execute immediately, whatever the
+               cursor position; Ctrl+J inserts a new line instead
             4. All other input - add new line for multi-line editing
             """
             buffer = event.app.current_buffer
-            buffer_text = buffer.text
-            stripped_text = buffer_text.strip()
+            stripped_text = buffer.text.strip()
 
             if stripped_text:
                 log.debug("evaluating repl input")
-                cursor_position = buffer.cursor_position
                 ends_with_semicolon = stripped_text.endswith(";")
                 is_command = detect_command(stripped_text) is not None
-
-                meaningful_content_end = len(buffer_text.rstrip())
-                cursor_at_meaningful_end = cursor_position >= meaningful_content_end
 
                 if stripped_text.lower() in EXIT_KEYWORDS:
                     log.debug("exit keyword detected %r", stripped_text)
@@ -165,8 +206,8 @@ class Repl:
                     log.debug("command detected, submitting input")
                     buffer.validate_and_handle()
 
-                elif ends_with_semicolon and cursor_at_meaningful_end:
-                    log.debug("semicolon detected, submitting input")
+                elif ends_with_semicolon:
+                    log.debug("semicolon-terminated buffer, submitting input")
                     buffer.validate_and_handle()
 
                 else:
@@ -203,7 +244,10 @@ class Repl:
 
         return kb
 
-    def _current_prompt(self) -> str:
+    def _redraw_prompt(self) -> None:
+        self.session.app.invalidate()
+
+    def _current_prompt(self) -> AnyFormattedText:
         """Build the prompt for this iteration of the REPL loop.
 
         An unset format keeps the historical `` > `` so this feature is
@@ -212,7 +256,7 @@ class Repl:
         """
         if not self._prompt_format:
             return DEFAULT_REPL_PROMPT
-        return format_repl_prompt(
+        return format_repl_prompt_for_terminal(
             self._prompt_format,
             session_prompt_values(
                 self._session_connection,
@@ -220,7 +264,7 @@ class Repl:
             ),
         )
 
-    def repl_prompt(self, msg: str | None = None) -> str:
+    def repl_prompt(self, msg: AnyFormattedText = None) -> str:
         """Regular repl prompt with support for pre-filled input.
 
         Checks for queued input from commands like !edit and uses it as
@@ -229,12 +273,18 @@ class Repl:
         if msg is None:
             msg = self._current_prompt()
         default_text = self._next_input
+        if self._acceptance is not None:
+            self._acceptance.reset()
 
         try:
-            return self.session.prompt(
+            result = self.session.prompt(
                 msg,
                 lexer=self._lexer,
-                completer=self._completer,
+                completer=(
+                    ThreadedCompleter(self._completer) if self._completer else None
+                ),
+                rprompt=self._fetch_indicator.text if self._completer else None,
+                complete_while_typing=False,
                 multiline=True,
                 wrap_lines=True,
                 key_bindings=self._repl_key_bindings,
@@ -243,6 +293,9 @@ class Repl:
         finally:
             if self._next_input == default_text:
                 self._next_input = None
+        if self._acceptance is not None:
+            self._acceptance.commit_on_submit()
+        return result
 
     @property
     def _welcome_banner(self) -> str:
@@ -285,6 +338,8 @@ class Repl:
         Honors Ctrl-C and Ctrl-D in REPL loop.
         """
         while True:
+            if self._completer is not None:
+                completion_telemetry.drain()
             try:
                 user_input = self.repl_prompt().strip()
 
@@ -300,9 +355,19 @@ class Repl:
                 try:
                     log.debug("executing query")
                     with sql_client_query_span() as gate:
-                        expected_results_cnt, cursors = self._execute(user_input)
-                        gate.record = expected_results_cnt > 0
-                        print_result(MultipleResults(QueryResult(c) for c in cursors))
+                        with self._connection_lock:
+                            self._user_sql_in_flight = True
+                            try:
+                                expected_results_cnt, cursors = self._execute(
+                                    user_input
+                                )
+                                gate.record = expected_results_cnt > 0
+                                print_result(
+                                    MultipleResults(QueryResult(c) for c in cursors)
+                                )
+                                self._sync_catalog_scope()
+                            finally:
+                                self._user_sql_in_flight = False
                     elapsed = time.monotonic() - started
 
                     if expected_results_cnt > 0:
@@ -352,6 +417,31 @@ class Repl:
         """Get the FileHistory instance used by the REPL."""
         return self._history
 
+    def refresh_completion_catalog(self) -> None:
+        """Drop object snapshots. Disabled REPL prints one line and does no SHOW."""
+        if not self._auto_completion or self._catalog is None:
+            cli_console.message("Autocomplete is disabled.")
+            return
+        self._catalog.drop_all()
+        cli_console.message("Object cache cleared.")
+
+    def _sync_catalog_scope(self) -> None:
+        if self._catalog is None:
+            return
+        try:
+            conn = self._sql_manager.connection
+        except Exception:
+            return
+        session_id = getattr(conn, "session_id", None)
+        self._catalog.set_scope(
+            SessionScope(
+                database=getattr(conn, "database", None),
+                schema=getattr(conn, "schema", None),
+                primary_role=getattr(conn, "role", None),
+                session_id=str(session_id) if session_id is not None else None,
+            )
+        )
+
     def ask_yn(self, question: str) -> bool:
         """Asks user a Yes/No question."""
         try:
@@ -361,6 +451,7 @@ class Repl:
                     f"{question} (y/n): ",
                     lexer=None,
                     completer=None,
+                    complete_while_typing=False,
                     multiline=False,
                     wrap_lines=False,
                     key_bindings=self._yes_no_keybindings,

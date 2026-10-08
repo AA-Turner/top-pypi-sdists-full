@@ -40,13 +40,16 @@ holds, an introspector what the *database* holds.
 
 from __future__ import annotations
 
+import functools
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Generator, Iterable, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Concatenate
 
 import pglast
 from pglast.stream import RawStream
+from psycopg.pq import TransactionStatus
 
 from confiture.core.ddl_objects import DDLObject, object_of, tview_object
 from confiture.core.ddl_walk import (
@@ -108,6 +111,51 @@ _NOT_EXTENSION_OWNED = "NOT " + _EXTENSION_OWNED
 #: ``FirstNormalObjectId``): an object below it — ``plpgsql``, ``pg_catalog``'s
 #: own — came with the cluster, and no tree declares it.
 _FIRST_USER_OID = 16384
+
+
+#: The ``search_path`` every read that deparses runs under (#639). The deparsers
+#: (``pg_get_viewdef``, ``pg_get_functiondef``, ``format_type``, …) qualify a name
+#: only when the reading session's path would not find it, so a database or role
+#: that sets its own path read the same stored object as another text. ``public``
+#: is what a session that sets nothing sees: a database that sets no path reads as
+#: it always did. Not ``"$user"``: that depends on who reads.
+READ_PATH = DEFAULT_SCHEMA
+
+
+@contextmanager
+def read_path(conn: psycopg.Connection) -> Generator[None]:
+    """Read under :data:`READ_PATH`, and give *conn* back with the path it came with.
+
+    Set and restored through ``execute`` alone — a caller's connection may be any
+    :class:`~confiture.core.connection.Connection` — and never ``SET LOCAL``, which
+    is inert under autocommit and outlives the read inside a caller's transaction.
+    A read whose transaction aborts leaves the restore to the caller's rollback,
+    which undoes the ``SET`` with the rest.
+    """
+    row = conn.execute(t"SELECT current_setting('search_path')").fetchone()
+    if row is None or row[0] == READ_PATH:
+        yield
+        return
+    saved = row[0]
+    conn.execute(t"SELECT set_config('search_path', {READ_PATH}, false)")
+    try:
+        yield
+    finally:
+        if conn.info.transaction_status != TransactionStatus.INERROR:
+            conn.execute(t"SELECT set_config('search_path', {saved}, false)")
+
+
+def reads_under_one_path[**P, R](
+    reader: Callable[Concatenate[psycopg.Connection, P], R],
+) -> Callable[Concatenate[psycopg.Connection, P], R]:
+    """*reader*, run under :data:`READ_PATH` (:func:`read_path`); nested reads set it once."""
+
+    @functools.wraps(reader)
+    def under_one_path(conn: psycopg.Connection, *args: P.args, **kwargs: P.kwargs) -> R:
+        with read_path(conn):
+            return reader(conn, *args, **kwargs)
+
+    return under_one_path
 
 
 def _created(catalog: str, oid: str) -> str:
@@ -385,6 +433,7 @@ def _tables(
     return tables
 
 
+@reads_under_one_path
 def read(
     conn: psycopg.Connection,
     *,
@@ -411,9 +460,11 @@ def read(
     extension's own routines and views are left out, as its tables are.
 
     A pg_tviews TVIEW (#504) is always read as one object, whoever reads: its
-    parts — the ``tv_*`` table and the backing ``v_*`` view — are left out of the
-    tables and views, because they are the TVIEW's, and the triggers pg_tviews
-    puts on a base table run its own functions and are never read as a user's.
+    parts — the ``tv_*`` table and the backing view ``tviews.registry`` names —
+    are left out of the tables and views, because they are the TVIEW's, and the
+    triggers pg_tviews puts on a base table run its own functions and are never
+    read as a user's. A ``v_<entity>`` view of the application's schema is the
+    tree's own unless the registry names it.
     A database whose pg_tviews offers no read contract confiture knows is
     refused (``CONFIG_014``) rather than read as parts.
     """
@@ -597,6 +648,7 @@ def index_exists(
     return bool(_scalar(conn, _INDEX_EXISTS, (schema, name, table, table)))
 
 
+@reads_under_one_path
 def constraints(conn: psycopg.Connection, schema: str, table: str) -> tuple[Constraint, ...]:
     """One table's constraints, read the way :func:`read` reads them."""
     with conn.cursor() as cursor:
@@ -606,6 +658,7 @@ def constraints(conn: psycopg.Connection, schema: str, table: str) -> tuple[Cons
     return tuple(c for c in read_back if c is not None)
 
 
+@reads_under_one_path
 def columns(conn: psycopg.Connection, schema: str, table: str) -> tuple[Column, ...]:
     """The columns of one relation, in order, read the way :func:`read` reads them."""
     with conn.cursor() as cursor:
@@ -615,10 +668,12 @@ def columns(conn: psycopg.Connection, schema: str, table: str) -> tuple[Column, 
     return tuple(_column((None, *row), node) for row, node in zip(rows, nodes, strict=True))
 
 
+@reads_under_one_path
 def column(conn: psycopg.Connection, schema: str, table: str, name: str) -> Column | None:
     return next((c for c in columns(conn, schema, table) if c.folded == name), None)
 
 
+@reads_under_one_path
 def column_types(conn: psycopg.Connection) -> dict[str, str]:
     """``schema.table.column`` (case-folded) → ``format_type``, for every user relation."""
     with conn.cursor() as cursor:
@@ -683,6 +738,7 @@ ORDER BY n.nspname, t.relname, ic.relname
 """
 
 
+@reads_under_one_path
 def indexes(conn: psycopg.Connection, schemas: Sequence[str]) -> dict[ObjectRef, tuple[Index, ...]]:
     """Every index in *schemas*, by the table it is on, a constraint's own included.
 
@@ -797,12 +853,27 @@ CONTRACT_VERSION = 1
 
 _HAS_CONTRACT = "SELECT to_regprocedure(%s) IS NOT NULL"
 
-#: The registry's ``view`` column, which pg_tviews appended under contract 1: an
-#: earlier contract-1 build has none, and its backing view is the one it creates
-#: beside the table, ``v_<entity>``, found by name. Either is the view's oid, so the
-#: reader's ``search_path`` does not change it.
+#: The registry's ``view`` column, which pg_tviews appended under contract 1, names
+#: the backing view: in pg_tviews' own schema from 0.1.0-beta.25, so a ``v_<entity>``
+#: view beside the table is the tree's (fraiseql/pg_tviews#181). An earlier contract-1
+#: build has no column; its backing view is the one it creates beside the table,
+#: ``v_<entity>``, which no view of the tree can hold there, so the name finds it.
+#: Either is the view's oid, so the reader's ``search_path`` does not change it.
 _BACKING_VIEW = t"r.view"
 _BACKING_VIEW_BY_NAME = t"to_regclass(format('%I.%I', r.schema, 'v_' || r.entity))"
+
+#: The registry's ``uncascaded_policy`` column, from 0.1.0-beta.25: stored beside
+#: ``options``, not in them. An earlier build has no column, and no policy.
+_UNCASCADED_POLICY = t"r.uncascaded_policy"
+_NO_UNCASCADED_POLICY = t"NULL::text"
+
+_REGISTRY_HAS = """
+SELECT EXISTS (
+    SELECT 1 FROM pg_attribute
+    WHERE attrelid = to_regclass(format('%%I.%%I', %s::text, 'registry'))
+      AND attname = %s AND NOT attisdropped
+)
+"""
 
 # The argument types are spelled inside the one query, in order: a round trip
 # per parameter was what the introspector used to pay. `input_types` come from
@@ -894,6 +965,7 @@ def routine_of(row: RoutineRow) -> Routine:
     )
 
 
+@reads_under_one_path
 def views(
     conn: psycopg.Connection,
     schemas: Sequence[str],
@@ -943,6 +1015,7 @@ def _views(
     ]
 
 
+@reads_under_one_path
 def tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[TView]:
     """Every pg_tviews TVIEW in *schemas*; none where the extension is not installed."""
     return [tview for tview, _view_oid in _tviews(conn, schemas)]
@@ -1011,24 +1084,23 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
     if installed is None:
         return []
     require_supported_pg_tviews(installed[0], _contract(conn))
-    has_view_column = conn.execute(
-        t"""
-        SELECT EXISTS (
-            SELECT 1 FROM pg_attribute
-            WHERE attrelid = to_regclass(format('%I.%I', {TVIEWS_SCHEMA}::text, 'registry'))
-              AND attname = 'view' AND NOT attisdropped
-        )
-        """
-    ).fetchone()
     backing_view = (
-        _BACKING_VIEW if has_view_column and has_view_column[0] else _BACKING_VIEW_BY_NAME
+        _BACKING_VIEW
+        if _scalar(conn, _REGISTRY_HAS, (TVIEWS_SCHEMA, "view"))
+        else _BACKING_VIEW_BY_NAME
+    )
+    uncascaded_policy = (
+        _UNCASCADED_POLICY
+        if _scalar(conn, _REGISTRY_HAS, (TVIEWS_SCHEMA, "uncascaded_policy"))
+        else _NO_UNCASCADED_POLICY
     )
     # Each registered TVIEW: its relation, the query pg_tviews holds, the storage
-    # options it reads from the catalog, and its backing view's oid, whose relation
-    # is the TVIEW's and not a view of the tree's (``NULL`` once that view is gone).
+    # options it reads from the catalog, its uncascaded policy, and its backing
+    # view's oid, whose relation is the TVIEW's and not a view of the tree's
+    # (``NULL`` once that view is gone).
     query = t"""
         SELECT r.schema, r.name, r.query, r.logged, (r.options ->> 'fillfactor')::int,
-               {backing_view:q}::oid::bigint
+               {uncascaded_policy:q}, {backing_view:q}::oid::bigint
         FROM {TVIEWS_SCHEMA:i}.registry r
         WHERE r.schema = ANY({list(schemas)})
         ORDER BY r.schema, r.name
@@ -1041,13 +1113,17 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
                 definition=rendered_query(definition),
                 logged=logged,
                 fillfactor=fillfactor,
+                uncascaded_policy=policy,
             ),
             view_oid,
         )
-        for schema, name, definition, logged, fillfactor, view_oid in conn.execute(query).fetchall()
+        for schema, name, definition, logged, fillfactor, policy, view_oid in conn.execute(
+            query
+        ).fetchall()
     ]
 
 
+@reads_under_one_path
 def triggers(conn: psycopg.Connection, schemas: Sequence[str]) -> list[Trigger]:
     """Every trigger a user created on a relation in *schemas*."""
     return _triggers(conn, schemas)
@@ -1060,6 +1136,7 @@ def _triggers(conn: psycopg.Connection, schemas: Sequence[str]) -> list[Trigger]
     ]
 
 
+@reads_under_one_path
 def routines(
     conn: psycopg.Connection,
     schemas: Sequence[str],
@@ -1206,6 +1283,7 @@ def _other_statement(obj: OtherObject) -> str | None:
     return None
 
 
+@reads_under_one_path
 def catalogued_objects(
     conn: psycopg.Connection, model: SchemaModel, schemas: Sequence[str]
 ) -> dict[ObjectRef, list[DDLObject]]:

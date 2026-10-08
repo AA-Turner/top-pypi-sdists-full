@@ -7,10 +7,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.error_response_400 import ErrorResponse400
-from ...models.error_response_401 import ErrorResponse401
-from ...models.error_response_403 import ErrorResponse403
-from ...models.error_response_404 import ErrorResponse404
+from ...models.error_response import ErrorResponse
 from ...models.list_deployments_order_type_0_item import ListDeploymentsOrderType0Item
 from ...models.list_deployments_sort_type_0_item import ListDeploymentsSortType0Item
 from ...models.list_page_deployment_response import ListPageDeploymentResponse
@@ -22,6 +19,7 @@ def _get_kwargs(
     *,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    version: int | None | Unset = UNSET,
     sort: list[ListDeploymentsSortType0Item] | None | Unset = UNSET,
     order: list[ListDeploymentsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
@@ -31,6 +29,13 @@ def _get_kwargs(
     params["limit"] = limit
 
     params["offset"] = offset
+
+    json_version: int | None | Unset
+    if isinstance(version, Unset):
+        json_version = UNSET
+    else:
+        json_version = version
+    params["version"] = json_version
 
     json_sort: list[str] | None | Unset
     if isinstance(sort, Unset):
@@ -80,38 +85,36 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageDeploymentResponse
-    | None
-):
+) -> ErrorResponse | ListPageDeploymentResponse | None:
     if response.status_code == 200:
         response_200 = ListPageDeploymentResponse.from_dict(response.json())
 
         return response_200
 
     if response.status_code == 400:
-        response_400 = ErrorResponse400.from_dict(response.json())
+        response_400 = ErrorResponse.from_dict(response.json())
 
         return response_400
 
     if response.status_code == 401:
-        response_401 = ErrorResponse401.from_dict(response.json())
+        response_401 = ErrorResponse.from_dict(response.json())
 
         return response_401
 
     if response.status_code == 403:
-        response_403 = ErrorResponse403.from_dict(response.json())
+        response_403 = ErrorResponse.from_dict(response.json())
 
         return response_403
 
     if response.status_code == 404:
-        response_404 = ErrorResponse404.from_dict(response.json())
+        response_404 = ErrorResponse.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 500:
+        response_500 = ErrorResponse.from_dict(response.json())
+
+        return response_500
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -121,13 +124,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageDeploymentResponse
-]:
+) -> Response[ErrorResponse | ListPageDeploymentResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -142,16 +139,11 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    version: int | None | Unset = UNSET,
     sort: list[ListDeploymentsSortType0Item] | None | Unset = UNSET,
     order: list[ListDeploymentsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageDeploymentResponse
-]:
+) -> Response[ErrorResponse | ListPageDeploymentResponse]:
     """ListDeployments
 
     Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
@@ -164,6 +156,7 @@ def sync_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        version (int | None | Unset): Exact match on `version`.
         sort (list[ListDeploymentsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListDeploymentsOrderType0Item] | None | Unset): Sort directions, one per
@@ -177,12 +170,13 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDeploymentResponse]
+        Response[ErrorResponse | ListPageDeploymentResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
         limit=limit,
         offset=offset,
+        version=version,
         sort=sort,
         order=order,
         cursor=cursor,
@@ -201,17 +195,11 @@ def sync(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    version: int | None | Unset = UNSET,
     sort: list[ListDeploymentsSortType0Item] | None | Unset = UNSET,
     order: list[ListDeploymentsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageDeploymentResponse
-    | None
-):
+) -> ErrorResponse | ListPageDeploymentResponse | None:
     """ListDeployments
 
     Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
@@ -224,6 +212,7 @@ def sync(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        version (int | None | Unset): Exact match on `version`.
         sort (list[ListDeploymentsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListDeploymentsOrderType0Item] | None | Unset): Sort directions, one per
@@ -237,13 +226,14 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDeploymentResponse
+        ErrorResponse | ListPageDeploymentResponse
     """
     return sync_detailed(
         workspace_id=workspace_id,
         client=client,
         limit=limit,
         offset=offset,
+        version=version,
         sort=sort,
         order=order,
         cursor=cursor,
@@ -256,16 +246,11 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    version: int | None | Unset = UNSET,
     sort: list[ListDeploymentsSortType0Item] | None | Unset = UNSET,
     order: list[ListDeploymentsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageDeploymentResponse
-]:
+) -> Response[ErrorResponse | ListPageDeploymentResponse]:
     """ListDeployments
 
     Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
@@ -278,6 +263,7 @@ async def asyncio_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        version (int | None | Unset): Exact match on `version`.
         sort (list[ListDeploymentsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListDeploymentsOrderType0Item] | None | Unset): Sort directions, one per
@@ -291,12 +277,13 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDeploymentResponse]
+        Response[ErrorResponse | ListPageDeploymentResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
         limit=limit,
         offset=offset,
+        version=version,
         sort=sort,
         order=order,
         cursor=cursor,
@@ -313,17 +300,11 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
+    version: int | None | Unset = UNSET,
     sort: list[ListDeploymentsSortType0Item] | None | Unset = UNSET,
     order: list[ListDeploymentsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageDeploymentResponse
-    | None
-):
+) -> ErrorResponse | ListPageDeploymentResponse | None:
     """ListDeployments
 
     Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
@@ -336,6 +317,7 @@ async def asyncio(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
+        version (int | None | Unset): Exact match on `version`.
         sort (list[ListDeploymentsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListDeploymentsOrderType0Item] | None | Unset): Sort directions, one per
@@ -349,7 +331,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDeploymentResponse
+        ErrorResponse | ListPageDeploymentResponse
     """
     return (
         await asyncio_detailed(
@@ -357,6 +339,7 @@ async def asyncio(
             client=client,
             limit=limit,
             offset=offset,
+            version=version,
             sort=sort,
             order=order,
             cursor=cursor,

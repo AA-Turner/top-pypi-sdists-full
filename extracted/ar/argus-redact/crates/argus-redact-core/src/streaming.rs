@@ -238,7 +238,7 @@ pub struct ContextCut {
 /// the last `w` already-emitted chars (`ctx_len` of them, as left-context) and
 /// holds back the last `w` chars (forward context). `spans` are the normalized
 /// snap spans over the WHOLE buffer (merged + self-ref-filtered entities plus the
-/// in-flight PEM opener pending span, if any — see [`StreamingRedactor::snap_spans`]).
+/// in-flight PEM and JWT opener pending spans, if any — see [`StreamingRedactor::snap_spans`]).
 ///
 /// The cut is the LAST real sentence boundary that (a) leaves ≥ `w` tail buffered
 /// (`≤ len − w`) and (b) lies past the already-emitted left-context (`> ctx_len`),
@@ -301,7 +301,7 @@ pub fn context_cut(
 /// [`context_cut`] it omits is the spans-dependent [`snap_cut`] refinement, which
 /// can only pull a cut BACK to `ctx_len` (hold) — never the other way — so the
 /// omission keeps `emit_possible` a strict superset of the emit set. Callers MUST
-/// pass the SAME `max_buffer` ([`StreamingRedactor::pem_max_buffer`]) and `w`
+/// pass the SAME `max_buffer` ([`effective_max_buffer`]) and `w`
 /// ([`EVIDENCE_CONTEXT_WINDOW`]) they pass to [`context_cut`].
 pub fn emit_possible(
     chars: &[char],
@@ -378,11 +378,24 @@ static PEM_END_RE: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap_or_else(|e| panic!("streaming: PEM_END_RE compile failed: {e}"))
 });
 
+/// Whole-run form of the `jwt` pattern in `data/shared.ron`. Anchored so a
+/// prefix match (or `validate_jwt`'s empty signature) is not a full match.
+/// Parity-by-convention — keep both in sync. Do not widen this to "unclosed
+/// iff `validate_jwt` is false": that predicate accepts `eyJ<h>.eyJ<p>.`.
+static JWT_FULL_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\AeyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\z")
+        .unwrap_or_else(|e| panic!("streaming: JWT_FULL_RE compile failed: {e}"))
+});
+
 /// The pending-span type label for an in-flight PEM opener. [`snap_cut`] is
 /// type-agnostic and treats the `[begin, len)` span with the closed-entity straddle
 /// rule (snap the cut back to `begin`), which is exactly what carrying an
 /// unterminated key whole requires.
 const PEM_OPENER_TYPE: &str = "ssh_private_key";
+
+/// Pending-span type label for an in-flight JWT opener. Same open-ended shape
+/// as [`PEM_OPENER_TYPE`]: `(begin, len + 1, "jwt")`.
+const JWT_OPENER_TYPE: &str = "jwt";
 
 /// Extra CHARS of force-flush headroom granted while a PEM opener is in flight, on
 /// top of `max_buffer`. Covers the `ssh_private_key` body bound (10000) + the
@@ -391,6 +404,12 @@ const PEM_OPENER_TYPE: &str = "ssh_private_key";
 /// unterminated BEGIN is treated as malformed/adversarial and bounded-drained (the
 /// documented head-leak edge) rather than growing the buffer without bound.
 const PEM_OPENER_CEILING_EXTRA: usize = 11_000;
+
+/// Extra CHARS of force-flush headroom granted while a JWT must not be
+/// bounded-drained: an unclosed-at-EOS opener, or a closed validated JWT
+/// longer than [`CARRY_WINDOW`]. A short completed JWT does not get this.
+/// Bounded: past `base + this`, the stream drains (the documented head edge).
+const JWT_OPENER_CEILING_EXTRA: usize = 8_192;
 
 /// CHAR offset of the start of the last UNCLOSED PEM private-key opener in
 /// `combined` (a `-----BEGIN … PRIVATE KEY-----` with no matching `-----END …`
@@ -415,6 +434,62 @@ pub fn unclosed_pem_opener_start(combined: &str) -> Option<usize> {
     Some(combined[..begin_byte_start].chars().count())
 }
 
+/// A byte of the JWT scan run: base64url plus the segment dot. A preceding
+/// byte in this set glues the `eyJ` (`text.eyJ`) so it is not a start.
+fn is_jwt_run_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.')
+}
+
+/// True iff `run` is a full `shared.ron` jwt match: the anchored pattern (three
+/// non-empty base64url segments, header and payload each starting `eyJ`) AND a
+/// header that would pass [`crate::validators::validate_jwt`]. Either half
+/// alone is not enough — `validate_jwt` accepts an empty signature the pattern
+/// rejects, and the pattern accepts a header the validator rejects.
+fn jwt_run_is_full_match(run: &str) -> bool {
+    JWT_FULL_RE.is_match(run).unwrap_or(false) && crate::validators::validate_jwt(run)
+}
+
+/// CHAR offset of the rightmost UNCLOSED JWT opener in `combined`, or `None`.
+///
+/// A start is `eyJ` at the buffer start or whose previous character is outside
+/// `[A-Za-z0-9_-.]`. The run consumes that charset until a terminator or end of
+/// buffer. A run that hits a terminator is closed. Only a start whose run
+/// reaches end of buffer can be unclosed, and only when that run is not a full
+/// `shared.ron` jwt match. A complete token therefore returns `None` (never a
+/// `begin` on the payload `eyJ` inside it). An empty third segment stays held.
+pub fn unclosed_jwt_opener_start(combined: &str) -> Option<usize> {
+    if !combined.contains("eyJ") {
+        return None;
+    }
+    let bytes = combined.as_bytes();
+    let mut i = 0;
+    let mut candidate: Option<usize> = None;
+    while i + 2 < bytes.len() {
+        if bytes[i] == b'e' && bytes[i + 1] == b'y' && bytes[i + 2] == b'J' {
+            let at_start = i == 0 || !is_jwt_run_byte(bytes[i - 1]);
+            if at_start {
+                let mut j = i;
+                while j < bytes.len() && is_jwt_run_byte(bytes[j]) {
+                    j += 1;
+                }
+                // Reaches end of buffer — a later start cannot, so this is the
+                // rightmost candidate. A terminator before EOS drops it.
+                if j == bytes.len() {
+                    candidate = Some(i);
+                }
+                i = j.max(i + 1);
+                continue;
+            }
+        }
+        i += 1;
+    }
+    let begin_byte = candidate?;
+    if jwt_run_is_full_match(&combined[begin_byte..]) {
+        return None;
+    }
+    Some(combined[..begin_byte].chars().count())
+}
+
 /// True if the buffer holds a PEM private-key BEGIN marker (complete OR in-flight).
 /// Drives the force-flush ceiling raise. The open-ended carry span (for an UNCLOSED
 /// opener) keeps the cut before BEGIN while the key streams in, but a COMPLETE key
@@ -424,12 +499,70 @@ pub fn unclosed_pem_opener_start(combined: &str) -> Option<usize> {
 /// redacted as one unit (or, past the CAP, bounded-drained — the documented edge,
 /// which a key within the 10000 body bound never reaches).
 ///
-/// SSOT for the force-flush ceiling gate: the wheel calls it via the
-/// `streaming_pem_begin_present` PyO3 binding so wheel + wasm pick the SAME cut on a
-/// non-private-key PEM block (a bare `-----BEGIN ` literal is NOT enough — the full
-/// private-key regex must match).
+/// SSOT for the PEM half of the force-flush ceiling. [`effective_max_buffer`]
+/// calls this directly; the wheel passes that one ceiling into both cut inputs
+/// and does not keep a second PEM predicate. A bare `-----BEGIN ` literal is
+/// NOT enough — the full private-key regex must match, so a certificate block
+/// does not raise the ceiling.
 pub fn pem_begin_present(combined: &str) -> bool {
     combined.contains("-----BEGIN ") && PEM_BEGIN_RE.is_match(combined).unwrap_or(false)
+}
+
+/// Force-flush ceiling for `combined` given a caller `base`.
+///
+/// Adds [`PEM_OPENER_CEILING_EXTRA`] while a PEM private-key BEGIN is present,
+/// and [`JWT_OPENER_CEILING_EXTRA`] while [`jwt_ceiling_applies`]. A short
+/// completed JWT does not raise. The extras add when both are in flight
+/// (`base + 11000 + 8192`). Callers pass this one value to both
+/// [`emit_possible`] and [`context_cut`].
+pub fn effective_max_buffer(combined: &str, base: usize) -> usize {
+    let mut ceiling = base;
+    if pem_begin_present(combined) {
+        ceiling = ceiling.saturating_add(PEM_OPENER_CEILING_EXTRA);
+    }
+    if jwt_ceiling_applies(combined) {
+        ceiling = ceiling.saturating_add(JWT_OPENER_CEILING_EXTRA);
+    }
+    ceiling
+}
+
+/// JWT force-flush raise: an unclosed-at-EOS opener, or a closed validated
+/// JWT (full `shared.ron` match) whose run is longer than [`CARRY_WINDOW`].
+/// A short completed token, a terminated non-JWT `eyJ` blob, and a charset-glued
+/// `text.eyJ` do not raise.
+fn jwt_ceiling_applies(combined: &str) -> bool {
+    if unclosed_jwt_opener_start(combined).is_some() {
+        return true;
+    }
+    closed_validated_jwt_exceeds_carry(combined)
+}
+
+/// A JWT run is ASCII (`[A-Za-z0-9_-.]`), so its byte length is its char length.
+fn closed_validated_jwt_exceeds_carry(combined: &str) -> bool {
+    if !combined.contains("eyJ") {
+        return false;
+    }
+    let bytes = combined.as_bytes();
+    let mut i = 0;
+    while i + 2 < bytes.len() {
+        if bytes[i] == b'e' && bytes[i + 1] == b'y' && bytes[i + 2] == b'J' {
+            let at_start = i == 0 || !is_jwt_run_byte(bytes[i - 1]);
+            if at_start {
+                let mut j = i;
+                while j < bytes.len() && is_jwt_run_byte(bytes[j]) {
+                    j += 1;
+                }
+                let run = &combined[i..j];
+                if jwt_run_is_full_match(run) && run.len() > CARRY_WINDOW {
+                    return true;
+                }
+                i = j.max(i + 1);
+                continue;
+            }
+        }
+        i += 1;
+    }
+    false
 }
 
 /// One emitted/redacted segment: the realistic downstream text + the key
@@ -580,10 +713,10 @@ where
         }
         self.buffer.push_str(chunk);
         let chars: Vec<char> = self.buffer.chars().collect();
-        // `buffer` is not mutated until after the cut below, so the PEM ceiling is
-        // stable across this `feed` — scan for the opener once and pass the bound to
-        // both the emit gate and `context_cut` (they MUST see the same `max_buffer`).
-        let max_buffer = self.pem_max_buffer();
+        // `buffer` is not mutated until after the cut below, so the opener ceiling
+        // is stable across this `feed`. Compute it once and pass that value to both
+        // the emit gate and `context_cut` (they MUST see the same `max_buffer`).
+        let max_buffer = effective_max_buffer(&self.buffer, self.max_buffer);
         // Cheap emit gate: if no spans-independent trigger of `context_cut` can fire
         // for this buffer, the cut provably holds (≤ ctx_len), so skip the expensive
         // full-buffer detect + cut. CONSERVATIVE — `emit_possible` is a strict
@@ -662,8 +795,10 @@ where
     }
 
     /// The snap input for [`context_cut`]: the final spans as `(start, end, type)`
-    /// tuples PLUS the in-flight PEM opener pending span (so an unterminated key is
-    /// carried whole). `len` is the buffer length in CHARS.
+    /// tuples PLUS in-flight opener pending spans (PEM and JWT), so an
+    /// unterminated key or an unclosed JWT run is carried whole. `len` is the
+    /// buffer length in CHARS. A complete JWT returns `None` from the opener, so
+    /// `begin` is never placed inside one.
     fn snap_spans(&self, final_entities: &[PatternMatch], len: usize) -> Vec<(usize, usize, String)> {
         let mut spans: Vec<(usize, usize, String)> = final_entities
             .iter()
@@ -674,21 +809,12 @@ where
             // counts as a straddle and snaps back to BEGIN.
             spans.push((begin, len + 1, PEM_OPENER_TYPE.to_string()));
         }
-        spans
-    }
-
-    /// Raise the force-flush ceiling while a multi-line PEM private key is present,
-    /// so the whole key (body bound 10000) accumulates and redacts as one unit
-    /// instead of being bounded-drain-split into a plaintext head leak. Gates on
-    /// [`pem_begin_present`] (the same predicate the wheel calls via
-    /// `streaming_pem_begin_present`); bounded by the CAP, past which an
-    /// unterminated/oversized opener is bounded-drained.
-    fn pem_max_buffer(&self) -> usize {
-        if pem_begin_present(&self.buffer) {
-            self.max_buffer.saturating_add(PEM_OPENER_CEILING_EXTRA)
-        } else {
-            self.max_buffer
+        if let Some(begin) = unclosed_jwt_opener_start(&self.buffer) {
+            // Same open-ended shape as the PEM span. Only an unclosed-at-EOS run
+            // is held; a complete token is already a closed entity or not a hold.
+            spans.push((begin, len + 1, JWT_OPENER_TYPE.to_string()));
         }
+        spans
     }
 
     /// A copy of the unified key across all fed chunks. Mirrors `aggregate_key`.

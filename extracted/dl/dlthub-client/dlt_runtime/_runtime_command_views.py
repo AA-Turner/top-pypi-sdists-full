@@ -1,5 +1,6 @@
 # Python internals
 import getpass
+import json
 import sys
 from dataclasses import asdict
 from datetime import datetime
@@ -39,6 +40,7 @@ from dlt_runtime.typing import (
     ConnectedWorkspaceInfo,
     CreateInOrgChoice,
     FileDelta,
+    JobResultInfo,
     LoginResult,
     OrganizationGroup,
     RuntimeInfo,
@@ -127,8 +129,8 @@ _DATETIME_ROW_KEYS = frozenset(
     {
         "created_at",
         "started_at",
-        "ended_at",
-        "next_run_at",
+        "finished_at",
+        "next_scheduled_run_at",
         "updated_at",
     }
 )
@@ -221,8 +223,8 @@ JOB_INFO_HEADERS = {
     "job_type": fmt.bold("Type"),
     "created_at": fmt.bold("Created at"),
     "default_trigger": fmt.bold("Default trigger"),
-    "next_run_at": fmt.bold("Next run"),
-    "interactive_url": fmt.bold("Script URL"),
+    "next_scheduled_run_at": fmt.bold("Next run"),
+    "job_url": fmt.bold("Job URL"),
 }
 JOB_RUN_HEADERS = {
     "job_name": fmt.bold("Job name"),
@@ -231,7 +233,7 @@ JOB_RUN_HEADERS = {
     "trigger": fmt.bold("Trigger"),
     "profile": fmt.bold("Profile"),
     "started_at": fmt.bold("Started at"),
-    "ended_at": fmt.bold("Ended at"),
+    "finished_at": fmt.bold("Ended at"),
     "duration_seconds": fmt.bold("Duration"),
 }
 # Single-record detail; rendered vertically. Adds interval window + run id.
@@ -242,12 +244,18 @@ JOB_RUN_INFO_HEADERS = {
     "status": fmt.bold("Status"),
     "trigger": fmt.bold("Trigger"),
     "profile": fmt.bold("Profile"),
-    "time_started": fmt.bold("Started at"),
-    "time_ended": fmt.bold("Ended at"),
+    "started_at": fmt.bold("Started at"),
+    "finished_at": fmt.bold("Ended at"),
     "duration": fmt.bold("Duration"),
     "time_to_timeout": fmt.bold("Time to timeout"),
     "interval_start": fmt.bold("Interval start"),
     "interval_end": fmt.bold("Interval end"),
+}
+JOB_RESULT_HEADERS = {
+    "type": fmt.bold("Type"),
+    "job_ref": fmt.bold("Job"),
+    "engine_version": fmt.bold("Engine version"),
+    "object": fmt.bold("Objects"),
 }
 WORKSPACE_HEADERS = {
     "name": fmt.bold("Name"),
@@ -292,9 +300,9 @@ def _preprocess_run_output(
     # Active run: server leaves the duration null. Show the elapsed time, against
     # the budget when there is one — matching `_print_job_run_info`, which would
     # otherwise disagree with this column on a run with no timeout.
-    if "duration_seconds" in headers and not run.get("ended_at"):
+    if "duration_seconds" in headers and not run.get("finished_at"):
         elapsed = _compute_active_elapsed(run.get("started_at"))
-        max_rts = run.get("timeout_seconds")
+        max_rts = run.get("max_run_time_seconds")
         if elapsed is not None:
             result["duration_seconds"] = (
                 _format_active_run_duration(elapsed, float(max_rts))
@@ -304,17 +312,17 @@ def _preprocess_run_output(
     return {key: result[key] for key in headers.keys() if key in result}
 
 
-def _compute_active_elapsed(time_started: Any) -> Optional[float]:
-    """Seconds elapsed since `time_started` (ISO str or datetime); None if unparseable."""
-    if not time_started:
+def _compute_active_elapsed(started_at: Any) -> Optional[float]:
+    """Seconds elapsed since `started_at` (ISO str or datetime); None if unparseable."""
+    if not started_at:
         return None
-    if isinstance(time_started, str):
+    if isinstance(started_at, str):
         try:
-            started = datetime.fromisoformat(time_started)
+            started = datetime.fromisoformat(started_at)
         except ValueError:
             return None
-    elif isinstance(time_started, datetime):
-        started = time_started
+    elif isinstance(started_at, datetime):
+        started = started_at
     else:
         return None
     now = datetime.now(started.tzinfo) if started.tzinfo else datetime.now()
@@ -322,7 +330,7 @@ def _compute_active_elapsed(time_started: Any) -> Optional[float]:
 
 
 def _format_log_line(log: Any) -> str:
-    """Format a log line as `[line] HH:MM:SS.mmm [phase] msg`, or full ISO with --timestamps."""
+    """Format a log line as `[line] HH:MM:SS.mmm [source] msg`, or full ISO with --timestamps."""
     # Parse ISO timestamp and convert to local time
     try:
         if isinstance(log.reported_at, str):
@@ -341,11 +349,10 @@ def _format_log_line(log: Any) -> str:
     # Format line number (right-aligned, 4 chars wide, 1-indexed)
     line_num = f"{log.line_num + 1:4d}"
 
-    # Phase badge
-    phase = f"[{log.phase}]"
+    source = f"[{log.source}]"
 
     # Combine all parts
-    return f"[{line_num}] {time_str} {phase:8s} {log.content}"
+    return f"[{line_num}] {time_str} {source:8s} {log.content}"
 
 
 def _print_login_result(result: LoginResult, minimal_logging: bool) -> None:
@@ -818,9 +825,9 @@ def _print_job_run_info(run: Any) -> None:
     """Display a single run's info as vertical key:value rows."""
 
     started = run.started_at
-    ended = run.ended_at
+    ended = run.finished_at
     duration = run.duration_seconds
-    max_rts = run.timeout_seconds
+    max_rts = run.max_run_time_seconds
     # Live duration for in-progress runs.
     if duration is None and started is not None and ended is None:
         now = datetime.now(started.tzinfo) if started.tzinfo else datetime.now()
@@ -853,8 +860,8 @@ def _print_job_run_info(run: Any) -> None:
         "status": format_run_status(run.status),
         "trigger": str(run.trigger),
         "profile": run.profile or "",
-        "time_started": _format_datetime(started) if started else "",
-        "time_ended": _format_datetime(ended) if ended else "",
+        "started_at": _format_datetime(started) if started else "",
+        "finished_at": _format_datetime(ended) if ended else "",
         "duration": duration_str,
         "time_to_timeout": time_to_timeout,
         # Intervals stay ISO — they're machine-readable window bounds, not "X ago".
@@ -871,6 +878,32 @@ def _print_job_run_info(run: Any) -> None:
         )
     ]
     fmt.echo(tabulate(rows, tablefmt="plain"))
+
+
+def _print_job_result(
+    result: JobResultInfo, *, as_json: bool = False, only_payload: bool = False
+) -> None:
+    """Display a job result as key:value rows plus its payload, or as pretty JSON."""
+    if only_payload:
+        fmt.echo(json.dumps(result.get("result"), indent=2, default=str))
+        return
+    if as_json:
+        fmt.echo(json.dumps(result, indent=2, default=str))
+        return
+    values = {
+        "type": result["type"],
+        "job_ref": result.get("job_ref", ""),
+        "engine_version": str(result["engine_version"]),
+        "object": ", ".join(entity["id"] for entity in result.get("object") or []),
+    }
+    fmt.echo(
+        tabulate(
+            [(label, values[key]) for key, label in JOB_RESULT_HEADERS.items()],
+            tablefmt="plain",
+        )
+    )
+    fmt.echo()
+    fmt.echo(json.dumps(result.get("result"), indent=2, default=str))
 
 
 def _print_runs(runs: list[Any], *, running_only: bool = False) -> None:
@@ -988,12 +1021,12 @@ def _preprocess_job_output(
 ) -> dict[str, Any]:
     """Extract job fields for display, including entry_point from job_definition."""
     result = _humanize_row(_extract_keys(job, headers))
-    jd = job["definition"]
+    jd = job["job_definition"]
     name = format_job_selector(jd["job_ref"], all_job_refs)
     # Tag inline so the listing flags these states the way the web UI does.
-    if job.get("archived"):
+    if job.get("is_archived"):
         name = f"{name} (archived)"
-    elif job.get("paused"):
+    elif job.get("is_paused"):
         name = f"{name} ({fmt.warning_style(JOB_PAUSED_LIST_TAG)})"
     result["name"] = name
     # Detail-view-only columns: canonical job_ref and humanised display_name.
@@ -1002,10 +1035,10 @@ def _preprocess_job_output(
     if "display_name" in headers:
         expose = jd.get("expose") or {}
         result["display_name"] = expose.get("display_name") or ""
-    # The scheduler keeps advancing next_scheduled_run while paused, so showing the
+    # The scheduler keeps advancing next_scheduled_run_at while paused, so showing the
     # timestamp would promise a run that cannot happen.
-    if "next_run_at" in headers and job.get("paused"):
-        result["next_run_at"] = fmt.warning_style(JOB_PAUSED_LIST_TAG)
+    if "next_scheduled_run_at" in headers and job.get("is_paused"):
+        result["next_scheduled_run_at"] = fmt.warning_style(JOB_PAUSED_LIST_TAG)
     ep = jd["entry_point"]
     result["entry_point"] = (
         f"{ep['module']}::{ep['function']}" if ep["function"] else ep["module"]
@@ -1022,8 +1055,8 @@ def _print_jobs(jobs: list[Any]) -> None:
     fmt.echo(
         tabulate(
             [
-                _preprocess_job_output(script.to_dict(), JOB_HEADERS)
-                for script in reversed(jobs)
+                _preprocess_job_output(job.to_dict(), JOB_HEADERS)
+                for job in reversed(jobs)
             ],
             headers=JOB_HEADERS,
         )
@@ -1040,7 +1073,7 @@ def _print_job_info(job: Any) -> None:
             tablefmt="plain",
         )
     )
-    if job.archived:
+    if job.is_archived:
         fmt.secho("This job is archived", fg="red")
 
 
@@ -1058,12 +1091,12 @@ def _print_job_resumed(job_ref: str, *, was_paused: bool = True) -> None:
     fmt.echo(JOB_RESUME_MESSAGE.format(job_ref=job_ref))
 
 
-def _script_label_with_trigger(
-    script: Any, all_job_refs: Optional[Sequence[str]] = None
+def _job_label_with_trigger(
+    job: Any, all_job_refs: Optional[Sequence[str]] = None
 ) -> str:
     """Job selector plus '(trigger: ...)' suffix when default_trigger is set."""
-    label = format_job_selector(script.job_ref, all_job_refs)
-    trigger = script.default_trigger
+    label = format_job_selector(job.job_ref, all_job_refs)
+    trigger = job.default_trigger
     if not trigger:
         return label
     return f"{label} (trigger: {trigger})"
@@ -1082,26 +1115,26 @@ def _print_deploy_result(
     if description:
         fmt.echo(description)
 
-    # All scripts in this reconciliation form the selector scope for shortening.
-    all_scripts = [
+    # All jobs in this reconciliation form the selector scope for shortening.
+    all_jobs = [
         *result.added,
         *result.updated,
         *result.archived,
         *result.unchanged,
     ]
-    all_refs = [s.job_ref for s in all_scripts]
+    all_refs = [s.job_ref for s in all_jobs]
 
     if result.added:
         fmt.echo("")
         fmt.echo("New jobs:")
         for s in result.added:
-            fmt.secho(f"  + {_script_label_with_trigger(s, all_refs)}", fg="green")
+            fmt.secho(f"  + {_job_label_with_trigger(s, all_refs)}", fg="green")
 
     if result.updated:
         fmt.echo("")
         fmt.echo("Updated jobs:")
         for u in result.updated:
-            fmt.secho(f"  ~ {_script_label_with_trigger(u, all_refs)}", fg="blue")
+            fmt.secho(f"  ~ {_job_label_with_trigger(u, all_refs)}", fg="blue")
 
     if result.archived:
         fmt.echo("")
@@ -1144,7 +1177,7 @@ def _print_bulk_cancel_result(result: Any, *, dry_run: bool = False) -> None:
     if result.cancelled:
         for c in result.cancelled:
             fmt.echo(
-                f"  {prefix} run # {c.run_number} of {fmt.bold(c.job_ref)}"
+                f"  {prefix} run # {c.job_run_number} of {fmt.bold(c.job_ref)}"
                 f" (was {c.previous_status.value})"
             )
     if result.not_running:

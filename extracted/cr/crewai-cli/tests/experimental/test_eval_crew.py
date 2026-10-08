@@ -44,9 +44,10 @@ class FakeAMP:
         self.api_key = None
         self.headers: dict[str, str] = {"X-Crewai-Organization-Id": "org-42"}
 
-    def create_evaluation(self, execution_id, *, eval_config=None):
+    def create_evaluation(self, execution_id, *, eval_config=None, project_id=None):
         self.calls.append(("create", execution_id))
         self.sent_config = eval_config
+        self.sent_project_id = project_id
         if isinstance(self.create, list):
             return self.create.pop(0) if len(self.create) > 1 else self.create[0]
         return self.create
@@ -241,11 +242,31 @@ def test_run_names_another_execution_and_an_anonymous_caller_sends_no_token(proj
     monkeypatch.setattr(eval_module, "saved_login", lambda: None)
     amp = install(monkeypatch, FakeAMP(statuses=[done("failed")]))
 
-    eval_module.eval_crew(run_id="other-run")
+    with pytest.raises(SystemExit):  # a failed gate is exit 1
+        eval_module.eval_crew(run_id="other-run")
 
     assert amp.api_key is None
     assert amp.calls[0] == ("create", "other-run")
     assert "Goal gate: FAILED" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "gate, code", [("passed", None), ("failed", 1), ("inconclusive", 1), ("unknown", 1)]
+)
+def test_the_exit_code_is_the_gates(project, monkeypatch, capsys, gate, code):
+    """A CI job reads the exit code. Only a gate that PASSED is 0: a failed one,
+    and one with no verdict, must stop the pipeline rather than wave it on."""
+    directory, _ = project
+    record_last_run(directory)
+    install(monkeypatch, FakeAMP(statuses=[done(gate)]))
+
+    if code is None:
+        eval_module.eval_crew()
+    else:
+        with pytest.raises(SystemExit) as exited:
+            eval_module.eval_crew()
+        assert exited.value.code == code
+    assert f"Goal gate: {gate.upper()}" in capsys.readouterr().out
 
 
 def test_a_failed_evaluation_exits_one_with_amps_reason(project, monkeypatch, capsys):
@@ -659,7 +680,7 @@ def test_an_oversized_config_is_said_once_and_through_the_callers_note(
     answers = iter([httpx.Response(404, json={}), httpx.Response(404, json={}), QUEUED])
 
     class Client:
-        def create_evaluation(self, execution_id, *, eval_config=None):
+        def create_evaluation(self, execution_id, *, eval_config=None, project_id=None):
             sent.append(eval_config)
             return next(answers)
 
@@ -724,7 +745,7 @@ def test_only_a_web_address_is_printed_and_opened(url, opened):
 
 def test_a_report_url_that_is_not_a_web_address_is_dropped_with_a_note(monkeypatch):
     class Client:
-        def create_evaluation(self, execution_id, *, eval_config=None):
+        def create_evaluation(self, execution_id, *, eval_config=None, project_id=None):
             return httpx.Response(
                 202, json={"id": "ev-1", "url": "file:///etc/passwd", "status": "queued"}
             )
@@ -1126,3 +1147,565 @@ def test_read_last_run_reads_the_record_crewai_writes(tmp_path):
     record_last_run(tmp_path)
     record = eval_module.read_last_run(tmp_path)
     assert record is not None and record["execution_id"] == EXECUTION_ID and record["amp_base_url"] == "https://amp.test"
+
+
+@pytest.mark.parametrize(
+    "tracing, login, says_login",
+    [
+        ("true", None, True),  # tracing on, nobody logged in: log in
+        ("true", "tok", False),  # logged in: the ordinary steps
+        (None, None, False),  # tracing off: turn it on
+    ],
+)
+def test_an_unattended_run_with_nothing_traced_says_what_would_trace_it(
+    project, monkeypatch, capsys, tracing, login, says_login
+):
+    """With no terminal, an anonymous run's trace stays on the machine even with
+    tracing on. Telling that user to turn tracing on sends them round the same
+    loop; logging in is what makes an unattended run traced."""
+    directory, _ = project
+    (directory / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+    monkeypatch.setattr(eval_module.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(eval_module, "saved_login", lambda: login)
+    if tracing:
+        monkeypatch.setenv("CREWAI_TRACING_ENABLED", tracing)
+    else:
+        monkeypatch.delenv("CREWAI_TRACING_ENABLED", raising=False)
+
+    with pytest.raises(SystemExit) as exited:
+        eval_module.eval_crew()
+
+    out = capsys.readouterr().out.replace("\n", " ")
+    assert exited.value.code == 1
+    assert ("run `crewai login`" in out) is says_login
+    assert ("add CREWAI_TRACING_ENABLED=true" in out) is not says_login
+
+
+def test_an_unreadable_login_is_the_reason_given_when_nothing_was_traced(
+    project, monkeypatch, capsys
+):
+    """A login that exists and cannot be read is why an unattended run was not
+    traced, and its own sentence says what to do — not "turn tracing on"."""
+    directory, _ = project
+    (directory / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+    monkeypatch.setattr(eval_module.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setenv("CREWAI_TRACING_ENABLED", "true")
+
+    def unreadable() -> None:
+        raise eval_module.EvaluationStoppedError(
+            "Could not read the saved login (PermissionError: [Errno 13] "
+            "Permission denied: [/Users/me/.config/crewai]). Run `crewai login` again"
+        )
+
+    monkeypatch.setattr(eval_module, "saved_login", unreadable)
+
+    with pytest.raises(SystemExit):
+        eval_module.eval_crew()
+
+    out = capsys.readouterr().out.replace("\n", " ")
+    assert "Could not read the saved login" in out
+    # printed as it is: `[/Users/…]` read as markup is a closing tag, and a crash
+    assert "[/Users/me/.config/crewai]" in out
+    assert "add CREWAI_TRACING_ENABLED=true" not in out
+
+
+# ── Mode 1 files the evaluation under the project ───────────────────────────
+
+
+def test_the_evaluation_is_filed_under_the_project(project, monkeypatch):
+    directory, _ = project
+    record_last_run(directory)
+    monkeypatch.setattr(eval_module, "get_or_create_project_id", lambda: "proj-1")
+    amp = install(monkeypatch, FakeAMP(statuses=[done()]))
+
+    eval_module.eval_crew()
+
+    assert amp.sent_project_id == "proj-1"
+
+
+def test_the_app_files_its_evaluation_under_the_project_too(project, monkeypatch):
+    """The run app's door reads the id without minting one: it runs inside a
+    crew's process, where rewriting pyproject.toml is not its business."""
+    monkeypatch.setattr(eval_module, "get_project_id", lambda: "proj-2")
+    amp = install(monkeypatch, FakeAMP(statuses=[done()]))
+
+    eval_module.evaluate_run(EXECUTION_ID, on_started=lambda started: None)
+
+    assert amp.sent_project_id == "proj-2"
+
+
+# ── crewai eval --models ─────────────────────────────────────────────────────
+
+MODELS = "openai/gpt-4o-mini, openrouter/meta-llama/llama-4-maverick"
+DEPLOYMENT = "9b0a4a53-3f7c-4a8e-9a55-2f1c1e0f8e11"
+
+
+def comparison(**overrides):
+    body = {
+        "models": [
+            {
+                "key": "base", "label": "Poem composer: openai/gpt-5.6-sol", "baseline": True,
+                "grades": {"goal": 5, "tasks": 4, "agents": 3, "tools": None},
+                "gate": "passed", "cost_usd": 0.0040, "seconds": 9.5, "tokens": 900,
+            },
+            {
+                "key": "mini", "label": "Poem composer: openai/gpt-4o-mini", "baseline": False,
+                "grades": {"goal": 5, "tasks": 5, "agents": 2, "tools": None},
+                "gate": "passed", "cost_usd": 0.0012, "seconds": 7.6, "tokens": 736,
+            },
+        ],
+        "suggestions": [
+            {"subject": "agent:Poem composer", "field": "backstory", "problem": "only one model had it",
+             "evidence": "x", "change": "only-one change", "models_affected": ["mini"], "shared": False},
+            {"subject": "agent:Poem composer", "field": "goal", "problem": "the poem ignores the topic",
+             "evidence": "y", "change": "Write a poem about {topic}.", "models_affected": ["base", "mini"],
+             "shared": True},
+            {"subject": "task:write", "field": "expected_output", "problem": "no length", "change": "4 lines"},
+            {"subject": "agent:Poem composer", "field": "tools", "problem": "a fourth", "change": "never shown"},
+        ],
+    }
+    body.update(overrides)
+    return body
+
+
+def compared(**overrides):
+    return httpx.Response(200, json={"id": "ev-9", "status": "done", "url": URL, "comparison": comparison(**overrides)})
+
+
+class FakeModelsAMP(FakeAMP):
+    def __init__(self, create=None, statuses=None):
+        super().__init__(create=create if create is not None else httpx.Response(
+            202, json={"id": "ev-9", "url": URL, "status": "queued"}
+        ), statuses=statuses)
+        self.sent: dict | None = None
+
+    def create_models_evaluation(self, models, *, project_id, eval_config=None, deployment_id=None):
+        self.calls.append(("create_models", tuple(models)))
+        self.sent = {"models": models, "project_id": project_id, "eval_config": eval_config,
+                     "deployment_id": deployment_id}
+        return self.create
+
+
+@pytest.fixture
+def deployed(project, monkeypatch):
+    directory, opened = project
+    (directory / "pyproject.toml").write_text('[tool.crewai]\nproject_id = "proj-1"\n')
+    monkeypatch.setattr(eval_module, "get_or_create_project_id", lambda: "proj-1")
+    return directory, opened
+
+
+def test_models_are_compared_on_the_deployment_and_the_table_printed(deployed, monkeypatch, capsys):
+    directory, opened = deployed
+    (directory / "eval.jsonc").write_text('{"dataset": []}')
+    running = httpx.Response(200, json={"id": "ev-9", "status": "running", "progress": {
+        "event": "configuration_started", "payload": {"index": 1, "total": 3, "key": "mini"}}})
+    judging = httpx.Response(200, json={"id": "ev-9", "status": "running", "progress": {
+        "event": "judging", "payload": {"subject": "agent 'Poem composer'", "index": 1, "total": 3}}})
+    amp = install(monkeypatch, FakeModelsAMP(statuses=[running, running, judging, compared()]))
+
+    eval_module.eval_models(MODELS)
+
+    out = capsys.readouterr().out
+    assert amp.api_key == "login-token"
+    assert amp.sent == {
+        "models": ["openai/gpt-4o-mini", "openrouter/meta-llama/llama-4-maverick"],
+        "project_id": "proj-1", "eval_config": '{"dataset": []}', "deployment_id": None,
+    }
+    assert opened == [URL] and URL in out
+    # Progress: said once per change, never once per poll.
+    assert out.count("running · model 2 of 3 · mini") == 1
+    assert "judging agent 'Poem composer' · model 2 of 3" in out
+    lines = out.splitlines()
+    base = next(line for line in lines if "gpt-5.6-sol" in line)
+    mini = next(line for line in lines if "Poem composer: openai/gpt-4o-mini" in line)
+    assert "(deployed)" in base and "(deployed)" not in mini
+    # The best per column: tasks and agents differ, goal is a tie, tools nothing.
+    assert "5/5 ★" in mini and "4/5" in base and "4/5 ★" not in base
+    assert "3/5 ★" in base and "2/5 ★" not in mini
+    assert "$0.0012 ★" in mini and "7.6s ★" in mini and "9.5s ★" not in base
+    assert "5/5 ★" not in base  # goal: both 5, nothing to point at
+    # The top three suggestions, the one every model needed first.
+    assert "What would make it better" in out
+    assert out.index("the poem ignores the topic") < out.index("only one model had it")
+    assert "change: Write a poem about {topic}." in out
+    assert "a fourth" not in out
+
+
+def test_the_comparison_is_counted_with_the_models_and_nothing_that_names_it(deployed, monkeypatch):
+    spans: list[tuple[str, dict[str, str]]] = []
+
+    class FakeTelemetry:
+        def set_tracer(self) -> None:
+            pass
+
+        def feature_usage_span(self, feature, attributes=None) -> None:
+            spans.append((feature, attributes or {}))
+
+    monkeypatch.setattr("crewai_core.telemetry.Telemetry", FakeTelemetry)
+    install(monkeypatch, FakeModelsAMP(statuses=[compared()]))
+
+    eval_module.eval_models(MODELS)
+
+    assert spans == [("cli_usage:eval_models", {
+        "authenticated": "true",
+        # A public model by name; one crewAI's catalog does not list, by provider.
+        "models": "openai/gpt-4o-mini,openrouter/other",
+        "models_count": "2",
+    })]
+
+
+def test_a_refused_comparison_is_not_counted(deployed, monkeypatch, capsys):
+    spans: list[str] = []
+
+    class FakeTelemetry:
+        def set_tracer(self) -> None:
+            pass
+
+        def feature_usage_span(self, feature, attributes=None) -> None:
+            spans.append(feature)
+
+    monkeypatch.setattr("crewai_core.telemetry.Telemetry", FakeTelemetry)
+    refused = httpx.Response(404, json={"error": "deployment_not_found", "message": (
+        "No deployment of this project; deploy it with `crewai deploy create`, or pass --deployment.")})
+    install(monkeypatch, FakeModelsAMP(create=refused))
+
+    with pytest.raises(SystemExit) as stopped:
+        eval_module.eval_models(MODELS)
+
+    assert stopped.value.code == 1 and spans == []
+    assert "deploy it with `crewai deploy create`, or pass --deployment." in capsys.readouterr().out
+
+
+def test_the_deployment_named_is_sent(deployed, monkeypatch):
+    amp = install(monkeypatch, FakeModelsAMP(statuses=[compared()]))
+
+    eval_module.eval_models("openai/gpt-4o-mini", deployment_id=f" {DEPLOYMENT.upper()} ")
+
+    assert amp.sent["deployment_id"] == DEPLOYMENT
+
+
+def test_a_deployment_that_is_not_a_uuid_is_refused_before_anything_is_sent(deployed, monkeypatch, capsys):
+    amp = install(monkeypatch, FakeModelsAMP())
+
+    with pytest.raises(SystemExit) as stopped:
+        eval_module.eval_models("openai/gpt-4o-mini", deployment_id="poem_creator")
+
+    assert stopped.value.code == 1 and amp.calls == []
+    assert "is not a deployment id" in capsys.readouterr().out
+
+
+def test_comparing_models_needs_the_login(deployed, monkeypatch, capsys):
+    monkeypatch.setattr(eval_module, "saved_login", lambda: None)
+    amp = install(monkeypatch, FakeModelsAMP())
+
+    with pytest.raises(SystemExit) as stopped:
+        eval_module.eval_models(MODELS)
+
+    assert stopped.value.code == 1 and amp.calls == []
+    assert "log in with `crewai login`" in capsys.readouterr().out
+
+
+def test_comparing_models_happens_from_the_project(project, monkeypatch, capsys):
+    amp = install(monkeypatch, FakeModelsAMP())
+
+    with pytest.raises(SystemExit) as stopped:
+        eval_module.eval_models(MODELS)
+
+    assert stopped.value.code == 1 and amp.calls == []
+    assert "No crewAI project here" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("openai/gpt-4o-mini", ["openai/gpt-4o-mini"]),
+        (" openai/gpt-4o-mini , openai/gpt-4o-mini,anthropic/claude-haiku-4-5, ",
+         ["openai/gpt-4o-mini", "anthropic/claude-haiku-4-5"]),
+        ("openrouter/meta-llama/llama-4-maverick", ["openrouter/meta-llama/llama-4-maverick"]),
+    ],
+)
+def test_the_models_are_one_list_stripped_with_repeats_dropped(text, expected):
+    assert eval_module.parse_models(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [
+        ("gpt-4o-mini", "names no provider"),
+        ("openai/", "names no provider"),
+        ("/gpt-4o", "names no provider"),
+        (" , ", "names no model"),
+        (",".join(f"openai/m{n}" for n in range(6)), "at most 5"),
+        ("openai/" + "m" * 200, "longer than 200"),
+    ],
+)
+def test_a_list_amp_would_refuse_is_refused_here_with_an_example(text, said):
+    with pytest.raises(eval_module.EvaluationStoppedError, match=said) as refused:
+        eval_module.parse_models(text)
+    if "provider" in said or "names no model" in said:
+        assert "openai/gpt-4o-mini" in str(refused.value)
+
+
+def test_a_model_without_its_provider_exits_one_before_anything_is_sent(deployed, monkeypatch, capsys):
+    amp = install(monkeypatch, FakeModelsAMP())
+
+    with pytest.raises(SystemExit) as stopped:
+        eval_module.eval_models("gpt-4o-mini")
+
+    assert stopped.value.code == 1 and amp.calls == []
+    assert "provider/model" in capsys.readouterr().out
+
+
+def test_a_failed_comparison_exits_one_with_the_reason(deployed, monkeypatch, capsys):
+    failed = httpx.Response(200, json={"id": "ev-9", "status": "failed", "error": "the deployment answered 500"})
+    install(monkeypatch, FakeModelsAMP(statuses=[failed]))
+
+    with pytest.raises(SystemExit) as stopped:
+        eval_module.eval_models(MODELS)
+
+    assert stopped.value.code == 1
+    assert "Comparison failed: the deployment answered 500" in capsys.readouterr().out
+
+
+def test_done_without_a_comparison_is_a_protocol_error(deployed, monkeypatch, capsys):
+    install(monkeypatch, FakeModelsAMP(statuses=[httpx.Response(200, json={"id": "ev-9", "status": "done"})]))
+
+    with pytest.raises(SystemExit) as stopped:
+        eval_module.eval_models(MODELS)
+
+    assert stopped.value.code == 1
+    assert "done without a comparison (protocol error)" in capsys.readouterr().out
+
+
+def test_a_deployment_this_account_may_not_run_is_amps_sentence_alone(deployed, monkeypatch, capsys):
+    """Logging in again changes nothing about a deployment one may not run."""
+    refused = httpx.Response(403, json={"error": "not_allowed", "message": "You may not run poem_creator."})
+    install(monkeypatch, FakeModelsAMP(create=refused))
+
+    with pytest.raises(SystemExit):
+        eval_module.eval_models(MODELS)
+
+    out = capsys.readouterr().out
+    assert "You may not run poem_creator." in out and "crewai login" not in out
+
+
+def test_everything_from_the_wire_prints_literally(deployed, monkeypatch, capsys):
+    hostile = comparison(
+        models=[{"key": "k", "label": "[red]Writer[/red]: [link=https://evil.test]x[/link]", "baseline": True,
+                 "grades": {"goal": 9, "tasks": True, "agents": "5", "tools": None}, "cost_usd": True,
+                 "seconds": -1}],
+        suggestions=[{"subject": "[bold]agent[/bold]", "field": "goal", "problem": "[red]p[/red]",
+                      "change": "[link=https://evil.test]c[/link]"}],
+    )
+    install(monkeypatch, FakeModelsAMP(statuses=[httpx.Response(
+        200, json={"id": "ev-9", "status": "done", "url": URL, "comparison": hostile})]))
+
+    eval_module.eval_models(MODELS)
+
+    out = capsys.readouterr().out
+    assert "[red]Writer[/red]: [link=https://evil.test]x[/link]" in out
+    assert "[red]p[/red]" in out and "[link=https://evil.test]c[/link]" in out
+    # Not a grade, a cost or a time: each prints as "—", never as a value.
+    row = next(line for line in out.splitlines() if "Writer" in line)
+    assert "9/5" not in row and "True" not in row and "-1" not in row and "5/5" not in row
+    assert row.count("—") == 6
+
+
+@pytest.mark.parametrize(
+    ("progress", "line"),
+    [
+        ("Setting up the deployment", "Setting up the deployment"),
+        ({"message": "model 2 of 3: mini"}, "model 2 of 3: mini"),
+        ({"event": "configuration_done", "payload": {"index": 0, "total": 2, "key": "base"}},
+         "graded · model 1 of 2 · base"),
+        ({"subject": "the final output"}, "judging the final output"),
+        ({"unknown": "shape"}, None),
+        (["not", "a", "dict"], None),
+    ],
+)
+def test_the_progress_line_says_what_is_there_and_guesses_nothing(progress, line):
+    assert eval_module._progress_line({"progress": progress}) == line
+
+
+def test_the_last_event_stands_in_for_progress():
+    events = [{"event": "configuration_started", "payload": {"index": 0, "total": 2, "key": "base"}},
+              {"event": "judging", "payload": {"subject": "task 'write'"}}]
+
+    assert eval_module._progress_line({"events": events}) == "judging task 'write'"
+
+
+def test_the_cli_maps_models_and_deployment_to_the_comparison(monkeypatch):
+    calls = []
+    monkeypatch.setattr("crewai_cli.cli.eval_models", lambda *args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr("crewai_cli.cli.eval_crew", lambda **kwargs: calls.append(("run", kwargs)))
+    runner = CliRunner()
+
+    assert runner.invoke(eval_command, ["--models", MODELS]).exit_code == 0
+    assert runner.invoke(eval_command, ["--models", "openai/gpt-4o", "--deployment", DEPLOYMENT]).exit_code == 0
+    assert calls == [((MODELS,), {"deployment_id": None}), (("openai/gpt-4o",), {"deployment_id": DEPLOYMENT})]
+
+    both = runner.invoke(eval_command, ["--models", MODELS, "--run", EXECUTION_ID])
+    alone = runner.invoke(eval_command, ["--deployment", DEPLOYMENT])
+    assert both.exit_code == 2 and "Give one of them" in both.output
+    assert alone.exit_code == 2 and "add --models LIST" in alone.output
+    assert len(calls) == 2
+    assert "--models" in runner.invoke(eval_command, ["--help"]).output
+
+
+def test_a_comparison_leaves_its_criteria_behind_when_the_project_has_none(deployed, monkeypatch, capsys):
+    directory, _ = deployed
+    answer = compared()
+    body = {**answer.json(), "eval_config": '// the criteria\n{"dataset": []}\n'}
+    install(monkeypatch, FakeModelsAMP(statuses=[httpx.Response(200, json=body)]))
+
+    eval_module.eval_models(MODELS)
+
+    assert (directory / "eval.jsonc").read_text() == '// the criteria\n{"dataset": []}\n'
+    assert "Wrote eval.jsonc" in capsys.readouterr().out
+
+
+def test_a_comparison_never_overwrites_the_projects_criteria(deployed, monkeypatch, capsys):
+    directory, _ = deployed
+    (directory / "eval.jsonc").write_text("// ours\n{}\n")
+    body = {**compared().json(), "eval_config": "// theirs\n{}\n"}
+    install(monkeypatch, FakeModelsAMP(statuses=[httpx.Response(200, json=body)]))
+
+    eval_module.eval_models(MODELS)
+
+    assert (directory / "eval.jsonc").read_text() == "// ours\n{}\n"
+    assert "Wrote eval.jsonc" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("typed", "sent"),
+    [
+        ("openai/gpt-4o-mini", "openai/gpt-4o-mini"),
+        ("anthropic/claude-haiku-4-5", "anthropic/claude-haiku-4-5"),
+        ("openrouter/openai/gpt-4o-mini", "openrouter/openai/gpt-4o-mini"),
+        # A customer's own: a fine-tune, a deployment name, a model named after
+        # a public one, an unknown name — by provider only.
+        ("openai/ft:gpt-4o-mini:acme-corp::abc", "openai/other"),
+        ("azure/my-deployment", "azure/other"),
+        ("openai/gpt-4o-acme", "openai/other"),
+        ("ollama/acme-llama", "ollama/other"),
+        # A provider crewAI does not know can name a host.
+        ("llm.acme.internal/llama-3", "other/other"),
+    ],
+)
+def test_usage_stats_name_a_model_only_when_it_is_a_public_one(typed, sent):
+    assert eval_module.telemetry_model_name(typed) == sent
+
+
+def test_without_crewais_catalog_every_model_is_other(monkeypatch):
+    monkeypatch.setattr(eval_module, "_known_models_and_providers", lambda: (frozenset(), frozenset()))
+
+    assert eval_module.telemetry_model_name("openai/gpt-4o-mini") == "other/other"
+
+
+# ── the brief for a coding agent ─────────────────────────────────────────────
+
+BRIEF = (
+    "# What failed\n\n"
+    "1. task write — [Errno 13] the poem ignores [red]the topic[/red]\n"
+    "   change: set `expected_output` to \"Four lines about {topic}.\"\n"
+)
+BRIEF_URL = "https://evolve.crewai.test/e/ev-1.md"
+
+
+def _done_with(**fields):
+    return httpx.Response(200, json={**done(gate="failed").json(), **fields})
+
+
+def test_with_nobody_watching_the_brief_follows_the_verdict_and_the_link_literally(project, monkeypatch, capsys):
+    directory, _ = project
+    record_last_run(directory)
+    monkeypatch.setattr(eval_module, "nobody_watching", lambda: True)
+    install(monkeypatch, FakeAMP(statuses=[_done_with(brief_markdown=BRIEF, brief_url=BRIEF_URL)]))
+
+    with pytest.raises(SystemExit) as exit_:
+        eval_module.eval_crew()
+
+    out = capsys.readouterr().out
+    assert exit_.value.code == 1  # the gate's, unchanged
+    assert BRIEF in out  # brackets and all: never read as markup
+    assert out.index("Goal gate: FAILED") < out.index(f"Full report: {URL}") < out.index(BRIEF)
+    assert "Brief (markdown)" not in out
+
+
+def test_with_only_the_briefs_url_the_link_is_printed(project, monkeypatch, capsys):
+    directory, _ = project
+    record_last_run(directory)
+    monkeypatch.setattr(eval_module, "nobody_watching", lambda: True)
+    install(monkeypatch, FakeAMP(statuses=[_done_with(brief_url=BRIEF_URL)]))
+
+    with pytest.raises(SystemExit):
+        eval_module.eval_crew()
+
+    assert f"Brief (markdown): {BRIEF_URL}\n" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("brief_url", [None, "javascript:alert(1)"])
+def test_an_older_server_adds_nothing_after_the_link(project, monkeypatch, capsys, brief_url):
+    directory, _ = project
+    record_last_run(directory)
+    monkeypatch.setattr(eval_module, "nobody_watching", lambda: True)
+    fields = {"brief_url": brief_url} if brief_url else {}
+    install(monkeypatch, FakeAMP(statuses=[_done_with(**fields)]))
+
+    with pytest.raises(SystemExit):
+        eval_module.eval_crew()
+
+    out = capsys.readouterr().out
+    assert out.endswith(f"Full report: {URL}\n") and "Brief" not in out
+
+
+def test_in_a_terminal_the_brief_is_not_printed(project, monkeypatch, capsys):
+    directory, _ = project
+    record_last_run(directory)
+    monkeypatch.setattr(eval_module, "nobody_watching", lambda: False)
+    install(monkeypatch, FakeAMP(statuses=[_done_with(brief_markdown=BRIEF, brief_url=BRIEF_URL)]))
+
+    with pytest.raises(SystemExit):
+        eval_module.eval_crew()
+
+    out = capsys.readouterr().out
+    assert "What failed" not in out and "Brief" not in out
+    assert out.endswith(f"Full report: {URL}\n")
+
+
+def test_nobody_is_watching_when_stdout_is_not_a_terminal(monkeypatch):
+    monkeypatch.setattr(eval_module, "is_dmn_mode_enabled", lambda: False)
+    monkeypatch.setattr(eval_module.sys, "stdout", SimpleNamespace(isatty=lambda: True))
+    assert eval_module.nobody_watching() is False
+    monkeypatch.setattr(eval_module.sys, "stdout", SimpleNamespace(isatty=lambda: False))
+    assert eval_module.nobody_watching() is True
+    monkeypatch.setattr(eval_module.sys, "stdout", SimpleNamespace())  # no isatty at all
+    assert eval_module.nobody_watching() is True
+    monkeypatch.setattr(eval_module.sys, "stdout", SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(eval_module, "is_dmn_mode_enabled", lambda: True)
+    assert eval_module.nobody_watching() is True
+
+
+@pytest.mark.parametrize("watching", [False, True])
+def test_a_comparison_prints_its_brief_only_when_nobody_is_watching(deployed, monkeypatch, capsys, watching):
+    monkeypatch.setattr(eval_module, "nobody_watching", lambda: not watching)
+    body = {**compared().json(), "brief_markdown": BRIEF, "brief_url": BRIEF_URL}
+    install(monkeypatch, FakeModelsAMP(statuses=[httpx.Response(200, json=body)]))
+
+    eval_module.eval_models(MODELS)  # a finished comparison exits 0, as before
+
+    out = capsys.readouterr().out
+    if watching:
+        assert "What failed" not in out and out.endswith(f"Full report: {URL}\n")
+    else:
+        assert out.index(f"Full report: {URL}") < out.index(BRIEF)
+
+
+def test_the_help_tells_an_agent_it_gets_a_brief():
+    help_text = " ".join(CliRunner().invoke(eval_command, ["--help"]).output.split())
+    assert (
+        "Run by a script or coding agent (no terminal), it prints a markdown brief "
+        "after the verdict — what failed and the change to make — so an agent can act on it directly"
+    ) in help_text
+    assert "That is when AMP provides the brief: otherwise its link, when AMP sends only that, else nothing more" in help_text
+    assert "it prints a markdown brief after the comparison when AMP provides one" in help_text

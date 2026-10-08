@@ -11,7 +11,9 @@
 # under the License.
 
 import abc
-import typing as ty
+from collections.abc import Mapping
+from typing import Any, TypeVar
+import urllib.parse
 
 try:
     # explicitly re-export symbol
@@ -87,7 +89,15 @@ def _str_from_xml(xml: etree._Element, path: str) -> str:
     return str(result)  # case from _ElementUnicodeResult
 
 
-_PreparedRequestT = ty.TypeVar(
+def _same_netloc(url: str, reference_url: str | None) -> bool:
+    return (
+        reference_url is not None
+        and urllib.parse.urlparse(url).netloc
+        == urllib.parse.urlparse(reference_url).netloc
+    )
+
+
+_PreparedRequestT = TypeVar(
     '_PreparedRequestT', bound=requests.PreparedRequest
 )
 
@@ -145,7 +155,7 @@ class _SamlAuth(requests.auth.AuthBase):
         return request
 
     def _handle_response(
-        self, response: requests.Response, **kwargs: ty.Any
+        self, response: requests.Response, **kwargs: Any
     ) -> requests.Response:
         if (
             response.status_code == 200
@@ -156,14 +166,14 @@ class _SamlAuth(requests.auth.AuthBase):
         return response
 
     def _ecp_retry(
-        self, sp_response: requests.Response, **kwargs: ty.Any
+        self, sp_response: requests.Response, **kwargs: Any
     ) -> requests.Response:
         history = [sp_response]
 
         def send(
             method: str,
             url: str,
-            headers: ty.Mapping[str, str],
+            headers: Mapping[str, str],
             data: bytes,
             auth: None | requests.auth.AuthBase | tuple[str, str] = None,
             cookies: requests.cookies.RequestsCookieJar | None = None,
@@ -201,13 +211,17 @@ class _SamlAuth(requests.auth.AuthBase):
         )
 
         if sp_consumer_url != idp_consumer_url:
-            # send fault message to the SP, discard the response
-            send(
-                'POST',
-                sp_consumer_url,
-                data=_SOAP_FAULT.encode('utf-8'),
-                headers={'Content-Type': _PAOS_HEADER},
-            )
+            # ECP expects a fault POST to responseConsumerURL on mismatch.
+            # Only do that when the URL shares a host with our federation
+            # request, otherwise we could POST to an arbitrary host named in
+            # the SP response before raising ConsumerMismatch.
+            if _same_netloc(sp_consumer_url, sp_response.request.url):
+                send(
+                    'POST',
+                    sp_consumer_url,
+                    data=_SOAP_FAULT.encode('utf-8'),
+                    headers={'Content-Type': _PAOS_HEADER},
+                )
 
             # prepare error message and raise an exception.
             msg = (
@@ -245,13 +259,26 @@ class _SamlAuth(requests.auth.AuthBase):
             requests.codes.found,
             requests.codes.other,
         ):
+            location = urllib.parse.urljoin(
+                final_resp.url, final_resp.headers['location']
+            )
+            if not _same_netloc(location, sp_response.request.url):
+                msg = (
+                    'SAML2: URL %(url)s is not on the same host as '
+                    '%(reference)s'
+                )
+                raise InvalidResponse(
+                    msg
+                    % {'url': location, 'reference': sp_response.request.url}
+                )
+
             # Consume content and release the original connection
             # to allow our new request to reuse the same one.
             sp_response.content
             sp_response.raw.release_conn()
 
             req = sp_response.request.copy()
-            req.url = final_resp.headers['location']
+            req.url = location
             req.prepare_cookies(final_resp.cookies)
 
             final_resp = sp_response.connection.send(req, **kwargs)
@@ -335,34 +362,19 @@ class Password(_FederatedSaml):
     committees/download.php/49979/saml-ecp-v2.0-wd09.pdf>`_.
 
     Currently only HTTPBasicAuth mechanism is available for the IdP
-    authenication.
+    authentication.
 
     :param auth_url: URL of the Identity Service
-    :type auth_url: string
-
     :param identity_provider: name of the Identity Provider the client will
-                              authenticate against. This parameter will be used
-                              to build a dynamic URL used to obtain unscoped
-                              OpenStack token.
-    :type identity_provider: string
-
+        authenticate against. This parameter will be used to build a dynamic
+        URL used to obtain unscoped OpenStack token.
     :param identity_provider_url: An Identity Provider URL, where the SAML2
-                                  authn request will be sent.
-    :type identity_provider_url: string
-
+        authn request will be sent.
     :param username: User's login
-    :type username: string
-
     :param password: User's password
-    :type password: string
-
-    :param protocol: Protocol to be used for the authentication.
-                     The name must be equal to one configured at the
-                     keystone sp side. This value is used for building
-                     dynamic authentication URL.
-                     Typical value  would be: saml2
-    :type protocol: string
-
+    :param protocol: Protocol to be used for the authentication. The name must
+        be equal to one configured at the keystone sp side. This value is used
+        for building dynamic authentication URL. Typical value  would be: saml2
     """
 
     def __init__(

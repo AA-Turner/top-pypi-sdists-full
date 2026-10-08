@@ -49,27 +49,6 @@ def message(role: str | Underscore, content: str | list[dict[str, str]] | Unders
     )
 
 
-def run_prompt(name: str):
-    """
-    Runs a named prompt. Configure named prompts in the UI.
-
-    Parameters
-    ----------
-    name
-        The name of the prompt to run.
-
-    Examples
-    --------
-    >>> import chalk.prompts as P
-    >>> from chalk.features import features
-    >>> @features
-    ... class User:
-    ...    id: str
-    ...    description: P.PromptResponse = P.run_prompt("describe_user")
-    """
-    return UnderscoreFunction("run_prompt", prompt_name=name)
-
-
 def completion(
     model: str,
     messages: Sequence[Underscore],

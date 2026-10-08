@@ -2928,7 +2928,7 @@ def _ephemeral_update(monkeypatch, boot, *, latest=None, installed=(), reinstall
     manifest = {"cli": {"latest": latest}} if latest else {}
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: manifest)
     attempts: list = []
-    monkeypatch.setattr(upgrading.autoupdate, "record_attempt", attempts.append)
+    monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt, **_: attempts.append(attempt))
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: boot)
     reads = iter(installed)
     monkeypatch.setattr(bootstrap, "installed_version", lambda: next(reads, None))

@@ -336,7 +336,7 @@ async def test_observer_hands_the_class_to_the_memory_call() -> None:
     try:
         await run_observer(
             ModelConfig(mandate_key="memory.observer", model=QWEN, offering_id=LIGHTNING),
-            "material",
+            {"new_messages": "material"},
             _llm,
         )
     except ValueError:

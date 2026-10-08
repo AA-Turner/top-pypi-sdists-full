@@ -1,0 +1,1436 @@
+import sys
+import uuid
+from collections import OrderedDict, namedtuple
+from contextlib import suppress
+import enum as E
+from functools import partial
+from decimal import Decimal
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
+from jsonschema_rs import (
+    Draft4Validator,
+    Draft6Validator,
+    Draft7Validator,
+    Draft201909Validator,
+    Draft202012Validator,
+    Registry,
+    ValidationError,
+    ValidationErrorKind,
+    is_valid,
+    iter_errors,
+    validate,
+    validator_for,
+)
+
+json = st.recursive(
+    st.none() | st.booleans() | st.floats() | st.integers() | st.text(),
+    lambda children: st.lists(children, min_size=1) | st.dictionaries(st.text(), children, min_size=1),
+)
+
+
+@pytest.mark.parametrize("func", (is_valid, validate))
+@given(instance=json)
+def test_instance_processing(func, instance):
+    with suppress(Exception):
+        func(True, instance)
+
+
+@pytest.mark.parametrize("func", (is_valid, validate))
+@given(instance=json)
+def test_schema_processing(func, instance):
+    try:
+        func(instance, True)
+    except Exception:
+        pass
+
+
+@pytest.mark.parametrize("func", (is_valid, validate))
+def test_invalid_schema(func):
+    with pytest.raises(ValueError):
+        func(2**64, True)
+
+
+@pytest.mark.parametrize("func", (is_valid, validate))
+def test_invalid_type(func):
+    with pytest.raises(ValueError, match="Unsupported type: 'set'"):
+        func(set(), True)
+
+
+@pytest.mark.parametrize("method", ("is_valid", "validate"))
+def test_invalid_instance_type(backend, method):
+    with pytest.raises(ValueError, match="Unsupported type: 'set'"):
+        getattr(backend, method)(True, set())
+
+
+def test_lone_surrogate_instance_raises(backend):
+    with pytest.raises(ValueError, match="surrogates not allowed"):
+        backend.is_valid(True, "\ud800")
+
+
+def test_lone_surrogate_nested_raises(backend):
+    with pytest.raises(ValueError, match="surrogates not allowed"):
+        backend.is_valid({"properties": {"n": {"const": "x"}}}, {"n": "\ud800"})
+
+
+@pytest.mark.parametrize(
+    "schema, expected",
+    (
+        ({"minimum": 5}, "<Draft202012Validator>"),
+        ({"$schema": "http://json-schema.org/draft-04/schema#", "minimum": 5}, "<Draft4Validator>"),
+        ({"$schema": "http://json-schema.org/draft-06/schema#", "minimum": 5}, "<Draft6Validator>"),
+        ({"$schema": "http://json-schema.org/draft-07/schema#", "minimum": 5}, "<Draft7Validator>"),
+        ({"$schema": "https://json-schema.org/draft/2019-09/schema", "minimum": 5}, "<Draft201909Validator>"),
+        ({"$schema": "https://json-schema.org/draft/2020-12/schema", "minimum": 5}, "<Draft202012Validator>"),
+    ),
+)
+def test_repr(schema, expected):
+    assert repr(validator_for(schema)) == expected
+
+
+@pytest.mark.parametrize(
+    "func",
+    (
+        validator_for({"minimum": 5}).validate,
+        validator_for('{"minimum": 5}').validate,
+        partial(validate, {"minimum": 5}),
+    ),
+)
+def test_validate(func):
+    with pytest.raises(ValidationError, match="2 is less than the minimum of 5") as exc:
+        func(2)
+    assert isinstance(exc.value.kind, ValidationErrorKind.Minimum)
+    assert exc.value.instance == 2
+
+
+def test_from_str_error():
+    with pytest.raises(ValidationError, match='42 is not of types "boolean", "object"'):
+        validator_for(42)  # type: ignore
+
+
+@pytest.mark.parametrize(
+    "val",
+    (
+        ("A", "B", "C"),
+        ["A", "B", "C"],
+    ),
+)
+def test_array_tuple(backend, val):
+    schema = {"type": "array", "items": {"type": "string"}}
+    backend.validate(schema, val)
+
+
+@pytest.mark.parametrize(
+    "val",
+    ((1, 2, 3), [1, 2, 3], {"foo": 1}),
+)
+def test_array_tuple_invalid(backend, val):
+    schema = {"type": "array", "items": {"type": "string"}}
+    with pytest.raises(ValueError):
+        backend.validate(schema, val)
+
+
+def test_named_tuple(backend):
+    Person = namedtuple("Person", "first_name last_name")
+    person_a = Person("Joe", "Smith")
+    schema = {"type": "array", "items": {"type": "string"}}
+    with pytest.raises(ValueError):
+        backend.validate(schema, person_a)
+
+
+RECURSIVE_OBJECT_SCHEMA = {
+    "$defs": {"node": {"type": "object", "additionalProperties": {"$ref": "#/$defs/node"}}},
+    "$ref": "#/$defs/node",
+}
+RECURSIVE_ARRAY_SCHEMA = {
+    "$defs": {"node": {"type": "array", "items": {"$ref": "#/$defs/node"}}},
+    "$ref": "#/$defs/node",
+}
+
+
+# A schema that actually walks the cycle, so the test fails without cycle detection
+def test_recursive_dict():
+    instance = {}
+    instance["foo"] = instance
+    assert is_valid(RECURSIVE_OBJECT_SCHEMA, instance)
+
+
+def test_recursive_list():
+    instance = []
+    instance.append(instance)
+    assert is_valid(RECURSIVE_ARRAY_SCHEMA, instance)
+
+
+def test_recursive_dict_reports_nested_error():
+    instance = {"a": {}}
+    instance["a"]["b"] = instance
+    schema = {
+        "$defs": {
+            "node": {
+                "type": "object",
+                "additionalProperties": {"$ref": "#/$defs/node"},
+                "propertyNames": {"maxLength": 1},
+            }
+        },
+        "$ref": "#/$defs/node",
+    }
+    assert is_valid(schema, instance)
+    instance["toolong"] = {}
+    assert not is_valid(schema, instance)
+
+
+def cyclic_dict():
+    instance = {}
+    instance["foo"] = instance
+    return instance
+
+
+def cyclic_list():
+    instance = []
+    instance.append(instance)
+    return instance
+
+
+# Building the error materializes the instance, which walks the cycle
+@pytest.mark.parametrize(
+    ("schema", "build"),
+    (
+        ({"type": "object", "minProperties": 5}, cyclic_dict),
+        ({"type": "array", "minItems": 5}, cyclic_list),
+    ),
+)
+def test_error_at_cyclic_container(schema, build):
+    with pytest.raises(ValueError, match="Recursion limit reached"):
+        validate(schema, build())
+
+
+def test_unique_items_with_cyclic_elements():
+    with pytest.raises(ValueError, match="Recursion limit reached"):
+        validate({"uniqueItems": True}, [cyclic_list(), cyclic_list()])
+
+
+@pytest.mark.parametrize(
+    "instance",
+    (
+        [0, 1, 2, -0.0],
+        # Beyond the pairwise threshold, so duplicates are found by hashing
+        [*range(16), -0.0],
+        [{"a": 0}, {"a": 1}, {"a": -0.0}],
+        [{"a": i} for i in range(16)] + [{"a": -0.0}],
+    ),
+)
+def test_unique_items_zero_and_negative_zero(instance):
+    assert not is_valid({"uniqueItems": True}, instance)
+
+
+class Opaque:
+    pass
+
+
+@pytest.mark.parametrize(
+    ("schema", "instance"),
+    (
+        ({"uniqueItems": True}, [Opaque(), Opaque()]),
+        ({"uniqueItems": True}, [None, Opaque()]),
+        ({"properties": {"a": {"const": 1}}}, {"a": Opaque()}),
+        ({"properties": {"a": {"enum": [1, 2]}}}, {"a": Opaque()}),
+        ({"items": {"const": 1}}, [Opaque()]),
+    ),
+)
+def test_unsupported_type_raises(backend, schema, instance):
+    with pytest.raises(ValueError, match="Unsupported type: 'Opaque'"):
+        backend.is_valid(schema, instance)
+
+
+@pytest.mark.parametrize("schema", ({"type": "null"}, {"const": None}))
+def test_enum_member_wrapping_none_is_null(backend, schema):
+    class Nothing(E.Enum):
+        NOTHING = None
+
+    assert backend.is_valid(schema, Nothing.NOTHING)
+
+
+@pytest.mark.parametrize("schema", ({"type": "null"}, {"const": None}))
+def test_unsupported_type_against_null_schema_raises(backend, schema):
+    with pytest.raises(ValueError, match="Unsupported type: 'Opaque'"):
+        backend.is_valid({"properties": {"a": schema}}, {"a": Opaque()})
+
+
+def test_self_referential_enum_value_raises(backend):
+    class Weird(E.Enum):
+        A = 1
+
+        @property
+        def value(self):
+            return self
+
+    with pytest.raises(ValueError):
+        backend.is_valid({"type": "integer"}, Weird.A)
+
+
+def test_list_resized_during_validation_raises(backend):
+    items = []
+
+    class Shrinking(E.Enum):
+        A = 1
+
+        @property
+        def value(self):
+            items.clear()
+            return 1
+
+    items.extend([Shrinking.A, 1, 2])
+    with pytest.raises(ValueError, match="Sequence changed size during validation"):
+        backend.is_valid({"items": {"type": "integer"}}, items)
+
+
+# Objects allocated into the memory a callback frees, kept alive so a read through a dangling
+# reference sees them (or crashes) instead of the stale contents.
+CHURN = []
+
+
+def empty_and_churn(outer):
+    outer.clear()
+    CHURN.append([({f"k{j}": object() for j in range(8)}, [object()] * 64) for _ in range(2000)])
+
+
+def emptying_member(outer):
+    class Emptying(E.Enum):
+        A = "a"
+
+        @property
+        def value(self):
+            empty_and_churn(outer)
+            return "a"
+
+    return Emptying.A
+
+
+# `first` is read before anything else in the first inner container, which only `outer` owns.
+def nested_instance(shape, first):
+    if shape == "list":
+        return [[first] + [f"v{i}" * 50 for i in range(200)]] + [[f"w{i}"] * 10 for i in range(10)]
+    return [{"a": first, **{f"k{i}": f"v{i}" * 50 for i in range(200)}}] + [{"w": f"w{i}"} for i in range(10)]
+
+
+def nested_schema(shape, leaf):
+    if shape == "list":
+        return {"items": {"items": leaf}}
+    return {"items": {"required": ["a"], "additionalProperties": leaf}}
+
+
+def run(call, method):
+    result = call()
+    return list(result) if method == "iter_errors" else result
+
+
+@pytest.mark.parametrize("method", ["is_valid", "validate", "iter_errors"])
+@pytest.mark.parametrize("shape", ["list", "dict"])
+def test_enum_value_emptying_the_instance_raises(backend, shape, method):
+    outer = []
+    outer.extend(nested_instance(shape, emptying_member(outer)))
+    schema = nested_schema(shape, {"type": "string"})
+    with pytest.raises(ValueError, match="Sequence changed size during validation"):
+        run(partial(getattr(backend, method), schema, outer), method)
+
+
+@pytest.mark.parametrize("method", ["is_valid", "validate", "iter_errors"])
+@pytest.mark.parametrize("shape", ["list", "dict"])
+@pytest.mark.parametrize("callback", ["format", "keyword"])
+def test_callback_emptying_the_instance_raises(callback, shape, method):
+    outer = nested_instance(shape, "a")
+    expected = list(outer[0]) if shape == "list" else list(outer[0].values())
+    seen = []
+
+    def check(instance):
+        seen.append(instance)
+        if len(seen) == 1:
+            empty_and_churn(outer)
+        return True
+
+    class Emptying:
+        def __init__(self, parent_schema, value, schema_path):
+            pass
+
+        def validate(self, instance):
+            check(instance)
+
+    if callback == "format":
+        validator = validator_for(
+            nested_schema(shape, {"format": "emptying"}), formats={"emptying": check}, validate_formats=True
+        )
+    else:
+        validator = validator_for(nested_schema(shape, {"emptying": True}), keywords={"emptying": Emptying})
+    with pytest.raises(ValueError, match="Sequence changed size during validation"):
+        run(partial(getattr(validator, method), outer), method)
+    # The inner container outlives its parent's emptying and is walked in full
+    assert seen == expected
+
+
+@pytest.mark.parametrize("shape", ["list", "dict"])
+def test_enum_value_emptying_the_schema(shape):
+    outer = []
+    outer.extend(nested_instance(shape, emptying_member(outer)))
+    # The first inner container is read in full; the outer list stops where it was emptied
+    assert validator_for({"const": outer}).is_valid(nested_instance(shape, "a")[:1])
+
+
+def test_nested_validation_keeps_outer_error():
+    calls = []
+
+    class Nested:
+        def __init__(self, schema, *args, **kwargs):
+            pass
+
+        def is_valid(self, instance):
+            calls.append(is_valid({"type": "string"}, "inner"))
+            return True
+
+        def validate(self, instance):
+            self.is_valid(instance)
+            return iter(())
+
+    # `allOf` runs in order: the first branch records an error while still passing, then the
+    # keyword nests a validation that must not consume it
+    validator = validator_for(
+        {"allOf": [{"properties": {"a": {"uniqueItems": True}}}, {"nested": 1}]},
+        keywords={"nested": Nested},
+    )
+    with pytest.raises(ValueError, match="Unsupported type: 'Opaque'"):
+        validator.is_valid({"a": [Opaque(), 1]})
+    assert calls == [True]
+
+
+def test_paths():
+    with pytest.raises(ValidationError) as exc:
+        validate({"prefixItems": [{"type": "string"}]}, [1])
+    assert exc.value.schema_path == ["prefixItems", 0, "type"]
+    assert exc.value.instance_path == [0]
+    assert exc.value.message == '1 is not of type "string"'
+    assert isinstance(exc.value.kind, ValidationErrorKind.Type)
+    assert exc.value.instance == 1
+
+
+def test_validation_error_handles_huge_scientific_numbers():
+    validator = validator_for('{"const": 1e10000}')
+    with pytest.raises(ValidationError) as exc:
+        validator.validate(0)
+    assert isinstance(exc.value.kind, ValidationErrorKind.Constant)
+    assert exc.value.kind.expected_value == Decimal("1e10000")
+
+
+@pytest.mark.parametrize(
+    ["schema", "instance", "kind", "attrs"],
+    [
+        ({"maxItems": 1}, [1, 2], ValidationErrorKind.MaxItems, {"limit": 1}),
+        ({"const": "test"}, "wrong", ValidationErrorKind.Constant, {"expected_value": "test"}),
+        ({"contains": {"type": "string"}}, [1, 2, 3], ValidationErrorKind.Contains, {}),
+        ({"enum": [1, 2, 3]}, 4, ValidationErrorKind.Enum, {"options": [1, 2, 3]}),
+        ({"exclusiveMaximum": 5}, 5, ValidationErrorKind.ExclusiveMaximum, {"limit": 5}),
+        ({"exclusiveMinimum": 5}, 5, ValidationErrorKind.ExclusiveMinimum, {"limit": 5}),
+        (False, "anything", ValidationErrorKind.FalseSchema, {}),
+        ({"format": "email"}, "not-an-email", ValidationErrorKind.Format, {"format": "email"}),
+        ({"maximum": 5}, 6, ValidationErrorKind.Maximum, {"limit": 5}),
+        ({"maxLength": 5}, "too long string", ValidationErrorKind.MaxLength, {"limit": 5}),
+        ({"maxProperties": 1}, {"a": 1, "b": 2}, ValidationErrorKind.MaxProperties, {"limit": 1}),
+        ({"minItems": 2}, [1], ValidationErrorKind.MinItems, {"limit": 2}),
+        ({"minimum": 5}, 4, ValidationErrorKind.Minimum, {"limit": 5}),
+        ({"minLength": 5}, "foo", ValidationErrorKind.MinLength, {"limit": 5}),
+        ({"minProperties": 2}, {"a": 1}, ValidationErrorKind.MinProperties, {"limit": 2}),
+        ({"multipleOf": 2}, 3, ValidationErrorKind.MultipleOf, {"multiple_of": 2.0}),
+        ({"not": {"type": "string"}}, "string", ValidationErrorKind.Not, {"schema": {"type": "string"}}),
+        ({"oneOf": [{"type": "string"}, {"type": "string"}]}, "1", ValidationErrorKind.OneOfMultipleValid, {}),
+        ({"pattern": "^test$"}, "wrong", ValidationErrorKind.Pattern, {"pattern": "^test$"}),
+        ({"required": ["missing"]}, {}, ValidationErrorKind.Required, {"property": "missing"}),
+        ({"type": "string"}, 1, ValidationErrorKind.Type, {"types": ["string"]}),
+        ({"uniqueItems": True}, [1, 1], ValidationErrorKind.UniqueItems, {}),
+    ],
+)
+def test_validation_error_kinds(schema, instance, kind, attrs):
+    with pytest.raises(ValidationError) as exc:
+        validate(schema, instance, validate_formats=True)
+
+    assert isinstance(exc.value.kind, kind)
+
+    for attr, expected_value in attrs.items():
+        assert hasattr(exc.value.kind, attr)
+        assert getattr(exc.value.kind, attr) == expected_value
+
+
+@pytest.mark.parametrize(
+    ["schema", "instance", "kind", "context"],
+    [
+        (
+            {"anyOf": [{"type": "string"}, {"type": "number"}]},
+            True,
+            ValidationErrorKind.AnyOf,
+            [
+                [
+                    ValidationError(
+                        'true is not of type "string"',
+                        "",
+                        ["anyOf", 0, "type"],
+                        [],
+                        ["anyOf", 0, "type"],
+                        ValidationErrorKind.Type(["string"]),
+                        True,
+                    )
+                ],
+                [
+                    ValidationError(
+                        'true is not of type "number"',
+                        "",
+                        ["anyOf", 1, "type"],
+                        [],
+                        ["anyOf", 1, "type"],
+                        ValidationErrorKind.Type(["number"]),
+                        True,
+                    )
+                ],
+            ],
+        ),
+        (
+            {"oneOf": [{"type": "number"}, {"type": "number"}]},
+            "1",
+            ValidationErrorKind.OneOfNotValid,
+            [
+                [
+                    ValidationError(
+                        '"1" is not of type "number"',
+                        "",
+                        ["oneOf", 0, "type"],
+                        [],
+                        ["oneOf", 0, "type"],
+                        ValidationErrorKind.Type(["number"]),
+                        "1",
+                    )
+                ],
+                [
+                    ValidationError(
+                        '"1" is not of type "number"',
+                        "",
+                        ["oneOf", 1, "type"],
+                        [],
+                        ["oneOf", 1, "type"],
+                        ValidationErrorKind.Type(["number"]),
+                        "1",
+                    )
+                ],
+            ],
+        ),
+    ],
+)
+def test_validation_error_kinds_with_context(schema, instance, kind, context):
+    with pytest.raises(ValidationError) as exc:
+        validate(schema, instance, validate_formats=True)
+
+    assert isinstance(exc.value.kind, kind)
+
+    for schema_id, errors in enumerate(context):
+        for index, expected_error in enumerate(errors):
+            actual_error = exc.value.kind.context[schema_id][index]
+            assert actual_error.message == expected_error.message
+            assert actual_error.schema_path == expected_error.schema_path
+            assert actual_error.instance_path == expected_error.instance_path
+            assert isinstance(actual_error.kind, type(expected_error.kind))
+            assert actual_error.instance == expected_error.instance
+
+
+def test_one_of_multiple_valid_with_context():
+    schema = {
+        "oneOf": [
+            {"type": "string"},
+            {"minLength": 1},
+            {"maxLength": 3},
+        ]
+    }
+    instance = "hello"
+
+    with pytest.raises(ValidationError) as exc:
+        validate(schema, instance)
+
+    assert isinstance(exc.value.kind, ValidationErrorKind.OneOfMultipleValid)
+    assert len(exc.value.kind.context) == 3
+    assert len(exc.value.kind.context[0]) == 0  # First schema (type: string) passed
+    assert len(exc.value.kind.context[1]) == 0  # Second schema (minLength: 1) passed
+    assert len(exc.value.kind.context[2]) == 1  # Third schema (maxLength: 3) failed
+
+
+@pytest.mark.parametrize(
+    "schema,instance,expected_name,draft",
+    [
+        # additionalItems is Draft 4/7 only
+        ({"additionalItems": False, "items": [{}]}, [1, 2], "additionalItems", Draft7Validator),
+        (
+            {"type": "object", "properties": {"x": {}}, "additionalProperties": False},
+            {"a": 1},
+            "additionalProperties",
+            None,
+        ),
+        ({"anyOf": [{"type": "string"}, {"type": "number"}]}, True, "anyOf", None),
+        ({"const": "test"}, "wrong", "const", None),
+        ({"contains": {"type": "string"}}, [1, 2, 3], "contains", None),
+        ({"enum": [1, 2, 3]}, 4, "enum", None),
+        ({"exclusiveMaximum": 5}, 5, "exclusiveMaximum", None),
+        ({"exclusiveMinimum": 5}, 5, "exclusiveMinimum", None),
+        (False, "anything", "falseSchema", None),
+        ({"format": "email"}, "not-an-email", "format", None),
+        ({"maxItems": 1}, [1, 2], "maxItems", None),
+        ({"maximum": 5}, 6, "maximum", None),
+        ({"maxLength": 5}, "too long", "maxLength", None),
+        ({"maxProperties": 1}, {"a": 1, "b": 2}, "maxProperties", None),
+        ({"minItems": 2}, [1], "minItems", None),
+        ({"minimum": 5}, 4, "minimum", None),
+        ({"minLength": 5}, "foo", "minLength", None),
+        ({"minProperties": 2}, {"a": 1}, "minProperties", None),
+        ({"multipleOf": 2}, 3, "multipleOf", None),
+        ({"not": {"type": "string"}}, "string", "not", None),
+        ({"oneOf": [{"type": "string"}, {"type": "string"}]}, "1", "oneOf", None),
+        ({"oneOf": [{"type": "number"}, {"type": "number"}]}, "x", "oneOf", None),
+        ({"pattern": "^test$"}, "wrong", "pattern", None),
+        ({"propertyNames": {"minLength": 3}}, {"ab": 1}, "propertyNames", None),
+        ({"required": ["missing"]}, {}, "required", None),
+        ({"type": "string"}, 1, "type", None),
+        ({"unevaluatedItems": False, "prefixItems": [{}]}, [1, 2], "unevaluatedItems", None),
+        ({"unevaluatedProperties": False}, {"a": 1}, "unevaluatedProperties", None),
+        ({"uniqueItems": True}, [1, 1], "uniqueItems", None),
+    ],
+)
+def test_kind_name(schema, instance, expected_name, draft):
+    if draft is not None:
+        validator = draft(schema, validate_formats=True)
+        errors = list(validator.iter_errors(instance))
+    else:
+        errors = list(iter_errors(schema, instance, validate_formats=True))
+    assert len(errors) > 0
+    assert errors[0].kind.name == expected_name
+
+
+@pytest.mark.parametrize(
+    "schema,instance,expected_value",
+    [
+        ({"minimum": 5}, 3, 5),
+        ({"maximum": 10}, 15, 10),
+        ({"minLength": 5}, "ab", 5),
+        ({"maxLength": 2}, "abc", 2),
+        ({"pattern": "^a$"}, "b", "^a$"),
+        ({"type": "string"}, 42, ["string"]),
+        ({"const": "expected"}, "actual", "expected"),
+        ({"enum": [1, 2, 3]}, 4, [1, 2, 3]),
+        ({"required": ["foo"]}, {}, "foo"),
+        ({"multipleOf": 3}, 5, 3.0),
+        ({"format": "email"}, "bad", "email"),
+    ],
+)
+def test_kind_value(schema, instance, expected_value):
+    errors = list(iter_errors(schema, instance, validate_formats=True))
+    assert errors[0].kind.value == expected_value
+
+
+@pytest.mark.parametrize(
+    "schema,instance",
+    [
+        ({"contains": {"type": "string"}}, [1, 2, 3]),
+        (False, "anything"),
+        ({"uniqueItems": True}, [1, 1]),
+    ],
+)
+def test_kind_value_none(schema, instance):
+    errors = list(iter_errors(schema, instance))
+    assert errors[0].kind.value is None
+
+
+@pytest.mark.parametrize(
+    "schema,instance,expected_dict",
+    [
+        ({"minimum": 5}, 3, {"limit": 5}),
+        ({"type": "string"}, 42, {"types": ["string"]}),
+        ({"required": ["foo"]}, {}, {"property": "foo"}),
+        ({"pattern": "^a$"}, "b", {"pattern": "^a$"}),
+        ({"contains": {"type": "string"}}, [1], {}),
+        (False, 1, {}),
+        ({"uniqueItems": True}, [1, 1], {}),
+    ],
+)
+def test_kind_as_dict(schema, instance, expected_dict):
+    errors = list(iter_errors(schema, instance))
+    assert errors[0].kind.as_dict() == expected_dict
+
+
+def test_kind_pattern_matching():
+    errors = list(iter_errors({"minimum": 5}, 3))
+    kind = errors[0].kind
+
+    assert hasattr(type(kind), "__match_args__")
+
+    match kind:
+        case ValidationErrorKind.Minimum(limit=lim):
+            assert lim == 5
+        case _:
+            pytest.fail("Pattern matching failed")
+
+
+def test_custom_keyword_kind_name():
+    class DivisibleBy:
+        def __init__(self, parent_schema, value, schema_path):
+            self.divisor = value
+
+        def validate(self, instance):
+            if isinstance(instance, int) and instance % self.divisor != 0:
+                raise ValueError(f"not divisible by {self.divisor}")
+
+    errors = list(iter_errors({"divisibleBy": 3}, 5, keywords={"divisibleBy": DivisibleBy}))
+    assert len(errors) == 1
+    assert errors[0].kind.name == "divisibleBy"
+    assert errors[0].kind.value == "not divisible by 3"
+    assert errors[0].kind.as_dict() == {"keyword": "divisibleBy", "message": "not divisible by 3"}
+
+
+@given(minimum=st.integers().map(abs))
+def test_minimum(minimum):
+    with suppress(SystemError, ValueError):
+        assert is_valid({"minimum": minimum}, minimum)
+        assert is_valid({"minimum": minimum}, minimum - 1) is False
+
+
+@given(maximum=st.integers().map(abs))
+def test_maximum(maximum):
+    with suppress(SystemError, ValueError):
+        assert is_valid({"maximum": maximum}, maximum)
+        assert is_valid({"maximum": maximum}, maximum + 1) is False
+
+
+@pytest.mark.parametrize("method", ("is_valid", "validate"))
+def test_invalid_value(method):
+    schema = validator_for({"minimum": 42})
+    with pytest.raises(ValueError, match="Unsupported type: 'object'"):
+        getattr(schema, method)(object())
+
+
+def test_invalid_schema_keyword():
+    # Use a genuinely invalid/unknown meta-schema URL
+    schema = {"$schema": "https://json-schema.org/draft-99/schema"}
+    with pytest.raises(ValidationError, match="Unknown meta-schema: 'https://json-schema.org/draft-99/schema'"):
+        validator_for(schema)
+
+
+def test_error_message():
+    schema = {"properties": {"foo": {"type": "integer"}}}
+    instance = {"foo": None}
+    try:
+        validate(schema, instance)
+        pytest.fail("Validation error should happen")
+    except ValidationError as exc:
+        assert (
+            str(exc)
+            == """null is not of type "integer"
+
+Failed validating "type" in schema["properties"]["foo"]
+
+On instance["foo"]:
+    null"""
+        )
+        assert isinstance(exc.kind, ValidationErrorKind.Type)
+        assert exc.instance is None
+
+
+def test_error_instance():
+    instance = {"a": [42]}
+    try:
+        validate({"type": "array"}, instance)
+        pytest.fail("Validation error should happen")
+    except ValidationError as exc:
+        assert isinstance(exc.kind, ValidationErrorKind.Type)
+        assert exc.instance == instance
+    try:
+        validate({"properties": {"a": {"type": "object"}}}, instance)
+        pytest.fail("Validation error should happen")
+    except ValidationError as exc:
+        assert isinstance(exc.kind, ValidationErrorKind.Type)
+        assert exc.instance == instance["a"]
+
+
+SCHEMA = {"properties": {"foo": {"type": "integer"}, "bar": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    "func",
+    (
+        validator_for(SCHEMA).iter_errors,
+        partial(iter_errors, SCHEMA),
+    ),
+)
+def test_iter_err_message(func):
+    errors = func({"foo": None, "bar": None})
+
+    # Errors follow instance order
+    first = next(errors)
+    assert first.message == 'null is not of type "integer"'
+
+    second = next(errors)
+    assert second.message == 'null is not of type "string"'
+
+    with suppress(StopIteration):
+        next(errors)
+        pytest.fail("Validation error should happen")
+
+
+@pytest.mark.parametrize(
+    "func",
+    (
+        validator_for({"properties": {"foo": {"type": "integer"}}}).iter_errors,
+        partial(iter_errors, {"properties": {"foo": {"type": "integer"}}}),
+    ),
+)
+def test_iter_err_empty(func):
+    instance = {"foo": 1}
+    errs = func(instance)
+    with suppress(StopIteration):
+        next(errs)
+        pytest.fail("Validation error should happen")
+
+
+class StrEnum(E.Enum):
+    bar = "bar"
+    foo = "foo"
+
+
+class IntEnum(E.Enum):
+    bar = 1
+    foo = 2
+
+
+@pytest.mark.parametrize(
+    "type_, value, expected",
+    (
+        ("number", IntEnum.bar, True),
+        ("number", StrEnum.bar, False),
+        ("string", IntEnum.bar, False),
+        ("string", StrEnum.bar, True),
+    ),
+)
+def test_enums(backend, type_, value, expected):
+    schema = {"properties": {"foo": {"type": type_}}}
+    instance = {"foo": value}
+    assert backend.is_valid(schema, instance) is expected
+
+
+def test_dict_with_non_str_keys(backend):
+    schema = {"type": "object"}
+    instance = {uuid.uuid4(): "foo"}
+    with pytest.raises(ValueError, match="Dict key must be str or str enum. Got 'UUID'"):
+        backend.validate(schema, instance)
+
+
+class MyDict(dict):
+    pass
+
+
+class MyDict2(MyDict):
+    pass
+
+
+@pytest.mark.parametrize(
+    "type_, value, expected",
+    (
+        (dict, 1, True),
+        (dict, "bar", False),
+        (OrderedDict, 1, True),
+        (OrderedDict, "bar", False),
+        (MyDict, 1, True),
+        (MyDict, "bar", False),
+        (MyDict2, 1, True),
+        (MyDict2, "bar", False),
+    ),
+)
+def test_dict_subclasses(backend, type_, value, expected):
+    schema = {"type": "object", "properties": {"foo": {"type": "integer"}}}
+    document = type_({"foo": value})
+    assert backend.is_valid(schema, document) is expected
+
+
+def test_custom_format():
+    def is_currency(value):
+        return len(value) == 3 and value.isascii()
+
+    validator = validator_for(
+        {"type": "string", "format": "currency"}, formats={"currency": is_currency}, validate_formats=True
+    )
+    assert validator.is_valid("USD")
+    assert not validator.is_valid(42)
+    assert not validator.is_valid("invalid")
+
+
+def test_custom_format_invalid_callback():
+    with pytest.raises(ValueError, match="Format checker for 'currency' must be a callable"):
+        validator_for({"type": "string", "format": "currency"}, formats={"currency": 42})
+
+
+def test_custom_format_with_exception():
+    def is_currency(_):
+        raise ValueError("Invalid currency")
+
+    schema = {"type": "string", "format": "currency"}
+    formats = {"currency": is_currency}
+    validator = validator_for(schema, formats=formats, validate_formats=True)
+    with pytest.raises(ValueError, match="Invalid currency"):
+        validator.is_valid("USD")
+    with pytest.raises(ValueError, match="Invalid currency"):
+        validator.validate("USD")
+    with pytest.raises(ValueError, match="Invalid currency"):
+        for _ in validator.iter_errors("USD"):
+            pass
+    with pytest.raises(ValueError, match="Invalid currency"):
+        is_valid(schema, "USD", formats=formats, validate_formats=True)
+    with pytest.raises(ValueError, match="Invalid currency"):
+        validate(schema, "USD", formats=formats, validate_formats=True)
+    with pytest.raises(ValueError, match="Invalid currency"):
+        for _ in iter_errors(schema, "USD", formats=formats, validate_formats=True):
+            pass
+
+
+@pytest.mark.parametrize(
+    "cls,validate_formats,input,expected",
+    [
+        (Draft202012Validator, None, "2023-05-17", True),
+        (Draft202012Validator, True, "2023-05-17", True),
+        (Draft202012Validator, True, "not a date", False),
+        (Draft202012Validator, False, "2023-05-17", True),
+        (Draft202012Validator, False, "not a date", True),
+        (Draft201909Validator, None, "2023-05-17", True),
+        # Formats are not validated at all by default in these drafts
+        (Draft202012Validator, None, "not a date", True),
+        (Draft201909Validator, None, "not a date", True),
+        (Draft7Validator, None, "2023-05-17", True),
+        (Draft7Validator, None, "not a date", False),
+        (Draft6Validator, None, "2023-05-17", True),
+        (Draft6Validator, None, "not a date", False),
+        (Draft4Validator, None, "2023-05-17", True),
+        (Draft4Validator, None, "not a date", False),
+    ],
+)
+def test_validate_formats(cls, validate_formats, input, expected):
+    schema = {"type": "string", "format": "date"}
+    validator = cls(schema, validate_formats=validate_formats)
+    assert validator.is_valid(input) == expected
+
+
+@pytest.mark.parametrize(
+    "cls,ignore_unknown_formats,should_raise",
+    [
+        (Draft202012Validator, None, False),
+        (Draft202012Validator, True, False),
+        (Draft201909Validator, None, False),
+        (Draft201909Validator, True, False),
+        (Draft7Validator, None, False),
+        (Draft7Validator, False, True),
+        (Draft6Validator, None, False),
+        (Draft6Validator, False, True),
+        (Draft4Validator, None, False),
+        (Draft4Validator, False, True),
+        # Formats are not validated at all by default in these drafts
+        (Draft202012Validator, False, False),
+        (Draft201909Validator, False, False),
+    ],
+)
+def test_ignore_unknown_formats(cls, ignore_unknown_formats, should_raise):
+    unknown_format_schema = {"type": "string", "format": "unknown"}
+    if should_raise:
+        with pytest.raises(ValidationError):
+            cls(unknown_format_schema, ignore_unknown_formats=ignore_unknown_formats)
+    else:
+        validator = cls(unknown_format_schema, ignore_unknown_formats=ignore_unknown_formats)
+        assert validator.is_valid("any string")
+
+
+def test_unicode_pattern():
+    validator = Draft202012Validator({"pattern": "aaaaaaaèaaéaaaaéè"})
+    assert not validator.is_valid("a")
+
+
+enum_type_dec = pytest.mark.parametrize(
+    "enum_type",
+    (
+        "old",
+        pytest.param(
+            "new",
+            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="New style enums are supported from 3.11"),
+        ),
+    ),
+)
+
+
+@enum_type_dec
+@pytest.mark.parametrize("valid", (True, False))
+def test_enum_as_keys(backend, enum_type, valid):
+    if enum_type == "old":
+        bases = (str, E.Enum)
+    else:
+        bases = (E.StrEnum,)
+
+    class EnumCls(*bases):
+        A = "a"
+        B = "b"
+
+    schema = {
+        "properties": {
+            "a": {"type": "string"},
+        },
+        "additionalProperties": False,
+    }
+    if valid:
+        schema["properties"]["b"] = {"type": "number"}
+
+    assert backend.is_valid(schema, {EnumCls.A: "xyz", EnumCls.B: 42}) is valid
+
+
+@enum_type_dec
+def test_enum_as_keys_invalid(backend, enum_type):
+    if enum_type == "old":
+
+        class EnumCls(E.IntEnum):
+            A = 42
+    else:
+
+        class EnumCls(E.Enum):
+            A = "a"
+
+    schema = {"properties": {"a": {"type": "string"}}}
+    with pytest.raises(ValueError, match=f"Dict key must be str or str enum. Got '{EnumCls.__name__}'"):
+        backend.is_valid(schema, {EnumCls.A: "xyz"})
+
+
+class StrEnumKey(str, E.Enum):
+    A = "a"
+
+
+class BrokenValueStrEnum(str, E.Enum):
+    A = "a"
+
+    def __getattribute__(self, name):
+        if name == "value":
+            raise RuntimeError("boom from value")
+        return super().__getattribute__(name)
+
+
+def test_enum_key_value_lookup_error(backend):
+    schema = {"properties": {"a": {"type": "string"}}}
+    with pytest.raises(ValueError, match="boom from value"):
+        backend.is_valid(schema, {BrokenValueStrEnum.A: "xyz"})
+
+
+def test_enum_value_lookup_error(backend):
+    with pytest.raises(ValueError, match="boom from value"):
+        backend.is_valid(True, BrokenValueStrEnum.A)
+
+
+class RenamedStrEnum(str, E.Enum):
+    A = "a"
+
+    @property
+    def value(self):
+        return "renamed"
+
+
+@pytest.mark.parametrize("key, name", [(StrEnumKey.A, "a"), (RenamedStrEnum.A, "renamed")])
+def test_enum_key_in_schema(key, name):
+    assert validator_for({"properties": {key: {"type": "integer"}}}).is_valid({name: "x"}) is False
+
+
+@pytest.mark.parametrize(
+    "schema, message",
+    [
+        ({"properties": {BrokenValueStrEnum.A: {}}}, "Failed to access enum key value: RuntimeError: boom from value"),
+        ({"const": BrokenValueStrEnum.A}, "Failed to access enum value: RuntimeError: boom from value"),
+    ],
+)
+def test_enum_lookup_error_in_schema(schema, message):
+    with pytest.raises(ValueError, match=message):
+        validator_for(schema)
+
+
+def test_tuple_in_schema():
+    assert validator_for({"enum": [(1, 2)]}).is_valid([1, 2]) is True
+
+
+@pytest.mark.skipif(not hasattr(sys, "getrefcount"), reason="PyPy does not have sys.getrefcount")
+def test_enum_value_refcount_is_stable():
+    class PayloadEnum(E.Enum):
+        ITEM = [1]
+
+    payload = PayloadEnum.ITEM.value
+    baseline = sys.getrefcount(payload)
+    for _ in range(200):
+        assert is_valid(True, PayloadEnum.ITEM)
+    assert sys.getrefcount(payload) == baseline
+
+
+def test_error_absolute_keyword_location():
+    schema = {
+        "$id": "https://example.com/root",
+        "$defs": {"positive": {"type": "integer", "minimum": 1}},
+        "properties": {"n": {"$ref": "#/$defs/positive"}},
+    }
+    validator = validator_for(schema)
+
+    error = next(iter(validator.iter_errors({"n": 0})))
+
+    assert error.absolute_keyword_location == "https://example.com/root#/$defs/positive/minimum"
+
+
+def test_validate_error_instance_path_traverses_instance():
+    schema = {
+        "type": "object",
+        "properties": {
+            "table-node": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"~": {"type": "string", "minLength": 1}},
+                    "required": ["~"],
+                },
+            }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+    }
+
+    instance = {
+        "table-node": [
+            {"~": ""},
+            {"other-value": ""},
+        ],
+    }
+
+    with pytest.raises(ValidationError) as excinfo:
+        validate(schema, instance)
+
+    error = excinfo.value
+
+    # Traverse instance using the `instance_path`` segments
+    current = instance
+    for segment in error.instance_path:
+        if isinstance(segment, int):
+            current = current[segment]
+        elif isinstance(segment, str):
+            current = current[segment]
+
+    assert current == instance["table-node"][0]["~"]
+
+
+def test_custom_meta_schema_unregistered():
+    schema = {
+        "$schema": "http://example.com/meta/custom-schema",
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    }
+
+    with pytest.raises(ValidationError, match="Unknown meta-schema"):
+        validator_for(schema)
+
+
+def test_custom_meta_schema_registered():
+    meta_schema = {
+        "$id": "http://example.com/meta/schema",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "Core schema definition",
+        "type": "object",
+        "allOf": [{"$ref": "#/$defs/editable"}, {"$ref": "#/$defs/core"}],
+        "properties": {
+            "properties": {
+                "type": "object",
+                "patternProperties": {
+                    ".*": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["array", "boolean", "integer", "number", "object", "string", "null"],
+                            }
+                        },
+                    }
+                },
+                "propertyNames": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+            }
+        },
+        "unevaluatedProperties": False,
+        "required": ["properties"],
+        "$defs": {
+            "core": {
+                "type": "object",
+                "properties": {
+                    "$id": {"type": "string"},
+                    "$schema": {"type": "string"},
+                    "type": {"const": "object"},
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                    "additionalProperties": {"type": "boolean", "const": False},
+                },
+                "required": ["$id", "$schema", "type"],
+            },
+            "editable": {
+                "type": "object",
+                "properties": {
+                    "creationDate": {"type": "string", "format": "date-time"},
+                    "updateDate": {"type": "string", "format": "date-time"},
+                },
+                "required": ["creationDate"],
+            },
+        },
+    }
+
+    element_schema = {
+        "$schema": "http://example.com/meta/schema",
+        "$id": "http://example.com/schemas/element",
+        "title": "Element",
+        "description": "An element",
+        "creationDate": "2024-12-31T12:31:53+01:00",
+        "properties": {"value": {"type": "string"}},
+        "type": "object",
+    }
+
+    registry = Registry(
+        [("http://example.com/meta/schema", meta_schema), ("http://example.com/schemas/element", element_schema)]
+    )
+
+    validator = validator_for(element_schema, registry=registry)
+
+    assert validator.is_valid({"value": "test string"})
+    assert not validator.is_valid({"value": 123})
+
+
+@pytest.mark.parametrize(
+    "schema, instance, expected",
+    [
+        # minimum with large integers
+        ({"minimum": 18446744073709551616}, 18446744073709551617, True),
+        ({"minimum": 18446744073709551616}, 18446744073709551615, False),
+        # maximum with large integers
+        ({"maximum": 18446744073709551616}, 18446744073709551615, True),
+        ({"maximum": 18446744073709551616}, 18446744073709551617, False),
+        # exclusiveMinimum with large integers
+        ({"exclusiveMinimum": 18446744073709551616}, 18446744073709551617, True),
+        ({"exclusiveMinimum": 18446744073709551616}, 18446744073709551616, False),
+        # exclusiveMaximum with large integers
+        ({"exclusiveMaximum": 18446744073709551616}, 18446744073709551615, True),
+        ({"exclusiveMaximum": 18446744073709551616}, 18446744073709551616, False),
+        # negative large integers
+        ({"minimum": -9223372036854775809}, -9223372036854775808, True),
+        ({"minimum": -9223372036854775809}, -9223372036854775810, False),
+        # multipleOf with large integers
+        ({"multipleOf": 18446744073709551616}, 36893488147419103232, True),
+        ({"multipleOf": 18446744073709551616}, 18446744073709551617, False),
+        # limits at the i64/u64 boundary with instances just outside (f64 rounding window)
+        ({"minimum": -9223372036854775808}, -9223372036854775809, False),
+        ({"minimum": -9223372036854775808}, -9223372036854776807, False),
+        ({"exclusiveMinimum": -9223372036854775808}, -9223372036854775809, False),
+        ({"maximum": -9223372036854775808}, -9223372036854775809, True),
+        ({"exclusiveMaximum": -9223372036854775808}, -9223372036854775809, True),
+        ({"minimum": 18446744073709551615}, 18446744073709551616, True),
+        ({"maximum": 18446744073709551615}, 18446744073709551616, False),
+    ],
+)
+def test_large_integer_validation(schema, instance, expected):
+    assert is_valid(schema, instance) == expected
+
+
+@pytest.mark.parametrize(
+    ["schema", "instance", "expected_instance_in_error", "expected_schema_in_error"],
+    [
+        # const with large integer - both values should be exact
+        (
+            {"const": 18446744073709551616},
+            18446744073709551617,
+            "18446744073709551617",
+            "18446744073709551616",
+        ),
+        # const with negative large integer
+        (
+            {"const": -9223372036854775809},
+            -9223372036854775808,
+            "-9223372036854775808",
+            "-9223372036854775809",
+        ),
+        # minimum with large integer - both should be exact
+        (
+            {"minimum": 18446744073709551616},
+            18446744073709551615,
+            "18446744073709551615",
+            "18446744073709551616",
+        ),
+        # maximum with large integer
+        (
+            {"maximum": 18446744073709551616},
+            18446744073709551617,
+            "18446744073709551617",
+            "18446744073709551616",
+        ),
+        # multipleOf with large integers
+        (
+            {"multipleOf": 18446744073709551616},
+            18446744073709551617,
+            "18446744073709551617",
+            "18446744073709551616",
+        ),
+        # very large integer beyond u64 range
+        (
+            {"const": 99999999999999999999999999999999999999},
+            99999999999999999999999999999999999998,
+            "99999999999999999999999999999999999998",
+            "99999999999999999999999999999999999999",
+        ),
+    ],
+)
+def test_large_number_precision_in_errors(schema, instance, expected_instance_in_error, expected_schema_in_error):
+    with pytest.raises(ValidationError) as exc:
+        validate(schema, instance)
+
+    error_msg = str(exc.value)
+    # Both the instance value and schema value should appear with full precision
+    assert expected_instance_in_error in error_msg, (
+        f"Instance value '{expected_instance_in_error}' not found in error message: {error_msg}"
+    )
+    assert expected_schema_in_error in error_msg, (
+        f"Schema value '{expected_schema_in_error}' not found in error message: {error_msg}"
+    )
+
+
+@pytest.mark.parametrize(
+    "schema, instance",
+    [
+        ({"minimum": 18446744073709551616}, 18446744073709551617),
+        ({"multipleOf": 18446744073709551616}, 36893488147419103232),
+        ({"const": 99999999999999999999}, 99999999999999999999),
+        ({"multipleOf": 0.1}, 0.3),
+    ],
+)
+def test_large_number_iter_errors(schema, instance):
+    errors = list(iter_errors(schema, instance))
+    assert len(errors) == 0
+
+
+@pytest.mark.parametrize(
+    "schema, instance",
+    [
+        ({"minimum": 18446744073709551616}, 18446744073709551615),
+        ({"multipleOf": 18446744073709551616}, 18446744073709551617),
+        ({"const": 99999999999999999999}, 99999999999999999998),
+    ],
+)
+def test_large_number_validation_error_attributes(schema, instance):
+    errors = list(iter_errors(schema, instance))
+    assert len(errors) == 1
+    error = errors[0]
+    assert error.instance == instance
+    assert isinstance(error.message, str)
+    assert len(error.message) > 0
+
+
+@pytest.mark.parametrize(
+    "instance, expected",
+    [
+        (0.01, True),
+        (0.02, True),
+        (1.23, True),
+        (0.015, False),
+    ],
+)
+def test_float_precision_from_string_schema(instance, expected):
+    # Schema values are no longer converted to f64, maintaining better precision
+    validator = validator_for('{"multipleOf": 0.01}')
+    assert validator.is_valid(instance) == expected
+
+
+@pytest.mark.parametrize(
+    "instance, expected",
+    [
+        (Decimal("10.5"), True),
+        (Decimal("5.5"), False),
+        (Decimal("99999999999999999999.123456789"), True),
+    ],
+)
+def test_decimal_support(instance, expected):
+    # Python's Decimal type should be supported, preserving precision
+    validator = validator_for({"type": "number", "minimum": 10})
+    assert validator.is_valid(instance) == expected
+
+
+def test_decimal_in_schema():
+    # Test that Decimal can be used in schema definitions too
+    validator = validator_for({"type": "number", "minimum": Decimal("10.5")})
+    assert validator.is_valid(11) is True
+    assert validator.is_valid(10) is False
+    assert validator.is_valid(Decimal("10.6")) is True
+
+
+@pytest.mark.parametrize(
+    "validator_cls",
+    [
+        Draft4Validator,
+        Draft6Validator,
+        Draft7Validator,
+        Draft201909Validator,
+        Draft202012Validator,
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        -9223372036854775809,  # i64::MIN - 1
+        18446744073709551616,  # u64::MAX + 1
+        99999999999999999999999999999999999999,  # Very large integer
+        -99999999999999999999999999999999999999,  # Very large negative integer
+    ],
+)
+def test_large_integer_type_validation_all_drafts(validator_cls, value):
+    # Large integers outside i64/u64 range should be valid for type: integer in all drafts
+    # This was a bug where Draft4Validator specifically rejected these values
+    validator = validator_cls({"type": "integer"})
+    assert validator.is_valid(value), f"{validator_cls.__name__} should accept {value} as integer"
+
+
+@pytest.mark.parametrize(
+    "validator_cls",
+    [
+        Draft4Validator,
+        Draft6Validator,
+        Draft7Validator,
+        Draft201909Validator,
+        Draft202012Validator,
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        # Note: Large floats like 18446744073709551616.5 lose precision in Python
+        # and become integer-valued, so we only test representable floats
+        1.5,
+        0.1,
+    ],
+)
+def test_large_float_type_validation_all_drafts(validator_cls, value):
+    # Floats should NOT be valid for type: integer in all drafts
+    validator = validator_cls({"type": "integer"})
+    assert not validator.is_valid(value), f"{validator_cls.__name__} should reject {value} as integer"
+
+
+@pytest.mark.parametrize(
+    "validator_cls",
+    [
+        Draft4Validator,
+        Draft6Validator,
+        Draft7Validator,
+        Draft201909Validator,
+        Draft202012Validator,
+    ],
+)
+def test_large_integer_in_union_type_all_drafts(validator_cls):
+    # Large integers should work in union types too
+    validator = validator_cls({"type": ["integer", "string"]})
+    assert validator.is_valid(-9223372036854775809)
+    assert validator.is_valid(18446744073709551616)
+    assert validator.is_valid("hello")
+    assert not validator.is_valid(1.5)
+    assert not validator.is_valid([])

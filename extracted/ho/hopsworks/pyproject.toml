@@ -42,7 +42,7 @@ dependencies = [
     "boto3",
     "pandas[mysql]<2.4.0",
     "numpy>=1.26.3,<2.5.0",
-    "pyjks",
+    "cryptography",
     "mock",
     "avro==1.12.0",
     "PyMySQL[rsa]",
@@ -50,10 +50,10 @@ dependencies = [
     "fsspec<2025.12.0",
     "retrying",
     "hopsworks_aiomysql[sa]==0.2.3",
-    "opensearch-py>=1.1.0,<=2.4.2",
+    "opensearch-py>=1.1.0,<=2.8.0",
     "tqdm",
     "grpcio>=1.49.1,<2.0.0",         # ^1.49.1
-    "protobuf>=4.25.4,<5.0.0",       # ^4.25.4
+    "protobuf>=4.25.4,<7.0.0",       # widened to <7 so KServe 0.19 (protobuf>=6.33.5,<7) can coexist
     "packaging",                     # ^21.0
     "hopsworks-apigen>=1.0.4,<2.0.0",
     "click>=8.1",
@@ -74,6 +74,7 @@ python = [
     "fastavro>=1.4.11,<=1.12.0",
     "tqdm",
     "hops-deltalake==1.4.0-post121; sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')",
+    "pyiceberg>=0.11.0,<0.12.0",
     "httpx<=0.28.1",
 ]
 sqlalchemy-1 = [
@@ -88,11 +89,11 @@ dev-no-opt = [
     "pytest-cov>=4.0",
     "ruff==0.15.6",
     "docsig==0.79.0",
-    "pyspark==3.5.5",
+    "pyspark==4.1.1",
     "moto[s3]==5.0.0",
     "pandas>=2.2.0",
     "typeguard==4.2.1",
-    "delta-spark==3.3.1",
+    "delta-spark==4.3.1",
     "setuptools; python_version >= '3.12'",
 ]
 dev-pandas1 = [
@@ -102,12 +103,12 @@ dev-pandas1 = [
     "pytest-cov>=4.0",
     "ruff==0.15.6",
     "docsig==0.79.0",
-    "pyspark==3.5.5",
+    "pyspark==4.1.1",
     "moto[s3]==5.0.0",
     "pandas<=1.5.3; python_version < '3.12'",
     "numpy<2; python_version < '3.12'",
     "sqlalchemy<=1.4.48",
-    "delta-spark==3.3.1",
+    "delta-spark==4.3.1",
 ]
 dev = ["hopsworks[dev-no-opt,great-expectations,polars,python,mcp,trino]"]
 polars = [

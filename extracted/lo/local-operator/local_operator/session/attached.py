@@ -1235,6 +1235,12 @@ class AttachedSession:
         self._subagent_comms = SnapshotSubagentComms()
         self.mcp_startup: Any | None = None
         self._history: list[Any] = []
+        #: ``{entry id: true entry ts}`` the OWNER shipped on the display pages
+        #: this facade loaded, and ONLY those. A row absent from it has no provable
+        #: entry time (subtracted from the owner's display replay, or arrived live
+        #: after the page) — see :meth:`history_entry_times`. Kept in step with
+        #: ``_history``: same loaded interval, same lifetime.
+        self._entry_times: dict[str, float] = {}
         self._live_history: dict[str, Any] = {}
         self._display_window_requested = not self._owner.placement.is_local
         # (the line above used to be a flat ``False``. A REMOTE VIEWER ALWAYS
@@ -2701,6 +2707,47 @@ class AttachedSession:
         store is installed from the attach snapshot and updated by deltas.
         """
         return self._client is not None and self._client.connected
+
+    @property
+    def canonical_current(self) -> bool:
+        """Whether the canonical mirror may speak for the OWNER right now.
+
+        THE TERM A ``False`` FROM CANONICAL STATE IS PRESENTED ON.
+        ``owner_reachable`` says a dial exists; this says the state a reader
+        gets from THIS follower is not KNOWN to be behind the owner. Every
+        disjunct is the facade's own record of that fact:
+
+        * ``not _ready_for_events`` — the canonical feed is not folding: a dial
+          or a re-sync is in flight and deltas are buffered until its snapshot
+          installs, so the store is frozen at the last pre-resync cut.
+        * ``_frontend_resync_pending`` — a delta was shed (``degraded``) and the
+          snapshot that cures it is owed; until it lands the store is missing
+          whatever fields that frame carried. The flag SURVIVES between retry
+          attempts, which is the window the 2026-10-07 incident sat in.
+        * ``_recovering`` — the socket dropped and the recovery loop owns the
+          dial. What the drop swallowed is unknowable (``_suspect_generation``
+          records the turn that was live), so nothing here may be called
+          current.
+
+        WHY THE STORE'S COMPLETENESS AND NOT A CLOCK. A time-based term
+        (``verified_at`` aged against a budget) would fail the wrong way: an
+        idle runtime publishes no frames, so a reader that dialled whenever the
+        stamp aged would turn the desktop's no-dial ``idle`` shortcut into a
+        round trip per press on a settled session. The incident's false
+        ``idle`` was not a mirror that was merely old — it was one whose own
+        flags said "do not trust me yet". The smallest honest term is therefore
+        the mirror's own completeness state.
+
+        THE RESIDUAL, STATED: a delta in flight between two folds is still
+        unknowable from here — the window ``_work_is_running``'s LIMIT
+        paragraph describes — and is bounded by the same reasoning the route
+        already carries (a press cannot be offered in a window this cannot
+        see).
+
+        NOT a liveness term: a killed owner narrows ``verified_at`` and the
+        socket's own state; this says nothing about the owner being there.
+        """
+        return self._ready_for_events and not self._frontend_resync_pending and not self._recovering
 
     @property
     def attaching(self) -> bool:
@@ -5197,6 +5244,12 @@ class AttachedSession:
             return
         self._validate_display_window(window, frontend.epoch, frontend.live_cursor)
         rows = list(window.messages)
+        # THE OWNER'S ENTRY TIMES FOR THE ROWS IT JUST SHIPPED. Tracked beside
+        # ``rows`` as the window and any older pages are prepended, so the map
+        # covers exactly the loaded interval: a row the owner could not stamp is
+        # absent, which :meth:`history_entry_times` turns into "unstated" rather
+        # than a reader-clock guess.
+        entry_times = dict(window.entry_times)
         page = window
         reset = self._hydrated_once and (
             previous is None
@@ -5213,6 +5266,7 @@ class AttachedSession:
                 if page.status != "ok":
                     raise ConnectionError("history changed during reconnect; retry attachment")
                 rows[:0] = page.messages
+                entry_times.update(page.entry_times)
         self._display_history = window.model_copy(
             update={
                 "messages": rows,
@@ -5222,6 +5276,7 @@ class AttachedSession:
             }
         )
         self._history = rows
+        self._entry_times = entry_times
         self._live_history.clear()
         self._history_hydrated = page.start == 0 and len(rows) == window.total_message_count
         # An owner too old to know about audit paging reports neither field, so
@@ -5741,6 +5796,9 @@ class AttachedSession:
             # failed fetch instead of history.
             raise ConnectionError("history page is not contiguous with the loaded window")
         self._history[:0] = page.messages
+        # The older page carries the join for ITS OWN rows; the map tracks the
+        # loaded interval the same way ``_history`` does.
+        self._entry_times.update(page.entry_times)
         self._history_ids.update(m.id for m in page.messages)
         self._display_history = window.model_copy(
             update={
@@ -5818,6 +5876,7 @@ class AttachedSession:
         if window is None:
             raise RuntimeError("no canonical display history is installed")
         rows: list[Any] = []
+        entry_times: dict[str, float] = {}
         token = window.snapshot_token
         while token:
             page = await self.history_page(token)
@@ -5871,12 +5930,17 @@ class AttachedSession:
                 rows = await asyncio.to_thread(replay)
                 break
             rows[:0] = page.messages
+            entry_times.update(page.entry_times)
             # The context phase ends here; the audit cursor is left for the
             # reader (see this method's docstring).
             token = None if page.audit_available or page.audit else page.before_token
         if self._display_history is not window:
             raise RuntimeError("history changed while materializing; retry")
         self._history = rows
+        # A local-replay escalation (above) ships no join, so the map is empty
+        # in that case and every row reads "unstated" — honest, not a guess. The
+        # ordinary path accumulated each page's join in the loop above.
+        self._entry_times = entry_times
         self._history_ids = {m.id for m in rows}
         self._history_hydrated = True
         return self.display_history_window()
@@ -6030,6 +6094,10 @@ class AttachedSession:
         selects journal entries before running the shared replay semantics.
         """
         self._history = history
+        # A source that is not the owner's display window carries NO shipped
+        # join (a legacy full replay, a transcript bind), so any entry times from
+        # a previous window are dropped with the rows they described.
+        self._entry_times = {}
         self._live_history.clear()
         self._history_ids = {
             str(message.id) for message in self._history if getattr(message, "id", None)
@@ -8738,6 +8806,30 @@ class AttachedSession:
                 isinstance(m, Message) and m.role == "tool" and m.tool_call_id in durable_results
             )
         ]
+
+    def history_entry_times(self) -> dict[str, float]:
+        """``{entry id: true entry ts}`` the OWNER shipped for the loaded rows.
+
+        THE OWNER'S OWN CLOCK, not this reader's. The wire carries messages, not
+        journal rows, and a message has no entry time of its own, so the only
+        honest source of "when was this row written" is the join the owner puts
+        on a display page when the viewer negotiated
+        ``display-history-entry-times-v1`` (see
+        ``session/history_window.py``).
+
+        A row ABSENT from the returned map has NO provable entry time — it was
+        subtracted from the owner's display replay, or it arrived live after the
+        page. A consumer must read that absence as "unstated" and order/label the
+        row by its own rule; it must never substitute a reader-clock stamp and
+        present it as the message's time (see ``DESKTOP_API.md``'s consumer
+        contract).
+
+        Covering the same loaded interval as :meth:`history`, and replaced with it
+        when the window resets. An owner too old to ship the join answers ``{}`` —
+        the honest "provable for nothing" rather than a guess. A copy, so a caller
+        cannot mutate this facade's state through the map it was handed.
+        """
+        return dict(self._entry_times)
 
     @property
     def history_message_count(self) -> int:

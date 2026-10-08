@@ -24,6 +24,7 @@ mod formats;
 mod lammps;
 mod misc;
 mod mol_methods;
+mod nucleic_acid;
 mod pipeline_v2;
 mod reactions;
 mod reports;
@@ -78,6 +79,10 @@ fn chematic(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "PipelineV2Error",
         m.py().get_type::<pipeline_v2::PipelineV2Error>(),
     )?;
+    m.add(
+        "StereoLossWarning",
+        m.py().get_type::<mol_methods::StereoLossWarning>(),
+    )?;
     m.add_class::<ensemble_v2::PyEnsembleV2Config>()?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
 
@@ -97,6 +102,7 @@ fn chematic(m: &Bound<'_, PyModule>) -> PyResult<()> {
     similarity::register(m)?;
     reports::register(m)?;
     misc::register(m)?;
+    nucleic_acid::register(m)?;
     crystal::register(m)?;
     volumetric::register(m)?;
     lammps::register(m)?;

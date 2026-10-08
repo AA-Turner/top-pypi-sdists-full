@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 SMatrix.py
 
@@ -5,7 +7,6 @@ Abstract Base Class for sparse and dense matrix representations.
 Handles common initialization, CUDA module compilation, preconditioners,
 and normalization factors for all matrix types.
 """
-
 import os
 import warnings
 import numpy as np

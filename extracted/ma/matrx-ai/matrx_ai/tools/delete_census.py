@@ -261,11 +261,11 @@ DELETE_CENSUS: dict[str, DeletePath] = {
         model="db.models.projects:Tasks",
         soft_via="deleted_at",
     ),
-    "dataset:delete_row": DeletePath(
+    "table:delete_row": DeletePath(
         "custom.* (records store)", "soft",
         "the table's row is a record of the store; custom.record_delete sets deleted_at and /trash restores it",
         impl=(
-            "matrx_ai.tools.implementations.datasets_tools:dataset_delete_row",
+            "matrx_ai.tools.implementations.table_tools:table_delete_row",
             "matrx_records.agent.dataset_arm:DatasetStoreArm.delete_row",
         ),
         soft_via="record_delete",

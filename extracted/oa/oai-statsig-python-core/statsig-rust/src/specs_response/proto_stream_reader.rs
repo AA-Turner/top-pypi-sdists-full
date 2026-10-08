@@ -66,7 +66,9 @@ pub(crate) fn read_snapshot_cursor(mut reader: impl Read) -> Option<ProtobufSnap
 
 pub struct ProtoStreamReader<'a, R: Read = std::io::Empty> {
     source: ProtoStreamSource<'a, R>,
-    scratch: [u8; BUFFER_SIZE],
+    // Readers survive hydration awaits. Keep their scratch bytes out of the
+    // inline future state and the native stack used to construct or move it.
+    scratch: Box<[u8]>,
     buf: BytesMut,
 }
 
@@ -103,7 +105,7 @@ impl<'a> ProtoStreamReader<'a> {
 
         Self {
             source: ProtoStreamSource::Brotli(Box::new(brotli_decompressor)),
-            scratch: [0u8; BUFFER_SIZE],
+            scratch: vec![0u8; BUFFER_SIZE].into_boxed_slice(),
             buf: BytesMut::new(),
         }
     }
@@ -116,7 +118,7 @@ impl<'a> ProtoStreamReader<'a> {
 
         Ok(Self {
             source: ProtoStreamSource::Zstd(Box::new(zstd_decompressor)),
-            scratch: [0u8; BUFFER_SIZE],
+            scratch: vec![0u8; BUFFER_SIZE].into_boxed_slice(),
             buf: BytesMut::new(),
         })
     }
@@ -124,7 +126,7 @@ impl<'a> ProtoStreamReader<'a> {
     fn from_prepared_stream(bytes: Arc<Vec<u8>>) -> Self {
         Self {
             source: ProtoStreamSource::Prepared(PreparedStreamReader { bytes, position: 0 }),
-            scratch: [0u8; BUFFER_SIZE],
+            scratch: vec![0u8; BUFFER_SIZE].into_boxed_slice(),
             buf: BytesMut::new(),
         }
     }
@@ -134,7 +136,7 @@ impl<'a, R: Read> ProtoStreamReader<'a, R> {
     pub(crate) fn from_reader(reader: R) -> Self {
         Self {
             source: ProtoStreamSource::Reader(reader),
-            scratch: [0u8; BUFFER_SIZE],
+            scratch: vec![0u8; BUFFER_SIZE].into_boxed_slice(),
             buf: BytesMut::new(),
         }
     }

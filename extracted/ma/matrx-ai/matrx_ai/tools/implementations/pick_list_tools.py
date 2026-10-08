@@ -120,6 +120,7 @@ async def _create(list_name: str, description: str, items: list[dict[str, Any]],
         return _failed(exc)
     return ToolResult(
         success=True,
+        output_kind="pick_list_tool_result",
         output={
             "list_id": str(result.get("list_id", "")),
             "list_name": result.get("list_name", list_name),
@@ -243,6 +244,7 @@ async def pick_list_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResul
     chosen = _make_serializable(lists[(page - 1) * page_size : page * page_size])
     return ToolResult(
         success=True,
+        output_kind="pick_list_tool_result",
         output={"lists": chosen, "page": page, "page_size": page_size, "count": len(chosen)},
     )
 
@@ -372,6 +374,7 @@ async def pick_list_batch_update(args: dict[str, Any], ctx: ToolContext) -> Tool
 
     return ToolResult(
         success=True,
+        output_kind="pick_list_tool_result",
         output={
             "success_count": success_count,
             "failed_count": len(failed_items),

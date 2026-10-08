@@ -15,11 +15,16 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
 
+from __future__ import annotations
+
+import logging
 import re
+import shlex
 
 from subprocess import Popen, PIPE
 from array import array
 
+from .. import Target
 from ..session import Session
 from ..errors import (
     IpmiTimeoutError,
@@ -27,13 +32,14 @@ from ..errors import (
     IpmiLongPasswordError,
     AuthenticationError,
 )
-from ..logger import log
-from ..msgs import encode_message, decode_message, create_message
 from ..msgs.constants import CC_OK
-from ..utils import py3dec_unic_bytes_fix, ByteBuffer, py3_array_tobytes
+from ..utils import py3dec_unic_bytes_fix, py3_array_tobytes
+from .base import Interface
+
+logger = logging.getLogger(__name__)
 
 
-class Ipmitool(object):
+class Ipmitool(Interface):
     """This interface uses the ipmitool raw command.
 
     This "emulates" a RMCP session by using raw commands.
@@ -47,17 +53,38 @@ class Ipmitool(object):
     IPMITOOL_PATH = 'ipmitool'
     supported_interfaces = ['lan', 'lanplus', 'serial-terminal', 'open']
 
-    def __init__(self, interface_type='lan', cipher=None):
+    def __init__(self, interface_type: str = 'lan', cipher: int | None = None,
+                 retries: int | None = None,
+                 timeout: int | None = None) -> None:
+        """Create the interface.
+
+        `retries` and `timeout` are passed to ipmitool as `-R` (number of
+        retries) and `-N` (timeout of each try in seconds) and are only
+        supported by the lan and lanplus interface types. If not given the
+        ipmitool defaults are used.
+        """
         if interface_type in self.supported_interfaces:
             self._interface_type = interface_type
         else:
             raise RuntimeError('interface type %s not supported' %
                                interface_type)
-        if cipher is not None and int(cipher) not in range(0, 255):
+        if cipher is not None and int(cipher) not in range(255):
             raise RuntimeError('cipher %s not in allowed range [0-255]' %
                                cipher)
         else:
             self._cipher = cipher
+
+        if (retries is not None or timeout is not None) and \
+                interface_type not in ('lan', 'lanplus'):
+            raise RuntimeError('retries and timeout are not supported by '
+                               'interface type %s' % interface_type)
+        if retries is not None and int(retries) < 0:
+            raise RuntimeError('retries %s must not be negative' % retries)
+        if timeout is not None and int(timeout) < 1:
+            raise RuntimeError('timeout %s must be at least 1 second' %
+                               timeout)
+        self._retries = None if retries is None else int(retries)
+        self._timeout = None if timeout is None else int(timeout)
 
         self.re_completion_code = re.compile(
                 r"Unable to send RAW command \(.*rsp=(0x[0-9a-f]+)\)")
@@ -71,44 +98,43 @@ class Ipmitool(object):
                 r".*password is longer than.*")
         self.re_authentication_error = re.compile(
                 r".*RAKP [0-9]+ HMAC.*")
-        self._session = None
+        self.re_raw_request = re.compile(
+                r".*RAW REQUEST\s*\((\d+)\s*bytes?\)")
+        self._session: Session | None = None
 
-    def open(self):
-        pass
-
-    def close(self):
-        pass
-
-    def establish_session(self, session):
+    def establish_session(self, session: Session) -> None:
         self._session = session
 
-    def close_session(self):
-        pass
+    def _get_session(self) -> Session:
+        if self._session is None:
+            raise RuntimeError('Session needs to be set')
+        return self._session
 
-    def rmcp_ping(self):
+    def rmcp_ping(self) -> None:
 
         if self._interface_type == 'serial-terminal':
             raise RuntimeError(
                 'rcmp_ping not supported on "serial-terminal" interface')
 
         # for now this uses impitool..
+        session = self._get_session()
         cmd = self.IPMITOOL_PATH
         cmd += (' -I %s' % self._interface_type)
-        cmd += (' -H %s' % self._session.rmcp_host)
-        cmd += (' -p %s' % self._session.rmcp_port)
+        cmd += (' -H %s' % session.rmcp_host)
+        cmd += (' -p %s' % session.rmcp_port)
         cmd += (' -v')
-        if self._session.auth_type == Session.AUTH_TYPE_NONE:
+        cmd += self._build_ipmitool_retries()
+        if session.auth_type == Session.AUTH_TYPE_NONE:
             cmd += (' -A NONE')
-        elif self._session.auth_type == Session.AUTH_TYPE_PASSWORD:
-            cmd += (' -U "%s"' % self._session.auth_username)
-            cmd += (' -P "%s"' % self._session.auth_password)
+        elif session.auth_type == Session.AUTH_TYPE_PASSWORD:
+            cmd += self._build_ipmitool_credentials()
         cmd += (' session info all')
 
         _, rc = self._run_ipmitool(cmd)
         if rc:
             raise IpmiTimeoutError()
 
-    def is_ipmc_accessible(self, target):
+    def is_ipmc_accessible(self, target: Target) -> bool:
         try:
             self.rmcp_ping()
             accessible = True
@@ -117,9 +143,10 @@ class Ipmitool(object):
 
         return accessible
 
-    def _parse_output(self, output):
+    def _parse_output(self, output: bytes) -> tuple[int | None, array | None]:
         cc, rsp = None, None
-        hexstr = ''
+        values = []
+        skip_bytes_remaining = 0
 
         for line in py3dec_unic_bytes_fix(output).split('\n'):
             # Don't try to parse ipmitool error messages
@@ -135,7 +162,7 @@ class Ipmitool(object):
 
             # Check for unable to establish session
             if self.re_unable_establish.match(line):
-                raise IpmiConnectionError('ipmitool: {}'.format(line))
+                raise IpmiConnectionError(f'ipmitool: {line}')
 
             # Check for completion code
             match_completion_code = self.re_completion_code.match(line)
@@ -145,7 +172,8 @@ class Ipmitool(object):
 
             # Check for error opening ipmi device
             if self.re_could_not_open.match(line):
-                raise RuntimeError('ipmitool failed: {}'.format(output))
+                raise RuntimeError('ipmitool failed: '
+                                   f'{py3dec_unic_bytes_fix(output)}')
 
             if self.re_long_password.match(line):
                 raise IpmiLongPasswordError(line)
@@ -153,20 +181,49 @@ class Ipmitool(object):
             if self.re_authentication_error.match(line):
                 raise AuthenticationError('Authentication error')
 
-            hexstr += line.replace('\r', '').strip() + ' '
+            # With "-v" ipmitool echoes the outgoing request as its own
+            # "RAW REQUEST (N bytes)" hex dump right before the actual
+            # "RAW RSP" hex dump. Both look like plain hex lines, so we
+            # must discard exactly the announced N request bytes -
+            # otherwise they get prepended to the parsed response,
+            # corrupting every multi-byte-payload command's response.
+            match_raw_request = self.re_raw_request.match(line)
+            if match_raw_request:
+                skip_bytes_remaining = int(match_raw_request.group(1))
+                continue
 
-        hexstr = hexstr.strip()
-        if len(hexstr):
+            line = line.replace('\r', '').strip()
+            if not line:
+                continue
+
+            # With "-v" ipmitool interleaves plain-text debug lines
+            # (e.g. "RAW REQ (...)", "Discovered IPMB address 0x0")
+            # with the actual hex response line. Parse hex per-line
+            # so one non-hex debug line doesn't discard already
+            # parsed response bytes from other lines.
             try:
-                rsp = array('B', [
-                    int(value, 16) for value in hexstr.split(' ')
-                ])
+                line_values = [int(value, 16) for value in line.split()]
             except ValueError:
-                pass
+                continue
+            if any(value > 0xff for value in line_values):
+                continue
+
+            if skip_bytes_remaining > 0:
+                consumed = min(len(line_values), skip_bytes_remaining)
+                skip_bytes_remaining -= consumed
+                line_values = line_values[consumed:]
+                if not line_values:
+                    continue
+
+            values.extend(line_values)
+
+        if values:
+            rsp = array('B', values)
 
         return cc, rsp
 
-    def send_and_receive_raw(self, target, lun, netfn, raw_bytes):
+    def send_and_receive_raw(self, target: Target, lun: int, netfn: int,
+                             raw_bytes: bytes) -> bytes:
         if self._interface_type in ['lan', 'lanplus']:
             cmd = self._build_ipmitool_cmd(target, lun, netfn, raw_bytes)
         elif self._interface_type in ['open']:
@@ -193,61 +250,76 @@ class Ipmitool(object):
             if rsp:
                 data.extend(rsp)
 
-        log().debug('IPMI RX: {:s}'.format(
+        logger.debug('IPMI RX: {:s}'.format(
             ''.join('%02x ' % b for b in array('B', data))))
 
         return py3_array_tobytes(data)
 
-    def send_and_receive(self, req):
-        log().debug('IPMI Request [%s]', req)
-
-        req_data = ByteBuffer((req.cmdid,))
-        req_data.push_string(encode_message(req))
-
-        rsp_data = self.send_and_receive_raw(req.target, req.lun, req.netfn,
-                                             py3_array_tobytes(req_data))
-
-        rsp = create_message(req.netfn + 1, req.cmdid, req.group_extension)
-        decode_message(rsp, rsp_data)
-        log().debug('IPMI Response [%s])', rsp)
-
-        return rsp
-
     @staticmethod
-    def _build_ipmitool_raw_data(lun, netfn, raw):
-        cmd = ' -l {:d} raw '.format(lun)
+    def _build_ipmitool_raw_data(lun: int, netfn: int, raw: bytes) -> str:
+        cmd = f' -l {lun:d} raw '
         cmd += ' '.join(['0x%02x' % (d)
                          for d in [netfn] + array('B', raw).tolist()])
         return cmd
 
     @staticmethod
-    def _build_ipmitool_target(target):
+    def _routing_channel(target: Target, index: int) -> int:
+        """Return the channel of a routing entry, ipmitool needs it."""
+        assert target.routing is not None
+        channel = target.routing[index].channel
+        if channel is None:
+            raise ValueError('the ipmitool interface needs the bridge channel '
+                             'of routing entry %d, got None: %s'
+                             % (index, target))
+        return channel
+
+    @staticmethod
+    def _build_ipmitool_target(target: Target) -> str:
         cmd = ''
         if target is None:
             return ''
         if target.routing is not None:
             # we have to do bridging here
             if len(target.routing) == 1:
+                # no bridging, the request goes to the BMC itself
                 pass
-            if len(target.routing) == 2:
+            elif len(target.routing) == 2:
                 # ipmitool/shelfmanager does implicit bridging
                 cmd += (' -t 0x%02x' % target.routing[1].rs_sa)
-                cmd += (' -b %d' % target.routing[0].channel)
+                cmd += (' -b %d' % Ipmitool._routing_channel(target, 0))
             elif len(target.routing) == 3:
                 cmd += (' -T 0x%02x' % target.routing[1].rs_sa)
-                cmd += (' -B %d' % target.routing[0].channel)
+                cmd += (' -B %d' % Ipmitool._routing_channel(target, 0))
                 cmd += (' -t 0x%02x' % target.routing[2].rs_sa)
-                cmd += (' -b %d' % target.routing[1].channel)
+                cmd += (' -b %d' % Ipmitool._routing_channel(target, 1))
             else:
-                raise RuntimeError('The impitool interface at most double '
-                                   'briding %s' % target)
+                raise RuntimeError('The ipmitool interface supports at most '
+                                   'double bridging %s' % target)
 
         elif target.ipmb_address:
             cmd += (' -t 0x%02x' % target.ipmb_address)
 
         return cmd
 
-    def _build_ipmitool_priv_level(self, level):
+    def _build_ipmitool_retries(self) -> str:
+        cmd = ''
+        if self._retries is not None:
+            cmd += ' -R %d' % self._retries
+        if self._timeout is not None:
+            cmd += ' -N %d' % self._timeout
+        return cmd
+
+    def _build_ipmitool_credentials(self) -> str:
+        # The command is executed by a shell, so the credentials have to be
+        # quoted to prevent the shell from interpreting characters like
+        # '$', '`', '"' or '\'.
+        session = self._get_session()
+        username = session.auth_username_bytes.decode()
+        password = session.auth_password_bytes.decode()
+        return (f' -U {shlex.quote(username)}'
+                f' -P {shlex.quote(password)}')
+
+    def _build_ipmitool_priv_level(self, level: int) -> str:
         LEVELS = {
                    Session.PRIV_LEVEL_USER: 'USER',
                    Session.PRIV_LEVEL_OPERATOR: 'OPERATOR',
@@ -256,28 +328,28 @@ class Ipmitool(object):
 
         return (' -L %s' % LEVELS[level])
 
-    def _build_ipmitool_cmd(self, target, lun, netfn, raw_bytes):
-        if not hasattr(self, '_session'):
-            raise RuntimeError('Session needs to be set')
+    def _build_ipmitool_cmd(self, target: Target, lun: int, netfn: int,
+                            raw_bytes: bytes) -> str:
+        session = self._get_session()
 
         cmd = self.IPMITOOL_PATH
         cmd += (' -I %s' % self._interface_type)
-        cmd += (' -H %s' % self._session.rmcp_host)
-        cmd += (' -p %s' % self._session.rmcp_port)
+        cmd += (' -H %s' % session.rmcp_host)
+        cmd += (' -p %s' % session.rmcp_port)
         cmd += (' -v')
 
-        cmd += self._build_ipmitool_priv_level(self._session.priv_level)
+        cmd += self._build_ipmitool_priv_level(session.priv_level)
 
         if self._cipher:
             cmd += (' -C %s' % self._cipher)
-        if self._session.auth_type == Session.AUTH_TYPE_NONE:
+        cmd += self._build_ipmitool_retries()
+        if session.auth_type == Session.AUTH_TYPE_NONE:
             cmd += ' -P ""'
-        elif self._session.auth_type == Session.AUTH_TYPE_PASSWORD:
-            cmd += (' -U "%s"' % self._session.auth_username)
-            cmd += (' -P "%s"' % self._session.auth_password)
+        elif session.auth_type == Session.AUTH_TYPE_PASSWORD:
+            cmd += self._build_ipmitool_credentials()
         else:
             raise RuntimeError('Session type %d not supported' %
-                               self._session.auth_type)
+                               session.auth_type)
 
         cmd += self._build_ipmitool_target(target)
         cmd += self._build_ipmitool_raw_data(lun, netfn, raw_bytes)
@@ -285,24 +357,20 @@ class Ipmitool(object):
 
         return cmd
 
-    def _build_serial_ipmitool_cmd(self, target, lun, netfn, raw_bytes):
-        if not hasattr(self, '_session'):
-            raise RuntimeError('Session needs to be set')
+    def _build_serial_ipmitool_cmd(self, target: Target, lun: int, netfn: int,
+                                   raw_bytes: bytes) -> str:
+        session = self._get_session()
 
-        cmd = '{path!s:s} -I {interface!s:s} -D {port!s:s}:{baud!s:s}'\
-            .format(
-                path=self.IPMITOOL_PATH,
-                interface=self._interface_type,
-                port=self._session.serial_port,
-                baud=self._session.serial_baudrate
-            )
+        cmd = (f'{self.IPMITOOL_PATH} -I {self._interface_type} '
+               f'-D {session.serial_port}:{session.serial_baudrate}')
 
         cmd += self._build_ipmitool_target(target)
         cmd += self._build_ipmitool_raw_data(lun, netfn, raw_bytes)
 
         return cmd
 
-    def _build_open_ipmitool_cmd(self, target, lun, netfn, raw_bytes):
+    def _build_open_ipmitool_cmd(self, target: Target, lun: int, netfn: int,
+                                 raw_bytes: bytes) -> str:
         if not hasattr(self, '_session'):
             raise RuntimeError('Session needs to be set')
 
@@ -316,16 +384,16 @@ class Ipmitool(object):
         return cmd
 
     @staticmethod
-    def _run_ipmitool(cmd):
+    def _run_ipmitool(cmd: str) -> tuple[bytes, int]:
         """Legacy call of ipmitool (will be removed in future)."""
-        log().debug('Running ipmitool "%s"', cmd)
+        logger.debug('Running ipmitool "%s"', cmd)
 
         child = Popen(cmd, shell=True, stdout=PIPE)
         output = child.communicate()[0]
 
-        log().debug('return with rc=%d, output was:\n%s',
-                    child.returncode,
-                    output)
+        logger.debug('return with rc=%d, output was:\n%s',
+                     child.returncode,
+                     output)
 
         if child.returncode == 127:
             raise RuntimeError('ipmitool command not found')

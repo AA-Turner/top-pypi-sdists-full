@@ -32,7 +32,9 @@ use crate::{
     DynamicReturnable, StatsigErr, StatsigOptions,
     evaluation::{
         dynamic_returnable::DynamicReturnableValue,
-        evaluator_value::{EvaluatorValue, EvaluatorValueInner, MemoizedEvaluatorValue},
+        evaluator_value::{
+            EvaluatorArrayKeyMode, EvaluatorValue, EvaluatorValueInner, MemoizedEvaluatorValue,
+        },
         rkyv_value::{ArchivedRkyvValue, RkyvValue},
     },
     hashing,
@@ -882,8 +884,17 @@ impl InternedStore {
     }
 
     pub fn get_or_intern_evaluator_value(value: Cow<'_, RawValue>) -> EvaluatorValue {
-        let raw_string = value.get();
-        let hash = hashing::hash_one(raw_string.as_bytes());
+        Self::get_or_intern_evaluator_value_with_array_key_mode(
+            value,
+            EvaluatorArrayKeyMode::Normalized,
+        )
+    }
+
+    pub(crate) fn get_or_intern_evaluator_value_with_array_key_mode(
+        value: Cow<'_, RawValue>,
+        array_key_mode: EvaluatorArrayKeyMode,
+    ) -> EvaluatorValue {
+        let hash = evaluator_value_hash(value.get().as_bytes(), array_key_mode);
 
         if let Some(evaluator_value) = get_evaluator_value_from_mmap(hash) {
             return evaluator_value;
@@ -893,7 +904,7 @@ impl InternedStore {
             return EvaluatorValue::from_static(hash, evaluator_value);
         }
 
-        let ptr = get_or_create_evaluator_value_from_local(hash, value);
+        let ptr = get_or_create_evaluator_value_from_local(hash, value, array_key_mode);
         EvaluatorValue::from_pointer(hash, ptr)
     }
 
@@ -913,7 +924,17 @@ impl InternedStore {
     }
 
     pub fn try_get_preloaded_evaluator_value(bytes: &[u8]) -> Option<EvaluatorValue> {
-        let hash = hashing::hash_one(bytes);
+        Self::try_get_preloaded_evaluator_value_with_array_key_mode(
+            bytes,
+            EvaluatorArrayKeyMode::Normalized,
+        )
+    }
+
+    pub(crate) fn try_get_preloaded_evaluator_value_with_array_key_mode(
+        bytes: &[u8],
+        array_key_mode: EvaluatorArrayKeyMode,
+    ) -> Option<EvaluatorValue> {
+        let hash = evaluator_value_hash(bytes, array_key_mode);
         if let Some(evaluator_value) = get_evaluator_value_from_mmap(hash) {
             return Some(evaluator_value);
         }
@@ -1113,6 +1134,17 @@ fn get_returnable_from_local(hash: u64, value: Cow<RawValue>) -> Arc<HashMap<Str
 
 // ------------------------------------------------------------------------------- [ Evaluator Value ]
 
+fn evaluator_value_hash(bytes: &[u8], array_key_mode: EvaluatorArrayKeyMode) -> u64 {
+    match array_key_mode {
+        EvaluatorArrayKeyMode::Normalized => hashing::hash_one(bytes),
+        // Keep exact targets separate from normalized targets in all stores,
+        // including existing mmap artifacts that only retain one casing.
+        EvaluatorArrayKeyMode::ExactCase => {
+            hashing::hash_one(("statsig-exact-case-target-v1", bytes))
+        }
+    }
+}
+
 fn get_evaluator_value_from_mmap(hash: u64) -> Option<EvaluatorValue> {
     let (value, regex) = get_archived_evaluator_value_from_mmap(hash)?;
 
@@ -1141,12 +1173,16 @@ fn get_evaluator_value_from_local(hash: u64) -> Option<Arc<MemoizedEvaluatorValu
 fn get_or_create_evaluator_value_from_local(
     hash: u64,
     value: Cow<'_, RawValue>,
+    array_key_mode: EvaluatorArrayKeyMode,
 ) -> Arc<MemoizedEvaluatorValue> {
     if let Some(evaluator_value) = MUTABLE_EVALUATOR_VALUES.get(hash) {
         return evaluator_value;
     }
 
-    let ptr = Arc::new(MemoizedEvaluatorValue::from_raw_value(value));
+    let ptr = Arc::new(MemoizedEvaluatorValue::from_raw_value_with_array_key_mode(
+        value,
+        array_key_mode,
+    ));
     MUTABLE_EVALUATOR_VALUES.get_or_insert(hash, ptr)
 }
 

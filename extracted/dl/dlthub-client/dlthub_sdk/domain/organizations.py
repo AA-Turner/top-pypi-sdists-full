@@ -47,16 +47,16 @@ class OrganizationCaller(Generic[M]):
     Attributes:
         email: The caller's email.
         user_id: The caller's user uuid.
-        identity_id: The caller's member uuid in this organization.
+        organization_membership_id: The caller's member uuid in this organization.
         role: The caller's role in this organization.
-        memberships: The organization's workspaces the caller belongs to.
+        workspace_memberships: The organization's workspaces the caller belongs to.
     """
 
     email: str
     user_id: str
-    identity_id: str
+    organization_membership_id: str
     role: str
-    memberships: tuple[Membership[M], ...]
+    workspace_memberships: tuple[Membership[M], ...]
 
     @staticmethod
     def _from_payload(
@@ -65,14 +65,16 @@ class OrganizationCaller(Generic[M]):
         return OrganizationCaller(
             email=payload.email,
             user_id=str(payload.user_id),
-            identity_id=str(payload.identity_id),
+            organization_membership_id=str(payload.organization_membership_id),
             role=payload.role,
-            memberships=tuple(
+            workspace_memberships=tuple(
                 Membership(
                     workspace=Workspace._from_payload(ctx, m.workspace), role=m.role
                 )
                 for m in (
-                    payload.workspaces if isinstance(payload.workspaces, list) else ()
+                    payload.workspace_memberships
+                    if isinstance(payload.workspace_memberships, list)
+                    else ()
                 )
             ),
         )
@@ -129,7 +131,7 @@ class Organization(Entity[M]):
         """
         organization_id = self.id
         return self._ctx.run(
-            lambda t: t.set_organization_region(
+            lambda t: t.set_region_organization(
                 organization_id=organization_id, dataplane_id=dataplane_id
             ),
             Organization._from_payload,
@@ -156,7 +158,7 @@ class Organization(Entity[M]):
         """
         organization_id = self.id
         return self._ctx.run(
-            lambda t: t.organization_me(organization_id=organization_id),
+            lambda t: t.get_organization_me(organization_id=organization_id),
             OrganizationCaller._from_payload,
         )
 
@@ -182,7 +184,7 @@ class Organization(Entity[M]):
                 name=payload.name,
                 description=payload.description,
                 dataplane_id=payload.dataplane_id,
-                created_at=payload.date_added,
+                created_at=payload.created_at,
             ),
         )
 

@@ -98,6 +98,9 @@ class TableData:
         self.row: int = 0
         self.rowh: list = []
         self.span: list = []
+        #: Rows whose <tr> held no cell and that no rowspan reaches. They are
+        #: there, as in a browser, with nothing to give them any height.
+        self.empty_rows: set[int] = set()
         #: Columns holding a cell with content, which is what can size them.
         self.col_with_content: set[int] = set()
         #: The width an empty cell offers for its column, by column. Applied
@@ -108,6 +111,11 @@ class TableData:
             tuple[str, tuple[int, int], tuple[int, int], str, str, str]
         ] = []
         self.width: str | float = 0
+        #: Whether a horizontal margin is auto, which lets a table with no
+        #: width of its own shrink to its content (#562).
+        self.auto_margins: bool = False
+        #: The table's CSS height: its minimum.
+        self.height: str | float | None = None
 
     def add_cell(self, data=None):
         self.col += 1
@@ -263,7 +271,45 @@ class pisaTagTABLE(pisaTag):
         tdata.colw = []
         tdata.rowh = []
         tdata.repeat = attrs.repeat
-        tdata.width = _width(attrs.width)
+        # A CSS width wins over the width attribute, as author CSS does over
+        # a presentational hint. It used to be ignored on a <table>.
+        tdata.width = _width(c.frag.width or attrs.width)
+        tdata.margins = self._horizontal_margins(c, tdata)
+        tdata.height = _height(c.frag.height)
+
+    @staticmethod
+    def _horizontal_margins(c, tdata) -> tuple[float, float]:
+        """
+        The table's own margin-left and margin-right (#386), which used to be
+        read into the running indent and then never applied to the table.
+
+        Only the table's own: the indent of a block around it is still not
+        applied, as it never was, so a table in an indented <div> does not
+        move. An `auto` margin aligns the table instead -- both centre it,
+        as `margin: 0 auto` does in a browser -- and a table with no width
+        of its own shrinks to its content, which is what leaves the margin
+        anything to take (#562). Without one, a table fills its frame as it
+        always has.
+        """
+        margins = []
+        for side in ("margin-left", "margin-right"):
+            value = c.cssAttr.get(side)
+            if value is None or str(value).strip().lower() == "auto":
+                margins.append(0.0)
+            else:
+                margins.append(getSize(value, c.frag.fontSize))
+        auto = [
+            str(c.cssAttr.get(side, "")).strip().lower() == "auto"
+            for side in ("margin-left", "margin-right")
+        ]
+        tdata.auto_margins = any(auto)
+        if auto == [True, True]:
+            tdata.align = "CENTER"
+        elif auto == [True, False]:
+            tdata.align = "RIGHT"
+        elif auto == [False, True]:
+            tdata.align = "LEFT"
+        return margins[0], margins[1]
 
     def end(self, c):
         tdata = c.tableData
@@ -281,6 +327,15 @@ class pisaTagTABLE(pisaTag):
         for i, row in enumerate(data):
             data[i] += [""] * (maxcols - len(row))
 
+        # A row's height is recorded by its cells, so a <tr> with none -- a
+        # template loop that left an empty last row -- had no height at all,
+        # and reportlab refused the table: "N rows in data but N-1 row
+        # heights". An empty row in the middle got one from the row after,
+        # and came out as a gap. A browser gives such a row no height.
+        tdata.rowh += [_height()] * (len(data) - len(tdata.rowh))
+        for row in tdata.empty_rows:
+            tdata.rowh[row] = 0
+
         # A column whose every cell is empty has nothing that can size it, so
         # it gets the padding those cells offered. A declared width still wins.
         for col, padding in tdata.col_empty_width.items():
@@ -295,7 +350,7 @@ class pisaTagTABLE(pisaTag):
             _mirror_columns(tdata, data, maxcols)
 
         log.debug("Col widths: %r", tdata.colw)
-        if tdata.data:
+        if tdata.data and maxcols:
             # log.debug("Table styles %r", tdata.styles)
             t = PmlTable(
                 data,
@@ -310,6 +365,11 @@ class pisaTagTABLE(pisaTag):
                 style=TableStyle(tdata.styles),
             )
             t.totalWidth = _width(tdata.width)
+            t.marginLeft, t.marginRight = tdata.margins
+            t.shrinkToFit = tdata.auto_margins and t.totalWidth is None
+            # A percentage height has nothing definite to be a share of.
+            if isinstance(tdata.height, float):
+                t.minHeight = tdata.height
             t.spaceBefore = c.frag.spaceBefore
             t.spaceAfter = c.frag.spaceAfter
 
@@ -325,7 +385,58 @@ class pisaTagTABLE(pisaTag):
         c.tableData, self.tableData = self.tableData, None
 
 
-class pisaTagTHEAD(pisaTag):
+class pisaTagTBODY(pisaTag):
+    """
+    <tbody>, and the base of the other two row groups.
+
+    A group is a boundary for rowspan: HTML clips a cell's rowspan at the
+    end of its group, so the next group starts on rows of its own. Here the
+    placeholders of a span reaching past the group used to stay behind and
+    push the next group's cells one column to the right, beside the span.
+
+    A group's background-color is painted behind its rows, under whatever
+    the rows and cells paint themselves; it was ignored.
+    """
+
+    def start(self, c) -> None:
+        tdata = c.tableData
+        self.first_row = tdata.row
+        # Its own colour only: the frag also carries the table's, which the
+        # table paints itself.
+        self.backColor = c.frag.backColor if "background-color" in c.cssAttr else None
+        # Where the group's background goes in the style list: before the
+        # rows', which reportlab paints after it and so over it.
+        self.style_index = len(tdata.styles)
+
+    def end(self, c) -> None:
+        tdata = c.tableData
+        last_row = tdata.row - 1
+        if self.backColor and last_row >= self.first_row:
+            tdata.styles.insert(
+                self.style_index,
+                ("BACKGROUND", (0, self.first_row), (-1, last_row), self.backColor),
+            )
+        self.clip_row_spans(tdata, last_row)
+
+    @staticmethod
+    def clip_row_spans(tdata, last_row) -> None:
+        tdata.span = [(x, y) for x, y in tdata.span if y <= last_row]
+        clipped = []
+        for style in tdata.styles:
+            if style[0] == "SPAN" and style[1][1] <= last_row < style[2][1]:
+                begin, end = style[1], (style[2][0], last_row)
+                if begin == end:
+                    continue
+                style = ("SPAN", begin, end)
+            clipped.append(style)
+        tdata.styles[:] = clipped
+
+
+class pisaTagTFOOT(pisaTagTBODY):
+    pass
+
+
+class pisaTagTHEAD(pisaTagTBODY):
     """
     <thead>: the rows that repeat at the top of every page.
 
@@ -335,8 +446,8 @@ class pisaTagTHEAD(pisaTag):
     page only, and said nothing about it.
     """
 
-    @staticmethod
-    def end(c) -> None:
+    def end(self, c) -> None:
+        super().end(c)
         tdata = c.tableData
         # Every </tr> has bumped the row counter, so this is the number of rows
         # the header holds. An explicit repeat="N" still wins if it asks for
@@ -361,7 +472,11 @@ class pisaTagTR(pisaTag):
 
     @staticmethod
     def end(c):
-        c.tableData.row += 1
+        tdata = c.tableData
+        row = tdata.row
+        if not tdata.data[row] and all(y != row for _x, y in tdata.span):
+            tdata.empty_rows.add(row)
+        tdata.row += 1
 
 
 class pisaTagTD(pisaTag):
@@ -371,6 +486,9 @@ class pisaTagTD(pisaTag):
 
         c.clearFrag()
         self.story = c.swapStory()
+        # Read now: by end() c.cssAttr is that of the cell's last child, and
+        # a cell holding a <p> took that paragraph's mode, "shrink".
+        self.keep_in_frame_mode = c.cssAttr.get("-pdf-keep-in-frame-mode", "shrink")
 
         attrs = self.attr
 
@@ -445,7 +563,8 @@ class pisaTagTD(pisaTag):
         if valign is not None:
             tdata.add_style(("VALIGN", begin, end, valign.upper()))
 
-        # Reset border, otherwise the paragraph block will have borders too
+        # Reset border and padding, otherwise the paragraph block will have
+        # them too: the table already draws the one and leaves the other.
         frag = c.frag
 
         set_value(
@@ -455,6 +574,10 @@ class pisaTagTD(pisaTag):
                 "borderRightWidth",
                 "borderTopWidth",
                 "borderBottomWidth",
+                "paddingLeft",
+                "paddingRight",
+                "paddingTop",
+                "paddingBottom",
             ),
             0,
         )
@@ -473,9 +596,10 @@ class pisaTagTD(pisaTag):
             ),
             None,
         )
+        # The table paints the cell's colour; the paragraphs in it would paint
+        # it again -- square over a rounded box, twice as dark with an alpha.
+        frag.backColor = None
         if rounded:
-            # The paragraphs in the cell would paint its colour square.
-            frag.backColor = None
             for corner in RADIUS_CORNERS:
                 setattr(frag, f"border{corner}Radius", NO_RADIUS)
 
@@ -488,9 +612,7 @@ class pisaTagTD(pisaTag):
         # Keep in frame if needed since Reportlab does no split inside of cells
         if not c.frag.insideStaticFrame:
             # tdata.keepinframe["content"] = cell
-            mode = getKeepInFrameMode(
-                c.cssAttr.get("-pdf-keep-in-frame-mode", "shrink")
-            )
+            mode = getKeepInFrameMode(self.keep_in_frame_mode)
             # keepInFrame mode is passed to Platypus for rendering
             cell = PmlKeepInFrame(maxWidth=0, maxHeight=0, mode=mode, content=cell)
 

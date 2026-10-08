@@ -125,6 +125,7 @@ from airbyte_ops_mcp.mcp.connector_qa import register_connector_qa_tools
 from airbyte_ops_mcp.mcp.connector_registry import register_connector_registry_tools
 from airbyte_ops_mcp.mcp.connector_versions import register_connector_version_tools
 from airbyte_ops_mcp.mcp.context_store_ops import register_context_store_ops_tools
+from airbyte_ops_mcp.mcp.data_ops import register_data_ops_tools
 from airbyte_ops_mcp.mcp.devin_ops import register_devin_ops_tools
 from airbyte_ops_mcp.mcp.feature_flags import register_launchdarkly_ops_tools
 from airbyte_ops_mcp.mcp.github_ops import register_github_ops_tools
@@ -589,6 +590,7 @@ def register_server_assets(app: FastMCP) -> None:
     - `context_store_ops`: MotherDuck / context-store diagnostics
     - `organization_admin`: is_agentic flag, payment config, customer tiers
     - `github_ops`: CI workflow trigger/status, Docker image info, subscriptions
+    - `data_ops`: data warehouse (airbyte-warehouse) on-demand dbt dispatch
     - `human_in_the_loop`: human escalation, team-roster lookup, Slack newsletter posting
     - `devin_ops`: reminders, secret requests, session feedback and naming
     - `zendesk_ops`: read-only Zendesk Support ticket retrieval
@@ -613,6 +615,7 @@ def register_server_assets(app: FastMCP) -> None:
     register_organization_admin_tools(app)
     register_launchdarkly_ops_tools(app)
     register_github_ops_tools(app)
+    register_data_ops_tools(app)
     register_human_in_the_loop_tools(app)
     register_devin_ops_tools(app)
     register_zendesk_ops_tools(app)

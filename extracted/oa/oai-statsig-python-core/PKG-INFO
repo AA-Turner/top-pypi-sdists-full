@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.33.0
+Version: 0.35.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -51,8 +51,8 @@ Read through the [Documentation](https://docs.statsig.com/server-core?ref=gh_ser
 
 `download_id_list_file_api` selects the preferred base URL for file downloads.
 Enable `fallback_to_statsig_api` to try the original file URL from the manifest
-after an overridden request exhausts its retries, provided that URL belongs to
-the trusted HTTPS OpenAI CDN origin:
+after an overridden request fails with a retryable network error, provided that
+URL belongs to the trusted HTTPS OpenAI CDN origin:
 
 ```rust
 let options = statsig_rust::StatsigOptions {
@@ -66,21 +66,33 @@ Fallback accepts only `https://statsigcdn.openai.com` with the default port or
 explicit `:443`. Fallback sends no request or SDK credentials to other manifest
 origins; the original request error is returned. Fallback does not follow redirects.
 Custom network providers must implement `send_without_redirects`; otherwise the
-fallback returns an error without sending a request. Fallback preserves the URL's
-path and query, the file identity, and the byte offset for incremental updates.
-Each destination uses its own range protocol: a `range` query for the OpenAI CDN, or `Range` and
-`statsig-id-list-file-size` headers for other hosts.
+fallback returns an error without sending a request.
+
+All ID-list file downloads, including direct CDN, proxy, and fallback requests,
+preserve the URL's path and query except for legacy `range` parameters, which are
+removed. Every request sends `Range`, `statsig-id-list-file-size`, and
+`Accept-Encoding: identity` headers, preserving the file identity and byte offset
+for incremental updates. Partial responses require a valid `Content-Range`
+matching the requested offset and received body length. They may use `206` or,
+for compatibility, `200`. A `200` without `Content-Range` means the complete
+available file from byte zero; the SDK applies only bytes after the requested
+offset. Available bytes may be behind or ahead of the manifest: the SDK advances
+by bytes actually applied and keeps polling while below the advertised size.
+Responses that make no progress or have inconsistent ranges use the remaining
+retry budget without publishing the refresh. Partial bodies without
+`Content-Range` are unsupported; a malformed header is rejected even when the
+status is `200`.
 
 Set `fallback_to_statsig_api` to `Some(false)` or leave it unset to keep file
-downloads strictly on the selected destination. There is no second attempt when
+downloads strictly on the selected destination. There is no fallback attempt when
 the override resolves to the original URL, no override is set, or the request
 fails with an authentication rejection (401/403) or another non-retryable error.
 Response parsing failures do not trigger fallback. This uses the existing option
 across language bindings; wrappers that disable it continue to opt out.
 
-A successful proxy request makes no additional request. An eligible failure can
-add one request to the trusted CDN URL using the existing network timeout and retry
-policy. The next synchronization starts with the configured override again.
+A successful proxy request makes no additional request. Primary and fallback
+requests share the same per-file attempt budget (three attempts by default).
+The next synchronization starts with the configured override again.
 
 ## Read-only data stores
 

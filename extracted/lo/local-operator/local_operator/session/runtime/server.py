@@ -957,15 +957,53 @@ _SYNC_PRIORITY_OPS = frozenset({"ping", "stop", "abort", "steer", "cancel"})
 #: lands (ADMISSION), this one decides what may run without waiting for an
 #: earlier op to finish (ORDERING).
 #:
-#: ``ping`` alone, and the argument is that its answer cannot depend on session
-#: state: it reports that the runtime's loop is alive and serving. Chaining it
-#: made it report something else entirely — measured over a real socket (review
-#: round 1, UX U3), a ``ping`` sent after a parked ``steer`` on the SAME
-#: connection went unanswered for 8-15 s, so the one request a surface speaks to
-#: ask "are you there" was queued behind a mutation. Everything else keeps its
-#: place in the chain, because ordering is what stops two mutations interleaving
-#: and only a liveness probe has no state to be ordered against.
-_UNCHAINED_OPS = frozenset({"ping"})
+#: ``ping`` and ``abort``. ``ping``: its answer cannot depend on session state: it reports that the
+#: runtime's loop is alive and serving. Chaining it made it report something
+#: else entirely — measured over a real socket (review round 1, UX U3), a
+#: ``ping`` sent after a parked ``steer`` on the SAME connection went unanswered
+#: for 8-15 s, so the one request a surface speaks to ask "are you there" was
+#: queued behind a mutation.
+#:
+#: ``abort``: the kill switch, and the same failure with worse consequences. A
+#: prompt-class op sent while the owner is mid-turn parks inside the handle until
+#: the turn lock frees, and every later op on that connection used to wait for
+#: it — including the Stop. Measured against a real daemon (QA cancel matrix,
+#: F1): a Stop pressed 1 s after such a parked ``prompt`` got no reply for
+#: 15.02 s (the client's ack timeout, a 503 ``runtime_busy``) and stopped
+#: nothing; the running tool lived to its natural end at +56.9 s; and because a
+#: client-side timeout cancels nothing, the abort was still queued and then
+#: executed the moment the parked op settled — aborting the user's NEXT turn
+#: instead of the one the press was for. This is the "cannot stop the session
+#: you are looking at" failure that :data:`_SYNC_PRIORITY_OPS` already refuses
+#: at admission; exempting ``abort`` here extends the same promise to ordering.
+#: Controls on the same daemon: an abort on a fresh connection took 4 ms, on the
+#: same connection with nothing parked 11 ms — so the chain, not the abort, was
+#: the whole delay.
+#:
+#: What the exemption changes, stated plainly: an earlier-admitted ``prompt``
+#: whose turn has NOT begun is no longer waited for. The abort stops the turn
+#: running now — exactly what it does on a fresh connection — and the queued
+#: prompt then runs, unaborted. That is deliberate (a Stop pressed before the
+#: owner has a turn answers ``idle``, and the message the user typed is not
+#: eaten by it); the alternative is the deferred-abort bug above. ``abort`` is
+#: repeat-safe only while it targets the same turn, not idempotent: each press
+#: re-runs the gate and subagent teardown, and two Stops can now overlap within
+#: ``_ABORT_SETTLE_BUDGET_S`` where the chain used to serialise them, so both
+#: may report stopping the same children (harmless).
+#:
+#: ``steer`` is order-dependent (it must not overtake the ``steer`` before it),
+#: so it stays chained. ``stop`` and ``cancel`` are left chained because no
+#: surface sends them on a shared connection (supervisors and ``lop stop`` dial
+#: afresh per request), NOT because they are order-dependent: ``cancel`` with
+#: ``mode="immediate"`` routes straight to ``abort`` and stalls identically
+#: behind a parked op, so it would deserve this same exemption if a surface
+#: ever sends it on a shared connection. The cut is pinned by test so widening
+#: it is a visible choice.
+#:
+#: Everything else keeps its place in the chain, because ordering is what stops
+#: two mutations interleaving. An exempt op never becomes the chain head — see
+#: :meth:`RuntimeServer._dispatch_frame`.
+_UNCHAINED_OPS = frozenset({"ping", "abort"})
 
 
 #: Connection-LOCAL ops admitted alongside the priority set above. Not a widening
@@ -1506,6 +1544,12 @@ class _ClientConn:
     #: frame; see ``DISPLAY_HISTORY_AUDIT_CAPABILITY`` for what emitting them
     #: to a viewer that did not negotiate would do.
     audit_history: bool = False
+    #: This viewer negotiated ``display-history-entry-times-v1`` and can therefore
+    #: be sent the ``{entry id: ts}`` join on a display page. A property of the
+    #: CONNECTION, read where the connection is known and never inferred from the
+    #: frame; see ``DISPLAY_HISTORY_ENTRY_TIMES_CAPABILITY`` for what emitting it
+    #: to a viewer that did not negotiate would do.
+    entry_times: bool = False
     #: Whether this viewer negotiated the input-metadata carriage
     #: (``input-mode-v1``). While False, every message-bearing frame this
     #: connection receives sheds ``input_mode``/``input_path`` — the three page
@@ -2027,6 +2071,12 @@ class RuntimeServer:
                 # breaks the attach outright. See
                 # ``DISPLAY_HISTORY_AUDIT_CAPABILITY``.
                 + (["display-history-audit-v1"] if hasattr(handle, "history_page") else [])
+                # A THIRD string for the same op, and again NOT folded into the
+                # audit one: the page model forbids extras, so ``entry_times``
+                # reaching a viewer built before it existed fails that viewer's
+                # validation outright. See
+                # ``DISPLAY_HISTORY_ENTRY_TIMES_CAPABILITY``.
+                + (["display-history-entry-times-v1"] if hasattr(handle, "history_page") else [])
                 # INPUT-MODE CARRIAGE, gated on the handle that would HONOUR it
                 # rather than advertised unconditionally: the reader of this
                 # string (the mobile stream) must never send the fields to an
@@ -3597,6 +3647,7 @@ class RuntimeServer:
             )
             from local_operator.session.history_window import (
                 strip_audit_fields,
+                strip_entry_time_fields,
                 strip_input_metadata,
                 wire_payload,
             )
@@ -3609,6 +3660,12 @@ class RuntimeServer:
             # receives the fields it would reject.
             conn.audit_history = bool(frame.get("display_history_audit")) and (
                 "display-history-audit-v1" in self._record.capabilities
+            )
+            # Negotiated exactly like ``audit_history`` above: an older viewer
+            # cannot name the flag, so it never receives ``entry_times`` — the
+            # field its page model would reject.
+            conn.entry_times = bool(frame.get("display_history_entry_times")) and (
+                "display-history-entry-times-v1" in self._record.capabilities
             )
             # The input-metadata twin of the line above: a viewer built before
             # the carriage cannot name ``input_mode``, and one that does not
@@ -3758,6 +3815,9 @@ class RuntimeServer:
                 strip_audit_fields(
                     sync_payload["display_history"], audit_capable=conn.audit_history
                 )
+                strip_entry_time_fields(
+                    sync_payload["display_history"], entry_times_capable=conn.entry_times
+                )
             # The message-level twin of the strip above, and it must walk both
             # carriers this payload has: the display page's messages AND the
             # snapshot's in-flight ``live_events`` seed, whose events serialize
@@ -3787,10 +3847,16 @@ class RuntimeServer:
                         "durable_seed_ids": [],
                         "before_token": None,
                         "snapshot_token": None,
+                        # A JOIN OVER ROWS THE PAGE NO LONGER CARRIES IS NOT A
+                        # JOIN. `model_copy` keeps `entry_times` unless it is
+                        # named here, so the fallback page would describe ids
+                        # that are gone — a page whose map claims instants for
+                        # rows nobody received. Blank it with the rows it maps.
+                        "entry_times": {},
                     }
                 )
                 sync_payload["display_history"] = wire_payload(
-                    fallback, audit_capable=conn.audit_history
+                    fallback, audit_capable=conn.audit_history, entry_times_capable=conn.entry_times
                 )
                 oversize = oversized_frame_report(sync_frame, _MAX_LINE_BYTES)
             if oversize is not None:
@@ -4303,7 +4369,10 @@ class RuntimeServer:
         frame), and an ordering link must never be an error channel that takes
         the next request down with it.
 
-        ``ping`` is exempt from the chain (see :data:`_UNCHAINED_OPS`): a health
+        ``ping`` and ``abort`` are exempt from the chain (see
+        :data:`_UNCHAINED_OPS`; ``abort`` for the Stop queued behind a parked
+        ``prompt``, the stall that then aborted the NEXT turn). The rest of this
+        paragraph is argued from ``ping`` but holds for every exempt op. A health
         check queued behind a mutation answers the wrong question, and measured
         (review round 1, UX U3) it did exactly that — 8-15 s of silence on a
         connection whose only sin was a parked ``steer``. An exempt op also does
@@ -5999,6 +6068,7 @@ class RuntimeServer:
                     conn.locality,
                     conn.slash_consumers,
                     audit_capable=conn.audit_history,
+                    entry_times_capable=conn.entry_times,
                     input_capable=conn.input_metadata,
                     capabilities=conn.capabilities,
                     # Whether THIS connection PROVED it may loosen the gate,
@@ -7188,6 +7258,7 @@ class RuntimeServer:
         locality: ClientLocality = "local",
         consumers: frozenset[str] | None = None,
         audit_capable: bool = False,
+        entry_times_capable: bool = False,
         input_capable: bool = False,
         capabilities: frozenset[str] = frozenset(),
         may_loosen: bool | None = None,
@@ -7200,7 +7271,9 @@ class RuntimeServer:
         the CONNECTION, not of the frame, and only the handle can act on it.
         ``audit_capable`` is a third of the same kind — whether this viewer
         negotiated ``display-history-audit-v1`` — and it decides whether a
-        display page may carry the audit fields at all. ``input_capable`` is
+        display page may carry the audit fields at all. ``entry_times_capable`` is
+        its twin for ``display-history-entry-times-v1``: whether a page may carry
+        the ``{entry id: ts}`` join. ``input_capable`` is
         the fourth: whether this viewer negotiated ``input-mode-v1``, which
         decides whether the two message-level carriage keys may ride a page.
         """
@@ -7462,6 +7535,7 @@ class RuntimeServer:
             )
             from local_operator.session.history_window import (
                 strip_audit_fields,
+                strip_entry_time_fields,
                 strip_input_metadata,
             )
 
@@ -7485,6 +7559,9 @@ class RuntimeServer:
                 # rather than a compaction-only or a racy failure.
                 if isinstance(payload.get("display_history"), dict):
                     strip_audit_fields(payload["display_history"], audit_capable=audit_capable)
+                    strip_entry_time_fields(
+                        payload["display_history"], entry_times_capable=entry_times_capable
+                    )
                 # Both message carriers of a sync payload, same as the pushed
                 # frame above: the page's messages and the live_events seed.
                 strip_input_metadata(payload, input_capable=input_capable)
@@ -7505,9 +7582,23 @@ class RuntimeServer:
                                     "durable_seed_tool_ids": [],
                                     "before_token": None,
                                     "snapshot_token": None,
+                                    # The second of the two fallbacks, and the
+                                    # same rule as the push frame's above: a
+                                    # join over blanked rows is cleared with
+                                    # them, never left describing absent ids.
+                                    "entry_times": {},
                                 }
                             ).model_dump(mode="json"),
                             audit_capable=audit_capable,
+                        )
+                        # Re-serialized from the model a second time, so the
+                        # entry-time join needs its own strip here too — the
+                        # ``model_copy`` above keeps ``entry_times`` (it only
+                        # blanks the row lists), and an older viewer would
+                        # reject the page it rides.
+                        strip_entry_time_fields(
+                            payload["display_history"],
+                            entry_times_capable=entry_times_capable,
                         )
                     if oversized_frame_report(response, _MAX_LINE_BYTES) is not None:
                         raise ValueError("canonical refresh exceeds the transport frame limit")
@@ -7530,10 +7621,12 @@ class RuntimeServer:
             if isinstance(payload, dict):
                 from local_operator.session.history_window import (
                     strip_audit_fields,
+                    strip_entry_time_fields,
                     strip_input_metadata,
                 )
 
                 strip_audit_fields(payload, audit_capable=audit_capable)
+                strip_entry_time_fields(payload, entry_times_capable=entry_times_capable)
                 strip_input_metadata(payload, input_capable=input_capable)
             return payload
         if op == "job_trajectory":

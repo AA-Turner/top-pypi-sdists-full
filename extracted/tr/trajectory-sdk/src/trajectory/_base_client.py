@@ -14,7 +14,7 @@ from typing import Any, Generic, Literal, TypeVar, cast, overload
 from urllib.parse import quote
 from urllib.request import getproxies
 
-import httpx
+import httpx2
 from pydantic import BaseModel, PrivateAttr, TypeAdapter, ValidationError
 
 from trajectory._exceptions import (
@@ -45,7 +45,7 @@ PageItemT = TypeVar("PageItemT")
 SyncPageT = TypeVar("SyncPageT", bound="SyncPage[Any]")
 StreamT = TypeVar("StreamT", bound="Stream[Any]")
 
-DEFAULT_TIMEOUT = httpx.Timeout(600.0, connect=5.0)
+DEFAULT_TIMEOUT = httpx2.Timeout(600.0, connect=5.0)
 DEFAULT_MAX_RETRIES = 2
 _INITIAL_RETRY_DELAY = 0.5
 _MAX_RETRY_DELAY = 8.0
@@ -76,7 +76,7 @@ def _platform_headers() -> dict[str, str]:
 
 
 def _merge_headers(*header_sets: Mapping[str, str] | None) -> dict[str, str]:
-  merged = httpx.Headers(encoding="utf-8")
+  merged = httpx2.Headers(encoding="utf-8")
   for headers in header_sets:
     merged.update(headers or {})
   return {name.decode("utf-8"): value.decode("utf-8") for name, value in merged.raw}
@@ -189,7 +189,7 @@ def make_request_options(
   params: Query | None = None,
   extra_query: Query | None = None,
   extra_body: Mapping[str, Any] | None = None,
-  timeout: float | httpx.Timeout | None | NotGiven = not_given,
+  timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   synthesize_event_and_data: bool = False,
 ) -> dict[str, Any]:
   """Build the options a resource method spreads into `FinalRequestOptions.construct`."""
@@ -213,20 +213,20 @@ def make_request_options(
   return options
 
 
-def _origin(url: httpx.URL) -> tuple[str, str, int | None]:
+def _origin(url: httpx2.URL) -> tuple[str, str, int | None]:
   default_port = 443 if url.scheme == "https" else 80 if url.scheme == "http" else None
   port = url.port if url.port is not None else default_port
   return url.scheme, url.host, port
 
 
-def _strip_auth_on_cross_origin_request(request: httpx.Request) -> None:
+def _strip_auth_on_cross_origin_request(request: httpx2.Request) -> None:
   auth_origin = request.extensions.get(_AUTH_ORIGIN_EXTENSION)
   if auth_origin is not None and _origin(request.url) != auth_origin:
     for header in ("X-API-Key", "Authorization", "X-Model-Endpoint-Access-Token"):
       request.headers.pop(header, None)
 
 
-class _DefaultHttpxClient(httpx.Client):
+class _DefaultHttpxClient(httpx2.Client):
   def __init__(self, **kwargs: Any) -> None:
     kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
     kwargs.setdefault("follow_redirects", True)
@@ -234,7 +234,7 @@ class _DefaultHttpxClient(httpx.Client):
       not kwargs.get("trust_env", True) or not (getproxies().keys() - {"no"})
     ):
       # An explicit transport disables HTTPX environment proxies, so preserve those clients.
-      kwargs["transport"] = httpx.HTTPTransport(
+      kwargs["transport"] = httpx2.HTTPTransport(
         **{
           key: kwargs[key]
           for key in ("verify", "cert", "trust_env", "http1", "http2", "limits")
@@ -258,19 +258,19 @@ class _DefaultHttpxClient(httpx.Client):
 
 
 class APIClient:
-  _base_url: httpx.URL
-  _client: httpx.Client
+  _base_url: httpx2.URL
+  _client: httpx2.Client
   _default_headers: dict[str, str]
   _default_query: dict[str, object]
   _max_retries: int
   _strict_response_validation: bool
-  _timeout: httpx.Timeout | float | None
+  _timeout: httpx2.Timeout | float | None
 
   def __init__(
     self,
-    base_url: str | httpx.URL,
-    http_client: httpx.Client | None = None,
-    timeout: httpx.Timeout | float | None | NotGiven = not_given,
+    base_url: str | httpx2.URL,
+    http_client: httpx2.Client | None = None,
+    timeout: httpx2.Timeout | float | None | NotGiven = not_given,
     default_headers: Mapping[str, str] | None = None,
     default_query: Mapping[str, object] | None = None,
     max_retries: int = DEFAULT_MAX_RETRIES,
@@ -278,7 +278,7 @@ class APIClient:
   ) -> None:
     if max_retries < 0:
       raise ValueError("max_retries must be zero or greater")
-    self._base_url = httpx.URL(base_url)
+    self._base_url = httpx2.URL(base_url)
     if not self._base_url.raw_path.endswith(b"/"):
       self._base_url = self._base_url.copy_with(raw_path=self._base_url.raw_path + b"/")
     if isinstance(timeout, NotGiven):
@@ -293,7 +293,7 @@ class APIClient:
     self._timeout = timeout
 
   @property
-  def base_url(self) -> httpx.URL:
+  def base_url(self) -> httpx2.URL:
     return self._base_url
 
   @property
@@ -309,7 +309,7 @@ class APIClient:
     return self._max_retries
 
   @property
-  def timeout(self) -> httpx.Timeout | float | None:
+  def timeout(self) -> httpx2.Timeout | float | None:
     return self._timeout
 
   def __enter__(self) -> "APIClient":
@@ -353,7 +353,7 @@ class APIClient:
     options: FinalRequestOptions,
     *,
     stream: Literal[False] = False,
-  ) -> httpx.Response: ...
+  ) -> httpx2.Response: ...
 
   @overload
   def request(
@@ -372,14 +372,14 @@ class APIClient:
     *,
     stream: bool = False,
     stream_cls: type[StreamT] | None = None,
-  ) -> ResponseT | httpx.Response | StreamT:
-    # httpx.Headers merges case-insensitively, so an override header replaces
+  ) -> ResponseT | httpx2.Response | StreamT:
+    # httpx2.Headers merges case-insensitively, so an override header replaces
     # the default regardless of casing rather than sitting alongside it.
     request_headers = options.headers or {}
     omitted_headers = {
       name.lower() for name, value in request_headers.items() if isinstance(value, Omit)
     }
-    merged_headers = httpx.Headers(self.default_headers)
+    merged_headers = httpx2.Headers(self.default_headers)
     for name, value in request_headers.items():
       if isinstance(value, Omit):
         merged_headers.pop(name, None)
@@ -397,12 +397,12 @@ class APIClient:
       request = self._build_request(options, retries_taken, omitted_headers)
       try:
         response = self._send_request(request, stream=stream)
-      except httpx.TimeoutException as error:
+      except httpx2.TimeoutException as error:
         if retries_taken >= max_retries:
           raise APITimeoutError(error.request) from error
         self._sleep_for_retry(retries_taken, None)
         continue
-      except httpx.RequestError as error:
+      except httpx2.RequestError as error:
         if retries_taken >= max_retries:
           raise APIConnectionError(error.request) from error
         self._sleep_for_retry(retries_taken, None)
@@ -434,16 +434,16 @@ class APIClient:
         retries_taken=retries_taken,
       )
       if response.request.headers.get(RAW_RESPONSE_HEADER) == "true":
-        return cast(ResponseT | httpx.Response | StreamT, api_response)
+        return cast(ResponseT | httpx2.Response | StreamT, api_response)
       result = api_response.parse()
-      return cast(ResponseT | httpx.Response | StreamT, result)
+      return cast(ResponseT | httpx2.Response | StreamT, result)
     raise RuntimeError("Request retry loop exited unexpectedly")
 
   def _process_response_data(
     self,
     data: object,
     cast_to: type[ResponseT],
-    response: httpx.Response,
+    response: httpx2.Response,
   ) -> ResponseT:
     try:
       result = (
@@ -499,9 +499,9 @@ class APIClient:
     options.content = content.read()
     content.seek(position)
 
-  def _prepare_url(self, url: str) -> httpx.URL:
-    """Merge a relative URL with the client's base_url, per httpx's own `_merge_url`."""
-    merge_url = httpx.URL(url)
+  def _prepare_url(self, url: str) -> httpx2.URL:
+    """Merge a relative URL with the client's base_url, per httpx2's own `_merge_url`."""
+    merge_url = httpx2.URL(url)
     if merge_url.is_relative_url:
       merge_raw_path = self._base_url.raw_path + merge_url.raw_path.lstrip(b"/")
       return self._base_url.copy_with(raw_path=merge_raw_path)
@@ -512,8 +512,8 @@ class APIClient:
     options: FinalRequestOptions,
     retries_taken: int = 0,
     omitted_headers: Collection[str] = (),
-  ) -> httpx.Request:
-    headers = httpx.Headers(cast(Mapping[str, str], options.headers))
+  ) -> httpx2.Request:
+    headers = httpx2.Headers(cast(Mapping[str, str], options.headers))
     if (
       "x-stainless-retry-count" not in headers and "x-stainless-retry-count" not in omitted_headers
     ):
@@ -523,7 +523,7 @@ class APIClient:
       and "x-stainless-read-timeout" not in omitted_headers
     ):
       timeout = self._timeout if isinstance(options.timeout, NotGiven) else options.timeout
-      if isinstance(timeout, httpx.Timeout):
+      if isinstance(timeout, httpx2.Timeout):
         timeout = timeout.read
       if timeout is not None:
         headers["X-Stainless-Read-Timeout"] = str(timeout)
@@ -539,13 +539,13 @@ class APIClient:
       extensions={_AUTH_ORIGIN_EXTENSION: _origin(self._base_url)},
     )
 
-  def _send_request(self, request: httpx.Request, stream: bool = False) -> httpx.Response:
+  def _send_request(self, request: httpx2.Request, stream: bool = False) -> httpx2.Response:
     return self._client.send(request, stream=stream)
 
   def _make_sse_decoder(self) -> SSEDecoder:
     return SSEDecoder()
 
-  def _make_status_error_from_response(self, response: httpx.Response) -> APIStatusError:
+  def _make_status_error_from_response(self, response: httpx2.Response) -> APIStatusError:
     response_text = response.text.strip()
     body: object | None = None
     if response_text:
@@ -557,7 +557,7 @@ class APIClient:
 
   def _make_status_error(
     self,
-    response: httpx.Response,
+    response: httpx2.Response,
     body: object | None,
   ) -> APIStatusError:
     if isinstance(body, dict):
@@ -921,7 +921,7 @@ class APIClient:
     )
     return self.request(cast_to, final_options, stream=stream, stream_cls=stream_cls)
 
-  def _should_retry(self, response: httpx.Response) -> bool:
+  def _should_retry(self, response: httpx2.Response) -> bool:
     should_retry = response.headers.get("trajectory-should-retry")
     if should_retry == "true":
       return True
@@ -929,7 +929,7 @@ class APIClient:
       return False
     return response.status_code in {408, 429} or response.status_code >= 500
 
-  def _parse_retry_after(self, response: httpx.Response) -> float | None:
+  def _parse_retry_after(self, response: httpx2.Response) -> float | None:
     retry_after_ms = response.headers.get("retry-after-ms")
     try:
       return float(retry_after_ms) / 1000
@@ -950,7 +950,7 @@ class APIClient:
   def _calculate_retry_delay(
     self,
     retries_taken: int,
-    response: httpx.Response | None,
+    response: httpx2.Response | None,
   ) -> float:
     if response is not None:
       retry_after = self._parse_retry_after(response)
@@ -962,6 +962,6 @@ class APIClient:
   def _sleep_for_retry(
     self,
     retries_taken: int,
-    response: httpx.Response | None,
+    response: httpx2.Response | None,
   ) -> None:
     time.sleep(self._calculate_retry_delay(retries_taken, response))

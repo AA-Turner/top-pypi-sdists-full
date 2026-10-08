@@ -82,6 +82,17 @@ def _pick(record: Any, fields: tuple[str, ...]) -> dict:
     return {k: record.get(k) for k in fields}
 
 
+def _snapshot(record: Any) -> dict:
+    """The snapshot projection. With no snapshot the console still fills `kind`,
+    `mode` and `via_vm` with defaults ("vm", "chrome", False); those are not facts
+    about anything, so they are dropped to None and `status` alone says "none".
+    Only an explicit "none" does this: a record with no status keeps its fields."""
+    view = _pick(record, _SNAPSHOT_FIELDS)
+    if view and view.get("status") == "none":
+        view = {k: None for k in _SNAPSHOT_FIELDS} | {"status": "none"}
+    return view
+
+
 def _creds(detail: dict) -> dict[str, bool]:
     """Credential PRESENCE only, coerced to booleans so no value can leak."""
     presence = detail.get("cred_presence")
@@ -94,7 +105,7 @@ def _detail_view(detail: dict) -> dict:
     """The safe projection of ``build_detail`` that every command prints."""
     view = _pick(detail, _DETAIL_FIELDS)
     view["creds"] = _creds(detail)
-    view["snapshot"] = _pick(detail.get("snapshot"), _SNAPSHOT_FIELDS)
+    view["snapshot"] = _snapshot(detail.get("snapshot"))
     view["proxy"] = _pick(detail.get("proxy"), _PROXY_FIELDS)
     lineage = detail.get("lineage")
     view["lineage_count"] = len(lineage) if isinstance(lineage, list) else 0
@@ -177,7 +188,7 @@ def list_logins(
         {
             "login_key": g.get("login_key"),
             **_pick(account, _ACCOUNT_FIELDS),
-            "snapshot": _pick(account.get("snapshot"), _SNAPSHOT_FIELDS),
+            "snapshot": _snapshot(account.get("snapshot")),
         }
         for g in groups
         for account in g.get("accounts", [])
@@ -296,7 +307,7 @@ def bake(
                 "saved_browser_mode": detail.get("browser_mode"),
                 "bakeable": detail.get("bakeable"),
                 "proxy_exit": (detail.get("proxy") or {}).get("name"),
-                "snapshot": _pick(detail.get("snapshot"), _SNAPSHOT_FIELDS),
+                "snapshot": _snapshot(detail.get("snapshot")),
             }
             if json_output:
                 _print_json({"dry_run": True, "request": request})

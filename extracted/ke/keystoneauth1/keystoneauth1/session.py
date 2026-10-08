@@ -11,6 +11,8 @@
 # under the License.
 
 import collections
+from collections.abc import MutableMapping
+from contextlib import AbstractContextManager
 import datetime
 import functools
 import hashlib
@@ -23,16 +25,18 @@ import ssl
 import sys
 import time
 import types
-import typing as ty
+from typing import Any, cast, Literal
 import urllib
 import uuid
 
 import requests
+import requests.auth
 
 import keystoneauth1
 from keystoneauth1 import _utils as utils
 from keystoneauth1 import discover
 from keystoneauth1 import exceptions
+from keystoneauth1 import plugin
 
 try:
     import netaddr
@@ -43,10 +47,6 @@ try:
     import osprofiler.web as osprofiler_web  # type: ignore[import-not-found]
 except ImportError:
     osprofiler_web = None
-
-if ty.TYPE_CHECKING:
-    from keystoneauth1 import plugin
-    import requests.auth
 
 DEFAULT_USER_AGENT = (
     f'keystoneauth1/{keystoneauth1.__version__} '
@@ -68,7 +68,7 @@ _RETRIABLE_STATUS_CODES = [429, 503]
 _REQUEST_ID_HEADER = 'X-Openstack-Request-Id'
 
 
-TLSVersionT = ty.Literal['1.2', '1.3']
+TLSVersionT = Literal['1.2', '1.3']
 
 _TLS_VERSION_MAP: dict[TLSVersionT, ssl.TLSVersion] = {
     '1.2': ssl.TLSVersion.TLSv1_2,
@@ -112,7 +112,7 @@ def _mv_legacy_headers_for_service(mv_service_type: str) -> list[str]:
     return headers
 
 
-def _sanitize_headers(headers: dict[str | bytes, ty.Any]) -> dict[str, ty.Any]:
+def _sanitize_headers(headers: dict[str | bytes, Any]) -> dict[str, Any]:
     """Ensure headers are strings and not bytes."""
     str_dict = {}
     for k, v in headers.items():
@@ -143,7 +143,7 @@ class NoOpSemaphore:
 
 
 class _JSONEncoder(json.JSONEncoder):
-    def default(self, o: object) -> ty.Any:
+    def default(self, o: object) -> Any:
         if isinstance(o, datetime.datetime):
             return o.isoformat()
         if isinstance(o, uuid.UUID):
@@ -158,12 +158,12 @@ class _StringFormatter:
     """A String formatter that fetches values on demand."""
 
     def __init__(
-        self, session: 'Session', auth: ty.Optional['plugin.BaseAuthPlugin']
-    ):
+        self, session: 'Session', auth: plugin.BaseAuthPlugin | None
+    ) -> None:
         self.session = session
         self.auth = auth
 
-    def __getitem__(self, item: str) -> ty.Any:
+    def __getitem__(self, item: str) -> Any:
         if item == 'project_id':
             value = self.session.get_project_id(self.auth)
         elif item == 'user_id':
@@ -306,78 +306,63 @@ class Session:
     directly to the :mod:`requests` library.
 
     :param auth: An authentication plugin to authenticate the session with.
-                 (optional, defaults to None)
-    :type auth: keystoneauth1.plugin.BaseAuthPlugin
-    :param requests.Session session: A requests session object that can be used
-                                     for issuing requests. (optional)
-    :param str original_ip: The original IP of the requesting user which will
-                            be sent to identity service in a 'Forwarded'
-                            header. (optional)
+        (optional, defaults to None)
+    :param session: A requests session object that can be used for issuing
+        requests. (optional)
+    :param original_ip: The original IP of the requesting user which will be
+        sent to identity service in a 'Forwarded' header. (optional)
     :param verify: The verification arguments to pass to requests. These are of
-                   the same form as requests expects, so True or False to
-                   verify (or not) against system certificates or a path to a
-                   bundle or CA certs to check against or None for requests to
-                   attempt to locate and use certificates. (optional, defaults
-                   to True)
+        the same form as requests expects, so True or False to verify (or not)
+        against system certificates or a path to a bundle or CA certs to check
+        against or None for requests to attempt to locate and use certificates.
+        (optional, defaults to True)
     :param cert: A client certificate to pass to requests. These are of the
-                 same form as requests expects. Either a single filename
-                 containing both the certificate and key or a tuple containing
-                 the path to the certificate then a path to the key. (optional)
-    :param float timeout: A timeout to pass to requests. This should be a
-                          numerical value indicating some amount (or fraction)
-                          of seconds or 0 for no timeout. (optional, defaults
-                          to 0)
-    :param str user_agent: A User-Agent header string to use for the request.
-                           If not provided, a default of
-                           :attr:`~keystoneauth1.session.DEFAULT_USER_AGENT` is
-                           used, which contains the keystoneauth1 version as
-                           well as those of the requests library and which
-                           Python is being used. When a non-None value is
-                           passed, it will be prepended to the default.
-    :param int/bool redirect: Controls the maximum number of redirections that
-                              can be followed by a request. Either an integer
-                              for a specific count or True/False for
-                              forever/never. (optional, default to 30)
-    :param dict additional_headers: Additional headers that should be attached
-                                    to every request passing through the
-                                    session. Headers of the same name specified
-                                    per request will take priority.
-    :param str app_name: The name of the application that is creating the
-                         session. This will be used to create the user_agent.
-    :param str app_version: The version of the application creating the
-                            session. This will be used to create the
-                            user_agent.
-    :param list additional_user_agent: A list of tuple of name, version that
-                                       will be added to the user agent. This
-                                       can be used by libraries that are part
-                                       of the communication process.
-    :param dict discovery_cache: A dict to be used for caching of discovery
-                                 information. This is normally managed
-                                 transparently, but if the user wants to
-                                 share a single cache across multiple sessions
-                                 that do not share an auth plugin, it can
-                                 be provided here. (optional, defaults to
-                                 None which means automatically manage)
-    :param bool split_loggers: Split the logging of requests across multiple
-                               loggers instead of just one. Defaults to False.
-    :param bool collect_timing: Whether or not to collect per-method timing
-                                information for each API call. (optional,
-                                defaults to False)
-    :param rate_semaphore: Semaphore to be used to control concurrency
-                           and rate limiting of requests. (optional,
-                           defaults to no concurrency or rate control)
-    :param int connect_retries: the maximum number of retries that should
-                                be attempted for connection errors.
-                                (optional, defaults to 0 - never retry).
-    :param str tls_ciphers: An OpenSSL cipher string to set the allowed
-                            ciphers for TLS connections. (optional,
-                            defaults to None which uses the default
-                            ciphers from the underlying OpenSSL
-                            library)
+        same form as requests expects. Either a single filename containing both
+        the certificate and key or a tuple containing the path to the
+        certificate then a path to the key. (optional)
+    :param timeout: A timeout to pass to requests. This should be a numerical
+        value indicating some amount (or fraction) of seconds or 0 for no
+        timeout. (optional, defaults to 0)
+    :param user_agent: A User-Agent header string to use for the request. If
+        not provided, a default of
+        :attr:`~keystoneauth1.session.DEFAULT_USER_AGENT` is used, which
+        contains the keystoneauth1 version as well as those of the requests
+        library and which Python is being used. When a non-None value is
+        passed, it will be prepended to the default.
+    :param redirect: Controls the maximum number of redirections that can be
+        followed by a request. Either an integer for a specific count or
+        True/False for forever/never. (optional, default to 30)
+    :param additional_headers: Additional headers that should be attached to
+        every request passing through the session. Headers of the same name
+        specified per request will take priority.
+    :param app_name: The name of the application that is creating the session.
+        This will be used to create the user_agent.
+    :param app_version: The version of the application creating the session.
+        This will be used to create the user_agent.
+    :param additional_user_agent: A list of tuple of name, version that will be
+        added to the user agent. This can be used by libraries that are part of
+        the communication process.
+    :param discovery_cache: A dict to be used for caching of discovery
+        information. This is normally managed transparently, but if the user
+        wants to share a single cache across multiple sessions that do not
+        share an auth plugin, it can be provided here. (optional, defaults to
+        None which means automatically manage)
+    :param split_loggers: Split the logging of requests across multiple loggers
+        instead of just one. Defaults to False.
+    :param collect_timing: Whether or not to collect per-method timing
+        information for each API call. (optional, defaults to False)
+    :param rate_semaphore: Semaphore to be used to control concurrency and rate
+        limiting of requests. (optional, defaults to no concurrency or rate
+        control)
+    :param connect_retries: The maximum number of retries that should be
+        attempted for connection errors. (optional, defaults to 0 - never
+        retry).
+    :param tls_ciphers: An OpenSSL cipher string to set the allowed ciphers for
+        TLS connections. (optional, defaults to None which uses the default
+        ciphers from the underlying OpenSSL library)
     :param tls_min_version: The minimum TLS protocol version to allow.
-                           Supported values are ``'1.2'`` and
-                           ``'1.3'``. (optional, defers to the system
-                           crypto policy when not set)
+        Supported values are ``'1.2'`` and ``'1.3'``. (optional, defers to the
+        system crypto policy when not set)
     """
 
     user_agent = None
@@ -388,7 +373,7 @@ class Session:
 
     def __init__(
         self,
-        auth: ty.Optional['plugin.BaseAuthPlugin'] = None,
+        auth: plugin.BaseAuthPlugin | None = None,
         session: requests.Session | None = None,
         original_ip: str | None = None,
         verify: bool | str | None = True,
@@ -396,15 +381,14 @@ class Session:
         timeout: float | int | None = None,
         user_agent: str | None = None,
         redirect: int | bool = _DEFAULT_REDIRECT_LIMIT,
-        additional_headers: collections.abc.MutableMapping[str, str]
-        | None = None,
+        additional_headers: MutableMapping[str, str] | None = None,
         app_name: str | None = None,
         app_version: str | None = None,
         additional_user_agent: list[tuple[str, str]] | None = None,
-        discovery_cache: dict[str, ty.Any] | None = None,
+        discovery_cache: dict[str, Any] | None = None,
         split_loggers: bool | None = None,
         collect_timing: bool = False,
-        rate_semaphore: ty.ContextManager[None] | None = None,
+        rate_semaphore: AbstractContextManager[None] | None = None,
         connect_retries: int = 0,
         tls_ciphers: str | None = None,
         tls_min_version: TLSVersionT | None = None,
@@ -451,23 +435,54 @@ class Session:
 
         self._json = _JSONEncoder()
 
-    def __del__(self) -> None:
-        """Clean up resources on delete."""
-        if self._session:
-            # If we created a requests.Session, try to close it out correctly
+    def close(self) -> None:
+        """Release resources held by this session.
+
+        Closes the underlying ``requests.Session`` if this session created
+        it, discarding any pooled connections. The session remains usable
+        after being closed; new connections are established as needed and
+        no re-authentication is required (token state lives in the auth
+        plugin, not the requests session).
+
+        If the session was created with an externally supplied
+        ``requests.Session`` (the ``session`` constructor argument), it is
+        left untouched: ownership of that object belongs to the caller.
+
+        Tearing down idle pooled connections is a local operation and does
+        not normally raise. The errors it plausibly can raise are handled
+        here rather than left for every caller: ``OSError`` from the
+        socket layer (which also covers the deprecated ``socket.error``
+        alias and the ``ssl.SSLError`` subclass) and
+        ``requests.exceptions.RequestException`` from ``requests`` are
+        caught and discarded, since a failure to close an already-idle
+        connection is not actionable. The requests session is dropped
+        regardless, so ``close()`` stays idempotent.
+
+        :raises Exception: any error other than ``OSError`` and
+            ``requests.exceptions.RequestException`` (both caught
+            internally) propagates unchanged.
+        """
+        if self._session is not None:
             try:
                 self._session.close()
-            except Exception:  # noqa: S110
+            except (OSError, requests.exceptions.RequestException):
                 pass
             finally:
                 self._session = None
+
+    def __del__(self) -> None:
+        """Clean up resources on delete."""
+        try:
+            self.close()
+        except Exception:  # noqa: S110
+            pass
 
     # TODO(stephenfin): The types from typeshed are very generic. This would be
     # more accurate:
     #
     #     collections.OrderedDict[str, requests.adapters.BaseAdapter]
     @property
-    def adapters(self) -> ty.MutableMapping[ty.Any, ty.Any]:
+    def adapters(self) -> MutableMapping[Any, Any]:
         return self.session.adapters
 
     @adapters.setter
@@ -540,8 +555,8 @@ class Session:
         method: str | None = None,
         data: str | bytes | None = None,
         json: object = None,
-        headers: collections.abc.MutableMapping[str, str] | None = None,
-        query_params: dict[str, ty.Any] | None = None,
+        headers: MutableMapping[str, str] | None = None,
+        query_params: dict[str, Any] | None = None,
         logger: logging.Logger | None = None,
         split_loggers: bool | None = None,
     ) -> None:
@@ -608,7 +623,7 @@ class Session:
         response: requests.Response | None = None,
         json: object = None,
         status_code: int | None = None,
-        headers: collections.abc.MutableMapping[str, str] | None = None,
+        headers: MutableMapping[str, str] | None = None,
         text: str | None = None,
         *,
         logger: logging.Logger,
@@ -681,10 +696,10 @@ class Session:
 
     @staticmethod
     def _set_microversion_headers(
-        headers: collections.abc.MutableMapping[str, str],
+        headers: MutableMapping[str, str],
         microversion: str,
         service_type: str | None,
-        endpoint_filter: dict[str, ty.Any] | None,
+        endpoint_filter: dict[str, Any] | None,
     ) -> None:
         # We're converting it to normalized version number for two reasons.
         # First, to validate it's a real version number. Second, so that in
@@ -716,7 +731,7 @@ class Session:
                     " microversion_service_type as an argument."
                 )
 
-        service_type = ty.cast(str, service_type)  # narrow the type
+        service_type = cast(str, service_type)  # narrow the type
 
         # TODO(mordred) cinder uses volume in its microversion header. This
         # logic should be handled in the future by os-service-types but for
@@ -750,27 +765,27 @@ class Session:
         user_agent: str | None = None,
         redirect: int | bool | None = None,
         authenticated: bool | None = None,
-        endpoint_filter: dict[str, ty.Any] | None = None,
-        auth: ty.Optional['plugin.BaseAuthPlugin'] = None,
-        requests_auth: ty.Optional['requests.auth.AuthBase'] = None,
+        endpoint_filter: dict[str, Any] | None = None,
+        auth: plugin.BaseAuthPlugin | None = None,
+        requests_auth: requests.auth.AuthBase | None = None,
         raise_exc: bool = True,
         allow_reauth: bool = True,
         log: bool = True,
         endpoint_override: str | None = None,
         connect_retries: int | None = None,
         logger: logging.Logger | None = None,
-        allow: dict[str, ty.Any] | None = None,
+        allow: dict[str, Any] | None = None,
         client_name: str | None = None,
         client_version: str | None = None,
         microversion: str | None = None,
         microversion_service_type: str | None = None,
         status_code_retries: int = 0,
         retriable_status_codes: list[int] | None = None,
-        rate_semaphore: ty.ContextManager[None] | None = None,
+        rate_semaphore: AbstractContextManager[None] | None = None,
         global_request_id: str | None = None,
         connect_retry_delay: float | None = None,
         status_code_retry_delay: float | None = None,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ) -> requests.Response:
         """Send an HTTP request with the specified characteristics.
 
@@ -780,109 +795,89 @@ class Session:
         Arguments that are not handled are passed through to the requests
         library.
 
-        :param str url: Path or fully qualified URL of HTTP request. If only a
-                        path is provided then endpoint_filter must also be
-                        provided such that the base URL can be determined. If a
-                        fully qualified URL is provided then endpoint_filter
-                        will be ignored.
-        :param str method: The http method to use. (e.g. 'GET', 'POST')
+        :param url: Path or fully qualified URL of HTTP request. If only a path
+            is provided then endpoint_filter must also be provided such that
+            the base URL can be determined. If a fully qualified URL is
+            provided then endpoint_filter will be ignored.
+        :param method: The http method to use. (e.g. 'GET', 'POST')
         :param json: Some data to be represented as JSON. (optional)
-        :param str original_ip: Mark this request as forwarded for this ip.
-                                (optional)
-        :param dict headers: Headers to be included in the request. (optional)
-        :param str user_agent: A user_agent to use for the request. If present
-                               will override one present in headers. (optional)
-        :param int/bool redirect: the maximum number of redirections that
-                                  can be followed by a request. Either an
-                                  integer for a specific count or True/False
-                                  for forever/never. (optional)
-        :param int connect_retries: the maximum number of retries that should
-                                    be attempted for connection errors.
-                                    (optional, defaults to None - never retry).
-        :param bool authenticated: True if a token should be attached to this
-                                   request, False if not or None for attach if
-                                   an auth_plugin is available.
-                                   (optional, defaults to None)
-        :param dict endpoint_filter: Data to be provided to an auth plugin with
-                                     which it should be able to determine an
-                                     endpoint to use for this request. If not
-                                     provided then URL is expected to be a
-                                     fully qualified URL. (optional)
-        :param str endpoint_override: The URL to use instead of looking up the
-                                      endpoint in the auth plugin. This will be
-                                      ignored if a fully qualified URL is
-                                      provided but take priority over an
-                                      endpoint_filter. This string may contain
-                                      the values ``%(project_id)s`` and
-                                      ``%(user_id)s`` to have those values
-                                      replaced by the project_id/user_id of the
-                                      current authentication. (optional)
+        :param original_ip: Mark this request as forwarded for this IP.
+            (optional)
+        :param headers: Headers to be included in the request. (optional)
+        :param user_agent: A user_agent to use for the request. If present will
+            override one present in headers. (optional)
+        :param redirect: the maximum number of redirections that can be
+            followed by a request. Either an integer for a specific count or
+            True/False for forever/never. (optional)
+        :param connect_retries: the maximum number of retries that should be
+            attempted for connection errors. (optional, defaults to None -
+            never retry).
+        :param authenticated: True if a token should be attached to this
+            request, False if not or None for attach if an auth_plugin is
+            available. (optional, defaults to None)
+        :param endpoint_filter: Data to be provided to an auth plugin with
+            which it should be able to determine an endpoint to use for this
+            request. If not provided then URL is expected to be a fully
+            qualified URL. (optional)
+        :param endpoint_override: The URL to use instead of looking up the
+            endpoint in the auth plugin. This will be ignored if a fully
+            qualified URL is provided but take priority over an
+            endpoint_filter. This string may contain the values
+            ``%(project_id)s`` and ``%(user_id)s`` to have those values
+            replaced by the project_id/user_id of the current authentication.
+            (optional)
         :param auth: The auth plugin to use when authenticating this request.
-                     This will override the plugin that is attached to the
-                     session (if any). (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
+            This will override the plugin that is attached to the session (if
+            any). (optional)
         :param requests_auth: A requests library auth plugin that cannot be
-                              passed via kwarg because the `auth` kwarg
-                              collides with our own auth plugins. (optional)
-        :type requests_auth: :py:class:`requests.auth.AuthBase`
-        :param bool raise_exc: If True then raise an appropriate exception for
-                               failed HTTP requests. If False then return the
-                               request object. (optional, default True)
-        :param bool allow_reauth: Allow fetching a new token and retrying the
-                                  request on receiving a 401 Unauthorized
-                                  response. (optional, default True)
-        :param bool log: If True then log the request and response data to the
-                         debug log. (optional, default True)
+            passed via kwarg because the `auth` kwarg collides with our own
+            auth plugins. (optional)
+        :param raise_exc: If True then raise an appropriate exception for
+            failed HTTP requests. If False then return the request object.
+            (optional, default True)
+        :param allow_reauth: Allow fetching a new token and retrying the
+            request on receiving a 401 Unauthorized response. (optional,
+            default True)
+        :param log: If True then log the request and response data to the debug
+            log. (optional, default True)
         :param logger: The logger object to use to log request and responses.
-                       If not provided the keystoneauth1.session default
-                       logger will be used.
-        :type logger: logging.Logger
-        :param dict allow: Extra filters to pass when discovering API
-                           versions. (optional)
+            If not provided the keystoneauth1.session default logger will be
+            used.
+        :param allow: Extra filters to pass when discovering API versions.
+            (optional)
         :param microversion: Microversion to send for this request.
-                       microversion can be given as a string or a tuple.
-                       (optional)
-        :param str microversion_service_type: The service_type to be sent in
-                       the microversion header, if a microversion is given.
-                       Defaults to the value of service_type from
-                       endpoint_filter if one exists. If endpoint_filter is not
-                       provided or does not have a service_type, microversion
-                       is given and microversion_service_type is not provided,
-                       an exception will be raised.
-        :param int status_code_retries: the maximum number of retries that
-                                        should be attempted for retriable
-                                        HTTP status codes (optional, defaults
-                                        to 0 - never retry).
-        :param list retriable_status_codes: list of HTTP status codes that
-                                            should be retried (optional,
-                                            defaults to HTTP 503, has no effect
-                                            when status_code_retries is 0).
-        :param rate_semaphore: Semaphore to be used to control concurrency
-                               and rate limiting of requests. (optional,
-                               defaults to no concurrency or rate control)
+            microversion can be given as a string or a tuple. (optional)
+        :param microversion_service_type: The service_type to be sent in the
+            microversion header, if a microversion is given. Defaults to the
+            value of service_type from endpoint_filter if one exists. If
+            endpoint_filter is not provided or does not have a service_type,
+            microversion is given and microversion_service_type is not
+            provided, an exception will be raised.
+        :param status_code_retries: the maximum number of retries that should
+            be attempted for retriable HTTP status codes (optional, defaults to
+            0 - never retry).
+        :param retriable_status_codes: list of HTTP status codes that should be
+            retried (optional, defaults to HTTP 503, has no effect when
+            status_code_retries is 0).
+        :param rate_semaphore: Semaphore to be used to control concurrency and
+            rate limiting of requests. (optional, defaults to no concurrency or
+            rate control)
         :param global_request_id: Value for the X-Openstack-Request-Id header.
-        :param float connect_retry_delay: Delay (in seconds) between two
-                                          connect retries (if enabled).
-                                          By default exponential retry starting
-                                          with 0.5 seconds up to a maximum of
-                                          60 seconds is used.
-        :param float status_code_retry_delay: Delay (in seconds) between two
-                                              status code retries (if enabled).
-                                              By default exponential retry
-                                              starting with 0.5 seconds up to
-                                              a maximum of 60 seconds is used.
+        :param connect_retry_delay: Delay (in seconds) between two connect
+            retries (if enabled). By default exponential retry starting with
+            0.5 seconds up to a maximum of 60 seconds is used.
+        :param status_code_retry_delay: Delay (in seconds) between two status
+            code retries (if enabled). By default exponential retry starting
+            with 0.5 seconds up to a maximum of 60 seconds is used.
         :param kwargs: any other parameter that can be passed to
-                       :meth:`requests.Session.request` (such as `headers`).
-                       Except:
+            :meth:`requests.Session.request` (such as `headers`). Except:
 
-                       - `data` will be overwritten by the data in the `json`
-                         param.
-                       - `allow_redirects` is ignored as redirects are handled
-                         by the session.
+            - `data` will be overwritten by the data in the `json` param.
+            - `allow_redirects` is ignored as redirects are handled by the
+              session.
 
         :raises keystoneauth1.exceptions.base.ClientException: For connection
             failure, or to indicate an error response code.
-
         :returns: The response to the request.
         """
         # If a logger is passed in, use it and do not log requests, responses
@@ -1027,7 +1022,7 @@ class Session:
         # Query parameters that are included in the url string will
         # be logged properly, but those sent in the `params` parameter
         # (which the requests library handles) need to be explicitly
-        # picked out so they can be included in the URL that gets loggged.
+        # picked out so they can be included in the URL that gets logged.
         query_params = kwargs.get('params', {})
 
         if log:
@@ -1171,10 +1166,10 @@ class Session:
         connect_retries: int,
         status_code_retries: int,
         retriable_status_codes: list[int],
-        rate_semaphore: ty.ContextManager[None],
+        rate_semaphore: AbstractContextManager[None],
         connect_retry_delays: _Retries,
         status_code_retry_delays: _Retries,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ) -> requests.Response:
         # NOTE(jamielennox): We handle redirection manually because the
         # requests lib follows some browser patterns where it will redirect
@@ -1343,42 +1338,42 @@ class Session:
 
         return resp
 
-    def get(self, url: str, **kwargs: ty.Any) -> requests.Response:
+    def get(self, url: str, **kwargs: Any) -> requests.Response:
         """Perform a GET request.
 
         This calls :py:meth:`.request()` with ``method`` set to ``GET``.
         """
         return self.request(url, 'GET', **kwargs)
 
-    def head(self, url: str, **kwargs: ty.Any) -> requests.Response:
+    def head(self, url: str, **kwargs: Any) -> requests.Response:
         """Perform a HEAD request.
 
         This calls :py:meth:`.request()` with ``method`` set to ``HEAD``.
         """
         return self.request(url, 'HEAD', **kwargs)
 
-    def post(self, url: str, **kwargs: ty.Any) -> requests.Response:
+    def post(self, url: str, **kwargs: Any) -> requests.Response:
         """Perform a POST request.
 
         This calls :py:meth:`.request()` with ``method`` set to ``POST``.
         """
         return self.request(url, 'POST', **kwargs)
 
-    def put(self, url: str, **kwargs: ty.Any) -> requests.Response:
+    def put(self, url: str, **kwargs: Any) -> requests.Response:
         """Perform a PUT request.
 
         This calls :py:meth:`.request()` with ``method`` set to ``PUT``.
         """
         return self.request(url, 'PUT', **kwargs)
 
-    def patch(self, url: str, **kwargs: ty.Any) -> requests.Response:
+    def patch(self, url: str, **kwargs: Any) -> requests.Response:
         """Perform a PATCH request.
 
         This calls :py:meth:`.request()` with ``method`` set to ``PATCH``.
         """
         return self.request(url, 'PATCH', **kwargs)
 
-    def delete(self, url: str, **kwargs: ty.Any) -> requests.Response:
+    def delete(self, url: str, **kwargs: Any) -> requests.Response:
         """Perform a DELETE request.
 
         This calls :py:meth:`.request()` with ``method`` set to ``DELETE``.
@@ -1386,8 +1381,8 @@ class Session:
         return self.request(url, 'DELETE', **kwargs)
 
     def _auth_required(
-        self, auth: ty.Optional['plugin.BaseAuthPlugin'], msg: str
-    ) -> 'plugin.BaseAuthPlugin':
+        self, auth: plugin.BaseAuthPlugin | None, msg: str
+    ) -> plugin.BaseAuthPlugin:
         if not auth:
             auth = self.auth
 
@@ -1398,13 +1393,12 @@ class Session:
         return auth
 
     def get_auth_headers(
-        self, auth: ty.Optional['plugin.BaseAuthPlugin'] = None
+        self, auth: plugin.BaseAuthPlugin | None = None
     ) -> dict[str, str] | None:
         """Return auth headers as provided by the auth plugin.
 
         :param auth: The auth plugin to use for token. Overrides the plugin
                      on the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
 
         :raises keystoneauth1.exceptions.auth.AuthorizationFailure:
             if a new token fetch fails.
@@ -1412,53 +1406,45 @@ class Session:
             if a plugin is not available.
 
         :returns: Authentication headers or None for failure.
-        :rtype: :class:`dict`
         """
         auth = self._auth_required(auth, 'fetch a token')
         return auth.get_headers(self)
 
     def get_token(
-        self, auth: ty.Optional['plugin.BaseAuthPlugin'] = None
+        self, auth: plugin.BaseAuthPlugin | None = None
     ) -> str | None:
         """Return a token as provided by the auth plugin.
 
-        :param auth: The auth plugin to use for token. Overrides the plugin
-                     on the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
+        .. deprecated:: 0.1.0
 
-        :raises keystoneauth1.exceptions.auth.AuthorizationFailure:
-             if a new token fetch fails.
-        :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin:
-            if a plugin is not available.
+            This assumes that the only header that is used to authenticate a
+            message is ``X-Auth-Token``. This may not be correct. Use
+            :meth:`get_auth_headers` instead.
 
-        .. warning::
-            **DEPRECATED**: This assumes that the only header that is used to
-            authenticate a message is ``X-Auth-Token``. This may not be
-            correct. Use :meth:`get_auth_headers` instead.
-
+        :param auth: The auth plugin to use for token. Overrides the plugin on
+            the session. (optional)
+        :raises keystoneauth1.exceptions.auth.AuthorizationFailure: if a new
+            token fetch fails.
+        :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin: if a
+            plugin is not available.
         :returns: A valid token.
-        :rtype: string
         """
         return (self.get_auth_headers(auth) or {}).get('X-Auth-Token')
 
     def get_endpoint(
         self,
-        auth: ty.Optional['plugin.BaseAuthPlugin'] = None,
+        auth: plugin.BaseAuthPlugin | None = None,
         *,
         endpoint_override: str | None = None,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ) -> str | None:
         """Get an endpoint as provided by the auth plugin.
 
         :param auth: The auth plugin to use for token. Overrides the plugin on
-                     the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
-
+            the session. (optional)
         :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin:
             if a plugin is not available.
-
         :returns: An endpoint if available or None.
-        :rtype: string
         """
         if endpoint_override:
             return endpoint_override
@@ -1468,70 +1454,57 @@ class Session:
         return auth.get_endpoint(self, **kwargs)
 
     def get_endpoint_data(
-        self,
-        auth: ty.Optional['plugin.BaseAuthPlugin'] = None,
-        **kwargs: ty.Any,
+        self, auth: plugin.BaseAuthPlugin | None = None, **kwargs: Any
     ) -> discover.EndpointData | None:
         """Get endpoint data as provided by the auth plugin.
 
         :param auth: The auth plugin to use for token. Overrides the plugin on
-                     the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
-
+            the session. (optional)
+        :param endpoint_override: URL to use instead of looking in the catalog.
+        :param discover_versions: Whether to get version metadata from the
+            version discovery document even if it's not necessary to fulfill
+            the major version request. (optional, defaults to True)
         :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin:
             if a plugin is not available.
         :raises TypeError: If arguments are invalid
-
         :returns: Endpoint data if available or None.
-        :rtype: keystoneauth1.discover.EndpointData
         """
         auth = self._auth_required(auth, 'determine endpoint URL')
         return auth.get_endpoint_data(self, **kwargs)
 
     def get_api_major_version(
-        self,
-        auth: ty.Optional['plugin.BaseAuthPlugin'] = None,
-        **kwargs: ty.Any,
+        self, auth: plugin.BaseAuthPlugin | None = None, **kwargs: Any
     ) -> tuple[int | float, ...] | None:
         """Get the major API version as provided by the auth plugin.
 
         :param auth: The auth plugin to use for token. Overrides the plugin on
                      the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
-
         :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin: if a
             plugin is not available.
-
         :return: The major version of the API of the service discovered.
-        :rtype: tuple or None
         """
         auth = self._auth_required(auth, 'determine endpoint URL')
         return auth.get_api_major_version(self, **kwargs)
 
     def get_all_version_data(
         self,
-        auth: ty.Optional['plugin.BaseAuthPlugin'] = None,
+        auth: plugin.BaseAuthPlugin | None = None,
         interface: str | list[str] | None = 'public',
         region_name: str | None = None,
         service_type: str | None = None,
     ) -> dict[str, dict[str, dict[str, list[discover.VersionData]]]]:
         """Get version data for all services in the catalog.
 
-        :param auth:
-            The auth plugin to use for token. Overrides the plugin on
+        :param auth: The auth plugin to use for token. Overrides the plugin on
             the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
-        :param interface:
-            Type of endpoint to get version data for. Can be a single value
-            or a list of values. A value of None indicates that all interfaces
-            should be queried. (optional, defaults to public)
-        :param string region_name:
-            Region of endpoints to get version data for. A valueof None
-            indicates that all regions should be queried. (optional, defaults
-            to None)
-        :param string service_type:
-            Limit the version data to a single service. (optional, defaults
-            to None)
+        :param interface: Type of endpoint to get version data for. Can be a
+            single value or a list of values. A value of None indicates that
+            all interfaces should be queried. (optional, defaults to public)
+        :param region_name: Region of endpoints to get version data for. A
+            value of None indicates that all regions should be queried.
+            (optional, defaults to None)
+        :param service_type: Limit the version data to a single service.
+            (optional, defaults to None)
         :returns: A dictionary keyed by region_name with values containing
             dictionaries keyed by interface with values being a list of
             `~keystoneauth1.discover.VersionData`.
@@ -1545,8 +1518,8 @@ class Session:
         )
 
     def get_auth_connection_params(
-        self, auth: ty.Optional['plugin.BaseAuthPlugin'] = None
-    ) -> 'plugin.ConnectionParams':
+        self, auth: plugin.BaseAuthPlugin | None = None
+    ) -> plugin.ConnectionParams:
         """Return auth connection params as provided by the auth plugin.
 
         An auth plugin may specify connection parameters to the request like
@@ -1564,10 +1537,8 @@ class Session:
         These values are passed to the requests library and further information
         on accepted values may be found there.
 
-        :param auth: The auth plugin to use for tokens. Overrides the plugin
-                     on the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
-
+        :param auth: The auth plugin to use for tokens. Overrides the plugin on
+            the session. (optional)
         :raises keystoneauth1.exceptions.auth.AuthorizationFailure:
             if a new token fetch fails.
         :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin:
@@ -1575,9 +1546,7 @@ class Session:
         :raises keystoneauth1.exceptions.auth_plugins.UnsupportedParameters:
             if the plugin returns a parameter that is not supported by this
             session.
-
         :returns: Authentication headers or None for failure.
-        :rtype: :class:`dict`
         """
         auth = self._auth_required(auth, 'fetch connection params')
         params = auth.get_connection_params(self)
@@ -1596,54 +1565,43 @@ class Session:
 
         return params
 
-    def invalidate(
-        self, auth: ty.Optional['plugin.BaseAuthPlugin'] = None
-    ) -> bool:
+    def invalidate(self, auth: plugin.BaseAuthPlugin | None = None) -> bool:
         """Invalidate an authentication plugin.
 
         :param auth: The auth plugin to invalidate. Overrides the plugin on the
-                     session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
+            session. (optional)
         """
         auth = self._auth_required(auth, 'validate')
         return auth.invalidate()
 
     def get_user_id(
-        self, auth: ty.Optional['plugin.BaseAuthPlugin'] = None
+        self, auth: plugin.BaseAuthPlugin | None = None
     ) -> str | None:
         """Return the authenticated user_id as provided by the auth plugin.
 
-        :param auth: The auth plugin to use for token. Overrides the plugin
-                     on the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
-
-        :raises keystoneauth1.exceptions.auth.AuthorizationFailure:
-            if a new token fetch fails.
-        :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin:
-            if a plugin is not available.
-
+        :param auth: The auth plugin to use for token. Overrides the plugin on
+            the session. (optional)
+        :raises keystoneauth1.exceptions.auth.AuthorizationFailure: if a new
+            token fetch fails.
+        :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin: if a
+            plugin is not available.
         :returns: Current user_id or None if not supported by plugin.
-        :rtype: :class:`str`
         """
         auth = self._auth_required(auth, 'get user_id')
         return auth.get_user_id(self)
 
     def get_project_id(
-        self, auth: ty.Optional['plugin.BaseAuthPlugin'] = None
+        self, auth: plugin.BaseAuthPlugin | None = None
     ) -> str | None:
         """Return the authenticated project_id as provided by the auth plugin.
 
-        :param auth: The auth plugin to use for token. Overrides the plugin
-                     on the session. (optional)
-        :type auth: keystoneauth1.plugin.BaseAuthPlugin
-
-        :raises keystoneauth1.exceptions.auth.AuthorizationFailure:
-            if a new token fetch fails.
-        :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin:
-            if a plugin is not available.
-
+        :param auth: The auth plugin to use for token. Overrides the plugin on
+            the session. (optional)
+        :raises keystoneauth1.exceptions.auth.AuthorizationFailure: if a new
+            token fetch fails.
+        :raises keystoneauth1.exceptions.auth_plugins.MissingAuthPlugin: if a
+            plugin is not available.
         :returns: Current project_id or None if not supported by plugin.
-        :rtype: :class:`str`
         """
         auth = self._auth_required(auth, 'get project_id')
         return auth.get_project_id(self)
@@ -1667,27 +1625,26 @@ class TCPKeepAliveAdapter(requests.adapters.HTTPAdapter):
     disables Nagle's Algorithm. See also:
     https://blogs.msdn.com/b/windowsazurestorage/archive/2010/06/25/nagle-s-algorithm-is-not-friendly-towards-small-requests.aspx
 
-    :param str tls_ciphers: An OpenSSL cipher string to set the
-        allowed ciphers for TLS connections. (optional, defaults
-        to the default ciphers from the underlying OpenSSL
-        library)
-    :param tls_min_version: The minimum TLS protocol version
-        to allow (e.g. ``'1.2'`` or ``'1.3'``). (optional, defers
-        to the system crypto policy when not set)
+    :param tls_ciphers: An OpenSSL cipher string to set the allowed ciphers for
+        TLS connections. (optional, defaults to the default ciphers from the
+        underlying OpenSSL library)
+    :param tls_min_version: The minimum TLS protocol version to allow (e.g.
+        ``'1.2'`` or ``'1.3'``). (optional, defers to the system crypto policy
+        when not set)
     """
 
     def __init__(
         self,
-        *args: ty.Any,
+        *args: Any,
         tls_ciphers: str | None = None,
         tls_min_version: TLSVersionT | None = None,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ):
         self.tls_ciphers = tls_ciphers
         self.tls_min_version = tls_min_version
         super().__init__(*args, **kwargs)
 
-    def init_poolmanager(self, *args: ty.Any, **kwargs: ty.Any) -> None:
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
         if 'socket_options' not in kwargs:
             socket_options = [
                 # Keep Nagle's algorithm off

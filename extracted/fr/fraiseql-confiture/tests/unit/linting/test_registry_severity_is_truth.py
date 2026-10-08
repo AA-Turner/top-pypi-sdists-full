@@ -126,6 +126,20 @@ FIXTURES: dict[str, Fixture] = {
             "020.sql": "CREATE TABLE app.tb_t (id INT PRIMARY KEY);\n",
         }
     ),
+    "build_005": Fixture(
+        {
+            "010.sql": "CREATE TABLE tb_t (id INT PRIMARY KEY, a INT, b INT);\n"
+            "CREATE INDEX IF NOT EXISTS idx_t ON tb_t (a);\n",
+            "020.sql": "CREATE INDEX IF NOT EXISTS idx_t ON tb_t (b);\n",
+        }
+    ),
+    "build_006": Fixture(
+        {
+            "010.sql": "CREATE TABLE tb_t (id INT PRIMARY KEY, a INT, b INT);\n"
+            "CREATE INDEX idx_t ON tb_t (a);\n",
+            "020.sql": "CREATE INDEX idx_t ON tb_t (b);\n",
+        }
+    ),
     "sec_001": Fixture({"010.sql": "CREATE TABLE tb_t (id INT PRIMARY KEY, password TEXT);\n"}),
     "sec_003": Fixture(
         {
@@ -180,6 +194,13 @@ FIXTURES: dict[str, Fixture] = {
             "010.sql": "CREATE TABLE tb_node (id INT PRIMARY KEY, fk_parent INT, name TEXT,\n"
             "  deleted_at TIMESTAMPTZ);\n"
             "CREATE UNIQUE INDEX ux ON tb_node (fk_parent, name) WHERE deleted_at IS NULL;\n"
+        },
+        extra_files={"db/project.yaml": "soft_delete: {}\n"},
+    ),
+    "softdel_003": Fixture(
+        {
+            "010.sql": "CREATE TABLE tb_user (id INT PRIMARY KEY, deleted_at TIMESTAMPTZ);\n"
+            "CREATE VIEW v_user AS SELECT id FROM tb_user;\n"
         },
         extra_files={"db/project.yaml": "soft_delete: {}\n"},
     ),

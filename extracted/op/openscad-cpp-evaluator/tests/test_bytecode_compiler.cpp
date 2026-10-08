@@ -180,15 +180,18 @@ TEST(BytecodeCompiler, SiblingParameterDefaultCannotSeeOtherParametersRealValue)
     // isolation this is undef, not whatever `a` was actually bound to
     // (`undef + 1` -> undef, matching AdditionOp's non-numeric fallback).
     EXPECT_EQ(runCapturingEcho("function foo(a, b = a + 1) = b;\necho(foo(41));"),
-              "WARNING: Ignoring unknown variable 'a' in file <string>, line 1\n"
+              "WARNING: Ignoring unknown variable \"a\" in file <string>, line 1\n"
               "WARNING: undefined operation (undefined + number) in file <string>, line 1\nECHO: undef");
 }
 
 TEST(BytecodeCompiler, SequentialLetReassignmentSeesPriorValue) {
     ScopedVm vm(true);
     EXPECT_EQ(runCapturingEcho("function bar(h) = let(h = h * 2) h;\necho(bar(3));"), "ECHO: 6");
-    // BOSL2-style plain-variable-name reassignment via nested let().
-    EXPECT_EQ(runCapturingEcho("function baz(x) = let(x = x + 1, x = x + 1) x;\necho(baz(1));"), "ECHO: 3");
+    // A name repeated within ONE let() keeps its first binding: OpenSCAD
+    // warns "Ignoring duplicate variable assignment" and echoes 2, not 3.
+    std::string out = runCapturingEcho("function baz(x) = let(x = x + 1, x = x + 1) x;\necho(baz(1));");
+    EXPECT_NE(out.find("WARNING: Ignoring duplicate variable assignment \"x\" = 3"), std::string::npos) << out;
+    EXPECT_EQ(out.substr(out.rfind('\n') + 1), "ECHO: 2") << out;
 }
 
 TEST(BytecodeCompiler, LetCanOverrideDollarVar) {
@@ -391,7 +394,9 @@ TEST(BytecodeCompiler, ForOverUndefBodyKeepsUndefAsAnElement) {
 
 TEST(BytecodeCompiler, ZeroStepRangeIterationYieldsNothing) {
     ScopedVm vm(true);
-    EXPECT_EQ(runCapturingEcho("function f() = [for (i = [1:0:5]) i];\necho(f());"), "ECHO: []");
+    const std::string out = runCapturingEcho("function f() = [for (i = [1:0:5]) i];\necho(f());");
+    EXPECT_NE(out.find("too many elements (4294967295)"), std::string::npos) << out;
+    EXPECT_EQ(out.substr(out.rfind('\n') + 1), "ECHO: []") << out;
 }
 
 TEST(BytecodeCompiler, MultiAssignmentForClauseIteratesCartesianProduct) {
@@ -1001,9 +1006,9 @@ TEST(BytecodeCompiler, AssertExpressionCompiles) {
     ScopedVm vm(true);
     // Passing condition: falls through to body untouched.
     EXPECT_EQ(runCapturingEcho("function f(x) = assert(x > 0) x;\necho(f(5));"), "ECHO: 5");
-    // Zero-argument assert() is unconditionally true (compiled with no
-    // check at all -- see the compiler's own AssertOp case).
-    EXPECT_EQ(runCapturingEcho("function h() = assert() 42;\necho(h());"), "ECHO: 42");
+    // Zero-argument assert() FAILS: OpenSCAD reads the missing condition
+    // as undef and says "Assertion failed".
+    EXPECT_THROW(runCapturingEcho("function h() = assert() 42;\necho(h());"), EvalError);
 }
 
 TEST(BytecodeCompiler, AssertExpressionFailureThrowsWithCorrectMessage) {
@@ -1016,9 +1021,9 @@ TEST(BytecodeCompiler, AssertExpressionFailureThrowsWithCorrectMessage) {
         ev.resolveTree(ast, ctx);
         FAIL() << "expected EvalError";
     } catch (const EvalError& e) {
-        // condText baked in at compile time via the condition's own
-        // toString() -- must match the source text exactly.
-        EXPECT_NE(std::string(e.what()).find("Assertion 'x > 0' failed"), std::string::npos);
+        // The condition is quoted as the reference spells it, every binary
+        // operator in parentheses (formatExpression).
+        EXPECT_NE(std::string(e.what()).find("Assertion '(x > 0)' failed"), std::string::npos);
     }
 }
 
@@ -1033,7 +1038,7 @@ TEST(BytecodeCompiler, AssertExpressionFailureWithMessageThrowsWithMessage) {
         FAIL() << "expected EvalError";
     } catch (const EvalError& e) {
         const std::string msg = e.what();
-        EXPECT_NE(msg.find("Assertion 'x > 0' failed"), std::string::npos);
+        EXPECT_NE(msg.find("Assertion '(x > 0)' failed"), std::string::npos);
         EXPECT_NE(msg.find("must be positive"), std::string::npos);
     }
 }
@@ -1643,27 +1648,25 @@ TEST(ModuleBodyCompiles, DollarArgPropagatesIntoCompiledHullWrapChildren) {
               "ECHO: 9");
 }
 
-// The ONE behavioral subtlety Op::PushBuiltinWrap's Roof kind introduces:
-// computeRoofParams's own "Unknown roof method" warning is computed at POP
-// time (after children), deliberately, so it stays ordered AFTER any
-// echo()/warn() a child produces -- exactly matching native resolveRoof's
-// own evalChildren-then-compute-params order. Pins that ordering under the
-// compiled path specifically (every other kind in this group computes its
-// params at PUSH time instead, since none of them has an order-sensitive
-// side effect to preserve).
-TEST(ModuleBodyCompiles, CompiledRoofUnknownMethodWarningStaysOrderedAfterChildrensOwnEcho) {
+// roof()'s warnings come before its children's output, under the compiled
+// path as under the native one -- as in OpenSCAD 2026.02.01, which prints
+// "$fa too small", then "Unknown roof method", then the child's echo.
+TEST(ModuleBodyCompiles, CompiledRoofWarningsComeBeforeChildrensOwnEcho) {
     ScopedVm vm(true);
     const std::string out = runCapturingEcho(
-        "module m() { roof(method=\"bogus\") { echo(\"child\"); square(4, center=true); } }\n"
+        "module m() { roof(method=\"bogus\", $fa=0) { echo(\"child\"); square(4, center=true); } }\n"
         "m();");
     // Asserted as an ordering rather than one exact string: the warning also
     // carries call-site attribution (", from ... line N" plus TRACE lines,
     // see formatWarning), which is orthogonal to what this test pins.
-    const size_t echoAt = out.find("ECHO: \"child\"");
+    const size_t clampAt = out.find("WARNING: $fa too small - clamping to 0.010000");
     const size_t warnAt = out.find("WARNING: Unknown roof method 'bogus'. Using 'voronoi'.");
-    ASSERT_NE(echoAt, std::string::npos) << out;
+    const size_t echoAt = out.find("ECHO: \"child\"");
+    ASSERT_NE(clampAt, std::string::npos) << out;
     ASSERT_NE(warnAt, std::string::npos) << out;
-    EXPECT_LT(echoAt, warnAt) << out;
+    ASSERT_NE(echoAt, std::string::npos) << out;
+    EXPECT_LT(clampAt, warnAt) << out;
+    EXPECT_LT(warnAt, echoAt) << out;
 }
 
 // -- intersection_for -- the TRUE last native-reentry gap, closed by -------
@@ -1864,17 +1867,91 @@ TEST(ModuleBodyCompiles, EchoStatementCompilesWithNamedAndPositionalArgs) {
     EXPECT_EQ(runCapturingEcho("echo(1, b=2, 3);"), "ECHO: 1, b = 2, 3");
 }
 
-TEST(ModuleBodyCompiles, AssertStatementCompilesWithNamedArgsMessageAndEagerSideEffects) {
+TEST(ModuleBodyCompiles, AssertStatementCompilesWithNamedArgsInReverseOrder) {
     ScopedVm vm(true);
     // Named args in reverse order (message before condition), PLUS a 3rd,
-    // logically-unused positional argument -- must still be evaluated
-    // eagerly for its own side effect (mirrors evalAssertStatement's own
-    // resolveArgs() call, unlike AssertOp's lazy message).
+    // logically-unused positional argument: the condition is found, the
+    // pass skips every other argument (see Evaluator::evalAssert), and the
+    // extra positional argument still warns.
     std::string captured =
-        runCapturingEcho("assert(message=\"unused, condition true\", condition=true, echo(\"side effect\"));\n"
+        runCapturingEcho("assert(message=\"unused, condition true\", condition=true, echo(\"side effect\") 1);\n"
                           "echo(\"reached\");\n");
-    EXPECT_NE(captured.find("ECHO: \"side effect\""), std::string::npos);
-    EXPECT_NE(captured.find("ECHO: \"reached\""), std::string::npos);
+    EXPECT_EQ(captured.find("ECHO: \"side effect\""), std::string::npos) << captured;
+    EXPECT_NE(captured.find("ECHO: \"reached\""), std::string::npos) << captured;
+}
+
+// A passing assert() evaluates only its condition -- a deliberate
+// divergence from OpenSCAD, which evaluates the message too (see
+// Evaluator::evalAssert). Each script runs interpreted and compiled, in
+// both the statement and the expression form.
+namespace {
+struct AssertRun {
+    std::string log;
+    std::string error;
+};
+AssertRun runAssert(const std::string& code, bool vm) {
+    ScopedVm scoped(vm);
+    AssertRun r;
+    Evaluator ev([&](const std::string& msg) { r.log += (r.log.empty() ? "" : "\n") + msg; });
+    auto ast = parseSrc(code);
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    try {
+        ev.resolveTree(ast, ctx);
+    } catch (const EvalError& e) {
+        r.error = e.what();
+    }
+    return r;
+}
+const char* const kAssertPrelude = "function noisy() = echo(\"called\") \"m\";\n";
+} // namespace
+
+TEST(AssertShortCircuit, PassingAssertSkipsTheMessage) {
+    for (bool vm : {false, true}) {
+        for (const std::string msg : {"echo(\"e\") \"m\"", "nosuch", "noisy()", "undef + 1"}) {
+            for (const std::string code : {"assert(true, " + msg + ");",
+                                           "function f(x) = assert(x, " + msg + ") 1; y = f(true);",
+                                           "x = assert(true, " + msg + ") 2;"}) {
+                const AssertRun r = runAssert(kAssertPrelude + code, vm);
+                EXPECT_EQ(r.log, "") << "vm=" << vm << ": " << code;
+                EXPECT_EQ(r.error, "") << "vm=" << vm << ": " << code;
+            }
+        }
+    }
+}
+
+TEST(AssertShortCircuit, FailingAssertStillEvaluatesTheMessage) {
+    for (bool vm : {false, true}) {
+        for (const std::string code : {"assert(false, noisy());", "function f(x) = assert(x, noisy()) 1; y = f(false);",
+                                       "x = assert(false, noisy()) 2;"}) {
+            const AssertRun r = runAssert(kAssertPrelude + code, vm);
+            EXPECT_EQ(r.log, "ECHO: \"called\"") << "vm=" << vm << ": " << code;
+            EXPECT_NE(r.error.find("failed: \"m\""), std::string::npos) << "vm=" << vm << ": " << r.error;
+        }
+        const AssertRun w = runAssert("assert(0, nosuch);", vm);
+        EXPECT_NE(w.log.find("Ignoring unknown variable \"nosuch\""), std::string::npos) << "vm=" << vm << ": " << w.log;
+        EXPECT_NE(w.error.find("Assertion '0' failed: undef"), std::string::npos) << "vm=" << vm << ": " << w.error;
+        // Message given before the condition: the condition is still
+        // evaluated first.
+        const AssertRun o = runAssert("assert(message=echo(\"msg\") \"m\", condition=echo(\"cond\") false);", vm);
+        EXPECT_EQ(o.log, "ECHO: \"cond\"\nECHO: \"msg\"") << "vm=" << vm;
+        EXPECT_NE(o.error.find("failed: \"m\""), std::string::npos) << "vm=" << vm << ": " << o.error;
+    }
+}
+
+TEST(AssertShortCircuit, PassingAssertStillWarnsAboutUnexpectedArguments) {
+    for (bool vm : {false, true}) {
+        for (const std::string code : {"assert(true, \"m\", 3);", "function f(x) = assert(x, \"m\", 3) 1; y = f(true);",
+                                       "assert(true, bogus=1);", "x = assert(true, bogus=1) 2;"}) {
+            const AssertRun r = runAssert(code, vm);
+            EXPECT_TRUE(r.log.find("Too many unnamed arguments supplied") != std::string::npos ||
+                        r.log.find("variable bogus not specified as parameter") != std::string::npos)
+                << "vm=" << vm << ": " << code << " -> " << r.log;
+            EXPECT_EQ(r.error, "") << "vm=" << vm << ": " << code;
+        }
+        // `assert(...) children` still runs the children once passed.
+        EXPECT_EQ(runAssert("assert(true, nosuch) echo(\"child\");", vm).log, "ECHO: \"child\"") << "vm=" << vm;
+    }
 }
 
 TEST(ModuleBodyCompiles, AssertStatementCompiledFormFailsWithNamedMessage) {
@@ -1997,7 +2074,7 @@ TEST(ModuleBodyCompiles, ParentModulesCountIsAccurateAtEachNestingLevelCompiled)
                                 "module mid() { inner(); }\n"
                                 "module outer() { mid(); }\n"
                                 "outer();"),
-              "ECHO: 2");
+              "ECHO: 3");  // OpenSCAD counts the module itself (checked, 2026.02.01)
 }
 
 TEST(ModuleBodyCompiles, ParentModulesCountRecoversCorrectlyAfterACaughtExceptionCompiled) {
@@ -2025,7 +2102,7 @@ TEST(ModuleBodyCompiles, ParentModulesCountRecoversCorrectlyAfterACaughtExceptio
     auto scope2 = oscad::buildScopes(ast2);
     EvalContext ctx2 = EvalContext::makeRoot(scope2.get());
     ev.resolveTree(ast2, ctx2);
-    EXPECT_EQ(captured, "ECHO: 1");
+    EXPECT_EQ(captured, "ECHO: 2");  // inner and outer, as OpenSCAD counts
 }
 
 TEST(ModuleBodyCompiles, NestedModuleClosureStillWorksAfterADeepUnrelatedRecursiveDetour) {

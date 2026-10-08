@@ -11,8 +11,10 @@ use serde_json::json;
 use crate::{
     StatsigErr,
     evaluation::{
-        dynamic_returnable::DynamicReturnable, dynamic_string::DynamicString,
-        evaluation_data::ReturnableRef, evaluator_value::EvaluatorValue,
+        dynamic_returnable::DynamicReturnable,
+        dynamic_string::DynamicString,
+        evaluation_data::ReturnableRef,
+        evaluator_value::{EvaluatorArrayKeyMode, EvaluatorValue},
     },
     interned_str,
     interned_string::InternedString,
@@ -1953,11 +1955,15 @@ fn condition_from_pb(v: pb::Condition) -> Result<Condition, StatsigErr> {
         )?),
         None => None,
     };
+    let compiled_operator = ConditionOperator::from_str(operator.as_deref());
     let mut condition = Condition {
         compiled_condition_type: ConditionType::from_str(condition_type.as_str()),
         condition_type,
-        target_value: target_value_from_pb(v.target_value)?,
-        compiled_operator: ConditionOperator::from_str(operator.as_deref()),
+        target_value: target_value_from_pb(
+            v.target_value,
+            compiled_operator.evaluator_array_key_mode(),
+        )?,
+        compiled_operator,
         operator,
         field: v.field.map(DynamicString::from),
         additional_values: additional_values_from_pb(v.additional_values)?,
@@ -2011,11 +2017,15 @@ fn any_value_to_json_value(
 
 fn target_value_from_pb(
     target_value: Option<pb::AnyValue>,
+    array_key_mode: EvaluatorArrayKeyMode,
 ) -> Result<Option<EvaluatorValue>, StatsigErr> {
     if let Some(any_value) = &target_value {
         if let Some(any_value::Value::RawValue(raw_value)) = &any_value.value {
             if let Some(evaluator_value) =
-                InternedStore::try_get_preloaded_evaluator_value(raw_value.as_ref())
+                InternedStore::try_get_preloaded_evaluator_value_with_array_key_mode(
+                    raw_value.as_ref(),
+                    array_key_mode,
+                )
             {
                 return Ok(Some(evaluator_value));
             }
@@ -2024,7 +2034,8 @@ fn target_value_from_pb(
 
     match any_value_to_json_value(target_value)? {
         Some(json_value) => {
-            let evaluator_value = EvaluatorValue::from_json_value(json_value);
+            let evaluator_value =
+                EvaluatorValue::from_json_value_with_array_key_mode(json_value, array_key_mode);
             Ok(Some(evaluator_value))
         }
         None => Ok(None),

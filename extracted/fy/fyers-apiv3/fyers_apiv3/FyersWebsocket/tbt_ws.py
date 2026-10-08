@@ -67,26 +67,38 @@ class Depth:
                 self.tsq = currdata.depth.tsq.value
 
             if currdata.depth.asks is not None:
-                for i in range(len(currdata.depth.asks)):
-                    if currdata.depth.asks[i].HasField('price'):
-                        self.askprice[i] = currdata.depth.asks[i].price.value / 100
+                for level in currdata.depth.asks:
+                    if not level.HasField('num'):
+                        continue
+                    idx = level.num.value
+                    if not 0 <= idx < 50:
+                        continue
 
-                    if currdata.depth.asks[i].HasField('qty'):
-                        self.askqty[i] = currdata.depth.asks[i].qty.value
+                    if level.HasField('price'):
+                        self.askprice[idx] = level.price.value / 100
 
-                    if currdata.depth.asks[i].HasField('nord'):
-                        self.askordn[i] = currdata.depth.asks[i].nord.value
-                        
+                    if level.HasField('qty'):
+                        self.askqty[idx] = level.qty.value
+
+                    if level.HasField('nord'):
+                        self.askordn[idx] = level.nord.value
+
             if currdata.depth.bids is not None:
-                for i in range(len(currdata.depth.bids)):
-                    if currdata.depth.bids[i].HasField('price'):
-                        self.bidprice[i] = currdata.depth.bids[i].price.value / 100
+                for level in currdata.depth.bids:
+                    if not level.HasField('num'):
+                        continue
+                    idx = level.num.value
+                    if not 0 <= idx < 50:
+                        continue
 
-                    if currdata.depth.bids[i].HasField('qty'):
-                        self.bidqty[i] = currdata.depth.bids[i].qty.value
+                    if level.HasField('price'):
+                        self.bidprice[idx] = level.price.value / 100
 
-                    if currdata.depth.bids[i].HasField('nord'):
-                        self.bidordn[i] = currdata.depth.bids[i].nord.value
+                    if level.HasField('qty'):
+                        self.bidqty[idx] = level.qty.value
+
+                    if level.HasField('nord'):
+                        self.bidordn[idx] = level.nord.value
             
             self.timestamp = currdata.feed_time.value
             self.sendtime = currdata.send_time.value

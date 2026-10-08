@@ -647,7 +647,13 @@ class Principal(DAVObject):
         cn = self.get_display_name()
         ids = self.calendar_user_address_set()
         cutype = self.get_property(cdav.CalendarUserType())
-        ret = vCalAddress(ids[0])
+        ## A server may advertise calendar-user-address-set and still return it
+        ## empty (Xandikos does).  RFC 6638 section 2.4.1: "In the event that a
+        ## user has no well-defined identifier for his calendar user address,
+        ## the URI of his principal resource can be used."  An *absent*
+        ## property is a different thing - that means the user is not enabled
+        ## for scheduling at all, and calendar_user_address_set() raises.
+        ret = vCalAddress(next((i for i in ids if i), None) or str(self.url))
         ret.params["cn"] = vText(cn)
         ret.params["cutype"] = vText(cutype)
         return ret
@@ -666,7 +672,9 @@ class Principal(DAVObject):
         assert not [x for x in addresses_el if x.tag != dav.Href().tag]
         addresses = sorted(list(addresses_el), key=lambda x: -int(x.get("preferred", 0)))
         cutype = await self.get_property(cdav.CalendarUserType())
-        ret = vCalAddress(addresses[0].text)
+        ## empty-but-present property: the principal URL is the address,
+        ## see the comment in the sync get_vcal_address()
+        ret = vCalAddress(next((a.text for a in addresses if a.text), None) or str(self.url))
         ret.params["cn"] = vText(cn)
         ret.params["cutype"] = vText(cutype)
         return ret
@@ -890,7 +898,10 @@ class Calendar(DAVObject):
                     raise error.MkcalendarError(
                         "Creation of calendars (allegedly) not supported on this server"
                     )
-                if supported["support"] == "quirk" and supported["behaviour"] == "mkcol-required":
+                if (
+                    supported["support"] == "quirk"
+                    and supported.get("behaviour") == "mkcol-required"
+                ):
                     method = "mkcol"
                 else:
                     method = "mkcalendar"
@@ -899,6 +910,11 @@ class Calendar(DAVObject):
 
         path = self.parent.url.join(id + "/")
         self.url = path
+
+        ## A server creating calendars asynchronously (Infomaniak) answers the
+        ## MKCALENDAR before the collection exists; the profile says how long
+        ## it may take, and we poll for it rather than sleeping that long.
+        creation_delay = self._settle_delay("synchronous-write.create-calendar")
 
         # TODO: mkcalendar seems to ignore the body on most servers?
         # at least the name doesn't get set this way.
@@ -950,12 +966,17 @@ class Calendar(DAVObject):
         mkcol = (dav.Mkcol() if method == "mkcol" else cdav.Mkcalendar()) + set
 
         if self.is_async_client:
-            return self._async_create(path, mkcol, method, name, display_name, stable_url)
+            return self._async_create(
+                path, mkcol, method, name, display_name, stable_url, creation_delay
+            )
 
         response = self._query(
             root=mkcol, query_method=method, url=path, expected_return_value=_CREATED_STATUSES
         )
         _assert_created(response, method)
+
+        if creation_delay:
+            self._wait_until(self._exists, creation_delay, "the new calendar to appear")
 
         # COMPATIBILITY ISSUE
         # name should already be set, but we've seen caldav servers failing
@@ -981,6 +1002,22 @@ class Calendar(DAVObject):
         # self.url to the canonical URL the server actually assigned.
         if display_name and not stable_url:
             self._adopt_canonical_url(name)
+
+    def _exists(self) -> bool:
+        """Whether the collection answers a PROPFIND yet (see _create)."""
+        try:
+            self.get_properties([dav.ResourceType()])
+            return True
+        except error.NotFoundError:
+            return False
+
+    async def _async_exists(self) -> bool:
+        """Async twin of :meth:`_exists`."""
+        try:
+            await self.get_properties([dav.ResourceType()])
+            return True
+        except error.NotFoundError:
+            return False
 
     def _adopt_canonical_url(self, name) -> None:
         """Re-point ``self.url`` to the server's canonical URL for this calendar.
@@ -1053,12 +1090,21 @@ class Calendar(DAVObject):
             return
         self.url = relocated[0]
 
-    async def _async_create(self, path, mkcol, method, name, display_name, stable_url) -> None:
+    async def _async_create(
+        self, path, mkcol, method, name, display_name, stable_url, creation_delay=0
+    ) -> None:
         """Async implementation of _create (call via _create, not directly)."""
+        import asyncio
+
         response = await self._query(
             root=mkcol, query_method=method, url=path, expected_return_value=_CREATED_STATUSES
         )
         _assert_created(response, method)
+
+        if creation_delay:
+            await self._async_wait_until(
+                self._async_exists, creation_delay, "the new calendar to appear"
+            )
 
         # COMPATIBILITY ISSUE - try to set display name explicitly
         if display_name:
@@ -1127,8 +1173,14 @@ class Calendar(DAVObject):
 
         if wipe:
             return self.delete(wipe=True)
-        else:
-            super().delete()
+        super().delete()
+
+        ## A server deleting calendars asynchronously (Infomaniak) answers the
+        ## DELETE before the collection is gone; poll for up to the delay, so
+        ## a calendar re-created under the same id does not meet the old one.
+        deletion_delay = self._settle_delay("synchronous-write.delete-calendar")
+        if deletion_delay:
+            self._wait_until(lambda: not self._exists(), deletion_delay, "the calendar to go away")
 
     async def _async_delete(self, wipe=None):
         """Async implementation of Calendar.delete()."""
@@ -1166,8 +1218,17 @@ class Calendar(DAVObject):
 
         if wipe:
             await self._async_delete(wipe=True)
-        else:
-            await DAVObject._async_delete(self)
+            return
+        await DAVObject._async_delete(self)
+
+        # See delete() (sync) - wait for an asynchronous deletion to land.
+        deletion_delay = self._settle_delay("synchronous-write.delete-calendar")
+        if deletion_delay:
+
+            async def gone() -> bool:
+                return not await self._async_exists()
+
+            await self._async_wait_until(gone, deletion_delay, "the calendar to go away")
 
     def _supported_components_from_response(self, response: Any, with_fallback: bool) -> list[Any]:
         """Extract supported component types from a propfind DAVResponse.

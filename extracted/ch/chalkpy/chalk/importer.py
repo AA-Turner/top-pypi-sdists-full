@@ -1531,6 +1531,13 @@ class ChalkImporter:
                     # If it is not well-formed, then an `_UnderscoreValidationError` will
                     # be thrown.
                     try:
+                        if f.is_has_many:
+                            raise _UnderscoreValidationError(
+                                "underscore expressions cannot be used to compute non-scalar features like has_many "
+                                + "features. To compute an aggregate value, include the filter in the same expression "
+                                + "as the aggregate operation, e.g. "
+                                + "`positive_count: int = _.transactions[_.amount > 0].count()`"
+                            )
                         _supplemental_validate_underscore_expression(
                             state=_SupplementalState(),
                             class_namespace=feature_class,

@@ -6,126 +6,106 @@
 
 #include <cstdint>
 
-// surface(file, center=false, invert=false) -- mirrors _resolve_surface/
-// _generate_surface: loads a height grid (surface_load.hpp), builds a
-// terrain solid (grid of top vertices at each cell's height + a flat
-// bottom cap at z=0 + side walls), exactly matching the reference's own
-// vertex/triangle indexing so cross-checked output triangle-counts match.
+// surface(file, center, invert, convexity): a height map read by
+// loadSurface (surface_load.cpp) built into a solid.
+
+#include <manifold/polygon.h>
 
 namespace oscadeval {
 
 CSGParams resolveSurface(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx) {
     auto [args, effCtx] = resolveCallArgs(ev, node.arguments, ctx);
-    const Value fileArg = getArg(args, 0, "file", Value{});
-    const bool center = truthy(getArg(args, std::nullopt, "center", Value{false}));
-    const bool invert = truthy(getArg(args, std::nullopt, "invert", Value{false}));
+    // (file, center, convexity) positional, invert named after them; center
+    // and invert count only as real bools.
+    const Value fileArg = getArg(args, 0, "file", Value{std::string("")});
+    const Value centerArg = getArg(args, 1, "center", Value{false});
+    const Value invertArg = getArg(args, 3, "invert", Value{false});
+    const bool center = std::holds_alternative<bool>(centerArg) && std::get<bool>(centerArg);
+    const bool invert = std::holds_alternative<bool>(invertArg) && std::get<bool>(invertArg);
 
     CSGParams params;
     params["center"] = Value{center};
     params["color"] = colorToValue(effCtx.color);
-    if (std::holds_alternative<std::monostate>(fileArg)) {
-        ev.error("surface: 'file' parameter is required", node);
-    }
-    const std::string path = resolveFilePath(fileArg, node);
+    // No file at all is reported as '', not as the script's directory.
+    const bool noFile = std::holds_alternative<std::string>(fileArg) && std::get<std::string>(fileArg).empty();
+    const std::string path = noFile ? std::string() : resolveFilePath(fileArg, node);
 
-    std::vector<std::vector<double>> heights;
-    try {
-        heights = loadSurfaceHeights(path, invert);
-    } catch (const std::exception& e) {
-        ev.error(std::string("surface: ") + e.what(), node);
-    }
-    if (heights.empty() || heights.front().empty()) {
-        ev.error("surface: empty height data", node);
-    }
-
-    std::vector<Value> rows;
-    rows.reserve(heights.size());
-    for (const auto& row : heights) {
-        std::vector<Value> rowVals;
-        rowVals.reserve(row.size());
-        for (double v : row) rowVals.push_back(Value{v});
-        rows.push_back(Value{makeList(std::move(rowVals))});
-    }
-    params["heights"] = Value{makeList(std::move(rows))};
+    SurfaceData data = loadSurface(path, invert);
+    // Logged without a location.
+    for (const std::string& w : data.warnings) ev.warn(w, nullptr);
+    params["rows"] = Value{static_cast<double>(data.rows)};
+    params["cols"] = Value{static_cast<double>(data.cols)};
+    params["min"] = Value{data.minVal};
+    std::vector<Value> hs;
+    hs.reserve(data.heights.size());
+    for (double v : data.heights) hs.push_back(Value{v});
+    params["heights"] = Value{makeList(std::move(hs))};
     return params;
 }
 
 std::vector<ColoredBody> generateSurface(Evaluator& ev, const CSGParams& params, const std::vector<std::unique_ptr<CSGNode>>&,
                                           const oscad::ASTNode& node) {
-    const auto& rowsList = std::get<ListPtr>(params.at("heights"))->items;
-    const std::size_t rows = rowsList.size();
-    const std::size_t cols = std::get<ListPtr>(rowsList[0])->items.size();
+    // The solid built from params "rows", "cols", "heights" (row-major),
+    // "min" and "center": the height grid on top, each cell split into four
+    // triangles at its centre, closed by walls and a flat base 1 below the
+    // lowest height.
+    const int rows = static_cast<int>(std::get<double>(params.at("rows")));
+    const int cols = static_cast<int>(std::get<double>(params.at("cols")));
+    if (rows < 2 || cols < 2) return {};
+    const auto& heights = std::get<ListPtr>(params.at("heights"))->items;
+    const double base = std::get<double>(params.at("min")) - 1.0;
     const bool center = std::get<bool>(params.at("center"));
+    const double dx = center ? -(cols - 1) / 2.0 : 0.0;
+    const double dy = center ? -(rows - 1) / 2.0 : 0.0;
 
-    std::vector<std::vector<double>> heights(rows);
-    for (std::size_t r = 0; r < rows; ++r) {
-        const auto& rowItems = std::get<ListPtr>(rowsList[r])->items;
-        heights[r].resize(cols);
-        for (std::size_t c = 0; c < cols; ++c) heights[r][c] = std::get<double>(rowItems[c]);
-    }
-
-    const double xOff = center ? -(static_cast<double>(cols) - 1) / 2.0 : 0.0;
-    const double yOff = center ? -(static_cast<double>(rows) - 1) / 2.0 : 0.0;
-    const std::size_t n = rows * cols;
-
-    const auto top = [&](std::size_t r, std::size_t c) { return static_cast<uint32_t>(r * cols + c); };
-    const auto bot = [&](std::size_t r, std::size_t c) { return static_cast<uint32_t>(n + r * cols + c); };
-
-    // MeshGL64 -- see generatePolyhedron for why float truncation here
-    // manufactures degenerate coincidences for later booleans.
     manifold::MeshGL64 mesh;
     mesh.numProp = 3;
-    for (std::size_t r = 0; r < rows; ++r) {
-        for (std::size_t c = 0; c < cols; ++c) {
-            mesh.vertProperties.push_back(static_cast<double>(c) + xOff);
-            mesh.vertProperties.push_back(static_cast<double>(r) + yOff);
-            mesh.vertProperties.push_back(heights[r][c]);
-        }
-    }
-    for (std::size_t r = 0; r < rows; ++r) {
-        for (std::size_t c = 0; c < cols; ++c) {
-            mesh.vertProperties.push_back(static_cast<double>(c) + xOff);
-            mesh.vertProperties.push_back(static_cast<double>(r) + yOff);
-            mesh.vertProperties.push_back(0.0f);
-        }
-    }
-
-    const auto addTri = [&](uint32_t a, uint32_t b, uint32_t c) {
-        mesh.triVerts.push_back(a);
-        mesh.triVerts.push_back(b);
-        mesh.triVerts.push_back(c);
+    const auto addVert = [&](double x, double y, double z) {
+        mesh.vertProperties.insert(mesh.vertProperties.end(), {x + dx, y + dy, z});
+        return static_cast<uint64_t>(mesh.vertProperties.size() / 3 - 1);
     };
+    const auto addTri = [&](uint64_t a, uint64_t b, uint64_t c) { mesh.triVerts.insert(mesh.triVerts.end(), {a, b, c}); };
+    const auto h = [&](int i, int j) { return std::get<double>(heights[static_cast<size_t>(i * cols + j)]); };
 
-    for (std::size_t r = 0; r + 1 < rows; ++r) { // top surface
-        for (std::size_t c = 0; c + 1 < cols; ++c) {
-            const uint32_t tl = top(r + 1, c), tr = top(r + 1, c + 1), bl = top(r, c), br = top(r, c + 1);
-            addTri(tl, bl, br);
-            addTri(tl, br, tr);
+    // Grid point (row i, column j) is vertex i * cols + j.
+    for (int i = 0; i < rows; ++i)
+        for (int j = 0; j < cols; ++j) addVert(j, i, h(i, j));
+    const auto grid = [&](int i, int j) { return static_cast<uint64_t>(i * cols + j); };
+
+    for (int i = 1; i < rows; ++i)
+        for (int j = 1; j < cols; ++j) {
+            const double mid = (h(i - 1, j - 1) + h(i - 1, j) + h(i, j) + h(i, j - 1)) / 4.0;
+            const uint64_t m = addVert(j - 0.5, i - 0.5, mid);
+            const uint64_t a = grid(i - 1, j - 1), b = grid(i - 1, j), c = grid(i, j), d = grid(i, j - 1);
+            addTri(a, b, m);
+            addTri(b, c, m);
+            addTri(c, d, m);
+            addTri(d, a, m);
         }
+
+    // The boundary, counter-clockwise seen from above, each point with a
+    // copy dropped to the base.
+    std::vector<std::pair<int, int>> ring;
+    for (int j = 0; j < cols - 1; ++j) ring.emplace_back(0, j);
+    for (int i = 0; i < rows - 1; ++i) ring.emplace_back(i, cols - 1);
+    for (int j = cols - 1; j > 0; --j) ring.emplace_back(rows - 1, j);
+    for (int i = rows - 1; i > 0; --i) ring.emplace_back(i, 0);
+
+    manifold::SimplePolygonIdx floor;
+    std::vector<uint64_t> top, bottom;
+    for (const auto& [i, j] : ring) {
+        top.push_back(grid(i, j));
+        bottom.push_back(addVert(j, i, base));
+        floor.push_back({manifold::vec2(j, i), static_cast<int>(bottom.back())});
     }
-    for (std::size_t r = 0; r + 1 < rows; ++r) { // bottom cap (z=0)
-        for (std::size_t c = 0; c + 1 < cols; ++c) {
-            const uint32_t tl = bot(r + 1, c), tr = bot(r + 1, c + 1), bl = bot(r, c), br = bot(r, c + 1);
-            addTri(tl, tr, br);
-            addTri(tl, br, bl);
-        }
+    for (size_t k = 0; k < ring.size(); ++k) {
+        const size_t n = (k + 1) % ring.size();
+        addTri(bottom[k], bottom[n], top[n]);
+        addTri(bottom[k], top[n], top[k]);
     }
-    for (std::size_t c = 0; c + 1 < cols; ++c) { // front wall (r=0, outward -Y)
-        addTri(top(0, c), bot(0, c), bot(0, c + 1));
-        addTri(top(0, c), bot(0, c + 1), top(0, c + 1));
-    }
-    for (std::size_t c = 0; c + 1 < cols; ++c) { // back wall (r=rows-1, outward +Y)
-        addTri(top(rows - 1, c), top(rows - 1, c + 1), bot(rows - 1, c + 1));
-        addTri(top(rows - 1, c), bot(rows - 1, c + 1), bot(rows - 1, c));
-    }
-    for (std::size_t r = 0; r + 1 < rows; ++r) { // left wall (c=0, outward -X)
-        addTri(top(r, 0), top(r + 1, 0), bot(r + 1, 0));
-        addTri(top(r, 0), bot(r + 1, 0), bot(r, 0));
-    }
-    for (std::size_t r = 0; r + 1 < rows; ++r) { // right wall (c=cols-1, outward +X)
-        addTri(top(r, cols - 1), bot(r + 1, cols - 1), top(r + 1, cols - 1));
-        addTri(top(r, cols - 1), bot(r, cols - 1), bot(r + 1, cols - 1));
-    }
+    // The base faces down: its counter-clockwise triangles reversed.
+    for (const manifold::ivec3& t : manifold::TriangulateIdx({floor}))
+        addTri(static_cast<uint64_t>(t[0]), static_cast<uint64_t>(t[2]), static_cast<uint64_t>(t[1]));
 
     manifold::Manifold body(mesh);
     return {ev.tagGenerated(std::move(body), node, params.at("color"))};

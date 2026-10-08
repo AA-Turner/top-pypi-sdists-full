@@ -52,7 +52,11 @@ Contract (mirrors the plugin hook's, adapted to a long-lived process):
     UUID per the event's own identity_mode — attribution is an invariant,
     not a race.
   * METADATA ONLY. ids, versions, counts, booleans, enum outcomes. No folder
-    paths, no error strings (exception text can embed a path).
+    paths, no error strings (exception text can embed a path). ONE exception,
+    decided by Richard 2026-10-07: `daemon.error` carries `error_text`, the
+    error's first line, secret-scrubbed, home folder as `~`, <= 300 chars
+    (`probe.daemon.alerts.error_text`). It exists to be read by an engineer in
+    #eng-alerts; no other event inherits it.
   * KILLSWITCH + HOSTED GATE. PROBE_TELEMETRY=off disables everything; so
     does a resolved base_url outside the hosted service (the self-host
     egress promise, extended to the client). Both are checked before the
@@ -159,6 +163,9 @@ EVENT_OUTBOX_STUCK = "outbox.stuck"
 #: writes and at each run's close. Deltas since its last report, counts only --
 #: never a key, body, name or path -- so we see loss before a customer does.
 EVENT_DELIVERY_SUMMARY = "sdk.delivery.summary"
+#: The daemon hit an error an engineer should look at (`probe.daemon.alerts`).
+#: A PostHog destination posts it to #eng-alerts.
+EVENT_DAEMON_ERROR = "daemon.error"
 
 
 class IdentityMode(StrEnum):
@@ -175,6 +182,8 @@ class Via(StrEnum):
     #: origin IS on the record the worker replays the approver's `via` instead,
     #: so the approval and its completion share one funnel.
     IMPORT_JOB = "import_job"
+    #: The daemon's worker (`probe.daemon.alerts`).
+    DAEMON = "daemon"
     NONE = "none"  # null_context — never reaches the wire
 
 
@@ -843,7 +852,7 @@ def emit_delivery_summary(*, base_url: str | None, flush: bool = False, **counts
     may already have run); waits at most the sender's flush bound."""
     try:
         props = {key: value for key, value in counts.items() if key in DELIVERY_SUMMARY_FIELDS}
-        ctx = _detached_outbox_context(base_url)
+        ctx = detached_context(base_url, via=Via.OUTBOX)
         ctx.emit(EVENT_DELIVERY_SUMMARY, **props)
         if flush and ctx.enabled:
             _flush_at_exit()
@@ -851,7 +860,7 @@ def emit_delivery_summary(*, base_url: str | None, flush: bool = False, **counts
         pass  # observability must never become observable
 
 
-def _detached_outbox_context(base_url: str | None) -> TelemetryContext:
+def detached_context(base_url: str | None, *, via: str) -> TelemetryContext:
     """`outbox_context`'s gates without making it THE process's context: this
     is sent from a daemon thread of any process, a CLI command's included,
     whose own session context must stay current."""
@@ -863,7 +872,7 @@ def _detached_outbox_context(base_url: str | None) -> TelemetryContext:
         enabled = False
     ctx = TelemetryContext(
         session_id=uuid.uuid4().hex,
-        via=Via.OUTBOX,
+        via=via,
         invoked_by=InvokedBy.AUTOMATION,
         enabled=enabled,
     )

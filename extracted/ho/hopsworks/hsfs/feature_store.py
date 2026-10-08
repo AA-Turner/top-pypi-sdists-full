@@ -40,6 +40,7 @@ from hsfs.core import (
     feature_group_api,
     feature_group_engine,
     feature_view_engine,
+    keywords_api,
     search_api,
     storage_connector_api,
     training_dataset_api,
@@ -67,6 +68,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
     from hsfs.constructor.query import Query
+    from hsfs.core.multi_table_ingestion import MultiTableIngestionJob
     from hsfs.embedding import EmbeddingIndex
     from hsfs.hopsworks_udf import HopsworksUdf
     from hsfs.online_config import OnlineConfig
@@ -754,7 +756,7 @@ class FeatureStore:
         version: int | None = None,
         description: str = "",
         online_enabled: bool = False,
-        time_travel_format: str | None = "DELTA",
+        time_travel_format: str | None = None,
         partition_key: list[str] | None = None,
         primary_key: list[str] | None = None,
         foreign_key: list[str] | None = None,
@@ -785,7 +787,14 @@ class FeatureStore:
         online_disk: bool | None = None,
         sink_enabled: bool | None = False,
         sink_job_conf: dict[str, Any] | None = None,
+        sink_job: Job | MultiTableIngestionJob | dict[str, Any] | None = None,
         tags: tag.Tag | dict[str, Any] | list[tag.Tag | dict[str, Any]] | None = None,
+        partitioned_by: list[str] | None = None,
+        online_partition_columns: bool = False,
+        zorder_by: list[str] | None = None,
+        clustered_by: list[str] | None = None,
+        bucket_index: dict[str, Any] | None = None,
+        sort_order: list[str] | None = None,
     ) -> feature_group.FeatureGroup:
         """Create a feature group metadata object.
 
@@ -829,7 +838,7 @@ class FeatureStore:
             version: Version of the feature group to create, defaults to `None` and will create the feature group with incremented version from the last version in the feature store.
             description: A string describing the contents of the feature group to improve discoverability for Data Scientists.
             online_enabled: Define whether the feature group should be made available also in the online feature store for low latency access.
-            time_travel_format: Format used for time travel, either `"DELTA"`, `"HUDI"`, or `None` to disable time travel, defaults to `"DELTA"`.
+            time_travel_format: Format used for time travel, either `"DELTA"`, `"HUDI"`, `"ICEBERG"`, or `None` to disable time travel; when left unset, the format of `data_source` is used if it specifies one, otherwise it falls back to `"DELTA"`.
             partition_key: A list of feature names to be used as partition key when writing the feature data to the offline storage, defaults to empty list `[]`.
             primary_key:
                 A list of feature names to be used as primary key for the feature group.
@@ -931,6 +940,9 @@ class FeatureStore:
             sink_job_conf:
                 Optional configuration describing the sink job to create when `sink_enabled` is True.
                 Accepts either a job configuration object or a dictionary.
+            sink_job:
+                Optional shared multi-table ingestion job from [`DataSource.new_ingestion_job`][hsfs.core.data_source.DataSource.new_ingestion_job].
+                When set, this feature group is registered as a target of that job instead of getting its own sink job, and `sink_job_conf` supplies its per-target overrides.
             tags:
                 Optionally, define tags for the feature group. Tags can be provided as:
                 - A single Tag object
@@ -938,6 +950,32 @@ class FeatureStore:
                 - A list of Tag objects
                 - A list of dictionaries with 'name' and 'value' keys
                 Tags will be attached to the feature group after it is saved.
+            partitioned_by:
+                A list of native partition transform expressions applied to the offline data, e.g. `["day(ts)", "bucket(16, id)"]`.
+                On ICEBERG the list compiles into the table's partition spec (hidden partitioning) and supports `identity(col)` (or a bare column name), `bucket(N, col)`, `truncate(W, col)`, `year(col)`, `month(col)`, `day(col)`, `hour(col)`, and `void(col)`.
+                On HUDI it supports `identity(col)` plus the temporal grains `year/month/week/day/hour(event_time_col)`, which materialize as partition columns.
+                DELTA is rejected because Delta has no partition transforms; use `clustered_by` or `partition_key` there.
+                Mutually exclusive with `partition_key`; defaults to `None`.
+            online_partition_columns:
+                Whether the synthetic `partitioned_by` grain columns are also stored in the online feature store.
+                Only meaningful on HUDI, the one format that creates synthetic columns.
+                When `False` the grain columns live only in the offline storage; defaults to `False`.
+            zorder_by:
+                A list of column names to z-order the offline data by, e.g. `["merchant_id", "amount"]`.
+                Supported for ICEBERG (applied by [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize]) and HUDI (applied by inline clustering on writes); DELTA is rejected because `clustered_by` covers the use case.
+                At most 4 columns; defaults to `None`.
+            clustered_by:
+                A list of column names to liquid-cluster the offline data by, e.g. `["ts", "customer_id"]`; DELTA only, at most 4 columns.
+                Clustered feature groups are writable by Spark only, because liquid clustering uses Delta writer table features that delta-rs does not support; from a Python environment pass `stream=True` so writes go through the Spark materialization job.
+                Mutually exclusive with `partition_key`; defaults to `None`.
+            bucket_index:
+                Hudi bucket index configuration as `{"field": <primary key column>, "num_buckets": N}`, optionally with `"engine"` set to `"simple"` (the only supported engine; consistent hashing requires a merge-on-read table); HUDI only.
+                Injects the corresponding `hoodie.bucket.index.*` write options; the same options, including a partition-level bucket index, can be set directly through `write_options`.
+                Defaults to `None`.
+            sort_order:
+                A persistent Iceberg write sort order, e.g. `["merchant_id asc", "amount desc nulls last"]`; ICEBERG only.
+                New writes are range-distributed and sorted on these fields, and [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize] with `strategy="sort"` rewrites existing files to the order.
+                Mutually exclusive with `zorder_by` (the two prescribe conflicting file layouts); defaults to `None`.
 
         Returns:
             The feature group metadata object.
@@ -953,6 +991,10 @@ class FeatureStore:
                 DeprecationWarning,
                 stacklevel=2,
             )
+        # When the format is left unset, use the one the data source advertises
+        # if it specifies one, otherwise fall back to the default format.
+        if time_travel_format is None:
+            time_travel_format = data_source.format or "DELTA"
         feature_group_object = feature_group.FeatureGroup(
             name=name,
             version=version,
@@ -983,7 +1025,14 @@ class FeatureStore:
             online_disk=online_disk,
             sink_enabled=sink_enabled,
             sink_job_conf=sink_job_conf,
+            sink_job=sink_job,
             tags=normalized_tags,
+            partitioned_by=partitioned_by,
+            online_partition_columns=online_partition_columns,
+            zorder_by=zorder_by,
+            clustered_by=clustered_by,
+            bucket_index=bucket_index,
+            sort_order=sort_order,
         )
         feature_group_object.feature_store = self
         return feature_group_object
@@ -996,7 +1045,7 @@ class FeatureStore:
         version: int,
         description: str | None = "",
         online_enabled: bool | None = False,
-        time_travel_format: str | None = "DELTA",
+        time_travel_format: str | None = None,
         partition_key: list[str] | None = None,
         primary_key: list[str] | None = None,
         foreign_key: list[str] | None = None,
@@ -1027,7 +1076,14 @@ class FeatureStore:
         online_disk: bool | None = None,
         sink_enabled: bool | None = False,
         sink_job_conf: dict[str, Any] | None = None,
+        sink_job: Job | MultiTableIngestionJob | dict[str, Any] | None = None,
         tags: tag.Tag | dict[str, Any] | list[tag.Tag | dict[str, Any]] | None = None,
+        partitioned_by: list[str] | None = None,
+        online_partition_columns: bool = False,
+        zorder_by: list[str] | None = None,
+        clustered_by: list[str] | None = None,
+        bucket_index: dict[str, Any] | None = None,
+        sort_order: list[str] | None = None,
     ) -> (
         feature_group.FeatureGroup
         | feature_group.ExternalFeatureGroup
@@ -1065,7 +1121,7 @@ class FeatureStore:
             version: Version of the feature group to retrieve or create.
             description: A string describing the contents of the feature group to improve discoverability for Data Scientists.
             online_enabled: Define whether the feature group should be made available also in the online feature store for low latency access.
-            time_travel_format: Format used for time travel, either `"DELTA"`, `"HUDI"`, or `None` to disable time travel, defaults to `"DELTA"`.
+            time_travel_format: Format used for time travel, either `"DELTA"`, `"HUDI"`, `"ICEBERG"`, or `None` to disable time travel; when left unset, the format of `data_source` is used if it specifies one, otherwise it falls back to `"DELTA"`.
             partition_key: A list of feature names to be used as partition key when writing the feature data to the offline storage, defaults to empty list `[]`.
             primary_key:
                 A list of feature names to be used as primary key for the feature group.
@@ -1166,6 +1222,9 @@ class FeatureStore:
                 Enable copying data from the configured data source to the feature group.
             sink_job_conf:
                 Optional configuration describing the sink job to create when `sink_enabled` is True.
+            sink_job:
+                Optional shared multi-table ingestion job from [`DataSource.new_ingestion_job`][hsfs.core.data_source.DataSource.new_ingestion_job].
+                When set, this feature group is registered as a target of that job instead of getting its own sink job, and `sink_job_conf` supplies its per-target overrides.
             tags:
                 Optionally, define tags for the feature group. Tags can be provided as:
                 - A single Tag object
@@ -1173,6 +1232,32 @@ class FeatureStore:
                 - A list of Tag objects
                 - A list of dictionaries with 'name' and 'value' keys
                 Tags will be attached to the feature group after it is saved.
+            partitioned_by:
+                A list of native partition transform expressions applied to the offline data, e.g. `["day(ts)", "bucket(16, id)"]`.
+                On ICEBERG the list compiles into the table's partition spec (hidden partitioning) and supports `identity(col)` (or a bare column name), `bucket(N, col)`, `truncate(W, col)`, `year(col)`, `month(col)`, `day(col)`, `hour(col)`, and `void(col)`.
+                On HUDI it supports `identity(col)` plus the temporal grains `year/month/week/day/hour(event_time_col)`, which materialize as partition columns.
+                DELTA is rejected because Delta has no partition transforms; use `clustered_by` or `partition_key` there.
+                Mutually exclusive with `partition_key`; defaults to `None`.
+            online_partition_columns:
+                Whether the synthetic `partitioned_by` grain columns are also stored in the online feature store.
+                Only meaningful on HUDI, the one format that creates synthetic columns.
+                When `False` the grain columns live only in the offline storage; defaults to `False`.
+            zorder_by:
+                A list of column names to z-order the offline data by, e.g. `["merchant_id", "amount"]`.
+                Supported for ICEBERG (applied by [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize]) and HUDI (applied by inline clustering on writes); DELTA is rejected because `clustered_by` covers the use case.
+                At most 4 columns; defaults to `None`.
+            clustered_by:
+                A list of column names to liquid-cluster the offline data by, e.g. `["ts", "customer_id"]`; DELTA only, at most 4 columns.
+                Clustered feature groups are writable by Spark only, because liquid clustering uses Delta writer table features that delta-rs does not support; from a Python environment pass `stream=True` so writes go through the Spark materialization job.
+                Mutually exclusive with `partition_key`; defaults to `None`.
+            bucket_index:
+                Hudi bucket index configuration as `{"field": <primary key column>, "num_buckets": N}`, optionally with `"engine"` set to `"simple"` (the only supported engine; consistent hashing requires a merge-on-read table); HUDI only.
+                Injects the corresponding `hoodie.bucket.index.*` write options; the same options, including a partition-level bucket index, can be set directly through `write_options`.
+                Defaults to `None`.
+            sort_order:
+                A persistent Iceberg write sort order, e.g. `["merchant_id asc", "amount desc nulls last"]`; ICEBERG only.
+                New writes are range-distributed and sorted on these fields, and [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize] with `strategy="sort"` rewrites existing files to the order.
+                Mutually exclusive with `zorder_by` (the two prescribe conflicting file layouts); defaults to `None`.
 
         Returns:
             The feature group metadata object.
@@ -1191,6 +1276,11 @@ class FeatureStore:
                     DeprecationWarning,
                     stacklevel=2,
                 )
+            # When the format is left unset, use the one the data source
+            # advertises if it specifies one, otherwise fall back to the
+            # default format.
+            if time_travel_format is None:
+                time_travel_format = data_source.format or "DELTA"
             feature_group_object = feature_group.FeatureGroup(
                 name=name,
                 version=version,
@@ -1221,8 +1311,37 @@ class FeatureStore:
                 online_disk=online_disk,
                 sink_enabled=sink_enabled,
                 sink_job_conf=sink_job_conf,
+                sink_job=sink_job,
                 tags=normalized_tags,
+                partitioned_by=partitioned_by,
+                online_partition_columns=online_partition_columns,
+                zorder_by=zorder_by,
+                clustered_by=clustered_by,
+                bucket_index=bucket_index,
+                sort_order=sort_order,
             )
+        elif sink_job is not None:
+            # The feature group already exists: attach it to a shared multi-table
+            # ingestion job now, so a rerun still registers it as a target (a new
+            # feature group attaches on save instead). Other sink_job types are
+            # only wired at creation time and are ignored here.
+            from hopsworks_common.core.sink_job_configuration import (
+                SinkJobConfiguration,
+            )
+            from hsfs.core.multi_table_ingestion import MultiTableIngestionJob
+
+            if isinstance(sink_job, MultiTableIngestionJob):
+                target_conf = (
+                    SinkJobConfiguration.from_response_json(sink_job_conf)
+                    if isinstance(sink_job_conf, dict)
+                    else sink_job_conf
+                )
+                feature_group_object._feature_group_engine._attach_to_shared_ingestion_job(
+                    feature_group_object,
+                    sink_job,
+                    target_conf,
+                    feature_group_object.columns,
+                )
         feature_group_object.feature_store = self
         return feature_group_object
 
@@ -1272,7 +1391,7 @@ class FeatureStore:
             query:
                 A string containing a SQL query valid for the target data source.
                 The query will be used to pull data from the data sources when the feature group is used. **[DEPRECATED: Use `data_source` instead.]**
-            data_format: If the external feature groups refers to a directory with data, the data format to use when reading it.
+            data_format: If the external feature groups refers to a directory with data, the data format to use when reading it; when left unset, the format of `data_source` is used if it specifies one.
             path: The location within the scope of the storage connector, from where to read the data for the external feature group. **[DEPRECATED: Use `data_source` instead.]**
             options:
                 Additional options to be used by the engine when reading data from the specified storage connector.
@@ -1357,6 +1476,10 @@ class FeatureStore:
                 DeprecationWarning,
                 stacklevel=2,
             )
+        # When the format is left unset, use the one the data source advertises
+        # if it specifies one.
+        if data_format is None:
+            data_format = data_source.format
         feature_group_object = feature_group.ExternalFeatureGroup(
             name=name,
             data_format=data_format,
@@ -1468,6 +1591,7 @@ class FeatureStore:
                 The query will be used to pull data from the data sources when the feature group is used. **[DEPRECATED: Use `data_source` instead.]**
             data_format:
                 If the external feature groups refers to a directory with data, the data format to use when reading it.
+                When left unset, the format of `data_source` is used if it specifies one.
             path:
                 The location within the scope of the storage connector, from where to read the data for the external feature group. **[DEPRECATED: Use `data_source` instead.]**
             options:
@@ -1574,6 +1698,10 @@ class FeatureStore:
                 DeprecationWarning,
                 stacklevel=2,
             )
+        # When the format is left unset, use the one the data source advertises
+        # if it specifies one.
+        if data_format is None:
+            data_format = data_source.format
         feature_group_object = feature_group.ExternalFeatureGroup(
             name=name,
             data_format=data_format,
@@ -1779,8 +1907,11 @@ class FeatureStore:
             description: A string describing the contents of the training dataset to improve discoverability for Data Scientists.
             data_format: The data format used to save the training dataset.
             coalesce:
-                If true the training dataset data will be coalesced into a single partition before writing.
-                The resulting training dataset will be a single file per split.
+                Applies to Spark materialization only, and is ignored when the training dataset is
+                materialized by the Feature Query Service.
+                Where it applies, the training dataset data will be coalesced into a single
+                partition before writing, and the resulting training dataset will be a single file
+                per split.
             storage_connector:
                 Storage connector defining the sink location for the training dataset, defaults to `None`, and materializes training dataset on HopsFS. **[DEPRECATED: Use `data_source` instead.]**
             splits:
@@ -2874,3 +3005,18 @@ class FeatureStore:
             limit=limit,
             global_search=global_search,
         )
+
+    @public
+    @usage._method_logger
+    def get_all_keywords(self) -> list[str]:
+        """Retrieve the keyword vocabulary in use across the whole cluster.
+
+        Despite being accessed through a feature store, the vocabulary is cluster-wide, not project-scoped: it contains every keyword attached to any artifact in any project.
+
+        Returns:
+            List of keywords.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        return keywords_api.KeywordsApi()._get_all()

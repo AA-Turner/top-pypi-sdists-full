@@ -3,6 +3,9 @@
 #include <cstring>
 #include <limits>
 #include <stdexcept>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // momwire#1224: exact-equality grouping of rows in FIRST-APPEARANCE order, by
 // hashing instead of sorting.
@@ -219,9 +222,165 @@ static py::tuple factorize_ints(
 // (rehash at half load, re-entering each group from its first row) instead
 // of being sized at twice the rows up front. Which slot a group occupies
 // never decides its number: numbers are handed out in walk order.
+// `factorize_line_keys` across threads (momwire#1377): the same (first, ids).
+//
+// Thread p owns the keys whose hash's top bits are p, walks every row in
+// the flat order, and enters only its own: a key lives in one thread's table,
+// so the threads never share a slot, and each row gets the FIRST ROW of its
+// key (rep[i] <= i, rep[i] == i where the key first occurs). A serial walk in
+// the flat order then numbers the keys where they first occur -- ids[i] =
+// next++ where rep[i] == i, else ids[rep[i]], already numbered as rep[i] < i
+// -- which is the serial kernel's walk-order numbering, so the integers are
+// the same. A NaN row is its own key (rep[i] = i, never entered), as there.
+// The tables together are the serial one's size (each grown at half load
+// from cap / threads), and rep is written into the output in place.
+static py::tuple factorize_line_keys_par(const double *Lp, const double *Zp, py::ssize_t nG,
+                                         py::ssize_t nL, int n_threads,
+                                         uintptr_t cancel_flag) {
+    const py::ssize_t n = nG * nL;
+    py::array_t<int32_t> kid(std::vector<py::ssize_t>{nG, nL});
+    int32_t *out = kid.mutable_data();
+    int P = 1;
+    while (P * 2 <= n_threads && P < 64) P *= 2;
+    int shift = 0;
+    while ((1 << shift) < P) ++shift;
+    size_t cap0 = 1024;
+    while (cap0 * static_cast<size_t>(P) < static_cast<size_t>(n)) cap0 <<= 1;
+    {
+        py::gil_scoped_release nogil;
+        MW_CANCEL_SETUP(cancel_flag);
+#pragma omp parallel num_threads(P)
+        {
+            int p = 0;
+#ifdef _OPENMP
+            p = omp_get_thread_num();
+            const int np_ = omp_get_num_threads();
+#else
+            const int np_ = 1;
+#endif
+            // Fewer threads than asked: each takes every np_-th partition.
+            for (int part = p; part < P; part += np_) {
+                size_t cap = cap0;
+                std::vector<uint64_t> table(cap, 0);
+                size_t mask = cap - 1, n_in = 0;
+                auto key_at = [&](py::ssize_t i, uint64_t *b) {
+                    std::memcpy(&b[0], Lp + i, 8);
+                    std::memcpy(&b[1], Zp + (i % nL), 8);
+                };
+                auto hash_of = [](const uint64_t *k) {
+                    uint64_t h = 0x9e3779b97f4a7c15ULL;
+                    h = mix(h ^ k[0]);
+                    h = mix(h ^ k[1]);
+                    return h;
+                };
+                auto rehash = [&]() {
+                    const size_t cap2 = cap * 2, mask2 = cap2 - 1;
+                    std::vector<uint64_t> fresh(cap2, 0);
+                    for (size_t t0 = 0; t0 < cap; ++t0) {
+                        const uint64_t slot = table[t0];
+                        if (slot == 0) continue;
+                        uint64_t b[2];
+                        key_at(static_cast<py::ssize_t>((slot & 0xffffffffULL) - 1), b);
+                        b[0] = float_key(b[0]);
+                        b[1] = float_key(b[1]);
+                        size_t t = static_cast<size_t>(hash_of(b)) & mask2;
+                        while (fresh[t] != 0) t = (t + 1) & mask2;
+                        fresh[t] = slot;
+                    }
+                    table.swap(fresh);
+                    cap = cap2;
+                    mask = mask2;
+                };
+                uint64_t hs[kPrefetchBlock];
+                for (py::ssize_t g = 0; g < nG; ++g) {
+                    const double *Lg = Lp + g * nL;
+                    for (py::ssize_t l0 = 0; l0 < nL; l0 += kPrefetchBlock) {
+                        MW_CANCEL_POLL();
+                        const py::ssize_t l1 = std::min(nL, l0 + kPrefetchBlock);
+                        for (py::ssize_t l = l0; l < l1; ++l) {
+                            uint64_t b[2];
+                            std::memcpy(&b[0], Lg + l, 8);
+                            std::memcpy(&b[1], Zp + l, 8);
+                            b[0] = float_key(b[0]);
+                            b[1] = float_key(b[1]);
+                            const uint64_t h = hash_of(b);
+                            hs[l - l0] = h;
+                            if (static_cast<int>(shift ? (h >> (64 - shift)) : 0) == part)
+                                MW_PREFETCH(table.data() + (static_cast<size_t>(h) & mask));
+                        }
+                        for (py::ssize_t l = l0; l < l1; ++l) {
+                            const py::ssize_t i = g * nL + l;
+                            uint64_t b[2];
+                            std::memcpy(&b[0], Lg + l, 8);
+                            std::memcpy(&b[1], Zp + l, 8);
+                            if (is_nan(b[0]) || is_nan(b[1])) {
+                                if (part == 0) out[i] = static_cast<int32_t>(i);
+                                continue;
+                            }
+                            const uint64_t h = hs[l - l0];
+                            if (static_cast<int>(shift ? (h >> (64 - shift)) : 0) != part) continue;
+                            b[0] = float_key(b[0]);
+                            b[1] = float_key(b[1]);
+                            if (2 * (n_in + 1) > cap) rehash();
+                            const uint64_t tag = h & 0xffffffff00000000ULL;
+                            size_t s = static_cast<size_t>(h) & mask;
+                            for (;;) {
+                                const uint64_t slot = table[s];
+                                if (slot == 0) {
+                                    table[s] = tag | (static_cast<uint64_t>(i) + 1);
+                                    ++n_in;
+                                    out[i] = static_cast<int32_t>(i);
+                                    break;
+                                }
+                                if ((slot & 0xffffffff00000000ULL) == tag) {
+                                    const py::ssize_t f =
+                                        static_cast<py::ssize_t>((slot & 0xffffffffULL) - 1);
+                                    uint64_t fb[2];
+                                    key_at(f, fb);
+                                    if (float_key(fb[0]) == b[0] && float_key(fb[1]) == b[1]) {
+                                        out[i] = static_cast<int32_t>(f);
+                                        break;
+                                    }
+                                }
+                                s = (s + 1) & mask;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        MW_THROW_IF_ABORTED();
+    }
+    // The walk-order numbering, in place over rep.
+    int64_t n_keys = 0;
+    for (py::ssize_t i = 0; i < n; ++i)
+        if (out[i] == static_cast<int32_t>(i)) ++n_keys;
+    py::array_t<int64_t> out_first(static_cast<py::ssize_t>(n_keys));
+    {
+        int64_t *F = out_first.mutable_data();
+        py::gil_scoped_release nogil;
+        MW_CANCEL_SERIAL_SETUP(cancel_flag);
+        int32_t next = 0;
+        for (py::ssize_t i0 = 0; i0 < n; i0 += 1 << 16) {
+            MW_CANCEL_SERIAL_POLL();
+            const py::ssize_t i1 = std::min(n, i0 + (1 << 16));
+            for (py::ssize_t i = i0; i < i1; ++i) {
+                const int32_t r = out[i];
+                if (r == static_cast<int32_t>(i)) {
+                    F[next] = static_cast<int64_t>(i);
+                    out[i] = next++;
+                } else {
+                    out[i] = out[r];
+                }
+            }
+        }
+    }
+    return py::make_tuple(out_first, kid);
+}
+
 static py::tuple factorize_line_keys(py::array_t<double, py::array::c_style> line,
                                      py::array_t<double, py::array::c_style> lz,
-                                     uintptr_t cancel_flag = 0) {
+                                     uintptr_t cancel_flag = 0, int n_threads = 1) {
     if (line.ndim() != 2)
         throw std::runtime_error("factorize_line_keys: line must be 2-D");
     const py::ssize_t nG = line.shape(0), nL = line.shape(1);
@@ -232,6 +391,13 @@ static py::tuple factorize_line_keys(py::array_t<double, py::array::c_style> lin
         throw std::runtime_error("factorize_line_keys: too many rows for 32-bit ids");
     const double *Lp = line.data();
     const double *Zp = lz.data();
+#ifdef _OPENMP
+    n_threads = std::min(n_threads, omp_get_max_threads());
+#else
+    n_threads = 1;
+#endif
+    if (n_threads > 1 && n > 0)
+        return factorize_line_keys_par(Lp, Zp, nG, nL, n_threads, cancel_flag);
     py::array_t<int32_t> kid(std::vector<py::ssize_t>{nG, nL});
     int32_t *out = kid.mutable_data();
     std::vector<int64_t> first;
@@ -345,6 +511,318 @@ static py::tuple factorize_line_keys(py::array_t<double, py::array::c_style> lin
     if (!first.empty())
         std::memcpy(out_first.mutable_data(), first.data(), first.size() * sizeof(int64_t));
     return py::make_tuple(out_first, kid);
+}
+
+// `factorize_rows` of ONE float64 column, answering only the group count and
+// the inverse, in int32 (momwire#1377): the crossing tiles' exact-rho classes
+// of the plan's keys (`_crossing_fill._ProductTiles`), ~11.3 M keys in
+// ~11.3 M classes at razor's inverted L x32, where `factorize_rows` stood
+// ~0.34 GB above its input (a table of twice the rows, an int64 inverse, the
+// `first` vector and its copy out). The groups and their numbers are
+// `group_rows`' -- the same equality (-0.0 folded, a NaN its own group, bits
+// otherwise), numbered in walk order -- and only the memory differs:
+//   * a slot holds the FIRST ROW of its group (under the hash tag), and that
+//     row's group is inv[row], written when the group was opened, so no
+//     `first` vector is kept;
+//   * the table is sized once at the first power of two >= 4n/3: groups <=
+//     rows, so its load never passes 3/4 and it never rehashes;
+//   * which slot a group lands in never decides its number.
+// `factorize_float_classes` across threads (momwire#1377), by
+// `factorize_line_keys_par`'s argument: thread p enters only the values whose
+// hash's top bits name it, each row gets its group's FIRST ROW, and a serial
+// walk numbers the groups where they first occur -- the same integers.
+static int64_t float_classes_par(const double *C, py::ssize_t n, int32_t *inv, int n_threads,
+                                 uintptr_t cancel_flag) {
+    int P = 1;
+    while (P * 2 <= n_threads && P < 64) P *= 2;
+    int shift = 0;
+    while ((1 << shift) < P) ++shift;
+    // Each table sized at 4/3 of an even share, grown at 3/4 load.
+    size_t cap0 = 16;
+    while (3 * cap0 * static_cast<size_t>(P) < 4 * static_cast<size_t>(n)) cap0 <<= 1;
+    {
+        py::gil_scoped_release nogil;
+        MW_CANCEL_SETUP(cancel_flag);
+#pragma omp parallel num_threads(P)
+        {
+            int p = 0;
+#ifdef _OPENMP
+            p = omp_get_thread_num();
+            const int np_ = omp_get_num_threads();
+#else
+            const int np_ = 1;
+#endif
+            for (int part = p; part < P; part += np_) {
+                size_t cap = cap0, mask = cap - 1, n_in = 0;
+                std::vector<uint64_t> table(cap, 0);
+                auto rehash = [&]() {
+                    const size_t cap2 = cap * 2, mask2 = cap2 - 1;
+                    std::vector<uint64_t> fresh(cap2, 0);
+                    for (size_t t0 = 0; t0 < cap; ++t0) {
+                        const uint64_t slot = table[t0];
+                        if (slot == 0) continue;
+                        uint64_t b;
+                        std::memcpy(&b, C + ((slot & 0xffffffffULL) - 1), 8);
+                        size_t t = static_cast<size_t>(mix(0x9e3779b97f4a7c15ULL ^ float_key(b))) & mask2;
+                        while (fresh[t] != 0) t = (t + 1) & mask2;
+                        fresh[t] = slot;
+                    }
+                    table.swap(fresh);
+                    cap = cap2;
+                    mask = mask2;
+                };
+                uint64_t hs[kPrefetchBlock];
+                for (py::ssize_t i0 = 0; i0 < n; i0 += kPrefetchBlock) {
+                    MW_CANCEL_POLL();
+                    const py::ssize_t i1 = std::min(n, i0 + kPrefetchBlock);
+                    for (py::ssize_t i = i0; i < i1; ++i) {
+                        uint64_t b;
+                        std::memcpy(&b, C + i, 8);
+                        const uint64_t h = mix(0x9e3779b97f4a7c15ULL ^ float_key(b));
+                        hs[i - i0] = h;
+                        if (static_cast<int>(shift ? (h >> (64 - shift)) : 0) == part)
+                            MW_PREFETCH(table.data() + (static_cast<size_t>(h) & mask));
+                    }
+                    for (py::ssize_t i = i0; i < i1; ++i) {
+                        uint64_t b;
+                        std::memcpy(&b, C + i, 8);
+                        if (is_nan(b)) {
+                            if (part == 0) inv[i] = static_cast<int32_t>(i);
+                            continue;
+                        }
+                        const uint64_t h = hs[i - i0];
+                        if (static_cast<int>(shift ? (h >> (64 - shift)) : 0) != part) continue;
+                        if (4 * (n_in + 1) > 3 * cap) rehash();
+                        const uint64_t key = float_key(b);
+                        const uint64_t tag = h & 0xffffffff00000000ULL;
+                        size_t s = static_cast<size_t>(h) & mask;
+                        for (;;) {
+                            const uint64_t slot = table[s];
+                            if (slot == 0) {
+                                table[s] = tag | (static_cast<uint64_t>(i) + 1);
+                                ++n_in;
+                                inv[i] = static_cast<int32_t>(i);
+                                break;
+                            }
+                            if ((slot & 0xffffffff00000000ULL) == tag) {
+                                const py::ssize_t f =
+                                    static_cast<py::ssize_t>((slot & 0xffffffffULL) - 1);
+                                uint64_t fb;
+                                std::memcpy(&fb, C + f, 8);
+                                if (float_key(fb) == key) {
+                                    inv[i] = static_cast<int32_t>(f);
+                                    break;
+                                }
+                            }
+                            s = (s + 1) & mask;
+                        }
+                    }
+                }
+            }
+        }
+        MW_THROW_IF_ABORTED();
+    }
+    py::gil_scoped_release nogil;
+    int32_t next = 0;
+    for (py::ssize_t i = 0; i < n; ++i) {
+        const int32_t r = inv[i];
+        inv[i] = r == static_cast<int32_t>(i) ? next++ : inv[r];
+    }
+    return next;
+}
+
+static py::tuple factorize_float_classes(py::array_t<double, py::array::c_style> col,
+                                         uintptr_t cancel_flag = 0, int n_threads = 1) {
+    if (col.ndim() != 1)
+        throw std::runtime_error("factorize_float_classes: one 1-D column");
+    const py::ssize_t n = col.shape(0);
+    if (n >= static_cast<py::ssize_t>(std::numeric_limits<int32_t>::max()))
+        throw std::runtime_error("factorize_float_classes: too many rows for 32-bit ids");
+    const double *C = col.data();
+    py::array_t<int32_t> inverse(n);
+    int32_t *inv = inverse.mutable_data();
+    int64_t n_groups = 0;
+#ifdef _OPENMP
+    n_threads = std::min(n_threads, omp_get_max_threads());
+#else
+    n_threads = 1;
+#endif
+    if (n_threads > 1 && n > 0)
+        return py::make_tuple(py::int_(float_classes_par(C, n, inv, n_threads, cancel_flag)),
+                              inverse);
+    if (n > 0) {
+        py::gil_scoped_release nogil;
+        MW_CANCEL_SERIAL_SETUP(cancel_flag);
+        size_t cap = 16;
+        while (3 * cap < 4 * static_cast<size_t>(n)) cap <<= 1;
+        std::vector<uint64_t> table(cap, 0);
+        const size_t mask = cap - 1;
+        uint64_t hs[kPrefetchBlock];
+        // Hashed a block ahead with each home slot prefetched, then walked
+        // row by row (`group_rows`' argument: a prefetch reads nothing it
+        // could change).
+        for (py::ssize_t i0 = 0; i0 < n; i0 += kPrefetchBlock) {
+            MW_CANCEL_SERIAL_POLL();  // per 32-row block
+            const py::ssize_t i1 = std::min(n, i0 + kPrefetchBlock);
+            for (py::ssize_t i = i0; i < i1; ++i) {
+                uint64_t b;
+                std::memcpy(&b, C + i, 8);
+                hs[i - i0] = mix(0x9e3779b97f4a7c15ULL ^ float_key(b));
+                MW_PREFETCH(table.data() + (static_cast<size_t>(hs[i - i0]) & mask));
+            }
+            for (py::ssize_t i = i0; i < i1; ++i) {
+                uint64_t b;
+                std::memcpy(&b, C + i, 8);
+                if (is_nan(b)) {
+                    inv[i] = static_cast<int32_t>(n_groups++);
+                    continue;
+                }
+                const uint64_t key = float_key(b);
+                const uint64_t h = hs[i - i0];
+                const uint64_t tag = h & 0xffffffff00000000ULL;
+                size_t s = static_cast<size_t>(h) & mask;
+                for (;;) {
+                    const uint64_t slot = table[s];
+                    if (slot == 0) {
+                        table[s] = tag | (static_cast<uint64_t>(i) + 1);
+                        inv[i] = static_cast<int32_t>(n_groups++);
+                        break;
+                    }
+                    if ((slot & 0xffffffff00000000ULL) == tag) {
+                        const py::ssize_t f =
+                            static_cast<py::ssize_t>((slot & 0xffffffffULL) - 1);
+                        uint64_t fb;
+                        std::memcpy(&fb, C + f, 8);
+                        if (float_key(fb) == key) {
+                            inv[i] = inv[f];
+                            break;
+                        }
+                    }
+                    s = (s + 1) & mask;
+                }
+            }
+        }
+    }
+    return py::make_tuple(py::int_(n_groups), inverse);
+}
+
+// `np.bincount(idx, weights=w, minlength=n)` for int32 ids and int32 weights,
+// read in place (momwire#1377): the crossing tiles' rows per exact-rho class,
+// where numpy's call first copies both ~11.3 M-entry operands to intp and
+// float64 (and `np.add.at` over spans was 0.7 s). The weights are whole
+// counts and every partial sum stays below 2^53, so each double sum is exact
+// and the same in any order: bincount's floats.
+static py::array_t<double> class_sums(py::array_t<int32_t, py::array::c_style> idx,
+                                      py::array_t<int32_t, py::array::c_style> w,
+                                      int64_t n, uintptr_t cancel_flag = 0) {
+    if (idx.ndim() != 1 || w.ndim() != 1 || idx.shape(0) != w.shape(0))
+        throw std::runtime_error("class_sums: one weight per id");
+    if (n < 0) throw std::runtime_error("class_sums: negative length");
+    const py::ssize_t m = idx.shape(0);
+    const int32_t *I = idx.data();
+    const int32_t *W = w.data();
+    for (py::ssize_t i = 0; i < m; ++i)
+        if (I[i] < 0 || I[i] >= n) throw std::runtime_error("class_sums: id out of range");
+    py::array_t<double> out(static_cast<py::ssize_t>(n));
+    double *O = out.mutable_data();
+    {
+        py::gil_scoped_release nogil;
+        MW_CANCEL_SERIAL_SETUP(cancel_flag);
+        std::fill(O, O + n, 0.0);
+        for (py::ssize_t i0 = 0; i0 < m; i0 += 1 << 16) {
+            MW_CANCEL_SERIAL_POLL();
+            const py::ssize_t i1 = std::min(m, i0 + (1 << 16));
+            for (py::ssize_t i = i0; i < i1; ++i) O[I[i]] += static_cast<double>(W[i]);
+        }
+    }
+    return out;
+}
+
+// `_crossing_fill._stable_tile_order` (momwire#1377): o = the stable argsort
+// of an int16 tile per row, and b the tiles' bounds in it, by one counting
+// sort -- rows of a tile land in ascending row order, which is the stable
+// argsort's answer by definition. Integers only.
+template <class I>
+static py::tuple stable_tile_order_impl(py::array_t<int16_t, py::array::c_style> t_row,
+                                        int64_t n_tiles, uintptr_t cancel_flag) {
+    const py::ssize_t n = t_row.size();
+    const int16_t *T = t_row.data();
+    if (n_tiles < 0) throw std::runtime_error("stable_tile_order: negative n_tiles");
+    for (py::ssize_t i = 0; i < n; ++i)
+        if (T[i] < 0 || T[i] >= n_tiles)
+            throw std::runtime_error("stable_tile_order: tile out of range");
+    py::array_t<int64_t> b(static_cast<py::ssize_t>(n_tiles + 1));
+    py::array_t<I> o(n);
+    int64_t *B = b.mutable_data();
+    I *O = o.mutable_data();
+    {
+        py::gil_scoped_release nogil;
+        MW_CANCEL_SERIAL_SETUP(cancel_flag);
+        std::fill(B, B + n_tiles + 1, 0);
+        for (py::ssize_t i = 0; i < n; ++i) B[T[i] + 1]++;
+        for (int64_t t = 0; t < n_tiles; ++t) B[t + 1] += B[t];
+        std::vector<int64_t> cur(B, B + n_tiles);
+        for (py::ssize_t i0 = 0; i0 < n; i0 += 1 << 16) {
+            MW_CANCEL_SERIAL_POLL();
+            const py::ssize_t i1 = std::min(n, i0 + (1 << 16));
+            for (py::ssize_t i = i0; i < i1; ++i) O[cur[T[i]]++] = static_cast<I>(i);
+        }
+    }
+    return py::make_tuple(o, b);
+}
+
+static py::tuple stable_tile_order(py::array_t<int16_t, py::array::c_style> t_row,
+                                   int64_t n_tiles, bool wide, uintptr_t cancel_flag = 0) {
+    if (!wide && t_row.size() > std::numeric_limits<int32_t>::max())
+        throw std::runtime_error("stable_tile_order: too many rows for 32-bit order");
+    return wide ? stable_tile_order_impl<int64_t>(t_row, n_tiles, cancel_flag)
+                : stable_tile_order_impl<int32_t>(t_row, n_tiles, cancel_flag);
+}
+
+// `_crossing_fill._merge_groups_z`'s rows' flat grid positions (momwire#1377):
+// row q first appears as candidate j_first[q] of walk block blk[q], whose
+// grouped node is a_s[blk] and whose group is g_s[blk], at line node
+// kcat[koff[g] + j_first[q]]; its position is a * nB + that node. The numpy
+// spelling's integers, without its per-span temporaries.
+template <class O>
+static void kept_positions_impl(py::array_t<int32_t, py::array::c_style> blk,
+                                py::array_t<int32_t, py::array::c_style> j_first,
+                                py::array_t<int64_t, py::array::c_style | py::array::forcecast> g_s,
+                                py::array_t<int64_t, py::array::c_style | py::array::forcecast> a_s,
+                                py::array_t<int64_t, py::array::c_style | py::array::forcecast> koff,
+                                py::array_t<int32_t, py::array::c_style> kcat, int64_t nB,
+                                py::array_t<O, py::array::c_style> out) {
+    const py::ssize_t n = blk.size(), nb = g_s.size(), nk = kcat.size();
+    if (j_first.size() != n || out.size() != n || a_s.size() != nb)
+        throw std::runtime_error("kept_positions: shapes");
+    const int32_t *Bk = blk.data(), *J = j_first.data(), *Kc = kcat.data();
+    const int64_t *G = g_s.data(), *A = a_s.data(), *Ko = koff.data();
+    const py::ssize_t ng = koff.size() - 1;
+    O *Out = out.mutable_data();
+    int bad = 0;
+    {
+        py::gil_scoped_release nogil;
+#pragma omp parallel for schedule(static) reduction(| : bad)
+        for (py::ssize_t q = 0; q < n; ++q) {
+            const int64_t b = Bk[q];
+            if (b < 0 || b >= nb) {
+                bad |= 1;
+                continue;
+            }
+            const int64_t g = G[b];
+            if (g < 0 || g >= ng) {
+                bad |= 1;
+                continue;
+            }
+            const int64_t f = Ko[g] + J[q];
+            if (J[q] < 0 || f >= Ko[g + 1] || f >= nk) {
+                bad |= 1;
+                continue;
+            }
+            Out[q] = static_cast<O>(A[b] * nB + static_cast<int64_t>(Kc[f]));
+        }
+    }
+    if (bad) throw std::runtime_error("kept_positions: index out of range");
 }
 
 // A persistent exact-equality index over the rows of 1-3 float64 columns:
@@ -1073,8 +1551,38 @@ void register_factorize(py::module_ &m) {
           "(groups, line) float64 table and its line's z: (first int64, ids "
           "int32 (groups, line)), the same integers, lz read in place and the "
           "table grown with the groups. momwire#1335.",
-          py::arg("line"), py::arg("lz"), py::arg("cancel_flag") = 0);
+          py::arg("line"), py::arg("lz"), py::arg("cancel_flag") = 0,
+          py::arg("n_threads") = 1);
     m.attr("factorize_line_keys_1335") = true;
+    // n_threads > 1: the keys partitioned by hash across threads, the same
+    // integers (momwire#1377).
+    m.attr("factorize_line_keys_par_1377") = true;
+    m.def("factorize_float_classes", &factorize::factorize_float_classes,
+          "`factorize_rows` of one float64 column as (group count, inverse "
+          "int32): the same groups and numbers, no first-row array, the table "
+          "sized at 4/3 of the rows. momwire#1377.",
+          py::arg("col"), py::arg("cancel_flag") = 0, py::arg("n_threads") = 1);
+    m.attr("factorize_float_classes_1377") = true;
+    m.attr("factorize_float_classes_par_1377") = true;
+    m.def("kept_positions", &factorize::kept_positions_impl<int32_t>,
+          "The multi-group merge's rows' flat grid positions a * nB + "
+          "kcat[koff[g] + j_first] into out. momwire#1377.",
+          py::arg("blk"), py::arg("j_first"), py::arg("g_s"), py::arg("a_s"),
+          py::arg("koff"), py::arg("kcat"), py::arg("nB"), py::arg("out"));
+    m.def("kept_positions", &factorize::kept_positions_impl<int64_t>, py::arg("blk"),
+          py::arg("j_first"), py::arg("g_s"), py::arg("a_s"), py::arg("koff"),
+          py::arg("kcat"), py::arg("nB"), py::arg("out"));
+    m.attr("kept_positions_1377") = true;
+    m.def("stable_tile_order", &factorize::stable_tile_order,
+          "(o, b): the stable argsort of an int16 tile per row (int64 when "
+          "wide, else int32) and the tiles' bounds in it, by counting. "
+          "momwire#1377.",
+          py::arg("t_row"), py::arg("n_tiles"), py::arg("wide"), py::arg("cancel_flag") = 0);
+    m.attr("stable_tile_order_1377") = true;
+    m.def("class_sums", &factorize::class_sums,
+          "`np.bincount(idx, weights=w, minlength=n)` of int32 ids and whole "
+          "int32 weights, read in place. momwire#1377.",
+          py::arg("idx"), py::arg("w"), py::arg("n"), py::arg("cancel_flag") = 0);
     // The capability flag, beside the bindings it vouches for (#710).
     m.attr("exact_factorize_1224") = true;
     m.attr("row_groups_1224") = true;

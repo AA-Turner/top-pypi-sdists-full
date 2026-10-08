@@ -14,14 +14,41 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
-from __future__ import absolute_import
+"""Sensor and event commands of the sensor device.
+
+A sensor device has sensors, which are described by the Sensor Data Records
+(SDR) of its device SDR repository. The commands read the sensors and their
+thresholds, set the thresholds and send platform events.
+
+The commands are the methods of :class:`Sensor`, which are available on
+:class:`pyipmi.Ipmi`. The ``SENSOR_TYPE_*`` constants are the sensor types,
+the ``EVENT_READING_TYPE_*`` constants the event/reading types of the IPMI
+specification.
+
+Example:
+    Print the value of the full sensor records of a device::
+
+        for record in ipmi.device_sdr_entries():
+            if isinstance(record, pyipmi.sdr.SdrFullSensorRecord):
+                raw, states = ipmi.get_sensor_reading(record.number,
+                                                      record.owner_lun)
+                value = record.convert_sensor_raw_to_value(raw)
+                print(record.device_id_string, value)
+"""
+
+from __future__ import annotations
+
+from array import array
+from collections.abc import Generator
 
 from .utils import check_completion_code
 from .msgs import create_request_by_name
 
-from .helper import get_sdr_data_helper, get_sdr_chunk_helper
+from .helper import (get_sdr_data_helper, get_sdr_chunk_helper,
+                     ReadLength)
 
 from . import sdr
+from .mixin import IpmiMixin
 
 
 # THRESHOLD BASED STATES
@@ -105,12 +132,34 @@ SENSOR_TYPE_VITA_PAYLOAD_MODE = 0xf7
 SENSOR_TYPE_VITA_IPMC_RESET_TYPE = 0xf8
 
 
-class Sensor(object):
-    def reserve_device_sdr_repository(self):
+class Sensor(IpmiMixin):
+    """Sensor device commands, available on :class:`pyipmi.Ipmi`.
+
+    The device SDRs are read in chunks. If the device cannot return the
+    requested number of bytes, the chunk size is reduced and kept for the
+    following records.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the sensor command group."""
+        # read length of the device SDRs, a reduced length is kept for the
+        # following records
+        self._device_sdr_read_length = ReadLength()
+
+    def reserve_device_sdr_repository(self) -> int:
+        """Reserve the device SDR repository.
+
+        A reservation is needed to read records partially. It is canceled
+        when the repository changes.
+
+        Returns:
+            The reservation ID.
+        """
         rsp = self.send_message_with_name('ReserveDeviceSdrRepository')
         return rsp.reservation_id
 
-    def _get_device_sdr_chunk(self, reservation_id, record_id, offset, length):
+    def _get_device_sdr_chunk(self, reservation_id: int, record_id: int,
+                              offset: int, length: int) -> tuple[int, array]:
         req = create_request_by_name('GetDeviceSdr')
         req.reservation_id = reservation_id
         req.record_id = record_id
@@ -122,25 +171,38 @@ class Sensor(object):
 
         return (rsp.next_record_id, rsp.record_data)
 
-    def get_device_sdr(self, record_id, reservation_id=None):
-        """Collect all data from the sensor device to get the SDR.
+    def get_device_sdr(self, record_id: int,
+                       reservation_id: int | None = None) -> sdr.SdrCommon:
+        """Read and decode a record of the device SDR repository.
 
-        `record_id` the Record ID.
-        `reservation_id=None` can be set. if None the reservation ID will
-        be determined.
+        Args:
+            record_id: The record ID, 0 for the first record.
+            reservation_id: The reservation ID, the device SDR repository is
+                reserved if None.
+
+        Returns:
+            The decoded record, its ``next_id`` is the record ID of the next
+            record, 0xffff for the last record.
+
+        Raises:
+            DecodingError: The record data is invalid.
         """
         (next_id, record_data) = \
             get_sdr_data_helper(self.reserve_device_sdr_repository,
                                 self._get_device_sdr_chunk,
-                                record_id, reservation_id)
+                                record_id, reservation_id,
+                                self._device_sdr_read_length)
 
         return sdr.SdrCommon.from_data(record_data, next_id)
 
-    def device_sdr_entries(self):
-        """A generator that returns the SDR list.
+    def device_sdr_entries(self) -> Generator[sdr.SdrCommon, None, None]:
+        """Return a generator of all records of the device SDR repository.
 
-        Starting with ID=0x0000 and
-        end when ID=0xffff is returned.
+        The repository is reserved once. The records are read starting with
+        record ID 0 until the next record ID is 0xffff.
+
+        Yields:
+            The decoded records.
         """
         reservation_id = self.reserve_device_sdr_repository()
         record_id = 0
@@ -152,21 +214,44 @@ class Sensor(object):
                 break
             record_id = record.next_id
 
-    def get_device_sdr_list(self, reservation_id=None):
-        """Return the complete SDR list."""
+    def get_device_sdr_list(self, reservation_id: int | None = None) -> list[sdr.SdrCommon]:
+        """Return all records of the device SDR repository.
+
+        Args:
+            reservation_id: Not used, the repository is reserved by
+                :meth:`device_sdr_entries`.
+
+        Returns:
+            The decoded records.
+        """
         return list(self.device_sdr_entries())
 
-    def rearm_sensor_events(self, sensor_number):
-        """Rearm sensor events for the given sensor number."""
+    def rearm_sensor_events(self, sensor_number: int) -> None:
+        """Rearm the events of a sensor.
+
+        Args:
+            sensor_number: The sensor number.
+        """
         self.send_message_with_name('RearmSensorEvents',
                                     sensor_number=sensor_number)
 
-    def get_sensor_reading(self, sensor_number, lun=0):
-        """Return the sensor reading at the assertion states.
+    def get_sensor_reading(self, sensor_number: int,
+                           lun: int = 0) -> tuple[int | None, int | None]:
+        """Read a sensor.
 
-        `sensor_number`
+        The raw reading is converted to the sensor unit with
+        :meth:`pyipmi.sdr.SdrFullSensorRecord.convert_sensor_raw_to_value`.
 
-        Returns a tuple with `raw reading`and `assertion states`.
+        Args:
+            sensor_number: The sensor number.
+            lun: The LUN of the sensor owner, ``owner_lun`` of its record.
+
+        Returns:
+            A tuple of the raw reading and the states. The raw reading is
+            None while the initial update of the sensor is in progress. The
+            states are a bit mask, the threshold comparison status of a
+            threshold sensor or the asserted states of a discrete sensor in
+            bits 0-14. They are None if the sensor does not report them.
         """
         rsp = self.send_message_with_name('GetSensorReading',
                                           sensor_number=sensor_number,
@@ -183,18 +268,30 @@ class Sensor(object):
                 states |= (rsp.states2 << 8)
         return (reading, states)
 
-    def set_sensor_thresholds(self, sensor_number, lun=0,
-                              unr=None, ucr=None, unc=None,
-                              lnc=None, lcr=None, lnr=None):
-        """Set the sensor thresholds that are not 'None'.
+    def set_sensor_thresholds(self, sensor_number: int, lun: int = 0,
+                              unr: int | None = None, ucr: int | None = None,
+                              unc: int | None = None, lnc: int | None = None,
+                              lcr: int | None = None,
+                              lnr: int | None = None) -> None:
+        """Set the thresholds of a sensor that are not None.
 
-        `sensor_number`
-        `unr` for upper non-recoverable
-        `ucr` for upper critical
-        `unc` for upper non-critical
-        `lnc` for lower non-critical
-        `lcr` for lower critical
-        `lnr` for lower non-recoverable
+        The thresholds are raw values, a value in the sensor unit is
+        converted with
+        :meth:`pyipmi.sdr.SdrFullSensorRecord.convert_sensor_value_to_raw`.
+
+        Args:
+            sensor_number: The sensor number.
+            lun: The LUN of the sensor owner, ``owner_lun`` of its record.
+            unr: The upper non-recoverable threshold.
+            ucr: The upper critical threshold.
+            unc: The upper non-critical threshold.
+            lnc: The lower non-critical threshold.
+            lcr: The lower critical threshold.
+            lnr: The lower non-recoverable threshold.
+
+        Raises:
+            CompletionCodeError: The device rejected the request, e.g. for a
+                threshold that is not settable.
         """
         req = create_request_by_name('SetSensorThresholds')
         req.sensor_number = sensor_number
@@ -210,7 +307,18 @@ class Sensor(object):
         rsp = self.send_message(req)
         check_completion_code(rsp.completion_code)
 
-    def get_sensor_thresholds(self, sensor_number, lun=0):
+    def get_sensor_thresholds(self, sensor_number: int, lun: int = 0) -> dict[str, int]:
+        """Get the readable thresholds of a sensor.
+
+        Args:
+            sensor_number: The sensor number.
+            lun: The LUN of the sensor owner, ``owner_lun`` of its record.
+
+        Returns:
+            The raw thresholds that are readable, with the keys ``'unr'``,
+            ``'ucr'``, ``'unc'``, ``'lnc'``, ``'lcr'`` and ``'lnr'``
+            (upper/lower non-recoverable, critical and non-critical).
+        """
         rsp = self.send_message_with_name('GetSensorThresholds',
                                           sensor_number=sensor_number,
                                           lun=lun)
@@ -223,8 +331,25 @@ class Sensor(object):
                     thresholds[threshold] = getattr(rsp.threshold, threshold)
         return thresholds
 
-    def send_platform_event(self, sensor_type, sensor_number, event_type,
-                            asserted=True, event_data=None):
+    def send_platform_event(self, sensor_type: int, sensor_number: int,
+                            event_type: int, asserted: bool = True,
+                            event_data: list[int] | None = None) -> None:
+        """Send a platform event message to the event receiver.
+
+        Args:
+            sensor_type: The sensor type, one of the ``SENSOR_TYPE_*``
+                constants.
+            sensor_number: The number of the sensor that generated the
+                event.
+            event_type: The event/reading type, one of the
+                ``EVENT_READING_TYPE_*`` constants.
+            asserted: True for an assertion event, False for a deassertion
+                event.
+            event_data: The event data bytes 1 - 3, ``[0]`` if None.
+
+        Raises:
+            CompletionCodeError: The device rejected the event.
+        """
         req = create_request_by_name('PlatformEvent')
         req.sensor_type = sensor_type
         req.sensor_number = sensor_number

@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: private_attribute_cpp
-Version: 2.1.13
+Version: 2.1.14
 Summary: A Python package that provides a way to define private attributes in C++ implementation.
 Home-page: https://github.com/Locked-chess-official/private_attribute_cpp
 Author: HuangHaoHua
 Author-email: 13140752715@example.com
 License: MIT
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: author
@@ -15,6 +16,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
+Dynamic: requires-python
 Dynamic: summary
 
 # Private Attribute (c++ implementation)

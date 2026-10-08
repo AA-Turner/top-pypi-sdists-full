@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
@@ -29,7 +29,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> TrainingRunResponse:
     """Get Training Run Route
 
@@ -65,7 +65,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteTrainingRunResponse:
     """Delete a terminal training run. Pending or active runs must be cancelled first.
 
@@ -101,7 +101,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> TrainingRunResponse:
     """Cancel a pending or running training run.
 
@@ -138,7 +138,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> list[TrainingRunResponse]:
     """List training runs for a benchmark.
 
@@ -179,7 +179,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> TrainingProgressResponse:
     """Get Training Progress Route
 

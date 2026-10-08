@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: policyengine-core
-Version: 3.32.20
+Version: 3.32.21
 Summary: Core microsimulation engine enabling country-specific policy models.
 Project-URL: Homepage, https://github.com/policyengine/policyengine-core
 Author-email: PolicyEngine <hello@policyengine.org>
@@ -93,6 +93,11 @@ uv run pytest tests/core/test_file.py::test_name -v
 
 # Format before committing (CI enforces)
 make format
+
+# Lint GitHub Actions workflows after editing .github/, from the repo root
+# (CI enforces; install shellcheck and pyflakes so actionlint also checks
+# run: scripts)
+uvx --from actionlint-py==1.7.12.25 actionlint
 ```
 
 **Always use `uv run`** for Python commands; bare `python` / `pytest` / `pip` may pick up the wrong environment.

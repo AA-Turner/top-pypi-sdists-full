@@ -17,6 +17,7 @@ from xml.etree import ElementTree as ET
 from markdown_it import MarkdownIt
 
 from .doc_path_tree import collect_documentation_paths
+from .doc_diagram_sources import check_diagram_sources, diagram_sources_of
 
 
 class DocumentationConversionError(ValueError):
@@ -25,12 +26,16 @@ class DocumentationConversionError(ValueError):
 
 def convert_asciidoc(input_directory: str, output_directory: str,
                      entry: str = "all-docs.adoc", node: str = "node",
-                     pandoc: str = "pandoc") -> list[str]:
+                     pandoc: str = "pandoc", deepen_diagram_history: bool = False,
+                     check_committed_diagrams: bool = True) -> list[str]:
     """Convert an entry document to Markdown pages in an empty output directory.
 
     Top-level sections become pages. Complex two-column canvases become labelled sections;
     simple tables stay tables. Local assets are copied, diagrams become PlantUML fences.
     The caller places this directory in the target chapter and validates the resulting set.
+    Referenced exported images are checked against their original Git paths before writing output. Set
+    `deepen_diagram_history=True` for shallow checkouts; use `check_committed_diagrams=False`
+    only for generated input whose files have no committed history.
     """
     source = Path(input_directory).resolve()
     target = Path(output_directory).resolve()
@@ -39,7 +44,8 @@ def convert_asciidoc(input_directory: str, output_directory: str,
     entry_path = Path(entry)
     if entry_path.is_absolute() or ".." in entry_path.parts or "\\" in entry:
         raise DocumentationConversionError("'entry' must be a relative path inside the input directory.")
-    paths = collect_documentation_paths(str(source))
+    paths = collect_documentation_paths(str(source), keep_diagram_sources=True)
+    sources = set(diagram_sources_of(paths, source_format="asciidoc"))
     if entry not in paths:
         raise DocumentationConversionError(f"Entry document not found: {source / entry}")
     if target.exists() and any(target.iterdir()):
@@ -65,7 +71,16 @@ def convert_asciidoc(input_directory: str, output_directory: str,
         diagrams = {diagram["token"]: diagram["source"] for diagram in converted["diagrams"]}
         _restore_diagrams(ast, diagrams)
         pages = _split_pages(ast)
-        _resolve_links_and_assets(pages, snapshot, target)
+        # All input dependencies must remain in the snapshot (including .puml files).
+        # Only assets actually referenced by the converted document are published/dated.
+        assets = _resolve_links_and_assets(pages, snapshot, sources)
+        if check_committed_diagrams:
+            referenced = {asset.relative_to(snapshot).as_posix() for asset in assets.values()}
+            report = check_diagram_sources(str(source), paths, deepen=deepen_diagram_history,
+                                           source_format="asciidoc", referenced_images=referenced)
+            if not report.accepted:
+                raise DocumentationConversionError("\n".join(
+                    f"{finding.code}: {finding.message}" for finding in report.findings))
         rendered = {}
         for name, title, blocks in pages:
             page = dict(ast, blocks=blocks)
@@ -73,6 +88,10 @@ def convert_asciidoc(input_directory: str, output_directory: str,
             _check_no_raw_html(markdown, name)
             rendered[name] = f"---\ntitle: {json.dumps(title, ensure_ascii=False)}\n---\n\n{markdown}"
         target.mkdir(parents=True, exist_ok=True)
+        for destination, asset in assets.items():
+            path = target / destination
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(asset, path)
         for name, markdown in rendered.items():
             (target / name).write_text(markdown, encoding="utf-8")
     return sorted(rendered)
@@ -220,7 +239,7 @@ def _split_pages(ast):
     return pages
 
 
-def _resolve_links_and_assets(pages, source, target):
+def _resolve_links_and_assets(pages, source, editor_sources):
     anchors = {}
     for name, _, blocks in pages:
         used = {}
@@ -249,16 +268,14 @@ def _resolve_links_and_assets(pages, source, target):
             asset = (source / path).resolve()
             if not asset.is_relative_to(source) or not asset.is_file():
                 raise DocumentationConversionError(f"Local link or image does not exist in the input: {reference}")
-            if asset.suffix.lower() in (".adoc", ".asciidoc", ".puml"):
+            if (asset.suffix.lower() in (".adoc", ".asciidoc", ".puml")
+                    or asset.relative_to(source).as_posix() in editor_sources):
                 raise DocumentationConversionError(
                     f"Link to source file {reference}: use an AsciiDoc cross-reference to a section instead.")
             destination = "assets/" + asset.relative_to(source).as_posix()
             node["c"][-1][0] = destination + (f"#{url.fragment}" if url.fragment else "")
             assets[destination] = asset
-    for destination, asset in assets.items():
-        path = target / destination
-        path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(asset, path)
+    return assets
 
 
 def _check_no_raw_html(markdown, name):

@@ -693,6 +693,33 @@ def _missing_relative_module_name(attempted: Path, root: Path, raw: str) -> str:
     return ".".join(parts) if parts else f"ref:{raw}"
 
 
+def _python_under_type_checking(node, source: bytes) -> bool:
+    """True when ``node`` sits in the body of an ``if TYPE_CHECKING:`` block.
+
+    Matches ``TYPE_CHECKING`` and ``<module>.TYPE_CHECKING`` (``typing.``,
+    ``t.``, ``typing_extensions.``). Only the guarded body counts: the
+    ``else:`` branch of the same ``if`` runs at import time, and so does the
+    body of ``if not TYPE_CHECKING:``.
+    """
+    child, parent = node, node.parent
+    while parent is not None:
+        if (
+            parent.type in ("if_statement", "elif_clause")
+            and parent.child_by_field_name("consequence") == child
+        ):
+            cond = parent.child_by_field_name("condition")
+            if cond is not None and cond.type == "attribute":
+                cond = cond.child_by_field_name("attribute")
+            if (
+                cond is not None
+                and cond.type == "identifier"
+                and _read_text(cond, source) == "TYPE_CHECKING"
+            ):
+                return True
+        child, parent = parent, parent.parent
+    return False
+
+
 def _import_python(
     node, source: bytes, file_nid: str, stem: str, edges: list, str_path: str,
     scope_stack: list[str] | None = None, scan_root: Path | None = None,
@@ -708,6 +735,9 @@ def _import_python(
         root = root.resolve()
     except OSError:
         pass
+    # Imports under `if TYPE_CHECKING:` never run, so they are stamped `type_only`
+    # like TS `import type`: find_import_cycles skips them, the edge stays (#3159).
+    type_only = _python_under_type_checking(node, source)
     if t == "import_statement":
         for child in node.children:
             if child.type in ("dotted_name", "aliased_import"):
@@ -755,6 +785,8 @@ def _import_python(
                     # member-call resolver can match `alias.func()` against this
                     # edge instead of dropping it (#2082).
                     edge["local_alias"] = raw_alias.strip()
+                if type_only:
+                    edge["type_only"] = True
                 edges.append(edge)
     elif t == "import_from_statement":
         module_node = node.child_by_field_name("module_name")
@@ -847,6 +879,8 @@ def _import_python(
                         edge["target_file"] = str(target_path)
                 except OSError:
                     pass
+            if type_only:
+                edge["type_only"] = True
             edges.append(edge)
 
 
@@ -4132,10 +4166,13 @@ def _resolve_python_member_calls(
     # (class_node_id, method_key) -> method_node_id.
     class_def_nids: dict[str, list[str]] = {}
     method_index: dict[tuple[str, str], str] = {}
+    owner_of: dict[str, str] = {}
     for e in all_edges:
         if e.get("relation") != "method":
             continue
         src, tgt = e.get("source"), e.get("target")
+        if src and tgt:
+            owner_of[tgt] = src
         cnode = node_by_id.get(src)
         if cnode is not None:
             class_def_nids.setdefault(_key(cnode.get("label", "")), []).append(src)
@@ -4199,21 +4236,42 @@ def _resolve_python_member_calls(
         return _key(stem or n.get("label", ""))
 
     existing_pairs = {(e.get("source"), e.get("target")) for e in all_edges}
+    # A method hangs off its class (`method` edge), not its file (`contains`), so
+    # the typed-receiver arm finds a method caller's file through its class.
+    method_class: dict[str, str] = {}
+    for e in all_edges:
+        src, tgt = e.get("source"), e.get("target")
+        if e.get("relation") == "method" and isinstance(src, str) and isinstance(tgt, str):
+            method_class[tgt] = src
 
-    def _emit_call(caller: str, target_nid: "str | None", rc: dict) -> None:
+    def _file_node(nid: str) -> "str | None":
+        seen: set[str] = set()
+        while nid and nid not in seen:
+            seen.add(nid)
+            if nid in file_of_node:
+                return file_of_node[nid]
+            nid = method_class.get(nid, "")
+        return None
+
+    def _emit_call(
+        caller: str, target_nid: "str | None", rc: dict, inferred: bool = False
+    ) -> None:
         if not target_nid or target_nid == caller or (caller, target_nid) in existing_pairs:
             return
         existing_pairs.add((caller, target_nid))
         # EXTRACTED: a qualified call (`ClassName.method()` or `module.func()`) is
         # an explicit, unambiguous static reference resolved to exactly one
         # definition (each arm applies a single-definition god-node guard).
+        # INFERRED: a typed-receiver arm (a `self.X` field from its binding (#2860),
+        # or an annotated/constructor-bound local), where the receiver's class came
+        # from the binding rather than the call itself.
         all_edges.append({
             "source": caller,
             "target": target_nid,
             "relation": "calls",
             "context": "call",
-            "confidence": "EXTRACTED",
-            "confidence_score": 1.0,
+            "confidence": "INFERRED" if inferred else "EXTRACTED",
+            "confidence_score": 0.85 if inferred else 1.0,
             "source_file": rc.get("source_file", ""),
             "source_location": rc.get("source_location"),
             "weight": 1.0,
@@ -4227,6 +4285,18 @@ def _resolve_python_member_calls(
         receiver = rc.get("receiver")
         callee = rc.get("callee")
         caller = rc.get("caller_nid")
+        attr_type = rc.get("_python_self_attr_type")
+        if attr_type and callee and caller:
+            # `self.X.m()` with X bound to one class (#2860): only a unique class
+            # the caller's own file defines or imports, and only if it owns `m`.
+            class_nids = class_def_nids.get(_key(attr_type), [])
+            caller_file = file_of_node.get(owner_of.get(caller, ""))
+            if len(class_nids) == 1 and caller_file is not None and (
+                    file_of_node.get(class_nids[0]) == caller_file
+                    or class_nids[0] in imported_by_filenode.get(caller_file, ())):
+                method_nid = method_index.get((class_nids[0], _key(callee)))
+                _emit_call(caller, method_nid, rc, inferred=True)
+            continue
         if not receiver or not callee or not caller:
             continue
         # External modules have no parsed member definition. The extractor's
@@ -4241,6 +4311,25 @@ def _resolve_python_member_calls(
                 continue
             if targets:
                 continue
+        receiver_type = rc.get("receiver_type")
+        if receiver_type and not receiver[:1].isupper():
+            # Typed-receiver arm: `request.read()` where the extractor typed the
+            # local or parameter `request` from an annotation (`request: Request`)
+            # or a constructor binding (`client = Client(...)`, `with Client() as
+            # client`). Same origin gate as the TypeScript arm (#2553): the class
+            # must be the only class of that name AND be defined in the caller's
+            # file, imported by name into it, or inside a module it imports;
+            # otherwise emit nothing. The method must be the class's own. A typed
+            # local is never an imported module, so the module arm is skipped.
+            class_nids = class_def_nids.get(_key(receiver_type), [])
+            caller_file = _file_node(caller)
+            if len(class_nids) == 1 and caller_file is not None:
+                cls = class_nids[0]
+                imported = imported_by_filenode.get(caller_file, set())
+                cls_file = _file_node(cls)
+                if cls_file == caller_file or cls in imported or (cls_file is not None and cls_file in imported):
+                    _emit_call(caller, method_index.get((cls, _key(callee))), rc, inferred=True)
+            continue
         if receiver[:1].isupper():
             # Class arm (#1446): a capitalized receiver is a class reference; an
             # instance (`self`, `obj`) never collides with a same-spelled class.
@@ -7297,7 +7386,15 @@ def _spawn_cannot_reimport_main() -> bool:
     front lets the caller run sequentially without a wall of worker tracebacks
     (#3669). A script WITH a real ``__main__`` file but no ``if __name__ ==
     "__main__"`` guard is a different failure this does not (and cannot) catch
-    here; that one still surfaces via the ``BrokenProcessPool`` fallback."""
+    here; that one still surfaces via the ``BrokenProcessPool`` fallback.
+
+    A ``__main__`` that has a module spec is re-imported by NAME, never by path
+    (``multiprocessing.spawn.get_preparation_data``), and a spec named
+    ``__main__`` is skipped in the worker altogether. That covers ``python -m``
+    and zip-based launchers, notably the ``graphify.exe`` console script pip/uv
+    install on Windows, whose ``__file__`` (``...\\graphify.exe\\__main__.py``)
+    is not a file on disk — reading it as a stdin caller ran every Windows CLI
+    extraction on one core."""
     import multiprocessing
 
     if (
@@ -7307,6 +7404,8 @@ def _spawn_cannot_reimport_main() -> bool:
         return False
     import __main__
 
+    if getattr(getattr(__main__, "__spec__", None), "name", None) is not None:
+        return False
     main_file = getattr(__main__, "__file__", None)
     return main_file is None or not os.path.isfile(main_file)
 
@@ -7814,7 +7913,12 @@ def extract(
         # #2520 Luau case). `multiline_error` is absent from pre-fix cached
         # results, so those fall back to the file-node-only arm.
         if len(_res.get("nodes", [])) <= 1 or _pe.get("multiline_error"):
-            _rel = os.path.relpath(str(_p), str(root)).replace("\\", "/")
+            try:
+                _rel = os.path.relpath(str(_p), str(root)).replace("\\", "/")
+            except ValueError:
+                # Included files may live on another Windows drive. A display
+                # warning must not discard the graph recovered by the parser.
+                _rel = _p.as_posix()
             # Symbols recovered from the file, excluding its own file node. This
             # is what separates the two cases the warning otherwise blurs: a file
             # that contributed nothing but its file node is a total loss, while
@@ -7993,10 +8097,24 @@ def extract(
     # stem_forms for those in-root files as well lets the edge remap and the
     # target_file-guided repoint pass fix them exactly as on a full scan.
     remap_paths: list[Path] = list(paths)
+    # The remap below resolves the same few hundred file paths once per input,
+    # once per stamped edge and once per node (tens of thousands of calls on a
+    # mid-size repo). Resolve each distinct path once; a hit returns the same
+    # Path the call would, and a path that raises is never stored.
+    _resolve_memo: dict[str, Path] = {}
+
+    def _resolved(p: "str | Path") -> Path:
+        key = str(p)
+        hit = _resolve_memo.get(key)
+        if hit is None:
+            hit = Path(p).resolve()
+            _resolve_memo[key] = hit
+        return hit
+
     _remap_seen: set[Path] = set()
     for _p in paths:
         try:
-            _remap_seen.add(_p.resolve())
+            _remap_seen.add(_resolved(_p))
         except (OSError, RuntimeError):
             pass
     for _e in all_edges:
@@ -8005,7 +8123,7 @@ def extract(
             continue
         _raw_tp = Path(_tf)
         try:
-            _tp = _raw_tp.resolve()
+            _tp = _resolved(_raw_tp)
         except (OSError, RuntimeError):
             continue
         if _tp in _remap_seen:
@@ -8076,7 +8194,7 @@ def extract(
             rel = path.relative_to(root)
         except ValueError:
             try:
-                rel = path.resolve().relative_to(root)
+                rel = _resolved(path).relative_to(root)
             except ValueError:
                 continue
         new_id = _file_node_id(rel)
@@ -8085,14 +8203,15 @@ def extract(
         # Also register the absolute-resolved form of the file-level id so
         # alias/workspace import targets (resolved via .resolve()) remap to
         # canonical instead of orphaning (#1529).
-        old_id_abs = _make_id(str(path.resolve()))
+        path_abs = _resolved(path)
+        old_id_abs = _make_id(str(path_abs))
         if old_id_abs != new_id:
             id_remap[old_id_abs] = new_id
         old_prefs: list[tuple[str, str]] = []
         old_pref = _file_node_id(path)
         if old_pref != new_id:
             old_prefs.append((old_pref, new_id))
-        old_pref_abs = _file_node_id(path.resolve())
+        old_pref_abs = _file_node_id(path_abs)
         if old_pref_abs != new_id and old_pref_abs != old_pref:
             old_prefs.append((old_pref_abs, new_id))
         # Bash entrypoint node ids append "__entry" to the file-level id
@@ -8111,10 +8230,10 @@ def extract(
             if _entry_old != _entry_new:
                 id_remap.setdefault(_entry_old, _entry_new)
         if old_prefs:
-            prefix_remap[path.resolve()] = old_prefs
+            prefix_remap[path_abs] = old_prefs
         # Absolute form first: it is the longest, so prefix decomposition can
         # try forms in order without a shorter form shadowing it.
-        stem_forms[path.resolve()] = (
+        stem_forms[path_abs] = (
             new_id, [old_pref_abs, old_pref, new_id]
         )
     if id_remap:
@@ -8166,7 +8285,7 @@ def extract(
             if n.get("type") == "package":
                 continue
             try:
-                entry = prefix_remap.get(Path(sf).resolve())
+                entry = prefix_remap.get(_resolved(sf))
             except Exception:
                 continue
             if entry is None:
@@ -8272,7 +8391,7 @@ def extract(
 
         def _decompose(target: str, tf: str) -> "tuple[str, str] | None":
             try:
-                forms = stem_forms.get(Path(tf).resolve())
+                forms = stem_forms.get(_resolved(tf))
             except (OSError, RuntimeError):
                 return None
             if not forms:
@@ -9166,6 +9285,14 @@ def extract(
         # rather than guessing ownership from node["source_file"] (#3411).
         "extracted_sources": [str(p) for p in paths],
     }
+
+
+# Keys of an extract() result that only steer the current run (#2543, #3411).
+# They hold the absolute paths of this run's inputs, so a writer that dumps the
+# raw extraction as graph.json (--no-cluster) must leave them out: they put the
+# checkout path and OS username into the graph, and differ between the first
+# build and a rebuild of the same tree.
+RUN_ONLY_EXTRACTION_KEYS = frozenset({"extracted_sources", "failed_sources"})
 
 
 def collect_files(target: Path, *, follow_symlinks: bool = False, root: Path | None = None) -> list[Path]:

@@ -1,0 +1,1309 @@
+pub(crate) mod json;
+
+use std::{
+    collections::BTreeMap,
+    hash::{Hash, Hasher},
+};
+
+use jsonschema::canonical::{
+    CanonicalKind, CanonicalSchema, CanonicalView, Cause, Containment, Distinctness,
+    ObjectViolationView, RawReason, Satisfiability, UnsatisfiableReason,
+};
+
+use pyo3::prelude::*;
+
+/// A Python enum mirroring a core one: the same variants, converting both ways, exposing the
+/// core's `snake_case` label as `.value`.
+macro_rules! label_enum {
+    (
+        $(#[$attr:meta])*
+        $py:ident => $core:ident as $name:literal {
+            $($variant:ident = $member:literal),+ $(,)?
+        }
+    ) => {
+        $(#[$attr])*
+        #[pyclass(
+            eq,
+            hash,
+            frozen,
+            skip_from_py_object,
+            module = "jsonschema_rs.canonical",
+            name = $name
+        )]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+        pub(crate) enum $py {
+            $(#[pyo3(name = $member)] $variant),+
+        }
+
+        impl From<$py> for $core {
+            fn from(value: $py) -> Self {
+                match value {
+                    $($py::$variant => Self::$variant),+
+                }
+            }
+        }
+
+        impl From<$core> for $py {
+            fn from(value: $core) -> Self {
+                match value {
+                    $($core::$variant => Self::$variant),+
+                }
+            }
+        }
+
+        #[pymethods]
+        impl $py {
+            /// Stable `snake_case` label of this member (e.g. `"yes"`, `"multi_type"`).
+            #[getter]
+            #[allow(clippy::trivially_copy_pass_by_ref)]
+            fn value(&self) -> &'static str {
+                $core::from(*self).as_str()
+            }
+
+            /// The label, so a member reads as itself in text.
+            #[allow(clippy::trivially_copy_pass_by_ref)]
+            fn __str__(&self) -> &'static str {
+                $core::from(*self).as_str()
+            }
+        }
+    };
+}
+
+label_enum! {
+    /// Whether one schema admits every value another admits.
+    PyContainment => Containment as "Containment" {
+        Yes = "YES",
+        No = "NO",
+        Unknown = "UNKNOWN",
+    }
+}
+
+label_enum! {
+    /// Whether any value satisfies a schema.
+    PySatisfiability => Satisfiability as "Satisfiability" {
+        Yes = "YES",
+        No = "NO",
+        Unknown = "UNKNOWN",
+    }
+}
+
+label_enum! {
+    /// What an array requires of its elements: all distinct, some repeated, or neither.
+    PyDistinctness => Distinctness as "Distinctness" {
+        Unconstrained = "UNCONSTRAINED",
+        AllDistinct = "ALL_DISTINCT",
+        SomeRepeated = "SOME_REPEATED",
+    }
+}
+
+label_enum! {
+    /// What stopped a run from modeling a document.
+    PyRawReason => RawReason as "RawReason" {
+        UnknownDialect = "UNKNOWN_DIALECT",
+        Unmodeled = "UNMODELED",
+        OutgrewIntersections = "OUTGREW_INTERSECTIONS",
+        OutgrewCases = "OUTGREW_CASES",
+        InexactIntersection = "INEXACT_INTERSECTION",
+    }
+}
+
+label_enum! {
+    /// Structural discriminant of a canonical node, one member per view class.
+    PyCanonicalKind => CanonicalKind as "CanonicalKind" {
+        MultiType = "MULTI_TYPE",
+        TypedGroup = "TYPED_GROUP",
+        String = "STRING",
+        Integer = "INTEGER",
+        Number = "NUMBER",
+        Array = "ARRAY",
+        Object = "OBJECT",
+        Const = "CONST",
+        Enum = "ENUM",
+        Not = "NOT",
+        AllOf = "ALL_OF",
+        AnyOf = "ANY_OF",
+        OneOf = "ONE_OF",
+        Reference = "REFERENCE",
+        True = "TRUE",
+        False = "FALSE",
+        Raw = "RAW",
+    }
+}
+
+#[pyclass(frozen, name = "CanonicalSchema")]
+pub(crate) struct PyCanonicalSchema {
+    inner: CanonicalSchema,
+}
+
+#[pymethods]
+impl PyCanonicalSchema {
+    /// Convert this canonical schema back to a plain Python JSON value.
+    /// A node below the document root carries that root along, so a `#` inside it keeps naming
+    /// the document.
+    fn to_json_schema(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        crate::value_to_python(py, &self.inner.to_json_schema())
+    }
+
+    /// The JSON Schema draft as an integer: 4, 6, 7, 19 (2019-09), or 20 (2020-12).
+    #[getter]
+    fn draft(&self) -> u8 {
+        match self.inner.draft() {
+            jsonschema::Draft::Draft4 => 4,
+            jsonschema::Draft::Draft6 => 6,
+            jsonschema::Draft::Draft7 => 7,
+            jsonschema::Draft::Draft201909 => 19,
+            _ => 20,
+        }
+    }
+
+    /// Structural kind of this node.
+    #[getter]
+    fn kind(&self) -> PyCanonicalKind {
+        self.inner.kind().into()
+    }
+
+    /// Return the single view object for this node.
+    fn view(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(match self.inner.view() {
+            CanonicalView::MultiType(set) => Py::new(
+                py,
+                MultiTypeView {
+                    types: set.iter().map(|ty| ty.to_string()).collect(),
+                },
+            )?
+            .into_any(),
+            CanonicalView::TypedGroup(group) => Py::new(
+                py,
+                TypedGroupView {
+                    type_name: group.ty.to_string(),
+                    body: Py::new(py, PyCanonicalSchema { inner: group.body })?.into_any(),
+                },
+            )?
+            .into_any(),
+            CanonicalView::Const(value) => Py::new(
+                py,
+                ConstView {
+                    value: crate::value_to_python(py, &value)?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Enum(values) => Py::new(
+                py,
+                EnumView {
+                    values: values
+                        .iter()
+                        .map(|value| crate::value_to_python(py, value))
+                        .collect::<PyResult<_>>()?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::AnyOf(branches) => Py::new(
+                py,
+                AnyOfView {
+                    branches: branches
+                        .into_iter()
+                        .map(|branch| {
+                            Ok(Py::new(py, PyCanonicalSchema { inner: branch })?.into_any())
+                        })
+                        .collect::<PyResult<_>>()?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::OneOf(branches) => Py::new(
+                py,
+                OneOfView {
+                    branches: branches
+                        .into_iter()
+                        .map(|branch| {
+                            Ok(Py::new(py, PyCanonicalSchema { inner: branch })?.into_any())
+                        })
+                        .collect::<PyResult<_>>()?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::AllOf(branches) => Py::new(
+                py,
+                AllOfView {
+                    branches: branches
+                        .into_iter()
+                        .map(|branch| {
+                            Ok(Py::new(py, PyCanonicalSchema { inner: branch })?.into_any())
+                        })
+                        .collect::<PyResult<_>>()?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Not(schema) => Py::new(
+                py,
+                NotView {
+                    schema: Py::new(py, PyCanonicalSchema { inner: *schema })?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Reference(uri) => Py::new(py, ReferenceView { uri })?.into_any(),
+            CanonicalView::String(view) => Py::new(
+                py,
+                StringView {
+                    min_length: view
+                        .min_length
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    max_length: view
+                        .max_length
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    patterns: view.patterns,
+                    excluded_patterns: view.excluded_patterns,
+                    formats: view.formats,
+                    excluded_formats: view.excluded_formats,
+                    content_media_types: view.content_media_types,
+                    content_encodings: view.content_encodings,
+                    excluded: view.excluded,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Number(view) => Py::new(
+                py,
+                NumberView {
+                    minimum: view
+                        .minimum
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    exclusive_minimum: view.exclusive_minimum,
+                    maximum: view
+                        .maximum
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    exclusive_maximum: view.exclusive_maximum,
+                    multiple_of: divisors_to_python(py, view.multiple_of)?,
+                    not_multiple_of: divisors_to_python(py, view.not_multiple_of)?,
+                    excludes_integers: view.excludes_integers,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Integer(view) => Py::new(
+                py,
+                IntegerView {
+                    minimum: view
+                        .minimum
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    maximum: view
+                        .maximum
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    multiple_of: divisors_to_python(py, view.multiple_of)?,
+                    not_multiple_of: divisors_to_python(py, view.not_multiple_of)?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Array(view) => Py::new(
+                py,
+                ArrayView {
+                    min_items: view
+                        .min_items
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    max_items: view
+                        .max_items
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    distinctness: view.distinctness.into(),
+                    prefix_items: view
+                        .prefix_items
+                        .into_iter()
+                        .map(|schema| Py::new(py, PyCanonicalSchema { inner: schema }))
+                        .collect::<PyResult<_>>()?,
+                    items: view
+                        .items
+                        .map(|items| Py::new(py, PyCanonicalSchema { inner: items }))
+                        .transpose()?,
+                    contains: view
+                        .contains
+                        .into_iter()
+                        .map(|facet| {
+                            Py::new(
+                                py,
+                                ContainsView {
+                                    schema: Py::new(
+                                        py,
+                                        PyCanonicalSchema {
+                                            inner: facet.schema,
+                                        },
+                                    )?,
+                                    min_contains: facet
+                                        .min_contains
+                                        .map(|number| {
+                                            crate::value_to_python(
+                                                py,
+                                                &serde_json::Value::Number(number),
+                                            )
+                                        })
+                                        .transpose()?,
+                                    max_contains: facet
+                                        .max_contains
+                                        .map(|number| {
+                                            crate::value_to_python(
+                                                py,
+                                                &serde_json::Value::Number(number),
+                                            )
+                                        })
+                                        .transpose()?,
+                                },
+                            )
+                        })
+                        .collect::<PyResult<_>>()?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::Object(view) => Py::new(
+                py,
+                ObjectView {
+                    min_properties: view
+                        .min_properties
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    max_properties: view
+                        .max_properties
+                        .map(|number| {
+                            crate::value_to_python(py, &serde_json::Value::Number(number))
+                        })
+                        .transpose()?,
+                    required: view.required,
+                    property_names: view
+                        .property_names
+                        .map(|names| Py::new(py, PyCanonicalSchema { inner: names }))
+                        .transpose()?,
+                    properties: view
+                        .properties
+                        .into_iter()
+                        .map(|(key, schema)| {
+                            Ok((key, Py::new(py, PyCanonicalSchema { inner: schema })?))
+                        })
+                        .collect::<PyResult<_>>()?,
+                    pattern_properties: view
+                        .pattern_properties
+                        .into_iter()
+                        .map(|(pattern, schema)| {
+                            Ok((pattern, Py::new(py, PyCanonicalSchema { inner: schema })?))
+                        })
+                        .collect::<PyResult<_>>()?,
+                    additional_properties: view
+                        .additional_properties
+                        .map(|additional| Py::new(py, PyCanonicalSchema { inner: additional }))
+                        .transpose()?,
+                    violations: view
+                        .violations
+                        .into_iter()
+                        .map(|violation| object_violation_to_python(py, violation))
+                        .collect::<PyResult<_>>()?,
+                },
+            )?
+            .into_any(),
+            CanonicalView::True => Py::new(py, TrueView)?.into_any(),
+            CanonicalView::False => Py::new(py, FalseView)?.into_any(),
+            CanonicalView::Raw(raw) => Py::new(
+                py,
+                RawView {
+                    schema: crate::value_to_python(py, &raw.schema)?,
+                    reason: raw.reason.into(),
+                    pointer: raw.pointer,
+                },
+            )?
+            .into_any(),
+        })
+    }
+
+    /// Every value both schemas admit.
+    fn intersect(&self, py: Python<'_>, other: &Self) -> PyResult<Self> {
+        self.inner
+            .intersect(&other.inner)
+            .map(|inner| Self { inner })
+            .map_err(|error| canonicalization_error(py, error))
+    }
+
+    /// Every value either schema admits.
+    fn union(&self, py: Python<'_>, other: &Self) -> PyResult<Self> {
+        self.inner
+            .union(&other.inner)
+            .map(|inner| Self { inner })
+            .map_err(|error| canonicalization_error(py, error))
+    }
+
+    /// Every value this schema admits and `other` rejects.
+    fn subtract(&self, py: Python<'_>, other: &Self) -> PyResult<Self> {
+        self.inner
+            .subtract(&other.inner)
+            .map(|inner| Self { inner })
+            .map_err(|error| canonicalization_error(py, error))
+    }
+
+    /// Whether this schema admits every value `other` admits.
+    ///
+    /// Only `YES` proves containment; `UNKNOWN` means undecided, not disproved. Test for `YES`,
+    /// and treat `UNKNOWN` like `NO`.
+    fn covers(&self, py: Python<'_>, other: &Self) -> PyResult<PyContainment> {
+        self.inner
+            .covers(&other.inner)
+            .map(PyContainment::from)
+            .map_err(|error| canonicalization_error(py, error))
+    }
+
+    /// Every value this schema rejects.
+    fn negate(&self, py: Python<'_>) -> PyResult<Self> {
+        self.inner
+            .negate()
+            .map(|inner| Self { inner })
+            .map_err(|error| canonicalization_error(py, error))
+    }
+
+    /// The reference target registered under `uri`, or the document itself under `#`.
+    ///
+    /// The target keeps the document it was written in, so a `#` inside it names that document and
+    /// not the target standing in for it.
+    fn definition(&self, uri: &str) -> Option<Self> {
+        self.inner.definition(uri).map(|inner| Self { inner })
+    }
+
+    /// Map of reference URI -> canonical target for every known target reachable from this schema.
+    fn definitions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        let dict = pyo3::types::PyDict::new(py);
+        for (uri, target) in self.inner.definitions() {
+            dict.set_item(uri, PyCanonicalSchema { inner: target })?;
+        }
+        Ok(dict)
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = ahash::AHasher::default();
+        self.inner.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Whether any value satisfies this schema.
+    ///
+    /// Only `NO` proves the schema admits nothing; `UNKNOWN` means undecided, not empty. Test for
+    /// `NO`, and treat `UNKNOWN` like `YES`.
+    fn satisfiability(&self) -> PySatisfiability {
+        self.inner.satisfiability().into()
+    }
+
+    fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
+        other
+            .cast::<PyCanonicalSchema>()
+            .is_ok_and(|other| self.inner == other.get().inner)
+    }
+
+    fn __repr__(&self) -> String {
+        // Bounded: `repr` runs implicitly (REPLs, debuggers, f-strings) and a full
+        // `to_json_schema` re-emits the whole document.
+        format!(
+            "<CanonicalSchema kind={} draft={:?}>",
+            self.inner.kind().as_str(),
+            self.inner.draft()
+        )
+    }
+}
+
+/// A schema the canonical form does not support structurally, kept verbatim.
+#[pyclass(frozen, name = "RawView", module = "jsonschema_rs.canonical")]
+pub(crate) struct RawView {
+    #[pyo3(get)]
+    schema: Py<PyAny>,
+    #[pyo3(get)]
+    reason: PyRawReason,
+    #[pyo3(get)]
+    pointer: Option<String>,
+}
+
+#[pymethods]
+impl RawView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str, &'static str) {
+        ("schema", "reason", "pointer")
+    }
+}
+
+/// Matches any value.
+#[pyclass(frozen, name = "TrueView", module = "jsonschema_rs.canonical")]
+pub(crate) struct TrueView;
+
+/// Matches no value.
+#[pyclass(frozen, name = "FalseView", module = "jsonschema_rs.canonical")]
+pub(crate) struct FalseView;
+
+/// A value matches iff its JSON type is in `types`.
+#[pyclass(frozen, name = "MultiTypeView", module = "jsonschema_rs.canonical")]
+pub(crate) struct MultiTypeView {
+    #[pyo3(get)]
+    types: Vec<String>,
+}
+
+#[pymethods]
+impl MultiTypeView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("types",)
+    }
+}
+
+/// A value matches iff its JSON type is `type_name` *and* it satisfies `body`.
+#[pyclass(frozen, name = "TypedGroupView", module = "jsonschema_rs.canonical")]
+pub(crate) struct TypedGroupView {
+    #[pyo3(get)]
+    type_name: String,
+    #[pyo3(get)]
+    body: Py<PyAny>,
+}
+
+#[pymethods]
+impl TypedGroupView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str) {
+        ("type_name", "body")
+    }
+}
+
+/// A string value within a length window, matching every required facet and no barred one.
+#[pyclass(frozen, name = "StringView", module = "jsonschema_rs.canonical")]
+pub(crate) struct StringView {
+    #[pyo3(get)]
+    min_length: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    max_length: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    patterns: Vec<String>,
+    #[pyo3(get)]
+    excluded_patterns: Vec<String>,
+    #[pyo3(get)]
+    formats: Vec<String>,
+    #[pyo3(get)]
+    excluded_formats: Vec<String>,
+    #[pyo3(get)]
+    content_media_types: Vec<String>,
+    #[pyo3(get)]
+    content_encodings: Vec<String>,
+    #[pyo3(get)]
+    excluded: Vec<String>,
+}
+
+#[pymethods]
+impl StringView {
+    #[classattr]
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "min_length",
+            "max_length",
+            "patterns",
+            "excluded_patterns",
+            "formats",
+            "excluded_formats",
+            "content_media_types",
+            "content_encodings",
+            "excluded",
+        )
+    }
+}
+
+/// An array value's constraints.
+// The fields carry the keywords they came from, whose names share the suffix.
+#[allow(clippy::struct_field_names)]
+#[pyclass(frozen, name = "ArrayView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ArrayView {
+    #[pyo3(get)]
+    min_items: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    max_items: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    distinctness: PyDistinctness,
+    #[pyo3(get)]
+    prefix_items: Vec<Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    items: Option<Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    contains: Vec<Py<ContainsView>>,
+}
+
+#[pymethods]
+impl ArrayView {
+    #[classattr]
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "min_items",
+            "max_items",
+            "distinctness",
+            "prefix_items",
+            "items",
+            "contains",
+        )
+    }
+}
+
+/// One `contains` requirement of an array. An absent minimum means the default of one.
+#[pyclass(frozen, name = "ContainsView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ContainsView {
+    #[pyo3(get)]
+    schema: Py<PyCanonicalSchema>,
+    #[pyo3(get)]
+    min_contains: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    max_contains: Option<Py<PyAny>>,
+}
+
+#[pymethods]
+impl ContainsView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str, &'static str) {
+        ("schema", "min_contains", "max_contains")
+    }
+}
+
+/// An object value's constraints.
+#[pyclass(frozen, name = "ObjectView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ObjectView {
+    #[pyo3(get)]
+    min_properties: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    max_properties: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    required: Vec<String>,
+    #[pyo3(get)]
+    property_names: Option<Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    properties: std::collections::BTreeMap<String, Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    pattern_properties: std::collections::BTreeMap<String, Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    additional_properties: Option<Py<PyCanonicalSchema>>,
+    #[pyo3(get)]
+    violations: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl ObjectView {
+    #[classattr]
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "min_properties",
+            "max_properties",
+            "required",
+            "property_names",
+            "properties",
+            "pattern_properties",
+            "additional_properties",
+            "violations",
+        )
+    }
+}
+
+/// One demand produced by negation: the object must hold at least one entry that breaks the
+/// stored rule. Some key's name fails the schema.
+#[pyclass(frozen, name = "NameFailsView", module = "jsonschema_rs.canonical")]
+pub(crate) struct NameFailsView {
+    #[pyo3(get)]
+    schema: Py<PyCanonicalSchema>,
+}
+
+#[pymethods]
+impl NameFailsView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("schema",)
+    }
+}
+
+/// One demand produced by negation: some key outside `names` and matching none of `patterns`
+/// has a value failing `additional`.
+#[pyclass(
+    frozen,
+    name = "UndeclaredValueFailsView",
+    module = "jsonschema_rs.canonical"
+)]
+pub(crate) struct UndeclaredValueFailsView {
+    #[pyo3(get)]
+    names: Vec<String>,
+    #[pyo3(get)]
+    patterns: Vec<String>,
+    #[pyo3(get)]
+    additional: Py<PyCanonicalSchema>,
+}
+
+#[pymethods]
+impl UndeclaredValueFailsView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str, &'static str) {
+        ("names", "patterns", "additional")
+    }
+}
+
+/// A demand that some key matching `pattern` has a value failing `schema`.
+#[pyclass(
+    frozen,
+    name = "PatternValueFailsView",
+    module = "jsonschema_rs.canonical"
+)]
+pub(crate) struct PatternValueFailsView {
+    #[pyo3(get)]
+    pattern: String,
+    #[pyo3(get)]
+    schema: Py<PyCanonicalSchema>,
+}
+
+#[pymethods]
+impl PatternValueFailsView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str) {
+        ("pattern", "schema")
+    }
+}
+
+/// A number value within a real interval.
+#[pyclass(frozen, name = "NumberView", module = "jsonschema_rs.canonical")]
+pub(crate) struct NumberView {
+    #[pyo3(get)]
+    minimum: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    exclusive_minimum: bool,
+    #[pyo3(get)]
+    maximum: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    exclusive_maximum: bool,
+    #[pyo3(get)]
+    multiple_of: Vec<Py<PyAny>>,
+    #[pyo3(get)]
+    not_multiple_of: Vec<Py<PyAny>>,
+    #[pyo3(get)]
+    excludes_integers: bool,
+}
+
+#[pymethods]
+impl NumberView {
+    #[classattr]
+    fn __match_args__() -> (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    ) {
+        (
+            "minimum",
+            "exclusive_minimum",
+            "maximum",
+            "exclusive_maximum",
+            "multiple_of",
+            "not_multiple_of",
+            "excludes_integers",
+        )
+    }
+}
+
+/// An integer value within a range, optionally a multiple of a divisor.
+#[pyclass(frozen, name = "IntegerView", module = "jsonschema_rs.canonical")]
+pub(crate) struct IntegerView {
+    #[pyo3(get)]
+    minimum: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    maximum: Option<Py<PyAny>>,
+    #[pyo3(get)]
+    multiple_of: Vec<Py<PyAny>>,
+    #[pyo3(get)]
+    not_multiple_of: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl IntegerView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str, &'static str, &'static str) {
+        ("minimum", "maximum", "multiple_of", "not_multiple_of")
+    }
+}
+
+/// A value matches iff at least one branch matches.
+#[pyclass(frozen, name = "AnyOfView", module = "jsonschema_rs.canonical")]
+pub(crate) struct AnyOfView {
+    #[pyo3(get)]
+    branches: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl AnyOfView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("branches",)
+    }
+}
+
+/// A value matches iff exactly one branch matches.
+#[pyclass(frozen, name = "OneOfView", module = "jsonschema_rs.canonical")]
+pub(crate) struct OneOfView {
+    #[pyo3(get)]
+    branches: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl OneOfView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("branches",)
+    }
+}
+
+/// A value matches iff every branch matches.
+#[pyclass(frozen, name = "AllOfView", module = "jsonschema_rs.canonical")]
+pub(crate) struct AllOfView {
+    #[pyo3(get)]
+    branches: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl AllOfView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("branches",)
+    }
+}
+
+/// The negation of `schema`, preserving a symbolic ref under ``not``, conditionals, and ``oneOf``.
+#[pyclass(frozen, name = "NotView", module = "jsonschema_rs.canonical")]
+pub(crate) struct NotView {
+    #[pyo3(get)]
+    schema: Py<PyCanonicalSchema>,
+}
+
+#[pymethods]
+impl NotView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("schema",)
+    }
+}
+
+/// A symbolic JSON Schema reference.
+#[pyclass(frozen, name = "ReferenceView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ReferenceView {
+    #[pyo3(get)]
+    uri: String,
+}
+
+#[pymethods]
+impl ReferenceView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("uri",)
+    }
+}
+
+/// Exactly one admitted value.
+#[pyclass(frozen, name = "ConstView", module = "jsonschema_rs.canonical")]
+pub(crate) struct ConstView {
+    #[pyo3(get)]
+    value: Py<PyAny>,
+}
+
+#[pymethods]
+impl ConstView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("value",)
+    }
+}
+
+/// A sorted, deduplicated finite set of admitted values.
+#[pyclass(frozen, name = "EnumView", module = "jsonschema_rs.canonical")]
+pub(crate) struct EnumView {
+    #[pyo3(get)]
+    values: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl EnumView {
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("values",)
+    }
+}
+
+/// One part of a schema object, as a reason names it.
+#[pyclass(
+    eq,
+    frozen,
+    hash,
+    from_py_object,
+    name = "Cause",
+    module = "jsonschema_rs.canonical"
+)]
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(crate) struct PyCause {
+    /// JSON Pointer of the schema object holding `keywords`, or of the subschema itself.
+    #[pyo3(get)]
+    pointer: String,
+    /// Keywords of one family present at `pointer`; empty for a whole subschema.
+    #[pyo3(get)]
+    keywords: Vec<String>,
+}
+
+#[pymethods]
+impl PyCause {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str) {
+        ("pointer", "keywords")
+    }
+
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        // Through Python's own `repr`, so a pointer holding a quote reads back as it was written.
+        let pointer = pyo3::types::PyString::new(py, &self.pointer).repr()?;
+        let keywords = pyo3::types::PyList::new(py, &self.keywords)?.repr()?;
+        Ok(format!("Cause(pointer={pointer}, keywords={keywords})"))
+    }
+}
+
+impl From<Cause> for PyCause {
+    fn from(cause: Cause) -> Self {
+        Self {
+            pointer: cause.pointer,
+            keywords: cause.keywords,
+        }
+    }
+}
+
+/// Why a subschema admits no value.
+#[pyclass(
+    eq,
+    skip_from_py_object,
+    name = "UnsatisfiableReason",
+    module = "jsonschema_rs.canonical"
+)]
+#[derive(Clone, PartialEq)]
+pub(crate) enum PyUnsatisfiableReason {
+    /// Written as `false`.
+    Literal {},
+    /// One part every value must satisfy admits nothing by itself. A subschema part has a reason
+    /// of its own under its pointer.
+    Empty { cause: PyCause },
+    /// Each part admits values; no value satisfies all of them together.
+    Conflict { causes: Vec<PyCause> },
+}
+
+impl From<UnsatisfiableReason> for PyUnsatisfiableReason {
+    fn from(reason: UnsatisfiableReason) -> Self {
+        match reason {
+            UnsatisfiableReason::Literal => Self::Literal {},
+            UnsatisfiableReason::Empty(cause) => Self::Empty {
+                cause: cause.into(),
+            },
+            UnsatisfiableReason::Conflict(causes) => Self::Conflict {
+                causes: causes.into_iter().map(Into::into).collect(),
+            },
+        }
+    }
+}
+
+/// Read the keyword arguments every canonicalization entry point takes.
+fn build_options<'r>(
+    py: Python<'_>,
+    draft: Option<u8>,
+    validate_formats: Option<bool>,
+    pattern_options: Option<&Bound<'_, PyAny>>,
+    retriever: Option<&Bound<'_, PyAny>>,
+    registry: Option<&'r crate::registry::Registry>,
+    base_uri: Option<String>,
+    offline: Option<bool>,
+) -> PyResult<jsonschema::canonical::CanonicalizeOptions<'r>> {
+    let offline = offline.unwrap_or(false);
+    if offline && retriever.is_some() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "`offline` cannot be used together with `retriever`",
+        ));
+    }
+    let mut options = jsonschema::canonical::options();
+    if let Some(draft) = draft {
+        options = options.with_draft(crate::get_draft(draft)?);
+    }
+    if let Some(validate_formats) = validate_formats {
+        options = options.should_validate_formats(validate_formats);
+    }
+    if let Some(retriever) = retriever {
+        let func = crate::retriever::into_retriever(retriever)?;
+        options = options.with_retriever(crate::retriever::Retriever { func });
+    }
+    if let Some(registry) = registry {
+        if retriever.is_none() && !offline {
+            if let Some(registry_retriever) = registry.retriever() {
+                let func = crate::retriever::into_retriever(registry_retriever.bind(py))?;
+                options = options.with_retriever(crate::retriever::Retriever { func });
+            }
+        }
+        options = options.with_registry(registry.inner.as_ref());
+    }
+    if offline {
+        options = options.offline();
+    }
+    if let Some(base_uri) = base_uri {
+        options = options.with_base_uri(base_uri);
+    }
+    if let Some(pattern_options) = pattern_options {
+        match crate::regex::extract_pattern_options(pattern_options)? {
+            crate::regex::PyPatternOptions::Fancy(inner) => {
+                options = options.with_pattern_options(inner);
+            }
+            crate::regex::PyPatternOptions::Regex(inner) => {
+                options = options.with_pattern_options(inner);
+            }
+        }
+    }
+    Ok(options)
+}
+
+/// find_unsatisfiable(schema, /, *, draft=None, validate_formats=None, pattern_options=None, retriever=None, registry=None, base_uri=None, offline=None)
+///
+/// The subschemas of `schema` that admit no value, by JSON Pointer, each with why.
+///
+/// A pointer left out is not proven satisfiable: a document the canonical form does not model
+/// reports nothing, as :class:`Satisfiability` answers `UNKNOWN`.
+#[pyfunction]
+#[pyo3(signature = (schema, *, draft=None, validate_formats=None, pattern_options=None, retriever=None, registry=None, base_uri=None, offline=None))]
+pub(crate) fn find_unsatisfiable(
+    schema: &Bound<'_, PyAny>,
+    draft: Option<u8>,
+    validate_formats: Option<bool>,
+    pattern_options: Option<&Bound<'_, PyAny>>,
+    retriever: Option<&Bound<'_, PyAny>>,
+    registry: Option<&crate::registry::Registry>,
+    base_uri: Option<String>,
+    offline: Option<bool>,
+) -> PyResult<BTreeMap<String, PyUnsatisfiableReason>> {
+    let schema_value = crate::ser::to_value(schema)?;
+    let options = build_options(
+        schema.py(),
+        draft,
+        validate_formats,
+        pattern_options,
+        retriever,
+        registry,
+        base_uri,
+        offline,
+    )?;
+    let prepared = options
+        .prepare(&schema_value)
+        .map_err(|error| canonicalization_error(schema.py(), error))?;
+    prepared
+        .unsatisfiable()
+        .map(|reasons| {
+            reasons
+                .into_iter()
+                .map(|(pointer, reason)| (pointer, reason.into()))
+                .collect()
+        })
+        .map_err(|error| canonicalization_error(schema.py(), error))
+}
+
+/// canonicalize(schema, /, *, draft=None, validate_formats=None, pattern_options=None, retriever=None, registry=None, base_uri=None, offline=None)
+///
+/// Parse and normalize a JSON Schema to its canonical form.
+///
+/// Returns a :class:`CanonicalSchema` that is semantically equivalent to the input.
+#[pyfunction]
+#[pyo3(signature = (schema, *, draft=None, validate_formats=None, pattern_options=None, retriever=None, registry=None, base_uri=None, offline=None))]
+pub(crate) fn canonicalize(
+    schema: &Bound<'_, PyAny>,
+    draft: Option<u8>,
+    validate_formats: Option<bool>,
+    pattern_options: Option<&Bound<'_, PyAny>>,
+    retriever: Option<&Bound<'_, PyAny>>,
+    registry: Option<&crate::registry::Registry>,
+    base_uri: Option<String>,
+    offline: Option<bool>,
+) -> PyResult<PyCanonicalSchema> {
+    let schema_value = crate::ser::to_value(schema)?;
+    let options = build_options(
+        schema.py(),
+        draft,
+        validate_formats,
+        pattern_options,
+        retriever,
+        registry,
+        base_uri,
+        offline,
+    )?;
+    options
+        .canonicalize(&schema_value)
+        .map(|inner| PyCanonicalSchema { inner })
+        .map_err(|error| canonicalization_error(schema.py(), error))
+}
+
+/// Meta-validation failures surface as structured `ValidationError`; everything else maps to the
+/// python-side `CanonicalizationError` subclass named after the variant.
+fn canonicalization_error(
+    py: Python<'_>,
+    error: jsonschema::canonical::CanonicalizationError,
+) -> PyErr {
+    use jsonschema::canonical::CanonicalizationError;
+    if let CanonicalizationError::ValidationError(validation) = error {
+        return crate::into_py_err(py, validation, None).unwrap_or_else(|err| err);
+    }
+    let name = match &error {
+        CanonicalizationError::InvalidSchemaType(_) => "InvalidSchemaType",
+        CanonicalizationError::InvalidPattern { .. } => "InvalidPattern",
+        CanonicalizationError::IncompatibleOperands(_) => "IncompatibleOperands",
+        CanonicalizationError::UnsupportedOperand => "UnsupportedOperand",
+        CanonicalizationError::UnsupportedResult => "UnsupportedResult",
+        _ => "CanonicalizationError",
+    };
+    let built = py.import("jsonschema_rs").and_then(|module| {
+        module
+            .getattr("canonical")?
+            .getattr(name)?
+            .call1((error.to_string(),))
+    });
+    match built {
+        Ok(object) => PyErr::from_value(object),
+        Err(err) => err,
+    }
+}
+
+pub(crate) fn init_module(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
+    let canonical_module = PyModule::new(py, "canonical")?;
+
+    canonical_module.add_class::<TrueView>()?;
+    canonical_module.add_class::<FalseView>()?;
+    canonical_module.add_class::<MultiTypeView>()?;
+    canonical_module.add_class::<TypedGroupView>()?;
+    canonical_module.add_class::<StringView>()?;
+    canonical_module.add_class::<IntegerView>()?;
+    canonical_module.add_class::<ArrayView>()?;
+    canonical_module.add_class::<ContainsView>()?;
+    canonical_module.add_class::<ObjectView>()?;
+    canonical_module.add_class::<NameFailsView>()?;
+    canonical_module.add_class::<UndeclaredValueFailsView>()?;
+    canonical_module.add_class::<PatternValueFailsView>()?;
+    canonical_module.add_class::<NumberView>()?;
+    canonical_module.add_class::<NotView>()?;
+    canonical_module.add_class::<AllOfView>()?;
+    canonical_module.add_class::<AnyOfView>()?;
+    canonical_module.add_class::<OneOfView>()?;
+    canonical_module.add_class::<ReferenceView>()?;
+    canonical_module.add_class::<ConstView>()?;
+    canonical_module.add_class::<EnumView>()?;
+    canonical_module.add_class::<RawView>()?;
+    canonical_module.add_class::<PyContainment>()?;
+    canonical_module.add_class::<PySatisfiability>()?;
+    canonical_module.add_class::<PyDistinctness>()?;
+    canonical_module.add_class::<PyRawReason>()?;
+    canonical_module.add_class::<PyCanonicalKind>()?;
+    canonical_module.add_class::<PyCause>()?;
+    canonical_module.add_class::<PyUnsatisfiableReason>()?;
+    canonical_module.add_function(pyo3::wrap_pyfunction!(
+        find_unsatisfiable,
+        &canonical_module
+    )?)?;
+
+    let canonical_json_module = PyModule::new(py, "json")?;
+    canonical_json_module.add_function(pyo3::wrap_pyfunction!(
+        json::canonical_json_to_string,
+        &canonical_json_module
+    )?)?;
+    canonical_module.add_submodule(&canonical_json_module)?;
+
+    let canonical_schema_module = PyModule::new(py, "schema")?;
+    canonical_schema_module.add_function(pyo3::wrap_pyfunction!(
+        crate::clone::canonical_schema_clone,
+        &canonical_schema_module
+    )?)?;
+    canonical_module.add_submodule(&canonical_schema_module)?;
+
+    module.add_submodule(&canonical_module)?;
+    Ok(())
+}
+
+fn divisors_to_python(
+    py: Python<'_>,
+    divisors: Vec<serde_json::Number>,
+) -> PyResult<Vec<Py<PyAny>>> {
+    divisors
+        .into_iter()
+        .map(|number| crate::value_to_python(py, &serde_json::Value::Number(number)))
+        .collect()
+}
+
+fn object_violation_to_python(
+    py: Python<'_>,
+    violation: ObjectViolationView,
+) -> PyResult<Py<PyAny>> {
+    Ok(match violation {
+        ObjectViolationView::NameFails(schema) => Py::new(
+            py,
+            NameFailsView {
+                schema: Py::new(py, PyCanonicalSchema { inner: schema })?,
+            },
+        )?
+        .into_any(),
+        ObjectViolationView::UndeclaredValueFails {
+            names,
+            patterns,
+            additional,
+        } => Py::new(
+            py,
+            UndeclaredValueFailsView {
+                names,
+                patterns,
+                additional: Py::new(py, PyCanonicalSchema { inner: additional })?,
+            },
+        )?
+        .into_any(),
+        ObjectViolationView::PatternValueFails { pattern, schema } => Py::new(
+            py,
+            PatternValueFailsView {
+                pattern,
+                schema: Py::new(py, PyCanonicalSchema { inner: schema })?,
+            },
+        )?
+        .into_any(),
+    })
+}

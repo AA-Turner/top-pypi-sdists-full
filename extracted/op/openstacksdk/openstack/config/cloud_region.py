@@ -16,15 +16,7 @@ from collections.abc import Iterator
 import copy
 import importlib.metadata as importlib_metadata
 import os.path
-from typing import (
-    Any,
-    Optional,
-    Protocol,
-    TYPE_CHECKING,
-    TypeVar,
-    cast,
-    overload,
-)
+from typing import Any, Protocol, TYPE_CHECKING, TypeVar, cast, overload
 from urllib import parse
 import warnings
 
@@ -61,6 +53,7 @@ except ImportError:
 from openstack import _log
 from openstack.config import _util
 from openstack.config import defaults as config_defaults
+from openstack.config import types
 from openstack import exceptions
 from openstack import proxy
 from openstack import warnings as os_warnings
@@ -114,12 +107,7 @@ def _disable_service(
 
 def _get_implied_microversion(version: str | None) -> str | None:
     if version and '.' in version:
-        # Some services historically had a .0 in their normal api version.
-        # Neutron springs to mind with version "2.0". If a user has "2.0"
-        # set in a variable or config file just because history, we don't
-        # need to send any microversion headers.
-        if version.split('.')[1] != "0":
-            return version
+        return version
 
     return None
 
@@ -267,20 +255,19 @@ def from_conf(
 
 
 class CloudRegion:
-    # TODO(efried): Doc the rest of the kwargs
     """The configuration for a Region of an OpenStack Cloud.
 
     A CloudRegion encapsulates the config information needed for connections
     to all of the services in a Region of a Cloud.
 
-    :param name:
-    :param region_name:
-        The default region name for all services in this CloudRegion. If
-        both ``region_name`` and ``config['region_name']`` are specified, the
-        kwarg takes precedence. May be overridden for a given ${service}
-        via a ${service}_region_name key in the ``config`` dict.
-    :param config:
-        A dict of configuration values for the CloudRegion and its
+    :param name: The name of the CloudRegion. If not provided, it will be
+        derived from the hostname of the authentication URL, falling back to
+        ``app_name`` if the auth plugin is not an identity plugin.
+    :param region_name: The default region name for all services in this
+        CloudRegion. If both ``region_name`` and ``config['region_name']`` are
+        specified, the kwarg takes precedence. May be overridden for a given
+        ${service} via a ${service}_region_name key in the ``config`` dict.
+    :param config: A dict of configuration values for the CloudRegion and its
         services. The key for a ${config_option} for a specific ${service}
         should be ${service}_${config_option}. For example, to configure
         the endpoint_override for the block_storage service, the ``config``
@@ -293,27 +280,55 @@ class CloudRegion:
         key, e.g.::
 
             'interface': 'public'
-    :param force_ipv4:
-    :param auth_plugin:
-    :param openstack_config:
-    :param session_constructor:
-    :param app_name:
-    :param app_version:
-    :param session:
-    :param discovery_cache:
-    :param extra_config:
-    :param cache_expiration_time:
-    :param cache_expirations:
-    :param cache_path:
-    :param cache_class:
-    :param cache_arguments:
-    :param password_callback:
-    :param statsd_host:
-    :param statsd_port:
-    :param statsd_prefix:
-    :param influxdb_config:
-    :param collector_registry:
-    :param cache_auth:
+    :param force_ipv4: If ``True``, force the use of IPv4 addresses when
+        connecting to services.
+    :param auth_plugin: A keystoneauth1 auth plugin used to authenticate with
+        the cloud.
+    :param openstack_config: The
+        :class:`~openstack.config.loader.OpenStackConfig` object that created
+        this CloudRegion, if any.
+    :param session_constructor: A callable used to construct the keystoneauth1
+        :class:`~keystoneauth1.session.Session` for this region. Defaults to
+        :class:`keystoneauth1.session.Session`.
+    :param app_name: The name of the application connecting to the cloud. Used
+        to construct the ``User-Agent`` header.
+    :param app_version: The version of the application connecting to the cloud.
+        Used to construct the ``User-Agent`` header.
+    :param session: An existing authenticated keystoneauth1
+        :class:`~keystoneauth1.session.Session` to use. If not provided, one
+        will be constructed as needed using ``session_constructor``.
+    :param discovery_cache: A dict used to cache API version discovery
+        documents, keyed by URL. Shared across services to avoid duplicate
+        discovery requests.
+    :param extra_config: A dict of additional, arbitrary config sections that
+        do not correspond to a service. Accessible via
+        :meth:`get_client_config`.
+    :param cache_expiration_time: The default time, in seconds, to cache the
+        results of API calls. A value of ``0`` disables caching.
+    :param cache_expirations: A dict mapping resource names to per-resource
+        cache expiration times, in seconds. Overrides ``cache_expiration_time``
+        for the given resources.
+    :param cache_path: The filesystem path to use for the cache, if using a
+        file-based cache backend.
+    :param cache_class: The dogpile.cache backend to use for caching. Defaults
+        to ``'dogpile.cache.null'``, which disables caching.
+    :param cache_arguments: A dict of arguments to pass to the dogpile.cache
+        backend.
+    :param password_callback: A callable invoked to prompt for a password when
+        one is required but not otherwise available.
+    :param statsd_host: **DEPRECATED** Use statsd_config instead.
+    :param statsd_port: **DEPRECATED** Use statsd_config instead.
+    :param statsd_prefix: **DEPRECATED** Use statsd_config instead.
+    :param statsd_config: Configuration for reporting API call metrics to
+        statsd.
+    :param influxdb_config: Configuration for reporting API call metrics to
+        InfluxDB. **DEPRECATED**: InfluxDB support relies on a deprecated
+        library and will be removed in a future release.
+    :param collector_registry: A prometheus_client
+        :class:`~prometheus_client.CollectorRegistry` used to report API call
+        metrics to Prometheus.
+    :param cache_auth: If ``True``, cache authentication tokens (using the
+        keyring library) so they can be reused across processes.
     """
 
     def __init__(
@@ -323,7 +338,7 @@ class CloudRegion:
         config: dict[str, Any] | None = None,
         force_ipv4: bool = False,
         auth_plugin: plugin.BaseAuthPlugin | None = None,
-        openstack_config: Optional['loader.OpenStackConfig'] = None,
+        openstack_config: 'loader.OpenStackConfig | None' = None,
         session_constructor: type[ks_session.Session] | None = None,
         app_name: str | None = None,
         app_version: str | None = None,
@@ -337,13 +352,14 @@ class CloudRegion:
         cache_arguments: dict[str, Any] | None = None,
         password_callback: _PasswordCallback | None = None,
         statsd_host: str | None = None,
-        statsd_port: str | None = None,
+        statsd_port: int | None = None,
         statsd_prefix: str | None = None,
-        # TODO(stephenfin): Add better types
-        influxdb_config: dict[str, Any] | None = None,
-        collector_registry: Optional[
-            'prometheus_client.CollectorRegistry'
-        ] = None,
+        statsd_config: types.StatsdConfig | None = None,
+        influxdb_config: types.InfluxDBConfig | None = None,
+        prometheus_config: types.PrometheusConfig | None = None,
+        collector_registry: (
+            'prometheus_client.CollectorRegistry | None'
+        ) = None,
         cache_auth: bool = False,
     ) -> None:
         self._name = name
@@ -355,6 +371,56 @@ class CloudRegion:
             self.config['region_name'] = region_name
         self._extra_config = extra_config or {}
         self.log = _log.setup_logging('openstack.config')
+
+        if statsd_host or statsd_port or statsd_prefix:
+            if statsd_config:
+                raise exceptions.ConfigException(
+                    'cannot specify statsd_config alongside any of '
+                    'statsd_host, statsd_port, or statsd_prefix: remove the '
+                    'latter'
+                )
+
+            warnings.warn(
+                'the statsd_host, statsd_port, and statsd_prefix arguments '
+                'have been deprecated in favour of statsd_config',
+                os_warnings.RemovedInSDK60Warning,
+            )
+            statsd_config = {
+                'host': statsd_host,
+                'port': statsd_port,
+                'prefix': statsd_prefix,
+            }
+
+        if influxdb_config:
+            # NOTE(stephenfin): If you are a user and care about InfluxDB,
+            # please propose patches to migrate this to the influxdb3-python
+            # library [1]. Any migration should include tests.
+            #
+            # [1] https://github.com/InfluxCommunity/influxdb3-python
+            warnings.warn(
+                'Support for InfluxDB requires the influxdb library which '
+                'only supports InfluxDB 1.x and is deprecated. As a result, '
+                'influxdb is also deprecated and will be removed in a future '
+                'release.',
+                os_warnings.RemovedInSDK60Warning,
+            )
+
+        if collector_registry:
+            if prometheus_config:
+                raise exceptions.ConfigException(
+                    'cannot specify prometheus_config alongside '
+                    'collector_registry: remove the latter'
+                )
+
+            warnings.warn(
+                'the collector_registry argument has been deprecated in '
+                'favour of prometheus_config',
+                os_warnings.RemovedInSDK60Warning,
+            )
+            prometheus_config = {
+                'collector_registry': collector_registry,
+            }
+
         self._force_ipv4 = force_ipv4
         self._auth = auth_plugin
         self._cache_auth = cache_auth
@@ -371,29 +437,11 @@ class CloudRegion:
         self._cache_class = cache_class
         self._cache_arguments = cache_arguments
         self._password_callback = password_callback
-        self._statsd_host = statsd_host
-        self._statsd_port = statsd_port
-        self._statsd_prefix = statsd_prefix
+        self._statsd_config = statsd_config or {}
         self._statsd_client = None
-        self._influxdb_config = influxdb_config
+        self._influxdb_config = influxdb_config or {}
         self._influxdb_client = None
-
-        if influxdb_config is not None:
-            # NOTE(stephenfin): If you are a user and care about InfluxDB,
-            # please propose patches to migrate this to the influxdb3-python
-            # library [1]. Any migration should include tests.
-            #
-            # [1] https://github.com/InfluxCommunity/influxdb3-python
-            warnings.warn(
-                'Support for InfluxDB requires the influxdb library which '
-                'only supports InfluxDB 1.x and is deprecated. As a result, '
-                'influxdb is also deprecated and will be removed in a future '
-                'release.',
-                os_warnings.RemovedInSDK60Warning,
-            )
-
-        self._collector_registry = collector_registry
-
+        self._prometheus_config = prometheus_config or {}
         self._service_type_manager = os_service_types.ServiceTypes()
 
     def __getattr__(self, key: str) -> Any:
@@ -1119,8 +1167,7 @@ class CloudRegion:
             session=self.get_session(),
             service_type=self.get_service_type(service_type),
             service_name=self.get_service_name(service_type),
-            # https://review.opendev.org/c/openstack/keystoneauth/+/951183
-            interface=self.get_interface(service_type),  # type: ignore
+            interface=self.get_interface(service_type),
             region_name=self.get_region_name(service_type),
         )
         endpoint = adapter.get_endpoint()
@@ -1223,8 +1270,7 @@ class CloudRegion:
             session=self.get_session(),
             service_type=self.get_service_type(service_type),
             service_name=self.get_service_name(service_type),
-            # https://review.opendev.org/c/openstack/keystoneauth/+/951183
-            interface=self.get_interface(service_type),  # type: ignore
+            interface=self.get_interface(service_type),
             version=version,
             min_version=min_api_version,
             max_version=max_api_version,
@@ -1505,19 +1551,19 @@ class CloudRegion:
 
     def get_statsd_client(
         self,
-    ) -> Optional['statsd_client.StatsClientBase']:
+    ) -> 'statsd_client.StatsClientBase | None':
         if not statsd_client:
-            if self._statsd_host:
+            if self._statsd_config.get('host'):
                 self.log.warning(
                     'StatsD python library is not available. '
                     'Reporting disabled'
                 )
             return None
-        statsd_args = {}
-        if self._statsd_host:
-            statsd_args['host'] = self._statsd_host
-        if self._statsd_port:
-            statsd_args['port'] = self._statsd_port
+        statsd_args: dict[str, Any] = {}
+        if self._statsd_config.get('host'):
+            statsd_args['host'] = self._statsd_config['host']
+        if self._statsd_config.get('port'):
+            statsd_args['port'] = self._statsd_config['port']
         if statsd_args:
             try:
                 return statsd_client.StatsClient(**statsd_args)
@@ -1528,16 +1574,16 @@ class CloudRegion:
             return None
 
     def get_statsd_prefix(self) -> str:
-        return self._statsd_prefix or 'openstack.api'
+        return self._statsd_config.get('prefix') or 'openstack.api'
 
     def get_prometheus_registry(
         self,
-    ) -> Optional['prometheus_client.CollectorRegistry']:
-        return self._collector_registry
+    ) -> 'prometheus_client.CollectorRegistry | None':
+        return self._prometheus_config.get('collector_registry')
 
     def get_prometheus_histogram(
         self,
-    ) -> Optional['prometheus_client.Histogram']:
+    ) -> 'prometheus_client.Histogram | None':
         registry = self.get_prometheus_registry()
         if not registry or not prometheus_client:
             return None
@@ -1562,7 +1608,7 @@ class CloudRegion:
 
     def get_prometheus_counter(
         self,
-    ) -> Optional['prometheus_client.Counter']:
+    ) -> 'prometheus_client.Counter | None':
         registry = self.get_prometheus_registry()
         if not registry or not prometheus_client:
             return None
@@ -1608,9 +1654,9 @@ class CloudRegion:
 
     def get_influxdb_client(
         self,
-    ) -> Optional['influxdb_client.InfluxDBClient']:
+    ) -> 'influxdb_client.InfluxDBClient | None':
         influx_args: dict[str, Any] = {}
-        if not self._influxdb_config:
+        if not self._influxdb_config.get('host'):
             return None
 
         warnings.warn(
@@ -1621,18 +1667,20 @@ class CloudRegion:
             os_warnings.RemovedInSDK60Warning,
         )
 
-        use_udp = bool(self._influxdb_config.get('use_udp', False))
-        port = self._influxdb_config.get('port')
+        # coerce to a plain dict so we can index it with dynamic keys
+        influxdb_config = dict(self._influxdb_config)
+        use_udp = bool(influxdb_config.get('use_udp', False))
+        port = influxdb_config.get('port')
         if use_udp:
             influx_args['use_udp'] = True
-        if 'port' in self._influxdb_config:
+        if port is not None:
             if use_udp:
                 influx_args['udp_port'] = port
             else:
                 influx_args['port'] = port
         for key in ['host', 'username', 'password', 'database', 'timeout']:
-            if key in self._influxdb_config:
-                influx_args[key] = self._influxdb_config[key]
+            if influxdb_config.get(key) is not None:
+                influx_args[key] = influxdb_config[key]
         if influxdb_client and influx_args:
             try:
                 return influxdb_client.InfluxDBClient(**influx_args)

@@ -723,6 +723,17 @@ class CompletedRequest:
                     row.setdefault("metadata", {})["pricing_snapshots"] = pricing_snapshots
                     if len(pricing_snapshots) == 1:
                         row["metadata"]["pricing_snapshot"] = pricing_snapshots[0]
+                builtin_parts = [
+                    item.metadata["builtin_tool_use"]
+                    for item in iteration_usages
+                    if item.metadata.get("builtin_tool_use")
+                ]
+                if builtin_parts:
+                    from matrx_ai.config.builtin_tool_use import merge_builtin_tool_use
+
+                    row.setdefault("metadata", {})["builtin_tool_use"] = merge_builtin_tool_use(
+                        builtin_parts
+                    )
                 response_message_id = u.metadata.get("response_message_id")
                 if response_message_id:
                     row.setdefault("metadata", {})["response_message_id"] = response_message_id

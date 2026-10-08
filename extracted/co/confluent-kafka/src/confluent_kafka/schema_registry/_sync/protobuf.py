@@ -17,7 +17,7 @@
 
 import io
 import threading as _locks
-from typing import Any, Callable, List, Optional, Set, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
 
 from google.protobuf import descriptor_pb2, json_format
 from google.protobuf.descriptor import Descriptor, FileDescriptor
@@ -43,6 +43,7 @@ from confluent_kafka.schema_registry.common.protobuf import (
     _schema_to_str,
     _str_to_proto,
     transform,
+    validate_message,
 )
 from confluent_kafka.schema_registry.common.schema_registry_client import RulePhase
 from confluent_kafka.schema_registry.rule_registry import RuleRegistry
@@ -52,13 +53,25 @@ from confluent_kafka.schema_registry.serde import (
     BaseSerializer,
     ParsedSchemaCache,
     SchemaId,
+    ValidationRulesExecution,
+    build_serde,
+    clear_original_key,
+    set_original_key,
 )
-from confluent_kafka.serialization import SerializationContext, SerializationError
+from confluent_kafka.serialization import (
+    DeserializerBuilder,
+    MessageField,
+    SerializationContext,
+    SerializationError,
+    SerializerBuilder,
+)
 
 __all__ = [
     '_resolve_named_schema',
     'ProtobufSerializer',
+    'ProtobufSerializerBuilder',
     'ProtobufDeserializer',
+    'ProtobufDeserializerBuilder',
 ]
 
 
@@ -248,6 +261,9 @@ class ProtobufSerializer(BaseSerializer):
         'reference.subject.name.strategy': reference_subject_name_strategy,
         'schema.id.serializer': prefix_schema_id_serializer,
         'use.deprecated.format': False,
+        'validation.rules.execution': ValidationRulesExecution.DISABLED,
+        'validation.rules.fail.fast': False,
+        'validation.rules.executor': None,
     }
 
     def __init_impl(
@@ -315,6 +331,8 @@ class ProtobufSerializer(BaseSerializer):
         if not callable(self._schema_id_serializer):
             raise ValueError("schema.id.serializer must be callable")
 
+        self.configure_validation_rules(conf_copy)
+
         if len(conf_copy) > 0:
             raise ValueError("Unrecognized properties: {}".format(", ".join(conf_copy.keys())))
 
@@ -332,6 +350,8 @@ class ProtobufSerializer(BaseSerializer):
 
         for rule in self._rule_registry.get_executors():
             rule.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
+        for action in self._rule_registry.get_actions():
+            action.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
 
     __init__ = __init_impl
 
@@ -407,6 +427,18 @@ class ProtobufSerializer(BaseSerializer):
         return self.__serialize(message, ctx)
 
     def __serialize(self, message: Message, ctx: Optional[SerializationContext] = None) -> Optional[bytes]:
+        try:
+            if message is None:
+                return None
+            return self.__serialize_impl(message, ctx)
+        finally:
+            # Track the key for use when serializing the value, such as for a DLQ
+            if ctx is not None and ctx.field == MessageField.KEY:
+                set_original_key(message)
+            else:
+                clear_original_key()
+
+    def __serialize_impl(self, message: Message, ctx: Optional[SerializationContext] = None) -> Optional[bytes]:
         """
         Serializes an instance of a class derived from Protobuf Message, and prepends
         it with Confluent Schema Registry framing.
@@ -487,10 +519,19 @@ class ProtobufSerializer(BaseSerializer):
             def field_transformer(rule_ctx, field_transform, msg):
                 return transform(rule_ctx, desc, msg, field_transform)  # noqa: E731
 
+            if self._validation_enabled(ValidationRulesExecution.BEFORE_DOMAIN_RULES):
+                self._validate_inline_rules(desc, message)
+
             if ctx is not None and subject is not None:
                 message = self._execute_rules(
                     ctx, subject, RuleMode.WRITE, None, latest_schema.schema, message, None, field_transformer
                 )
+
+            if self._validation_enabled(ValidationRulesExecution.AFTER_DOMAIN_RULES):
+                self._validate_inline_rules(desc, message)
+        elif self._validation_enabled():
+            # No domain rules run on this path, so before/after collapse to one point.
+            self._validate_inline_rules(message.DESCRIPTOR, message)
 
         with _ContextStringIO() as fo:
             fo.write(message.SerializeToString())
@@ -504,6 +545,15 @@ class ProtobufSerializer(BaseSerializer):
                 )
 
             return self._schema_id_serializer(buffer, ctx, schema_id)
+
+    def _validate_inline_rules(self, desc: Descriptor, message: Message) -> None:
+        """
+        Evaluate the descriptor's inline validation rules against ``message``, raising
+        a single SerializationError listing every violation found.
+        """
+        self._raise_validation_violations(
+            validate_message(self._validation_rule_executor, desc, message, self._validation_rules_fail_fast)
+        )
 
     def _get_parsed_schema(self, schema: Schema) -> Tuple[descriptor_pb2.FileDescriptorProto, DescriptorPool]:
         result = self._parsed_schemas.get_parsed_schema(schema)
@@ -519,6 +569,126 @@ class ProtobufSerializer(BaseSerializer):
         pool.Add(fd_proto)
         self._parsed_schemas.set(schema, (fd_proto, pool))
         return fd_proto, pool
+
+
+class ProtobufSerializerBuilder(SerializerBuilder):
+    """
+    Builds an :py:class:`ProtobufSerializer` for a serializing producer.
+
+    *This class is experimental and subject to incompatible API changes in future versions of the library.*
+
+    Pass one to a producer through the ``key.serializer.builder`` or
+    ``value.serializer.builder`` configuration property and it constructs the
+    Schema Registry client and the serializer for you, and lets the producer
+    supply the Kafka cluster id to the serializer::
+
+        producer = SerializingProducer({
+            'bootstrap.servers': brokers,
+            'value.serializer.builder': ProtobufSerializerBuilder(
+                schema_registry_config={'url': schema_registry_url},
+                message_type=User,
+            ),
+        })
+
+    Every value also has a setter, each returning the builder so they chain::
+
+        ProtobufSerializerBuilder().set_schema_registry_config(conf).set_message_type(User)
+
+    The message type is required; the rest are optional.
+
+    See :py:class:`ProtobufSerializer` for what the individual values mean.
+    """
+
+    def __init__(
+        self,
+        schema_registry_config: Optional[dict] = None,
+        schema_registry_client: Optional[SchemaRegistryClient] = None,
+        message_type: Optional[Message] = None,
+        serializer_config: Optional[dict] = None,
+        rule_config: Optional[dict] = None,
+        rule_registry: Optional[RuleRegistry] = None,
+        serializer_init: Optional[Callable[['ProtobufSerializer'], None]] = None,
+    ) -> None:
+        self._schema_registry_conf = schema_registry_config
+        self._schema_registry_client = schema_registry_client
+        self._msg_type = message_type
+        self._serializer_conf = serializer_config
+        self._rule_conf = rule_config
+        self._rule_registry = rule_registry
+        self._serializer_init = serializer_init
+
+    def set_schema_registry_config(self, schema_registry_conf: dict) -> 'ProtobufSerializerBuilder':
+        """Configuration for the Schema Registry client to build. Cannot be combined with a client."""
+        self._schema_registry_conf = schema_registry_conf
+        return self
+
+    def set_schema_registry_client(self, schema_registry_client: SchemaRegistryClient) -> 'ProtobufSerializerBuilder':
+        """An existing Schema Registry client to use, instead of building one."""
+        self._schema_registry_client = schema_registry_client
+        return self
+
+    def set_message_type(self, msg_type: Message) -> 'ProtobufSerializerBuilder':
+        """The protobuf message class this serializer accepts. Required."""
+        self._msg_type = msg_type
+        return self
+
+    def set_serializer_config(self, serializer_conf: dict) -> 'ProtobufSerializerBuilder':
+        """Serializer configuration, e.g. ``{'auto.register.schemas': False}``."""
+        self._serializer_conf = serializer_conf
+        return self
+
+    def set_rule_config(self, rule_conf: dict) -> 'ProtobufSerializerBuilder':
+        """Configuration passed to the rule executors and actions."""
+        self._rule_conf = rule_conf
+        return self
+
+    def set_rule_registry(self, rule_registry: RuleRegistry) -> 'ProtobufSerializerBuilder':
+        """Rule registry to use instead of the global one."""
+        self._rule_registry = rule_registry
+        return self
+
+    def set_serializer_init(
+        self, serializer_init: Callable[['ProtobufSerializer'], None]
+    ) -> 'ProtobufSerializerBuilder':
+        """
+        Function called with the serializer once built, for
+        any setup that the other setters do not cover.
+        """
+        self._serializer_init = serializer_init
+        return self
+
+    def build(  # type: ignore[override]
+        self, conf: Dict[str, Any], is_key: bool
+    ) -> Tuple['ProtobufSerializer', Dict[str, Any]]:
+        """
+        Build the serializer. See :py:func:`SerializerBuilder.build`.
+
+        No Schema Registry property is read from the client configuration today,
+        so it is handed back unchanged.
+
+        Raises:
+            ValueError: If no message type was set.
+        """
+        return self.__build(conf, is_key)
+
+    def __build(self, conf: Dict[str, Any], is_key: bool) -> Tuple['ProtobufSerializer', Dict[str, Any]]:
+        if self._msg_type is None:
+            raise ValueError("Protobuf serializer requires a message type; call set_message_type()")
+
+        serializer = build_serde(
+            self._schema_registry_client,
+            self._schema_registry_conf,
+            lambda client: ProtobufSerializer(
+                self._msg_type,
+                client,
+                self._serializer_conf,
+                self._rule_conf,
+                self._rule_registry,
+            ),
+            self._serializer_init,
+        )
+
+        return serializer, dict(conf)
 
 
 class ProtobufDeserializer(BaseDeserializer):
@@ -641,6 +811,8 @@ class ProtobufDeserializer(BaseDeserializer):
 
         for rule in self._rule_registry.get_executors():
             rule.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
+        for action in self._rule_registry.get_actions():
+            action.configure(self._registry.config() if self._registry else {}, rule_conf if rule_conf else {})
 
     __init__ = __init_impl
 
@@ -648,6 +820,18 @@ class ProtobufDeserializer(BaseDeserializer):
         return self.__deserialize(data, ctx)
 
     def __deserialize(self, data: Optional[bytes], ctx: Optional[SerializationContext] = None) -> Optional[bytes]:
+        try:
+            if data is None:
+                return None
+            return self.__deserialize_impl(data, ctx)
+        finally:
+            # Track the key for use when deserializing the value, such as for a DLQ
+            if ctx is not None and ctx.field == MessageField.KEY:
+                set_original_key(data)
+            else:
+                clear_original_key()
+
+    def __deserialize_impl(self, data: Optional[bytes], ctx: Optional[SerializationContext] = None) -> Optional[bytes]:
         """
         Deserialize a serialized protobuf message with Confluent Schema Registry
         framing.
@@ -710,7 +894,7 @@ class ProtobufDeserializer(BaseDeserializer):
 
         if ctx is not None and subject is not None:
             payload = self._execute_rules_with_phase(
-                ctx, subject, RulePhase.ENCODING, RuleMode.READ, None, writer_schema_raw, payload, None, None
+                ctx, subject, RulePhase.ENCODING, RuleMode.READ, None, writer_schema_raw, payload, None, None, data
             )
         if isinstance(payload, bytes):
             payload = io.BytesIO(payload)
@@ -756,7 +940,7 @@ class ProtobufDeserializer(BaseDeserializer):
 
         if ctx is not None and subject is not None:
             msg = self._execute_rules(
-                ctx, subject, RuleMode.READ, None, reader_schema_raw, msg, None, field_transformer
+                ctx, subject, RuleMode.READ, None, reader_schema_raw, msg, None, field_transformer, data
             )
         return msg
 
@@ -812,3 +996,123 @@ class ProtobufDeserializer(BaseDeserializer):
             if len(msg_index) == 1:
                 return path, msg
             return self._get_message_desc_proto(path, msg, msg_index[1:])
+
+
+class ProtobufDeserializerBuilder(DeserializerBuilder):
+    """
+    Builds an :py:class:`ProtobufDeserializer` for a deserializing consumer.
+
+    *This class is experimental and subject to incompatible API changes in future versions of the library.*
+
+    The deserializing counterpart of :py:class:`ProtobufSerializerBuilder`.
+    Pass one to a consumer through the ``key.deserializer.builder`` or
+    ``value.deserializer.builder`` configuration property::
+
+        consumer = DeserializingConsumer[None, User]({
+            'bootstrap.servers': brokers,
+            'group.id': group,
+            'value.deserializer.builder': ProtobufDeserializerBuilder(
+                schema_registry_config={'url': schema_registry_url},
+                message_type=User,
+            ),
+        })
+
+    Every value also has a setter, each returning the builder so they chain::
+
+        ProtobufDeserializerBuilder().set_schema_registry_config(conf).set_message_type(User)
+
+    The message type is required; the rest are optional.
+
+    See :py:class:`ProtobufDeserializer` for what the individual values mean.
+    """
+
+    def __init__(
+        self,
+        schema_registry_config: Optional[dict] = None,
+        schema_registry_client: Optional[SchemaRegistryClient] = None,
+        message_type: Optional[Message] = None,
+        deserializer_config: Optional[dict] = None,
+        rule_config: Optional[dict] = None,
+        rule_registry: Optional[RuleRegistry] = None,
+        deserializer_init: Optional[Callable[['ProtobufDeserializer'], None]] = None,
+    ) -> None:
+        self._schema_registry_conf = schema_registry_config
+        self._schema_registry_client = schema_registry_client
+        self._msg_type = message_type
+        self._deserializer_conf = deserializer_config
+        self._rule_conf = rule_config
+        self._rule_registry = rule_registry
+        self._deserializer_init = deserializer_init
+
+    def set_schema_registry_config(self, schema_registry_conf: dict) -> 'ProtobufDeserializerBuilder':
+        """Configuration for the Schema Registry client to build. Cannot be combined with a client."""
+        self._schema_registry_conf = schema_registry_conf
+        return self
+
+    def set_schema_registry_client(self, schema_registry_client: SchemaRegistryClient) -> 'ProtobufDeserializerBuilder':
+        """An existing Schema Registry client to use, instead of building one."""
+        self._schema_registry_client = schema_registry_client
+        return self
+
+    def set_message_type(self, msg_type: Message) -> 'ProtobufDeserializerBuilder':
+        """The protobuf message class this deserializer returns. Required."""
+        self._msg_type = msg_type
+        return self
+
+    def set_deserializer_config(self, deserializer_conf: dict) -> 'ProtobufDeserializerBuilder':
+        """Deserializer configuration, e.g. ``{'use.deprecated.format': False}``."""
+        self._deserializer_conf = deserializer_conf
+        return self
+
+    def set_rule_config(self, rule_conf: dict) -> 'ProtobufDeserializerBuilder':
+        """Configuration passed to the rule executors and actions."""
+        self._rule_conf = rule_conf
+        return self
+
+    def set_rule_registry(self, rule_registry: RuleRegistry) -> 'ProtobufDeserializerBuilder':
+        """Rule registry to use instead of the global one."""
+        self._rule_registry = rule_registry
+        return self
+
+    def set_deserializer_init(
+        self, deserializer_init: Callable[['ProtobufDeserializer'], None]
+    ) -> 'ProtobufDeserializerBuilder':
+        """
+        Function called with the deserializer once built, for
+        any setup that the other setters do not cover.
+        """
+        self._deserializer_init = deserializer_init
+        return self
+
+    def build(  # type: ignore[override]
+        self, conf: Dict[str, Any], is_key: bool
+    ) -> Tuple['ProtobufDeserializer', Dict[str, Any]]:
+        """
+        Build the deserializer. See :py:func:`DeserializerBuilder.build`.
+
+        No Schema Registry property is read from the client configuration today,
+        so it is handed back unchanged.
+
+        Raises:
+            ValueError: If no message type was set.
+        """
+        return self.__build(conf, is_key)
+
+    def __build(self, conf: Dict[str, Any], is_key: bool) -> Tuple['ProtobufDeserializer', Dict[str, Any]]:
+        if self._msg_type is None:
+            raise ValueError("Protobuf deserializer requires a message type; call set_message_type()")
+
+        deserializer = build_serde(
+            self._schema_registry_client,
+            self._schema_registry_conf,
+            lambda client: ProtobufDeserializer(
+                self._msg_type,
+                self._deserializer_conf,
+                client,
+                self._rule_conf,
+                self._rule_registry,
+            ),
+            self._deserializer_init,
+        )
+
+        return deserializer, dict(conf)

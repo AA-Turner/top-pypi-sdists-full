@@ -77,7 +77,7 @@ class ReIDGallery:
     #     thread never touches this object -- it returns embeddings, and the frame
     #     path does the matching. That keeps the concurrency story trivial.
 
-    def __init__(self: Any, dim: int, capacity: int = 100, match_threshold: float = 0.67, margin: float = 0.06, min_absence_s: float = 3.0) -> None: ...
+    def __init__(self: Any, dim: int, capacity: int = 100, match_threshold: float = 0.67, margin: float = 0.0, min_absence_s: float = 3.0) -> None: ...
 
     def clear(self: Any) -> None: ...
 
@@ -269,6 +269,25 @@ class EmbedWorker:
     def __init__(self: Any, embed_fn: Callable[[List[Any.Any]], Optional[Any.Any]], max_pending: int = 64, batch_size: int = 8, idle_sleep_s: float = 0.002, name: str = 'reid-embed') -> None: ...
 
     def alive(self: Any) -> bool: ...
+
+    def drain(self: Any, timeout_s: float = 2.0) -> bool:
+        """
+        Block until nothing is queued or in flight. True if it went idle.
+        
+                The worker is asynchronous by design: a crop is offered on one frame
+                and its verdict collected some frames later, which keeps the frame
+                path off the GPU. The cost is that WHICH frame a verdict lands on
+                depends on thread scheduling, so the same video replayed twice can
+                resolve a track against a different gallery state and report a
+                different unique count (12-16 observed on one 3907-frame clip).
+        
+                Callers that need a repeatable number -- offline evaluation,
+                threshold calibration, regression tests -- call this after each
+                frame to pin the schedule. It makes the result bitwise repeatable
+                and costs throughput, so it is opt-in and must NOT be called on a
+                live realtime path.
+        """
+        ...
 
     def forget(self: Any, track_ids: Any) -> None:
         """

@@ -97,6 +97,28 @@ def _no_real_cli_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_real_update_reports(monkeypatch: pytest.MonkeyPatch) -> list:
+    """No test may POST an auto-update report to a real server.
+
+    `perform_update` now sends one after every attempt (`update_report`), and a
+    dev box or CI runner with `PROBE_TOKEN` set would otherwise send it to
+    whatever base URL the test passed. Replaces `_deliver`, the module's one
+    network door, with a recorder that answers "no answer" -- so a report stays
+    queued and nothing leaves the process. Tests ABOUT the report replace it
+    themselves."""
+    from probe.cli import update_report
+
+    sent: list = []
+
+    def _offline(base_url, headers, body, timeout):
+        sent.append(body)
+        return None
+
+    monkeypatch.setattr(update_report, "_deliver", _offline)
+    return sent
+
+
+@pytest.fixture(autouse=True)
 def _no_real_daemon_install(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test may pip-install the daemon's AI libraries for real.
 

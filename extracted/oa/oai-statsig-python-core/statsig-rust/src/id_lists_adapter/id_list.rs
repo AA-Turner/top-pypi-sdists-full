@@ -1,17 +1,17 @@
 use serde::Serialize;
 
 use crate::{
-    id_lists_adapter::{IdListMetadata, IdListUpdate},
+    id_lists_adapter::{IdListIds, IdListMetadata, IdListUpdate},
     unwrap_or_noop,
 };
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 #[derive(Clone, Serialize)]
 pub struct IdList {
     pub metadata: IdListMetadata,
 
     #[serde(skip_serializing)]
-    pub ids: Arc<HashSet<String>>,
+    pub ids: Arc<IdListIds>,
 }
 
 impl IdList {
@@ -21,7 +21,7 @@ impl IdList {
 
         Self {
             metadata: local_metadata,
-            ids: Arc::new(HashSet::new()),
+            ids: Arc::new(IdListIds::new()),
         }
     }
 
@@ -48,17 +48,10 @@ impl IdList {
                 continue;
             }
 
-            let op = change.chars().next();
-            let id = &change[1..];
-
-            match op {
-                Some('+') => {
-                    ids.insert(id.to_string());
-                }
-                Some('-') => {
-                    ids.remove(id);
-                }
-                _ => continue,
+            if let Some(id) = change.strip_prefix('+') {
+                ids.insert_str(id);
+            } else if let Some(id) = change.strip_prefix('-') {
+                ids.remove(id);
             }
         }
 
@@ -68,7 +61,7 @@ impl IdList {
     fn update_metadata(&mut self, metadata: IdListMetadata) {
         self.metadata = metadata;
         self.metadata.size = 0;
-        self.ids = Arc::new(HashSet::new());
+        self.ids = Arc::new(IdListIds::new());
     }
 }
 

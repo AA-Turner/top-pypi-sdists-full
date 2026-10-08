@@ -57,8 +57,8 @@ class FeatureSet:
     unknown means nobody has probed this yet.  It is the absence of a claim, not a claim that the feature is missing.
 
     What "fragile" asks of a client depends on what is fragile.  An asynchronous operation is never retried, it is waited out:
-     * On a write operation such as create-calendar or delete-calendar, the write itself is fragile: it may or may not have gone through, and re-issuing it may help.  Calendar.delete() keys its retry-and-poll loop on exactly that.  A create or delete that always goes through but takes a measurable time to settle is a "quirk", not "fragile".
-     * On synchronous-write, it is the "synchronous" part that is fragile, not the write: the server may be asynchronous under the hood but settle too fast to be probed deterministically.  Writes are never re-issued; a read right after one may have to wait (the configured delay) or be retried if it does not show the change yet.  A server where only calendar creation and/or deletion is asynchronous supports synchronous-write, with the async part graded as a "quirk" on create-calendar or delete-calendar.
+     * On a write operation such as create-calendar or delete-calendar, the write itself is fragile: it may or may not have gone through, and re-issuing it may help.  Calendar.delete() keys its retry-and-poll loop on exactly that.  A create or delete that always goes through but takes a measurable time to settle is not fragile: it is declared on synchronous-write.create-calendar or synchronous-write.delete-calendar.
+     * On synchronous-write, it is the "synchronous" part that is fragile, not the write: the server may be asynchronous under the hood but settle too fast to be probed deterministically.  Writes are never re-issued; a read right after one may have to wait (the configured delay) or be retried if it does not show the change yet.  A server where only calendar creation, deletion or a PROPPATCH is asynchronous supports synchronous-write, with the async part declared on synchronous-write.create-calendar, .delete-calendar or .proppatch.
     For a server-feature, is_supported(feature) returning a bool is True for "full" and "quirk" only.  "fragile" is True as well when called with accept_fragile=True; "unsupported", "broken", "ungraceful" and "unknown" are all False.  Note in particular that "ungraceful" is False even though the server does respond - the response is an error.
 
     types:
@@ -212,6 +212,27 @@ class FeatureSet:
             ),
             "default": {"support": "full"},
         },
+        "auth": {
+            ## Grouping node, needed so that the dotted children below resolve;
+            ## it carries no verdict of its own.  Note that it does not derive
+            ## one from those children either: _derive_from_subfeatures skips
+            ## every child that has an explicit default, which both of them do,
+            ## so is_supported("auth") answers from the type default whatever
+            ## the children say.  Five existing nodes have the same shape.
+        },
+        "auth.www-authenticate": {
+            "description": "Server includes a WWW-Authenticate header in a 401 response, as RFC7235 section 3.1 requires.  Without it a client has no scheme to negotiate with.  Over TLS, with no auth_type configured, this library guesses Basic once (logging a warning); otherwise the supplied credentials are never transmitted, and the bare 401 surfaces as an AuthorizationError indistinguishable from a rejected password.  'unsupported' means a 401 came back carrying no WWW-Authenticate at all (Yahoo Calendar); pinning auth_type skips the guess and its warning, and is the only cure over plain HTTP or for a server wanting a scheme other than Basic - which scheme to pin is not something such a server tells you.  'unknown' means no 401 could be provoked, so the question was never put.  The behaviour field carries the challenge the server sent, where it sent one.",
+            "default": {"support": "full"},
+            "links": [
+                "https://datatracker.ietf.org/doc/html/rfc7235#section-3.1",
+                "https://github.com/python-caldav/caldav/issues/713",
+            ],
+        },
+        "auth.www-authenticate.usable-scheme": {
+            "description": "At least one authentication scheme the server offers in its WWW-Authenticate header is one this library implements (basic, digest or bearer - see _build_auth_from_401).  A server naming only Negotiate or NTLM sends a conformant challenge and is still unreachable by negotiation: the library raises NotImplementedError instead, which is the same dead end as a missing header one step later.  'unknown' means no challenge was seen to judge - either no 401 came back, or the 401 carried no header at all (see the parent feature).  The behaviour field lists the schemes offered.  This is a property of the server, not of the run: it does not take into account which credentials happen to be configured.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc7235#section-2.1"],
+        },
         "well-known": {
             "description": "Server handles /.well-known/caldav discovery as specified in RFC 6764 section 5. A conformant server should respond with a redirect (301/302/307/308) from /.well-known/caldav to the actual CalDAV endpoint. 'full' means a redirect was observed; 'unsupported' means the server returned 404 or similar; 'unknown' means the check was skipped (e.g. localhost or request failed). Note: well-known is often provided by infrastructure (reverse proxy/hosting) rather than the CalDAV server itself, so 'unknown' is the expected default for self-hosted or test setups.",
             "default": {"support": "unknown"},
@@ -295,6 +316,24 @@ hence, "fragile".
                 "save-load-delay": "observed by caldav-server-tester: seconds until a freshly PUT object could be read back",
             }
         },
+        "synchronous-write.create-calendar": {
+            "description": "A calendar created with MKCALENDAR (or MKCOL) exists as soon as the server has answered.  'unsupported' means the server creates it asynchronously, so a PUT into it right away may 404 (Infomaniak, ~8s).  With a 'delay', make_calendar() polls the new calendar for up to that many seconds before returning it.  Inherits from synchronous-write when not given",
+            "extra_keys": {
+                "delay": "poll for up to this number of seconds after creating a calendar until it exists",
+            }
+        },
+        "synchronous-write.delete-calendar": {
+            "description": "A deleted calendar is gone as soon as the server has answered the DELETE.  'unsupported' means the server deletes it asynchronously, so a calendar re-created under the same id right away may meet the old one (Infomaniak, ~6s).  With a 'delay', Calendar.delete() polls the calendar for up to that many seconds until it is gone.  Inherits from synchronous-write when not given.  A delete that fails and needs re-issuing is a different thing: delete-calendar 'fragile'",
+            "extra_keys": {
+                "delay": "poll for up to this number of seconds after deleting a calendar until it is gone",
+            }
+        },
+        "synchronous-write.proppatch": {
+            "description": "A PROPPATCH (e.g. setting a calendar's display name or colour) is observable by PROPFIND as soon as the server has answered it.  'unsupported' means a PROPFIND keeps returning the old value for a while.  Infomaniak was observed to do this for ~10s while PUTs were readable at once.  With a 'delay', set_properties() polls the properties until the change shows, for up to that many seconds.  Inherits from synchronous-write when not given, so a server declared to process every write asynchronously is waited for here too",
+            "extra_keys": {
+                "delay": "poll for up to this number of seconds after a PROPPATCH until the change is visible",
+            }
+        },
         "tests-cleanup-calendar": {
             "type": "tests-behaviour",
             "description": "Deleting a calendar does not delete the objects, or perhaps create/delete of calendars does not work at all.  For each test run, every calendar resource object should be deleted for every test run",
@@ -307,7 +346,7 @@ hence, "fragile".
                 "https://datatracker.ietf.org/doc/html/rfc5689",
             ],
             "extra_keys": {
-                "behaviour": "'mkcol-required' when MKCALENDAR is refused and the RFC5689 extended MKCOL has to be used instead - the library selects MKCOL for exactly this value.  'empty-207' when the server answers a successful creation with a multistatus whose DAV:response carries neither a DAV:status nor a DAV:propstat, in violation of RFC4918 section 13 (Bedework 5); purely descriptive, the library copes with it either way.  'delayed creation ...' when MKCALENDAR is accepted but the collection materialises later, with the wait in 'delay'.",
+                "behaviour": "'mkcol-required' when MKCALENDAR is refused and the RFC5689 extended MKCOL has to be used instead - the library selects MKCOL for exactly this value.  'empty-207' when the server answers a successful creation with a multistatus whose DAV:response carries neither a DAV:status nor a DAV:propstat, in violation of RFC4918 section 13 (Bedework 5); purely descriptive, the library copes with it either way.  A creation that is accepted but materialises later is synchronous-write.create-calendar.",
             },
         },
         "create-calendar.auto": {
@@ -342,7 +381,7 @@ hence, "fragile".
             "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-15.2"],
         },
         "delete-calendar": {
-            "description": "RFC4791 says nothing about deletion of calendars, so the server implementation is free to choose weather this should be supported or not.  Section 3.2.3.2 in RFC 6638 says that if a calendar is deleted, all the calendarobjectresources on the calendar should also be deleted - but it's a bit unclear if this only applies to scheduling objects or not.  Some calendar servers moves the object to a trashcan rather than deleting it.  'quirk' is the right grade for a delete that always goes through but takes a measurable time; 'fragile' is a negative status and additionally switches on Calendar.delete()'s retry-and-poll loop, which re-issues the DELETE",
+            "description": "RFC4791 says nothing about deletion of calendars, so the server implementation is free to choose weather this should be supported or not.  Section 3.2.3.2 in RFC 6638 says that if a calendar is deleted, all the calendarobjectresources on the calendar should also be deleted - but it's a bit unclear if this only applies to scheduling objects or not.  Some calendar servers moves the object to a trashcan rather than deleting it.  'fragile' is a negative status and additionally switches on Calendar.delete()'s retry-and-poll loop, which re-issues the DELETE.  A delete that always goes through but takes a measurable time to settle is not fragile: that is synchronous-write.delete-calendar",
             ## Independent feature (directly probed): the default marks it so the
             ## node uses its own probed value rather than being derived from
             ## .free-namespace.
@@ -476,7 +515,7 @@ hence, "fragile".
             "description": "In all the search examples in the RFC, comptype is given during a search, the client specifies if it's event or tasks or journals that is wanted.  However, as I read the RFC this is not required.  If omitted, the server should deliver all objects.  Many servers will not return anything if the COMPTYPE filter is not set.  Other servers will return 404"
         },
         "search.comp-type": {
-            "description": "Server correctly filters calendar-query results by component type. When 'broken', server may misclassify component types (e.g., returning TODOs when VEVENTs are requested). The library will perform client-side filtering to work around this issue",
+            "description": "Server correctly filters calendar-query results by component type.  'unsupported': the comp-filter is silently ignored and the whole calendar is returned, but nothing of the requested type is dropped - the library keeps the comp-filter and filters the result client-side.  'broken': a typed query drops objects of the requested type (e.g. Bedework returns VTODOs for a VEVENT query and nothing for a VTODO query) - the library leaves the comp-filter out of the query and filters client-side.",
             "default": {"support": "full"}
         },
         ## TODO - there is still quite a lot of search-related
@@ -667,6 +706,11 @@ hence, "fragile".
         "scheduling.calendar-user-address-set": {
             "description": "Server provides the calendar-user-address-set property on the principal (RFC6638 section 2.4.1), used to identify a user's email/URI for scheduling purposes. When unsupported, calendar_user_address_set() raises NotFoundError.",
             "links": ["https://datatracker.ietf.org/doc/html/rfc6638#section-2.4.1"],
+        },
+        "scheduling.calendar-user-address-set.populated": {
+            "description": "The calendar-user-address-set property actually carries at least one address.  A server can advertise the property (so scheduling.calendar-user-address-set is supported) and still return it empty - Xandikos does, while advertising calendar-auto-schedule and serving schedule-inbox/outbox.  When unsupported, the principal has no calendar user address of its own, and RFC 6638 section 2.4.1 has the URI of the principal resource used instead: that is what get_vcal_address() returns and what add_organizer() and add_attendee() put in ORGANIZER/ATTENDEE.",
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6638#section-2.4.1"],
+            "default": {"support": "full"},
         },
         "scheduling.mailbox.inbox-delivery": {
             "description": "Server delivers incoming scheduling REQUEST messages to the attendee's schedule-inbox (RFC6638 section 4.1). See also scheduling.auto-schedule for whether the server additionally auto-processes invitations into the attendee's calendar.",
@@ -1313,16 +1357,13 @@ xandikos = {
     ## this only applies for very simple installations
     "auto-connect.url": {"domain": "localhost", "scheme": "http", "basepath": "/"},
 
-    "scheduling": {"support": "unsupported"},
-
-    ## Every collection reports and takes the same hardcoded component list
-    ## (xandikos/web.py), and the supported-calendar-component-set property has
-    ## no setter - yet MKCALENDAR still answers 201, though RFC 4791 section
-    ## 5.3.1 has it fail when a property cannot be set.  Measured on 0.4.5,
-    ## 2026-09-15.
-    "create-calendar.with-supported-component-types": {
+    ## Scheduling is implemented (calendar-auto-schedule in the DAV header,
+    ## schedule-inbox/outbox served), but the principal has no address of its
+    ## own: the property is returned as an empty <C:calendar-user-address-set/>.
+    ## Measured on 0.4.7, 2026-09-20.
+    "scheduling.calendar-user-address-set.populated": {
         "support": "unsupported",
-        "behaviour": "the component set is ignored: a VTODO-only calendar advertises VEVENT, VTODO, VJOURNAL, VFREEBUSY and VAVAILABILITY, and a VEVENT can be saved to it",
+        "behaviour": "the property is advertised but empty, so the principal URL is used as the calendar user address",
     },
 }
 
@@ -2224,7 +2265,7 @@ purelymail = {
     #'save-load.get-by-url': {'support': 'unknown'},
     #'save-load.todo': {'support': 'ungraceful'},
     ## The search features below are unreliable on purelymail, likely due
-    ## to the 160s search-cache delay.  Results flip between unsupported
+    ## to the search-cache delay.  Results flip between unsupported
     ## and ungraceful across runs.  Marked fragile so the checker skips them.
     ## was: (default, i.e. full) - observed ungraceful 2026-02
     'search.is-not-defined': {'support': 'fragile'},
@@ -2424,17 +2465,25 @@ ox = {
 ## SabreDAV 4.3.1.  Profiled 2026-06-15 against a freshly created dedicated
 ## calendar; save-load and most search features work well.
 infomaniak = {
-    ## SabreDAV processes writes asynchronously - MKCALENDAR/PUT/DELETE return
-    ## before the change is queryable, so an immediate read-back 404s or returns
-    ## stale data for several seconds.  This is server-wide (not just searches),
-    ## so we sleep after every write rather than only before searches.
-    'synchronous-write': {'support': 'unsupported', 'delay': 16},
+    ## Calendar collections are created and deleted asynchronously: MKCALENDAR
+    ## and DELETE return before the change takes effect, ~8s and ~6s measured
+    ## 2026-10-05.  A PUT into a calendar created moments before 404s, so the
+    ## library polls the calendar for up to `delay` seconds after either one.
+    ## Object writes were asynchronous too in 2026-06 (a 16s sleep after every
+    ## write was configured), but a PUT is readable at once since 2026-10.
+    'synchronous-write.create-calendar': {'support': 'unsupported', 'delay': 15},
+    ## Deletion measured at ~7s on 2026-10-06, too close to the former 8.
+    'synchronous-write.delete-calendar': {'support': 'unsupported', 'delay': 12},
+    ## A PROPPATCH is not: PROPFIND returns the old display name or colour for
+    ## a steady ~10s (2026-10-06), on a fresh connection as well, while a PUT,
+    ## an overwrite and a DELETE of an object are visible at once.
+    'synchronous-write.proppatch': {'support': 'unsupported', 'delay': 15},
     ## VJOURNAL is not supported.
     'save-load.journal': {'support': 'unsupported'},
-    ## Calendar colour/order work once the post-write delay is honoured (the
-    ## hex form is normalised, e.g. '#FF0000FF' is stored as '#ff0000').  These
-    ## previously looked 'broken' (read-only): a read-back issued too soon
-    ## returned the stale value, an artifact of the asynchronous writes above.
+    ## Calendar colour/order work (the hex form is normalised, e.g.
+    ## '#FF0000FF' is stored as '#ff0000').  A read-back issued too soon
+    ## returns the stale value and makes them look 'broken' (read-only); see
+    ## synchronous-write.proppatch above.
     ## Set explicitly to 'full' since the feature default is the weaker 'fragile'.
     'calendar-color': {'support': 'full'},
     'calendar-order': {'support': 'full'},
@@ -2471,6 +2520,124 @@ infomaniak = {
     ## caldav's _validate_status turns into a ResponseError - the sync raises rather
     ## than silently coming back wrong, hence "ungraceful".
     'sync-token.delete': {'support': 'ungraceful', 'behaviour': "418 I'm a teapot"},
+}
+
+## Yahoo Calendar (https://caldav.calendar.yahoo.com/), a hosted service.
+## Probed 2026-09-21 with the caldav-server-tester, see
+## https://github.com/python-caldav/caldav/issues/713 - the profile in that
+## issue was run with CALDAV_AUTH_TYPE=basic, because at the time the server
+## could not be reached at all without pinning the auth type (see
+## auth.www-authenticate).
+yahoo = {
+    'auto-connect.url': {
+        'scheme': 'https',
+        'domain': 'caldav.calendar.yahoo.com',
+        'basepath': '/',
+    },
+    ## The 401 carries a JSON error body and no WWW-Authenticate header of any
+    ## kind, so there is no scheme to negotiate with.  The client falls back to
+    ## a one-shot Basic guess, which works; pass auth_type="basic" (verified to
+    ## work) to skip the probe and silence the warning.
+    'auth.www-authenticate': {
+        'support': 'unsupported',
+        'behaviour': 'the 401 carries no WWW-Authenticate header at all, only a JSON error body',
+    },
+    ## No challenge was ever seen, so there is nothing to judge the offered
+    ## schemes by - the parent above is the whole story.
+    'auth.www-authenticate.usable-scheme': {'support': 'unknown'},
+    ## Redirects to https://caldav.calendar.yahoo.com/principals/
+    'well-known': {'support': 'full'},
+    'get-current-user-principal.has-calendar': {'support': 'full'},
+
+    ## Colour and order are stored and read back (the colour name is
+    ## normalised: 'blue' comes back as '#0252D4').  Stated explicitly since
+    ## the feature default is the weaker 'fragile'.
+    'calendar-color': {'support': 'full'},
+    'calendar-color.hex': {'support': 'full'},
+    'calendar-order': {'support': 'full'},
+
+    ## MKCALENDAR works and the display name given at creation time sticks,
+    ## but the collection is served under a numeric id of the server's own
+    ## choosing rather than under the requested name - so a client has to
+    ## adopt the canonical URL it is handed back.
+    'create-calendar.stable-url': {
+        'support': 'unsupported',
+        'behaviour': "the created calendar's canonical URL segment is a numeric id (e.g. '869'), not the requested name",
+    },
+    ## Inconclusive: the MKCALENDAR carrying a component-set restriction was
+    ## accepted, but the collection never became queryable, so whether the
+    ## restriction is honoured could not be established.
+    'create-calendar.with-supported-component-types': {
+        'support': 'unknown',
+        'behaviour': 'the restricted calendar was accepted but never became queryable',
+    },
+
+    ## VJOURNAL is rejected.
+    'save-load.journal': {'support': 'ungraceful'},
+    ## A task may not share a calendar with events - it needs one of its own.
+    'save-load.todo.mixed-calendar': {'support': 'unsupported'},
+    ## RRULE:...;COUNT=n on a VTODO does not survive the round trip (the
+    ## feature carries an explicit 'full' default, hence stated here).
+    'save-load.todo.recurrences.count': {'support': 'unsupported'},
+    ## An event carrying timezone information is accepted by the PUT and
+    ## cannot be read back afterwards.
+    'save-load.event.timezone': {
+        'support': 'broken',
+        'behaviour': 'Event with timezone was saved but could not be loaded',
+    },
+    ## A PUT carrying RELATED-TO is answered with 400 Bad Request.
+    'save-load.icalendar.related-to': {'support': 'ungraceful', 'behaviour': '400 Bad Request'},
+    ## The same UID in two calendars is refused with a PutError.
+    'save.duplicate-uid.cross-calendar': {'support': 'ungraceful', 'behaviour': 'Server error: PutError'},
+    ## Measured 2026-09-21: 412 on an object that exists, 201 on one that does
+    ## not - i.e. exactly the inverse of RFC9110 section 13.1.1.
+    'save-load.mutable.if-match-wildcard': {
+        'support': 'broken',
+        'behaviour': 'If-Match: * holds backwards: refused with 412 on an existing object, and creates a missing object',
+    },
+
+    ## The CALDAV comp-filter is silently ignored: a calendar-query asking for
+    ## one component type returns the whole calendar regardless (a VJOURNAL
+    ## query returned a VEVENT, and so did a VTODO query).  Nothing of the
+    ## right type is dropped, so the library recovers by post-filtering -
+    ## hence "unsupported" rather than "broken".
+    'search.comp-type': {
+        'support': 'unsupported',
+        'behaviour': 'comp-filter silently ignored - the whole calendar is returned regardless of the requested component type',
+    },
+    ## ... but leaving the comp-filter out, which the RFC permits, is an
+    ## error.  Note the contrast with search.time-range.comp-type-optional
+    ## below: a filter-less query carrying a time-range is answered fine.
+    'search.comp-type.optional': {'support': 'ungraceful'},
+    'search.time-range.comp-type-optional': {'support': 'full'},
+    ## is-not-defined is ignored (all three probed children behave alike, so
+    ## the parent carries it).
+    'search.is-not-defined': {'support': 'unsupported'},
+    ## Text search works, but not on categories.
+    'search.text.category': {'support': 'unsupported'},
+    ## No server-side recurrence handling at all - neither expansion nor
+    ## implicit recurrences.  The library does the expansion client-side.
+    'search.recurrences.expanded': {'support': 'unsupported'},
+    'search.recurrences.includes-implicit': {'support': 'unsupported'},
+    ## Carries an explicit 'full' default, so it does not inherit the above.
+    'search.recurrences.includes-implicit.todo.pending': {'support': 'unsupported'},
+    'search.time-range.alarm': {'support': 'unsupported'},
+    ## Dated searches work, including far-past ones, but a search without a
+    ## time range does not reach year-2000 objects.
+    'search.unlimited-time-range': {
+        'support': 'broken',
+        'behaviour': 'far-past objects (year 2000) are outside the search window',
+    },
+
+    'freebusy-query': {'support': 'ungraceful', 'behaviour': '500 Internal Server Error'},
+    'principal-search': {'support': 'ungraceful'},
+    'scheduling': {'support': 'unsupported'},
+    'sync-token': {'support': 'unsupported'},
+
+    ## Not concluded by the probe run, so left at their defaults and recorded
+    ## here only as "still open": save-load.get-by-url, save-load.stable-url,
+    ## save.etag, search.combined-is-logical-and and
+    ## url.encode-at.literal.principal.
 }
 
 # fmt: on
@@ -2567,16 +2734,19 @@ def at_spelling_is_significant(features: Any) -> bool:
     return not at_spellings_are_aliased(features)
 
 
-def write_delay(features: Any) -> float:
-    """Seconds to sleep after every write request before reading the change back.
+def write_delay(features: Any, feature: str = "synchronous-write") -> float:
+    """Seconds a write may take before its change can be read back.
 
-    Read off ``synchronous-write``: its ``delay``, unless writes are declared
-    synchronous.  An asynchronous server with no ``delay`` given yields 0 -
-    nobody has said how long to wait, and guessing would slow every write.
+    Read off ``feature`` - ``synchronous-write`` (the sleep after every write
+    request) or one of its children (the poll after creating or deleting a
+    calendar, or after a PROPPATCH): its ``delay``, unless that write is
+    declared synchronous.  An asynchronous server with no ``delay`` given
+    yields 0 - nobody has said how long to wait, and guessing would slow every
+    write.
     """
     if features is None:
         return 0
-    node = features.is_supported("synchronous-write", dict)
+    node = features.is_supported(feature, dict)
     if node.get("support", "full") == "full":
         return 0
     return node.get("delay", 0)

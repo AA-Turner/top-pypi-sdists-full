@@ -1,7 +1,7 @@
 use rustc_hash::FxHashMap;
 use squawk_syntax::{
     Parse, SourceFile, SyntaxKind, SyntaxNode,
-    ast::{self, AstNode, NameLike},
+    ast::{self, AstNode},
     column_name::ColumnName,
 };
 
@@ -9,25 +9,7 @@ use rowan::TextRange;
 
 use crate::{Edit, Fix, Linter, Rule, Violation};
 
-use super::identifier_too_long::MAX_IDENT_BYTES;
-
-#[derive(Debug, Eq, Hash, PartialEq)]
-struct Name(String);
-
-impl Name {
-    fn from_node(node: &impl NameLike) -> Self {
-        Self::from_string(node.text())
-    }
-
-    fn from_string(mut text: String) -> Self {
-        text.truncate(text.floor_char_boundary(MAX_IDENT_BYTES));
-        Self(text)
-    }
-
-    fn as_str(&self) -> &str {
-        &self.0
-    }
-}
+use crate::name::Name;
 
 #[derive(Debug)]
 struct Assignment {
@@ -167,11 +149,10 @@ fn check_set_clause(ctx: &mut Linter, set_clause: &ast::SetClause) {
     let Some(set_column_list) = set_clause.set_column_list() else {
         return;
     };
-    let set_columns = set_column_list.set_columns().collect::<Vec<_>>();
     let mut assigned_columns: FxHashMap<Name, Vec<Assignment>> = FxHashMap::default();
 
-    for set_column in &set_columns {
-        match set_column {
+    for set_column in set_column_list.set_columns() {
+        match &set_column {
             ast::SetColumn::SetMultipleColumns(set_multiple_columns) => {
                 let Some(column_target_list) = set_multiple_columns.column_target_list() else {
                     continue;
@@ -192,7 +173,7 @@ fn check_set_clause(ctx: &mut Linter, set_clause: &ast::SetClause) {
         if assignments.len() < 2 || assignments.iter().all(|assignment| assignment.is_partial) {
             continue;
         }
-        let mut fix = create_fix(&name, &assignments, &set_columns);
+        let mut fix = create_fix(&name, &assignments, &set_column_list);
         let last_index = assignments.len() - 1;
 
         for (index, assignment) in assignments.iter().enumerate() {
@@ -232,7 +213,7 @@ fn add_assignment(
 fn create_fix(
     name: &Name,
     assignments: &[Assignment],
-    set_columns: &[ast::SetColumn],
+    set_column_list: &ast::SetColumnList,
 ) -> Option<Fix> {
     let mut edits = Vec::with_capacity(assignments.len() - 1);
 
@@ -240,10 +221,9 @@ fn create_fix(
         if !matches!(assignment.set_column, ast::SetColumn::SetSingleColumn(_)) {
             return None;
         }
-        let index = set_columns
-            .iter()
-            .position(|set_column| set_column.syntax() == assignment.set_column.syntax())?;
-        let next_set_column = set_columns.get(index + 1)?;
+        let mut set_columns = set_column_list.set_columns();
+        set_columns.find(|set_column| set_column.syntax() == assignment.set_column.syntax())?;
+        let next_set_column = set_columns.next()?;
         let next_start = next_set_column.syntax().text_range().start();
         let mut end = next_start;
         let mut seen_comma = false;

@@ -1,6 +1,6 @@
 [project]
 name = "aiohttp-client-cache"
-version = "0.14.3"
+version = "0.15.0"
 description = "Persistent cache for aiohttp requests"
 authors = [{name = "Jordan Cook"}, {name = "Alessio Locatelli"}]
 license = {text = "MIT License"}
@@ -15,21 +15,22 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "aiohttp            >=3.8",
     "attrs              >=21.2",
     "itsdangerous       >=2.0",
     "url-normalize      >=2.2",
-    "typing-extensions  >=4 ; python_version<='3.10'",  # For Self type addition
 ]
 
 [project.optional-dependencies]
 # Optional backend dependencies
-all         = ["aioboto3>=9.0", "aiobotocore>=2.0", "aiofiles>=0.6.0", "aiosqlite>=0.20", "motor>=3.1", "redis>=4.2"]
+all         = ["aioboto3>=9.0", "aiobotocore>=2.0", "aiofiles>=0.6.0", "aiosqlite>=0.20", "pymongo>=4.17.0", "redis>=4.2"]
 dynamodb    = ["aioboto3>=9.0", "aiobotocore>=2.0"]
 filesystem  = ["aiofiles>=0.6.0", "aiosqlite>=0.20"]
-mongodb     = ["motor>=3.1"]
+mongodb     = [
+    "pymongo>=4.17.0",
+]
 redis       = ["redis>=4.2"]
 sqlite      = ["aiosqlite>=0.20"]
 
@@ -37,7 +38,6 @@ sqlite      = ["aiosqlite>=0.20"]
 # Development dependencies
 dev = [
     # For unit + integration tests
-    "async-timeout  >=4.0",
     "brotli         >=1.0",
     "faker          >=30.0",
     "pytest         >=8.4",
@@ -47,24 +47,24 @@ dev = [
     "pytest-cov     >=6.2",
     "pytest-xdist   >=3.6",
     # For convenience in local development; additional tools are managed by pre-commit
-    "nox            >=2022.11",
+    "nox            >=2026.4.10",
     "pre-commit     >=4.2",
     "types-aiofiles >=0.1.7",
 ]
 
 # Documentation dependencies needed for Readthedocs builds
 docs = [
-    "furo                       >=2025.9; python_version>='3.11'",
-    "linkify-it-py              >=2.0; python_version>='3.11'",
-    "markdown-it-py             >=2.2; python_version>='3.11'",
-    "myst-parser                >=3.0; python_version>='3.11'",
-    "python-forge               >=18.6; python_version>='3.11'",
-    "sphinx                     ~=8.2; python_version>='3.11'",
-    "sphinx-automodapi          >=0.18,<0.21; python_version>='3.11'",
-    "sphinx-autodoc-typehints   >=2.4; python_version>='3.11'",
-    "sphinx-copybutton          >=0.5; python_version>='3.11'",
-    "sphinx-inline-tabs         >=2023.4; python_version>='3.11'",
-    "sphinxcontrib-apidoc       >=0.3; python_version>='3.11'",
+    "furo                       >=2025.12",
+    "linkify-it-py              >=2.0",
+    "markdown-it-py             >=2.2",
+    "myst-parser                >=5.0",
+    "python-forge               >=18.6",
+    "sphinx                     ~=9.0",
+    "sphinx-automodapi          ~=0.22.0",
+    "sphinx-autodoc-typehints   >=3.6.0",
+    "sphinx-copybutton          >=0.5",
+    "sphinx-inline-tabs         >=2023.4",
+    "sphinxcontrib-apidoc       >=0.3",
 ]
 
 # Test server dependencies
@@ -114,7 +114,7 @@ exclude_lines = [
 ]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.11"
 ignore_missing_imports = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -131,7 +131,7 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.ruff]
 line-length = 100
 output-format = 'grouped'
-target-version = 'py39'
+target-version = 'py311'
 
 [tool.ruff.format]
 quote-style = 'single'
@@ -146,6 +146,16 @@ known-first-party = ['test']
 # Wrap lines to 100 chars, but don't error on unwrappable lines until 120 chars
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
+
+[tool.ruff-extra-rules]
+fix = true
+
+[tool.ruff-extra-rules.per-file-ignores]
+# Keeping the library interface (regardless of whether it is a public or
+# private function) is more important than renaming a function for a negligible
+# clarity improvement. However, this can be done in the next major release.
+"aiohttp_client_cache/*" = ["validate-function-name"]
+"examples/*" = ["validate-function-name"]
 
 [tool.typos]
 files.extend-exclude = ["CONTRIBUTORS.md"]

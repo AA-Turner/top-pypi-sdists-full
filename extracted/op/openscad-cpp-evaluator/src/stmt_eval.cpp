@@ -1,4 +1,5 @@
 #include "openscad_cpp_evaluator/evaluator.hpp"
+#include "openscad_cpp_evaluator/format_closure.hpp"
 
 #include "openscad_cpp_evaluator/call_args.hpp"
 
@@ -73,24 +74,79 @@ void Evaluator::doEcho(const std::vector<std::unique_ptr<oscad::Argument>>& argu
     emitEcho(pairs);
 }
 
-void Evaluator::evalAssertStatement(const oscad::ModularAssert& node, EvalContext& ctx) {
-    // The statement form supports named arguments (assert(condition=...,
-    // message=...)), unlike the expression form's raw positional indexing
-    // -- see evalAssertExpr. Mirrors _eval_statement_impl's ModularAssert
-    // branch exactly.
-    CallArgs args = resolveArgs(*this, node.arguments, ctx);
-    const bool condition = truthy(getArg(args, 0, "condition", Value{true}));
-    if (!condition) {
-        std::string condText = node.arguments.empty() ? "false" : argExpr(*node.arguments[0])->toString();
-        Value msgArg = getArg(args, 1, "message", Value{});
-        std::string err = "Assertion '" + condText + "' failed";
-        if (!std::holds_alternative<std::monostate>(msgArg)) {
-            const std::string* s = std::get_if<std::string>(&msgArg);
-            err += ": \"" + (s ? *s : fmtValue(msgArg)) + "\"";
-        }
-        error(err, node, "assert");
+namespace {
+const std::vector<std::string> kAssertParams{"condition", "message"};
+}
+
+AssertLayout assertLayout(const std::vector<std::unique_ptr<oscad::Argument>>& arguments) {
+    // A named argument wins; positional 0/1 fill whichever is left.
+    AssertLayout layout;
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        if (arguments[i]->kind() != oscad::NodeKind::NamedArgument) continue;
+        const std::string& name = static_cast<const oscad::NamedArgument&>(*arguments[i]).name->name;
+        if (name == "condition" && layout.cond < 0) layout.cond = static_cast<int>(i);
+        else if (name == "message" && layout.msg < 0) layout.msg = static_cast<int>(i);
+        else if (name != "condition" && name != "message" && !isConfigVariable(name)) layout.warns = true;
+    }
+    int positional = 0;
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        if (arguments[i]->kind() == oscad::NodeKind::NamedArgument) continue;
+        if (positional == 0 && layout.cond < 0) layout.cond = static_cast<int>(i);
+        else if (positional == 1 && layout.msg < 0) layout.msg = static_cast<int>(i);
+        if (++positional > static_cast<int>(kAssertParams.size())) layout.warns = true;
+    }
+    return layout;
+}
+
+void Evaluator::warnAssertArgs(const std::vector<std::unique_ptr<oscad::Argument>>& arguments,
+                               const AssertLayout& layout) {
+    if (layout.warns) warnUnexpectedArgs(*this, kAssertParams, arguments);
+}
+
+void Evaluator::failAssert(const std::vector<std::unique_ptr<oscad::Argument>>& arguments,
+                           const AssertLayout& layout, const Value* message, const oscad::ASTNode& node) {
+    warnAssertArgs(arguments, layout);
+    std::string err = "Assertion";
+    if (layout.cond >= 0) err += " '" + formatExpression(*argExpr(*arguments[static_cast<size_t>(layout.cond)])) + "'";
+    err += " failed";
+    if (message) err += ": " + fmtValue(*message);
+    error(err, node, "assert");
+}
+
+// DELIBERATE DIVERGENCE FROM OPENSCAD: a passing assert() evaluates its
+// condition and nothing else, the way `||` skips its right operand.
+// OpenSCAD's Assert::performAssert evaluates every argument first, so there
+// a passing `assert(true, echo("e") "m")` echoes, `assert(true, nosuch)`
+// warns, and a message calling a user function runs it; here none of them
+// does. BOSL2 validates nearly every call with `assert(cond, str(...))`,
+// and building those never-shown messages was ~4% of its evaluation time.
+// A failing (or condition-less) assert evaluates every other argument, in
+// source order, after the condition, so its output is unchanged; the
+// unexpected-argument warnings depend only on the call's shape and still
+// print on every call. The compiled form (Op::AssertPass/AssertFail) does
+// the same.
+void Evaluator::evalAssert(const std::vector<std::unique_ptr<oscad::Argument>>& arguments, const oscad::ASTNode& node,
+                           EvalContext& ctx, bool maybeCompiled) {
+    const AssertLayout layout = assertLayout(arguments);
+    auto eval = [&](size_t i) {
+        const oscad::Expression& e = *argExpr(*arguments[i]);
+        return maybeCompiled ? evalExprMaybeCompiled(e, ctx) : evalExpr(e, ctx);
+    };
+    if (layout.cond >= 0 && truthy(eval(static_cast<size_t>(layout.cond)))) {
+        warnAssertArgs(arguments, layout);
         return;
     }
+    Value message;
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        if (static_cast<int>(i) == layout.cond) continue;
+        Value v = eval(i);
+        if (static_cast<int>(i) == layout.msg) message = std::move(v);
+    }
+    failAssert(arguments, layout, layout.msg >= 0 ? &message : nullptr, node);
+}
+
+void Evaluator::evalAssertStatement(const oscad::ModularAssert& node, EvalContext& ctx) {
+    evalAssert(node.arguments, node, ctx, /*maybeCompiled=*/true);
     // Assertion passed -- propagate any chained child geometry (e.g.
     // `assert(...) translate(...) children();`).
     if (!node.children.empty()) evalChildren(node.children, ctx);
@@ -125,6 +181,7 @@ void Evaluator::evalFor(const oscad::ModularFor& node, EvalContext& ctx) {
     // case), not just an internal inconsistency.
     std::function<void(size_t, EvalContext&)> recurse = [&](size_t depth, EvalContext& parentCtx) {
         if (depth == node.assignments.size()) {
+            if (depth == 0) return; // for() with no loop variables iterates zero times in OpenSCAD, not once.
             // Per-full-iteration "entering the body" marker, separate from
             // (and before) the body's own per-statement checks in
             // evalChildren -- mirrors _eval_for's
@@ -166,11 +223,14 @@ void Evaluator::evalLetBlock(const oscad::ModularLet& node, EvalContext& ctx) {
     // echoes 2, and BOSL2 depends on it heavily -- isosurface.scad chains
     // five bindings where each uses the previous, and rounding.scad's
     // join_prism examples do the same.
-    for (const auto& assign : node.assignments) {
+    for (size_t i = 0; i < node.assignments.size(); ++i) {
+        const auto& assign = node.assignments[i];
         checkDebug(*assign, childCtx);
         Value v = evalExprMaybeCompiled(*assign->expr, childCtx);
         const std::string& name = assign->name->name;
-        if (!name.empty() && name[0] == '$') {
+        if (repeatsEarlierLetName(node.assignments, i)) {
+            warnDuplicateLet(name, v, &node.position());
+        } else if (!name.empty() && name[0] == '$') {
             childCtx.dyn->set(name, v);
             childCtx.dynExplicit->set(name, true);
         } else {

@@ -57,6 +57,16 @@ for _stub_name in ("matrice_common", "matrice_common.session"):
             _mod.Session = _StubSession
         sys.modules[_stub_name] = _mod
 
+import pytest  # noqa: E402
+
+# `collect_ignore` in conftest.py skips this module when `ultralytics` is absent,
+# but pytest applies collect_ignore only when it DISCOVERS a path -- naming the
+# file explicitly bypasses it, which is what the pre-push build battery does when
+# a sibling changes. importorskip is checked at import time either way.
+pytest.importorskip(
+    "ultralytics", reason="heavy ML dep; the deployment image provides it (CLAUDE.md 8.9)"
+)
+
 from ultralytics import YOLO  # noqa: E402
 
 from matrice_analytics.analytics.engine import AnalyticsEngine  # noqa: E402

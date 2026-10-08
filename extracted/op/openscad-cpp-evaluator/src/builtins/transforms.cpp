@@ -3,6 +3,7 @@
 #include "openscad_cpp_evaluator/call_args.hpp"
 #include "openscad_cpp_evaluator/evaluator.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <numbers>
@@ -11,76 +12,207 @@ namespace oscadeval {
 
 namespace {
 
-manifold::vec3 toVec3(const Value& v, double defaultX = 0.0, double defaultY = 0.0, double defaultZ = 0.0) {
-    if (const double* d = std::get_if<double>(&v)) return manifold::vec3(*d, 0.0, 0.0);
-    if (const ListPtr* l = std::get_if<ListPtr>(&v); l && *l) {
-        const auto& items = (*l)->items;
-        const double x = items.size() > 0 ? toDoubleLenient(items[0]) : defaultX;
-        const double y = items.size() > 1 ? toDoubleLenient(items[1]) : defaultY;
-        const double z = items.size() > 2 ? toDoubleLenient(items[2]) : defaultZ;
-        return manifold::vec3(x, y, z);
-    }
-    return manifold::vec3(defaultX, defaultY, defaultZ);
+using Mat4 = std::array<std::array<double, 4>, 4>;  // row-major
+
+Mat4 identity4() {
+    Mat4 m{};
+    for (int i = 0; i < 4; ++i) m[i][i] = 1.0;
+    return m;
 }
 
-manifold::vec2 toVec2(const Value& v, double defaultX = 0.0, double defaultY = 0.0) {
-    if (const ListPtr* l = std::get_if<ListPtr>(&v); l && *l) {
-        const auto& items = (*l)->items;
-        const double x = items.size() > 0 ? toDoubleLenient(items[0]) : defaultX;
-        const double y = items.size() > 1 ? toDoubleLenient(items[1]) : defaultY;
-        return manifold::vec2(x, y);
+bool isNumber(const Value& v) { return std::holds_alternative<double>(v); }
+
+// Reads `v` into `xyz` as a 2- or 3-vector of numbers, z defaulting to
+// `defaultZ` for a 2-vector. Returns false (having written only the
+// leading numbers of a 3-vector, or nothing for anything else) when it is
+// not one. A 2-vector holding a non-number still succeeds, but leaves x
+// and y alone.
+bool readVec3(const Value& v, double xyz[3], double defaultZ) {
+    if (!std::holds_alternative<ListPtr>(v)) return false;
+    const auto& items = std::get<ListPtr>(v)->items;
+    if (items.size() == 2) {
+        if (isNumber(items[0]) && isNumber(items[1])) {
+            xyz[0] = std::get<double>(items[0]);
+            xyz[1] = std::get<double>(items[1]);
+        }
+        xyz[2] = defaultZ;
+        return true;
     }
-    return manifold::vec2(defaultX, defaultY);
+    if (items.size() != 3) return false;
+    for (size_t i = 0; i < 3; ++i) {
+        if (!isNumber(items[i])) return false;
+        xyz[i] = std::get<double>(items[i]);
+    }
+    return true;
 }
 
-// resize()'s `auto` argument: a bare bool applies to all three axes, a
-// list applies element-wise (missing elements are false), anything else
-// (including undef) disables auto entirely. Mirrors the reference's
-// Value::toBool()/vector handling.
-std::array<bool, 3> toAutoAxes(const Value& v) {
-    if (const bool* b = std::get_if<bool>(&v)) return {*b, *b, *b};
-    if (const ListPtr* l = std::get_if<ListPtr>(&v); l && *l) {
-        const auto& items = (*l)->items;
-        std::array<bool, 3> out{false, false, false};
-        for (size_t i = 0; i < 3 && i < items.size(); ++i) out[i] = truthy(items[i]);
-        return out;
-    }
-    return {false, false, false};
+Mat4 matMul(const Mat4& a, const Mat4& b) {
+    Mat4 out{};
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j)
+            for (int k = 0; k < 4; ++k) out[i][j] += a[i][k] * b[k][j];
+    return out;
 }
 
-// Rodrigues' rotation formula as a 3x4 transform (rotate(angle, axis) --
-// the axis form, as opposed to rotate([x,y,z]) Euler angles, which uses
-// Manifold's own Rotate() directly and never needs this). Mirrors
-// _axis_angle_matrix.
-manifold::mat3x4 axisAngleMatrix(manifold::vec3 axis, double angleRad) {
-    double ax = axis.x, ay = axis.y, az = axis.z;
-    const double length = std::sqrt(ax * ax + ay * ay + az * az);
-    if (length == 0.0) {
-        return manifold::mat3x4(manifold::vec3(1, 0, 0), manifold::vec3(0, 1, 0), manifold::vec3(0, 0, 1),
-                                 manifold::vec3(0, 0, 0));
-    }
-    ax /= length;
-    ay /= length;
-    az /= length;
-    const double c = std::cos(angleRad), s = std::sin(angleRad), t = 1 - c;
-    // Row-major in the reference; la::mat is column-major, so each
-    // manifold::vec3 below is a COLUMN (transpose of the reference's rows).
-    const manifold::vec3 col0(t * ax * ax + c, t * ax * ay + s * az, t * ax * az - s * ay);
-    const manifold::vec3 col1(t * ax * ay - s * az, t * ay * ay + c, t * ay * az + s * ax);
-    const manifold::vec3 col2(t * ax * az + s * ay, t * ay * az - s * ax, t * az * az + c);
-    const manifold::vec3 col3(0, 0, 0);
-    return manifold::mat3x4(col0, col1, col2, col3);
+// Rotation by `deg` about one coordinate axis (0 = X, 1 = Y, 2 = Z).
+Mat4 axisRotation(int axis, double deg) {
+    const double c = cosDeg(deg), s = sinDeg(deg);
+    const int p = (axis + 1) % 3, q = (axis + 2) % 3;
+    Mat4 m = identity4();
+    m[p][p] = c;
+    m[p][q] = -s;
+    m[q][p] = s;
+    m[q][q] = c;
+    return m;
 }
 
-manifold::Manifold applyRotate(manifold::Manifold body, const Value& aArg, const Value& vArg) {
-    if (std::holds_alternative<ListPtr>(aArg)) {
-        // rotate([x,y,z]) -- Euler angles in degrees, applied Z then Y then X.
-        const manifold::vec3 a = toVec3(aArg);
-        return body.Rotate(a.x, a.y, a.z);
+// Rotation by `deg` about the axis (x, y, z); the identity for a zero axis.
+Mat4 axisAngleRotation(double deg, const double axis[3]) {
+    const double len = std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+    if (len == 0.0) return identity4();
+    const double k[3] = {axis[0] / len, axis[1] / len, axis[2] / len};
+    const double c = cosDeg(deg), s = sinDeg(deg), t = 1.0 - c;
+    Mat4 m = identity4();
+    m[0][0] = c + t * k[0] * k[0];
+    m[0][1] = t * k[0] * k[1] - s * k[2];
+    m[0][2] = t * k[0] * k[2] + s * k[1];
+    m[1][0] = t * k[1] * k[0] + s * k[2];
+    m[1][1] = c + t * k[1] * k[1];
+    m[1][2] = t * k[1] * k[2] - s * k[0];
+    m[2][0] = t * k[2] * k[0] - s * k[1];
+    m[2][1] = t * k[2] * k[1] + s * k[0];
+    m[2][2] = c + t * k[2] * k[2];
+    return m;
+}
+
+Mat4 translateMatrix(Evaluator& ev, const CallArgs& args, const oscad::Position* where) {
+    const Value v = getArg(args, 0, "v");
+    double t[3] = {0, 0, 0};
+    const bool ok = readVec3(v, t, 0.0) && std::isfinite(t[0]) && std::isfinite(t[1]) && std::isfinite(t[2]);
+    Mat4 m = identity4();
+    if (!ok) {
+        ev.warn("Unable to convert translate(" + fmtValue(v) + ") parameter to a vec3 or vec2 of numbers", where);
+        return m;
     }
-    const double angle = toDoubleLenient(aArg);
-    const manifold::vec3 axis = std::holds_alternative<std::monostate>(vArg) ? manifold::vec3(0, 0, 1) : toVec3(vArg);
-    return body.Transform(axisAngleMatrix(axis, angle * std::numbers::pi / 180.0));
+    for (int i = 0; i < 3; ++i) m[i][3] = t[i];
+    return m;
+}
+
+Mat4 scaleMatrix(Evaluator& ev, const CallArgs& args, const oscad::Position* where) {
+    const Value v = getArg(args, 0, "v");
+    double k[3] = {1, 1, 1};
+    if (!readVec3(v, k, 1.0)) {
+        if (isNumber(v)) {
+            const double s = std::get<double>(v);
+            k[0] = s;
+            k[1] = s;
+            k[2] = s;
+        } else {
+            ev.warn("Unable to convert scale(" + fmtValue(v) +
+                        ") parameter to a number, a vec3 or vec2 of numbers or a number",
+                    where);
+        }
+    }
+    // Built in one initializer: on windows-latest CI (MSVC, 2026-10) the
+    // scalar form came out with the scale also in m[2][3] -- scale(2) moved
+    // z by 2 -- when the matrix was built as an identity and then
+    // overwritten, with or without a loop.
+    return Mat4{{{k[0], 0, 0, 0}, {0, k[1], 0, 0}, {0, 0, k[2], 0}, {0, 0, 0, 1}}};
+}
+
+Mat4 mirrorMatrix(Evaluator& ev, const CallArgs& args, const oscad::Position* where) {
+    const Value v = getArg(args, 0, "v");
+    double n[3] = {1, 0, 0};
+    if (!readVec3(v, n, 0.0))
+        ev.warn("Unable to convert mirror(" + fmtValue(v) + ") parameter to a vec3 or vec2 of numbers", where);
+    const double len2 = n[0] * n[0] + n[1] * n[1] + n[2] * n[2];
+    Mat4 m = identity4();
+    if (len2 == 0.0) return m;
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j) m[i][j] -= 2.0 * n[i] * n[j] / len2;
+    return m;
+}
+
+Mat4 rotateMatrix(Evaluator& ev, const CallArgs& args, const oscad::Position* where) {
+    const Value a = getArg(args, 0, "a");
+    const Value v = getArg(args, 1, "v");
+    const bool hasV = !std::holds_alternative<std::monostate>(v);
+    const std::string aText = "rotate(a=" + fmtValue(a);
+    const std::string vText = hasV ? ", v=" + fmtValue(v) : "";
+
+    if (std::holds_alternative<ListPtr>(a)) {
+        // Euler angles about X, then Y, then Z. A non-number repeats the
+        // angle read just before it, reading from Z back to X.
+        const auto& items = std::get<ListPtr>(a)->items;
+        const size_t n = std::min<size_t>(items.size(), 3);
+        bool problem = items.size() > 3;
+        double angles[3] = {0, 0, 0};
+        double last = 0;
+        for (size_t i = n; i-- > 0;) {
+            if (isNumber(items[i])) {
+                last = std::get<double>(items[i]);
+                problem |= !std::isfinite(last);
+            } else {
+                problem = true;
+            }
+            angles[i] = last;
+        }
+        if (problem)
+            ev.warn("Problem converting " + aText + vText + ") parameter", where);
+        else if (hasV)
+            ev.warn("When parameter a is supplied as vector, v is ignored " + aText + vText + ")", where);
+        return matMul(axisRotation(2, angles[2]), matMul(axisRotation(1, angles[1]), axisRotation(0, angles[0])));
+    }
+
+    const bool angleOk = isNumber(a) && std::isfinite(std::get<double>(a));
+    const double angle = angleOk ? std::get<double>(a) : 0.0;
+    double axis[3] = {0, 0, 1};
+    const bool axisOk = !hasV || readVec3(v, axis, 0.0);
+    if (!axisOk)
+        ev.warn(std::string("Problem converting ") + (angleOk ? "rotate(..." : aText) + ", v=" + fmtValue(v) +
+                    ") parameter",
+                where);
+    else if (!angleOk)
+        ev.warn("Problem converting " + aText + ") parameter", where);
+    return axisAngleRotation(angle, axis);
+}
+
+Mat4 multmatrixMatrix(const CallArgs& args) {
+    const Value v = getArg(args, 0, "m");
+    Mat4 m = identity4();
+    if (!std::holds_alternative<ListPtr>(v)) return m;
+    const auto& rows = std::get<ListPtr>(v)->items;
+    for (size_t i = 0; i < std::min<size_t>(rows.size(), 4); ++i) {
+        if (!std::holds_alternative<ListPtr>(rows[i])) continue;
+        const auto& row = std::get<ListPtr>(rows[i])->items;
+        for (size_t j = 0; j < std::min<size_t>(row.size(), 4); ++j)
+            if (isNumber(row[j])) m[i][j] = std::get<double>(row[j]);
+    }
+    const double w = m[3][3];
+    if (w != 1.0)
+        for (auto& row : m)
+            for (double& e : row) e /= w;
+    return m;
+}
+
+// The row-major 4x4 matrix translate/rotate/scale/mirror/multmatrix
+// applies (`name` is the module), with its argument warnings. Identity for
+// any other name.
+Mat4 transformMatrix(Evaluator& ev, const std::string& name, const CallArgs& args, const oscad::Position* where) {
+    if (name == "translate") return translateMatrix(ev, args, where);
+    if (name == "scale") return scaleMatrix(ev, args, where);
+    if (name == "mirror") return mirrorMatrix(ev, args, where);
+    if (name == "rotate") return rotateMatrix(ev, args, where);
+    if (name == "multmatrix") return multmatrixMatrix(args);
+    return identity4();
+}
+
+// The affine part of a row-major 4x4, as Manifold's column-major 3x4.
+// ponytail: a projective bottom row (after the [3][3] division) is dropped;
+// neither Manifold nor a CrossSection can hold one.
+manifold::mat3x4 toMat3x4(const Mat4& m) {
+    return manifold::mat3x4(manifold::vec3(m[0][0], m[1][0], m[2][0]), manifold::vec3(m[0][1], m[1][1], m[2][1]),
+                            manifold::vec3(m[0][2], m[1][2], m[2][2]), manifold::vec3(m[0][3], m[1][3], m[2][3]));
 }
 
 // `a` applied after `b`, both as Manifold's column-major 3x4 affines.
@@ -92,53 +224,6 @@ manifold::mat3x4 compose3x4(const manifold::mat3x4& a, const manifold::mat3x4& b
     return out;
 }
 
-// Converts a user-supplied 4x4/4x3 nested-list matrix (row-major, like
-// every OpenSCAD-facing representation) to Manifold's column-major 3x4
-// transform. Mirrors _to_matrix4x3.
-manifold::mat3x4 toMat3x4(const Value& m) {
-    const ListPtr* rows = std::get_if<ListPtr>(&m);
-    auto rowAt = [&](size_t r, size_t c) -> double {
-        if (!rows || !*rows || r >= (*rows)->items.size()) return 0.0;
-        const ListPtr* row = std::get_if<ListPtr>(&(*rows)->items[r]);
-        if (!row || !*row || c >= (*row)->items.size()) return 0.0;
-        return toDoubleLenient((*row)->items[c]);
-    };
-    const manifold::vec3 col0(rowAt(0, 0), rowAt(1, 0), rowAt(2, 0));
-    const manifold::vec3 col1(rowAt(0, 1), rowAt(1, 1), rowAt(2, 1));
-    const manifold::vec3 col2(rowAt(0, 2), rowAt(1, 2), rowAt(2, 2));
-    const manifold::vec3 col3(rowAt(0, 3), rowAt(1, 3), rowAt(2, 3));
-    return manifold::mat3x4(col0, col1, col2, col3);
-}
-
-// 2x3 affine sub-matrix extracted from the same 4x4/4x3 input: rows 0,1,
-// columns 0,1,3. Mirrors _apply_transform_2d's "multmatrix" branch.
-manifold::mat2x3 toMat2x3(const Value& m) {
-    const ListPtr* rows = std::get_if<ListPtr>(&m);
-    auto rowAt = [&](size_t r, size_t c) -> double {
-        if (!rows || !*rows || r >= (*rows)->items.size()) return 0.0;
-        const ListPtr* row = std::get_if<ListPtr>(&(*rows)->items[r]);
-        if (!row || !*row || c >= (*row)->items.size()) return 0.0;
-        return toDoubleLenient((*row)->items[c]);
-    };
-    const manifold::vec2 col0(rowAt(0, 0), rowAt(1, 0));
-    const manifold::vec2 col1(rowAt(0, 1), rowAt(1, 1));
-    const manifold::vec2 col2(rowAt(0, 3), rowAt(1, 3));
-    return manifold::mat2x3(col0, col1, col2);
-}
-
-// The affine matrix a transform applies, for geometry Manifold cannot hold.
-//
-// A mesh Manifold rejected (an open surface -- a height field, a partial
-// `vnf_vertex_array`) survives only as ColoredBody::rawMesh, raw triangles
-// with no Manifold to transform. Those triangles were left where they were
-// built, so `grid_copies(...) vnf_polyhedron(<open surface>)` stacked every
-// copy at the origin and BOSL2's skin() style figure showed one shape where
-// the reference shows seven.
-//
-// nullopt for `resize`, which is not a fixed map at all: its scale comes
-// from the body's own bounding box, and a display-only body has no Manifold
-// to measure. Verified against Manifold's own operators by
-// TransformMatrix3d tests rather than assumed -- the Euler order especially.
 // True if `m` is a pure translation: nothing has rotated, scaled or
 // mirrored the section, so a further translation commutes with it.
 bool hasIdentityLinearPart(const manifold::mat3x4& m) {
@@ -181,147 +266,57 @@ void transformMeshInPlace(manifold::MeshGL& mesh, const manifold::mat3x4& m) {
     }
 }
 
-std::optional<manifold::mat3x4> transformMatrix3d(const std::string& name, const CallArgs& args) {
-    const manifold::mat3x4 ident(manifold::vec3(1, 0, 0), manifold::vec3(0, 1, 0),
-                                  manifold::vec3(0, 0, 1), manifold::vec3(0, 0, 0));
-    if (name == "translate") {
-        manifold::mat3x4 m = ident;
-        m[3] = toVec3(getArg(args, 0, "v", Value{}));
-        return m;
+
+// resize(newsize, auto): the requested size per axis (0 where none is
+// requested) and which axes are auto-scaled.
+void resizeArgs(const CallArgs& args, double ns[3], bool autoAxes[3]) {
+    for (int i = 0; i < 3; ++i) {
+        ns[i] = 0;
+        autoAxes[i] = false;
     }
-    if (name == "rotate") {
-        const Value aArg = getArg(args, 0, "a", Value{0.0});
-        const Value vArg = getArg(args, 1, "v", Value{});
-        if (std::holds_alternative<ListPtr>(aArg)) {
-            const manifold::vec3 a = toVec3(aArg);
-            const double d2r = std::numbers::pi / 180.0;
-            // X, then Y, then Z -- the order Manifold::Rotate uses, which
-            // applyTransform3d hands the same angles to.
-            const manifold::mat3x4 rx = axisAngleMatrix(manifold::vec3(1, 0, 0), a.x * d2r);
-            const manifold::mat3x4 ry = axisAngleMatrix(manifold::vec3(0, 1, 0), a.y * d2r);
-            const manifold::mat3x4 rz = axisAngleMatrix(manifold::vec3(0, 0, 1), a.z * d2r);
-            return compose3x4(rz, compose3x4(ry, rx));
-        }
-        const double angle = toDoubleLenient(aArg);
-        const manifold::vec3 axis =
-            std::holds_alternative<std::monostate>(vArg) ? manifold::vec3(0, 0, 1) : toVec3(vArg);
-        return axisAngleMatrix(axis, angle * std::numbers::pi / 180.0);
+    const Value newsize = getArg(args, 0, "newsize");
+    if (std::holds_alternative<ListPtr>(newsize)) {
+        const auto& items = std::get<ListPtr>(newsize)->items;
+        for (size_t i = 0; i < std::min<size_t>(items.size(), 3); ++i)
+            if (isNumber(items[i])) ns[i] = std::get<double>(items[i]);
     }
-    if (name == "scale") {
-        Value v = getArg(args, 0, "v", Value{1.0});
-        manifold::vec3 sv = std::get_if<double>(&v)
-                                ? manifold::vec3(*std::get_if<double>(&v), *std::get_if<double>(&v),
-                                                  *std::get_if<double>(&v))
-                                : toVec3(v, 1.0, 1.0, 1.0);
-        manifold::mat3x4 m = ident;
-        m[0] = manifold::vec3(sv.x, 0, 0);
-        m[1] = manifold::vec3(0, sv.y, 0);
-        m[2] = manifold::vec3(0, 0, sv.z);
-        return m;
+    const Value autoArg = getArg(args, 1, "auto");
+    if (std::holds_alternative<bool>(autoArg)) {
+        for (int i = 0; i < 3; ++i) autoAxes[i] = std::get<bool>(autoArg);
+    } else if (std::holds_alternative<ListPtr>(autoArg)) {
+        const auto& items = std::get<ListPtr>(autoArg)->items;
+        for (size_t i = 0; i < std::min<size_t>(items.size(), 3); ++i) autoAxes[i] = truthy(items[i]);
     }
-    if (name == "mirror") {
-        manifold::vec3 n = toVec3(getArg(args, 0, "v", Value{}), 1.0, 0.0, 0.0);
-        const double len2 = n.x * n.x + n.y * n.y + n.z * n.z;
-        if (len2 <= 0.0) return ident;
-        manifold::mat3x4 m = ident;
-        // I - 2 n n^T / |n|^2, written column by column.
-        for (int c = 0; c < 3; ++c) {
-            const double nc = c == 0 ? n.x : (c == 1 ? n.y : n.z);
-            m[c] = manifold::vec3((c == 0 ? 1.0 : 0.0) - 2.0 * n.x * nc / len2,
-                                   (c == 1 ? 1.0 : 0.0) - 2.0 * n.y * nc / len2,
-                                   (c == 2 ? 1.0 : 0.0) - 2.0 * n.z * nc / len2);
-        }
-        return m;
-    }
-    if (name == "multmatrix") {
-        Value m = getArg(args, 0, "m", Value{});
-        if (std::holds_alternative<std::monostate>(m)) return ident;
-        return toMat3x4(m);
-    }
-    return std::nullopt;
 }
 
-manifold::Manifold applyTransform3d(const std::string& name, const CallArgs& args, manifold::Manifold body) {
-    if (name == "translate") {
-        return body.Translate(toVec3(getArg(args, 0, "v", Value{})));
-    }
-    if (name == "rotate") {
-        return applyRotate(std::move(body), getArg(args, 0, "a", Value{0.0}), getArg(args, 1, "v", Value{}));
-    }
-    if (name == "scale") {
-        Value v = getArg(args, 0, "v", Value{1.0});
-        if (const double* s = std::get_if<double>(&v)) return body.Scale(manifold::vec3(*s, *s, *s));
-        return body.Scale(toVec3(v, 1.0, 1.0, 1.0));
-    }
-    if (name == "mirror") {
-        return body.Mirror(toVec3(getArg(args, 0, "v", Value{}), 1.0, 0.0, 0.0));
-    }
-    if (name == "resize") {
-        const manifold::vec3 newSizeV = toVec3(getArg(args, 0, "newsize", Value{}));
-        std::array<bool, 3> autoAxes = toAutoAxes(getArg(args, 1, "auto", Value{}));
-        const manifold::Box bbox = body.BoundingBox();
-        const manifold::vec3 spanV = bbox.max - bbox.min;
-        const double ns[3] = {newSizeV.x, newSizeV.y, newSizeV.z};
-        const double span[3] = {spanV.x, spanV.y, spanV.z};
-
-        // An `auto` axis takes the scale factor of whichever axis asked for
-        // the LARGEST new size -- not its own (it has none) and not the
-        // first specified one. Mirrors the reference's newsizemax_index:
-        // ties keep the earlier axis, and an all-zero newsize leaves the
-        // factor at 1 so `resize([0,0,0], true)` is a no-op.
-        int maxIdx = 0;
-        for (int i = 1; i < 3; ++i) {
-            if (ns[i] > ns[maxIdx]) maxIdx = i;
-        }
-        const double autoScale = (ns[maxIdx] != 0.0 && span[maxIdx] != 0.0) ? ns[maxIdx] / span[maxIdx] : 1.0;
-
-        double scale[3];
-        for (int i = 0; i < 3; ++i) {
-            if (ns[i] != 0.0 && span[i] != 0.0) {
-                scale[i] = ns[i] / span[i];
-            } else if (ns[i] == 0.0 && autoAxes[static_cast<size_t>(i)]) {
-                scale[i] = autoScale;
-            } else {
-                scale[i] = 1.0;
-            }
-        }
-        return body.Scale(manifold::vec3(scale[0], scale[1], scale[2]));
-    }
-    if (name == "multmatrix") {
-        Value m = getArg(args, 0, "m", Value{});
-        if (std::holds_alternative<std::monostate>(m)) return body;
-        return body.Transform(toMat3x4(m));
-    }
-    return body;
+// Per-axis scale over the first `n` axes: each requested axis is scaled to
+// its size; an unrequested auto axis follows axis `lead`'s scale.
+void resizeScale(int n, const double extent[3], const double ns[3], const bool autoAxes[3], int lead, double k[3]) {
+    for (int i = 0; i < n; ++i) k[i] = ns[i] > 0 ? ns[i] / extent[i] : 1.0;
+    for (int i = 0; i < n; ++i)
+        if (ns[i] <= 0 && autoAxes[i]) k[i] = k[lead];
 }
 
-manifold::CrossSection applyTransform2d(const std::string& name, const CallArgs& args, manifold::CrossSection cs) {
-    if (name == "translate") return cs.Translate(toVec2(getArg(args, 0, "v", Value{})));
-    if (name == "rotate") {
-        Value a = getArg(args, 0, "a", Value{0.0});
-        double angle;
-        if (const ListPtr* l = std::get_if<ListPtr>(&a); l && *l) {
-            angle = (*l)->items.size() > 2 ? toDoubleLenient((*l)->items[2]) : 0.0;
-        } else {
-            angle = toDoubleLenient(a);
-        }
-        return cs.Rotate(angle);
-    }
-    if (name == "scale") {
-        Value v = getArg(args, 0, "v", Value{1.0});
-        if (const double* s = std::get_if<double>(&v)) return cs.Scale(manifold::vec2(*s, *s));
-        return cs.Scale(toVec2(v, 1.0, 1.0));
-    }
-    if (name == "mirror") return cs.Mirror(toVec2(getArg(args, 0, "v", Value{}), 1.0, 0.0));
-    if (name == "multmatrix") {
-        Value m = getArg(args, 0, "m", Value{});
-        if (std::holds_alternative<std::monostate>(m)) return cs;
-        return cs.Transform(toMat2x3(m));
-    }
-    // "resize" is 3D-only in the reference (2D children pass through
-    // unchanged); "translate"/"rotate"/"scale"/"mirror"/"multmatrix" above
-    // cover every 2D-applicable name.
-    return cs;
+// The per-axis scale resize applies to a 3D body with bounding box `bbox`.
+manifold::vec3 resizeScale3d(const manifold::Box& bbox, const double ns[3], const bool autoAxes[3]) {
+    const manifold::vec3 size = bbox.Size();
+    const double extent[3] = {size.x, size.y, size.z};
+    int lead = 0;
+    for (int i = 1; i < 3; ++i)
+        if (ns[i] > ns[lead]) lead = i;
+    double k[3];
+    resizeScale(3, extent, ns, autoAxes, lead, k);
+    return manifold::vec3(k[0], k[1], k[2]);
+}
+
+// The per-axis scale resize applies to a 2D shape with bounding box `bbox`.
+manifold::vec2 resizeScale2d(const manifold::Rect& bbox, const double ns[3], const bool autoAxes[3]) {
+    const manifold::vec2 size = bbox.Size();
+    const double extent[3] = {size.x, size.y, 0};
+    const int lead = (ns[1] != 0 && ns[1] > ns[0]) ? 1 : 0;
+    double k[3];
+    resizeScale(2, extent, ns, autoAxes, lead, k);
+    return manifold::vec2(k[0], k[1]);
 }
 
 } // namespace
@@ -332,12 +327,29 @@ BuiltinWrapParams computeTransformParams(Evaluator& ev, const oscad::ModularCall
 
     CSGParams params;
     params["name"] = Value{name};
-    // 2D vs. 3D dispatch can't be decided until generate time (only then is
-    // each child's actual body/section type known), so the raw arguments
-    // are carried through params via callArgsToValue() and re-derived with
-    // getArg() again in applyTransform2d/3d below, instead of resolving
-    // e.g. "v"/"a" to a concrete vec3/vec2 here.
+    // The arguments as written: what a CSG-tree dump shows, and all resize
+    // needs (its scale comes from the children's bounding box, so it can
+    // only be worked out at generate time).
     params["args"] = callArgsToValue(args);
+    if (name != "resize") {
+        // Every other transform is one fixed matrix, built here, once, with
+        // its warnings -- the same matrix for a solid, a raw mesh and a 2D
+        // section.
+        const Mat4 m = transformMatrix(ev, name, args, &node.position());
+        bool finite = true;
+        std::vector<Value> flat;
+        for (const auto& row : m)
+            for (double e : row) {
+                finite &= std::isfinite(e);
+                flat.push_back(Value{e});
+            }
+        if (!finite) {
+            ev.warn("Transformation matrix contains Not-a-Number and/or Infinity - removing object.",
+                    &node.position());
+        }
+        params["m"] = Value{makeList(std::move(flat))};
+        params["remove"] = Value{!finite};
+    }
     return BuiltinWrapParams{std::move(params), std::move(effCtx)};
 }
 
@@ -350,22 +362,60 @@ CSGParams resolveTransform(Evaluator& ev, const oscad::ModularCall& node, EvalCo
 }
 
 namespace {
+manifold::mat3x4 paramsMatrix(const CSGParams& params) {
+    const auto& items = std::get<ListPtr>(params.at("m"))->items;
+    Mat4 m{};
+    for (int i = 0; i < 16; ++i) m[static_cast<size_t>(i / 4)][static_cast<size_t>(i % 4)] = std::get<double>(items[static_cast<size_t>(i)]);
+    return toMat3x4(m);
+}
+
 std::shared_ptr<const std::vector<ColoredBody>> transformParts(const std::vector<ColoredBody>& parts,
-                                                                const std::string& name, const CallArgs& args) {
+                                                                const manifold::mat3x4& m) {
     std::vector<ColoredBody> out;
     for (ColoredBody part : parts) {
-        if (part.body) part.body = applyTransform3d(name, args, std::move(*part.body));
-        if (part.mergedFrom) part.mergedFrom = transformParts(*part.mergedFrom, name, args);
+        if (part.body) part.body = part.body->Transform(m);
+        if (part.mergedFrom) part.mergedFrom = transformParts(*part.mergedFrom, m);
         out.push_back(std::move(part));
     }
     return std::make_shared<const std::vector<ColoredBody>>(std::move(out));
 }
 } // namespace
 
-std::vector<ColoredBody> generateTransform(Evaluator&, const CSGParams& params,
+std::vector<ColoredBody> generateTransform(Evaluator& ev, const CSGParams& params,
                                             const std::vector<std::unique_ptr<CSGNode>>& children, const oscad::ASTNode&) {
     const std::string& name = std::get<std::string>(params.at("name"));
-    const CallArgs args = valueToCallArgs(params.at("args"));
+
+    if (name == "resize") {
+        const CallArgs args = valueToCallArgs(params.at("args"));
+        double ns[3];
+        bool autoAxes[3];
+        resizeArgs(args, ns, autoAxes);
+        std::vector<ColoredBody> result;
+        for (ColoredBody b : flattenCsgTree(children)) {
+            if (b.section) {
+                // resize measures the shape, so the shape has to be where
+                // it really is first. See projectSectionXform.
+                if (!projectSectionXform(b)) ev.warn(kZeroScale2dWarning, nullptr);
+                const manifold::vec2 k = resizeScale2d(b.section->Bounds(), ns, autoAxes);
+                b.section = b.section->Scale(k);
+            } else if (b.body) {
+                const manifold::vec3 k = resizeScale3d(b.body->BoundingBox(), ns, autoAxes);
+                b.body = b.body->Scale(k);
+                if (b.mergedFrom) {
+                    manifold::mat3x4 s(manifold::vec3(k.x, 0, 0), manifold::vec3(0, k.y, 0), manifold::vec3(0, 0, k.z),
+                                       manifold::vec3(0, 0, 0));
+                    b.mergedFrom = transformParts(*b.mergedFrom, s);
+                }
+            }
+            result.push_back(std::move(b));
+        }
+        return result;
+    }
+
+    // A matrix with NaN or infinity in it removes its children (warned at
+    // resolve).
+    if (std::get<bool>(params.at("remove"))) return {};
+    const manifold::mat3x4 m = paramsMatrix(params);
 
     std::vector<ColoredBody> result;
     for (ColoredBody b : flattenCsgTree(children)) {
@@ -378,9 +428,8 @@ std::vector<ColoredBody> generateTransform(Evaluator&, const CSGParams& params,
             // seen, every LATER (outer) transform must ride along too, or
             // it would be applied in the wrong order. See
             // ColoredBody::sectionXform.
-            const std::optional<manifold::mat3x4> m = transformMatrix3d(name, args);
-            if (isIdentity3x4(b.sectionXform) && (!m || preservesXYPlane(*m))) {
-                b.section = applyTransform2d(name, args, std::move(*b.section));
+            if (isIdentity3x4(b.sectionXform) && preservesXYPlane(m)) {
+                if (!transformSection(*b.section, m)) ev.warn(kZeroScale2dWarning, nullptr);
             } else if (name == "translate" && hasIdentityLinearPart(b.sectionXform)) {
                 // A translate SPLITS while nothing has rotated or scaled the
                 // section yet: x/y into the CrossSection, z into the carried
@@ -388,26 +437,19 @@ std::vector<ColoredBody> generateTransform(Evaluator&, const CSGParams& params,
                 // and keeping x/y in the section is what lets a later 2D
                 // boolean or offset() still see real 2D geometry after a
                 // `down(1) square(10)`.
-                b.section = applyTransform2d(name, args, std::move(*b.section));
-                b.sectionXform[3].z += toVec3(getArg(args, 0, "v", Value{})).z;
-            } else if (m) {
-                b.sectionXform = compose3x4(*m, b.sectionXform);
+                b.section = b.section->Translate(manifold::vec2(m[3].x, m[3].y));
+                b.sectionXform[3].z += m[3].z;
+            } else {
+                b.sectionXform = compose3x4(m, b.sectionXform);
             }
-            // No `m` and already carrying a transform: only resize(), which
-            // the reference passes 2D children through unchanged anyway.
         } else if (b.body) {
-            b.body = applyTransform3d(name, args, std::move(*b.body));
+            b.body = b.body->Transform(m);
             // A display-only body's real geometry is its raw triangles --
-            // the Manifold above is empty and moving it moves nothing. See
-            // transformMatrix3d.
-            if (b.rawMesh) {
-                if (std::optional<manifold::mat3x4> m = transformMatrix3d(name, args))
-                    transformMeshInPlace(*b.rawMesh, *m);
-            }
+            // the Manifold above is empty and moving it moves nothing.
+            if (b.rawMesh) transformMeshInPlace(*b.rawMesh, m);
             // The unmerged parts of a union move with it (see
-            // ColoredBody::mergedFrom). Recursion through this same
-            // function keeps their own parts moving too.
-            if (b.mergedFrom) b.mergedFrom = transformParts(*b.mergedFrom, name, args);
+            // ColoredBody::mergedFrom).
+            if (b.mergedFrom) b.mergedFrom = transformParts(*b.mergedFrom, m);
         }
         result.push_back(std::move(b));
     }

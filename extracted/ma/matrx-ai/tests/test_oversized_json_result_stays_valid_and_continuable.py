@@ -16,6 +16,7 @@ import re
 from typing import Any
 
 import pytest
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.tools.executor import ToolExecutor
 from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolType
@@ -38,7 +39,9 @@ FINDINGS = {
 }
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_reasoning_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...

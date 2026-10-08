@@ -1,5 +1,7 @@
 """Exercise exclusive routing through init, the worker, and real Traces HTTP calls."""
 
+import json
+
 import httpx
 import pytest
 from _fakes import make_episode, make_trace, make_train_episode
@@ -36,6 +38,8 @@ def open_run(monkeypatch, make_platform_client, eval_routes, rft_routes, uploads
         )
         legacy_training = FakeSink(name="rft_samples")
         monkeypatch.setattr("prime_runs.run.RftSamplesSink", lambda _: legacy_training)
+        # The fake stands in for the Parquet encoder, so pyarrow is not needed.
+        monkeypatch.setattr("prime_runs.projection.parquet_available", lambda: True)
         run = pr.init(
             kind=kind,
             model="model",
@@ -54,7 +58,9 @@ def denial(code="service_not_enabled", status=403):
 
 
 @pytest.mark.parametrize("kind", ["eval", "train"])
-def test_beta_uploads_only_to_traces_but_keeps_run_lifecycle_and_metrics(open_run, uploads, kind):
+def test_enabled_account_uploads_only_to_traces_but_keeps_run_lifecycle_and_metrics(
+    open_run, uploads, kind
+):
     calls, _ = uploads
     run, platform, legacy = open_run(kind)
     episode = make_episode() if kind == "eval" else make_train_episode(step=10)
@@ -81,7 +87,9 @@ def test_beta_uploads_only_to_traces_but_keeps_run_lifecycle_and_metrics(open_ru
 
 
 @pytest.mark.parametrize("kind", ["eval", "train"])
-def test_no_beta_access_routes_first_and_later_batches_to_legacy(open_run, uploads, kind):
+def test_account_without_prime_traces_routes_first_and_later_batches_to_legacy(
+    open_run, uploads, kind
+):
     calls, replies = uploads
     replies.append(denial())
     run, platform, legacy = open_run(kind)
@@ -105,6 +113,123 @@ def test_no_beta_access_routes_first_and_later_batches_to_legacy(open_run, uploa
     else:
         assert len(legacy.started) == 1
         assert len(legacy.batches) == 2
+
+
+def _opt_out_via(source, monkeypatch, home):
+    """Opt out through one of the three supported sources; returns init kwargs."""
+    if source == "argument":
+        return {"traces_opt_out": True}
+    if source == "env":
+        monkeypatch.setenv("PRIME_TRACES_OPT_OUT", "true")
+    else:
+        (home / ".prime").mkdir()
+        (home / ".prime" / "config.json").write_text(json.dumps({"traces_opt_out": True}))
+    return {}
+
+
+@pytest.mark.parametrize("source", ["argument", "env", "config"])
+@pytest.mark.parametrize("kind", ["eval", "train"])
+def test_opting_out_never_contacts_prime_traces(
+    open_run, uploads, monkeypatch, isolated_prime_config, kind, source
+):
+    calls, _ = uploads
+    run, platform, legacy = open_run(
+        kind, **_opt_out_via(source, monkeypatch, isolated_prime_config)
+    )
+    with run:
+        for index in range(2):
+            episode = (
+                make_episode(f"e{index}")
+                if kind == "eval"
+                else make_train_episode(f"e{index}", step=10)
+            )
+            run.log_episodes([episode])
+            run.flush()
+
+    assert calls == []
+    assert run.failed_records == {}
+    assert run.errors == []
+    if kind == "eval":
+        bodies = platform.bodies_for("/api/v1/evaluations/eval-abc/samples")
+        assert [body["samples"][0]["sample_id"] for body in bodies] == ["e0", "e1"]
+        # Same summary a server-side denial leaves, so completion checks agree.
+        assert run.summary["prime_runs"]["traces_episodes_written"] == 0
+    else:
+        assert len(legacy.started) == 1
+        assert len(legacy.batches) == 2
+
+
+def test_an_explicit_argument_overrides_the_opt_out_env_var(open_run, uploads, monkeypatch):
+    calls, _ = uploads
+    monkeypatch.setenv("PRIME_TRACES_OPT_OUT", "1")
+    run, platform, _ = open_run(traces_opt_out=False)
+    with run:
+        run.log_episodes([make_episode()])
+
+    assert len(calls) == 1
+    assert not any("/samples" in path for path in platform.paths())
+
+
+def test_an_unknown_opt_out_env_value_is_rejected_before_the_run_is_created(
+    monkeypatch, make_platform_client, eval_routes
+):
+    """Failing after create would strand a RUNNING run nobody holds a handle to."""
+    platform = RecordingHandler(eval_routes)
+    monkeypatch.setattr("prime_runs.run.PlatformClient", lambda **_: make_platform_client(platform))
+    monkeypatch.setenv("PRIME_TRACES_OPT_OUT", "maybe")
+
+    with pytest.raises(pr.exceptions.ConfigurationError, match="PRIME_TRACES_OPT_OUT"):
+        pr.init(model="model", environments=["gsm8k"], api_key="test-key", team_id="team-1")
+
+    assert platform.paths() == []
+
+
+def test_a_training_opt_out_without_pyarrow_is_rejected_before_the_run_is_created(
+    monkeypatch, make_platform_client, rft_routes
+):
+    """Otherwise the legacy sink turns itself off and nothing stores the episodes."""
+    platform = RecordingHandler(rft_routes)
+    monkeypatch.setattr("prime_runs.run.PlatformClient", lambda **_: make_platform_client(platform))
+    monkeypatch.setattr("prime_runs.projection.parquet_available", lambda: False)
+
+    with pytest.raises(pr.exceptions.ConfigurationError, match=r"prime-runs\[train\]"):
+        pr.init(
+            kind="train",
+            model="model",
+            environments=["gsm8k"],
+            api_key="test-key",
+            team_id="team-1",
+            traces_opt_out=True,
+        )
+
+    assert platform.paths() == []
+
+
+def test_an_eval_opt_out_does_not_need_pyarrow(
+    monkeypatch, make_platform_client, eval_routes, uploads
+):
+    calls, _ = uploads
+    platform = RecordingHandler(eval_routes)
+    monkeypatch.setattr("prime_runs.run.PlatformClient", lambda **_: make_platform_client(platform))
+    monkeypatch.setattr("prime_runs.projection.parquet_available", lambda: False)
+
+    with pr.init(
+        model="model",
+        environments=["gsm8k"],
+        api_key="test-key",
+        team_id="team-1",
+        traces_opt_out=True,
+    ) as run:
+        run.log_episodes([make_episode("e0")])
+
+    assert calls == []
+    assert platform.bodies_for("/api/v1/evaluations/eval-abc/samples")
+
+
+def test_a_disabled_run_ignores_the_opt_out_env_var(monkeypatch):
+    monkeypatch.setenv("PRIME_TRACES_OPT_OUT", "maybe")
+    with pr.init(mode="disabled") as run:
+        run.log_episodes([make_episode()])
 
 
 @pytest.mark.parametrize(

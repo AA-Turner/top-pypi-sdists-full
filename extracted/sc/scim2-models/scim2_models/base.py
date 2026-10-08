@@ -107,8 +107,8 @@ def _attr_matches(requested: str, current_urn: str) -> bool:
 def _exact_attr_match(attrs: list[str], current_urn: str) -> bool:
     """Check if current_urn exactly matches any entry in attrs (case-insensitive).
 
-    Used for ``excludedAttributes`` matching and Returned.request checking,
-    where parent/child relationship should not apply.
+    Used for ``excludedAttributes`` matching, where parent/child relationship
+    should not apply.
     """
     current_short = _short_attr_path(current_urn).lower()
     for attr in attrs:
@@ -122,6 +122,22 @@ def _exact_attr_match(attrs: list[str], current_urn: str) -> bool:
     return False
 
 
+def _is_attribute_or_child_requested(attrs: list[str], current_urn: str) -> bool:
+    """Check if current_urn or one of its sub-attributes is in attrs (case-insensitive).
+
+    Used for Returned.request checking, where requesting a parent does not
+    request its children.
+    """
+    current_lower = current_urn.lower()
+    current_short = _short_attr_path(current_urn).lower()
+    for attr in attrs:
+        attr_lower = attr.lower()
+        target = current_lower if ":" in attr else current_short
+        if attr_lower == target or attr_lower.startswith(target + "."):
+            return True
+    return False
+
+
 def _is_attribute_requested(requested_attrs: list[str], current_urn: str) -> bool:
     """Check if an attribute should be included based on the requested attributes.
 
@@ -131,6 +147,28 @@ def _is_attribute_requested(requested_attrs: list[str], current_urn: str) -> boo
     - The current attribute is a sub-attribute of a requested attribute
     """
     return any(_attr_matches(req, current_urn) for req in requested_attrs)
+
+
+def _is_returned(
+    returnability: Returned | None,
+    urn: str,
+    included_attrs: list[str],
+    excluded_attrs: list[str],
+) -> bool:
+    """Tell whether a response keeps an attribute, judged at its own level only.
+
+    A sub-attribute is also removed when its parent is: the caller checks each
+    level of the path.
+    """
+    if returnability == Returned.never:
+        return False
+    if returnability == Returned.default:
+        if included_attrs and not _is_attribute_requested(included_attrs, urn):
+            return False
+        return not _exact_attr_match(excluded_attrs, urn)
+    if returnability == Returned.request:
+        return _is_attribute_or_child_requested(included_attrs, urn)
+    return True
 
 
 class _SCIMClassInfo(NamedTuple):
@@ -955,18 +993,8 @@ class BaseModel(PydanticBaseModel):
             returnability = self.get_field_annotation(field_name, Returned)
             attribute_urn = self._get_attribute_urn(field_name)
 
-            if returnability == Returned.never:
-                del serialized[alias]
-            elif returnability == Returned.default and (
-                (
-                    included_attrs
-                    and not _is_attribute_requested(included_attrs, attribute_urn)
-                )
-                or _exact_attr_match(excluded_attrs, attribute_urn)
-            ):
-                del serialized[alias]
-            elif returnability == Returned.request and not _exact_attr_match(
-                included_attrs, attribute_urn
+            if not _is_returned(
+                returnability, attribute_urn, included_attrs, excluded_attrs
             ):
                 del serialized[alias]
 

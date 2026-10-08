@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: guppylang-internals
-Version: 1.1.2
+Version: 1.1.3
 Summary: Compiler internals for `guppylang` package.
 Author-email: Mark Koch <mark.koch@quantinuum.com>, TKET development team <tket-support@quantinuum.com>
 Maintainer-email: Mark Koch <mark.koch@quantinuum.com>, TKET development team <tket-support@quantinuum.com>

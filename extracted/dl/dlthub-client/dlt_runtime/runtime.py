@@ -303,7 +303,7 @@ class CliSession:
     def _bootstrap_caller(self) -> None:
         """Call /user at login to self-bootstrap the caller's org, then validate local state."""
         error_message = "Failed to get your user info from the dltHub API. Run 'dlthub login' or update your API key"
-        # Only a user token reaches `/user`; login always holds one by here.
+        # Only a user token reaches `/me`; login always holds one by here.
         with handle_client_exceptions(error_message):
             get_sdk_runtime(self).me()
 
@@ -339,7 +339,7 @@ class CliSession:
             caller_info["identity"] = {
                 "email": first.email,
                 "user_id": first.user_id,
-                "identity_id": first.identity_id,
+                "organization_membership_id": first.organization_membership_id,
             }
         if self.principal_kind() is PrincipalKind.HUMAN:
             self._validate_local_workspace(caller_info)
@@ -350,7 +350,7 @@ class CliSession:
     ) -> list[WorkspaceInfo]:
         """The caller's workspaces in one organization, each stamped with it."""
         workspaces = []
-        for membership in caller.memberships:
+        for membership in caller.workspace_memberships:
             info = self._convert_workspace(membership.workspace)
             info["role"] = membership.role
             info["organization_id"] = org.id

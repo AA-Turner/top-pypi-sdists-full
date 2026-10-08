@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Literal
 
-import httpx
+import httpx2
 
 from trajectory._base_client import SyncPage, make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
@@ -45,7 +45,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[Deployment]:
     """List Deployments Route
 
@@ -91,7 +91,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> StartDeployResponse:
     """Serve a committed checkpoint through Model Endpoint.
 
@@ -140,7 +140,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> ModelSlug:
     """Create Model Slug
 
@@ -181,7 +181,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> Deployment:
     """Get Deployment Route
 
@@ -219,7 +219,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> UndeployResponse:
     """Delete a deployment and its Model Endpoint resources.
 
@@ -258,7 +258,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> PromoteResponse:
     """Make a deployed deployment the active target for its slug.
 
@@ -299,7 +299,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> PromoteResponse:
     """Clear a deployment's active flag so its slug serves nothing.
 
@@ -336,7 +336,7 @@ class Deployments(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeploymentsSummary:
     """Summary
 

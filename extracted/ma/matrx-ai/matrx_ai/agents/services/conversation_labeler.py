@@ -268,15 +268,14 @@ async def _run_labeling(
         is_agent = bool(agent_name)
 
         if is_agent:
-            variables_str = ""
-            if user_variables:
-                variables_str = "\n".join(f"- **{k}**: {v}" for k, v in user_variables.items())
             result = await label_agent_conversation(
                 conversation_content=conversation_content,
                 recent_titles=recent_titles_str,
                 agent_name=agent_name or "",
                 agent_description=agent_description or "",
-                user_variables=variables_str,
+                # Raw name → value: the Holder's turn frames them, the prompt
+                # door renders them; never "- **name**: value" lines in code.
+                user_variables=dict(user_variables or {}),
                 user_prompt=user_prompt or "",
             )
         else:

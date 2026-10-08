@@ -1,0 +1,78 @@
+# Roles held by machine identities: API keys and SCIM provisioning.
+api_key_sandbox/org_id,ws_id:
+    - d_member/org_id
+    - ws_viewer/org_id,ws_id
+    - flow_execute_sandbox/org_id,ws_id,*
+    - w+r:workspace_sandbox_endpoint/org_id,ws_id
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=sandbox,type=agent}
+    - connection_user_sandbox/org_id,ws_id
+    - w+d:workspace_connection_resource/org_id,ws_id
+    - r+w+d:workspace_connection_tenant/org_id,ws_id
+    - w:workspace_sandbox_job_trigger/org_id,ws_id
+    - w:workspace_test_job_trigger/org_id,ws_id
+    - w:workspace_connection_secret/org_id,ws_id
+    - r+w:workspace_file/org_id,ws_id,{env=sandbox}
+    - r+w:workspace_review_case/org_id,ws_id,{env=sandbox}
+    - r+w:workspace_case/org_id,ws_id
+    - r:workspace_case_template/org_id,ws_id
+    - api_key_wizard/org_id,ws_id
+api_key_production/org_id,ws_id:
+    - d_member/org_id
+    - ws_viewer/org_id,ws_id
+    - ws_reviewer/org_id,ws_id
+    - flow_execute_live/org_id,ws_id,*
+    - w+r:workspace_endpoint/org_id,ws_id
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=live,type=agent}
+    - connection_user_live/org_id,ws_id
+    - w+d:workspace_connection_resource/org_id,ws_id
+    - r+w+d:workspace_connection_tenant/org_id,ws_id
+    - w:workspace_live_job_trigger/org_id,ws_id
+    - w:workspace_connection_secret/org_id,ws_id
+    - r+w:workspace_case/org_id,ws_id
+    - r+w:workspace_case_queue/org_id,ws_id
+    - api_key_wizard/org_id,ws_id
+api_key_job_admin/org_id,ws_id:
+    - ws_viewer/org_id,ws_id
+    - flow_execute_sandbox/org_id,ws_id,*
+    - flow_execute_live/org_id,ws_id,*
+    - r+w+d:workspace_job/org_id,ws_id
+    - w:workspace_sandbox_job_trigger/org_id,ws_id
+    - w:workspace_test_job_trigger/org_id,ws_id
+    - w:workspace_live_job_trigger/org_id,ws_id
+    - r+w+d:jobs/org_id,ws_id,*
+    - deploy:jobs/org_id,ws_id,*
+    - r+w+d:job_run/org_id,ws_id,*,{env=*}
+api_key_history_admin/org_id,ws_id:
+    - ws_viewer/org_id,ws_id
+    - dh_deleter_live/org_id,ws_id
+    - r+w:workspace_decision_history/org_id,ws_id
+api_key_audit_logs/org_id,ws_id:
+    - ws_viewer/org_id,ws_id
+    - r:organization/org_id
+    - r:organization_name/org_id
+    - r:audit_logs/org_id
+api_key_ws_viewer/org_id,ws_id:
+    - ws_viewer/org_id,ws_id
+api_key_ws_editor/org_id,ws_id:
+    - ws_editor/org_id,ws_id
+api_key_case_management/org_id,ws_id:
+    - r:workspace_data/org_id,ws_id
+    - r+w:workspace_case/org_id,ws_id
+    - w:workspace_case_flow_trigger/org_id,ws_id
+    - w:workspace_case_queue/org_id,ws_id
+    - r+w:workspace_agent_management/org_id,ws_id,{env=*,type=copilot}
+api_key_case_management_assume_user/org_id,ws_id:
+    - w:workspace_user_impersonation/org_id,ws_id
+    - w:workspace/org_id,ws_id
+api_key_case_management_cases/org_id,ws_id:
+    - r+w:workspace_case/org_id,ws_id
+api_key_case_management_queues/org_id,ws_id:
+    - r+w:workspace_case_queue/org_id,ws_id
+api_key_case_management_templates/org_id,ws_id:
+    - r+w:workspace_case_template/org_id,ws_id
+api_key_wizard/org_id,ws_id:
+    - r+w:workspace_wizard/org_id,ws_id,{env=*}
+
+# scim
+scim_provisioner/org_id:
+    - r+w:scim_provisioning/org_id

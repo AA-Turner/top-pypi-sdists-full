@@ -1481,7 +1481,7 @@ class TypeScriptProject(
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
         :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
-        :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
+        :param libdir: (experimental) Typescript artifacts output directory. When ``libdir`` is changed, set ``entrypoint`` to match it (for example ``libdir: "dist"`` with ``entrypoint: "dist/index.js"``). ``types`` follows the entrypoint rather than ``libdir``, and ``main`` still defaults to ``lib/index.js``. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
         :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
@@ -2366,7 +2366,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
         :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
-        :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
+        :param libdir: (experimental) Typescript artifacts output directory. When ``libdir`` is changed, set ``entrypoint`` to match it (for example ``libdir: "dist"`` with ``entrypoint: "dist/index.js"``). ``types`` follows the entrypoint rather than ``libdir``, and ``main`` still defaults to ``lib/index.js``. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
         :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
@@ -4762,6 +4762,11 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
     def libdir(self) -> typing.Optional[builtins.str]:
         '''(experimental) Typescript  artifacts output directory.
 
+        When ``libdir`` is changed, set ``entrypoint`` to match it (for example
+        ``libdir: "dist"`` with ``entrypoint: "dist/index.js"``). ``types`` follows the
+        entrypoint rather than ``libdir``, and ``main`` still defaults to
+        ``lib/index.js``.
+
         :default: "lib"
 
         :stability: experimental
@@ -5324,7 +5329,7 @@ class TypeScriptAppProject(
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
         :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
-        :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
+        :param libdir: (experimental) Typescript artifacts output directory. When ``libdir`` is changed, set ``entrypoint`` to match it (for example ``libdir: "dist"`` with ``entrypoint: "dist/index.js"``). ``types`` follows the entrypoint rather than ``libdir``, and ``main`` still defaults to ``lib/index.js``. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
         :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()

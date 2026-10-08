@@ -24,7 +24,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import snowflake.snowpark as snowpark
+from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.temporary_view_helper import register_temp_view
 
 
 @dataclass
@@ -138,6 +140,30 @@ def translate_create_changelog_view(
     if not ddl_executed and ddl:
         logger.debug("create_changelog_view: executing DDL: %s", ddl)
         session.sql(ddl).collect()
+    elif not ddl and response.get("isCld"):
+        # Option C (design doc, SNOW-3471824): CLD tables cannot host TEMPORARY
+        # VIEWs, so the GS procedure returns ddl=null with the sql field.  Store
+        # the query as an in-memory DataFrame plan — SCOS expands it inline when
+        # the view name is referenced.  No Snowflake DDL is issued.
+        inner_sql = response.get("sql", "")
+        resolved_view = response.get("viewName", "")
+        if not inner_sql or not resolved_view:
+            raise RuntimeError(
+                f"SYSTEM$CREATE_ICEBERG_CHANGELOG_VIEW returned isCld=true but "
+                f"missing sql or viewName: {response_str}"
+            )
+        df = session.sql(inner_sql)
+        col_names = [f.name for f in df.schema.fields]
+        container = DataFrameContainer.create_with_column_mapping(
+            dataframe=df,
+            spark_column_names=col_names,
+            snowpark_column_names=col_names,
+        )
+        register_temp_view(resolved_view, False, container, True)
+        logger.debug(
+            "create_changelog_view (CLD): registered in-memory view %s",
+            resolved_view,
+        )
     elif not ddl:
         raise RuntimeError(
             f"SYSTEM$CREATE_ICEBERG_CHANGELOG_VIEW returned no DDL: {response_str}"

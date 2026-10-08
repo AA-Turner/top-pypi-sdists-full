@@ -462,7 +462,19 @@ def columns_for_explicit_schema(
     """
     from snowflake.snowpark_connect.nss.nss_scan_options import (
         columns_from_spark_schema,
+        py_schema_without_null_types,
     )
+
+    # SNOW-4039487: substitute StringType for NullType *before* either branch. The
+    # ``columns_from_spark_schema`` fallback applies this itself, but adapt mode does not:
+    # it echoes the caller's schema verbatim, so a ``void`` reaching GS lands in
+    # SPARK_DATA_TYPE while SF_DATA_TYPE is independently rendered VARCHAR, and the two
+    # halves of the read then disagree. Idempotent, so the fallback re-applying it is a
+    # no-op. (``columns_from_spark_schema``'s own docstring asserts only an explicit schema
+    # can carry ``void`` because INFER_STAGE_FILE_SCHEMA never returns one -- true when
+    # written, but adapt mode *is* that TVF echoing the caller's schema back, so
+    # SNOW-3853392 invalidated the premise.)
+    spark_schema = py_schema_without_null_types(spark_schema)
 
     # GS requires a non-empty ``fields`` array; an explicit zero-column schema can only be
     # handled client-side (which yields the empty column list the read path expects).

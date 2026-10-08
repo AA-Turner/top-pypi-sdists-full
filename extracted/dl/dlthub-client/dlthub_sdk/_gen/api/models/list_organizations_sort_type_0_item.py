@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class ListOrganizationsSortType0Item(str, Enum):
-    DATE_ADDED = "date_added"
+    CREATED_AT = "created_at"
     NAME = "name"
 
     def __str__(self) -> str:

@@ -1,0 +1,92 @@
+# Roles customers hold and assign to their own users.
+d_owner/org_id:
+    - d_member/org_id
+    - ws_viewer/org_id,*
+    - w:organization/org_id
+    - w+d:infrastructure/org_id
+    - r:audit_logs/org_id
+org_manager/org_id:
+    - d_member/org_id
+    - ws_member/org_id,*
+    - w:organization/org_id
+    - w+d:infrastructure/org_id
+    - r:audit_logs/org_id
+d_member/org_id:
+    - r:organization/org_id
+    - r:organization_name/org_id
+ws_member/org_id,ws_id:
+    - r:workspace_meta/org_id,ws_id
+    - r:flow_meta/org_id,ws_id
+    # type definitions that flows and cases reference; records stay behind workspace_record
+    - r:workspace_management/org_id,ws_id,{env=*,type=entity}
+    - r:workspace_management/org_id,ws_id,{env=*,type=event}
+ws_viewer/org_id,ws_id:
+    - agent_viewer/org_id,ws_id
+    - connection_viewer/org_id,ws_id
+    - flow_viewer/org_id,ws_id,*
+    - ws_member/org_id,ws_id
+    - r:workspace/org_id,ws_id
+    - r:workspace_data/org_id,ws_id
+    - r:outcome_type_management/org_id,ws_id
+    - r:workspace_routing_sandbox/org_id,ws_id
+    - r:workspace_routing_production/org_id,ws_id
+    - r:workspace_sandbox_endpoint/org_id,ws_id
+    - r:workspace_test_endpoint/org_id,ws_id
+    - r:workspace_job/org_id,ws_id
+    - data_viewer/org_id,ws_id
+ws_reviewer/org_id,ws_id:
+    - agent_viewer/org_id,ws_id
+    - case_reviewer/org_id,ws_id
+    - flow_viewer/org_id,ws_id,*
+    - ws_member/org_id,ws_id
+    - r:workspace/org_id,ws_id
+    - r+w:workspace_data/org_id,ws_id
+    - r:outcome_type_management/org_id,ws_id
+    - file_user/org_id,ws_id
+    - copilot_user/org_id,ws_id
+ws_editor/org_id,ws_id:
+    - ws_viewer/org_id,ws_id
+    - ws_reviewer/org_id,ws_id
+    - flow_editor/org_id,ws_id,*
+    - agent_editor/org_id,ws_id
+    - session_viewer_live/org_id,ws_id
+    - connection_user/org_id,ws_id
+    - dh_viewer_sandbox/org_id,ws_id
+    - dh_viewer_live/org_id,ws_id
+    - dh_deleter_sandbox/org_id,ws_id
+    - chart_editor_live/org_id,ws_id
+    - w:workspace/org_id,ws_id
+    - w:workspace_routing_sandbox/org_id,ws_id
+    # env=* kept as the catch-all; the dh_viewer_* sub-roles above cover today's envs (sandbox+test, live)
+    - r:decision_history/org_id,ws_id,{env=*}
+    - r:workspace_endpoint/org_id,ws_id
+    - r+w:workspace_sandbox_endpoint/org_id,ws_id
+    - r+w:workspace_test_endpoint/org_id,ws_id
+    - r:workspace_api_keys/org_id,ws_id
+    - data_editor/org_id,ws_id
+    - w+d:workspace_job/org_id,ws_id
+    - w:workspace_sandbox_job_trigger/org_id,ws_id
+    - w:workspace_test_job_trigger/org_id,ws_id
+    - case_editor/org_id,ws_id
+ws_admin/org_id,ws_id:
+    - ws_editor/org_id,ws_id
+    - ws_manager/org_id,ws_id
+    - agent_deployer/org_id,ws_id
+    - agent_execute_live/org_id,ws_id
+    - connection_editor/org_id,ws_id
+    - integration_builder/org_id,ws_id
+    - flow_deployer/org_id,ws_id,*
+    - flow_execute_live/org_id,ws_id,*
+    - dh_deleter_live/org_id,ws_id
+    - w:workspace_endpoint/org_id,ws_id
+    - w:workspace_routing_production/org_id,ws_id
+    - r:workspace_decision_history_api/org_id,ws_id
+    - w+d:workspace_api_keys/org_id,ws_id
+    - w:flow_settings/org_id,ws_id
+    - w:workspace_live_job_trigger/org_id,ws_id
+    - w+d:jobs/org_id,ws_id,*
+    - w+d:job_run/org_id,ws_id,*,{env=live}
+    - w+d:outcome_type_management/org_id,ws_id
+    - data_admin/org_id,ws_id
+    - r+w:workspace_wizard/org_id,ws_id,{env=*}
+    - case_admin/org_id,ws_id

@@ -256,6 +256,28 @@ TEST(FormatNumber, MantissaRoundingCarryBumpsExponent) {
     EXPECT_EQ(formatNumber(9.99999999e13), "1e+14");
 }
 
+// formatNumber decides most numbers from std::to_chars' shortest rendering
+// and falls back to the exact expansion when that rendering is a 7-digit tie
+// (sixDigits, value.cpp). These sit on both sides of that fallback; the
+// expected strings are the output of the exact-only implementation it
+// replaced, which a fuzz of ~25M doubles found it identical to.
+TEST(FormatNumber, TiesAndSubnormalsRoundLikeToPrecision) {
+    EXPECT_EQ(formatNumber(123456.5), "123457");     // exact tie: up
+    EXPECT_EQ(formatNumber(1.234565), "1.23456");    // shortest is the tie; the double is just below it
+    EXPECT_EQ(formatNumber(std::nextafter(1.234565, 2.0)), "1.23457");
+    EXPECT_EQ(formatNumber(0.1234565), "0.123456");
+    EXPECT_EQ(formatNumber(1234565.0), "1.23457e+6");
+    EXPECT_EQ(formatNumber(999999.5), "1e+6");       // carry into a new digit
+    EXPECT_EQ(formatNumber(1.0000005000000001), "1");
+    EXPECT_EQ(formatNumber(0.1 + 0.2), "0.3");
+    EXPECT_EQ(formatNumber(1.0 / 3), "0.333333");
+    EXPECT_EQ(formatNumber(-1234.5678), "-1234.57");
+    EXPECT_EQ(formatNumber(std::numeric_limits<double>::min()), "2.22507e-308");
+    // Subnormals take the exact path: shortest round-trip says "5e-324".
+    EXPECT_EQ(formatNumber(std::numeric_limits<double>::denorm_min()), "4.94066e-324");
+    EXPECT_EQ(formatNumber(1e-310), "1e-310");
+}
+
 // -- fmtValue ---------------------------------------------------------------
 
 TEST(FmtValue, Scalars) {
@@ -441,13 +463,12 @@ TEST(ExpandIterable, NegativeStepRangeTooManyElementsIsRejectedToo) {
     EXPECT_EQ(items.size(), 0u);
 }
 
-TEST(ExpandIterable, ZeroStepRangeIsNaturallyEmptyNotTooMany) {
-    // A zero step never terminates by walking, but must not be
-    // misclassified as "too many" either -- it's naturally empty (0
-    // elements), no warning.
-    bool warned = false;
-    auto items = expandIterable(Value{OscRange{0, 0, 10}}, [&](size_t) { warned = true; });
-    EXPECT_FALSE(warned);
+TEST(ExpandIterable, ZeroStepRangeIsTooManyAsInOpenSCAD) {
+    // A zero step never reaches its end: the reference counts it as its
+    // uint32 ceiling and warns "too many elements (4294967295)".
+    size_t warned = 0;
+    auto items = expandIterable(Value{OscRange{0, 0, 10}}, [&](size_t n) { warned = n; });
+    EXPECT_EQ(warned, 4294967295u);
     EXPECT_EQ(items.size(), 0u);
 }
 

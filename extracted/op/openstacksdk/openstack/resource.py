@@ -45,7 +45,6 @@ from collections.abc import (
     MutableMapping,
 )
 import dataclasses
-import inspect
 import itertools
 import operator
 from typing import (
@@ -266,7 +265,7 @@ class _Request:
 
 class QueryMapping(TypedDict):
     name: NotRequired[str]
-    type: NotRequired[Callable[[Any, type[ResourceT]], ResourceT | str | None]]
+    format: NotRequired[Literal['csv']]
 
 
 class QueryParameters:
@@ -359,19 +358,10 @@ class QueryParameters:
         for client_side, server_side in self._mapping.items():
             if isinstance(server_side, dict):
                 name = server_side.get('name', client_side)
-                type_ = server_side.get('type')
+                fmt = server_side.get('format')
             else:
                 name = server_side
-                type_ = None
-
-            # NOTE(dtantsur): a small hack to be compatible with both
-            # single-argument (like int) and double-argument type functions.
-            try:
-                provide_resource_type = (
-                    len(inspect.getfullargspec(type_).args) > 1
-                )
-            except TypeError:
-                provide_resource_type = False
+                fmt = None
 
             if client_side in query:
                 value = query[client_side]
@@ -380,13 +370,20 @@ class QueryParameters:
             else:
                 continue
 
-            if type_ is not None:
-                if provide_resource_type:
-                    result[name] = type_(value, resource_type)
-                else:
-                    result[name] = type_(value)  # type: ignore
-            else:
-                result[name] = value
+            match fmt:
+                case 'csv':
+                    field_mapping = {
+                        key: val.name
+                        for key, val in resource_type.__dict__.items()
+                        if isinstance(val, fields.Body)
+                    }
+                    result[name] = (
+                        ','.join(field_mapping.get(x, x) for x in value)
+                        if value is not None
+                        else None
+                    )
+                case None:
+                    result[name] = value
         return result
 
 
@@ -417,7 +414,7 @@ class CreateOpts:
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: de-enveloping.
     response_key: str | types.Unset | None = types.UNSET
-    # TODO(stephenfin): Change default to PORT once Resource.create_method is
+    # TODO(stephenfin): Change default to POST once Resource.create_method is
     # gone.
     #: Method to use for create requests.
     method: Literal['POST', 'PUT'] | types.Unset = types.UNSET

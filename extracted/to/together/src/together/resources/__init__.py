@@ -80,6 +80,22 @@ from .batches import (
     BatchesResourceWithStreamingResponse,
     AsyncBatchesResourceWithStreamingResponse,
 )
+from .clusters import (
+    ClustersResource,
+    AsyncClustersResource,
+    ClustersResourceWithRawResponse,
+    AsyncClustersResourceWithRawResponse,
+    ClustersResourceWithStreamingResponse,
+    AsyncClustersResourceWithStreamingResponse,
+)
+from .projects import (
+    ProjectsResource,
+    AsyncProjectsResource,
+    ProjectsResourceWithRawResponse,
+    AsyncProjectsResourceWithRawResponse,
+    ProjectsResourceWithStreamingResponse,
+    AsyncProjectsResourceWithStreamingResponse,
+)
 from .endpoints import (
     EndpointsResource,
     AsyncEndpointsResource,
@@ -128,6 +144,12 @@ __all__ = [
     "AsyncBetaResourceWithRawResponse",
     "BetaResourceWithStreamingResponse",
     "AsyncBetaResourceWithStreamingResponse",
+    "ClustersResource",
+    "AsyncClustersResource",
+    "ClustersResourceWithRawResponse",
+    "AsyncClustersResourceWithRawResponse",
+    "ClustersResourceWithStreamingResponse",
+    "AsyncClustersResourceWithStreamingResponse",
     "ChatResource",
     "AsyncChatResource",
     "ChatResourceWithRawResponse",
@@ -194,6 +216,12 @@ __all__ = [
     "AsyncEndpointsResourceWithRawResponse",
     "EndpointsResourceWithStreamingResponse",
     "AsyncEndpointsResourceWithStreamingResponse",
+    "ProjectsResource",
+    "AsyncProjectsResource",
+    "ProjectsResourceWithRawResponse",
+    "AsyncProjectsResourceWithRawResponse",
+    "ProjectsResourceWithStreamingResponse",
+    "AsyncProjectsResourceWithStreamingResponse",
     "RerankResource",
     "AsyncRerankResource",
     "RerankResourceWithRawResponse",

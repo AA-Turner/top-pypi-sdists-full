@@ -7,11 +7,11 @@ from uuid import UUID
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.triggered_job_status import TriggeredJobStatus
+from ..models.triggered_job_status_type_0 import TriggeredJobStatusType0
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.run_response import RunResponse
+    from ..models.job_run_response import JobRunResponse
 
 
 T = TypeVar("T", bound="TriggeredJob")
@@ -21,45 +21,62 @@ T = TypeVar("T", bound="TriggeredJob")
 class TriggeredJob:
     """
     Attributes:
-        job_ref (str): The job reference of the matched script.
+        job_id (UUID): The ID of the matched job.
+        job_ref (str): The job reference of the matched job.
         matched_triggers (list[str]): All triggers that matched the selectors.
-        script_id (UUID): The ID of the matched script.
         trigger (str): The single trigger picked for this run.
+        job_run (JobRunResponse | None | Unset): Full run details when a run was created. None in dry_run mode or when
+            skipped.
+        job_run_id (None | Unset | UUID): The ID of the created run. None in dry_run mode or when skipped.
         reasons (list[str] | None | Unset): Human-readable reasons explaining non-'triggered' statuses (e.g. which
             upstreams failed the freshness check). None when status is 'triggered' or no reasons were captured.
-        run (None | RunResponse | Unset): Full run details when a run was created. None in dry_run mode or when skipped.
-        run_id (None | Unset | UUID): The ID of the created run. None in dry_run mode or when skipped.
-        status (TriggeredJobStatus | Unset): Why the job did or did not start. 'skipped_fresh' — one or more upstream
-            freshness checks failed (see `reasons` for which upstreams). 'skipped_upstream_pending' — upstream being re-run
-            in same batch. 'skipped_out_of_interval' — point-in-time trigger outside script.interval_start/end.
-            'skipped_concurrency_limit' — active run count already at the script's concurrency limit.
-            'skipped_already_covered' — scheduler/cascade detected prior completed run already covers the period.
-            'skipped_trial_expired' — trial period has ended for this organization. 'skipped_minutes_limit' — organization
-            has exceeded its cumulative runtime limit. 'skipped_org_concurrency_limit' — organization has reached its
-            maximum number of concurrent runs. 'skipped_paused' — the job's scheduled runs are paused, so the scheduler did
-            not start this tick. Default: TriggeredJobStatus.TRIGGERED.
+        status (str | TriggeredJobStatusType0 | Unset): Why the job did or did not start. 'skipped_fresh' — one or more
+            upstream freshness checks failed (see `reasons` for which upstreams). 'skipped_upstream_pending' — upstream
+            being re-run in same batch. 'skipped_out_of_interval' — point-in-time trigger outside job.interval_start/end.
+            'skipped_concurrency_limit' — active run count already at the job's concurrency limit. 'skipped_already_covered'
+            — scheduler/cascade detected prior completed run already covers the period. 'skipped_trial_expired' — trial
+            period has ended for this organization. 'skipped_minutes_limit' — organization has exceeded its cumulative
+            runtime limit. 'skipped_org_concurrency_limit' — organization has reached its maximum number of concurrent runs.
+            'skipped_paused' — the job's scheduled runs are paused, so the scheduler did not start this tick. Default:
+            TriggeredJobStatusType0.TRIGGERED.
     """
 
+    job_id: UUID
     job_ref: str
     matched_triggers: list[str]
-    script_id: UUID
     trigger: str
+    job_run: JobRunResponse | None | Unset = UNSET
+    job_run_id: None | Unset | UUID = UNSET
     reasons: list[str] | None | Unset = UNSET
-    run: None | RunResponse | Unset = UNSET
-    run_id: None | Unset | UUID = UNSET
-    status: TriggeredJobStatus | Unset = TriggeredJobStatus.TRIGGERED
+    status: str | TriggeredJobStatusType0 | Unset = TriggeredJobStatusType0.TRIGGERED
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.run_response import RunResponse
+        from ..models.job_run_response import JobRunResponse
+
+        job_id = str(self.job_id)
 
         job_ref = self.job_ref
 
         matched_triggers = self.matched_triggers
 
-        script_id = str(self.script_id)
-
         trigger = self.trigger
+
+        job_run: dict[str, Any] | None | Unset
+        if isinstance(self.job_run, Unset):
+            job_run = UNSET
+        elif isinstance(self.job_run, JobRunResponse):
+            job_run = self.job_run.to_dict()
+        else:
+            job_run = self.job_run
+
+        job_run_id: None | str | Unset
+        if isinstance(self.job_run_id, Unset):
+            job_run_id = UNSET
+        elif isinstance(self.job_run_id, UUID):
+            job_run_id = str(self.job_run_id)
+        else:
+            job_run_id = self.job_run_id
 
         reasons: list[str] | None | Unset
         if isinstance(self.reasons, Unset):
@@ -70,42 +87,30 @@ class TriggeredJob:
         else:
             reasons = self.reasons
 
-        run: dict[str, Any] | None | Unset
-        if isinstance(self.run, Unset):
-            run = UNSET
-        elif isinstance(self.run, RunResponse):
-            run = self.run.to_dict()
-        else:
-            run = self.run
-
-        run_id: None | str | Unset
-        if isinstance(self.run_id, Unset):
-            run_id = UNSET
-        elif isinstance(self.run_id, UUID):
-            run_id = str(self.run_id)
-        else:
-            run_id = self.run_id
-
-        status: str | Unset = UNSET
-        if not isinstance(self.status, Unset):
+        status: str | Unset
+        if isinstance(self.status, Unset):
+            status = UNSET
+        elif isinstance(self.status, TriggeredJobStatusType0):
             status = self.status.value
+        else:
+            status = self.status
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "job_id": job_id,
                 "job_ref": job_ref,
                 "matched_triggers": matched_triggers,
-                "script_id": script_id,
                 "trigger": trigger,
             }
         )
+        if job_run is not UNSET:
+            field_dict["job_run"] = job_run
+        if job_run_id is not UNSET:
+            field_dict["job_run_id"] = job_run_id
         if reasons is not UNSET:
             field_dict["reasons"] = reasons
-        if run is not UNSET:
-            field_dict["run"] = run
-        if run_id is not UNSET:
-            field_dict["run_id"] = run_id
         if status is not UNSET:
             field_dict["status"] = status
 
@@ -113,16 +118,50 @@ class TriggeredJob:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.run_response import RunResponse
+        from ..models.job_run_response import JobRunResponse
 
         d = dict(src_dict)
+        job_id = UUID(d.pop("job_id"))
+
         job_ref = d.pop("job_ref")
 
         matched_triggers = cast(list[str], d.pop("matched_triggers"))
 
-        script_id = UUID(d.pop("script_id"))
-
         trigger = d.pop("trigger")
+
+        def _parse_job_run(data: object) -> JobRunResponse | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                job_run_type_0 = JobRunResponse.from_dict(data)
+
+                return job_run_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(JobRunResponse | None | Unset, data)
+
+        job_run = _parse_job_run(d.pop("job_run", UNSET))
+
+        def _parse_job_run_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                job_run_id_type_0 = UUID(data)
+
+                return job_run_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        job_run_id = _parse_job_run_id(d.pop("job_run_id", UNSET))
 
         def _parse_reasons(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -141,55 +180,29 @@ class TriggeredJob:
 
         reasons = _parse_reasons(d.pop("reasons", UNSET))
 
-        def _parse_run(data: object) -> None | RunResponse | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                run_type_0 = RunResponse.from_dict(data)
-
-                return run_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | RunResponse | Unset, data)
-
-        run = _parse_run(d.pop("run", UNSET))
-
-        def _parse_run_id(data: object) -> None | Unset | UUID:
-            if data is None:
-                return data
+        def _parse_status(data: object) -> str | TriggeredJobStatusType0 | Unset:
             if isinstance(data, Unset):
                 return data
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                run_id_type_0 = UUID(data)
+                status_type_0 = TriggeredJobStatusType0(data)
 
-                return run_id_type_0
+                return status_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | Unset | UUID, data)
+            return cast(str | TriggeredJobStatusType0 | Unset, data)
 
-        run_id = _parse_run_id(d.pop("run_id", UNSET))
-
-        _status = d.pop("status", UNSET)
-        status: TriggeredJobStatus | Unset
-        if isinstance(_status, Unset):
-            status = UNSET
-        else:
-            status = TriggeredJobStatus(_status)
+        status = _parse_status(d.pop("status", UNSET))
 
         triggered_job = cls(
+            job_id=job_id,
             job_ref=job_ref,
             matched_triggers=matched_triggers,
-            script_id=script_id,
             trigger=trigger,
+            job_run=job_run,
+            job_run_id=job_run_id,
             reasons=reasons,
-            run=run,
-            run_id=run_id,
             status=status,
         )
 

@@ -41,7 +41,8 @@ class DealCloudBase:
         """
         # log with provided logger
         self._logger = logging.getLogger(__name__)
-
+        self._logger.warning("DealCloud SDK breaking changes coming release 2610, Saturday October 10th. Make sure pyproject.toml restricts version to dealcloud-sdk<1.0.0. See https://api.docs.dealcloud.com/sdk/python-1.X")
+        
         # api credentials
         self._site = site_url
         self._client_id = client_id

@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 import matrx_ai.tools._generated_declarations  # noqa: F401 — registers WebArgs
 from matrx_ai.tools.executor import ToolExecutor
@@ -21,12 +22,13 @@ from matrx_ai.tools.logger import ToolExecutionLogger
 from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolType
 from matrx_ai.tools.registry import ToolRegistry
 
-
 #: The persisted tool_step name that carries a model notice (executor.MODEL_NOTICE_STEP).
 MODEL_NOTICE_STEP = "model_notice"
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_reasoning_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...

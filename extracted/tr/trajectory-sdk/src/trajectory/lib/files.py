@@ -15,7 +15,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import BinaryIO
 
-import httpx
+import httpx2
 
 from trajectory.lib._exceptions import FileUploadError
 from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl
@@ -92,7 +92,7 @@ class UploadFile:
     )
 
 
-class _ReplayableUploadStream(httpx.SyncByteStream):
+class _ReplayableUploadStream(httpx2.SyncByteStream):
   """Reopen an upload source whenever HTTPX replays a request body."""
 
   def __init__(self, file: UploadFile) -> None:
@@ -121,7 +121,7 @@ def put_files(
   files: list[UploadFile],
   urls: list[BenchmarkUploadUrl],
   *,
-  http_client: httpx.Client | None = None,
+  http_client: httpx2.Client | None = None,
   timeout: float = 120.0,
   max_retries: int = 2,
   max_concurrency: int = _DEFAULT_MAX_CONCURRENCY,
@@ -144,7 +144,7 @@ def put_files(
   client_context = (
     nullcontext(http_client)
     if http_client is not None
-    else httpx.Client(timeout=timeout, follow_redirects=True)
+    else httpx2.Client(timeout=timeout, follow_redirects=True)
   )
   with client_context as client:
 
@@ -159,14 +159,14 @@ def put_files(
 
 
 def _put_file(
-  client: httpx.Client,
+  client: httpx2.Client,
   file: UploadFile,
   upload_url: BenchmarkUploadUrl,
   *,
   timeout: float,
   max_retries: int,
 ) -> None:
-  headers = httpx.Headers(upload_url.headers)
+  headers = httpx2.Headers(upload_url.headers)
   if "Content-Type" not in headers:
     headers["Content-Type"] = file.content_type
   if "Content-Length" not in headers:
@@ -200,7 +200,7 @@ def _put_file(
         "Keep source files present and unchanged until submission finishes, then resubmit.",
         path=file.path,
       ) from error
-    except httpx.TransportError as error:
+    except httpx2.TransportError as error:
       if attempt < max_retries:
         _sleep_before_retry(attempt)
         continue

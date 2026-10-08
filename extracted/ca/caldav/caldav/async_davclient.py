@@ -157,7 +157,11 @@ class AsyncDAVClient(BaseDAVClient):
             username: Username for authentication.
             password: Password for authentication.
             auth: Custom auth object (httpx.Auth or niquests AuthBase).
-            auth_type: Auth type ('bearer', 'digest', or 'basic').
+            auth_type: Auth type ('bearer', 'digest', or 'basic'). If left unset and a 401
+                comes back with no WWW-Authenticate header at all (a server bug per RFC 7235 -
+                seen on Yahoo Calendar), the client guesses 'basic' once, but only over TLS;
+                pin auth_type explicitly to avoid the guess or to reach such a server over
+                plain HTTP.
             timeout: Request timeout in seconds.
             ssl_verify_cert: SSL certificate verification (bool or CA bundle path).
             ssl_cert: Client SSL certificate (path or (cert, key) tuple).
@@ -476,8 +480,24 @@ class AsyncDAVClient(BaseDAVClient):
                 request_kwargs["auth"] = self.auth
                 r = await self.session.request(**request_kwargs)
                 response = DAVResponse(r, self)
+            elif self._should_attempt_unprompted_basic(
+                r.status_code,
+                r.headers,
+                lambda: self._response_scheme(r, url_obj),
+            ):
+                self._build_unprompted_basic_auth()
+                try:
+                    return await self._async_request(url, method, body, headers)
+                except error.DAVError:
+                    # The server answered the guessed retry; a rejected guess
+                    # has already been unwound by _raise_authorization_error
+                    raise
+                except Exception:
+                    # The guessed retry was aborted too - don't keep the guess
+                    self._unwind_unprompted_basic()
+                    raise
             else:
-                # Probe GET did not give us a 401+WWW-Authenticate challenge —
+                # Probe GET offered neither a challenge nor a safe Basic-auth guess —
                 # auth negotiation failed; re-raise the original connection error
                 raise
 
@@ -503,6 +523,15 @@ class AsyncDAVClient(BaseDAVClient):
             # Set multiplexing to False BEFORE retry to prevent infinite loop
             self.features.set_feature("http.multiplexing", False)
             return await self._async_request(str(url_obj), method, body, headers)
+
+        # Handle a 401 with no WWW-Authenticate at all (issue #713): guess Basic once
+        elif self._should_attempt_unprompted_basic(
+            r.status_code,
+            r.headers,
+            lambda: self._response_scheme(r, url_obj),
+        ):
+            self._build_unprompted_basic_auth()
+            return await self._async_request(url, method, body, headers)
 
         # Raise AuthorizationError for 401/403 responses
         if response.status in (401, 403):

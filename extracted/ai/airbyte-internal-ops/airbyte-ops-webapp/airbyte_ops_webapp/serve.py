@@ -73,6 +73,7 @@ DEFAULT_STARTUP_TIMEOUT_SECONDS = 60.0
 MCP_PORT_ENV_VAR = "AIRBYTE_OPS_WEBAPP_MCP_PORT"
 SERVER_SPEC_ENV_VAR = "AIRBYTE_OPS_WEBAPP_SERVER_SPEC"
 STARTUP_TIMEOUT_ENV_VAR = "AIRBYTE_OPS_WEBAPP_STARTUP_TIMEOUT_SECONDS"
+STATELESS_HTTP_ENV_VAR = "FASTMCP_STATELESS_HTTP"
 
 
 class _NullMessageLog:
@@ -99,6 +100,7 @@ def main() -> None:
 
 
 async def _serve() -> None:
+    _configure_backend_env()
     server_spec = os.getenv(SERVER_SPEC_ENV_VAR, DEFAULT_SERVER_SPEC)
     mcp_port = int(os.getenv(MCP_PORT_ENV_VAR, str(DEFAULT_MCP_PORT)))
     webapp_port = int(os.getenv("PORT", str(DEFAULT_WEBAPP_PORT)))
@@ -153,6 +155,11 @@ async def _serve() -> None:
             _terminate_process(user_proc)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(user_proc.wait(), timeout=5)
+
+
+def _configure_backend_env() -> None:
+    # Sessions do not survive instance replacement; match the dev --reload mode.
+    os.environ.setdefault(STATELESS_HTTP_ENV_VAR, "true")
 
 
 def add_oauth_routes(app: Starlette) -> None:

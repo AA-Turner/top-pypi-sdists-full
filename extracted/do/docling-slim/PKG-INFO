@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: docling-slim
-Version: 2.134.0
+Version: 2.135.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -147,6 +147,7 @@ Provides-Extra: format-markdown
 Requires-Dist: marko<3.0.0,>=2.1.2; extra == 'format-markdown'
 Provides-Extra: format-office
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'format-office'
+Requires-Dist: pylatexenc<3.0,>=2.10; extra == 'format-office'
 Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'format-office'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'format-office'
 Provides-Extra: format-opendocument
@@ -159,6 +160,7 @@ Requires-Dist: docling-parse<8.0.0,>=7.22.1; extra == 'format-pdf-docling'
 Provides-Extra: format-pdf-pypdfium2
 Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == 'format-pdf-pypdfium2'
 Provides-Extra: format-pptx
+Requires-Dist: pylatexenc<3.0,>=2.10; extra == 'format-pptx'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'format-pptx'
 Provides-Extra: format-video
 Requires-Dist: librosa<1.0.0,>=0.10.0; extra == 'format-video'

@@ -895,7 +895,7 @@ class RawAssetsClient:
         self, asset_id: str, *, from_: int, to: int, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[AssetActivityDeltaResponseOut]:
         """
-        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values; for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
+        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values and row/column inserts and deletes (axis_changes); for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
 
         Parameters
         ----------
@@ -2516,7 +2516,7 @@ class AsyncRawAssetsClient:
         self, asset_id: str, *, from_: int, to: int, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[AssetActivityDeltaResponseOut]:
         """
-        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values; for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
+        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values and row/column inserts and deletes (axis_changes); for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
 
         Parameters
         ----------

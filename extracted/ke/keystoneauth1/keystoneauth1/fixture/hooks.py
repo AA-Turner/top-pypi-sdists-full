@@ -20,14 +20,12 @@
 """
 
 import json
-import typing as ty
+from typing import Any
 
 from betamax import cassette
 
 
-def mask_fixture_values(
-    nested: dict[str, ty.Any], prev_key: str | None
-) -> None:
+def mask_fixture_values(nested: dict[str, Any], prev_key: str | None) -> None:
     for key, value in nested.items():
         if isinstance(value, dict):
             mask_fixture_values(value, key)
@@ -52,7 +50,7 @@ def pre_record_hook(
     This hook will be triggered before saving the interaction, and
     will perform two tasks:
     - mask user, project and password in the saved data
-    - set token expiration time to an inifinite time.
+    - set token expiration time to an infinite time.
     """
     request_body = interaction.data['request']['body']
     if request_body.get('string'):

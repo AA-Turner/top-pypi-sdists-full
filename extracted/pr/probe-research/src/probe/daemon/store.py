@@ -946,6 +946,24 @@ class Store:
     def unpublished_read_messages(self) -> list[sqlite3.Row]:
         return list(self.db.execute("SELECT * FROM read_messages WHERE published = 0 ORDER BY made_at, id"))
 
+    def sent_read_texts(self, kinds: tuple[str, ...], limit: int) -> list[str]:
+        """What the reader has said this session (rows of these `kinds`), newest
+        first, at most `limit`."""
+        marks = ", ".join("?" for _ in kinds)
+        return [row["text"] for row in self.db.execute(
+            f"SELECT text FROM read_messages WHERE kind IN ({marks}) AND text != '' "
+            "ORDER BY made_at DESC, id DESC LIMIT ?", (*[str(k) for k in kinds], int(limit)))]
+
+    def has_events_after(self, seq: int) -> bool:
+        """Is anything stored after `seq`? One row, not the backlog."""
+        return self.db.execute("SELECT 1 FROM events WHERE seq > ? LIMIT 1", (int(seq),)).fetchone() is not None
+
+    def has_prompt_after(self, seq: int) -> bool:
+        """Did the researcher type a prompt after `seq`? Anywhere in the backlog,
+        not only in the first batch a turn shows."""
+        return self.db.execute("SELECT 1 FROM events WHERE seq > ? AND kind = ? LIMIT 1",
+                               (int(seq), Kind.PROMPT.value)).fetchone() is not None
+
     def mark_read_message_published(self, message_id: str) -> None:
         self.db.execute("UPDATE read_messages SET published = 1 WHERE id = ?", (message_id,))
 

@@ -13,15 +13,21 @@ machine whose plugin has not been refreshed yet.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import subprocess
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 
 from probe import __version__
-from probe.cli import autoupdate, plugin_cli, updater, versions
+# `update_report` is imported HERE, at the top, for the same reason updater.py
+# imports its whole call graph eagerly (H8): it runs after `uv tool upgrade` has
+# replaced the installed tree, when a first import would read the new files.
+from probe.cli import autoupdate, plugin_cli, update_report, updater, versions
 from probe.cli.capabilities import agent_source
+from probe.harness import get_registry
 
 
 @dataclass
@@ -37,6 +43,7 @@ def perform_update(
     include_plugin: bool = True,
     force: bool = False,
     manifest: dict | None = None,
+    trigger: update_report.Trigger | None = None,
 ) -> UpdateOutcome:
     """Upgrade the CLI and (optionally) the plugins, and record the attempt.
 
@@ -54,8 +61,13 @@ def perform_update(
     here to pick a target. Two fetches are not just wasteful: a release landing
     between them means comparing against one version and upgrading toward
     another. Omit it and we fetch, exactly as before.
+
+    ``trigger`` is what asked for this run, for the server's update report
+    (`update_report`); omitted, the spawner's `PROBE_AUTOUPDATE_TRIGGER`, else
+    a person. It changes nothing about the update itself.
     """
     lines: list[str] = []
+    trigger = trigger or update_report.trigger_from_env(update_report.Trigger.MANUAL)
 
     # WAIT FOR THE PROCESS THAT SPAWNED US, if it named itself.
     #
@@ -87,7 +99,10 @@ def perform_update(
             from probe.cli import run_lock
 
             if run_lock.any_live():
-                autoupdate.record_skip(autoupdate.SKIP_RUN_IN_FLIGHT)
+                autoupdate.record_skip(autoupdate.SKIP_RUN_IN_FLIGHT, trigger=trigger.value)
+                # Not a training loop: this is the updater, so the skip it just
+                # recorded can go to the server now.
+                update_report.flush(base_url)
                 return UpdateOutcome(
                     lines=[
                         "a run is in flight on this machine; upgrade deferred "
@@ -113,14 +128,15 @@ def perform_update(
     if include_plugin:
         # The pi step runs AFTER the CLI upgrade below has replaced the files
         # it would lazily import, so import them now, from this version.
+        # (`probe.harness` is imported at the top: `_agent_label` needs it.)
         from probe.cli import pi_config  # noqa: F401
-        from probe.harness import get_registry  # noqa: F401
         from probe.sdk import session_marker  # noqa: F401
 
     install = updater.detect_install()
     lines.append(f"Probe Research CLI {__version__}  (installed via: {install.method})")
 
     res: updater.CliResult | None = None
+    refused = ""
     if install.method is updater.Method.EPHEMERAL:
         res = _update_persistent_copy(cli_target, lines)
     elif install.method in (
@@ -130,10 +146,8 @@ def perform_update(
     ):
         # Running a package-manager upgrade against a source checkout or a
         # lockfile-managed environment would trash someone's working tree.
-        lines.append(
-            f"  skipping auto-upgrade: "
-            f"{updater.upgrade_cli(install, __version__, cli_target).message}"
-        )
+        refused = updater.upgrade_cli(install, __version__, cli_target).message
+        lines.append(f"  skipping auto-upgrade: {refused}")
     else:
         res = updater.upgrade_cli(install, __version__, cli_target)
         lines.append(f"  {res.message}")
@@ -144,8 +158,8 @@ def perform_update(
     pres: updater.PluginResult | None = None
     pi_update: _PiUpdate | None = None
     tap_behind = ""
+    source = agent_source()
     if include_plugin:
-        source = agent_source()
         # pi's Probe package is updated whatever agent runs this: an Update from
         # a plain terminal (claude_code by default) or Claude Code's auto-update
         # used to skip it, so pi stayed on whatever package it was installed
@@ -168,6 +182,13 @@ def perform_update(
                 else updater.update_plugin(plugin_target)
             )
             lines.append(f"  {pres.message}")
+            # The sessions still running a tap from before this update: the
+            # machine reports the oldest live tap, so a current install beside
+            # one of them still reads as the old version until it restarts.
+            if pres.attempted and pres.tap_after:
+                pres = dataclasses.replace(
+                    pres, tap_running_stale=updater.stale_tap_daemons(source, pres.tap_after)
+                )
             # THE TAP'S OWN LINE, so all three versions are on screen (the CLI's
             # is above). It is a separate plugin, and "updated the plugin" said
             # nothing about it while it sat a version behind.
@@ -202,7 +223,9 @@ def perform_update(
     if pres is not None and not pres.confirmed:
         plugin_detail = pres.message
     else:
-        plugin_detail = tap_behind
+        # Sessions on an older tap are not a failure, but `probe doctor` is
+        # where a person looks, so the local record says it too.
+        plugin_detail = tap_behind or (updater.running_stale_note(pres) if pres else "")
     # pi's package is the plugin half for pi: an attempted update that failed
     # fails it, or a detached run (pi's session start) would report success.
     if pi_update is not None and not pi_update.ok:
@@ -215,9 +238,10 @@ def perform_update(
     # month is indistinguishable from one that works. `probe doctor` prints it.
     # BOTH halves are recorded -- the plugin's outcome used to live only in
     # `lines`, which a detached run sends straight to /dev/null.
+    attempted_at = int(time.time())
     autoupdate.record_attempt(
         autoupdate.Attempt(
-            at=int(time.time()),
+            at=attempted_at,
             # No `res` means the install method was one we refuse to auto-upgrade.
             # That is a deliberate skip, not a failure.
             ok=res.ok if res is not None else True,
@@ -231,16 +255,63 @@ def perform_update(
             plugin_ok=plugin_ok,
             plugin_detail=plugin_detail,
             plugin_version=plugin_version,
-        )
+        ),
+        agent=_agent_label(source),
+    )
+    ok = (res.ok if res is not None else True) and plugin_ok
+
+    # The same outcome, to the server, per component -- the local record above
+    # is read by `probe doctor` on THIS machine only. Best-effort and bounded;
+    # see update_report.
+    _report_attempt(
+        lambda: update_report.attempt_report(
+            trigger=trigger,
+            ok=ok,
+            at=attempted_at,
+            source=source,
+            cli=update_report.cli_component(
+                res, current=__version__, target=cli_target, refused=refused
+            ),
+            # No marketplace plugin ran (`pres`) although plugins were asked
+            # for: pi, whose package IS its plugin half.
+            plugin=(
+                update_report.pi_component(pi_update, target=plugin_target)
+                if include_plugin and pres is None
+                else update_report.plugin_component(pres, target=plugin_target, source=source)
+            ),
+            tap=update_report.tap_component(pres, target=tap_target),
+            legacy_ids=pres.legacy_ids if pres is not None else (),
+        ),
+        base_url=base_url,
     )
 
     return UpdateOutcome(
         lines=lines,
         # Both halves, so `probe update`'s exit code means "the update worked",
         # not "the CLI half worked".
-        ok=(res.ok if res is not None else True) and plugin_ok,
+        ok=ok,
         restart_needed=restart_needed,
     )
+
+
+def _agent_label(source: str | None) -> str | None:
+    """The coding agent a pass ran for, as `probe doctor` names it."""
+    try:
+        return get_registry().get(source).label if source else None
+    except Exception:  # noqa: BLE001 - only a label
+        return source
+
+
+def _report_attempt(build: Callable[[], dict], *, base_url: str | None = None) -> None:
+    """Build the server's update report and send it. NEVER RAISES.
+
+    By the time this runs the update is over and recorded locally (`probe
+    doctor` reads that record). A bug in building or sending the report may
+    cost the report; it must never turn a finished update into a traceback."""
+    try:
+        update_report.submit_attempt(build(), base_url=base_url)
+    except Exception:  # noqa: BLE001 - see docstring
+        pass
 
 
 @dataclass(frozen=True)
@@ -254,6 +325,21 @@ class _PiUpdate:
     detail: str = ""
     #: `pi update` actually ran (a skip did not).
     ran: bool = False
+    #: For the server's update report only: which of the returns below this
+    #: is, and the package versions either side of it.
+    code: update_report.PiStep | None = None
+    before: str | None = None
+    after: str | None = None
+
+
+def _package_harness() -> str | None:
+    """The extension-family harness whose package `_update_pi_package` moves
+    (pi's), from the registry rather than by name."""
+    from probe.harness import FAMILY_EXTENSION, get_registry
+
+    return next(
+        (h.id for h in get_registry().installable() if h.family == FAMILY_EXTENSION), None
+    )
 
 
 def _pi_running() -> bool:
@@ -273,6 +359,14 @@ def _pi_running() -> bool:
         return False
     commands = _own_process_commands(os.getuid())
     return any(os.path.basename(command.split(" ", 1)[0]) in names for command in commands)
+
+
+def _spawning_pi_alive() -> bool:
+    """The pi whose session start spawned this update is still running
+    (`autoupdate.PI_PID_ENV`): a backstop to `_pi_running`, which knows pi only
+    by its process title."""
+    raw = os.environ.get(autoupdate.PI_PID_ENV, "")
+    return raw.isdigit() and int(raw) > 1 and autoupdate.pid_is_alive(int(raw))
 
 
 def _own_process_commands(uid: int) -> list[str]:
@@ -345,18 +439,21 @@ def _update_pi_package() -> _PiUpdate:
     directory = pi_config.installed_package_dir()
     if directory is None or not directory.is_dir():
         autoupdate.mark_pi_update_pending(False)
-        return _PiUpdate([])
-    if _pi_running():
+        return _PiUpdate([], code=update_report.PiStep.NOT_INSTALLED)
+    if _pi_running() or _spawning_pi_alive():
         # Owed, not dropped: pi's next session start retries it after pi exits.
         autoupdate.mark_pi_update_pending(True)
         return _PiUpdate([
             "pi package:",
             "  not updated while pi is running (the update rewrites the folder pi loads it from); "
             "it updates after pi exits",
-        ])
+        ], code=update_report.PiStep.DEFERRED)
     with _pi_update_lock() as held:
         if not held:
-            return _PiUpdate(["pi package:", "  another update is updating it now"])
+            return _PiUpdate(
+                ["pi package:", "  another update is updating it now"],
+                code=update_report.PiStep.LOCKED,
+            )
         before = pi_config.installed_package_version()
         result = pi_config.update_package()
         after = pi_config.installed_package_version()
@@ -364,11 +461,19 @@ def _update_pi_package() -> _PiUpdate:
     def shown(version) -> str:
         return ".".join(str(part) for part in version) if version else "unknown"
 
+    versions_seen = {
+        "before": shown(before) if before else None,
+        "after": shown(after) if after else None,
+    }
     if not result.ok and not getattr(result, "reachable", True):
         # pi itself is gone (uninstalled, its settings still naming us): nothing
         # to update with, which is not an update that failed.
         autoupdate.mark_pi_update_pending(False)
-        return _PiUpdate(["pi package:", f"  not updated: {result.detail}"])
+        return _PiUpdate(
+            ["pi package:", f"  not updated: {result.detail}"],
+            code=update_report.PiStep.UNREACHABLE,
+            **versions_seen,
+        )
     # A failure stays owed too, so pi's next session start tries again.
     autoupdate.mark_pi_update_pending(not result.ok)
     if not result.ok:
@@ -377,10 +482,18 @@ def _update_pi_package() -> _PiUpdate:
             ok=False,
             detail=f"pi package not updated: {result.detail}",
             ran=True,
+            code=update_report.PiStep.FAILED,
+            **versions_seen,
         )
     if before != after:
-        return _PiUpdate(["pi package:", f"  updated {shown(before)} → {shown(after)}"], ran=True)
-    return _PiUpdate(["pi package:", f"  already {shown(after)}"], ran=True)
+        return _PiUpdate(
+            ["pi package:", f"  updated {shown(before)} → {shown(after)}"],
+            ran=True, code=update_report.PiStep.UPDATED, **versions_seen,
+        )
+    return _PiUpdate(
+        ["pi package:", f"  already {shown(after)}"],
+        ran=True, code=update_report.PiStep.CURRENT, **versions_seen,
+    )
 
 
 def update_owed_pi_package() -> None:
@@ -392,13 +505,27 @@ def update_owed_pi_package() -> None:
     step = _update_pi_package()
     if not step.ran:
         return
+    attempted_at = int(time.time())
     autoupdate.record_attempt(
         autoupdate.Attempt(
-            at=int(time.time()),
+            at=attempted_at,
             ok=True,
             from_version=__version__,
             plugin_ok=step.ok,
             plugin_detail=step.detail or f"pi package {step.lines[-1].strip()}",
+        )
+    )
+    # Only pi's step ran: no CLI or tap half to report. pi's session start or a
+    # run's end asked for it; the spawner's TRIGGER_ENV says which.
+    _report_attempt(
+        lambda: update_report.attempt_report(
+            trigger=update_report.trigger_from_env(update_report.Trigger.SESSION_START),
+            ok=step.ok,
+            at=attempted_at,
+            source=_package_harness(),
+            cli=None,
+            plugin=update_report.pi_component(step, target=None),
+            tap=None,
         )
     )
 

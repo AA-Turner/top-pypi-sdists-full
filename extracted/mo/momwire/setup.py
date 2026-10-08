@@ -316,6 +316,9 @@ _ACCEL_HEADERS = [
     # The complex-k Galerkin far fill's vector sweep (momwire#1224), included
     # by `_accel_sinusoidal.cpp`.
     "src/momwire/_accel_sinusoidal_cplx.h",
+    # The SIMD lane layer (momwire#1372), included by the lane kernels'
+    # TUs and `_accel_somm_proj_inline.h`.
+    "src/momwire/_lanes.h",
 ]
 
 # The accelerator's translation units (momwire#687). The monolith was one
@@ -356,6 +359,9 @@ _ACCEL_SOURCES = [
     # momwire#1290: SG's band scatter in `np.add.at`'s order. Its own TU: its
     # bits are that order's, and nothing else may move its codegen.
     "src/momwire/_accel_row_scatter.cpp",
+    # The remainder order's per-source scan (`_quadrature.remainder_qp_pairs`).
+    # Its own TU so that no existing kernel's codegen can move with it.
+    "src/momwire/_accel_qp_pairs.cpp",
 ]
 
 # Same staleness rationale for the near-interface twin: the contour engine
@@ -370,6 +376,8 @@ _NEAR_HEADERS = [
     "src/momwire/_fma_inline.h",
     # The column machinery both TUs of this extension share (momwire#1224).
     "src/momwire/_near_interface_columns_inline.h",
+    # The SIMD lane layer (momwire#1372): the sheet's fixed-width cell sum.
+    "src/momwire/_lanes.h",
 ] + sorted(glob.glob("extern/xsf/include/xsf/**/*.h", recursive=True))
 
 # Compile the accelerator's translation units concurrently (momwire#687). With

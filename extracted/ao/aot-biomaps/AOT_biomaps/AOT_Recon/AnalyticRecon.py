@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ._mainRecon import Recon
 from .ReconEnums import ReconType, AnalyticType, ProcessType
 from AOT_biomaps.AOT_Experiment.ExperimentTools import add_sincos_cpu

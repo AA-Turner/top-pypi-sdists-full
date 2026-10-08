@@ -1257,12 +1257,11 @@ class OutputExpression(BaseModel):
 
 
 class CreatePromptEvaluationRequest(CreateOfflineQueryJobRequest):
-    prompts: List[Union[Prompt, str]]
+    prompts: List[Prompt]
     dataset_id: Optional[str] = None
     dataset_revision_id: Optional[str] = None
     reference_output: Optional[Union[OutputExpression, str]] = None
     evaluators: Optional[List[str]] = None
-    related_named_prompt_ids: Optional[List[str]] = None
     related_evaluation_ids: Optional[List[str]] = None
     meta: Optional[Mapping[str, str]] = None
     overlay_graph: Optional[str] = None

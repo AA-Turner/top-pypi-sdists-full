@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 FISTA.py
 
@@ -10,57 +12,37 @@ MATHEMATICAL FRAMEWORK & OPTIMIZATION THEORY:
 =============================================================================
 
 1. Objective Function (Regularized Least Squares):
-   We seek to reconstruct an optimal spatial distribution (image) represented by the real, 
-   non-negative vector λ in ℝ^{Z * X} from acoustic-optic measurements y in ℂ^T (or ℝ^T). 
-   The optimization problem incorporates a data fidelity term and a spatial regularization prior 
-   subject to a non-negativity constraint:
-   
-       minimize   F(λ) = f(λ) + β * U(λ) = 0.5 * ||A * λ - y||_2^2 + β * U(λ)
-       subject to λ >= 0
+   minimize   F(λ) = 0.5 * ||A * λ - y||_2^2 + β * U(λ)   subject to λ >= 0
 
-   where:
-   - A is the forward system matrix (SMatrix) modeling light propagation and interaction.
-   - y represents the acquired experimental data (e.g., 4-phase quadrature representation).
-   - U(λ) is a spatial potential function enforcing smoothness or edge-preservation 
-     (e.g., Quadratic, Huber, or Relative Difference).
-   - β is the regularization hyperparameter balancing data-fit and prior strength.
+2. Dimensionless β Calibration (HOMOGENEOUS REGULARIZATION):
+   The user-supplied β (β_phys) is a DIMENSIONLESS relative prior strength:
+   β_phys = 1 means the prior gradient has the same magnitude as the data
+   gradient (relative scale-free calibration, repeatable across datasets,
+   SMatrix normalizations and potential functions).
 
-2. Gradient Derivation of the Objective:
-   The total gradient of the objective function evaluated at an extrapolation point λ_bar 
-   combines the data fidelity gradient and the regularization prior gradient:
-   
-       ∇F(λ_bar}) = P^{-1} A^H (A * λ_bar - y) + ∇U(λ_bar)
+   Internally, the algorithm measures at runtime:
+   - G_f = || P⁻¹ Aᴴ (A λ_w - y) ||   : data gradient scale (preconditioned)
+   - G_U = || ∇U_β=1(λ_w) ||          : prior gradient scale at β=1
+     both evaluated on a short warm-up reconstruction λ_w (few unregularized
+     iterations), and sets:
+       β_int = β_phys * G_f / G_U        (so that ||∇U|| ≈ β_phys * ||∇f||)
+       δ_int = δ_phys * amp(λ_w)        (Huber threshold in image-amplitude units)
 
-   where P^{-1} is an optional preconditioner (e.g., diagonal preconditioning via diag(A^H * A)).
+   This removes all dependence on normalization_factor, y_max and matrix
+   scaling: β_phys ∈ [0.01, 1] is meaningful and reproducible everywhere.
 
 3. Lipschitz Constant & Adaptive Step Size:
-   To ensure global convergence and stability of the accelerated scheme, the step size alpha 
-   must be bounded by the inverse of the total Lipschitz constant L_total of the gradient operator:
-   
-       L_total = L_data + L_prior
-   
-   - L_data is estimated dynamically using the power iteration method (`estimate_lipschitz_constant`).
-   - L_prior is bounded analytically using Gershgorin circle theorems on the Hessian of the potential 
-     (e.g., L_prior = 8 * beta for quadratic/Huber neighborhood structures).
-   
-       α = 1 / (L_data + L_prior)
+   L_total = L_data + L_prior,   α = 1 / L_total
+   - L_data via power iteration (estimate_lipschitz_constant)
+   - L_prior via Gershgorin bounds on the potential Hessian (8β etc.)
 
-4. Nesterov Acceleration (Momentum Extrapolation):
-   Unlike standard gradient descent, FISTA maintains an extrapolation point λ_bar computed 
-   via a momentum coefficient derived from a sequence of scalar weights t_k:
-   
-       t_{k+1} = (1 + sqrt(1 + 4 * t_k^2)) / 2
-       momentum = (t_k - 1) / t_{k+1}
-       λ_bar_k = λ_k + momentum * (λ_k - λ_{k-1})
+4. Nesterov Acceleration:
+   t_{k+1} = (1 + sqrt(1 + 4 t_k²)) / 2,   λ_bar = λ + momentum * (λ - λ_prev)
 
 5. Proximal / Projected Gradient Step:
-   The update combines the accelerated gradient step with an orthogonal projection onto the 
-   non-negative orthant R_+^{Z * X}:
-   
-       λ_{k+1} = max(0, λ_bar_k - α * ∇F(λ_bar_k))
+   λ_{k+1} = max(0, λ_bar - α ∇F(λ_bar))
 =============================================================================
-""" 
-import contextlib
+"""
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
@@ -79,6 +61,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 # =====================================================================
@@ -91,49 +74,113 @@ if CUPY_AVAILABLE:
         '''
         // Gradient descent step: z_in - alpha * grad(F(z_in))
         double step = (double)z_in - (double)alpha * (double)grad;
-        
+
         // Non-negativity projection: x_{k+1} = max(0, step)
         double x_val = step > 0.0 ? step : 0.0;
         x_new = (float)x_val;
-        
+
         // Nesterov Extrapolation: z_{k+1} = x_{k+1} + momentum * (x_{k+1} - x_k)
         z_out = (float)(x_val + (double)momentum * (x_val - (double)prev_lambda));
         ''',
         'fista_update_kernel'
     )
 
-def calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, delta, num_iters, show_logs):
+
+def calibrate_prior_FISTA(
+    SMatrix,
+    y_flat,
+    preconditioner,
+    potential_type: PotentialType,
+    potential_shape: PotentialShapeType,
+    potential_radius: int,
+    L_data: float,
+    num_warmup: int = 10,
+    show_logs: bool = False
+):
     """
-    Calculate the optimal gradient descent step size α for the FISTA algorithm.
-    
-    Mathematical framework:
-    To guarantee convergence, the step size must satisfy α ≤ 1 / L_total, 
-    where L_total is the Lipschitz constant of the objective function's gradient.
-    L_total = L_data + L_prior
-    
-    - L_data = λ_max(P⁻¹ Aᴴ A) (estimated via Power Iteration).
-    - L_prior is derived from the maximum eigenvalue of the regularization Hessian (Gerschgorin bounds).
+    Runtime measurement of the data/prior gradient scales, enabling a
+    DIMENSIONLESS user-facing β (see module docstring).
+
+    Procedure:
+    1. Warm-up: `num_warmup` unregularized preconditioned gradient steps
+       (step size 1/L_data) from λ=0 → produces a representative image λ_w.
+    2. Measure:
+       - G_f : L2 norm of the last preconditioned data gradient at λ_w
+       - amp : mean amplitude of the positive part of λ_w (image scale)
+       - G_U : L2 norm of ∇U at β=1, δ=amp, evaluated on λ_w
+
+    Returns:
+        tuple: (G_f, G_U, amp)  (amp falls back to 1.0 if the warm-up
+        collapses to zero, e.g. empty data.)
     """
-    L_data = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters, show_logs=show_logs)
-    
-    # Bounding the Hessian of the regularization term
+    xp = get_array_module(SMatrix)
+
+    lambda_w = xp.zeros(SMatrix.Z * SMatrix.X, dtype=xp.float32)
+    alpha_w = 1.0 / max(L_data, 1e-12)
+    grad_f = None
+
+    for _ in range(num_warmup):
+        Ax = forward_projection(SMatrix, lambda_w)
+        residual = Ax - y_flat
+        grad_f = xp.ascontiguousarray(
+            preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual))),
+            dtype=xp.float32
+        )
+        lambda_w = lambda_w - alpha_w * grad_f
+        xp.maximum(lambda_w, 0.0, out=lambda_w)
+
+    if grad_f is None:
+        return 1.0, 1.0, 1.0
+
+    G_f = float(xp.linalg.norm(grad_f))
+
+    pos = lambda_w[lambda_w > 0]
+    amp = float(xp.mean(pos)) if pos.size > 0 else 1.0
+
+    # Prior gradient scale at beta=1 (delta scaled to image amplitude)
+    grad_U1, _, _ = get_potential_function(
+        potential_type, SMatrix, lambda_w,
+        beta=1.0, delta=amp,
+        shape=potential_shape, radius=potential_radius,
+        compute_grad=True, compute_hess=False, compute_energy=False,
+        use_surrogate_hessian=False
+    )
+    G_U = float(xp.linalg.norm(grad_U1))
+
+    if G_U <= 0.0:
+        if show_logs:
+            print("[AOT-biomaps] Warning : prior gradient scale is zero on the warm-up image (uniform image?). beta will have no effect.")
+        G_U = 1.0
+
+    return G_f, G_U, amp
+
+def calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, delta, num_iters, L_data, show_logs):
+    """
+    Compute the step size α = 1 / (L_data + L_prior).
+
+    L_data = λ_max(P⁻¹ Aᴴ A) via power iteration.
+    L_prior from Gershgorin bounds on the regularization Hessian,
+    expressed with the INTERNAL (calibrated) beta.
+    """
+    if L_data is None:
+      L_data = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters, show_logs=show_logs)
+
     if potential_type == PotentialType.QUADRATIC:
-        # L_prior = 8β (Exact for 2D cross-neighborhood quadratic penalty)
         L_prior = 8.0 * beta
     elif potential_type == PotentialType.HUBER:
-        # Keep 8.0 * beta. Mathematically inaccurate for the quadratic region (the tip, where L=8β/δ),
-        # but pragmatically perfect for the linear TV-like region where 99% of the pixels actually reside.
-        L_prior = 8.0 * beta 
+        # Linear-region bound (8β). The quadratic tip (L = 8β/δ) is handled
+        # conservatively below when δ_int is small relative to image steps.
+        L_prior = 8.0 * beta
+        # Guard against the quadratic-region Lipschitz blow-up:
+        # L_tip = 8β/δ is an upper bound; take max but cap at a sane fraction of L_data
+        if delta > 0:
+            L_prior = max(L_prior, min(8.0 * beta / max(delta, 1e-30), 10.0 * L_data))
     elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
-        # Keep the division by gamma here. Because gamma (0.05) acts as a macroscopic baseline,
-        # RD strictly requires this damping factor to prevent the step size from exploding.
-        # L_prior = 8 * (2β / γ)
         gamma = 0.05  # Must strictly match the 'gamma' defined in the RDP kernel
         L_prior = 8.0 * (2.0 * beta / gamma)
     else:
         L_prior = 0.0
 
-    # α = 1 / (L_data + L_prior)
     alpha = 1.0 / (L_data + L_prior)
 
     if show_logs:
@@ -141,14 +188,13 @@ def calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, del
 
     return alpha
 
-
 def FISTA(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
     y: Union[np.ndarray, 'cp.ndarray'],
     numIterations: int = 100,
-    alpha: Union[float, str] = "auto",     
-    beta: float = 1.0,      
-    delta: float = 0.01,     
+    alpha: Union[float, str] = "auto",
+    beta: float = 0.1,
+    delta: float = 0.01,
     numIterations_stepCalculation: int = 20,
     potential_type: PotentialType = PotentialType.QUADRATIC,
     potential_shape: PotentialShapeType = PotentialShapeType.CROSS,
@@ -166,59 +212,22 @@ def FISTA(
     show_criterion: bool = True,
 ) -> Tuple[Union[np.ndarray, list], Optional[list], Optional[list]]:
     """
-    Fast Iterative Shrinkage-Thresholding Algorithm (FISTA) for least squares reconstruction 
-    with potential regularization and Nesterov acceleration.
-    
-    Uses ReconTools functions for all matrix operations, ensuring compatibility with
-    any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
+    Fast Iterative Shrinkage-Thresholding Algorithm (FISTA).
 
-    Supports potential functions U(x):
-        - NONE: No regularization
-        - QUADRATIC: ½ β (u-v)²
-        - HUBER: β * (½ (u-v)² if |u-v| ≤ δ else δ * (|u-v| - ½ δ))
-        - RELATIVE_DIFFERENCE: β * (u-v)² / (u + v + γ + δ|u-v|)
+    β IS DIMENSIONLESS (relative prior strength):
+        β ≈ ||∇U|| / ||∇f||  is enforced by runtime calibration, so
+        β ∈ [0.01, 1] has the SAME meaning for any dataset, SMatrix
+        normalization, data amplitude or potential function.
+        β=0 → no regularization, β~0.1-0.3 → mild smoothing (typical
+        optimum), β>1 → strong smoothing.
 
-    Supports stopping criteria:
-        - MAX_ITERATIONS: Stop after a fixed number of iterations
-        - RELATIVE_CHANGE: Stop when relative change in lambda is below threshold
-        - COST_FUNCTION: Stop when objective function value changes by less than threshold
-        - MSE: Stop when MSE with respect to ground truth is below threshold (Simulations only)
-        - GRADIENT_NORM: Stop when norm of the update step is below threshold
-    
-    Supports preconditioning P⁻¹:
-        - DIAGONAL: Jacobi preconditioner using diag(AᴴA) + damping (RECOMMENDED)
-        - NONE: Standard gradient descent
-    
-    Args:
-        SMatrix: SMatrix instance (already allocated)
-        y: Measurement data (shape: (T, N))
-        numIterations: Number of optimization steps
-        alpha: Step size α for gradient update (float or "auto" for Lipschitz estimation)
-        beta: Regularization parameter β (weight of the prior)
-        delta: Threshold δ (used for Huber linearity boundary or RDP denominator scaling)
-        numIterations_stepCalculation: Iterations for Power Iteration estimating L_data
-        potential_type: Type of potential function (PotentialType enum)
-        potential_shape: Neighborhood geometry (PotentialShapeType enum)
-        potential_radius: Neighborhood radius in pixels
-        preconditioner_type: Preconditioner type (see PreconditionerEnums for available types)
-        stop_criterion: Metric evaluated for early stopping (StopCriterionType enum)
-        stop_threshold: Trigger value for the stopping criterion
-        stop_window_size: Sliding window size to prevent premature stopping due to oscillations
-        device: Device to use ('cpu' or 'gpu'), if None, uses SMatrix.device
-        isSavingEachIteration: If True, saves intermediate lambda states
-        isCostFunction: If True, computes objective function history ½||Ax-y||² + βU(x)
-        withTumor: Boolean flag for logging description
-        max_saves: Memory cap for intermediate saves
-        show_logs: If True, displays progress bar
-        show_criterion: If True, displays stopping criterion metric in progress bar
-    
-    Returns:
-        tuple: (reconstructed_image, saved_indices, cost_history)
-        - reconstructed_image: Final numpy array or list of arrays (Z, X)
-        - saved_indices: List of iterations where state was saved
-        - cost_history: Evolution of the objective function (if requested)
+    δ is a RELATIVE Huber threshold (fraction of the image amplitude,
+    measured on a warm-up reconstruction): δ=0.01 means the transition
+    quadratic→linear occurs at 1% of typical image amplitude.
+
+    Other args: see previous docstring (unchanged).
     """
-    ensure_device(SMatrix, device,show_logs=show_logs)
+    ensure_device(SMatrix, device, show_logs=show_logs)
     xp = get_array_module(SMatrix)
     is_gpu = (xp.__name__ == 'cupy')
 
@@ -229,47 +238,60 @@ def FISTA(
         if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
             raise ValueError(f"[AOT-biomaps] Shape mismatch: y={y.shape}, SMatrix T={SMatrix.T}, N={SMatrix.N}.")
 
-        # Adapt data dtype based on whether the matrix is complex (4-phase quadrature) or real
         data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
 
         # Normalize data y
         y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
         if y_max > 0:
-            y_norm = y / y_max 
+            y_norm = y / y_max
 
-        y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype)) # can be complex or real
-
-        # Scale β and δ strictly according to amplitude physics
-        beta_phys = beta
-        delta_phys = delta
-
-        if potential_type == PotentialType.QUADRATIC:
-            # Quadratic gradient scales naturally with image amplitude. No y_max division.
-            beta = beta_phys / (SMatrix.normalization_factor)
-        elif potential_type == PotentialType.HUBER:
-            # Huber linear gradient is sign(x), invariant to amplitude. Division by y_max is required.
-            beta = beta_phys / (SMatrix.normalization_factor * y_max)
-            delta = delta_phys * (SMatrix.normalization_factor / y_max)
-        elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
-            # RDP incorporates relative normalization.
-            beta = beta_phys / (SMatrix.normalization_factor * y_max)
+        y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype))
 
         # Preconditioner Initialization
         if preconditioner_type == PreconditionerType.DIAGONAL:
             preconditioner = DiagPreconditioner(SMatrix=SMatrix)
-            preconditioner.build() # Computes diag(AᴴA) and applies Tikhonov damping
+            preconditioner.build()
         else:
             preconditioner = NoPreconditioner(SMatrix=SMatrix)
-        
-        # Variables initialization
-        lambda_flat = xp.zeros(ZX, dtype=xp.float32)        # λ: Actual image (always real)
-        lambda_bar = xp.zeros(ZX, dtype=xp.float32)         # λ_bar : Extrapolation point (always real)
-        t = 1.0                                             # t_k: Momentum tracker
-        
-        residual_buffer = xp.empty_like(y_flat)
-        alpha_val = calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, delta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
+
+        # ==========================================================
+        # DIMENSIONLESS β CALIBRATION (replaces ad-hoc normalization)
+        # ==========================================================
+        beta_phys = float(beta)
+        delta_phys = float(delta)
+
+        L_data = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=numIterations_stepCalculation, show_logs=show_logs)
+
+        if potential_type == PotentialType.NONE or beta_phys == 0.0:
+            beta_int = 0.0
+            delta_int = 0.0
+            G_f = G_U = 1.0
+        else:
+            G_f, G_U, amp = calibrate_prior_FISTA(
+                SMatrix, y_flat, preconditioner,
+                potential_type, potential_shape, potential_radius,
+                L_data, num_warmup=10, show_logs=show_logs
+            )
+            # Enforce  ||∇U|| ≈ β_phys * ||∇f||  at the working point:
+            beta_int = beta_phys * G_f / G_U
+            # δ in internal image-amplitude units:
+            delta_int = delta_phys * amp
+
+        prior_ratio = beta_phys  # by construction: ||∇U||/||∇f|| ≈ β_phys
+        if show_logs:
+            print(f"[AOT-biomaps] β (dimensionless) = {beta_phys:.3e} | β_int = {beta_int:.3e} "
+                  f"(G_f={G_f:.2e}, G_U={G_U:.2e}) | δ_int = {delta_int:.3e}")
+
+        # Step size (uses the CALIBRATED internal beta)
+        alpha_val = calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta_int, delta_int, numIterations_stepCalculation, L_data=L_data, show_logs=show_logs) if alpha == "auto" else alpha
         alpha_vec = xp.full(ZX, alpha_val, dtype=xp.float32)
 
+        # Variables initialization
+        lambda_flat = xp.zeros(ZX, dtype=xp.float32)
+        lambda_bar = xp.zeros(ZX, dtype=xp.float32)
+        t = 1.0
+
+        residual_buffer = xp.empty_like(y_flat)
 
         save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
         saved_lambda = []
@@ -279,9 +301,9 @@ def FISTA(
 
         prec_str = preconditioner.get_name()
         cplx_str = "COMPLEX (4-phases quadrature) " if SMatrix.isComplexSMatrix else "REAL "
-        delta_str = f" / δ={delta:.2e}" if potential_type == PotentialType.HUBER else ""
-        description = f"[AOT-biomaps] {cplx_str}FISTA --- {prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta:.2e}{delta_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
-        
+        delta_str = f" / δ_rel={delta_phys:.2e}" if potential_type == PotentialType.HUBER else ""
+        description = f"[AOT-biomaps] {cplx_str}FISTA --- {prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta_phys:.2e} (ratio≈{prior_ratio:.1e}){delta_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- DEVICE: {SMatrix.device.upper()}"
+
         iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
         # ==========================================================
@@ -290,39 +312,36 @@ def FISTA(
         for it in iterator:
             prev_lambda = lambda_flat.copy()
 
-            Alambda_bar = forward_projection(SMatrix, lambda_bar)   
-            xp.subtract(Alambda_bar, y_flat, out=residual_buffer) # residual = (A * λ_bar) - y
+            Alambda_bar = forward_projection(SMatrix, lambda_bar)
+            xp.subtract(Alambda_bar, y_flat, out=residual_buffer)
 
             # --- PRIOR GRADIENT --- ∇U(λ_bar)
-            grad_U, _, _ = get_potential_function(potential_type, SMatrix, lambda_bar, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction, use_surrogate_hessian=False)
+            grad_U, _, _ = get_potential_function(potential_type, SMatrix, lambda_bar, beta=beta_int, delta=delta_int, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction, use_surrogate_hessian=False)
 
-            # --- DATA FIDELITY GRADIENT WITH PRECONDITIONING --- Apply inverse preconditioner ONLY to the data fidelity term to protect L_prior stability : ∇f_prec = P⁻¹ ∇f_raw where ∇f_raw = Aᴴ(A * λ_bar - y)
-            grad_fidelity_prec = xp.ascontiguousarray(preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual_buffer))), dtype=xp.float32) # if preconditioner is none, this is just the identity operation. Always real-valued.
+            # --- DATA FIDELITY GRADIENT WITH PRECONDITIONING ---
+            grad_fidelity_prec = xp.ascontiguousarray(preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual_buffer))), dtype=xp.float32)
 
-            # --- TOTAL GRADIENT --- 
-            # ∇F(λ_bar) = P⁻¹ ∇f(λ_bar) + ∇U(λ_bar)
+            # --- TOTAL GRADIENT ---
             total_grad = grad_fidelity_prec + grad_U
 
             # --- NESTEROV MOMENTUM ---
-            # t_{k+1} = (1 + √(1 + 4 t_k²)) / 2
             t_next = (1.0 + np.sqrt(1.0 + 4.0 * t * t)) / 2.0
             momentum = (t - 1.0) / t_next
 
-            # --- FISTA UPDATE (GRADIENT DESCENT + PROJECTION + EXTRAPOLATION) ---
+            # --- FISTA UPDATE ---
             if is_gpu:
                 fista_update_kernel(prev_lambda, lambda_bar, total_grad.astype(xp.float32, copy=False), alpha_vec, float(momentum), lambda_flat, lambda_bar)
             else:
-                lambda_flat = lambda_bar - alpha_vec * total_grad # x_{k+1} = max(0, λ_bar - α ∇F(λ_bar))
+                lambda_flat = lambda_bar - alpha_vec * total_grad
                 np.maximum(lambda_flat, 0.0, out=lambda_flat)
-                lambda_bar = lambda_flat + float(momentum) * (lambda_flat - prev_lambda) # λ_bar_{k+1} = λ_{k+1} + momentum * (λ_{k+1} - λ_k)
-                
+                lambda_bar = lambda_flat + float(momentum) * (lambda_flat - prev_lambda)
+
             t = t_next
 
             if isCostFunction:
                 Ax = forward_projection(SMatrix, lambda_flat)
-                _, _, U_x = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=False, compute_hess=False, compute_energy=True, use_surrogate_hessian=False)
+                _, _, U_x = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta_int, delta=delta_int, shape=potential_shape, radius=potential_radius, compute_grad=False, compute_hess=False, compute_energy=True, use_surrogate_hessian=False)
                 fidelity = 0.5 * float(xp.vdot(Ax - y_flat, Ax - y_flat).real)
-                # F(x) = ½ ||A * λ - y||² + U(x)
                 cost_history.append(fidelity + U_x)
 
             if stop_criterion != StopCriterionType.MAX_ITERATIONS:
@@ -338,14 +357,13 @@ def FISTA(
                     if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
                     cost_history.pop() if isCostFunction else None
                     break
-                
+
             if isSavingEachIteration and it in save_indices:
                 lambda_snapshot = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy()
                 saved_lambda.append(lambda_snapshot * y_max / SMatrix.normalization_factor)
                 saved_indices_list.append(it)
 
-        # Reshape and rescale the final result to true physical amplitude
         final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
         final_result *= y_max / SMatrix.normalization_factor
-        
-        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)
+
+        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else ([final_result], [it + 1], cost_history)

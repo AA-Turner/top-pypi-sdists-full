@@ -45,13 +45,19 @@ which is the O(b²) truncation of the azimuthal average of the free-space
 Green's function over a source tube of radius b, seen from an observer a
 distance ρ off the source axis.
 
-momwire extends only COAXIAL EQUAL-RADIUS pairs (`_ek_axis_groups`), and on
-those the whole thing collapses: the observer sits on its own wire's surface
-on the same axis, so ρ = a and b = a and R = √(ζ² + a²) is *the same R the
-reduced kernel already computes*. Eq 89 becomes a scalar multiplicative
-factor of R alone (`_ek_factor`), manifestly symmetric in i ↔ j and
-manifestly → 1 as a → 0. NEC's IRA swapped arm is unreachable in this
-specialisation (the test `ρ_eval < b` is strict and ρ_eval = b = a).
+momwire extends EVERY pair (`_ek_axis_groups`, since momwire#1368; before it
+only coaxial equal-radius pairs, and Z jumped at the first bend angle and
+radius ratio). The observer is placed on its own wire's surface, ρ = a_obs,
+which is also the radius regularising R = √(ζ² + a²) — *the same R the
+reduced kernel already computes* — and the source tube is b = a_src, so
+Eq 89 is a scalar multiplicative factor of R and the two radii
+(`_ek_factor(R, a, k, b)`), symmetric in i ↔ j at equal radii, → 1 as
+a, b → 0, and the pre-#1368 factor to the bit at b = a. Where b > ρ the
+observer can sit inside the source tube (a radius-step junction's thin
+wire); NEC-2 swaps ρ and b there (its IRA arm). The Galerkin fills floor the
+factor's R at b instead (`_ek_factor_floored`), which tracked NEC-5's step
+response more closely on bs2 than the swap and is the identity wherever
+b <= ρ.
 
 The factor rides through the existing static/regular split unchanged:
 
@@ -161,6 +167,11 @@ _HAVE_BSPLINE_OFFEDGE_SWEPT_EK_ACCEL = _acc is not None and hasattr(
 # EK block with a ladder takes the numpy twin, as a reduced one does.
 _HAVE_BSPLINE_OFFEDGE_EK_TIERED_ACCEL = _acc is not None and hasattr(
     _acc, "seg_seg_full_moments_bspline_ek_tiered"
+)
+# momwire#1362: the swept EK twin on the same ladder. Absent it, a laddered
+# EK sweep stacks the single-k EK fill per k, which serves the ladder.
+_HAVE_BSPLINE_OFFEDGE_SWEPT_EK_TIERED_ACCEL = _acc is not None and hasattr(
+    _acc, "seg_seg_full_moments_bspline_swept_ek_tiered"
 )
 
 # Currently the C++ accelerator has explicit instantiations for D in {1, 2}.
@@ -351,12 +362,11 @@ def _normalize_row_radius(a, n_rows):
 
 # The extended-kernel spec threaded through every kernel entry point.
 #
-#   a        EK regularization radius, or None to use the kernel call's own
-#            `a` — which is the right answer on every eligible pair by
-#            construction (eligibility REQUIRES equal radii, and the
-#            off-edge kernel's per-observer-row `a` is already that radius).
-#            None is the normal spelling; an explicit value is an override
-#            for callers that regularize with something else.
+#   a        EK regularization radius (Eq 89's ρ), or None to use the kernel
+#            call's own `a` — the observer row's radius in bs2/SG, the
+#            source column's in razor. None is the normal spelling; an
+#            explicit value is an override for callers that regularize with
+#            something else.
 #   group_i  per-observer-segment axis-group labels, or None meaning "every
 #            row of this block is eligible" (the same-edge case: one edge is
 #            one straight run of one wire at one radius, so its segments are
@@ -366,7 +376,13 @@ def _normalize_row_radius(a, n_rows):
 # A pair is extended iff `group_i[i] == group_j[j]`, which is symmetric in
 # (i, j) by construction — the Galerkin symmetry gate stays live as an error
 # detector rather than being burnt by the gating rule (momwire#249 §4.1).
-_EK = namedtuple("_EK", "a group_i group_j")
+# Since momwire#1368 the factor takes two radii (`_ek_factor`): `b_i` / `b_j`
+# are the per-observer / per-source-segment SOURCE-TUBE radii b of NEC Eq 89
+# where a solver needs them, None meaning "b = the kernel's own radius `a`"
+# (the equal-radius factor). bs2 and SG regularise R by the observer's radius
+# and carry b per source (`b_j`); razor regularises R by the source's radius
+# and takes the transposed spelling, b per observer (`b_i`).
+_EK = namedtuple("_EK", "a group_i group_j b_i b_j", defaults=(None, None))
 
 
 def _ek_radius(ek, a):
@@ -374,13 +390,18 @@ def _ek_radius(ek, a):
     return a if ek.a is None else ek.a
 
 
-def _ek_factor(R, a, k):
-    """NEC Eq 89's `1 + T1·C2 − T2·C1` in the coaxial equal-radius case.
+def _ek_factor(R, a, k, b=None):
+    """NEC Eq 89's `1 + T1·C2 − T2·C1` in its two-radius form (momwire#1368).
 
-    With the observer on its own wire's surface on the source axis, NEC's
-    ρ_eval and its source radius b are both `a`, so T1 = a⁴/(4R⁴) and
-    T2 = a²/(2R²) and the whole factor is a function of R alone. Exactly
-    1.0 at a = 0, in IEEE and not merely in the limit.
+    The observer sits on its OWN wire's surface, so NEC's ρ_eval is the
+    observer's radius `a` — the same radius that regularises R — and the
+    source tube has its own radius `b` (default `a`):
+
+        T1 = b²a²/(4R⁴),   T2 = b²/(2R²).
+
+    At b = a this is the equal-radius factor every pair took before #1368,
+    term for term and to the bit (`b·b` is `a·a`). Exactly 1.0 at a = b = 0,
+    in IEEE and not merely in the limit.
     """
     # Multi-step spelling throughout (momwire#205): a one-expression complex
     # product with a dead operand changes rounding above numpy's
@@ -390,18 +411,35 @@ def _ek_factor(R, a, k):
     kr = k * R
     kr2 = kr * kr
     a2 = a * a
-    a4 = a2 * a2
+    b2 = a2 if b is None else b * b
+    a4 = b2 * a2
     c1 = 1.0 + 1j * kr
     c2 = 3.0 * c1 - kr2
     t1 = 0.25 * a4 / r4
-    t2 = 0.5 * a2 / r2
+    t2 = 0.5 * b2 / r2
     fac = t1 * c2
     fac = fac - t2 * c1
     fac = fac + 1.0
     return fac
 
 
-def _ek_reg_extra(R, a, k):
+def _ek_factor_floored(R, a, k, b=None):
+    """`_ek_factor` with its R no closer than the source tube's surface,
+    R_f = max(R, b) (momwire#1368), for the Galerkin fills whose quadrature
+    can put an observer inside the tube — only at a radius-step junction,
+    the thin wire's nodes within b of the fat wire. There Eq 89's b²/R²
+    exceeds 1 and the expansion it is no longer holds: bs2 on the raw factor
+    diverged under refinement at 5:1 (+0.24+0.12j → −0.20−1.16j Ω of EK
+    response at 20:1, Δ/a 18 → 3.6, where NEC-5 reads +0.26+0.19j). With the
+    floor it is bounded and monotone and tracks NEC-5's step response. It
+    never bites where b ≤ a (R ≥ a always), so an equal-radius pair takes
+    `_ek_factor` itself, to the bit."""
+    if b is None:
+        return _ek_factor(R, a, k)
+    return _ek_factor(np.maximum(R, b), a, k, b)
+
+
+def _ek_reg_extra(R, a, k, b=None):
     """`fac − fac_static` = T1·(C2 − 3) − T2·(C1 − 1), written out.
 
     The k → 0 limit of `_ek_factor` is `fac_static = 1 − a²/(2R²) +
@@ -409,16 +447,18 @@ def _ek_reg_extra(R, a, k):
     closed form. What is left for the Gauss–Legendre remainder is this
     difference — spelled as the two surviving terms rather than as a
     subtraction of near-equal factors, so it is exactly `0.0` at a = 0 and
-    the remainder collapses term by term onto the reduced kernel's.
+    the remainder collapses term by term onto the reduced kernel's. `b` is
+    the source tube's radius, as in `_ek_factor`.
     """
     r2 = R * R
     r4 = r2 * r2
     kr = k * R
     kr2 = kr * kr
     a2 = a * a
-    a4 = a2 * a2
+    b2 = a2 if b is None else b * b
+    a4 = b2 * a2
     t1 = 0.25 * a4 / r4
-    t2 = 0.5 * a2 / r2
+    t2 = 0.5 * b2 / r2
     # C2 - 3 = 3jkR - (kR)²  and  C1 - 1 = jkR.
     extra = t1 * (3j * kr - kr2)
     extra = extra - t2 * (1j * kr)
@@ -426,7 +466,44 @@ def _ek_reg_extra(R, a, k):
 
 
 def _ek_axis_groups(seg_l, seg_r, tangents, seg_a, tol=1e-6):
-    """Per-segment coaxial-and-equal-radius eligibility labels.
+    """Per-segment extended-kernel eligibility labels: since momwire#1368,
+    ONE label for every segment, so every pair is extended.
+
+    A pair is extended iff its two labels match (`_ek_pair_mask`, and the
+    same test inside every C++ EK kernel), so a single label is the rule
+    "extend every pair, whatever its geometry and radii". The radii enter
+    the factor itself instead, in NEC Eq 89's two-radius form
+    (`_ek_factor(R, a, k, b)`: ρ = the observer's radius, b = the source
+    tube's), which is the equal-radius factor at equal radii.
+
+    Why (Steve's decisions on momwire#1368, measurements on #1367/#1368):
+    the rule this replaced — coaxial AND equal radius — switched kernel at
+    the first non-zero bend angle and at the first radius ratio above 1, so
+    Z jumped there (bs2 +0.12+0.23j Ω at a 0.05° bend on a 50 mm wire; razor
+    +0.08+0.17j Ω at a 1.0001:1 step), where licensed NEC-4.2 and NEC-5 move
+    by print resolution. Extending every pair is continuous in geometry, and
+    on razor-2p — NEC-5's formulation twin — it reproduces NEC-5's bend
+    response (≤ 0.013 Ω at 90°) and, with the two-radius factor, its
+    radius-step response (≤ 0.016 Ω at every ratio to 20:1, angle and mesh
+    measured). The coaxial factor of R applied to a non-coaxial pair is
+    itself an approximation, within 0.06 Ω of NEC-5 at 45° and Δ/a = 3.6.
+
+    The labels stay an argument of every kernel, and `>= 0` stays their
+    convention, so a future "never extend" marker needs no kernel change.
+    `seg_l`, `seg_r`, `tangents`, `seg_a` and `tol` are accepted for the
+    callers' sake and no longer read. Returns an (N,) int64 array of zeros.
+    """
+    del seg_r, tangents, seg_a, tol
+    return np.zeros(np.asarray(seg_l).shape[0], dtype=np.int64)
+
+
+def _ek_axis_groups_coaxial(seg_l, seg_r, tangents, seg_a, tol=1e-6):
+    """Per-segment coaxial-and-equal-radius eligibility labels: the rule every
+    solver used before momwire#1368, kept for `SinusoidalGalerkinSolver`'s
+    DIRECT fill alone (its end-bracket correction, momwire#299, is built on
+    it, and that fill is not symmetric under the continuous rule — see
+    `SinusoidalGalerkinSolver._ek_axis_labels`). Everything else extends
+    every pair (`_ek_axis_groups`).
 
     Two segments share a label iff they lie on the SAME LINE and have the
     same radius, using NEC's own thresholds:
@@ -1186,8 +1263,56 @@ def _phase_split_needed(ladder, k, seg_l_i, seg_r_i, seg_l_j, seg_r_j):
 
 def _ek_rows(labels, idx):
     """`labels[idx]`, or None for an unset (whole-block) label array: an EK
-    spec's per-segment labels cut with the segments they label."""
-    return None if labels is None else np.asarray(labels)[idx]
+    spec's per-segment labels cut with the segments they label. A scalar
+    (a uniform source-tube radius, momwire#1368) is its own cut."""
+    if labels is None or np.ndim(labels) == 0:
+        return labels
+    return np.asarray(labels)[idx]
+
+
+def _ek_cut(ek, rows=None, cols=None):
+    """An `_EK` spec cut to a block's observer `rows` and source `cols`
+    (None = all): the labels AND the per-segment tube radii (momwire#1368)
+    travel with the segments they describe."""
+    if ek is None:
+        return None
+    return ek._replace(
+        group_i=ek.group_i if rows is None else _ek_rows(ek.group_i, rows),
+        b_i=ek.b_i if rows is None else _ek_rows(ek.b_i, rows),
+        group_j=ek.group_j if cols is None else _ek_rows(ek.group_j, cols),
+        b_j=ek.b_j if cols is None else _ek_rows(ek.b_j, cols),
+    )
+
+
+def _ek_src_runs(ek, a):
+    """The source-tube radius runs of an off-edge EK block (momwire#1368):
+    None when the block's sources all share one tube radius (then `ek` with
+    that radius as a scalar `b_j`, or as it was), else a list of
+    `(cols, b)` for the C++ kernels, which take one b per call."""
+    if ek is None or ek.b_j is None or np.ndim(ek.b_j) == 0:
+        return None
+    bj = np.asarray(ek.b_j, dtype=np.float64)
+    vals = np.unique(bj)
+    return [(np.flatnonzero(bj == v), float(v)) for v in vals]
+
+
+def _ek_src_radius(ek):
+    """The C++ EK kernels' `a_ek_src`: the block's one source-tube radius b,
+    or -1.0 for "b = the observer's a_ek" (the equal-radius factor)."""
+    if ek is None or ek.b_j is None:
+        return -1.0
+    return float(ek.b_j)
+
+
+def _ek_b_numpy(ek, ndim_tail):
+    """The numpy fills' per-source b, broadcast against an (N_i, q, N_j, r)
+    table (`ndim_tail` = 1 for that layout), or None for b = a."""
+    if ek is None or ek.b_j is None:
+        return None
+    if np.ndim(ek.b_j) == 0:
+        return float(ek.b_j)
+    bj = np.asarray(ek.b_j, dtype=np.float64)
+    return bj.reshape((1, 1, -1) + (1,) * ndim_tail)
 
 
 def _pair_ratio(seg_l_i, seg_r_i, seg_l_j, seg_r_j):
@@ -1299,15 +1424,7 @@ def _seg_seg_full_moments_offedge(
                     # The EK labels are per segment, so they are cut with the
                     # segments (momwire#1362: before the EK fill took the
                     # ladder no EK block reached this split).
-                    ek=(
-                        None
-                        if ek is None
-                        else _EK(
-                            a=ek.a,
-                            group_i=_ek_rows(ek.group_i, ri),
-                            group_j=_ek_rows(ek.group_j, cj),
-                        )
-                    ),
+                    ek=_ek_cut(ek, ri, cj),
                     ladder=ladder,
                 )
         return out
@@ -1375,17 +1492,39 @@ def _seg_seg_full_moments_offedge(
                     k,
                     max_d,
                     n_qp,
-                    ek=(
-                        _EK(a=ek.a, group_i=ek.group_i[s:e], group_j=ek.group_j)
-                        if ek is not None
-                        else None
-                    ),
+                    ek=_ek_cut(ek, slice(s, e), None),
                     ladder=ladder,
                 )
                 for s, e in zip(starts, stops)
             ],
             axis=2,
         )
+    # momwire#1368: the two-radius factor's source tube b, one value per C++
+    # call. A block whose sources span several radii is split by radius into
+    # column groups; every pair's arithmetic is its own, so the split moves
+    # nothing but the bookkeeping.
+    _src_runs = _ek_src_runs(ek, a) if accel_ok_ek else None
+    if _src_runs is not None:
+        out = np.empty(
+            (max_d + 1, max_d + 1, np.asarray(seg_l_i).shape[0], len(ek.b_j)),
+            dtype=np.complex128,
+        )
+        seg_l_j, seg_r_j = np.asarray(seg_l_j), np.asarray(seg_r_j)
+        for cols, b in _src_runs:
+            sub = _ek_cut(ek, None, cols)._replace(b_j=b)
+            out[:, :, :, cols] = _seg_seg_full_moments_offedge(
+                seg_l_i,
+                seg_r_i,
+                seg_l_j[cols],
+                seg_r_j[cols],
+                a,
+                k,
+                max_d,
+                n_qp,
+                ek=sub,
+                ladder=ladder,
+            )
+        return out
 
     _tiered_accel = (
         _HAVE_BSPLINE_OFFEDGE_CPLX_TIERED_ACCEL
@@ -1451,6 +1590,7 @@ def _seg_seg_full_moments_offedge(
             np.ascontiguousarray(ek.group_i, dtype=np.int64),
             np.ascontiguousarray(ek.group_j, dtype=np.int64),
             float(_ek_radius(ek, a)),
+            a_ek_src=_ek_src_radius(ek),
         )
 
     if accel_ok_ek and not ladder:
@@ -1472,6 +1612,7 @@ def _seg_seg_full_moments_offedge(
             np.ascontiguousarray(ek.group_i, dtype=np.int64),
             np.ascontiguousarray(ek.group_j, dtype=np.int64),
             float(_ek_radius(ek, a)),
+            a_ek_src=_ek_src_radius(ek),
         )
 
     def _numpy_block(t01, w01):
@@ -1498,7 +1639,10 @@ def _seg_seg_full_moments_offedge(
             a_ek = _ek_radius(ek, a)
             a_b = a_ek if np.ndim(a_ek) == 0 else a_ek[:, None, None, None]
             mask = _ek_pair_mask(ek, R.shape[0], R.shape[2])
-            fac = np.where(mask[:, None, :, None], _ek_factor(R, a_b, k), 1.0)
+            b = _ek_b_numpy(ek, 1)
+            fac = np.where(
+                mask[:, None, :, None], _ek_factor_floored(R, a_b, k, b), 1.0
+            )
             G = G * fac
 
         u_pow_i = np.stack([u_i**p for p in range(max_d + 1)], axis=0)
@@ -1521,7 +1665,7 @@ def _seg_seg_full_moments_offedge(
 
 
 def _seg_seg_full_moments_offedge_swept(
-    seg_l_i, seg_r_i, seg_l_j, seg_r_j, a, k_array, max_d, n_qp, *, ek=None
+    seg_l_i, seg_r_i, seg_l_j, seg_r_j, a, k_array, max_d, n_qp, *, ek=None, ladder=None
 ):
     """Batched-over-k `_seg_seg_full_moments_offedge`.
 
@@ -1539,11 +1683,27 @@ def _seg_seg_full_moments_offedge_swept(
     batched `seg_seg_full_moments_bspline_swept_ek` twin instead of falling
     back to stacking single-k calls. A spec with unset group labels (or no
     C++ EK twin available) still falls back to that stack.
+
+    `ladder` (momwire#1362) is the pair-order ladder, served under `ek` only:
+    the reduced sweep has never taken one and is left exactly as it was.
+    Each k gets the order the single-k fill would give the same pair at that
+    k -- the per-pair phase guard (momwire#920) is answered per k, the k
+    that answer it alike share one batched call, and a block that straddles
+    the guard is split by index exactly as `_seg_seg_full_moments_offedge`
+    splits it -- so a laddered EK sweep's moments are the single-k EK fill's
+    at every k.
     """
     # NOT `np.asarray(k_array, dtype=np.float64)` — see `_k_array_asarray`.
     k_array = _k_array_asarray(k_array)
     in_medium = _complex_k(k_array)
     a = _normalize_row_radius(a, np.asarray(seg_l_i).shape[0])
+    ladder = _normalize_ladder(ladder, n_qp) if ek is not None else ()
+    if ladder:
+        laddered = _offedge_swept_ladder_split(
+            seg_l_i, seg_r_i, seg_l_j, seg_r_j, a, k_array, max_d, n_qp, ek, ladder
+        )
+        if laddered is not None:
+            return laddered
     _shape_ok = (
         _HAVE_BSPLINE_OFFEDGE_SWEPT_ACCEL
         and max_d <= _BSPLINE_ACCEL_MAX_D
@@ -1579,16 +1739,41 @@ def _seg_seg_full_moments_offedge_swept(
                     k_array,
                     max_d,
                     n_qp,
-                    ek=(
-                        _EK(a=ek.a, group_i=ek.group_i[s:e], group_j=ek.group_j)
-                        if ek is not None
-                        else None
-                    ),
+                    ek=_ek_cut(ek, slice(s, e), None),
+                    ladder=ladder,
                 )
                 for s, e in zip(starts, stops)
             ],
             axis=3,
         )
+    # momwire#1368: one source-tube radius per C++ call, as the single-k twin.
+    _src_runs = _ek_src_runs(ek, a) if accel_ok_ek else None
+    if _src_runs is not None:
+        out = np.empty(
+            (
+                k_array.shape[0],
+                max_d + 1,
+                max_d + 1,
+                np.asarray(seg_l_i).shape[0],
+                len(ek.b_j),
+            ),
+            dtype=np.complex128,
+        )
+        seg_l_j, seg_r_j = np.asarray(seg_l_j), np.asarray(seg_r_j)
+        for cols, b in _src_runs:
+            out[..., cols] = _seg_seg_full_moments_offedge_swept(
+                seg_l_i,
+                seg_r_i,
+                seg_l_j[cols],
+                seg_r_j[cols],
+                a,
+                k_array,
+                max_d,
+                n_qp,
+                ek=_ek_cut(ek, None, cols)._replace(b_j=b),
+                ladder=ladder,
+            )
+        return out
     if accel_ok:
         gl_xi, gl_w = leggauss(n_qp)
         t01 = 0.5 * (gl_xi + 1.0)
@@ -1604,7 +1789,31 @@ def _seg_seg_full_moments_offedge_swept(
             np.ascontiguousarray(t01, dtype=np.float64),
             np.ascontiguousarray(w01, dtype=np.float64),
         )
-    if accel_ok_ek:
+    if accel_ok_ek and ladder and _HAVE_BSPLINE_OFFEDGE_SWEPT_EK_TIERED_ACCEL:
+        # Every k here answers the phase guard alike for every pair (the
+        # split above), so one trim serves the call.
+        trimmed = _ladder_for_block(
+            ladder, k_array[0], seg_l_i, seg_r_i, seg_l_j, seg_r_j
+        )
+        tier_t, tier_w, tier_n_qp, tier_ratio = _ladder_arrays(n_qp, trimmed)
+        return _acc.seg_seg_full_moments_bspline_swept_ek_tiered(
+            np.ascontiguousarray(seg_l_i, dtype=np.float64),
+            np.ascontiguousarray(seg_r_i, dtype=np.float64),
+            np.ascontiguousarray(seg_l_j, dtype=np.float64),
+            np.ascontiguousarray(seg_r_j, dtype=np.float64),
+            float(a) * float(a),
+            np.ascontiguousarray(k_array),
+            int(max_d),
+            tier_t,
+            tier_w,
+            tier_n_qp,
+            tier_ratio,
+            np.ascontiguousarray(ek.group_i, dtype=np.int64),
+            np.ascontiguousarray(ek.group_j, dtype=np.int64),
+            float(_ek_radius(ek, a)),
+            a_ek_src=_ek_src_radius(ek),
+        )
+    if accel_ok_ek and not ladder:
         gl_xi, gl_w = leggauss(n_qp)
         t01 = 0.5 * (gl_xi + 1.0)
         w01 = 0.5 * gl_w
@@ -1621,6 +1830,7 @@ def _seg_seg_full_moments_offedge_swept(
             np.ascontiguousarray(ek.group_i, dtype=np.int64),
             np.ascontiguousarray(ek.group_j, dtype=np.int64),
             float(_ek_radius(ek, a)),
+            a_ek_src=_ek_src_radius(ek),
         )
     return np.stack(
         [
@@ -1637,8 +1847,79 @@ def _seg_seg_full_moments_offedge_swept(
                 max_d,
                 n_qp,
                 ek=ek,
+                ladder=ladder or None,
             )
             for k in k_array
         ],
         axis=0,
     )
+
+
+def _offedge_swept_ladder_split(
+    seg_l_i, seg_r_i, seg_l_j, seg_r_j, a, k_array, max_d, n_qp, ek, ladder
+):
+    """The phase-guard partition of a laddered EK sweep (momwire#1362), or
+    None when the block needs none.
+
+    The single-k fill answers the per-pair guard (momwire#920) at ITS k: a
+    pair passes when both segments have |k| L <= the ceiling. Over a sweep
+    the answer can change with k, so the k are grouped by the (row, column)
+    masks they produce and each group is one recursive call; within a group
+    a block that straddles the guard is split by index, as the single-k
+    fill splits it, with the EK labels sliced alongside the segments. What
+    is left is a block every pair of which answers the guard alike at every
+    k it serves, which `_ladder_for_block` trims exactly.
+    """
+    if all(n >= _LADDER_PHASE_LIMITED_BELOW for _r, n in ladder):
+        return None
+    seg_l_i, seg_r_i = np.asarray(seg_l_i), np.asarray(seg_r_i)
+    seg_l_j, seg_r_j = np.asarray(seg_l_j), np.asarray(seg_r_j)
+    keys = {}
+    for kk, k in enumerate(k_array):
+        rows_ok = _phase_row_mask(k, seg_l_i, seg_r_i)
+        cols_ok = _phase_row_mask(k, seg_l_j, seg_r_j)
+        keys.setdefault((rows_ok.tobytes(), cols_ok.tobytes()), []).append(kk)
+    nm = max_d + 1
+    shape = (k_array.shape[0], nm, nm, seg_l_i.shape[0], seg_l_j.shape[0])
+    if len(keys) > 1:
+        out = np.empty(shape, dtype=np.complex128)
+        for idx in keys.values():
+            out[idx] = _seg_seg_full_moments_offedge_swept(
+                seg_l_i,
+                seg_r_i,
+                seg_l_j,
+                seg_r_j,
+                a,
+                k_array[idx],
+                max_d,
+                n_qp,
+                ek=ek,
+                ladder=ladder,
+            )
+        return out
+    split = _phase_split_needed(ladder, k_array[0], seg_l_i, seg_r_i, seg_l_j, seg_r_j)
+    if split is None:
+        return None
+    rows_ok, cols_ok = split
+    out = np.empty(shape, dtype=np.complex128)
+    for ri in (np.flatnonzero(rows_ok), np.flatnonzero(~rows_ok)):
+        if ri.size == 0:
+            continue
+        for cj in (np.flatnonzero(cols_ok), np.flatnonzero(~cols_ok)):
+            if cj.size == 0:
+                continue
+            out[:, :, :, ri[:, None], cj[None, :]] = (
+                _seg_seg_full_moments_offedge_swept(
+                    seg_l_i[ri],
+                    seg_r_i[ri],
+                    seg_l_j[cj],
+                    seg_r_j[cj],
+                    a[ri] if np.ndim(a) else a,
+                    k_array,
+                    max_d,
+                    n_qp,
+                    ek=_ek_cut(ek, ri, cj),
+                    ladder=ladder,
+                )
+            )
+    return out

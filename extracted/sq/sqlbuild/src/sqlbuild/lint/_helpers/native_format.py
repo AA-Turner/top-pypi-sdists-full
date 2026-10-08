@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import sqlbuild._native as _native
+from sqlbuild.compiler.compile.constants import OMITTED_CEREMONIAL_SELECT_SQL
+from sqlbuild.compiler.discovery.main.omitted_ceremonial_select import (
+    omitted_ceremonial_select_offset,
+)
 from sqlbuild.compiler.sql_analysis.constants import POLYGLOT_MAX_FUNCTION_CALL_DEPTH
+from sqlbuild.compiler.sql_analysis.models import SqlLexicalSyntax
 from sqlbuild.lint._helpers.headers import lint_body_ranges, scan_headers
 from sqlbuild.lint._helpers.sqlbuild_tokens import neutralize_interpolation, restore_interpolation
 from sqlbuild.lint.constants import (
     CARRIAGE_RETURN_LINE_FEED,
+    HEADER_KIND_SCENARIO,
+    HEADER_KIND_TEST,
     LINE_FEED,
     LINT_ENGINE_NATIVE,
     RULE_FORMAT_UNSAFE,
@@ -22,6 +30,9 @@ from sqlbuild.lint.exceptions import InterpolationRestorationError, NativeLintEr
 from sqlbuild.lint.models import HeaderSpan, InterpolationSite, LintConfig, LintViolation
 
 _NATIVE_FORMAT_API_VERSION: int = 1
+_FIXTURE_HEADER_KINDS: frozenset[str] = frozenset({HEADER_KIND_TEST, HEADER_KIND_SCENARIO})
+_GENERIC_SQL_SYNTAX: SqlLexicalSyntax = SqlLexicalSyntax()
+_OMITTED_SELECT_SUFFIX_PATTERN: re.Pattern[str] = re.compile(r"\s*\bSELECT\s+1\s*\Z", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -33,6 +44,7 @@ class _PreparedBody:
     trailing: str
     cache_key: tuple[str, str, str]
     interpolation_sites: tuple[InterpolationSite, ...]
+    omits_select: bool = False
 
 
 def with_newline_style(*, contents: str, newline: str) -> str:
@@ -63,13 +75,32 @@ def format_native_sql_bodies(
             file_path=file_path,
             project_dir=project_dir,
         )
+        allows_omitted_select: bool = any(
+            header.kind in _FIXTURE_HEADER_KINDS for header in headers
+        )
         prepared_bodies: list[_PreparedBody] = []
         for body_start, body_end in body_ranges:
             body: str = contents[body_start:body_end]
             trailing: str = body[len(body.rstrip()) :]
             core: str = body[: len(body) - len(trailing)] if trailing else body
-            neutralized, sites = neutralize_interpolation(
+            omitted_select_offset: int | None = (
+                omitted_ceremonial_select_offset(
+                    sql=core,
+                    syntax=_GENERIC_SQL_SYNTAX,
+                )
+                if allows_omitted_select
+                else None
+            )
+            if omitted_select_offset is not None:
+                trailing = core[omitted_select_offset:] + trailing
+                core = core[:omitted_select_offset]
+            neutralized_core, sites = neutralize_interpolation(
                 body=core, dialect=config.dialect, for_formatting=True
+            )
+            neutralized: str = (
+                neutralized_core
+                if omitted_select_offset is None
+                else f"{neutralized_core}{OMITTED_CEREMONIAL_SELECT_SQL}"
             )
             token_widths: dict[str, int] = _sentinel_widths(sites=sites)
             cache_key: tuple[str, str, str] = (
@@ -95,6 +126,7 @@ def format_native_sql_bodies(
                     trailing=trailing,
                     cache_key=cache_key,
                     interpolation_sites=sites,
+                    omits_select=omitted_select_offset is not None,
                 )
             )
         prepared_by_path[file_path] = tuple(prepared_bodies)
@@ -127,6 +159,20 @@ def format_native_sql_bodies(
                     )
                 )
                 continue
+            if prepared.omits_select:
+                suffix: re.Match[str] | None = _OMITTED_SELECT_SUFFIX_PATTERN.search(raw_sql)
+                if suffix is None:
+                    faults.append(
+                        _format_fault(
+                            file_path=file_path,
+                            contents=contents,
+                            start=prepared.start,
+                            reason="native formatter moved the omitted ceremonial SELECT 1",
+                        )
+                    )
+                    continue
+                raw_sql = raw_sql[: suffix.start()]
+                changed = True
             if not changed:
                 continue
             try:

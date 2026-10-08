@@ -648,7 +648,7 @@ Value driveVm(Evaluator& ev, size_t floor) {
                         f.stack.push_back(*v);
                     } else {
                         // ins.b = warn flag; see compileIdentifierLoad.
-                        if (ins.b) ev.warn("Ignoring unknown variable '" + name + "'", ins.pos);
+                        if (ins.b) ev.warn("Ignoring unknown variable \"" + name + "\"", ins.pos);
                         f.stack.push_back(Value{});
                     }
                     ++f.pc;
@@ -660,6 +660,12 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     const std::string& name = f.chunk->names[static_cast<size_t>(ins.a)];
                     ctx.dyn->set(name, v);
                     ctx.dynExplicit->set(name, true);
+                    ++f.pc;
+                    break;
+                }
+                case Op::WarnDuplicateLet: {
+                    ev.warnDuplicateLet(f.chunk->names[static_cast<size_t>(ins.a)], f.stack.back(), ins.pos);
+                    f.stack.pop_back();
                     ++f.pc;
                     break;
                 }
@@ -874,7 +880,7 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     if (site.isImport) {
                         CallArgs& callArgs = buildCallArgs(site, args, argCount, f.argScratch);
                         f.stack.resize(argBase);
-                        f.stack.push_back(importAsValue(ev, callArgs, *site.callNode));
+                        f.stack.push_back(importAsValue(ev, callArgs, *site.callNode, f.ctxChain.back()));
                         ++f.pc;
                     } else if (site.isObjectBuiltin) {
                         std::vector<std::pair<std::optional<std::string>, Value>> pairs;
@@ -1099,24 +1105,12 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     ev.emitEcho(pairs);
                     // The STATEMENT form can carry children and the
                     // reference renders them; same tail as
-                    // Op::AssertStatement below. Null node = the expression
+                    // Op::AssertPass below. Null node = the expression
                     // form (`echo(...) 1+1`), which has none.
                     if (site.node && !site.node->children.empty())
                         ev.evalChildren(site.node->children, ctx);
                     ++f.pc;
                     break;
-                }
-                case Op::AssertFail: {
-                    const bool hasMessage = ins.a == 1;
-                    std::string err =
-                        "Assertion '" + std::get<std::string>(f.chunk->constants[static_cast<size_t>(ins.b)]) + "' failed";
-                    if (hasMessage) {
-                        Value msg = std::move(f.stack.back());
-                        f.stack.pop_back();
-                        const std::string* s = std::get_if<std::string>(&msg);
-                        err += ": \"" + (s ? *s : fmtValue(msg)) + "\"";
-                    }
-                    ev.error(err, *ins.node, "assert");
                 }
                 case Op::CallModule: {
                     const CompiledChunk::ModuleCallSite& site = f.chunk->moduleCallSites[static_cast<size_t>(ins.a)];
@@ -1221,7 +1215,6 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     const std::uint64_t randsBefore = ev.randsCallCount();
                     warnUnexpectedBuiltinArgs(ev, *site.node);
                     CSGParams params;
-                    CallArgs deferredArgs; // Roof only -- see PendingBuiltinWrap's own doc comment
                     switch (site.kind) {
                         case CompiledChunk::BuiltinWrapSite::Kind::Transform: {
                             BuiltinWrapParams result =
@@ -1311,22 +1304,15 @@ Value driveVm(Evaluator& ev, size_t floor) {
                             break;
                         }
                         case CompiledChunk::BuiltinWrapSite::Kind::Roof: {
-                            // params stays empty here -- computed at Pop
-                            // instead (computeRoofParams calls ev.warn(),
-                            // which must stay ordered AFTER children; see
-                            // this Kind's own doc comment, bytecode.hpp).
-                            // `args` must be retained, not re-resolved at
-                            // Pop, or its argument expressions would run
-                            // twice.
                             auto [args, effCtx] =
                                 resolveCallArgs(ev, static_cast<const oscad::ModularCall&>(*site.node).arguments, ctx);
-                            deferredArgs = std::move(args);
+                            params = computeRoofParams(ev, args, effCtx, &site.node->position());
                             f.ctxChain.push_back(std::move(effCtx));
                             break;
                         }
                     }
                     ev.treeStack_.emplace_back();
-                    f.builtinWrapStack.push_back({std::move(params), randsBefore, ins.a, std::move(deferredArgs),
+                    f.builtinWrapStack.push_back({std::move(params), randsBefore, ins.a,
                                                    ev.measuring_, f.stack.size(), ev.treeStack_.size() - 1});
                     // AFTER the push, so a throw from the push itself leaves
                     // the flag untouched rather than stuck on.
@@ -1380,14 +1366,6 @@ Value driveVm(Evaluator& ev, size_t floor) {
                         ++f.pc;
                         break;
                     }
-                    // Roof's params computation is deferred to here (see
-                    // this Kind's own doc comment, bytecode.hpp) -- ctx is
-                    // still on top of f.ctxChain, not yet popped below, so
-                    // computeRoofParams sees the exact same effCtx the
-                    // children just ran against.
-                    if (site.kind == CompiledChunk::BuiltinWrapSite::Kind::Roof) {
-                        pending.params = computeRoofParams(ev, pending.deferredArgs, f.ctxChain.back());
-                    }
                     if (site.kind != CompiledChunk::BuiltinWrapSite::Kind::Modifier) f.ctxChain.pop_back();
                     std::vector<std::unique_ptr<CSGNode>> children = std::move(ev.treeStack_.back());
                     ev.treeStack_.pop_back();
@@ -1434,7 +1412,7 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     // ITERATION child ctxs are pushed separately, by the
                     // compiled loop's own Op::ForIterNext.
                     ev.treeStack_.emplace_back();
-                    f.csgWrapStack.push_back({site.op, randsBefore, ins.a, {}, {}, 0});
+                    f.csgWrapStack.push_back({site.op, randsBefore, ins.a, {}, {}, {}, 0});
                     ++f.pc;
                     break;
                 }
@@ -1461,6 +1439,7 @@ Value driveVm(Evaluator& ev, size_t floor) {
                             Value{static_cast<double>(ev.treeStack_.back().size() - before)});
                         // A spliced child is a plain statement, never a loop.
                         pending.emptyIsAGroup.push_back(Value{false});
+                        pending.backgroundStmt.push_back(Value{false});
                     }
                     ++f.pc;
                     break;
@@ -1469,7 +1448,8 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     PendingCsgWrap& pending = f.csgWrapStack.back();
                     const size_t after = ev.treeStack_.back().size();
                     pending.groupSizes.push_back(Value{static_cast<double>(after - pending.groupStartSize)});
-                    pending.emptyIsAGroup.push_back(Value{ins.a != 0});
+                    pending.emptyIsAGroup.push_back(Value{(ins.a & 1) != 0});
+                    pending.backgroundStmt.push_back(Value{(ins.a & 2) != 0});
                     ++f.pc;
                     break;
                 }
@@ -1494,6 +1474,7 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     params["group_sizes"] =
                         Value{makeList(std::move(pending.groupSizes))};
                     params["empty_is_a_group"] = Value{makeList(std::move(pending.emptyIsAGroup))};
+                    params["background_stmt"] = Value{makeList(std::move(pending.backgroundStmt))};
                     // Mirrors Evaluator::buildTreeNode's own post-
                     // resolveBody() half exactly (csg_resolve.cpp).
                     const bool uncacheable =
@@ -1586,34 +1567,29 @@ Value driveVm(Evaluator& ev, size_t floor) {
                     ++f.pc;
                     break;
                 }
-                case Op::AssertStatement: {
+                case Op::AssertPass: {
                     const CompiledChunk::AssertSite& site = f.chunk->assertSites[static_cast<size_t>(ins.a)];
-                    std::vector<Value> args(static_cast<size_t>(site.argCount));
-                    for (int i = site.argCount - 1; i >= 0; --i) {
-                        args[static_cast<size_t>(i)] = std::move(f.stack.back());
-                        f.stack.pop_back();
-                    }
-                    const Value condVal = site.conditionArgIndex ? std::move(args[static_cast<size_t>(*site.conditionArgIndex)])
-                                                                   : Value{true};
-                    if (!truthy(condVal)) {
-                        std::string err = "Assertion '" +
-                                           std::get<std::string>(f.chunk->constants[static_cast<size_t>(site.condTextConstIdx)]) +
-                                           "' failed";
-                        if (site.messageArgIndex) {
-                            const Value& msgArg = args[static_cast<size_t>(*site.messageArgIndex)];
-                            if (!std::holds_alternative<std::monostate>(msgArg)) {
-                                const std::string* s = std::get_if<std::string>(&msgArg);
-                                err += ": \"" + (s ? *s : fmtValue(msgArg)) + "\"";
-                            }
-                        }
-                        ev.error(err, *site.node, "assert");
-                    }
+                    ev.warnAssertArgs(*site.arguments, site.layout);
                     // Rare (assert(...) translate(...) children();-shaped) --
                     // not worth its own compiled path; evalChildren already
                     // tries ITS OWN compiled fast path internally regardless.
-                    if (!site.node->children.empty()) ev.evalChildren(site.node->children, ctx);
+                    if (site.statement && !site.statement->children.empty())
+                        ev.evalChildren(site.statement->children, ctx);
                     ++f.pc;
                     break;
+                }
+                case Op::AssertFail: {
+                    // Every argument but the condition is on the stack, in
+                    // source order; only the message's value is wanted.
+                    const CompiledChunk::AssertSite& site = f.chunk->assertSites[static_cast<size_t>(ins.a)];
+                    const AssertLayout& layout = site.layout;
+                    Value message;
+                    for (int i = static_cast<int>(site.arguments->size()) - 1; i >= 0; --i) {
+                        if (i == layout.cond) continue;
+                        if (i == layout.msg) message = std::move(f.stack.back());
+                        f.stack.pop_back();
+                    }
+                    ev.failAssert(*site.arguments, layout, layout.msg >= 0 ? &message : nullptr, *site.node);
                 }
                 case Op::NativeCondJumpIfFalse: {
                     const oscad::Expression* cond = f.chunk->nativeExprs[static_cast<size_t>(ins.a)];

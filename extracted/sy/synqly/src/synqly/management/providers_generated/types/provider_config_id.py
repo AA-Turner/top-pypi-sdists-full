@@ -287,6 +287,11 @@ class ProviderConfigId(enum.StrEnum):
     ESET Connect
     """
 
+    EDR_HUNTRESS = "edr_huntress"
+    """
+    Huntress Managed EDR
+    """
+
     EDR_IRU = "edr_iru"
     """
     Iru
@@ -902,6 +907,11 @@ class ProviderConfigId(enum.StrEnum):
     [MOCK] Tanium Vulnerability Management
     """
 
+    VULNERABILITIES_TENABLE_ASM = "vulnerabilities_tenable_asm"
+    """
+    Tenable Attack Surface Management
+    """
+
     VULNERABILITIES_TENABLE_CLOUD = "vulnerabilities_tenable_cloud"
     """
     Tenable Vulnerability Management
@@ -990,6 +1000,7 @@ class ProviderConfigId(enum.StrEnum):
         edr_crowd_strike_mock: typing.Callable[[], T_Result],
         edr_defender: typing.Callable[[], T_Result],
         edr_eset_connect: typing.Callable[[], T_Result],
+        edr_huntress: typing.Callable[[], T_Result],
         edr_iru: typing.Callable[[], T_Result],
         edr_malwarebytes: typing.Callable[[], T_Result],
         edr_sentinel_one: typing.Callable[[], T_Result],
@@ -1113,6 +1124,7 @@ class ProviderConfigId(enum.StrEnum):
         vulnerabilities_service_now_usem: typing.Callable[[], T_Result],
         vulnerabilities_tanium_cloud: typing.Callable[[], T_Result],
         vulnerabilities_tanium_cloud_mock: typing.Callable[[], T_Result],
+        vulnerabilities_tenable_asm: typing.Callable[[], T_Result],
         vulnerabilities_tenable_cloud: typing.Callable[[], T_Result],
         vulnerabilities_tenable_sc: typing.Callable[[], T_Result],
         vulnerabilities_wiz: typing.Callable[[], T_Result],
@@ -1229,6 +1241,8 @@ class ProviderConfigId(enum.StrEnum):
             return edr_defender()
         if self is ProviderConfigId.EDR_ESET_CONNECT:
             return edr_eset_connect()
+        if self is ProviderConfigId.EDR_HUNTRESS:
+            return edr_huntress()
         if self is ProviderConfigId.EDR_IRU:
             return edr_iru()
         if self is ProviderConfigId.EDR_MALWAREBYTES:
@@ -1475,6 +1489,8 @@ class ProviderConfigId(enum.StrEnum):
             return vulnerabilities_tanium_cloud()
         if self is ProviderConfigId.VULNERABILITIES_TANIUM_CLOUD_MOCK:
             return vulnerabilities_tanium_cloud_mock()
+        if self is ProviderConfigId.VULNERABILITIES_TENABLE_ASM:
+            return vulnerabilities_tenable_asm()
         if self is ProviderConfigId.VULNERABILITIES_TENABLE_CLOUD:
             return vulnerabilities_tenable_cloud()
         if self is ProviderConfigId.VULNERABILITIES_TENABLE_SC:

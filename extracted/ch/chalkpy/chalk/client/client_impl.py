@@ -228,6 +228,7 @@ from chalk.queries.data_quality import DataQualityCheck, check_env_overrides, re
 from chalk.queries.query_context import ContextJsonDict, JsonValue
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
+    ComputeClass,
     DeleteScalingGroupResponse,
     GrpcReadinessProbe,
     GrpcStartupProbe,
@@ -3375,7 +3376,7 @@ https://docs.chalk.ai/cli/apply
 
     def prompt_evaluation(
         self,
-        prompts: list[Prompt | str],
+        prompts: list[Prompt],
         dataset_name: str | None = None,
         dataset_id: str | None = None,
         revision_id: str | None = None,
@@ -3425,6 +3426,9 @@ https://docs.chalk.ai/cli/apply
         *,  # Keyword-only: these were added later and must not be passed positionally.
         feature_for_lower_upper_bound: Optional[FeatureReference] = None,
     ) -> Dataset:
+        """Evaluate explicit prompt definitions, rejecting retired names before any requests."""
+        if any(isinstance(prompt, str) for prompt in prompts):
+            raise ValueError("Named prompts are no longer supported. Pass explicit chalk.prompts.Prompt objects.")
         if (
             sum(
                 [
@@ -6669,6 +6673,7 @@ https://docs.chalk.ai/cli/apply
         chalk_workload_identity: bool = False,
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
+        compute_class: Optional[ComputeClass] = None,
     ) -> ModelDeployment:
         return self._get_grpc_client(environment=environment).create_model_deployment(
             name=name,
@@ -6687,6 +6692,7 @@ https://docs.chalk.ai/cli/apply
             chalk_workload_identity=chalk_workload_identity,
             retries=retries,
             queue_policy=queue_policy,
+            compute_class=compute_class,
         )
 
     def get_model_deployment(
@@ -6817,6 +6823,7 @@ https://docs.chalk.ai/cli/apply
         validate: bool = True,
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
+        compute_class: Optional[ComputeClass] = None,
     ) -> dict[str, Any]:
         """Deprecated: use `create_model_deployment`. Deploys without waiting for readiness."""
         warnings.warn(DEPLOY_MODEL_VERSION_DEPRECATION, DeprecationWarning, stacklevel=2)
@@ -6843,6 +6850,7 @@ https://docs.chalk.ai/cli/apply
             chalk_workload_identity=chalk_workload_identity,
             retries=retries,
             queue_policy=queue_policy,
+            compute_class=compute_class,
         )
 
     def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:

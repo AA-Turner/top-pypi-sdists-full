@@ -5,6 +5,7 @@ on this, so nothing here imports a producer package; records are duck-typed.
 """
 
 from . import metrics, projection
+from .config import TRACES_OPT_OUT_ENV
 from .exceptions import (
     APIError,
     ConfigurationError,
@@ -28,7 +29,7 @@ from .models import (
 )
 from .run import MODE_ENV, Run, init
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 __all__ = [
     "init",
@@ -39,6 +40,7 @@ __all__ = [
     "ConfigSource",
     "CONFIG_SOURCE_KEY",
     "EnvironmentRef",
+    "TRACES_OPT_OUT_ENV",
     "MODE_ENV",
     "metrics",
     "projection",

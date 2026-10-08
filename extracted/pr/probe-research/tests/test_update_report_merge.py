@@ -1,0 +1,374 @@
+"""One update RUN, one report: the wizard's per-agent passes are merged.
+
+`probe wizard --action update` runs `perform_update` once per coding agent on
+the machine, and the server keeps one row per machine. Sent pass by pass, the
+LAST agent overwrote the rest: live on the devbox (CLI 0.224.1) Kimi Code ran
+last with no Probe plugins, so the row read plugin `not_installed` and tap NULL
+while Claude Code's tap was current and Codex had just verified its own. On a
+customer machine that hides exactly the failure the report exists to show.
+
+Nothing here reaches a real agent CLI or server: the plugin steps are faked,
+and `update_report._deliver` records what would have been sent.
+"""
+
+from __future__ import annotations
+
+import importlib
+import time
+
+import pytest
+
+from probe.cli import autoupdate, update_report, updater, upgrading
+from probe.cli.capabilities import Capabilities
+
+MANIFEST = {
+    "cli": {"latest": "0.224.1"},
+    "plugin": {"latest": "0.120.0"},
+    "tap": {"latest": "0.9.14"},
+}
+Result = update_report.Result
+
+
+@pytest.fixture(autouse=True)
+def isolate(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config" / "probe" / "config.json"))
+    monkeypatch.setenv("PROBE_DEVICE_ID_PATH", str(tmp_path / "state" / "device.json"))
+    monkeypatch.setenv("PROBE_TOKEN", "probe_pat_" + "0" * 32)
+    monkeypatch.delenv("PROBE_BASE_URL", raising=False)
+    monkeypatch.delenv("PROBE_AGENT", raising=False)
+    monkeypatch.delenv(autoupdate.WAIT_FOR_PID_ENV, raising=False)
+    monkeypatch.delenv(autoupdate.TRIGGER_ENV, raising=False)
+
+
+@pytest.fixture
+def sent(monkeypatch):
+    bodies: list[dict] = []
+
+    def _accept(base_url, headers, body, timeout):
+        bodies.append(body)
+        return 202
+
+    monkeypatch.setattr(update_report, "_deliver", _accept)
+    return bodies
+
+
+def _plugin(tap_before, tap_after, *, before="0.120.0", after="0.120.0", tap_detail="",
+            confirmed=True, **extra):
+    return updater.PluginResult(
+        True, confirmed, False, before, after, "plugin already at the latest (0.120.0)",
+        tap_before=tap_before, tap_after=tap_after, tap_detail=tap_detail, **extra,
+    )
+
+
+#: Kimi Code with no Probe plugins installed: what `update_kimi_plugins` says.
+KIMI_NOTHING = updater.PluginResult(
+    False, False, False, None, None, "no Probe plugins installed in Kimi Code"
+)
+
+
+def _stub_updater(monkeypatch, by_agent: dict[str, updater.PluginResult]):
+    """The CLI is already current; each agent's plugin step answers from
+    `by_agent`, keyed on the agent the pass runs for (PROBE_AGENT)."""
+    import os
+
+    monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: MANIFEST)
+    monkeypatch.setattr(
+        upgrading.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL)
+    )
+    monkeypatch.setattr(
+        upgrading.updater,
+        "upgrade_cli",
+        lambda install, current, target: updater.CliResult(
+            True, True, False, current, "0.224.1", "CLI already at the latest (0.224.1)"
+        ),
+    )
+    step = lambda *args: by_agent[os.environ["PROBE_AGENT"]]  # noqa: E731
+    monkeypatch.setattr(upgrading.updater, "update_plugin", step)
+    monkeypatch.setattr(upgrading.updater, "update_codex_plugins", step)
+    monkeypatch.setattr(upgrading.updater, "update_kimi_plugins", step)
+
+
+def _pass(monkeypatch, agent: str):
+    monkeypatch.setenv("PROBE_AGENT", agent)
+    return upgrading.perform_update(
+        base_url="https://api.test", include_plugin=True, trigger=update_report.Trigger.SESSION_START
+    )
+
+
+# ---------------------------------------------------------------------------
+# The priority
+# ---------------------------------------------------------------------------
+
+
+def test_the_priority_ranks_every_result_exactly_once():
+    assert sorted(update_report.RESULT_PRIORITY) == sorted(Result)
+    assert len(set(update_report.RESULT_PRIORITY)) == len(Result)
+
+
+def test_not_installed_loses_to_everything_and_a_failure_beats_a_success():
+    order = update_report.RESULT_PRIORITY
+    assert order[-1] is Result.NOT_INSTALLED
+    assert order.index(Result.BEHIND) < order.index(Result.CURRENT)
+    assert order.index(Result.ERROR) < order.index(Result.UPDATED)
+
+
+# ---------------------------------------------------------------------------
+# A run of real passes, merged
+# ---------------------------------------------------------------------------
+
+
+def test_kimi_with_no_plugins_no_longer_hides_a_current_tap(monkeypatch, sent):
+    """The devbox case: Claude Code's tap current, Kimi Code last with nothing."""
+    _stub_updater(monkeypatch, {
+        "claude_code": _plugin("0.9.14", "0.9.14"),
+        "kimi_code": KIMI_NOTHING,
+    })
+
+    with update_report.merged_run():
+        _pass(monkeypatch, "claude_code")
+        _pass(monkeypatch, "kimi_code")
+
+    [report] = sent
+    assert report["tap"]["result"] == Result.CURRENT
+    assert report["tap"]["after"] == "0.9.14"
+    assert report["tap"]["harness"] == "claude_code"
+    assert report["plugin"]["result"] == Result.CURRENT
+    assert report["plugin"]["harness"] == "claude_code"
+    assert report["outcome"] == "ok"
+
+
+def test_a_codex_tap_left_behind_is_reported_from_codex(monkeypatch, sent):
+    _stub_updater(monkeypatch, {
+        "claude_code": _plugin("0.9.14", "0.9.14"),
+        "codex": _plugin("0.9.11", "0.9.11", tap_detail=updater.CODEX_TAP_NOOP,
+                         before="probe-research=0.120.0", after="probe-research=0.120.0"),
+    })
+
+    with update_report.merged_run():
+        _pass(monkeypatch, "claude_code")
+        _pass(monkeypatch, "codex")
+
+    [report] = sent
+    assert report["tap"] == {
+        "before": "0.9.11",
+        "after": "0.9.11",
+        "target": "0.9.14",
+        "result": Result.BEHIND,
+        "detail": updater.CODEX_TAP_NOOP,
+        "harness": "codex",
+    }
+    assert report["outcome"] == "failed"  # the codex pass failed on its tap
+
+
+def test_outside_a_run_each_pass_still_reports_on_its_own(monkeypatch, sent):
+    """A single update (the detached auto-update, `probe update`) is one pass,
+    sent at once, exactly as before."""
+    _stub_updater(monkeypatch, {"claude_code": _plugin("0.9.14", "0.9.14")})
+    _pass(monkeypatch, "claude_code")
+    assert len(sent) == 1
+
+
+def test_a_failed_merge_costs_the_report_never_the_run(monkeypatch, sent):
+    _stub_updater(monkeypatch, {"claude_code": _plugin("0.9.14", "0.9.14")})
+
+    def _boom(reports):
+        raise RuntimeError("merge bug")
+
+    monkeypatch.setattr(update_report, "merge_passes", _boom)
+    with update_report.merged_run():
+        outcome = _pass(monkeypatch, "claude_code")
+    assert outcome.ok and sent == []
+
+
+def test_nested_runs_send_once():
+    passes = []
+    with update_report.merged_run():
+        with update_report.merged_run():
+            update_report.submit_attempt({"schema_version": 1, "outcome": "ok"})
+        passes.append(list(update_report._run_passes))
+    assert len(passes[0]) == 1
+    assert update_report._run_passes is None
+
+
+# ---------------------------------------------------------------------------
+# merge_passes, field by field
+# ---------------------------------------------------------------------------
+
+
+def _report(harness, *, outcome="ok", at=100, tap=None, plugin=None, legacy=()):
+    return update_report.attempt_report(
+        trigger=update_report.Trigger.CLI, ok=outcome == "ok", at=at, source=harness,
+        cli=update_report._component("0.224.1", "0.224.1", "0.224.1", Result.CURRENT),
+        plugin=plugin, tap=tap, legacy_ids=legacy,
+    )
+
+
+def test_merge_keeps_the_chosen_passs_fields_together():
+    current = update_report._component("0.9.14", "0.9.14", "0.9.14", Result.CURRENT)
+    missing = update_report._component(
+        "0.9.3", "0.9.3", "0.9.14", Result.NOT_FOUND_ON_PATH, "`codex` not found on PATH"
+    )
+    merged = update_report.merge_passes([
+        _report("claude_code", tap=current, at=200, legacy=("prbe-cc-tap-plugin",)),
+        _report("codex", tap=missing, outcome="failed", at=150,
+                legacy=("prbe-codex-tap-plugin", "prbe-cc-tap-plugin")),
+        _report("pi", tap=None, at=300),
+    ])
+    assert merged["tap"] == {**missing, "harness": "codex"}
+    assert merged["outcome"] == "failed"
+    assert merged["attempted_at"] == 150
+    assert merged["harness"] == "claude_code"  # the run's first pass
+    assert merged["legacy_plugin_ids"] == ["prbe-cc-tap-plugin", "prbe-codex-tap-plugin"]
+
+
+def test_a_tie_keeps_the_earlier_pass():
+    a = update_report._component("0.9.14", "0.9.14", "0.9.14", Result.CURRENT)
+    merged = update_report.merge_passes([_report("claude_code", tap=a), _report("codex", tap=a)])
+    assert merged["tap"]["harness"] == "claude_code"
+
+
+def test_a_component_no_pass_had_stays_absent():
+    merged = update_report.merge_passes([_report("pi"), _report("pi")])
+    assert merged["tap"] is None
+
+
+# ---------------------------------------------------------------------------
+# The wizard itself: one report for `probe wizard --action update --yes`
+# ---------------------------------------------------------------------------
+
+
+def test_the_wizard_update_sends_one_merged_report(monkeypatch, sent):
+    """End to end through the wizard's per-agent loop. On main before this fix
+    the loop sent one report per agent and the server kept the last: Kimi
+    Code's "not installed"."""
+    from probe.cli import capabilities, doctor, setup
+
+    cli_main = importlib.import_module("probe.cli.main")
+    _stub_updater(monkeypatch, {
+        "claude_code": _plugin("0.9.14", "0.9.14"),
+        "kimi_code": KIMI_NOTHING,
+    })
+    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+
+    def _offline(*args, **kwargs):
+        raise OSError("no server in this test")
+
+    monkeypatch.setattr(capabilities, "device_state_request", _offline)
+    monkeypatch.setattr(doctor, "collect", lambda: Capabilities())
+    monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
+
+    assert cli_main.main(["wizard", "--yes", "--action", "update"]) == 0
+
+    [report] = sent
+    assert report["tap"]["result"] == Result.CURRENT
+    assert report["tap"]["harness"] == "claude_code"
+    assert report["plugin"]["harness"] == "claude_code"
+    assert report["attempted_at"] <= int(time.time())
+
+
+# ---------------------------------------------------------------------------
+# The local record (`autoupdate.json`, `probe doctor`) merges the same passes.
+# It had the flaw the server report had: each pass overwrote `last_attempt`.
+# In a sandboxed Update on 2026-10-07 the Claude Code pass could not update its
+# plugin, and pi, last with nothing to update, recorded success over it.
+# ---------------------------------------------------------------------------
+
+CLAUDE_PLUGIN_FAILED = updater.PluginResult(
+    True, False, False, "0.112.3", "0.112.3",
+    "`claude plugin update probe-research@research-os-agent` did not complete: "
+    '✘ Failed to update plugin "probe-research@research-os-agent": '
+    'Plugin "probe-research" is not installed',
+    tap_before="0.9.3", tap_after="0.9.14", command_failed=True,
+)
+
+
+def test_the_wizard_update_records_one_merged_attempt_locally(monkeypatch, sent):
+    from probe.cli import capabilities, doctor, setup
+
+    cli_main = importlib.import_module("probe.cli.main")
+    _stub_updater(monkeypatch, {"claude_code": CLAUDE_PLUGIN_FAILED, "kimi_code": KIMI_NOTHING})
+    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+
+    def _offline(*args, **kwargs):
+        raise OSError("no server in this test")
+
+    monkeypatch.setattr(capabilities, "device_state_request", _offline)
+    monkeypatch.setattr(doctor, "collect", lambda: Capabilities())
+    monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
+
+    cli_main.main(["wizard", "--yes", "--action", "update"])
+
+    attempt = autoupdate.load().last_attempt
+    assert attempt.plugin_ok is False, "Kimi Code, last with nothing to update, hid the failure"
+    assert attempt.plugin_detail.startswith("Claude Code: `claude plugin update")
+    assert attempt.plugin_version == "0.112.3"
+    assert attempt.ok is True
+    assert "FAILED" in attempt.describe()
+
+
+def _attempt(**fields):
+    base = dict(at=100, ok=True, from_version="0.224.1", to_version="0.225.0")
+    return autoupdate.Attempt(**{**base, **fields})
+
+
+def test_a_failed_plugin_pass_beats_a_later_pass_with_nothing_to_do():
+    merged = autoupdate.merge_attempts([
+        ("Claude Code", _attempt(plugin_ok=False, plugin_detail="refresh failed", plugin_version="0.120.0")),
+        ("Codex", _attempt(at=90, plugin_version="probe-research=0.124.0")),
+        ("Kimi Code", _attempt(at=110)),
+    ])
+    assert merged.plugin_ok is False
+    assert merged.plugin_detail == "Claude Code: refresh failed"
+    assert merged.plugin_version == "0.120.0"
+    assert merged.at == 90, "dated by its first pass"
+
+
+def test_every_failing_agent_is_named():
+    merged = autoupdate.merge_attempts([
+        ("Claude Code", _attempt(plugin_ok=False, plugin_detail="a")),
+        ("Codex", _attempt(plugin_ok=False, plugin_detail="b")),
+    ])
+    assert merged.plugin_detail == "Claude Code: a; Codex: b"
+
+
+def test_a_failed_cli_half_wins_over_a_later_success():
+    merged = autoupdate.merge_attempts([
+        ("Claude Code", _attempt(ok=False, detail="`uv` not found on PATH", to_version=None)),
+        ("Codex", _attempt()),
+    ])
+    assert (merged.ok, merged.detail, merged.to_version) == (False, "`uv` not found on PATH", None)
+
+
+def test_notes_from_a_successful_run_are_kept_with_their_agent():
+    merged = autoupdate.merge_attempts([
+        ("Claude Code", _attempt(
+            plugin_detail="1 session started before the update still runs tap 0.9.3",
+            plugin_version="0.124.0",
+        )),
+        # Nothing installed is not news in a success.
+        ("Kimi Code", _attempt(plugin_detail="no Probe plugins installed in Kimi Code")),
+    ])
+    assert merged.plugin_ok is True
+    assert merged.plugin_detail == "Claude Code: 1 session started before the update still runs tap 0.9.3"
+
+
+def test_one_pass_is_recorded_as_it_was():
+    only = _attempt(plugin_ok=False, plugin_detail="x")
+    assert autoupdate.merge_attempts([("Claude Code", only)]) is only
+
+
+def test_outside_a_run_each_attempt_is_written_at_once():
+    autoupdate.record_attempt(_attempt(plugin_detail="first"), agent="Claude Code")
+    assert autoupdate.load().last_attempt.plugin_detail == "first"
+
+
+def test_a_merged_run_writes_once_at_its_end():
+    with update_report.merged_run():
+        autoupdate.record_attempt(_attempt(plugin_ok=False, plugin_detail="x"), agent="Codex")
+        autoupdate.record_attempt(_attempt(), agent="pi")
+        assert autoupdate.load().last_attempt is None, "nothing written mid-run"
+    attempt = autoupdate.load().last_attempt
+    assert (attempt.plugin_ok, attempt.plugin_detail) == (False, "Codex: x")

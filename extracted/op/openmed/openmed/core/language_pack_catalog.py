@@ -15,6 +15,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from .language_pack import LANGUAGE_PACK_REGISTRY, LanguagePack, LanguagePackRegistry
+from .language_packs import (
+    CHINESE_LANGUAGE_PACK,
+    HINDI_LANGUAGE_PACK,
+    TELUGU_LANGUAGE_PACK,
+)
 
 UNKNOWN_SCRIPT = "Unknown"
 UNROUTED_SCRIPT = "Unrouted"
@@ -24,7 +29,9 @@ REGISTERED_SEGMENTERS = frozenset({"jieba", "pysbd", "unicode-sentence"})
 # These built-in routes intentionally use a named fallback until dedicated
 # public PII weights are available. They must not be represented as
 # trained/model-backed languages in release claims.
-DEFAULT_MODEL_PLACEHOLDER_LANGUAGES = frozenset({"fa", "ru", "ta"})
+DEFAULT_MODEL_PLACEHOLDER_LANGUAGES = frozenset(
+    {"fa", "ml", "pa", "pl", "ru", "ta", "ur"}
+)
 
 
 def is_registered_segmenter(segmenter_id: str) -> bool:
@@ -104,12 +111,14 @@ BUILTIN_LANGUAGE_PACKS: tuple[LanguagePack, ...] = (
         national_id_provider=("nl_NL", "ssn"),
     ),
     _pack(
-        "hi",
-        "OpenMed/OpenMed-PII-Hindi-SuperClinical-Large-434M-v1",
-        "hi_IN",
-        ("Devanagari",),
-        national_id_provider=("hi_IN", "aadhaar"),
+        "pl",
+        "OpenMed/privacy-filter-multilingual",
+        "pl_PL",
+        ("Latin",),
+        national_id_provider=("pl_PL", "pesel"),
+        routing_markers=("pacjent", "pacjentka", "pesel", "kod pocztowy"),
     ),
+    HINDI_LANGUAGE_PACK,
     _pack(
         "mr",
         "OpenMed/privacy-filter-multilingual",
@@ -141,6 +150,36 @@ BUILTIN_LANGUAGE_PACKS: tuple[LanguagePack, ...] = (
         national_id_provider=("as_IN", "aadhaar"),
     ),
     _pack(
+        "gu",
+        "OpenMed/privacy-filter-multilingual",
+        "gu_IN",
+        ("Gujarati",),
+        national_id_provider=("gu_IN", "aadhaar"),
+        routing_markers=(
+            "દર્દી",
+            "નામ",
+            "આધાર",
+            "પિન",
+            "જાન્યુઆરી",
+            "ફેબ્રુઆરી",
+        ),
+    ),
+    _pack(
+        "kn",
+        "OpenMed/privacy-filter-multilingual",
+        "kn_IN",
+        ("Kannada",),
+        national_id_provider=("kn_IN", "aadhaar"),
+        routing_markers=(
+            "ರೋಗಿ",
+            "ಹೆಸರು",
+            "ಆಧಾರ್",
+            "ಪಿನ್",
+            "ಜನವರಿ",
+            "ಫೆಬ್ರವರಿ",
+        ),
+    ),
+    _pack(
         "bn",
         "OpenMed/OpenMed-PII-Bengali-mSuperClinical-Large-279M-v1",
         "bn_BD",
@@ -148,12 +187,20 @@ BUILTIN_LANGUAGE_PACKS: tuple[LanguagePack, ...] = (
         national_id_provider=("bn_BD", "bangladesh_nid"),
     ),
     _pack(
-        "te",
-        "OpenMed/OpenMed-PII-Telugu-SuperClinical-Large-434M-v1",
-        "en_IN",
-        ("Telugu",),
-        national_id_provider=("en_IN", "aadhaar"),
+        "ml",
+        "OpenMed/privacy-filter-multilingual",
+        "ml_IN",
+        ("Malayalam",),
+        national_id_provider=("ml_IN", "aadhaar"),
     ),
+    _pack(
+        "pa",
+        "OpenMed/privacy-filter-multilingual",
+        "pa_IN",
+        ("Gurmukhi",),
+        national_id_provider=("pa_IN", "aadhaar"),
+    ),
+    TELUGU_LANGUAGE_PACK,
     _pack(
         "ta",
         "OpenMed/privacy-filter-multilingual",
@@ -198,6 +245,14 @@ BUILTIN_LANGUAGE_PACKS: tuple[LanguagePack, ...] = (
         ),
     ),
     _pack(
+        "ur",
+        "OpenMed/privacy-filter-multilingual",
+        "ur_IN",
+        ("Arabic",),
+        national_id_provider=("ur_IN", "aadhaar"),
+        routing_markers=("مریض", "آدھار", "پتہ", "جناب", "محترمہ"),
+    ),
+    _pack(
         "he",
         "OpenMed/privacy-filter-multilingual",
         "he_IL",
@@ -210,16 +265,9 @@ BUILTIN_LANGUAGE_PACKS: tuple[LanguagePack, ...] = (
         "ja_JP",
         ("Han", "Hiragana/Katakana"),
         context_scripts=("Hiragana/Katakana",),
+        national_id_provider=("ja_JP", "my_number"),
     ),
-    LanguagePack(
-        code="zh",
-        scripts=("Han",),
-        default_model="OpenMed/OpenMed-PII-Chinese-BigMed-Large-560M-v1",
-        segmenter_id="jieba",
-        recognizers=("builtin-patterns", "model"),
-        surrogate_locale="zh_CN",
-        national_id_providers={"chinese_resident_id": "zh_CN"},
-    ),
+    CHINESE_LANGUAGE_PACK,
     _pack(
         "tr",
         "OpenMed/OpenMed-PII-Turkish-SuperClinical-Small-44M-v1",
@@ -348,7 +396,6 @@ NATIONAL_ID_ONLY_CAPABILITIES: Mapping[str, NationalIdOnlyCapability] = {
     "ha": NationalIdOnlyCapability("ha_NG", ("ha_NG", "nigeria_nin")),
     "ig": NationalIdOnlyCapability("ig_NG", ("ig_NG", "nigeria_nin")),
     "yo": NationalIdOnlyCapability("yo_NG", ("yo_NG", "nigeria_nin")),
-    "pl": NationalIdOnlyCapability("pl_PL", ("pl_PL", "pesel")),
     "lv": NationalIdOnlyCapability("lv_LV", ("lv_LV", "personas_kods")),
     "sk": NationalIdOnlyCapability("sk_SK", ("sk_SK", "rodne_cislo")),
     "ms": NationalIdOnlyCapability("ms_MY", ("ms_MY", "mykad")),
@@ -359,19 +406,15 @@ NATIONAL_ID_ONLY_CAPABILITIES: Mapping[str, NationalIdOnlyCapability] = {
     "hr": NationalIdOnlyCapability("hr_HR", ("hr_HR", "ssn")),
     "bg": NationalIdOnlyCapability("bg_BG", ("bg_BG", "egn")),
     "fi": NationalIdOnlyCapability("fi_FI", ("fi_FI", "ssn")),
-    "ur": NationalIdOnlyCapability("ur_PK", ("ur_PK", "cnic")),
     "rw": NationalIdOnlyCapability("rw_RW", ("rw_RW", "rwanda_id")),
 }
 
 SUPPLEMENTAL_LOCALES: Mapping[str, str] = {
     "bn": "bn_BD",
-    "gu": "gu_IN",
-    "kn": "kn_IN",
     "ml": "ml_IN",
     # Nepali resolves to Faker's native ``ne_NP`` locale, so it needs no
     # approximation entry and no conceptual backend mapping.
     "ne": "ne_NP",
-    "pa": "pa_IN",
 }
 
 # Languages surfaced by script routing before a bundled default PII model or
@@ -379,12 +422,7 @@ SUPPLEMENTAL_LOCALES: Mapping[str, str] = {
 # these codes; keeping them separate from ``SUPPORTED_LANGUAGES`` avoids
 # advertising model support that OpenMed does not ship yet.
 USER_SUPPLIED_MODEL_LANGUAGES: set[str] = {
-    "gu",
-    "kn",
-    "ml",
     "ne",
-    "pa",
-    "ur",
 }
 
 _SCRIPT_ORDER = (
@@ -424,6 +462,7 @@ _SCRIPT_LANGUAGE_CANDIDATES: Mapping[str, tuple[str, ...]] = {
         "pt",
         "tr",
         "cs",
+        "pl",
         "sw",
         "ig",
         "yo",
@@ -457,6 +496,7 @@ _LOCALE_ORDER = (
     "ne",
     "or",
     "as",
+    "kn",
     "bn",
     "te",
     "ta",
@@ -464,6 +504,7 @@ _LOCALE_ORDER = (
     "pt",
     "ar",
     "fa",
+    "ur",
     "he",
     "ja",
     "zh",
@@ -495,7 +536,6 @@ _LOCALE_ORDER = (
     "et",
     "el",
     "vi",
-    "ur",
 )
 
 _NATIONAL_ID_PROVIDER_ORDER = (
@@ -509,12 +549,14 @@ _NATIONAL_ID_PROVIDER_ORDER = (
     "mr",
     "or",
     "as",
+    "kn",
     "te",
     "ta",
     "am",
     "pt",
     "fa",
     "tr",
+    "ur",
     "he",
     "id",
     "th",
@@ -543,7 +585,6 @@ _NATIONAL_ID_PROVIDER_ORDER = (
     "et",
     "el",
     "vi",
-    "ur",
 )
 
 

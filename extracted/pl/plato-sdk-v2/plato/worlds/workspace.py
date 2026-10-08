@@ -549,6 +549,17 @@ class Workspace:
             logger.debug("Workspace '%s' step '%s' has no DVC files", self.name, step_name)
             self._last_ref_step = step_name
             return True
+        expected = self.path.name
+        if expected not in dvc_files:
+            # Each dir restores into <repo_root>/<dir_name>, and the world reads only self.path: a ref
+            # registered under another dir_name restores where nothing reads it, and the world then
+            # starts on an empty workspace (a git workspace seeds an empty repo over it).
+            got = ", ".join(sorted(dvc_files))
+            raise RuntimeError(
+                f"workspace ref for step '{step_name}' (repo={self.repo_name}) holds dir_name(s) '{got}', but "
+                f"workspace '{self.name}' reads '{expected}'. Re-upload the ref with 'plato chronos workspace "
+                f"upload git ... --dir-name {expected}' (or point the launch at a ref registered under '{expected}')."
+            )
 
         s3_config = self._s3_config()
 

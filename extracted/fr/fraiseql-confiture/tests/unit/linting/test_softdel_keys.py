@@ -278,9 +278,10 @@ def test_no_rule_runs_when_the_family_is_not_declared(tmp_path: Path) -> None:
 def test_the_family_is_on_when_the_project_declares_soft_delete() -> None:
     rules = {r.code: r for r in LINT_RULES if r.family == "softdel"}
 
-    assert sorted(rules) == ["softdel_001", "softdel_002"]
+    assert sorted(rules) == ["softdel_001", "softdel_002", "softdel_003"]
     assert rules["softdel_001"].severity == "warning"
     assert rules["softdel_002"].severity == "info"
+    assert rules["softdel_003"].severity == "warning"
     assert all(r.enabled_by == "soft_delete" and not r.default_on for r in rules.values())
     declared = resolve_selection(None, (), declared=frozenset({"soft_delete"}))
     assert {"softdel_001", "softdel_002"} <= declared
@@ -343,3 +344,42 @@ def test_softdel_002_reads_only_soft_deleting_tables(tmp_path: Path) -> None:
     sql = "CREATE TABLE tb_node (id INT PRIMARY KEY, fk_parent INT, name TEXT, UNIQUE (fk_parent, name));\n"
 
     assert _nulls(tmp_path, sql) == []
+
+
+def test_a_constraint_dropped_later_is_not_judged(tmp_path: Path) -> None:
+    """#624: the key ``ALTER TABLE … DROP CONSTRAINT`` drops is not one the table holds."""
+    sql = ORDER_LINE + (
+        "ALTER TABLE app.tb_order_line DROP CONSTRAINT tb_order_line_order_product_key;\n"
+    )
+
+    assert _reserved(tmp_path, sql) == []
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        TREE
+        + "-- confiture:softdel-nulls-distinct\n"
+        + "CREATE UNIQUE INDEX ux ON tb_node (fk_parent, name) WHERE deleted_at IS NULL;\n",
+        "-- confiture:softdel-nulls-distinct tb_node_fk_parent_name_key\n"
+        + TREE.replace(
+            "deleted_at TIMESTAMPTZ)", "deleted_at TIMESTAMPTZ, UNIQUE (fk_parent, name))"
+        ),
+    ],
+    ids=["index", "inline-unnamed"],
+)
+def test_the_nulls_distinct_waiver_keeps_null_distinct(tmp_path: Path, sql: str) -> None:
+    """#640: two devices with no MAC address recorded must not collide on the key."""
+    assert _nulls(tmp_path, sql) == []
+
+
+def test_each_waiver_waives_its_own_rule(tmp_path: Path) -> None:
+    sql = (
+        TREE
+        + "-- confiture:softdel-nulls-distinct\n"
+        + "CREATE UNIQUE INDEX ux ON tb_node (fk_parent, name);\n"
+    )
+    report = _lint(tmp_path, sql)
+
+    assert _found(report, "softdel_002") == []
+    assert len(_found(report, "softdel_001")) == 1

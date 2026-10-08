@@ -8,7 +8,7 @@ import math
 import os
 import re
 import typing
-from collections.abc import MutableMapping, MutableSequence
+from collections.abc import Callable, MutableMapping, MutableSequence
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from decimal import Decimal
@@ -152,6 +152,7 @@ from snowflake.snowpark_connect.relation.write.map_write import (
     _apply_leftover_table_properties,
     _build_base_location_clause,
     _build_table_properties_clause,
+    _cld_ddl_identifier,
     _coerce_to_unstructured_complex_target,
     _column_order_for_write,
     _consumed_table_property_keys,
@@ -174,6 +175,16 @@ from snowflake.snowpark_connect.type_mapping import (
     map_snowpark_to_pyspark_types,
     map_type_to_snowflake_type,
     snowpark_to_proto_type,
+)
+from snowflake.snowpark_connect.utils.api_surface import (
+    API_SURFACE_SQL,
+    reset_api_surface,
+    set_api_surface,
+)
+from snowflake.snowpark_connect.utils.cld_replace import (
+    _attach_cld_replace_recovery,
+    _insert_cld_table_from_result_scan,
+    _run_cld_replace_source_query,
 )
 from snowflake.snowpark_connect.utils.context import (
     _accessing_temp_object,
@@ -223,7 +234,10 @@ from ..expression.map_sql_expression import (
 )
 from ..type_support import emulate_decimal_type, is_integral_types_conversion_enabled
 from ..typed_column import TypedColumn
-from ..utils.cld_context import catalog_kind as resolve_catalog_kind
+from ..utils.cld_context import (
+    catalog_kind as resolve_catalog_kind,
+    catalog_kind_for_table as resolve_catalog_kind_for_table,
+)
 from ..utils.identifiers import (
     UNQUOTED_SPARK_IDENTIFIER,
     is_backtick_quoted,
@@ -247,6 +261,7 @@ from ..utils.temporary_view_helper import (
     create_snowflake_temporary_view,
     create_temporary_view_from_dataframe,
     get_temp_view,
+    is_registered_temp_view,
     register_temp_view,
     snowflake_materialized_view_column_name,
     store_temporary_view_as_dataframe,
@@ -344,15 +359,21 @@ def _execute_alter(
     session.sql(sql).collect()
 
 
-def _report_iceberg_ddl_if_iceberg(op: str, is_iceberg: bool) -> None:
+def _report_iceberg_ddl_if_iceberg(
+    op: str, is_iceberg: bool, session: Session, table_name: str | None
+) -> None:
     """Emit an ``iceberg_ddl`` telemetry event for a table DDL op (SNOW-3985860).
 
-    No-op when the target isn't an Iceberg table; ``catalog_kind`` is derived from
-    the session CLD hint. Shared by the column-evolution and drop-table sites so the
-    gate/derivation don't drift.
+    No-op when the target isn't an Iceberg table. ``catalog_kind`` is resolved
+    from the *target table's* catalog (not the session), so a column-evolution
+    or drop DDL on a fully-qualified CLD table from a managed session is labeled
+    by the table's provider rather than ``managed`` (SNOW-4237460). Shared by the
+    column-evolution and drop-table sites so the gate/derivation don't drift.
     """
     if is_iceberg:
-        telemetry.report_iceberg_ddl(op, catalog_kind=resolve_catalog_kind())
+        telemetry.report_iceberg_ddl(
+            op, catalog_kind=resolve_catalog_kind_for_table(session, table_name)
+        )
 
 
 def _build_set_table_properties_sql(
@@ -538,6 +559,16 @@ def _handle_show_tblproperties(
     resolve). Non-Iceberg targets keep the historical empty result; Iceberg
     targets read live properties and shape them into Spark's key/value frame.
     """
+    # A Spark temporary view is not a Snowflake object; SHOW TBLPROPERTIES on it
+    # returns an empty result in Spark (and did in SCOS before the missing-table
+    # probe). Resolve it up front so the DESCRIBE TABLE existence probe below does
+    # not mistake it for a missing table and raise TABLE_OR_VIEW_NOT_FOUND. Match
+    # on sf_name (the Snowflake-quoted name the view was registered under, per
+    # part) so bare and global/qualified temp views both resolve; use
+    # is_registered_temp_view (key presence) since a view materialized in
+    # Snowflake caches a None DataFrame that get_temp_view would miss.
+    if is_registered_temp_view(sf_name):
+        return pandas.DataFrame({"": [""]}), ""
     if not _alter_target_is_iceberg(session, sf_name):
         # Managed non-Iceberg: a real FDN table/view yields the historical empty
         # result, but a missing table must raise TABLE_OR_VIEW_NOT_FOUND like
@@ -665,9 +696,9 @@ def _dispatch_set_table_properties(
     while props_iter.hasNext():
         pair = props_iter.next()
         props[str(pair._1())] = str(pair._2())
-    # Session-level CLD hint; "managed" here means "non-CLD session" (ALTER has no
-    # per-table catalog kind to read), so query 4 gets a value instead of NULL.
-    catalog_kind = resolve_catalog_kind()
+    # Catalog of the ALTER target, not the session: a fully-qualified CLD table
+    # altered from a managed session is labeled by its own provider (SNOW-4237460).
+    catalog_kind = resolve_catalog_kind_for_table(session, table_name)
     if not _alter_target_is_iceberg(session, table_name):
         telemetry.report_iceberg_table_properties(
             "alter_set",
@@ -706,8 +737,8 @@ def _dispatch_unset_table_properties(
     """
     table_name = get_relation_identifier_name(logical_plan.table(), True)
     keys = [str(k) for k in as_java_list(logical_plan.propertyKeys())]
-    # Session-level CLD hint; see _dispatch_set_table_properties.
-    catalog_kind = resolve_catalog_kind()
+    # Catalog of the ALTER target; see _dispatch_set_table_properties.
+    catalog_kind = resolve_catalog_kind_for_table(session, table_name)
     if not _alter_target_is_iceberg(session, table_name):
         telemetry.report_iceberg_table_properties(
             "alter_unset",
@@ -1255,7 +1286,7 @@ def _iceberg_call_literal_value(expr: object) -> object:
     simple_name = str(expr.getClass().getSimpleName())
     if simple_name != "Literal":
         raise AnalysisException(
-            "Iceberg procedure arguments must be literals; got " f"{simple_name}."
+            f"Iceberg procedure arguments must be literals; got {simple_name}."
         )
     return expr.value()
 
@@ -1653,8 +1684,7 @@ def _raise_mapped_ancestors_of_error(
     #    TABLE_OR_VIEW_NOT_FOUND, not a CLD error.
     if code == 2003:
         exception = AnalysisException(
-            "[TABLE_OR_VIEW_NOT_FOUND] The table or view cannot "
-            f"be found. {table_name}"
+            f"[TABLE_OR_VIEW_NOT_FOUND] The table or view cannot be found. {table_name}"
         )
         attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
         raise exception from None
@@ -1852,7 +1882,11 @@ def _create_cld_iceberg_table_as_select(
         options["location"] = location
     writer = _get_writer_for_table_creation(df)
 
+    # RTAS drops the published table. Run the source query first so a failing
+    # row leaves it intact (SNOW-4195605); the load below reads the result.
+    source_query_id = None
     if mode == "overwrite":
+        source_query_id = _run_cld_replace_source_query(writer._dataframe, None)
         session.sql(f"DROP TABLE IF EXISTS {name}").collect()
 
     try:
@@ -1872,10 +1906,23 @@ def _create_cld_iceberg_table_as_select(
         # Snowflake error code rather than message text.
         if mode == "ignore" and getattr(e, "sql_error_code", None) == 2002:
             return
+        if source_query_id is not None:
+            _attach_cld_replace_recovery(e, source_query_id)
         raise
 
     # table_exists=True: the CREATE above already made the table, so Snowpark
     # appends without re-attempting a CREATE (matches the V1 CLD paths).
+    # RTAS loads the query already executed above instead of running it again.
+    if source_query_id is not None:
+        columns = ", ".join(
+            _cld_ddl_identifier(field.name) for field in writer._dataframe.schema.fields
+        )
+        try:
+            _insert_cld_table_from_result_scan(session, name, columns, source_query_id)
+        except Exception as exc:
+            _attach_cld_replace_recovery(exc, source_query_id)
+            raise
+        return
     writer.saveAsTable(
         table_name=name,
         mode="append",
@@ -2341,9 +2388,9 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
             else "not enough data columns"
         )
         exception = AnalysisException(
-            f'[INSERT_COLUMN_ARITY_MISMATCH.{reason.replace(" ", "_").upper()}] Cannot write to {name}, the reason is {reason}:\n'
-            f'Table columns: {", ".join(target_schema.names)}.\n'
-            f'Data columns: {", ".join(df.schema.names)}.'
+            f"[INSERT_COLUMN_ARITY_MISMATCH.{reason.replace(' ', '_').upper()}] Cannot write to {name}, the reason is {reason}:\n"
+            f"Table columns: {', '.join(target_schema.names)}.\n"
+            f"Data columns: {', '.join(df.schema.names)}."
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
         raise exception
@@ -2794,14 +2841,57 @@ def _get_field_by_name(
 
 
 def _field_not_found_exception(
-    path_parts: list[str], field_path: list[str]
+    path_parts: list[str], field_path: list[str], verb: str = "add"
 ) -> Exception:
     exception = AnalysisException(
-        f"[FIELD_NOT_FOUND] Cannot add nested field `{'.'.join(path_parts)}` "
+        f"[FIELD_NOT_FOUND] Cannot {verb} nested field `{'.'.join(path_parts)}` "
         f"because `{'.'.join(field_path)}` is not a structured column."
     )
     attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
     return exception
+
+
+def _walk_nested_struct_sql(
+    struct_type: StructType,
+    remaining_path_parts: list[str],
+    full_path_parts: list[str],
+    leaf_fn: Callable[[StructType, str], str | None],
+    *,
+    verb: str = "add",
+    if_exists_missing: bool = False,
+) -> str | None:
+    field_name = remaining_path_parts[0]
+    existing_field = _get_field_by_name(struct_type, field_name)
+
+    if len(remaining_path_parts) == 1:
+        return leaf_fn(struct_type, field_name)
+
+    if existing_field is None or not isinstance(existing_field.datatype, StructType):
+        if if_exists_missing and existing_field is None:
+            return None
+        field_path = full_path_parts[
+            : len(full_path_parts) - len(remaining_path_parts) + 1
+        ]
+        raise _field_not_found_exception(full_path_parts, field_path, verb=verb)
+
+    fields_sql = []
+    for field in struct_type.fields:
+        field_name_sql = field.case_sensitive_name
+        if comparable_col_name(field.name) == comparable_col_name(field_name):
+            field_type_sql = _walk_nested_struct_sql(
+                existing_field.datatype,
+                remaining_path_parts[1:],
+                full_path_parts,
+                leaf_fn,
+                verb=verb,
+                if_exists_missing=if_exists_missing,
+            )
+            if field_type_sql is None:
+                return None
+        else:
+            field_type_sql = map_type_to_snowflake_type(field.datatype, structured=True)
+        fields_sql.append(f"{field_name_sql} {field_type_sql}")
+    return f"OBJECT({', '.join(fields_sql)})"
 
 
 def _add_nested_field_to_structured_sql(
@@ -2810,21 +2900,17 @@ def _add_nested_field_to_structured_sql(
     spark_data_type: jpype.JObject,
     full_path_parts: list[str],
 ) -> str:
-    field_name = remaining_path_parts[0]
-    existing_field = _get_field_by_name(struct_type, field_name)
-
-    if len(remaining_path_parts) == 1:
-        if existing_field is not None:
+    def leaf(current: StructType, field_name: str) -> str:
+        if _get_field_by_name(current, field_name) is not None:
             exception = AnalysisException(
                 f"[COLUMN_ALREADY_EXISTS] The nested field `{'.'.join(full_path_parts)}` already exists."
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
             raise exception
-
         existing_fields_sql = [
             f"{field.case_sensitive_name} "
             f"{map_type_to_snowflake_type(field.datatype, structured=True)}"
-            for field in struct_type.fields
+            for field in current.fields
         ]
         new_field_sql = (
             f"{quote_name_without_upper_casing(field_name)} "
@@ -2832,26 +2918,12 @@ def _add_nested_field_to_structured_sql(
         )
         return f"OBJECT({', '.join(existing_fields_sql + [new_field_sql])})"
 
-    if existing_field is None or not isinstance(existing_field.datatype, StructType):
-        field_path = full_path_parts[
-            : len(full_path_parts) - len(remaining_path_parts) + 1
-        ]
-        raise _field_not_found_exception(full_path_parts, field_path)
-
-    fields_sql = []
-    for field in struct_type.fields:
-        field_name_sql = field.case_sensitive_name
-        if comparable_col_name(field.name) == comparable_col_name(field_name):
-            field_type_sql = _add_nested_field_to_structured_sql(
-                existing_field.datatype,
-                remaining_path_parts[1:],
-                spark_data_type,
-                full_path_parts,
-            )
-        else:
-            field_type_sql = map_type_to_snowflake_type(field.datatype, structured=True)
-        fields_sql.append(f"{field_name_sql} {field_type_sql}")
-    return f"OBJECT({', '.join(fields_sql)})"
+    result = _walk_nested_struct_sql(
+        struct_type, remaining_path_parts, full_path_parts, leaf, verb="add"
+    )
+    if result is None:
+        raise _field_not_found_exception(full_path_parts, remaining_path_parts[:1])
+    return result
 
 
 def _nested_struct_add_unsupported_on_cld(
@@ -2924,6 +2996,64 @@ def _nested_struct_add_unsupported_on_non_iceberg(
     return exception
 
 
+def _nested_struct_drop_unsupported(
+    table_name: str,
+    col_name_parts: list[str],
+) -> SnowparkConnectNotImplementedError:
+    """Build the actionable error for a dotted (nested-struct) DROP COLUMN.
+
+    Spark ``ALTER TABLE ... DROP COLUMN a.b`` targets a nested struct
+    field. Snowflake's plain ``ALTER TABLE ... DROP COLUMN`` rejects the
+    dotted reference with a ``001003 / 42000 syntax error ... unexpected
+    '.'``, and there is no managed-Iceberg nested *drop* rebuild path (the
+    counterpart to ``_execute_managed_iceberg_nested_add_column``). Rather
+    than forward broken DDL, surface the gap explicitly — mirroring the
+    nested-struct ADD guards. SNOW-4202246 only covered top-level columns.
+    """
+    nested_path = ".".join(col_name_parts)
+    telemetry.report_iceberg_unsupported_feature("nested_struct_drop")
+    exception = SnowparkConnectNotImplementedError(
+        "Nested struct schema evolution "
+        f"(ALTER TABLE ... DROP COLUMN {nested_path}) "
+        f"is not supported on table '{table_name}'. Snowflake does not "
+        "expose a nested-struct DROP COLUMN path. Workaround: rebuild the "
+        "struct column with the desired fields via "
+        "ALTER TABLE ... DROP/ADD COLUMN on the top-level column."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _build_drop_columns_sql(
+    table_name: str,
+    columns_to_drop,
+    if_exists: bool,
+) -> str:
+    """Build a single ``ALTER TABLE ... DROP COLUMN`` statement.
+
+    Spark models ``DROP COLUMN b, c`` as one destructive statement, so we
+    emit one comma-separated Snowflake statement (not one ALTER per column)
+    to avoid leaving the table half-mutated if a later column fails.
+
+    Column names are normalized exactly like ``AddColumns``: ``str(part)``
+    on each identifier segment, then ``spark_to_sf_single_id`` (which strips
+    Spark backticks and applies Snowflake casing). Multipart / nested-struct
+    names raise ``_nested_struct_drop_unsupported`` rather than emitting a
+    dotted DROP that Snowflake would reject. SNOW-4202246.
+    """
+    col_names: list[str] = []
+    for field_name in as_java_list(columns_to_drop):
+        col_name_parts = [str(part) for part in as_java_list(field_name.name())]
+        if len(col_name_parts) > 1:
+            raise _nested_struct_drop_unsupported(table_name, col_name_parts)
+        col_names.append(spark_to_sf_single_id(col_name_parts[0], is_column=True))
+
+    if_exists_clause = "IF EXISTS " if if_exists else ""
+    return (
+        f"ALTER TABLE {table_name} DROP COLUMN {if_exists_clause}{', '.join(col_names)}"
+    )
+
+
 def _table_name_on_catalog_linked_db(table_name: str, session: Session) -> bool:
     """Best-effort: is ``table_name`` on a Snowflake catalog-linked database?"""
     if is_in_cld_context():
@@ -2957,15 +3087,31 @@ def _should_translate_nested_add_sql_error_to_cld(
     return code in (1003, 93678, 4508)
 
 
+def _raise_if_cld_nested_evolution_sql_error(
+    e: SnowparkSQLException,
+    table_name: str,
+    col_name_parts: list[str],
+    session: Session,
+    error_factory: Callable[[str, list[str]], SnowparkConnectNotImplementedError],
+) -> None:
+    if _should_translate_nested_add_sql_error_to_cld(e, table_name, session):
+        raise error_factory(table_name, col_name_parts) from e
+    raise e
+
+
 def _raise_if_cld_nested_add_sql_error(
     e: SnowparkSQLException,
     table_name: str,
     col_name_parts: list[str],
     session: Session,
 ) -> None:
-    if _should_translate_nested_add_sql_error_to_cld(e, table_name, session):
-        raise _nested_struct_add_unsupported_on_cld(table_name, col_name_parts) from e
-    raise e
+    _raise_if_cld_nested_evolution_sql_error(
+        e,
+        table_name,
+        col_name_parts,
+        session,
+        _nested_struct_add_unsupported_on_cld,
+    )
 
 
 def _looks_like_cld_lowercase_identifier_error(e: SnowparkSQLException) -> bool:
@@ -3019,6 +3165,292 @@ def _execute_managed_iceberg_nested_add_column(
         f"ALTER ICEBERG TABLE {table_name} ALTER COLUMN {column_name} "
         f"SET DATA TYPE {new_type_sql}"
     ).collect()
+
+
+def _nested_struct_evolution_unsupported_on_cld(
+    table_name: str,
+    col_name_parts: list[str],
+    spark_ddl: str,
+    telemetry_name: str,
+) -> SnowparkConnectNotImplementedError:
+    nested_path = ".".join(col_name_parts)
+    telemetry.report_iceberg_unsupported_feature(telemetry_name)
+    exception = SnowparkConnectNotImplementedError(
+        "Nested struct schema evolution "
+        f"({spark_ddl} {nested_path}) "
+        "is not supported on Snowflake catalog-linked "
+        f"Iceberg tables ('{table_name}'). The external "
+        "catalog (e.g. AWS Glue, Unity Iceberg REST) owns "
+        "the struct schema and Snowflake CLD can only "
+        "mirror it. Workarounds: (a) apply the nested-field "
+        "change via the external catalog directly and "
+        "Snowflake CLD will pick it up on the next metadata "
+        "refresh, or (b) recreate the table as a Managed "
+        "Iceberg table — which supports nested struct "
+        "evolution via ALTER TABLE ... ALTER COLUMN."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _nested_struct_evolution_unsupported_on_non_iceberg(
+    table_name: str,
+    col_name_parts: list[str],
+    spark_ddl: str,
+) -> SnowparkConnectNotImplementedError:
+    nested_path = ".".join(col_name_parts)
+    exception = SnowparkConnectNotImplementedError(
+        "Nested struct schema evolution "
+        f"({spark_ddl} {nested_path}) "
+        f"is not supported on table '{table_name}' because it "
+        "is not an Iceberg table. Snowflake only exposes "
+        "nested-struct evolution via "
+        "ALTER ICEBERG TABLE ... ALTER COLUMN ... SET DATA TYPE "
+        "on Managed Iceberg tables. Workarounds: (a) recreate "
+        "the table as a Managed Iceberg table, or (b) drop "
+        "and rebuild the struct column with the desired "
+        "fields using ALTER TABLE ... DROP/ADD COLUMN."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _nested_struct_drop_unsupported_on_cld(
+    table_name: str, col_name_parts: list[str]
+) -> SnowparkConnectNotImplementedError:
+    return _nested_struct_evolution_unsupported_on_cld(
+        table_name,
+        col_name_parts,
+        "ALTER TABLE ... DROP COLUMN",
+        "nested_struct_drop_on_cld",
+    )
+
+
+def _nested_struct_drop_unsupported_on_non_iceberg(
+    table_name: str, col_name_parts: list[str]
+) -> SnowparkConnectNotImplementedError:
+    return _nested_struct_evolution_unsupported_on_non_iceberg(
+        table_name, col_name_parts, "ALTER TABLE ... DROP COLUMN"
+    )
+
+
+def _nested_struct_rename_unsupported_on_cld(
+    table_name: str, col_name_parts: list[str]
+) -> SnowparkConnectNotImplementedError:
+    return _nested_struct_evolution_unsupported_on_cld(
+        table_name,
+        col_name_parts,
+        "ALTER TABLE ... RENAME COLUMN",
+        "nested_struct_rename_on_cld",
+    )
+
+
+def _nested_struct_rename_unsupported_on_non_iceberg(
+    table_name: str, col_name_parts: list[str]
+) -> SnowparkConnectNotImplementedError:
+    return _nested_struct_evolution_unsupported_on_non_iceberg(
+        table_name, col_name_parts, "ALTER TABLE ... RENAME COLUMN"
+    )
+
+
+def _drop_nested_field_from_structured_sql(
+    struct_type: StructType,
+    remaining_path_parts: list[str],
+    full_path_parts: list[str],
+    if_exists: bool,
+) -> str | None:
+    def leaf(current: StructType, field_name: str) -> str | None:
+        if _get_field_by_name(current, field_name) is None:
+            if if_exists:
+                return None
+            exception = AnalysisException(
+                f"[FIELD_NOT_FOUND] Cannot drop nested field "
+                f"`{'.'.join(full_path_parts)}` because it does not exist."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+        fields_sql = [
+            f"{field.case_sensitive_name} "
+            f"{map_type_to_snowflake_type(field.datatype, structured=True)}"
+            for field in current.fields
+            if comparable_col_name(field.name) != comparable_col_name(field_name)
+        ]
+        if not fields_sql:
+            exception = AnalysisException(
+                "[DATATYPE_MISMATCH.CANNOT_DROP_ALL_FIELDS] "
+                "Cannot drop all fields in struct."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+        return f"OBJECT({', '.join(fields_sql)})"
+
+    return _walk_nested_struct_sql(
+        struct_type,
+        remaining_path_parts,
+        full_path_parts,
+        leaf,
+        verb="drop",
+        if_exists_missing=if_exists,
+    )
+
+
+def _rename_nested_field_in_structured_sql(
+    struct_type: StructType,
+    remaining_path_parts: list[str],
+    new_name: str,
+    full_path_parts: list[str],
+) -> str:
+    def leaf(current: StructType, field_name: str) -> str:
+        if _get_field_by_name(current, field_name) is None:
+            exception = AnalysisException(
+                f"[FIELD_NOT_FOUND] Cannot rename nested field "
+                f"`{'.'.join(full_path_parts)}` because it does not exist."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+        new_key = comparable_col_name(new_name)
+        old_key = comparable_col_name(field_name)
+        if new_key != old_key and _get_field_by_name(current, new_name) is not None:
+            exception = AnalysisException(
+                f"[COLUMN_ALREADY_EXISTS] The nested field `{new_name}` already exists."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+        fields_sql = []
+        for field in current.fields:
+            name_sql = (
+                quote_name_without_upper_casing(new_name)
+                if comparable_col_name(field.name) == old_key
+                else field.case_sensitive_name
+            )
+            fields_sql.append(
+                f"{name_sql} "
+                f"{map_type_to_snowflake_type(field.datatype, structured=True)}"
+            )
+        return f"OBJECT({', '.join(fields_sql)})"
+
+    result = _walk_nested_struct_sql(
+        struct_type, remaining_path_parts, full_path_parts, leaf, verb="rename"
+    )
+    if result is None:
+        raise _field_not_found_exception(
+            full_path_parts, remaining_path_parts[:1], verb="rename"
+        )
+    return result
+
+
+def _execute_managed_iceberg_nested_set_data_type(
+    session: Session,
+    table_name: str,
+    column_name: str,
+    new_type_sql: str,
+    *,
+    rename_fields: bool = False,
+) -> None:
+    # RENAME FIELDS is required so Snowflake keeps Iceberg field IDs (and
+    # therefore existing values) when only a key name changes. Without it,
+    # SET DATA TYPE treats the new leaf as an add and the old leaf as a drop.
+    # Snowflake forbids combining RENAME FIELDS with add/drop/reorder.
+    # https://docs.snowflake.com/en/sql-reference/sql/alter-iceberg-table-alter-column-set-data-type
+    rename_clause = " RENAME FIELDS" if rename_fields else ""
+    session.sql(
+        f"ALTER ICEBERG TABLE {table_name} ALTER COLUMN {column_name} "
+        f"SET DATA TYPE {new_type_sql}{rename_clause}"
+    ).collect()
+
+
+def _execute_managed_iceberg_nested_drop_column(
+    session: Session,
+    table_name: str,
+    path_parts: list[str],
+    if_exists: bool = False,
+) -> None:
+    if len(path_parts) < 2:
+        exception = SnowparkConnectNotImplementedError(
+            "Nested Iceberg DROP COLUMN requires a nested field path"
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+    table_schema = session.table(table_name).schema
+    top_level_field = _get_field_by_name(table_schema, path_parts[0])
+    if top_level_field is None or not isinstance(top_level_field.datatype, StructType):
+        if if_exists:
+            return
+        raise _field_not_found_exception(path_parts, path_parts[:1], verb="drop")
+
+    new_type_sql = _drop_nested_field_from_structured_sql(
+        top_level_field.datatype,
+        path_parts[1:],
+        path_parts,
+        if_exists,
+    )
+    if new_type_sql is None:
+        return
+    _execute_managed_iceberg_nested_set_data_type(
+        session, table_name, top_level_field.case_sensitive_name, new_type_sql
+    )
+
+
+def _execute_managed_iceberg_nested_rename_column(
+    session: Session,
+    table_name: str,
+    path_parts: list[str],
+    new_name: str,
+) -> None:
+    if len(path_parts) < 2:
+        exception = SnowparkConnectNotImplementedError(
+            "Nested Iceberg RENAME COLUMN requires a nested field path"
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+    table_schema = session.table(table_name).schema
+    top_level_field = _get_field_by_name(table_schema, path_parts[0])
+    if top_level_field is None or not isinstance(top_level_field.datatype, StructType):
+        raise _field_not_found_exception(path_parts, path_parts[:1], verb="rename")
+
+    new_type_sql = _rename_nested_field_in_structured_sql(
+        top_level_field.datatype,
+        path_parts[1:],
+        new_name,
+        path_parts,
+    )
+    _execute_managed_iceberg_nested_set_data_type(
+        session,
+        table_name,
+        top_level_field.case_sensitive_name,
+        new_type_sql,
+        rename_fields=True,
+    )
+
+
+def _dispatch_managed_iceberg_nested_evolution(
+    session: Session,
+    table_name: str,
+    col_name_parts: list[str],
+    execute_fn: Callable[[], None],
+    cld_error_factory: Callable[[str, list[str]], SnowparkConnectNotImplementedError],
+    non_iceberg_error_factory: Callable[
+        [str, list[str]], SnowparkConnectNotImplementedError
+    ],
+    is_iceberg: bool,
+) -> bool:
+    """Run a nested Iceberg SET DATA TYPE rewrite, or raise the CLD / FDN gap.
+
+    Returns True when the rewrite ran (or no-op'd). Raises on CLD / non-Iceberg.
+    """
+    if is_in_cld_context():
+        raise cld_error_factory(table_name, col_name_parts)
+    if is_iceberg:
+        try:
+            execute_fn()
+        except SnowparkSQLException as e:
+            _raise_if_cld_nested_evolution_sql_error(
+                e, table_name, col_name_parts, session, cld_error_factory
+            )
+        return True
+    raise non_iceberg_error_factory(table_name, col_name_parts)
 
 
 def _normalize_identifiers(node):
@@ -3457,7 +3889,22 @@ def map_sql_to_pandas_df(
     returns a tuple of empty Pandas DataFrame and schema string in case of DDL statements.
     returns a tuple of None for SELECT queries to enable lazy evaluation
     """
+    # The SQL-command path (`spark.sql("INSERT ...")`) reaches the same Iceberg
+    # sinks as a DataFrame write, so claim the surface here too (SNOW-4168010).
+    # Scoped to this call via a token/reset pair, same as `map_sql`: this can
+    # itself be reached while mapping a nested SQL child of a larger plan.
+    token = set_api_surface(API_SURFACE_SQL)
+    try:
+        return _map_sql_to_pandas_df_impl(sql_string, named_args, pos_args)
+    finally:
+        reset_api_surface(token)
 
+
+def _map_sql_to_pandas_df_impl(
+    sql_string: str,
+    named_args: MutableMapping[str, expressions_proto.Expression.Literal],
+    pos_args: MutableSequence[expressions_proto.Expression.Literal],
+) -> tuple[pandas.DataFrame, str] | tuple[None, None]:
     snowpark_connect_sql_passthrough, sql_string = is_valid_passthrough_sql(sql_string)
 
     if not snowpark_connect_sql_passthrough:
@@ -3589,7 +4036,9 @@ def map_sql_to_pandas_df(
                 # One iceberg_ddl event per ADD COLUMNS statement (SNOW-3985860),
                 # regardless of how many columns; reused for the _execute_alter gate.
                 is_iceberg = _alter_target_is_iceberg(session, table_name)
-                _report_iceberg_ddl_if_iceberg("add_columns", is_iceberg)
+                _report_iceberg_ddl_if_iceberg(
+                    "add_columns", is_iceberg, session, table_name
+                )
 
                 # Get column definitions from logical plan
                 columns_to_add = logical_plan.columnsToAdd()
@@ -3649,6 +4098,75 @@ def map_sql_to_pandas_df(
                     _execute_alter(
                         session, snowflake_sql, table_name, known_iceberg=is_iceberg
                     )
+            case "DropColumns":
+                # Handle ALTER TABLE ... DROP COLUMN [IF EXISTS] c1 [, c2 ...].
+                # Dedicated handler: without it the statement fell through to the
+                # generic ``startswith("Drop")`` -> sqlglot fallback, which
+                # mistranslated both a multi-column list (``DROP COLUMN b, c`` ->
+                # syntax error) and a backtick-quoted name (```DROP COLUMN `a` ```
+                # -> column '`A`' does not exist). ``_build_drop_columns_sql``
+                # normalizes identifiers like AddColumns and emits ONE
+                # comma-separated statement so a partial failure can't leave the
+                # table half-mutated (DROP is destructive). SNOW-4202246.
+                #
+                # Nested paths (FieldName.name = Seq("info", "age")) cannot go
+                # through that statement — Snowflake rejects dotted DROP
+                # (001003). Rewrite them like nested ADD: ALTER ICEBERG TABLE
+                # ... ALTER COLUMN <struct> SET DATA TYPE. SNOW-4201810.
+                table_name = get_relation_identifier_name(logical_plan.table(), True)
+                is_iceberg = _alter_target_is_iceberg(session, table_name)
+                _report_iceberg_ddl_if_iceberg(
+                    "drop_columns", is_iceberg, session, table_name
+                )
+                if_exists = bool(logical_plan.ifExists())
+                nested_paths: list[list[str]] = []
+                for col in as_java_list(logical_plan.columnsToDrop()):
+                    col_name_parts = [str(part) for part in as_java_list(col.name())]
+                    if len(col_name_parts) > 1:
+                        nested_paths.append(col_name_parts)
+                for col_name_parts in nested_paths:
+                    _dispatch_managed_iceberg_nested_evolution(
+                        session,
+                        table_name,
+                        col_name_parts,
+                        lambda parts=col_name_parts: (
+                            _execute_managed_iceberg_nested_drop_column(
+                                session, table_name, parts, if_exists
+                            )
+                        ),
+                        _nested_struct_drop_unsupported_on_cld,
+                        _nested_struct_drop_unsupported_on_non_iceberg,
+                        is_iceberg,
+                    )
+                if not nested_paths:
+                    snowflake_sql = _build_drop_columns_sql(
+                        table_name,
+                        logical_plan.columnsToDrop(),
+                        if_exists,
+                    )
+                    _execute_alter(
+                        session, snowflake_sql, table_name, known_iceberg=is_iceberg
+                    )
+                else:
+                    flat_names = [
+                        spark_to_sf_single_id(
+                            str(as_java_list(col.name())[0]), is_column=True
+                        )
+                        for col in as_java_list(logical_plan.columnsToDrop())
+                        if len(as_java_list(col.name())) == 1
+                    ]
+                    if flat_names:
+                        if_exists_clause = "IF EXISTS " if if_exists else ""
+                        snowflake_sql = (
+                            f"ALTER TABLE {table_name} DROP COLUMN "
+                            f"{if_exists_clause}{', '.join(flat_names)}"
+                        )
+                        _execute_alter(
+                            session,
+                            snowflake_sql,
+                            table_name,
+                            known_iceberg=is_iceberg,
+                        )
             case "AlterColumn":
                 # Handle ALTER TABLE ... CHANGE COLUMN (translate to ALTER TABLE ... ALTER COLUMN)
                 table_name = get_relation_identifier_name(logical_plan.table(), True)
@@ -3700,7 +4218,9 @@ def map_sql_to_pandas_df(
                     snowflake_sql = f"ALTER TABLE {table_name} ALTER COLUMN {column_name} {alter_clause}"
                     # Use helper to handle Iceberg tables automatically
                     is_iceberg = _alter_target_is_iceberg(session, table_name)
-                    _report_iceberg_ddl_if_iceberg("alter_column", is_iceberg)
+                    _report_iceberg_ddl_if_iceberg(
+                        "alter_column", is_iceberg, session, table_name
+                    )
                     _execute_alter(
                         session, snowflake_sql, table_name, known_iceberg=is_iceberg
                     )
@@ -3927,9 +4447,11 @@ def map_sql_to_pandas_df(
                 try:
                     df.create_or_replace_view(
                         name,
-                        comment=escape_sql_comment(str(comment.get()))
-                        if comment.isDefined()
-                        else None,
+                        comment=(
+                            escape_sql_comment(str(comment.get()))
+                            if comment.isDefined()
+                            else None
+                        ),
                     )
                 except SnowparkSQLException as e:
                     _translate_create_view_snowpark_error(e, name)
@@ -3943,9 +4465,11 @@ def map_sql_to_pandas_df(
                     ]
                     df_container = DataFrameContainer.create_with_column_mapping(
                         dataframe=df,
-                        spark_column_names=user_specified_spark_column_names
-                        if user_specified_spark_column_names
-                        else df_container.column_map.get_spark_columns(),
+                        spark_column_names=(
+                            user_specified_spark_column_names
+                            if user_specified_spark_column_names
+                            else df_container.column_map.get_spark_columns()
+                        ),
                         snowpark_column_names=df_container.column_map.get_snowpark_columns(),
                         parent_column_name_map=df_container.column_map,
                     )
@@ -4256,7 +4780,10 @@ def map_sql_to_pandas_df(
                     session, temporary_view_name, name, logical_plan.ifExists()
                 ):
                     _report_iceberg_ddl_if_iceberg(
-                        "drop_table", _alter_target_is_iceberg(session, name)
+                        "drop_table",
+                        _alter_target_is_iceberg(session, name),
+                        session,
+                        name,
                     )
                     try:
                         _execute_drop_table(
@@ -4643,36 +5170,62 @@ def map_sql_to_pandas_df(
                     raise exception
 
                 column_obj = logical_plan.column()
-                old_column_name = ".".join(
-                    spark_to_sf_single_id(str(part), is_column=True)
-                    for part in as_java_list(column_obj.name())
-                )
-                if not global_config.spark_sql_caseSensitive:
-                    case_insensitive_name = next(
-                        (
-                            f.name
-                            for f in session.table(full_table_identifier).schema.fields
-                            if f.name.lower() == old_column_name.lower()
-                        ),
-                        None,
-                    )
-                    if case_insensitive_name:
-                        old_column_name = case_insensitive_name
-                new_column_name = spark_to_sf_single_id(
-                    str(logical_plan.newName()), is_column=True
-                )
-
-                # Pass through to Snowflake
-                snowflake_sql = f"ALTER TABLE {full_table_identifier} RENAME COLUMN {old_column_name} TO {new_column_name}"
-                # Use helper to handle Iceberg tables automatically
+                old_column_parts = [
+                    str(part) for part in as_java_list(column_obj.name())
+                ]
+                new_name_raw = str(logical_plan.newName())
                 is_iceberg = _alter_target_is_iceberg(session, full_table_identifier)
-                _report_iceberg_ddl_if_iceberg("rename_column", is_iceberg)
-                _execute_alter(
-                    session,
-                    snowflake_sql,
-                    full_table_identifier,
-                    known_iceberg=is_iceberg,
+                _report_iceberg_ddl_if_iceberg(
+                    "rename_column", is_iceberg, session, full_table_identifier
                 )
+                if len(old_column_parts) > 1:
+                    # SNOW-4201810: dotted RENAME COLUMN info.name TO full_name
+                    # is not a Snowflake identifier. Rebuild the struct type.
+                    _dispatch_managed_iceberg_nested_evolution(
+                        session,
+                        full_table_identifier,
+                        old_column_parts,
+                        lambda: _execute_managed_iceberg_nested_rename_column(
+                            session,
+                            full_table_identifier,
+                            old_column_parts,
+                            new_name_raw,
+                        ),
+                        _nested_struct_rename_unsupported_on_cld,
+                        _nested_struct_rename_unsupported_on_non_iceberg,
+                        is_iceberg,
+                    )
+                else:
+                    old_column_name = ".".join(
+                        spark_to_sf_single_id(part, is_column=True)
+                        for part in old_column_parts
+                    )
+                    if not global_config.spark_sql_caseSensitive:
+                        case_insensitive_name = next(
+                            (
+                                f.name
+                                for f in session.table(
+                                    full_table_identifier
+                                ).schema.fields
+                                if f.name.lower() == old_column_name.lower()
+                            ),
+                            None,
+                        )
+                        if case_insensitive_name:
+                            old_column_name = case_insensitive_name
+                    new_column_name = spark_to_sf_single_id(
+                        new_name_raw, is_column=True
+                    )
+                    snowflake_sql = (
+                        f"ALTER TABLE {full_table_identifier} "
+                        f"RENAME COLUMN {old_column_name} TO {new_column_name}"
+                    )
+                    _execute_alter(
+                        session,
+                        snowflake_sql,
+                        full_table_identifier,
+                        known_iceberg=is_iceberg,
+                    )
             case "SetTableProperties":
                 _dispatch_set_table_properties(session, logical_plan, sql_string)
             case "UnsetTableProperties":
@@ -5216,49 +5769,61 @@ def map_sql(
     In passthough mode as True, SAS calls session.sql() and not calling Spark Parser.
     This is to mitigate any issue not covered by spark logical plan to protobuf conversion.
     """
-    snowpark_connect_sql_passthrough, sql_stmt = is_valid_passthrough_sql(rel.sql.query)
+    # Claim the request for the SQL surface before the parsed plan re-enters the
+    # shared relation/write mappers, which is the only point where SQL is still
+    # distinguishable from an equivalent DataFrame call (SNOW-4168010). Scoped
+    # to this call via a token/reset pair: `map_sql` can itself be a nested
+    # child of a larger plan (`map_relation`'s `case "sql"`), so the claim must
+    # not outlive the mapping of this particular SQL node.
+    token = set_api_surface(API_SURFACE_SQL)
+    try:
+        snowpark_connect_sql_passthrough, sql_stmt = is_valid_passthrough_sql(
+            rel.sql.query
+        )
 
-    if not snowpark_connect_sql_passthrough:
-        # No raw-SQL pre-scan for quoted identifiers: scanning the SQL text
-        # with a regex incorrectly matches inside quoted string literals and
-        # comments (Felix's PR #4052 review on map_sql.py:519). Per-identifier
-        # backtick state is recovered from the JVM parser's Origin substring
-        # at each `case "UnresolvedRelation":` site instead, which by
-        # construction can't see inside string literals.
+        if not snowpark_connect_sql_passthrough:
+            # No raw-SQL pre-scan for quoted identifiers: scanning the SQL text
+            # with a regex incorrectly matches inside quoted string literals and
+            # comments (Felix's PR #4052 review on map_sql.py:519). Per-identifier
+            # backtick state is recovered from the JVM parser's Origin substring
+            # at each `case "UnresolvedRelation":` site instead, which by
+            # construction can't see inside string literals.
 
-        # Changed from parseQuery to parsePlan as Spark parseQuery() call generating wrong logical plan for
-        # query like this: SELECT cast('3.4' as decimal(38, 18)) UNION SELECT 'foo'
-        # As such other place in this file we use parsePlan.
-        # Main difference between parsePlan() and parseQuery() is, parsePlan() can be called for any SQL statement, while
-        # parseQuery() can only be called for query statements.
-        if is_cld_unified_identifier_rules_enabled():
-            sql_stmt = _preprocess_sql_for_cld_rules(sql_stmt)
-        logical_plan = sql_parser().parsePlan(sql_stmt)
+            # Changed from parseQuery to parsePlan as Spark parseQuery() call generating wrong logical plan for
+            # query like this: SELECT cast('3.4' as decimal(38, 18)) UNION SELECT 'foo'
+            # As such other place in this file we use parsePlan.
+            # Main difference between parsePlan() and parseQuery() is, parsePlan() can be called for any SQL statement, while
+            # parseQuery() can only be called for query statements.
+            if is_cld_unified_identifier_rules_enabled():
+                sql_stmt = _preprocess_sql_for_cld_rules(sql_stmt)
+            logical_plan = sql_parser().parsePlan(sql_stmt)
 
-        parsed_pos_args = parse_pos_args(logical_plan, rel.sql.pos_args)
-        set_sql_args(rel.sql.args, parsed_pos_args)
+            parsed_pos_args = parse_pos_args(logical_plan, rel.sql.pos_args)
+            set_sql_args(rel.sql.args, parsed_pos_args)
 
-        return execute_logical_plan(logical_plan)
-    else:
-        session = snowpark.Session.get_active_session()
-        # SNOW-3585767: no-statement input (empty, whitespace-only,
-        # comment-only, or only semicolons) would be forwarded to Snowflake as
-        # the opaque "000900 (42601) Empty SQL statement" error. OSS Spark
-        # raises a ParseException for the same input, so route it through the
-        # Spark parser to surface an identical, Spark-compatible error instead.
-        if not _sql_has_executable_statement(sql_stmt):
-            sql_parser().parsePlan(sql_stmt)
-        # Remove trailing semicolons and whitespace to prevent "unexpected ';'" errors when performing operations
-        # on the resulting DataFrame
-        # Example: session.sql("SELECT 1;").show() would fail without this sanitization.
-        sql_stmt = sql_stmt.rstrip().rstrip(";")
-        sql_df = session.sql(sql_stmt)
+            return execute_logical_plan(logical_plan)
+        else:
+            session = snowpark.Session.get_active_session()
+            # SNOW-3585767: no-statement input (empty, whitespace-only,
+            # comment-only, or only semicolons) would be forwarded to Snowflake as
+            # the opaque "000900 (42601) Empty SQL statement" error. OSS Spark
+            # raises a ParseException for the same input, so route it through the
+            # Spark parser to surface an identical, Spark-compatible error instead.
+            if not _sql_has_executable_statement(sql_stmt):
+                sql_parser().parsePlan(sql_stmt)
+            # Remove trailing semicolons and whitespace to prevent "unexpected ';'" errors when performing operations
+            # on the resulting DataFrame
+            # Example: session.sql("SELECT 1;").show() would fail without this sanitization.
+            sql_stmt = sql_stmt.rstrip().rstrip(";")
+            sql_df = session.sql(sql_stmt)
 
-        if not rel.common.HasField("plan_id"):
-            plan_id = gen_sql_plan_id()
-            rel.common.plan_id = plan_id
+            if not rel.common.HasField("plan_id"):
+                plan_id = gen_sql_plan_id()
+                rel.common.plan_id = plan_id
 
-        return post_process_df(sql_df, rel.common.plan_id)
+            return post_process_df(sql_df, rel.common.plan_id)
+    finally:
+        reset_api_surface(token)
 
 
 def _map_union_strip_inner_distinct(union_rel: typing.Any) -> relation_proto.Relation:

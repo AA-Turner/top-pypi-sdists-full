@@ -28,9 +28,9 @@ from reportlab.graphics.charts.textlabels import Label
 from reportlab.graphics.shapes import Rect
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch, mm
+from reportlab.pdfbase import pdfmetrics
 from reportlab.platypus.doctemplate import FrameBreak, NextPageTemplate
 from reportlab.platypus.flowables import Flowable, HRFlowable, PageBreak, Spacer
-from reportlab.platypus.frames import Frame
 from reportlab.platypus.paraparser import ABag, tt2ps
 
 from xhtml2pdf.charts import (
@@ -41,7 +41,9 @@ from xhtml2pdf.charts import (
     LegendedPieChart,
     PieChart,
     VerticalBar,
+    font_resolver,
 )
+from xhtml2pdf.config.resources import ResourceAccessError
 from xhtml2pdf.default import DEFAULT_LANGUAGE_LIST
 from xhtml2pdf.paragraph import PageNumberFlowable
 from xhtml2pdf.util import (
@@ -50,6 +52,7 @@ from xhtml2pdf.util import (
     RADIUS_CORNERS,
     RADIUS_PROPERTIES,
     ImageWarning,
+    font_has_glyph,
     getAlign,
     getBorderRadius,
     getColor,
@@ -58,6 +61,7 @@ from xhtml2pdf.util import (
 )
 from xhtml2pdf.xhtml2pdf_reportlab import (
     PmlDrawing,
+    PmlFrame,
     PmlImage,
     PmlInput,
     PmlPageTemplate,
@@ -166,24 +170,19 @@ class pisaTagSUB(pisaTag):
 
 
 class pisaTagA(pisaTag):
-    rxLink = r"^(#|[a-z]+\:).*"
+    #: What is not a link, of what an href can say. A relative reference --
+    #: "other.pdf", "page.html" -- used to be dropped as well, because only an
+    #: anchor or a URL with a scheme was taken; it becomes a link to that file.
+    rxNotALink = re.compile(r"^\s*javascript:", re.IGNORECASE)
 
     def start(self, c: pisaContext) -> None:
         attr = self.attr
-        # XXX Also support attr.id ?
+        # An id is a target too; pisaLoop adds it for every element.
         if attr.name:
-            # Important! Make sure that cbDefn is not inherited by other
-            # fragments because of a bug in Reportlab!
-            afrag = c.frag.clone()
-            # These 3 lines are needed to fix an error with non internal fonts
-            afrag.fontName = "Helvetica"
-            afrag.bold = 0
-            afrag.italic = 0
-            afrag.cbDefn = ABag(kind="anchor", name=attr.name, label="anchor")
-            c.fragAnchor.append(afrag)
-            c.anchorName.append(attr.name)
-        if attr.href and re.match(self.rxLink, attr.href):
-            c.frag.link = attr.href
+            c.addAnchor(attr.name)
+        href = (attr.href or "").strip()
+        if href and not self.rxNotALink.match(href):
+            c.frag.link = href
 
     def end(self, c: pisaContext) -> None:
         pass
@@ -371,6 +370,33 @@ _list_style_font: dict[str, tuple[str, float]] = {
 }
 
 
+def _marker_face(c: pisaContext, frag: ParaFrag) -> str:
+    """
+    The face a text marker is drawn in: the first of the list that has it all.
+
+    A marker is drawn in one face, so it cannot be split per character the
+    way a line is; it takes the first family of the font-family list that
+    can draw every character of it. The first family alone, as it used to
+    be, put "1." in a Hebrew face without digits and drew it blank, and the
+    missing-glyph warning, which only ever saw the text, said nothing.
+    """
+    first = frag.fontName
+    text = frag.text if isinstance(frag.text, str) else ""
+    families = getattr(frag, "fontFamilies", None) or []
+    candidates = [first]
+    for family in families:
+        name = tt2ps(family, frag.bold, frag.italic)
+        if name not in candidates:
+            candidates.append(name)
+    if not text.strip():
+        return first
+    c._warn_missing_glyphs(text, candidates)
+    for name in candidates:
+        if all(char.isspace() or font_has_glyph(name, char) for char in text):
+            return name
+    return first
+
+
 class pisaTagUL(pisaTagP):
     def start(self, c: pisaContext) -> None:
         self.counter, c.listCounter = c.listCounter, 0
@@ -404,8 +430,19 @@ class pisaTagLI(pisaTag):
         if frag.listStyleImage is not None:
             frag.text = ""
             f = frag.listStyleImage
+            img = None
             if f and (not f.notFound()):
-                img = PmlImage(f.getData(), src=f.uri, width=None, height=None)
+                try:
+                    img = PmlImage(f.getData(), src=f.uri, width=None, height=None)
+                except (ResourceAccessError, ImageWarning) as e:
+                    if isinstance(e, ResourceAccessError):
+                        log.warning("Blocked by the resource policy: %s", e)
+                    else:
+                        log.warning(c.warning(f"{e}:"))
+                    # Refused or unreadable: the item keeps its ordinary marker.
+                    frag.listStyleImage = None
+                    frag.text = lst if isinstance(lst, str) else lst(c)
+            if img is not None:
                 img.drawHeight *= DPI96
                 img.drawWidth *= DPI96
                 img.pisaZoom = frag.zoom
@@ -431,6 +468,8 @@ class pisaTagLI(pisaTag):
             marker_font, size_factor = marker
             frag.fontName = frag.bulletFontName = marker_font
             frag.fontSize *= size_factor
+        elif frag.listStyleImage is None:
+            frag.fontName = frag.bulletFontName = _marker_face(c, frag)
 
         # Left pending on the context rather than set on the frag: the frag is
         # cloned for every child of the <li> and clone drops bulletText, so a
@@ -557,9 +596,14 @@ class pisaTagIMG(pisaTag):
 
                         c.fragList.append(afrag)
                         c.fontSize = img.drawHeight
+                        if afrag.link and afrag.link.startswith("#"):
+                            # Dropped by pisaDocument if nothing is there.
+                            c.anchorFrag.append((afrag, afrag.link[1:]))
 
                 except ImageWarning as e:
                     log.warning(c.warning(f"{e}:"))
+                except ResourceAccessError as e:
+                    log.warning("Blocked by the resource policy: %s", e)
                 except Exception:
                     log.warning(c.warning("Error in handling image:"), exc_info=True)
             else:
@@ -837,7 +881,7 @@ class pisaTagPDFFRAME(pisaTag):
             name = f"frame{c.UID()}"
 
         x, y, w, h = attrs.box
-        self.frame = Frame(
+        self.frame = PmlFrame(
             x,
             y,
             w,
@@ -1054,6 +1098,25 @@ class pisaTagPDFBARCODE(pisaTag):
         c.fragList.append(afrag)
 
 
+def _chart_font(c: pisaContext, name: object) -> str:
+    """
+    The face a chart's JSON `fontName` names, as ReportLab registered it.
+
+    A family the document knows -- "Noto Sans" from a @font-face -- is the
+    face "noto sans_00"; a name ReportLab already has, such as
+    "Helvetica-Bold", stays as it is. Anything else is the document's
+    unknown-font warning and Helvetica, rather than ReportLab raising while
+    it draws.
+    """
+    if c.getFontNames(name):
+        return tt2ps(c.getFontName(name), 0, 0)
+    try:
+        pdfmetrics.getFont(str(name))
+    except Exception:
+        return tt2ps(c.getFontName(name), 0, 0)
+    return str(name)
+
+
 class pisaTagCANVAS(pisaTag):
     #: Default size of the box a <canvas> reserves, in points.
     DEFAULT_WIDTH: int = 350
@@ -1169,20 +1232,24 @@ class pisaTagCANVAS(pisaTag):
             if background:
                 draw.background = Rect(0, 0, width, height, **background)
 
-            # REQUIRED DATA
-            self.chart.set_properties(data)
+            token = font_resolver.set(lambda name: _chart_font(c, name))
+            try:
+                # REQUIRED DATA
+                self.chart.set_properties(data)
 
-            # OPTIONAL DATA
-            if "title" in data:
-                title = Label()
-                self.chart.set_title_properties(data["title"], title)
-                draw.add(title)
+                # OPTIONAL DATA
+                if "title" in data:
+                    title = Label()
+                    self.chart.set_title_properties(data["title"], title)
+                    draw.add(title)
 
-            if data.get("legend"):
-                legend = Legend()
-                self.chart.set_legend(data["legend"], legend)
-                self.chart.load_data_legend(data, legend)
-                draw.add(legend)
+                if data.get("legend"):
+                    legend = Legend()
+                    self.chart.set_legend(data["legend"], legend)
+                    self.chart.load_data_legend(data, legend)
+                    draw.add(legend)
+            finally:
+                font_resolver.reset(token)
 
             # ADD CHART TO DRAW OBJECT
             draw.add(self.chart)

@@ -50,6 +50,15 @@ class TestDiscoveryScan(unittest.TestCase):
                         queued_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         finished_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         error_count = 56, )
+                    ],
+                fetch_statuses = [
+                    arthur_client.api_bindings.models.discovery_scan_fetch_status.DiscoveryScanFetchStatus(
+                        discovery_source_id = '', 
+                        job_id = '', 
+                        state = 'pending', 
+                        job_state = 'queued', 
+                        queued_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        finished_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ]
             )
         else:

@@ -8,7 +8,7 @@ import numpy as np
 
 from mechbench_compute import directions as dirs
 from mechbench_compute import positions as POS
-from mechbench_compute._mlx import mx
+from mechbench_compute.intervene.array_ops import read_array_ops
 from mechbench_compute.intervene.bind_constants import bind_constants, check_constants
 from mechbench_compute.intervene.coerce_int_list import coerce_int_list
 from mechbench_compute.intervene.build_rows_matrix import build_rows_matrix
@@ -154,7 +154,6 @@ class Spec:
         positions = self.positions
         heads, neurons = self.heads, self.neurons
         op, strength = self.op, self.strength
-        d = None if self.direction is None else mx.array(self.direction)
         cond = self.condition
         rows = None
         if self.source is not None:
@@ -181,7 +180,9 @@ class Spec:
         hook = self.point if layer is None else f"blocks.{layer}.{self.point}"
         bound: dict[int, dict[str, Any]] = {}
 
-        def fn(act: mx.array, info) -> mx.array:
+        def fn(act: Any, info) -> Any:
+            xp = read_array_ops(act)
+            d = None if self.direction is None else xp.array(self.direction)
             shape = act.shape
             nd = len(shape)
             L = shape[pos_axis]
@@ -194,14 +195,14 @@ class Spec:
             if on_select is not None:
                 on_select([p + offset for p in sel_pos])
 
-            def axis_mask(axis: int, idx: Sequence[int], invert: bool = False) -> mx.array:
+            def axis_mask(axis: int, idx: Sequence[int], invert: bool = False) -> Any:
                 m = np.zeros(shape[axis], dtype=bool)
                 m[list(idx)] = True
                 if invert:
                     m = ~m
                 view = [1] * nd
                 view[axis] = shape[axis]
-                return mx.array(m).reshape(view)
+                return xp.array(m).reshape(view)
 
             if self.pattern is not None:
                 to_sel = (sel_pos if "to" not in self.pattern
@@ -219,46 +220,46 @@ class Spec:
                     raise SpecError(f"point {self.point!r} has no head axis")
                 mask = mask & axis_mask(head_axis, heads, invert=self.excepted)
 
-            def along_feat(v: mx.array) -> mx.array:
+            def along_feat(v: Any) -> Any:
                 view = [1] * nd
                 view[feat_axis] = shape[feat_axis]
-                if v.size != shape[feat_axis]:
+                if xp.size(v) != shape[feat_axis]:
                     raise SpecError(
-                        f"direction width {v.size} does not match the feature axis "
+                        f"direction width {xp.size(v)} does not match the feature axis "
                         f"({shape[feat_axis]}) at point {self.point!r}")
-                return v.reshape(view).astype(act.dtype)
+                return xp.cast(v.reshape(view), act.dtype)
 
             if cond is not None:
                 cd, thr, above = cond
-                proj = mx.sum(act * along_feat(mx.array(cd)), axis=feat_axis, keepdims=True)
+                proj = xp.sum(act * along_feat(xp.array(cd)), feat_axis)
                 cmask = (proj > thr) if above else (proj < thr)
                 mask = mask & cmask
 
             if self.operator is not None:
                 return self._apply_operator(act, mask, rows, bound, hook)
             if op == "zero":
-                new = (mx.full(shape, float("-inf"), act.dtype)
-                       if self.point == "attn.scores" else mx.zeros_like(act))
+                new = (xp.full(shape, float("-inf"), act.dtype)
+                       if self.point == "attn.scores" else xp.zeros_like(act))
             elif op == "scale":
                 new = act * strength
             elif op == "add":
                 new = act + strength * along_feat(d)
             elif op == "project_out":
                 dd = along_feat(d)
-                p = mx.sum(act * dd, axis=feat_axis, keepdims=True)
+                p = xp.sum(act * dd, feat_axis)
                 new = act - strength * p * dd
             elif op == "clamp":
                 dd = along_feat(d)
-                p = mx.sum(act * dd, axis=feat_axis, keepdims=True)
-                clipped = mx.clip(p, -abs(strength), abs(strength))
+                p = xp.sum(act * dd, feat_axis)
+                clipped = xp.clip(p, -abs(strength), abs(strength))
                 new = act + (clipped - p) * dd
             elif op == "rotate":
                 u = along_feat(d)
-                w0 = mx.array(self.direction2 - float(self.direction2 @ self.direction) * self.direction)
-                w0 = w0 / mx.maximum(mx.sqrt(mx.sum(w0 * w0)), 1e-8)
+                w0 = xp.array(self.direction2 - float(self.direction2 @ self.direction) * self.direction)
+                w0 = w0 / xp.maximum(xp.sqrt((w0 * w0).sum()), 1e-8)
                 w = along_feat(w0)
-                a_u = mx.sum(act * u, axis=feat_axis, keepdims=True)
-                a_w = mx.sum(act * w, axis=feat_axis, keepdims=True)
+                a_u = xp.sum(act * u, feat_axis)
+                a_w = xp.sum(act * w, feat_axis)
                 c, s = math.cos(strength), math.sin(strength)
                 new = act - a_u * u - a_w * w + (a_u * c - a_w * s) * u + (a_u * s + a_w * c) * w
             elif op in ("mean", "resample", "patch"):
@@ -272,33 +273,34 @@ class Spec:
                         vec = rows[int(r.get("index", 0))]
                 else:
                     vec = np.asarray(self.direction, dtype=np.float32)
-                new = mx.broadcast_to(along_feat(mx.array(vec)), shape)
+                new = xp.broadcast_to(along_feat(xp.array(vec)), shape)
             else:  # pragma: no cover
                 raise SpecError(op)
-            out = mx.where(mask, new, act)
+            out = xp.where(mask, new, act)
             if (self.point == "attn.weights" and op == "zero" and self.renormalize):
-                f = out.astype(mx.float32)
-                total = mx.sum(f, axis=feat_axis, keepdims=True)
-                touched = mx.sum(mask.astype(mx.float32), axis=feat_axis, keepdims=True) > 0
-                out = mx.where(touched, (f / mx.maximum(total, 1e-9)).astype(act.dtype), out)
+                f = xp.cast(out, xp.float32)
+                total = xp.sum(f, feat_axis)
+                touched = xp.sum(xp.cast(mask, xp.float32), feat_axis) > 0
+                out = xp.where(touched, xp.cast(f / xp.maximum(total, 1e-9), act.dtype), out)
             return out
 
         return fn
 
-    def _apply_operator(self, act: mx.array, where: mx.array, rows: np.ndarray | None,
-                        bound: dict[int, dict[str, Any]], hook: str) -> mx.array:
+    def _apply_operator(self, act: Any, where: Any, rows: np.ndarray | None,
+                        bound: dict[int, dict[str, Any]], hook: str) -> Any:
+        xp = read_array_ops(act)
         d = act.shape[-1]
         if d not in bound:
-            bound[d] = bind_constants(self.constants, self.mask, d, hook, rows)
-        a = act.astype(mx.float32)
+            bound[d] = bind_constants(self.constants, self.mask, d, hook, rows, xp)
+        a = xp.cast(act, xp.float32)
         x = self.mask.read(a)
         y = self.operator.evaluate({**bound[d], "x": x})
         if self.operator.undefinable:
-            n = int(mx.sum(mx.logical_and(where, mx.logical_not(mx.isfinite(y)))).item())
+            n = xp.count_nonfinite(where, y)
             if n:
                 raise OperatorRefused(
                     "OPERATOR_UNDEFINED", f"`{self.operator.canonical}` gave an undefined number (a "
                     "division by zero, the log or square root of a negative number, an overflow) at "
                     f"{n} coordinate{'' if n == 1 else 's'} of {hook}: the language's undefined number "
                     "is null, and an activation holds numbers", construct=self.operator.canonical)
-        return mx.where(where, self.mask.write(a, x, y, self.strength).astype(act.dtype), act)
+        return xp.where(where, xp.cast(self.mask.write(a, x, y, self.strength), act.dtype), act)

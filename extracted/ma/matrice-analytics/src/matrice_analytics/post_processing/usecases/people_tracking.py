@@ -29,6 +29,28 @@ from ..utils import (
 from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
 
 
+def get_trend(data, lookback=900, threshold=0.6):
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    window = data[-lookback:] if len(data) >= lookback else data
+    if len(window) < 2:
+        return True  # not enough data to determine trend
+    increasing = 0
+    total = 0
+    for i in range(1, len(window)):
+        if window[i] >= window[i - 1]:
+            increasing += 1
+        total += 1
+    ratio = increasing / total
+    if ratio >= threshold:
+        return True
+    elif ratio <= (1 - threshold):
+        return False
+    return None
+
+
 class PeopleTrackingUseCase(BaseProcessor):
     """People counting use case with zone analysis and alerting."""
 
@@ -93,7 +115,9 @@ class PeopleTrackingUseCase(BaseProcessor):
         self.start_timer = None
 
         # Line crossing tracking storage
-        self._line_crossed_tracks: Dict[str, Set[Any]] = {}  # "side1_to_side2": set of track_ids that crossed
+        self._line_crossed_tracks: Dict[
+            str, Set[Any]
+        ] = {}  # "side1_to_side2": set of track_ids that crossed
         self._side1_label: str = "Side A"
         self._side2_label: str = "Side B"
 
@@ -139,11 +163,11 @@ class PeopleTrackingUseCase(BaseProcessor):
             context.confidence_threshold = config.confidence_threshold
 
             is_multi_frame = self.detect_frame_structure(data)
-            print("--------------------------------------")
-            print("config.alert_config", config.alert_config)
-            print(config)
-            print("is_multi?", is_multi_frame)
-            print("--------------------------------------")
+            self.logger.debug("--------------------------------------")
+            self.logger.debug("config.alert_config %s", config.alert_config)
+            self.logger.debug("%s", config)
+            self.logger.debug("is_multi? %s", is_multi_frame)
+            self.logger.debug("--------------------------------------")
 
             # self.logger.info(f"Processing people counting - Format: {input_format.value}, Multi-frame: {is_multi_frame}")
 
@@ -204,7 +228,9 @@ class PeopleTrackingUseCase(BaseProcessor):
                 tracking_stats_list,
                 business_analytics_list,
                 summary_list,
-            ) = self._process_frame_detections(frame_detections, config, global_frame_id, stream_info)
+            ) = self._process_frame_detections(
+                frame_detections, config, global_frame_id, stream_info
+            )
             incidents = incidents_list[0] if incidents_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
             business_analytics = business_analytics_list[0] if business_analytics_list else {}
@@ -307,7 +333,9 @@ class PeopleTrackingUseCase(BaseProcessor):
 
         # Step 1: Apply confidence filtering to this frame
         if config.confidence_threshold is not None:
-            frame_detections = [d for d in frame_detections if d.get("confidence", 0) >= config.confidence_threshold]
+            frame_detections = [
+                d for d in frame_detections if d.get("confidence", 0) >= config.confidence_threshold
+            ]
 
         # Step 2: Apply category mapping if provided
         if config.index_to_category:
@@ -315,7 +343,9 @@ class PeopleTrackingUseCase(BaseProcessor):
 
         # Step 3: Filter to person categories
         if config.person_categories:
-            frame_detections = [d for d in frame_detections if d.get("category") in config.person_categories]
+            frame_detections = [
+                d for d in frame_detections if d.get("category") in config.person_categories
+            ]
 
         # Step 4: Create counting summary for this frame
         counting_summary = {
@@ -327,7 +357,9 @@ class PeopleTrackingUseCase(BaseProcessor):
         # Count by category
         for detection in frame_detections:
             category = detection.get("category", "unknown")
-            counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
+            counting_summary["categories"][category] = (
+                counting_summary["categories"].get(category, 0) + 1
+            )
 
         # Step 4.5: Always update tracking state BEFORE zone enhancements so detections have track_ids
         self._update_tracking_state(counting_summary)
@@ -341,7 +373,9 @@ class PeopleTrackingUseCase(BaseProcessor):
 
             # Update zone tracking with current frame data (now detections have canonical track_ids)
             if zone_analysis and config.enable_tracking:
-                enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, frame_detections, config)
+                enhanced_zone_analysis = self._update_zone_tracking(
+                    zone_analysis, frame_detections, config
+                )
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
@@ -388,7 +422,9 @@ class PeopleTrackingUseCase(BaseProcessor):
             stream_info,
             is_empty=True,
         )
-        summary = self._generate_summary(counting_summary, incidents, tracking_stats, business_analytics, alerts)
+        summary = self._generate_summary(
+            counting_summary, incidents, tracking_stats, business_analytics, alerts
+        )
 
         # Return standardized components as tuple
         return alerts, incidents, tracking_stats, business_analytics, summary
@@ -398,7 +434,10 @@ class PeopleTrackingUseCase(BaseProcessor):
         if start_timestamp and self.current_incident_end_timestamp == "N/A":
             self.current_incident_end_timestamp = "Incident still active"
         elif start_timestamp and self.current_incident_end_timestamp == "Incident still active":
-            if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+            if (
+                len(self._ascending_alert_list) >= 15
+                and sum(self._ascending_alert_list[-15:]) / 15 < 1.5
+            ):
                 self.current_incident_end_timestamp = current_timestamp
         elif self.current_incident_end_timestamp not in (
             "Incident still active",
@@ -406,7 +445,9 @@ class PeopleTrackingUseCase(BaseProcessor):
         ):
             self.current_incident_end_timestamp = "N/A"
 
-    def _determine_severity_level(self, total_count: int, config, default_threshold: int = 10) -> str:
+    def _determine_severity_level(
+        self, total_count: int, config, default_threshold: int = 10
+    ) -> str:
         """Determine severity level and append to ascending alert list."""
         if config.alert_config and getattr(config.alert_config, "count_thresholds", None):
             threshold = config.alert_config.count_thresholds.get("all", default_threshold)
@@ -440,10 +481,14 @@ class PeopleTrackingUseCase(BaseProcessor):
         if not (alert_config and hasattr(alert_config, "alert_type")):
             return []
         alert_type = (
-            getattr(alert_config, "alert_type", ["Default"]) if hasattr(alert_config, "alert_type") else ["Default"]
+            getattr(alert_config, "alert_type", ["Default"])
+            if hasattr(alert_config, "alert_type")
+            else ["Default"]
         )
         alert_value = (
-            getattr(alert_config, "alert_value", ["JSON"]) if hasattr(alert_config, "alert_value") else ["JSON"]
+            getattr(alert_config, "alert_value", ["JSON"])
+            if hasattr(alert_config, "alert_value")
+            else ["JSON"]
         )
         return [
             {
@@ -451,7 +496,11 @@ class PeopleTrackingUseCase(BaseProcessor):
                 "incident_category": self.CASE_TYPE,
                 "threshold_level": getattr(alert_config, "count_thresholds", {}) or {},
                 "ascending": True,
-                "settings": dict(zip(alert_type, alert_value)),
+                # strict=False keeps the pre-existing behaviour: these sequences carry
+                # no enforced equal-length guarantee and the zip has always stopped at
+                # the shorter one. strict=True would raise instead -- a behaviour
+                # change, not a lint fix. Same reasoning for every zip below.
+                "settings": dict(zip(alert_type, alert_value, strict=False)),
             }
         ]
 
@@ -602,30 +651,10 @@ class PeopleTrackingUseCase(BaseProcessor):
 
         return incidents
 
-    def _generate_tracking_stats(
-        self,
-        counting_summary: Dict,
-        zone_analysis: Dict,
-        config: PeopleTrackingConfig,
-        frame_id: str,
-        alerts: Any = [],
-        stream_info: Optional[Dict[str, Any]] = None,
-        line_analysis: Optional[Dict] = None,
-    ) -> List[Dict]:
-        """Generate tracking stats using standardized methods."""
-
-        total_people = counting_summary.get("total_objects", 0)
-
-        # Get total count from cached tracking state
-        total_unique_count = self.get_total_count()
-
-        # Get camera info using standardized method
-        camera_info = self.get_camera_info_from_stream(stream_info)
-
-        # Build total_counts using standardized method
+    def _build_total_counts(self, config, zone_analysis, total_unique_count):
+        """Total count per person category. Split out of _generate_tracking_stats."""
         total_counts = []
         per_category_total = {}
-
         for category in config.person_categories or ["person"]:
             # Get count for this category from zone analysis or counting summary
             category_total_count = 0
@@ -641,7 +670,9 @@ class PeopleTrackingUseCase(BaseProcessor):
                             elif isinstance(v, list):
                                 category_total_count += len(v)
                     elif isinstance(zone_data, (int, list)):
-                        category_total_count += len(zone_data) if isinstance(zone_data, list) else zone_data
+                        category_total_count += (
+                            len(zone_data) if isinstance(zone_data, list) else zone_data
+                        )
             else:
                 # Use total unique count from tracking state
                 category_total_count = total_unique_count
@@ -649,11 +680,12 @@ class PeopleTrackingUseCase(BaseProcessor):
             if category_total_count > 0:
                 total_counts.append(self.create_count_object(category, category_total_count))
                 per_category_total[category] = category_total_count
+        return total_counts, per_category_total
 
-        # Build current_counts using standardized method
+    def _build_current_counts(self, config, zone_analysis, counting_summary, total_people):
+        """Current-frame count per category. Split out of _generate_tracking_stats."""
         current_counts = []
         per_category_current = {}
-
         for category in config.person_categories or ["person"]:
             # Get current count for this category
             category_current_count = 0
@@ -669,17 +701,23 @@ class PeopleTrackingUseCase(BaseProcessor):
                             elif isinstance(v, list):
                                 category_current_count += len(v)
                     elif isinstance(zone_data, (int, list)):
-                        category_current_count += len(zone_data) if isinstance(zone_data, list) else zone_data
+                        category_current_count += (
+                            len(zone_data) if isinstance(zone_data, list) else zone_data
+                        )
             else:
                 # Count detections in current frame for this category
                 detections = counting_summary.get("detections", [])
                 category_current_count = sum(1 for d in detections if d.get("category") == category)
 
-            if category_current_count > 0 or total_people > 0:  # Include even if 0 when there are people
+            if (
+                category_current_count > 0 or total_people > 0
+            ):  # Include even if 0 when there are people
                 current_counts.append(self.create_count_object(category, category_current_count))
                 per_category_current[category] = category_current_count
+        return current_counts, per_category_current
 
-        # Prepare detections using standardized method (without confidence and track_id)
+    def _build_detection_objects(self, counting_summary):
+        """Detection objects for the tracking stat. Split out of _generate_tracking_stats."""
         detections = []
         for detection in counting_summary.get("detections", []):
             bbox = detection.get("bounding_box", {})
@@ -687,18 +725,26 @@ class PeopleTrackingUseCase(BaseProcessor):
             # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
                 segmentation = detection.get("masks", [])
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             elif detection.get("segmentation"):
                 segmentation = detection.get("segmentation")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             elif detection.get("mask"):
                 segmentation = detection.get("mask")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=segmentation
+                )
             else:
                 detection_obj = self.create_detection_object(category, bbox)
             detections.append(detection_obj)
+        return detections
 
-        # Build alerts and alert_settings arrays
+    def _build_alert_settings(self, config):
+        """Alert-settings array for the tracking stat. Split out of _generate_tracking_stats."""
         alert_settings = []
         if config.alert_config and hasattr(config.alert_config, "alert_type"):
             alert_settings.append(
@@ -710,7 +756,9 @@ class PeopleTrackingUseCase(BaseProcessor):
                     ),
                     "incident_category": self.CASE_TYPE,
                     "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
+                        config.alert_config.count_thresholds
+                        if hasattr(config.alert_config, "count_thresholds")
+                        else {}
                     ),
                     "ascending": True,
                     "settings": {
@@ -726,10 +774,31 @@ class PeopleTrackingUseCase(BaseProcessor):
                                 if hasattr(config.alert_config, "alert_value")
                                 else ["JSON"]
                             ),
+                            strict=False,
                         )
                     },
                 }
             )
+        return alert_settings
+
+    def _build_tracking_human_text(
+        self,
+        zone_analysis,
+        counting_summary,
+        total_people,
+        total_unique_count,
+        config,
+        frame_id,
+        alerts,
+        stream_info,
+        line_analysis,
+    ):
+        """Human-readable summary for the tracking stat.
+
+        Split out of _generate_tracking_stats. Both arms of the original if/else
+        are kept verbatim; `human_text` was the only value the block produced for
+        the code that follows it.
+        """
         if zone_analysis:
             human_text_lines = []
             current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
@@ -763,10 +832,14 @@ class PeopleTrackingUseCase(BaseProcessor):
                 human_text_lines.append(f"\t\t- Total count in zone: {zone_total - 1}")
 
             if total_unique_count > 0:
-                human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
+                human_text_lines.append(
+                    f"\t- Total unique people in the scene: {total_unique_count}"
+                )
             if alerts:
                 for alert in alerts:
-                    human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+                    human_text_lines.append(
+                        f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}"
+                    )
             else:
                 human_text_lines.append("Alerts: None")
 
@@ -785,9 +858,62 @@ class PeopleTrackingUseCase(BaseProcessor):
             human_text = self._generate_human_text_for_tracking(
                 total_people, total_unique_count, config, frame_id, alerts, stream_info
             )
+        return human_text
+
+    def _generate_tracking_stats(
+        self,
+        counting_summary: Dict,
+        zone_analysis: Dict,
+        config: PeopleTrackingConfig,
+        frame_id: str,
+        alerts: Optional[Any] = None,
+        stream_info: Optional[Dict[str, Any]] = None,
+        line_analysis: Optional[Dict] = None,
+    ) -> List[Dict]:
+        """Generate tracking stats using standardized methods."""
+        # `alerts` defaulted to a shared mutable [] (B006); normalise here so
+        # every caller still sees an empty list when it passes nothing.
+        alerts = alerts or []
+
+        total_people = counting_summary.get("total_objects", 0)
+
+        # Get total count from cached tracking state
+        total_unique_count = self.get_total_count()
+
+        # Get camera info using standardized method
+        camera_info = self.get_camera_info_from_stream(stream_info)
+
+        # Build total_counts using standardized method
+        total_counts, _per_category_total = self._build_total_counts(
+            config, zone_analysis, total_unique_count
+        )
+
+        # Build current_counts using standardized method
+        current_counts, _per_category_current = self._build_current_counts(
+            config, zone_analysis, counting_summary, total_people
+        )
+
+        # Prepare detections using standardized method (without confidence and track_id)
+        detections = self._build_detection_objects(counting_summary)
+
+        # Build alerts and alert_settings arrays
+        alert_settings = self._build_alert_settings(config)
+        human_text = self._build_tracking_human_text(
+            zone_analysis,
+            counting_summary,
+            total_people,
+            total_unique_count,
+            config,
+            frame_id,
+            alerts,
+            stream_info,
+            line_analysis,
+        )
 
         # Create high precision timestamps for input_timestamp and reset_timestamp
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
+        high_precision_start_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True, frame_id=frame_id
+        )
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
         # Create tracking_stat using standardized method
         tracking_stat = self.create_tracking_stats(
@@ -810,14 +936,19 @@ class PeopleTrackingUseCase(BaseProcessor):
         total_unique_count: int,
         _config: PeopleTrackingConfig,
         frame_id: str,
-        alerts: Any = [],
+        alerts: Optional[Any] = None,
         stream_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate human-readable text for tracking stats in old format."""
+        # `alerts` defaulted to a shared mutable [] (B006); normalise here so
+        # every caller still sees an empty list when it passes nothing.
+        alerts = alerts or []
 
         _ = (_config,)
         human_text_lines = []
-        current_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
+        current_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True, frame_id=frame_id
+        )
         start_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
         self._debug_stream_timing("start_timestamp", start_timestamp)
 
@@ -831,7 +962,9 @@ class PeopleTrackingUseCase(BaseProcessor):
 
         if alerts:
             for alert in alerts:
-                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+                human_text_lines.append(
+                    f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}"
+                )
         else:
             human_text_lines.append("Alerts: None")
 
@@ -847,27 +980,6 @@ class PeopleTrackingUseCase(BaseProcessor):
     ) -> List[Dict]:
         """Check for alert conditions and generate alerts."""
 
-        def get_trend(data, lookback=900, threshold=0.6):
-            """
-            Determine if the trend is ascending or descending based on actual value progression.
-            Now works with values 0,1,2,3 (not just binary).
-            """
-            window = data[-lookback:] if len(data) >= lookback else data
-            if len(window) < 2:
-                return True  # not enough data to determine trend
-            increasing = 0
-            total = 0
-            for i in range(1, len(window)):
-                if window[i] >= window[i - 1]:
-                    increasing += 1
-                total += 1
-            ratio = increasing / total
-            if ratio >= threshold:
-                return True
-            elif ratio <= (1 - threshold):
-                return False
-            return None
-
         alerts = []
 
         if not config.alert_config:
@@ -876,7 +988,10 @@ class PeopleTrackingUseCase(BaseProcessor):
         total_people = counting_summary.get("total_objects", 0)
 
         # Count threshold alerts
-        if hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds:
+        if (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_people >= threshold:
                     alerts.append(
@@ -889,7 +1004,9 @@ class PeopleTrackingUseCase(BaseProcessor):
                             "alert_id": "alert_" + category + "_" + frame_id,
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
                                 for t, v in zip(
@@ -907,6 +1024,7 @@ class PeopleTrackingUseCase(BaseProcessor):
                                         if hasattr(config.alert_config, "alert_value")
                                         else ["JSON"]
                                     ),
+                                    strict=False,
                                 )
                             },
                         }
@@ -951,6 +1069,7 @@ class PeopleTrackingUseCase(BaseProcessor):
                                             if hasattr(config.alert_config, "alert_value")
                                             else ["JSON"]
                                         ),
+                                        strict=False,
                                     )
                                 },
                             }
@@ -959,14 +1078,17 @@ class PeopleTrackingUseCase(BaseProcessor):
             pass
 
         # Zone occupancy threshold alerts
-        if hasattr(config.alert_config, "occupancy_thresholds") and config.alert_config.occupancy_thresholds:
+        if (
+            hasattr(config.alert_config, "occupancy_thresholds")
+            and config.alert_config.occupancy_thresholds
+        ):
             for (
                 zone_name,
                 threshold,
             ) in config.alert_config.occupancy_thresholds.items():
                 if zone_name in zone_analysis:
                     # Calculate zone_count robustly (supports int, list, dict values)
-                    print("ZONEEE", zone_name, zone_analysis[zone_name])
+                    self.logger.debug("ZONEEE %s %s", zone_name, zone_analysis[zone_name])
                     zone_count = self._robust_zone_total(zone_analysis[zone_name])
                     if zone_count >= threshold:
                         alerts.append(
@@ -1005,6 +1127,7 @@ class PeopleTrackingUseCase(BaseProcessor):
                                             if hasattr(config.alert_config, "alert_value")
                                             else ["JSON"]
                                         ),
+                                        strict=False,
                                     )
                                 },
                             }
@@ -1059,6 +1182,7 @@ class PeopleTrackingUseCase(BaseProcessor):
                                             if hasattr(config.alert_config, "alert_value")
                                             else ["JSON"]
                                         ),
+                                        strict=False,
                                     )
                                 },
                             }
@@ -1140,10 +1264,13 @@ class PeopleTrackingUseCase(BaseProcessor):
         lines.append("Application Name: " + self.CASE_TYPE)
         lines.append("Application Version: " + self.CASE_VERSION)
         if len(incidents) > 0:
-            lines.append("Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
+            lines.append(
+                "Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}"
+            )
         if len(tracking_stats) > 0:
             lines.append(
-                "Tracking Statistics: " + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
+                "Tracking Statistics: "
+                + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
             )
         if len(business_analytics) > 0:
             lines.append(
@@ -1201,7 +1328,9 @@ class PeopleTrackingUseCase(BaseProcessor):
             unique_count = self._count_unique_tracks(counting_summary, config)
             if unique_count is not None:
                 metrics["unique_people"] = unique_count
-                metrics["tracking_efficiency"] = (unique_count / total_people) * 100 if total_people > 0 else 0
+                metrics["tracking_efficiency"] = (
+                    (unique_count / total_people) * 100 if total_people > 0 else 0
+                )
 
         # Per-zone metrics
         if zone_analysis:
@@ -1251,7 +1380,13 @@ class PeopleTrackingUseCase(BaseProcessor):
                                 prediction["frame_id"] = frame_id
                                 predictions.append(prediction)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — argued below, and BLE001 blocks in strict mode
+            # Bare except is correct HERE: this walks arbitrary caller-supplied
+            # prediction shapes with duck-typed access, so the reachable failure
+            # set is not knowable from this module. The failure direction is
+            # already safe -- the warning is recorded and the predictions parsed
+            # so far are returned, so a malformed payload degrades to a partial
+            # result instead of killing a per-frame path.
             self.logger.warning(f"Failed to extract predictions: {str(e)}")
 
         return predictions
@@ -1272,7 +1407,9 @@ class PeopleTrackingUseCase(BaseProcessor):
         """Extract detection items with confidence scores."""
         return counting_summary.get("detections", [])
 
-    def _count_unique_tracks(self, counting_summary: Dict, config: PeopleTrackingConfig = None) -> Optional[int]:
+    def _count_unique_tracks(
+        self, counting_summary: Dict, config: PeopleTrackingConfig = None
+    ) -> Optional[int]:
         """Count unique tracks if tracking is enabled."""
         # Always update tracking state regardless of enable_unique_counting setting
         self._update_tracking_state(counting_summary)
@@ -1381,7 +1518,10 @@ class PeopleTrackingUseCase(BaseProcessor):
             w = int(round(abs(float(x2) - float(x1))))
             h = int(round(abs(float(y2) - float(y1))))
             geom_token = f"{cx}_{cy}_{w}_{h}"
-        except Exception:
+        except (ValueError, TypeError):
+            # Unpacking xyxy or coercing a component with float(): a non-numeric
+            # string raises ValueError, None raises TypeError, and a short/long
+            # sequence raises ValueError from the unpack. Nothing else is reachable.
             geom_token = "0_0_0_0"
 
         ms = int(time.time() * 1000)
@@ -1447,13 +1587,19 @@ class PeopleTrackingUseCase(BaseProcessor):
             "current_frame_count": len(self._current_frame_track_ids),
             "total_frames_processed": self._total_frame_counter,
             "last_update_time": self._last_update_time,
-            "zone_current_track_ids": {zone: list(tracks) for zone, tracks in self._zone_current_track_ids.items()},
-            "zone_total_track_ids": {zone: list(tracks) for zone, tracks in self._zone_total_track_ids.items()},
+            "zone_current_track_ids": {
+                zone: list(tracks) for zone, tracks in self._zone_current_track_ids.items()
+            },
+            "zone_total_track_ids": {
+                zone: list(tracks) for zone, tracks in self._zone_total_track_ids.items()
+            },
             "zone_current_counts": self._zone_current_counts.copy(),
             "zone_total_counts": self._zone_total_counts.copy(),
             "global_frame_offset": self._global_frame_offset,
             "frames_in_current_chunk": self._frames_in_current_chunk,
-            "line_crossed_tracks": {dir: list(tracks) for dir, tracks in self._line_crossed_tracks.items()},
+            "line_crossed_tracks": {
+                dir: list(tracks) for dir, tracks in self._line_crossed_tracks.items()
+            },
         }
 
     def get_frame_info(self) -> Dict[str, Any]:
@@ -1664,7 +1810,8 @@ class PeopleTrackingUseCase(BaseProcessor):
                 "current_track_ids": list(self._zone_current_track_ids.get(zone_name, set())),
                 "total_track_ids": list(self._zone_total_track_ids.get(zone_name, set())),
             }
-            for zone_name in set(self._zone_current_counts.keys()) | set(self._zone_total_counts.keys())
+            for zone_name in set(self._zone_current_counts.keys())
+            | set(self._zone_total_counts.keys())
         }
 
     def get_zone_current_count(self, zone_name: str) -> int:
@@ -1682,10 +1829,13 @@ class PeopleTrackingUseCase(BaseProcessor):
                 "current": self._zone_current_counts.get(zone_name, 0),
                 "total": self._zone_total_counts.get(zone_name, 0),
             }
-            for zone_name in set(self._zone_current_counts.keys()) | set(self._zone_total_counts.keys())
+            for zone_name in set(self._zone_current_counts.keys())
+            | set(self._zone_total_counts.keys())
         }
 
-    def _update_line_crossings(self, detections: List[Dict], line_config: LineConfig) -> Dict[str, Any]:
+    def _update_line_crossings(
+        self, detections: List[Dict], line_config: LineConfig
+    ) -> Dict[str, Any]:
         """Update line crossing tracking with current frame data and detect crossings."""
         if not line_config or not line_config.points or len(line_config.points) != 2:
             return {}
@@ -1779,55 +1929,69 @@ class PeopleTrackingUseCase(BaseProcessor):
         frame_id: Optional[str] = None,
     ) -> str:
         """Get formatted current timestamp based on stream type."""
-        print("STREAM INFO-------------------------------")
-        print(stream_info)
+        self.logger.debug("STREAM INFO-------------------------------")
+        self.logger.debug("%s", stream_info)
         if not stream_info:
             return "00:00:00.00"
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
-                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                        "original_fps", 30
+                    )
                 else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                        "input_settings", {}
-                    ).get("original_fps", 30)
+                    start_time = stream_info.get("input_settings", {}).get(
+                        "start_frame", 30
+                    ) / stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
                 self._debug_stream_timing("stream_time_str", stream_time_str)
-                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+                return self._format_timestamp(
+                    stream_info.get("input_settings", {}).get("stream_time", "NA")
+                )
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             if frame_id:
-                start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                    "original_fps", 30
+                )
             else:
-                start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                    "input_settings", {}
-                ).get("original_fps", 30)
+                start_time = stream_info.get("input_settings", {}).get(
+                    "start_frame", 30
+                ) / stream_info.get("input_settings", {}).get("original_fps", 30)
 
             stream_time_str = self._format_timestamp_for_video(start_time)
 
             self._debug_stream_timing("stream_time_str", stream_time_str)
-            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            return self._format_timestamp(
+                stream_info.get("input_settings", {}).get("stream_time", "NA")
+            )
         else:
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            stream_time_str = (
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            )
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except (ValueError, AttributeError):
+                    # strptime raises ValueError on any malformed/wrongly-typed
+                    # value; .replace on a non-str raises AttributeError.
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_start_timestamp_str(
+        self, stream_info: Optional[Dict[str, Any]], precision=False
+    ) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-        print("STARTTT STREAM INFO-------------------------------")
-        print(stream_info)
+        self.logger.debug("STARTTT STREAM INFO-------------------------------")
+        self.logger.debug("%s", stream_info)
 
         if precision:
             if self.start_timer is None:
@@ -1851,13 +2015,19 @@ class PeopleTrackingUseCase(BaseProcessor):
                 return self._format_timestamp(self.start_timer)
 
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except (ValueError, AttributeError):
+                        # Same parse as above: ValueError from strptime, or
+                        # AttributeError from .replace on a non-str.
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
@@ -1988,7 +2158,9 @@ class PeopleTrackingUseCase(BaseProcessor):
                 info["last_bbox"] = bbox
                 info["last_update"] = now
                 info["raw_ids"].add(raw_id)
-                self.logger.debug(f"Merged raw track {raw_id} into canonical track {canonical_id} (IoU={iou:.2f})")
+                self.logger.debug(
+                    f"Merged raw track {raw_id} into canonical track {canonical_id} (IoU={iou:.2f})"
+                )
                 return canonical_id
 
         # No match found – create a new canonical track
@@ -2022,7 +2194,9 @@ class PeopleTrackingUseCase(BaseProcessor):
 
         # Convert numeric timestamps to the expected string representation first
         if isinstance(timestamp, (int, float)):
-            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                "%Y-%m-%d-%H:%M:%S.%f UTC"
+            )
 
         # Ensure we are working with a string from here on
         if not isinstance(timestamp, str):

@@ -896,6 +896,12 @@ def clear_context_data() -> None:
 
     reset_request_cld_state()
 
+    # Same reason, for the telemetry API-surface hint: a `sql` set by request A
+    # must not make request B's DataFrame calls report as SQL.
+    from snowflake.snowpark_connect.utils.api_surface import reset_request_api_surface
+
+    reset_request_api_surface()
+
 
 @contextmanager
 def temporary_window_expression():

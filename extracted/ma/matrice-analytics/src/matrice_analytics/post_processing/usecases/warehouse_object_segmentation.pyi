@@ -6,6 +6,14 @@ from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, Proces
 from ..core.config import AlertConfig, BaseConfig
 from ..utils import BBoxSmoothingConfig, BBoxSmoothingTracker, apply_category_mapping, bbox_smoothing, filter_by_confidence, match_results_structure
 
+# Functions
+def get_trend(data: Any, lookback: Any = 900, threshold: Any = 0.6) -> Any:
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    ...
+
 # Classes
 class WarehouseObjectConfig:
     # Configuration for Warehouse pallet detection use case in warehouse pallet monitoring.

@@ -42,9 +42,10 @@ def center_crop(
     new_shape = image.shape[:-2] + (new_height, new_width)
     new_image = np.zeros_like(image, shape=new_shape, dtype=np.float32)
 
-    top_pad = (new_height - orig_height) // 2
+    # Round padding up to offset the floor-rounded crop origin when the difference is odd.
+    top_pad = (new_height - orig_height + 1) // 2
     bottom_pad = top_pad + orig_height
-    left_pad = (new_width - orig_width) // 2
+    left_pad = (new_width - orig_width + 1) // 2
     right_pad = left_pad + orig_width
     new_image[..., top_pad:bottom_pad, left_pad:right_pad] = image
 
@@ -144,14 +145,16 @@ def pad2square(
     left, right = 0, width
     top, bottom = 0, height
 
+    # Jina's reference crops with torchvision's CenterCrop, which rounds the offset half to
+    # even like round() instead of flooring it: a 227 px edge is cropped from 2, not 1
     crop_required = False
     if width > size:
-        left = (width - size) // 2
+        left = round((width - size) / 2)
         right = left + size
         crop_required = True
 
     if height > size:
-        top = (height - size) // 2
+        top = round((height - size) / 2)
         bottom = top + size
         crop_required = True
 
@@ -183,7 +186,8 @@ def resize_longest_edge(
     if new_width % 2 != 0:
         new_width += 1
 
-    return image.resize((new_width, new_height), resample)
+    # A very narrow image can round down to zero along its shorter edge.
+    return image.resize((max(1, new_width), max(1, new_height)), resample)
 
 
 def crop_ndarray(

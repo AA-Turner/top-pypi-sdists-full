@@ -1,4 +1,5 @@
 use hashbrown::HashMap;
+use pyo3::conversion::FromPyObjectOwned;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use rmpv::Value as RmpvValue;
@@ -20,14 +21,14 @@ impl Config {
         Ok(Self { inner })
     }
 
-    pub fn get_or<'py, T: FromPyObject<'py>>(
+    pub fn get_or<'py, T: FromPyObjectOwned<'py>>(
         &self,
         py: Python<'py>,
         key: &str,
         default: T,
     ) -> PyResult<T> {
         match self.inner.get(key) {
-            Some(value) => value.extract(py),
+            Some(value) => value.extract(py).map_err(Into::into),
             None => Ok(default),
         }
     }

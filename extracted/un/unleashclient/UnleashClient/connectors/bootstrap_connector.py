@@ -1,6 +1,4 @@
-from yggdrasil_engine.engine import UnleashEngine
-
-from UnleashClient.cache import BaseCache
+from UnleashClient._feature_store import _FeatureStore
 
 from .base_connector import BaseConnector
 
@@ -8,16 +6,19 @@ from .base_connector import BaseConnector
 class BootstrapConnector(BaseConnector):
     def __init__(
         self,
-        engine: UnleashEngine,
-        cache: BaseCache,
+        store: _FeatureStore,
     ):
-        super().__init__(engine, cache)
-        self.engine = engine
-        self.cache = cache
+        super().__init__(store)
         self.job = None
 
+    # TODO: the client hands this connector a store with no _EventDispatcher, so
+    # bootstrapping does not emit a READY event. Bootstrapped clients only see
+    # READY once initialize_client() builds a polling, streaming or offline
+    # connector. Passing the dispatcher here would emit READY from
+    # ``UnleashClient``'s constructor, ahead of initialize_client(); moving this
+    # start() call into initialize_client() is the prerequisite for that change.
     def start(self):
-        self.load_features()
+        self._store.load_from_cache()
 
     def stop(self):
         pass

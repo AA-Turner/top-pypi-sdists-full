@@ -166,7 +166,7 @@ class TestQueryParameters(base.TestCase):
         mapping: dict[str, Any] = {
             "first_name": "first-name",
             "second_name": {"name": "second-name"},
-            "third_name": {"name": "third", "type": int},
+            "third_name": {"name": "third", "format": "csv"},
         }
 
         sot = resource.QueryParameters(location, **mapping)
@@ -176,7 +176,7 @@ class TestQueryParameters(base.TestCase):
                 "location": "location",
                 "first_name": "first-name",
                 "second_name": {"name": "second-name"},
-                "third_name": {"name": "third", "type": int},
+                "third_name": {"name": "third", "format": "csv"},
                 "limit": "limit",
                 "marker": "marker",
             },
@@ -184,16 +184,11 @@ class TestQueryParameters(base.TestCase):
         )
 
     def test_transpose_unmapped(self):
-        def _type(value, rtype):
-            self.assertIs(rtype, mock.sentinel.resource_type)
-            return value * 10
-
         location = "location"
         mapping: dict[str, Any] = {
             "first_name": "first-name",
             "pet_name": {"name": "pet"},
-            "answer": {"name": "answer", "type": int},
-            "complex": {"type": _type},
+            "complex": {"format": "csv"},
         }
 
         sot = resource.QueryParameters(location, **mapping)
@@ -202,9 +197,8 @@ class TestQueryParameters(base.TestCase):
                 "location": "Brooklyn",
                 "first_name": "Brian",
                 "pet_name": "Meow",
-                "answer": "42",
                 "last_name": "Curtin",
-                "complex": 1,
+                "complex": ["a", "b"],
             },
             mock.sentinel.resource_type,
         )
@@ -215,8 +209,7 @@ class TestQueryParameters(base.TestCase):
                 "location": "Brooklyn",
                 "first-name": "Brian",
                 "pet": "Meow",
-                "answer": 42,
-                "complex": 10,
+                "complex": "a,b",
             },
             result,
         )
@@ -226,7 +219,6 @@ class TestQueryParameters(base.TestCase):
         mapping: dict[str, Any] = {
             "first_name": "first-name",
             "pet_name": {"name": "pet"},
-            "answer": {"name": "answer", "type": int},
         }
 
         sot = resource.QueryParameters(location, **mapping)
@@ -768,6 +760,27 @@ class TestResource(base.TestCase):
             '{"foo": "new_bar", "id": null, "location": null, "name": null}'
         )
         actual = json.dumps(res, sort_keys=True)
+        self.assertEqual(expected, actual)
+
+    def test_json_dumps_reentrant_alias_get(self):
+        """Test that re-entrant alias resolution does not fail.
+
+        Mutually aliased fields can re-enter the same descriptor while its
+        ``_seen`` flag is set. The nested lookup may remove the flag before
+        the outer lookup does, leaving the outer lookup unable to clean it up.
+        """
+
+        class Test(resource.Resource):
+            owner = resource.Body('owner', alias='owner_id')
+            owner_id = resource.Body('owner', alias='owner')
+
+        res = Test()
+
+        actual = json.dumps(res, sort_keys=True)
+        expected = (
+            '{"id": null, "location": null, "name": null, '
+            '"owner": null, "owner_id": null}'
+        )
         self.assertEqual(expected, actual)
 
     def test_items(self):

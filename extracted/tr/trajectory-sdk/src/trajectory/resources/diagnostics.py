@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Literal
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
@@ -17,8 +17,8 @@ from trajectory.types.benchmark_diagnostics_response import BenchmarkDiagnostics
 from trajectory.types.benchmark_images_response import BenchmarkImagesResponse
 from trajectory.types.benchmarks.task_spec import TaskSpec
 from trajectory.types.benchmarks.task_spec_param import TaskSpecParam
-from trajectory.types.diagnostics.diagnostics_start_benchmark_params import (
-  DiagnosticsStartBenchmarkParams,
+from trajectory.types.diagnostics.start_benchmark_diagnostics_params import (
+  StartBenchmarkDiagnosticsParams,
 )
 from trajectory.types.start_benchmark_diagnostics_response import StartBenchmarkDiagnosticsResponse
 
@@ -33,14 +33,15 @@ class Diagnostics(APIResource):
     *,
     agent_id: str,
     task: TaskSpec,
+    bench_id: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkImagesResponse:
     """Register one task as a private benchmark and submit its image build. Poll
-    listBenchmarkImages until the image is ready, then call startBenchmarkDiagnostics with
-    the returned bench_id.
+    listBenchmarkImages until ready, then call startTaskDiagnostics with the returned
+    bench_id.
 
     Args:
       extra_headers: Send extra headers
@@ -52,15 +53,79 @@ class Diagnostics(APIResource):
       timeout: Override the client-level default timeout for this request, in seconds
     """
     return self._post(
-      "/api/v1/diagnostics/task",
+      "/api/v1/diagnostics/task/ingest",
       cast_to=BenchmarkImagesResponse,
       body=maybe_transform(task, TaskSpecParam),
       options=make_request_options(
         params=maybe_transform(
           {
             "agent_id": agent_id,
+            "bench_id": bench_id,
           }
         ),
+        extra_headers=extra_headers,
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
+
+  def start_task(
+    self,
+    *,
+    bench_id: str,
+    base_model_slug: Literal[
+      "thinkingmachines/Inkling-Small",
+      "Qwen/Qwen3.5-4B",
+      "Qwen/Qwen3.5-397B-A17B",
+      "Qwen/Qwen3.6-27B",
+      "Qwen/Qwen3.6-35B-A3B",
+      "Qwen/Qwen3.8-27B",
+      "qwen/qwen3-235b-a22b",
+      "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
+      "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+      "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+      "nvidia/NVIDIA-Nemotron-3.5-Super-120B-A12B-BF16",
+      "openai/gpt-5.6-sol",
+      "openai/gpt-5.6-luna",
+      "anthropic/claude-opus-5.5",
+      "anthropic/claude-sonnet-5.5",
+      "openai/gpt-5-mini",
+      "openai/gpt-5.4-mini",
+      "openai/gpt-5.5",
+      "anthropic/claude-sonnet-4.6",
+      "google/gemini-3.1-pro-preview",
+      "z-ai/glm-5.3",
+      "moonshotai/kimi-k3",
+    ]
+    | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> StartBenchmarkDiagnosticsResponse:
+    """Start diagnostics for one ingested task after its image is ready.
+
+    Args:
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    return self._post(
+      "/api/v1/diagnostics/task/run",
+      cast_to=StartBenchmarkDiagnosticsResponse,
+      body=maybe_transform(
+        {
+          "bench_id": bench_id,
+          "base_model_slug": base_model_slug,
+        },
+        StartBenchmarkDiagnosticsParams,
+      ),
+      options=make_request_options(
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,
@@ -100,10 +165,10 @@ class Diagnostics(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> StartBenchmarkDiagnosticsResponse:
-    """Start diagnostics for a benchmark, including one returned by ingestTaskForDiagnostics
-    after its image is ready. Defaults to Nemotron 3.5 Lightning.
+    """Start diagnostics for an existing benchmark after its images are ready. Defaults to
+    Nemotron 3.5 Lightning.
 
     Args:
       extra_headers: Send extra headers
@@ -115,14 +180,14 @@ class Diagnostics(APIResource):
       timeout: Override the client-level default timeout for this request, in seconds
     """
     return self._post(
-      "/api/v1/diagnostics/benchmark",
+      "/api/v1/diagnostics/benchmark/run",
       cast_to=StartBenchmarkDiagnosticsResponse,
       body=maybe_transform(
         {
           "bench_id": bench_id,
           "base_model_slug": base_model_slug,
         },
-        DiagnosticsStartBenchmarkParams,
+        StartBenchmarkDiagnosticsParams,
       ),
       options=make_request_options(
         extra_headers=extra_headers,
@@ -139,7 +204,7 @@ class Diagnostics(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkDiagnosticStatusResponse:
     """Poll the status of a benchmark diagnostic.
 
@@ -177,7 +242,7 @@ class Diagnostics(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkDiagnosticsResponse:
     """Get task outcomes and failure reasons after a benchmark diagnostic finishes.
 
@@ -213,6 +278,7 @@ class DiagnosticsWithRawResponse:
   def __init__(self, resource: Diagnostics) -> None:
     self._resource = resource
     self.ingest_task = to_raw_response_wrapper(resource.ingest_task)
+    self.start_task = to_raw_response_wrapper(resource.start_task)
     self.start_benchmark = to_raw_response_wrapper(resource.start_benchmark)
     self.get_status = to_raw_response_wrapper(resource.get_status)
     self.get_diagnostics = to_raw_response_wrapper(resource.get_diagnostics)

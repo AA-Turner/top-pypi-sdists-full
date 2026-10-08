@@ -1,10 +1,8 @@
 import logging
 from enum import Enum
-from threading import RLock
-from typing import Any
+from typing import Any, Dict, Optional
 
 import mmh3  # pylint: disable=import-error
-from requests import Response
 
 LOGGER = logging.getLogger("UnleashClient")
 
@@ -13,30 +11,6 @@ class InstanceAllowType(Enum):
     BLOCK = 1
     WARN = 2
     SILENTLY_ALLOW = 3
-
-
-class InstanceCounter:
-    def __init__(self):
-        self.instances = {}
-        self.lock = RLock()
-
-    def __contains__(self, key):
-        with self.lock:
-            return key in self.instances
-
-    def _reset(self):
-        self.instances = {}
-
-    def count(self, key):
-        with self.lock:
-            return self.instances.get(key) or 0
-
-    def increment(self, key):
-        with self.lock:
-            if key in self:
-                self.instances[key] += 1
-            else:
-                self.instances[key] = 1
 
 
 def normalized_hash(
@@ -63,7 +37,26 @@ def get_identifier(context_key_name: str, context: dict) -> Any:
     return value
 
 
-def log_resp_info(resp: Response) -> None:
-    LOGGER.debug("HTTP status code: %s", resp.status_code)
-    LOGGER.debug("HTTP headers: %s", resp.headers)
-    LOGGER.debug("HTTP content: %s", resp.text)
+def extract_environment_from_headers(
+    headers: Optional[Dict[str, str]],
+) -> Optional[str]:
+    if not headers:
+        return None
+
+    auth_key = next(
+        (key for key in headers if key.lower() == "authorization"),
+        None,
+    )
+    if not auth_key:
+        return None
+
+    auth_value = headers.get(auth_key)
+    if not auth_value:
+        return None
+
+    _, sep, after_colon = auth_value.partition(":")
+    if not sep:
+        return None
+
+    environment, _, _ = after_colon.partition(".")
+    return environment or None

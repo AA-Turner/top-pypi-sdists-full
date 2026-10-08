@@ -19,6 +19,7 @@ from keystoneauth1 import adapter
 
 from openstack.common import tag
 from openstack import exceptions
+from openstack import format
 from openstack.image import _download
 from openstack import resource
 from openstack import utils
@@ -232,10 +233,13 @@ class Image(resource.Resource, tag.TagMixin, _download.DownloadMixin):
     #: across a number of vCPUs.
     is_hw_vif_multiqueue_enabled = resource.Body(
         'hw_vif_multiqueue_enabled',
-        type=bool,
+        type=format.FlexibleBoolStr,
     )
     #: If true, enables the BIOS bootmenu.
-    is_hw_boot_menu_enabled = resource.Body('hw_boot_menu', type=bool)
+    is_hw_boot_menu_enabled = resource.Body(
+        'hw_boot_menu',
+        type=format.FlexibleBoolStr,
+    )
     #: The virtual SCSI or IDE controller used by the hypervisor.
     vmware_adaptertype = resource.Body('vmware_adaptertype')
     #: A VMware GuestID which describes the operating system installed
@@ -252,7 +256,10 @@ class Image(resource.Resource, tag.TagMixin, _download.DownloadMixin):
     #: to the instance.
     hw_qemu_guest_agent = resource.Body('hw_qemu_guest_agent', type=str)
     #: If true, require quiesce on snapshot via QEMU guest agent.
-    os_require_quiesce = resource.Body('os_require_quiesce', type=bool)
+    os_require_quiesce = resource.Body(
+        'os_require_quiesce',
+        type=format.FlexibleBoolStr,
+    )
     #: The URL for the schema describing a virtual machine image.
     schema = resource.Body('schema')
 

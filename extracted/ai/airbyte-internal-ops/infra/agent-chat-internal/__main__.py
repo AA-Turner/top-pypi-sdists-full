@@ -14,11 +14,12 @@ instead of serving the app itself. `preview.chat.internal.airbyte.ai` likewise
 301-redirects to `preview.ops.internal.airbyte.ai/chat/` (a host rule on the
 same LB, so it shares the IP and proxies but gets its own managed cert).
 
-Container images are built and pushed by the publish workflows in
-`airbytehq/airbyte-agui-server` and `airbytehq/airbyte-agui-sdk`. The tags in
-`Pulumi.prod.yaml` only seed the first create — Pulumi ignores changes to the
-container image (`ignore_changes` on `template.containers[*].image`) and the
-`deploy-agui-command.yml` workflow manages the actual image via
+Chat images are built and pushed by publish workflows in
+`airbytehq/airbyte-agui-server` and `airbytehq/airbyte-agui-sdk`; the mtx image
+is published by `airbytehq/airbyte-transforms-poc`. Config image tags only seed
+the first create — Pulumi ignores changes to the container image
+(`ignore_changes` on `template.containers[*].image`). The chat images are
+deployed by `deploy-agui-command.yml` via
 `gcloud run services update --image=<tag>`.
 
 Each service has a preview twin (`agui-server-preview`,
@@ -29,9 +30,12 @@ below.
 A third Cloud Run service (`agui-playground-mtx`, plus the
 `agui-playground-mtx-preview` twin) runs the thin mtx playground image and
 gets its own IAP-enabled backend (`agui-playground-mtx-backend`), which the
-ops-webapp URL map mounts at `/mtx`. Pulumi owns both mtx images: redeploy by
-bumping `mtx-playground-image` (or `mtx-playground-preview-image` for the
-twin) and applying — deploy-agui does not manage them.
+ops-webapp URL map mounts at `/mtx`. Only `main` pushes to
+`airbytehq/airbyte-transforms-poc` deploy mtx images directly as
+`agui-mtx-deployer`. Its WIF and runtime `actAs` bindings are admin-applied
+after the first apply; see `BOOTSTRAP.md`.
+`mtx-playground-image` and `mtx-playground-preview-image` only seed the first
+create.
 """
 
 from __future__ import annotations
@@ -232,6 +236,32 @@ def define_runtime_service_account(
     )
 
 
+def define_mtx_runtime_service_account(
+    api_services: list[gcp.projects.Service],
+) -> gcp.serviceaccount.Account:
+    """Define the mtx playground runtime identity."""
+    return gcp.serviceaccount.Account(
+        "agui-mtx-runtime",
+        account_id="agui-mtx-runtime",
+        display_name="AG-UI mtx playground runtime",
+        project=PROJECT,
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
+
+
+def define_mtx_deployer_service_account(
+    api_services: list[gcp.projects.Service],
+) -> gcp.serviceaccount.Account:
+    """Define the transforms-poc GitHub Actions deployment identity."""
+    return gcp.serviceaccount.Account(
+        "agui-mtx-deployer",
+        account_id="agui-mtx-deployer",
+        display_name="AG-UI mtx playground deployer",
+        project=PROJECT,
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
+
+
 def _define_cloud_run_service(
     service_name: str,
     image: str,
@@ -242,7 +272,6 @@ def _define_cloud_run_service(
     service_account: gcp.serviceaccount.Account | None,
     iap_identity: gcp.projects.ServiceIdentity,
     depends_on: list[pulumi.Resource] | None = None,
-    pulumi_owns_image: bool = False,
 ) -> gcp.cloudrunv2.Service:
     """Define one internal-LB Cloud Run service behind IAP."""
     service = gcp.cloudrunv2.Service(
@@ -278,14 +307,10 @@ def _define_cloud_run_service(
             delete_before_replace=False,
             depends_on=[*api_services, *(depends_on or [])],
             # Cloud Run auto-populates top-level `scaling` from template
-            # settings; ignoring it avoids perpetual refresh drift. The image
-            # is ignored too unless Pulumi owns it: for the chat services the
-            # deploy-agui workflow owns it via
-            # `gcloud run services update --image=<tag>` and the config tag
-            # only seeds the first create.
-            ignore_changes=["scaling"]
-            if pulumi_owns_image
-            else ["scaling", "template.containers[*].image"],
+            # settings; ignoring it avoids perpetual refresh drift. Deploy
+            # workflows own the image via `gcloud run services update
+            # --image=<tag>`; config tags only seed the first create.
+            ignore_changes=["scaling", "template.containers[*].image"],
         ),
     )
     gcp.cloudrunv2.ServiceIamMember(
@@ -298,6 +323,25 @@ def _define_cloud_run_service(
         opts=pulumi.ResourceOptions(depends_on=[service, iap_identity]),
     )
     return service
+
+
+def _grant_mtx_deployer_cloud_run_access(
+    service_name: str,
+    service: gcp.cloudrunv2.Service,
+    deployer_service_account: gcp.serviceaccount.Account,
+) -> None:
+    """Grant the mtx deployer permission to update one Cloud Run service."""
+    gcp.cloudrunv2.ServiceIamMember(
+        f"{service_name}-deployer",
+        project=PROJECT,
+        location=REGION,
+        name=service.name,
+        role="roles/run.developer",
+        member=deployer_service_account.email.apply(
+            lambda email: f"serviceAccount:{email}"
+        ),
+        opts=pulumi.ResourceOptions(depends_on=[service, deployer_service_account]),
+    )
 
 
 def _define_neg_and_backend(
@@ -518,6 +562,8 @@ def main() -> None:
     # IAM are bootstrap-owned (see BOOTSTRAP.md); the stack only consumes
     # the image by tag.
     service_account = define_runtime_service_account(api_services)
+    mtx_runtime_service_account = define_mtx_runtime_service_account(api_services)
+    mtx_deployer_service_account = define_mtx_deployer_service_account(api_services)
 
     iap_identity = gcp.projects.ServiceIdentity(
         "iap-service-identity",
@@ -591,11 +637,8 @@ def main() -> None:
         "512Mi",
         [_env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else "")],
         api_services,
-        service_account=None,
+        service_account=mtx_runtime_service_account,
         iap_identity=iap_identity,
-        # deploy-agui does not manage this service, so Pulumi owns its
-        # image: bump `mtx-playground-image` and apply to redeploy.
-        pulumi_owns_image=True,
     )
     mtx_playground_preview_service = _define_cloud_run_service(
         MTX_PLAYGROUND_PREVIEW_SERVICE_NAME,
@@ -603,9 +646,18 @@ def main() -> None:
         "512Mi",
         [_env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else "")],
         api_services,
-        service_account=None,
+        service_account=mtx_runtime_service_account,
         iap_identity=iap_identity,
-        pulumi_owns_image=True,
+    )
+    _grant_mtx_deployer_cloud_run_access(
+        MTX_PLAYGROUND_SERVICE_NAME,
+        mtx_playground_service,
+        mtx_deployer_service_account,
+    )
+    _grant_mtx_deployer_cloud_run_access(
+        MTX_PLAYGROUND_PREVIEW_SERVICE_NAME,
+        mtx_playground_preview_service,
+        mtx_deployer_service_account,
     )
 
     server_backend = _define_neg_and_backend(SERVER_SERVICE_NAME, server_service)
@@ -653,6 +705,7 @@ def main() -> None:
     outputs["mtx_playground_image"] = MTX_PLAYGROUND_IMAGE
     outputs["mtx_playground_preview_service"] = mtx_playground_preview_service.name
     outputs["mtx_playground_preview_image"] = MTX_PLAYGROUND_PREVIEW_IMAGE
+    outputs["mtx_deployer_service_account"] = mtx_deployer_service_account.email
     for name, value in outputs.items():
         pulumi.export(name, value)
 

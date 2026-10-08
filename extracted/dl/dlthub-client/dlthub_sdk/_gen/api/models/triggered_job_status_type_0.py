@@ -1,0 +1,18 @@
+from enum import Enum
+
+
+class TriggeredJobStatusType0(str, Enum):
+    SKIPPED_ALREADY_COVERED = "skipped_already_covered"
+    SKIPPED_CONCURRENCY_LIMIT = "skipped_concurrency_limit"
+    SKIPPED_FRESH = "skipped_fresh"
+    SKIPPED_MINUTES_LIMIT = "skipped_minutes_limit"
+    SKIPPED_ORG_CONCURRENCY_LIMIT = "skipped_org_concurrency_limit"
+    SKIPPED_OUT_OF_INTERVAL = "skipped_out_of_interval"
+    SKIPPED_PAUSED = "skipped_paused"
+    SKIPPED_TRIAL_EXPIRED = "skipped_trial_expired"
+    SKIPPED_UPSTREAM_PENDING = "skipped_upstream_pending"
+    SKIPPED_WORKSPACE_ARCHIVED = "skipped_workspace_archived"
+    TRIGGERED = "triggered"
+
+    def __str__(self) -> str:
+        return str(self.value)

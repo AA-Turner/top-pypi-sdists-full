@@ -993,6 +993,10 @@ class CSSSelectorCombinationQualifier(CSSSelectorQualifierBase):
 
 
 class CSSTerminalFunction:
+    #: The source it was written in (see CSSParser.sourceName), for the
+    #: warning that drops a function nothing can evaluate.
+    source: str | None = None
+
     def __init__(self, name, params) -> None:
         self.name = name
         self.params = [
@@ -1253,6 +1257,9 @@ class CSSBuilder(cssParser.CSSBuilderAbstract):
     def __init__(self, mediumSet=mediumSet, trackImportance=trackImportance) -> None:
         self.setMediumSet(mediumSet)
         self.setTrackImportance(trackImportance=trackImportance)
+        #: The custom properties declared for :root or html so far, which is
+        #: all an at-rule's var() can refer to; see CSSParser._resolveRootVars.
+        self.rootCustomProperties: dict[str, str] = {}
 
     def isValidMedium(self, mediums):
         if not mediums:
@@ -1346,7 +1353,14 @@ class CSSBuilder(cssParser.CSSBuilderAbstract):
         declarations = self.specialRules(declarations)
         return self._declarations(declarations, CSSInlineRuleset)
 
+    #: How a selector for the root element prints.
+    ROOT_SELECTORS = frozenset({":root", "*:root", "html"})
+
     def ruleset(self, selectors, declarations):
+        if any(str(s).strip() in self.ROOT_SELECTORS for s in selectors):
+            for name, value, *_important in declarations:
+                if name.startswith("--"):
+                    self.rootCustomProperties[name] = value
         # XXX Modified for pisa!
         declarations = self.specialRules(declarations)
         # XXX Modified for pisa!

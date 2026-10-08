@@ -479,6 +479,25 @@ def extract_json(
                 kept.append(adjusted)
         return kept
 
+    # A WHOLE DOCUMENT WITH ONE TYPO IS STILL THE ANSWER. When the response is
+    # one JSON document (it opens with ``{``/``[``) that strict parsing rejects
+    # — a stray bracket deep inside thousands of minified characters — the
+    # brace-walker above still finds the document's inner arrays, and without a
+    # schema the first of those "wins": the caller gets the first table instead
+    # of the template and reports the real keys as missing (describe box,
+    # 2026-10-08). A faithful repair of the whole document outranks any
+    # fragment carved out of it.
+    whole = _strip_thinking(text).strip()
+    if whole[:1] in ("{", "[") and _try_parse(whole) is None:
+        repaired_whole = _try_parse_repaired(whole)
+        if repaired_whole is not None:
+            vcprint(
+                "[ResponseParser] The response is one JSON document with malformed "
+                "syntax; recovered the whole document via json-repair instead of a fragment.",
+                color="yellow",
+            )
+            candidates = [repaired_whole, *candidates]
+
     matches: list[Any] = _filter(candidates)
     empty_reason = (
         "no JSON candidate matched the supplied schema"

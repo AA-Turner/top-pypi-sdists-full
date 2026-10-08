@@ -38,6 +38,12 @@ from reportlab.lib.pagesizes import landscape
 import xhtml2pdf.default
 from xhtml2pdf.util import getSize
 from xhtml2pdf.w3c import cssSpecial
+from xhtml2pdf.w3c.css_variables import (
+    CSSCustomValue,
+    CSSPendingValue,
+    InvalidVarError,
+    substituteFrom,
+)
 
 log = logging.getLogger("xhtml2pdf")
 
@@ -389,7 +395,7 @@ class CSSParser:
     re_class = re.compile(i_class, _reflags)
     i_hash = "#((?:%s)+)" % i_nmchar
     re_hash = re.compile(i_hash, _reflags)
-    i_rgbcolor = f"(#{i_hex}{{8}}|#{i_hex}{{6}}|#{i_hex}{{3}})"
+    i_rgbcolor = f"(#{i_hex}{{8}}|#{i_hex}{{6}}|#{i_hex}{{4}}|#{i_hex}{{3}})"
     re_rgbcolor = re.compile(i_rgbcolor, _reflags)
     i_nl = "\n|\r\n|\r|\f"
     i_escape_nl = r"\\(?:%s)" % i_nl
@@ -435,13 +441,38 @@ class CSSParser:
     re_comment = re.compile(i_comment, _reflags)
     i_important = r"!\s*(important)"
     re_important = re.compile(i_important, _reflags)
+    re_important_at_end = re.compile(r"!\s*important\s*$", _reflags)
+    #: A declaration value with var() in it, before the ";" or "}" ending it.
+    re_var_ahead = re.compile(r"[^;{}]*\bvar\s*\(", _reflags)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # ~ Public
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    #: Where the source being parsed came from -- a stylesheet's URL, "<style>
+    #: block 2" -- for the warnings about what in it was dropped. They used to
+    #: quote the offending text alone, which in a document pulling in several
+    #: framework stylesheets does not say which one to look in.
+    sourceName: str | None = None
+
     def __init__(self, cssBuilder=None) -> None:
         self.setCSSBuilder(cssBuilder)
+        #: The properties each named source declares for elements, shorthands
+        #: expanded, in the order the sources were read: what the warning
+        #: about the properties xhtml2pdf does not implement is made from.
+        self.declaredBySource: dict[str, set[str]] = {}
+
+    def noteDeclared(self, names) -> None:
+        """Remember the property names as declared by the current source."""
+        if self.sourceName:
+            self.declaredBySource.setdefault(self.sourceName, set()).update(names)
+
+    def _warn(self, msg, *args):
+        """Log msg about the source being parsed, naming it when it is known."""
+        if self.sourceName:
+            log.warning("%s: %s", self.sourceName, msg % args)
+        else:
+            log.warning(msg, *args)
 
     # ~ CSS Builder to delegate to ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -653,7 +684,7 @@ class CSSParser:
         try:
             rest, atResults = self._parseAtKeyword(src)
         except self.ParseError as exc:
-            log.warning("Ignoring CSS at-rule that could not be parsed: %s", exc)
+            self._warn("Ignoring CSS at-rule that could not be parsed: %s", exc)
             return self._skipAtRule(src)
         if atResults is not None and atResults is not NotImplemented:
             stylesheetElements.extend(atResults)
@@ -662,7 +693,7 @@ class CSSParser:
     def _skipInvalidAtRule(self, msg, src, ctxsrc):
         """Drop the at-rule ctxsrc starts with, which msg says is malformed."""
         error = self.ParseError(msg, src, ctxsrc)
-        log.warning("Ignoring CSS at-rule that could not be parsed: %s", error)
+        self._warn("Ignoring CSS at-rule that could not be parsed: %s", error)
         return self._skipAtRule(ctxsrc)
 
     def _parseRulesetOrSkip(self, src, stylesheetElements):
@@ -670,7 +701,7 @@ class CSSParser:
         try:
             src, ruleset = self._parseRuleset(src)
         except self.ParseError as exc:
-            log.warning("Ignoring CSS rule that could not be parsed: %s", exc)
+            self._warn("Ignoring CSS rule that could not be parsed: %s", exc)
             return self._skipMalformedRuleset(src)
         stylesheetElements.append(ruleset)
         return src
@@ -714,7 +745,7 @@ class CSSParser:
                 # _skipMalformedRuleset hands a leading "}" back unconsumed for
                 # an enclosing block to close; here nothing would ever
                 # consume it.
-                log.warning("Ignoring CSS rule after an unmatched '}': %.40r", src)
+                self._warn("Ignoring CSS rule after an unmatched '}': %.40r", src)
                 src = self._skipBlock(src[1:])
             else:
                 # ruleset
@@ -847,7 +878,7 @@ class CSSParser:
         elif isAtRuleIdent(src, "import"):
             # CSS 2.1 6.3: an @import after any rule other than @charset or
             # another @import is ignored.
-            log.warning("Ignoring @import after the first rule: %.40r", src)
+            self._warn("Ignoring @import after the first rule: %.40r", src)
             src, result = self._skipAtRule(src), None
         elif isAtRuleIdent(src, "frame"):
             src, result = self._parseAtFrame(src)
@@ -919,10 +950,6 @@ class CSSParser:
             '{' S* declaration [ ';' S* declaration ]* '}' S*
         ;
         """
-        data = {}
-        pageBorder = None
-        isLandscape = False
-
         ctxsrc = src
         src = src[len("@page") :].lstrip()
         page, src = self._getIdent(src)
@@ -937,13 +964,43 @@ class CSSParser:
                 # Registered all the same, so that any @frame declared inside
                 # is consumed and does not leak into the next @page, but
                 # nothing will ever select it.
-                log.warning(
+                self._warn(
                     "Unsupported pseudo page :%s, the rules in it will not be"
                     " used. Only :left and :right are honoured.",
                     pseudopage,
                 )
         else:
             pseudopage = None
+
+        # Every @page starts from the size of the unnamed one, A4 until one
+        # says otherwise, and only the unnamed one changes it. The size used
+        # to be one value for the whole stylesheet, overwritten by each rule
+        # in turn, so "@page first { size: a4 } @page second { size: a5
+        # landscape }" left the document -- and its first page -- A5
+        # landscape (#455), and a named rule without a size took the
+        # previous rule's.
+        isBody = pseudopage is None and page in {
+            None,
+            xhtml2pdf.default.DEFAULT_PAGE_NAME,
+        }
+        # The plain parser has no document to size; only pisaCSSParser does.
+        context = getattr(self, "c", None)
+        if context is None:
+            return self._parseAtPageBlock(src, ctxsrc, page, pseudopage, isBody=False)
+        context.pageSize = context.bodyPageSize
+        try:
+            src, result = self._parseAtPageBlock(
+                src, ctxsrc, page, pseudopage, isBody=isBody
+            )
+        finally:
+            context.pageSize = context.bodyPageSize
+        return src, result
+
+    def _parseAtPageBlock(self, src, ctxsrc, page, pseudopage, *, isBody):
+        """The block of an @page rule, from its "{"."""
+        data = {}
+        pageBorder = None
+        isLandscape = False
 
         # src, properties = self._parseDeclarationGroup(src.lstrip())
 
@@ -972,6 +1029,7 @@ class CSSParser:
                 data = {}
                 pageBorder = None
 
+                properties = self._resolveRootVars(properties)
                 if properties:
                     result = self.cssBuilder.ruleset(
                         [self.cssBuilder.selector("*")], properties
@@ -1009,7 +1067,7 @@ class CSSParser:
                             # unreadable value in a stylesheet is dropped with
                             # a warning, and this used to be the one that threw
                             # the whole document away instead.
-                            log.warning(
+                            self._warn(
                                 "Unknown size value for @page: %r, keeping %r",
                                 value,
                                 self.c.pageSize,
@@ -1028,6 +1086,8 @@ class CSSParser:
                 page, pseudopage, data, isLandscape=isLandscape, pageBorder=pageBorder
             )
         ]
+        if isBody:
+            self.c.bodyPageSize = self.c.pageSize
 
         return src[1:].lstrip(), result
 
@@ -1036,12 +1096,14 @@ class CSSParser:
         src = src[len("@frame ") :].lstrip()
         box, src = self._getIdent(src)
         src, properties = self._parseDeclarationGroup(src.lstrip())
+        properties = self._resolveRootVars(properties)
         result = [self.cssBuilder.atFrame(box, properties)]
         return src.lstrip(), result
 
     def _parseAtFontFace(self, src):
         src = src[len("@font-face") :].lstrip()
         src, properties = self._parseDeclarationGroup(src)
+        properties = self._resolveRootVars(properties)
         result = [self.cssBuilder.atFontFace(properties)]
         return src, result
 
@@ -1074,6 +1136,13 @@ class CSSParser:
         src, selectors = self._parseSelectorGroup(src)
         src, properties = self._parseDeclarationGroup(src.lstrip())
         result = self.cssBuilder.ruleset(selectors, properties)
+        # Read off the result, where shorthands are already expanded.
+        self.noteDeclared(
+            name
+            for rules in (result if isinstance(result, tuple) else (result,))
+            for declarations in rules.values()
+            for name in declarations
+        )
         return src, result
 
     # ~ selector parsing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1356,7 +1425,7 @@ class CSSParser:
                 # ";" that ends it, and the rest of the block still applies.
                 # This used to drop the whole rule, or with an inline style
                 # raise out of the document.
-                log.warning(
+                self._warn(
                     "Ignoring CSS declaration that could not be parsed: %.40r", start
                 )
                 src = self._skipDeclaration(start).lstrip()
@@ -1397,6 +1466,9 @@ class CSSParser:
         return src, single_property
 
     def _parseDeclarationProperty(self, src, property_name):
+        if property_name.startswith("--") or self.re_var_ahead.match(src):
+            return self._parseRawDeclaration(src, property_name)
+
         # expr
         src, expr = self._parseExpression(src)
 
@@ -1408,6 +1480,50 @@ class CSSParser:
             property_name, expr, important=important
         )
         return src, single_property
+
+    def _parseRawDeclaration(self, src, property_name):
+        """
+        A custom property, or a value holding var(), kept as written.
+
+        Neither can be parsed into terms here: a custom property's value is
+        any text at all, and what a var() stands for depends on the element.
+        See css_variables.
+        """
+        end = self._findAtTopLevel(src, {";", "}"})
+        raw, src = (src, "") if end < 0 else (src[:end], src[end:])
+        important = self.re_important_at_end.search(raw)
+        if important:
+            raw = raw[: important.start()]
+        raw = raw.strip()
+        if property_name.startswith("--"):
+            value = CSSCustomValue(raw)
+        else:
+            value = CSSPendingValue(raw, source=self.sourceName)
+        single_property = self.cssBuilder.property(
+            property_name, value, important=bool(important)
+        )
+        return src, single_property
+
+    def _resolveRootVars(self, properties):
+        """
+        The declarations of an at-rule -- @page, @frame, @font-face -- with
+        their var() replaced from the custom properties of :root and html.
+
+        An at-rule belongs to no element, so the only custom properties it can
+        see are the document-wide ones, those declared before it.
+        """
+        resolved = []
+        for declaration in properties:
+            name, value, *rest = declaration
+            if isinstance(value, CSSPendingValue):
+                try:
+                    text = substituteFrom(value, self.cssBuilder.rootCustomProperties)
+                    _, value = self._parseExpression(text.strip())
+                except (InvalidVarError, self.ParseError) as exc:
+                    self._warn("Ignoring %s: %s, %s", name, str(value), exc)
+                    continue
+            resolved.append((name, value, *rest))
+        return resolved
 
     def _parseExpression(self, src, *, return_list=False):
         """
@@ -1470,6 +1586,8 @@ class CSSParser:
                 raise self.ParseError(msg, src, ctxsrc)
             src = src[1:].lstrip()
             term = self.cssBuilder.termFunction(result, params)
+            if hasattr(term, "source"):
+                term.source = self.sourceName
             return src, term
 
         result, src = self._getMatchResult(self.re_rgbcolor, src)

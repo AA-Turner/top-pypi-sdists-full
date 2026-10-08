@@ -33,6 +33,7 @@ from .._model import ConsumerGroupType as _ConsumerGroupType
 from .._model import ElectionType as _ElectionType
 from .._model import TopicCollection as _TopicCollection
 from ..cimpl import KafkaException  # noqa: F401
+from ..cimpl import _AdminClientImpl  # noqa: F401
 from ..cimpl import (  # noqa: F401
     CONFIG_SOURCE_DEFAULT_CONFIG,
     CONFIG_SOURCE_DYNAMIC_BROKER_CONFIG,
@@ -53,7 +54,6 @@ from ..cimpl import (  # noqa: F401
     NewTopic,
 )
 from ..cimpl import TopicPartition as _TopicPartition
-from ..cimpl import _AdminClientImpl
 from ._acl import AclOperation  # noqa: F401
 from ._acl import AclBinding, AclBindingFilter, AclPermissionType  # noqa: F401
 from ._cluster import DescribeClusterResult  # noqa: F401
@@ -660,6 +660,9 @@ class AdminClient(_AdminClientImpl):
 
     def list_groups(self, *args: Any, **kwargs: Any) -> List[GroupMetadata]:
         return super(AdminClient, self).list_groups(*args, **kwargs)
+
+    def cluster_id(self, *args: Any, **kwargs: Any) -> str:
+        return super(AdminClient, self).cluster_id(*args, **kwargs)
 
     def create_partitions(  # type: ignore[override]
         self, new_partitions: List[NewPartitions], **kwargs: Any

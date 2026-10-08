@@ -33,6 +33,7 @@ from snowflake.snowpark._internal.utils import get_os_name, get_python_version
 from snowflake.snowpark.version import VERSION as snowpark_version
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.native_function_target import split_target
+from snowflake.snowpark_connect.utils.api_surface import get_api_surface
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.version import VERSION as sas_version
 
@@ -637,6 +638,38 @@ def iceberg_write_option_key(key: str | None) -> str:
     return normalized if normalized in ICEBERG_KNOWN_WRITE_OPTION_KEYS else "other"
 
 
+def _iceberg_event(**fields: Any) -> dict:
+    """Build one Iceberg telemetry event: drop ``None`` fields, stamp ``api_surface``.
+
+    Every ``report_iceberg_*`` sink that appends event dicts routes through here, so
+    the ``api_surface`` dimension (SNOW-4168010) is added in one place rather than
+    threaded through each call site. Reading it from the request ``ContextVar``
+    instead of taking it as an argument is what lets it cover the surfaces that
+    never took ``catalog_kind``.
+
+    ``api_surface`` is stamped after the ``None`` filter and always has a value, so
+    it is present on every event unconditionally.
+    """
+    event = {k: v for k, v in fields.items() if v is not None}
+    event["api_surface"] = get_api_surface()
+    return event
+
+
+def _bump_iceberg_api_surface_count(summary: dict, key: str, name: str) -> None:
+    """Record the per-``api_surface`` breakdown for a counter-shaped Iceberg sink.
+
+    ``iceberg_metadata_tables`` and ``iceberg_unsupported_features`` are bare
+    ``name -> count`` counters, not event lists, and that shape is what the
+    dashboards already read. So the surface dimension lands in a sibling
+    ``<key>`` of shape ``api_surface -> name -> count`` rather than changing the
+    existing counter.
+    """
+    if key not in summary:
+        summary[key] = defaultdict(lambda: defaultdict(int))
+
+    summary[key][get_api_surface()][name] += 1
+
+
 class Telemetry:
     def __init__(self, is_enabled=True) -> None:
         self._sink = NoOpTelemetrySink()  # use no-op sink until initialized
@@ -982,6 +1015,9 @@ class Telemetry:
             summary["iceberg_metadata_tables"] = defaultdict(int)
 
         summary["iceberg_metadata_tables"][metadata_table_name] += 1
+        _bump_iceberg_api_surface_count(
+            summary, "iceberg_metadata_tables_by_api_surface", metadata_table_name
+        )
 
     @safe
     def report_iceberg_unsupported_feature(self, feature: str) -> None:
@@ -1009,6 +1045,9 @@ class Telemetry:
             summary["iceberg_unsupported_features"] = defaultdict(int)
 
         summary["iceberg_unsupported_features"][feature] += 1
+        _bump_iceberg_api_surface_count(
+            summary, "iceberg_unsupported_features_by_api_surface", feature
+        )
 
     @safe
     def report_iceberg_wap(
@@ -1087,18 +1126,19 @@ class Telemetry:
         if "iceberg_wap" not in summary:
             summary["iceberg_wap"] = []
 
-        event = {
-            "op": op,
-            "surface": surface,
-            "dml_op": dml_op,
-            "ddl_action": ddl_action,
-            "ref_type": ref_type,
-            "catalog_kind": catalog_kind,
-            "outcome": outcome,
-            "error_code": error_code,
-            "detail": detail,
-        }
-        summary["iceberg_wap"].append({k: v for k, v in event.items() if v is not None})
+        summary["iceberg_wap"].append(
+            _iceberg_event(
+                op=op,
+                surface=surface,
+                dml_op=dml_op,
+                ddl_action=ddl_action,
+                ref_type=ref_type,
+                catalog_kind=catalog_kind,
+                outcome=outcome,
+                error_code=error_code,
+                detail=detail,
+            )
+        )
 
     @safe
     def report_iceberg_incremental_read(
@@ -1138,13 +1178,12 @@ class Telemetry:
         if "iceberg_incremental_read" not in summary:
             summary["iceberg_incremental_read"] = []
 
-        event = {
-            "bound_kind": bound_kind,
-            "surface": surface,
-            "catalog_kind": catalog_kind,
-        }
         summary["iceberg_incremental_read"].append(
-            {k: v for k, v in event.items() if v is not None}
+            _iceberg_event(
+                bound_kind=bound_kind,
+                surface=surface,
+                catalog_kind=catalog_kind,
+            )
         )
 
     @safe
@@ -1210,18 +1249,16 @@ class Telemetry:
                 known.add(property_key)
 
         def _append(property_key: str, extra: dict | None = None) -> None:
-            event = {
-                "op": op,
-                "property_key": property_key,
-                "outcome": outcome,
-                "catalog_kind": catalog_kind,
-                "detail": detail,
-            }
+            event = _iceberg_event(
+                op=op,
+                property_key=property_key,
+                outcome=outcome,
+                catalog_kind=catalog_kind,
+                detail=detail,
+            )
             if extra:
                 event.update(extra)
-            summary["iceberg_table_properties"].append(
-                {k: v for k, v in event.items() if v is not None}
-            )
+            summary["iceberg_table_properties"].append(event)
 
         for property_key in sorted(known):
             _append(property_key)
@@ -1241,7 +1278,8 @@ class Telemetry:
         per request (SNOW-3985862).
 
         Appends one event per ``writeTo`` call to ``summary["iceberg_write_v2"]``:
-        ``{op, catalog_kind, partitioned_by, table_property}`` (None dropped). Captures
+        ``{op, catalog_kind, partitioned_by, table_property, api_surface}`` (None
+        dropped; ``api_surface`` always present). Captures
         the V2 API surface -- which write verb customers use and whether they attach a
         partition spec / table property -- distinct from the ``.option(...)`` write bag
         and from DDL ``TABLE_PROPERTIES`` (``iceberg_table_properties``, SNOW-4077136).
@@ -1270,14 +1308,13 @@ class Telemetry:
         if "iceberg_write_v2" not in summary:
             summary["iceberg_write_v2"] = []
 
-        event = {
-            "op": op,
-            "catalog_kind": catalog_kind,
-            "partitioned_by": partitioned_by,
-            "table_property": table_property,
-        }
         summary["iceberg_write_v2"].append(
-            {k: v for k, v in event.items() if v is not None}
+            _iceberg_event(
+                op=op,
+                catalog_kind=catalog_kind,
+                partitioned_by=partitioned_by,
+                table_property=table_property,
+            )
         )
 
     @safe
@@ -1292,7 +1329,8 @@ class Telemetry:
         """Record an Iceberg DDL operation per request (SNOW-3985860).
 
         Appends one event per DDL statement to ``summary["iceberg_ddl"]``:
-        ``{op, catalog_kind, outcome, detail}`` (None fields dropped). Covers schema
+        ``{op, catalog_kind, outcome, detail, api_surface}`` (None fields dropped;
+        ``api_surface`` always present). Covers schema
         evolution and namespace DDL. Distinct from branch/tag DDL (recorded on
         ``iceberg_wap`` -- ``report_iceberg_wap``) and ``TABLE_PROPERTIES`` DDL
         (recorded on ``iceberg_table_properties`` -- SNOW-4077136); no customer
@@ -1324,13 +1362,14 @@ class Telemetry:
         if "iceberg_ddl" not in summary:
             summary["iceberg_ddl"] = []
 
-        event = {
-            "op": op,
-            "catalog_kind": catalog_kind,
-            "outcome": outcome,
-            "detail": detail,
-        }
-        summary["iceberg_ddl"].append({k: v for k, v in event.items() if v is not None})
+        summary["iceberg_ddl"].append(
+            _iceberg_event(
+                op=op,
+                catalog_kind=catalog_kind,
+                outcome=outcome,
+                detail=detail,
+            )
+        )
 
     @safe
     def report_iceberg_write_options(
@@ -1385,16 +1424,14 @@ class Telemetry:
                 known.add(option_key)
 
         def _append(option_key: str, extra: dict | None = None) -> None:
-            event = {
-                "op": op,
-                "option_key": option_key,
-                "catalog_kind": catalog_kind,
-            }
+            event = _iceberg_event(
+                op=op,
+                option_key=option_key,
+                catalog_kind=catalog_kind,
+            )
             if extra:
                 event.update(extra)
-            summary["iceberg_write_options"].append(
-                {k: v for k, v in event.items() if v is not None}
-            )
+            summary["iceberg_write_options"].append(event)
 
         for option_key in sorted(known):
             _append(option_key)
@@ -1411,7 +1448,8 @@ class Telemetry:
         """Record an Iceberg time-travel read per request (SNOW-3985865).
 
         Appends one event per time-travel read to ``summary["iceberg_time_travel_read"]``:
-        ``{bound_kind, catalog_kind}`` (None dropped). A unified view of reading an
+        ``{bound_kind, catalog_kind, api_surface}`` (None dropped; ``api_surface``
+        always present). A unified view of reading an
         Iceberg table at a historical point, across both the DataFrame read options and
         the SQL ``VERSION AS OF`` / ``TIMESTAMP AS OF`` surface (which re-enters the same
         read path). No customer identifier (table name, snapshot id, timestamp) is
@@ -1440,12 +1478,11 @@ class Telemetry:
         if "iceberg_time_travel_read" not in summary:
             summary["iceberg_time_travel_read"] = []
 
-        event = {
-            "bound_kind": bound_kind,
-            "catalog_kind": catalog_kind,
-        }
         summary["iceberg_time_travel_read"].append(
-            {k: v for k, v in event.items() if v is not None}
+            _iceberg_event(
+                bound_kind=bound_kind,
+                catalog_kind=catalog_kind,
+            )
         )
 
     @safe

@@ -19,7 +19,8 @@ import json
 
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.discovery_scan_fetch_status import DiscoveryScanFetchStatus
 from arthur_client.api_bindings.models.discovery_scan_source_status import DiscoveryScanSourceStatus
 from arthur_client.api_bindings.models.discovery_scan_state import DiscoveryScanState
 from typing import Optional, Set
@@ -31,10 +32,11 @@ class DiscoveryScan(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="ID of the scan.")
     engine_id: StrictStr = Field(description="Engine (data plane) the scan was run on.")
-    state: DiscoveryScanState = Field(description="Whether every leg of the scan has finished.")
+    state: DiscoveryScanState = Field(description="Whether every leg of the scan, and every fetch those legs chained, has finished. Completed means what the scan found is in the Platform's agents.")
     triggered_at: datetime = Field(description="When the scan was triggered.")
     source_statuses: List[DiscoveryScanSourceStatus] = Field(description="One entry per config the scan dispatched, including configs that returned nothing. A config is reported whatever its outcome: two sources contributing nothing is the coverage story, not an error to hide.")
-    __properties: ClassVar[List[str]] = ["id", "engine_id", "state", "triggered_at", "source_statuses"]
+    fetch_statuses: Optional[List[DiscoveryScanFetchStatus]] = Field(default=None, description="One entry per fetch the scan's legs chained so far. Empty while no leg has finished, and always empty for scans run on engines that do not yet tag their fetches with the scan.")
+    __properties: ClassVar[List[str]] = ["id", "engine_id", "state", "triggered_at", "source_statuses", "fetch_statuses"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,6 +84,13 @@ class DiscoveryScan(BaseModel):
                 if _item_source_statuses:
                     _items.append(_item_source_statuses.to_dict())
             _dict['source_statuses'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in fetch_statuses (list)
+        _items = []
+        if self.fetch_statuses:
+            for _item_fetch_statuses in self.fetch_statuses:
+                if _item_fetch_statuses:
+                    _items.append(_item_fetch_statuses.to_dict())
+            _dict['fetch_statuses'] = _items
         return _dict
 
     @classmethod
@@ -98,7 +107,8 @@ class DiscoveryScan(BaseModel):
             "engine_id": obj.get("engine_id"),
             "state": obj.get("state"),
             "triggered_at": obj.get("triggered_at"),
-            "source_statuses": [DiscoveryScanSourceStatus.from_dict(_item) for _item in obj["source_statuses"]] if obj.get("source_statuses") is not None else None
+            "source_statuses": [DiscoveryScanSourceStatus.from_dict(_item) for _item in obj["source_statuses"]] if obj.get("source_statuses") is not None else None,
+            "fetch_statuses": [DiscoveryScanFetchStatus.from_dict(_item) for _item in obj["fetch_statuses"]] if obj.get("fetch_statuses") is not None else None
         })
         return _obj
 

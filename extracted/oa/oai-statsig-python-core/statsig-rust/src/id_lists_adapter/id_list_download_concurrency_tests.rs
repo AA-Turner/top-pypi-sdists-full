@@ -293,7 +293,7 @@ async fn id_list_concurrency_preserves_ranges_generations_unchanged_and_removal(
         ],
     );
     provider.manifest.lock().get_mut("grow").unwrap().size = 6;
-    provider.set("grow", Outcome::Body(b"+b\n".to_vec()));
+    provider.set("grow", Outcome::Body(b"+a\n+b\n".to_vec()));
     provider.set("replace", Outcome::Body(b"+b\n".to_vec()));
     let before = store.load_data();
     adapter.sync_id_lists().await.unwrap();
@@ -338,6 +338,7 @@ async fn id_list_concurrency_freezes_manifest_until_the_next_refresh() {
         .manifest
         .lock()
         .insert("a".into(), metadata("a", 8, 1));
+    provider.set("a", Outcome::Body(b"+old\n+a\n".to_vec()));
     let gate = provider.gate(&file_url("a"));
     let task = start(adapter.clone());
     until(|| provider.attempts("a") == 1).await;
@@ -356,6 +357,7 @@ async fn id_list_concurrency_freezes_manifest_until_the_next_refresh() {
     );
     assert!(store.load_data().id_lists["a"].ids.contains("old"));
 
+    provider.set("a", Outcome::Body(b"+a\n".to_vec()));
     gate.add_permits(1);
     adapter.sync_id_lists().await.unwrap();
     let second = provider.file_requests()[1].clone();

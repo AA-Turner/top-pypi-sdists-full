@@ -30,9 +30,23 @@ lazy_static::lazy_static! {
         hash: 0,
         inner: EvaluatorValueInner::Pointer(Arc::new(MemoizedEvaluatorValue::new(EvaluatorValueType::Null))),
     };
+
+    // Array keys hash the empty string; InternedString::empty_ref() uses zero.
+    static ref EMPTY_EXACT_ARRAY_LOOKUP_KEY: InternedString =
+        InternedString::from_string_uninterned(String::new());
+
+    // Normalized array keys hash the empty string; the empty sentinel uses zero.
+    static ref EMPTY_ARRAY_LOOKUP_KEY: InternedString =
+        InternedString::from_string_uninterned(String::new());
 }
 
 const TAG: &str = "EvaluatorValue";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum EvaluatorArrayKeyMode {
+    Normalized,
+    ExactCase,
+}
 
 #[derive(Clone)]
 #[non_exhaustive]
@@ -79,6 +93,13 @@ impl EvaluatorValue {
     }
 
     pub fn from_json_value(value: Value) -> Self {
+        Self::from_json_value_with_array_key_mode(value, EvaluatorArrayKeyMode::Normalized)
+    }
+
+    pub(crate) fn from_json_value_with_array_key_mode(
+        value: Value,
+        array_key_mode: EvaluatorArrayKeyMode,
+    ) -> Self {
         let raw_value = match to_raw_value(&value) {
             Ok(raw_value) => raw_value,
             Err(e) => {
@@ -87,7 +108,14 @@ impl EvaluatorValue {
             }
         };
 
-        InternedStore::get_or_intern_evaluator_value(Cow::Owned(raw_value))
+        Self::from_raw_value_with_array_key_mode(Cow::Owned(raw_value), array_key_mode)
+    }
+
+    pub(crate) fn from_raw_value_with_array_key_mode(
+        value: Cow<'_, RawValue>,
+        array_key_mode: EvaluatorArrayKeyMode,
+    ) -> Self {
+        InternedStore::get_or_intern_evaluator_value_with_array_key_mode(value, array_key_mode)
     }
 
     pub fn compile_regex(&mut self) {
@@ -263,6 +291,81 @@ impl<'a> EvaluatorValueRef<'a> {
         }
     }
 
+    pub(crate) fn array_contains_exact_string(
+        self,
+        original: &str,
+        cached_original: Option<&InternedString>,
+    ) -> bool {
+        // Exact-case targets use original spellings as keys. Temporary user
+        // lookup keys must not populate the global target string interner.
+        match self {
+            Self::Owned(value) => {
+                let key = if original.is_empty() {
+                    Cow::Borrowed(&*EMPTY_EXACT_ARRAY_LOOKUP_KEY)
+                } else {
+                    match cached_original.filter(|key| key.as_str() == original) {
+                        Some(key) => Cow::Borrowed(key),
+                        None => {
+                            Cow::Owned(InternedString::from_string_uninterned(original.to_owned()))
+                        }
+                    }
+                };
+                value
+                    .array_value
+                    .as_ref()
+                    .and_then(|array| array.get(key.as_ref()))
+                    .is_some_and(|(_, candidate)| candidate.as_str() == original)
+            }
+            Self::Mmap(value, _) => {
+                let hash = cached_original
+                    .filter(|key| !original.is_empty() && key.as_str() == original)
+                    .map_or_else(|| hashing::hash_one(original.as_bytes()), |key| key.hash);
+                value
+                    .array_value
+                    .as_ref()
+                    .and_then(|array| array.get(&rkyv::primitive::ArchivedU64::from_native(hash)))
+                    .and_then(|entry| InternedStore::get_mmap_string(entry.1.to_native()))
+                    .is_some_and(|candidate| candidate == original)
+            }
+        }
+    }
+
+    /// Checks an original spelling in an array keyed by normalized strings.
+    /// Scalar exact-case targets must use `array_contains_exact_string` instead.
+    pub(crate) fn array_contains_case_sensitive(
+        self,
+        original: &str,
+        cached_lowercase: Option<&InternedString>,
+    ) -> bool {
+        // Target arrays already keep one original spelling per lowercase key.
+        // Reuse that index, including its existing last-spelling-wins behavior,
+        // then verify exact equality instead of scanning every original string.
+        let key = match cached_lowercase.filter(|_| original.is_ascii()) {
+            Some(key) => Cow::Borrowed(key),
+            None if original.is_empty() => Cow::Borrowed(&*EMPTY_ARRAY_LOOKUP_KEY),
+            // User-side cached lowercase values can retain non-ASCII capitals.
+            // Match the target array's full Unicode lowercase normalization;
+            // never retain arbitrary user lookup strings in the global interner.
+            None => Cow::Owned(InternedString::from_string_uninterned(
+                original.to_lowercase(),
+            )),
+        };
+
+        match self {
+            Self::Owned(value) => value
+                .array_value
+                .as_ref()
+                .and_then(|array| array.get(key.as_ref()))
+                .is_some_and(|(_, candidate)| candidate.as_str() == original),
+            Self::Mmap(value, _) => value
+                .array_value
+                .as_ref()
+                .and_then(|array| array.get(&rkyv::primitive::ArchivedU64::from_native(key.hash)))
+                .and_then(|entry| InternedStore::get_mmap_string(entry.1.to_native()))
+                .is_some_and(|candidate| candidate == original),
+        }
+    }
+
     pub(crate) fn object_contains_key(self, key: &InternedString) -> bool {
         match self {
             Self::Owned(value) => value
@@ -309,6 +412,27 @@ impl<'a> EvaluatorValueRef<'a> {
                     // spelling required by this comparison.
                     let hash = if lowercase { lowered } else { &entry.1 };
                     InternedStore::get_mmap_string(hash.to_native()).is_some_and(&mut predicate)
+                })
+            }),
+        }
+    }
+
+    #[inline(always)]
+    fn all_array_originals(self, mut predicate: impl FnMut(usize, &str) -> bool) -> bool {
+        match self {
+            Self::Owned(value) => value.array_value.as_ref().is_some_and(|array| {
+                array
+                    .iter()
+                    .all(|(_, (index, original))| predicate(*index, original.as_str()))
+            }),
+            Self::Mmap(value, _) => value.array_value.as_ref().is_some_and(|array| {
+                array.iter().all(|(_, entry)| {
+                    // String references are validated when loading the archive.
+                    // User equality needs only the original spelling and index.
+                    let Some(original) = InternedStore::get_mmap_string(entry.1.to_native()) else {
+                        return false;
+                    };
+                    predicate(entry.0.to_native() as usize, original)
                 })
             }),
         }
@@ -371,6 +495,7 @@ impl<'a> EvaluatorValueRef<'a> {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn is_equal_to_user_value(self, other: UserValueRef<'_>) -> bool {
         match self.value_type() {
             EvaluatorValueType::Null => other.is_null(),
@@ -384,9 +509,19 @@ impl<'a> EvaluatorValueRef<'a> {
                 if other.array_len() != Some(len) {
                     return false;
                 }
-                self.all_array_entries(|_, index, expected| {
-                    other.array_item(index).and_then(UserValueRef::string_value) == Some(expected)
-                })
+                if len == 0 {
+                    return true;
+                }
+                match self {
+                    Self::Owned(_) => self.all_array_entries(|_, index, expected| {
+                        other.array_item(index).and_then(UserValueRef::string_value)
+                            == Some(expected)
+                    }),
+                    Self::Mmap(_, _) => self.all_array_originals(|index, expected| {
+                        other.array_item(index).and_then(UserValueRef::string_value)
+                            == Some(expected)
+                    }),
+                }
             }
             EvaluatorValueType::Object => {
                 let Some(len) = self.object_len() else {
@@ -631,17 +766,27 @@ pub struct MemoizedEvaluatorValue {
     pub object_value: Option<AHashMap<InternedString, DynamicString>>,
 
     // - Note on Array Value ------------------------------------------------------------
-    // - Keyed by lowercase string so we can lookup with O(1) during evaluation.
-    // - Format is `{ lower_case_str: (index, str) }` i.e: ["Apple", "Banana"] becomes { "apple": (0, "Apple"), "banana": (1, "Banana") }
-    // - The index is what position in the array it is, currently this is only used to serialzie back to the original JSON.
+    // - Keyed by lowercase string for ordinary targets, or by original spelling
+    //   for scalar case-sensitive membership targets, for O(1) evaluation lookup.
+    // - Format is `{ lookup_key: (index, original) }`. Normalized ["Apple", "Banana"]
+    //   becomes { "apple": (0, "Apple"), "banana": (1, "Banana") }; exact targets
+    //   use "Apple" and "Banana" as keys instead.
+    // - The index retains the original array position for equality/serialization.
     // ----------------------------------------------------------------------------------
     pub array_value: Option<AHashMap<InternedString, (usize, InternedString)>>,
 }
 
 impl MemoizedEvaluatorValue {
     pub fn from_raw_value(raw_value: Cow<'_, RawValue>) -> Self {
-        match serde_json::from_str(raw_value.get()) {
-            Ok(value) => value,
+        Self::from_raw_value_with_array_key_mode(raw_value, EvaluatorArrayKeyMode::Normalized)
+    }
+
+    pub(crate) fn from_raw_value_with_array_key_mode(
+        raw_value: Cow<'_, RawValue>,
+        array_key_mode: EvaluatorArrayKeyMode,
+    ) -> Self {
+        match serde_json::from_str::<JsonValue>(raw_value.get()) {
+            Ok(value) => Self::from_json_value_with_array_key_mode(value, array_key_mode),
             Err(e) => {
                 log_e!(
                     TAG,
@@ -709,6 +854,15 @@ impl From<String> for MemoizedEvaluatorValue {
 // Used during Deserialization
 impl From<JsonValue> for MemoizedEvaluatorValue {
     fn from(value: JsonValue) -> Self {
+        Self::from_json_value_with_array_key_mode(value, EvaluatorArrayKeyMode::Normalized)
+    }
+}
+
+impl MemoizedEvaluatorValue {
+    pub(crate) fn from_json_value_with_array_key_mode(
+        value: JsonValue,
+        array_key_mode: EvaluatorArrayKeyMode,
+    ) -> Self {
         match value {
             JsonValue::Null => MemoizedEvaluatorValue::new(EvaluatorValueType::Null),
 
@@ -734,11 +888,15 @@ impl From<JsonValue> for MemoizedEvaluatorValue {
                             None => val.to_string(),  // Value was not a String, but can be made one
                         };
 
-                        let interned_lowercased_str =
-                            InternedString::from_string(str_value.to_lowercase());
                         let interned_str = InternedString::from_string(str_value);
+                        let key = match array_key_mode {
+                            EvaluatorArrayKeyMode::Normalized => {
+                                InternedString::from_string(interned_str.as_str().to_lowercase())
+                            }
+                            EvaluatorArrayKeyMode::ExactCase => interned_str.clone(),
+                        };
 
-                        (interned_lowercased_str, (idx, interned_str))
+                        (key, (idx, interned_str))
                     })
                     .collect();
 

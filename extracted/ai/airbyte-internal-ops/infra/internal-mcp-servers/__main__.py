@@ -25,11 +25,13 @@ Keycloak client setup is intentionally out of scope -- see
 
 from __future__ import annotations
 
+import base64
 from typing import Literal
 from urllib.parse import urlsplit
 
 import pulumi
 import pulumi_gcp as gcp
+import pulumi_random as random
 
 OutputMap = dict[str, object]
 SecretRef = gcp.secretmanager.GetSecretResult
@@ -118,6 +120,14 @@ services (cloud-mcp today; ops-mcp once its runtime lands) so their OTel
 trace exporters authenticate to Datadog. Created during bootstrap; see
 `BOOTSTRAP.md`."""
 
+TELEMETRY_HMAC_KEY_SECRET_ID = "internal-mcp-telemetry-hmac-key"
+"""HMAC key injected into cloud-mcp as `AIRBYTE_MCP_TELEMETRY_HMAC_KEY`.
+
+An unpadded base64url-encoded 32-byte key that PyAirbyte uses to hash tool
+arguments on trace spans (`airbyte.mcp.arg.<name>`). Without a valid key,
+argument records are presence-only. Pulumi-owned: generated and stored by
+`define_telemetry_hmac_key`."""
+
 KAPA_API_KEY_SECRET_ID = "internal-mcp-kapa-api-key"
 """Kapa Retrieval API key injected into cloud-mcp as `KAPA_API_KEY`.
 
@@ -163,7 +173,7 @@ if KAPA_RETRIEVAL_API_URL:
 
 # Backend credential secrets consumed by the Ops MCP server (prod + preview).
 # Created during bootstrap (see `BOOTSTRAP.md`) and looked up read-only here;
-# Pulumi never creates secret containers or values -- see `CONTRIBUTING.md`.
+# Pulumi only creates secrets whose values it generates -- see `CONTRIBUTING.md`.
 GITHUB_TOKEN_SECRET_ID = "internal-ops-github-pat"
 """Fine-grained GitHub PAT used for workflow dispatch and PR/issue reads/comments.
 
@@ -338,9 +348,10 @@ def define_apis() -> list[gcp.projects.Service]:
 def define_secrets() -> dict[str, SecretRef]:
     """Look up bootstrap-managed Secret Manager containers.
 
-    All secrets are created during bootstrap (see `BOOTSTRAP.md` Stage 0) and
-    looked up here as read-only data sources. Pulumi never creates secrets --
-    see `CONTRIBUTING.md` for the ownership rule.
+    These secrets are created during bootstrap (see `BOOTSTRAP.md` Stage 0) and
+    looked up here as read-only data sources. The only Pulumi-owned secret is
+    the generated telemetry HMAC key (`define_telemetry_hmac_key`) -- see
+    `CONTRIBUTING.md` for the ownership rule.
     """
     secret_ids = [
         OPS_MCP_OAUTH_CLIENT_SECRET_ID,
@@ -488,6 +499,50 @@ def _cloud_mcp_storage_envs(
     ]
 
 
+def define_telemetry_hmac_key(
+    service_account: gcp.serviceaccount.Account,
+    api_services: list[gcp.projects.Service],
+) -> list[pulumi.Resource]:
+    """Generate the cloud-mcp telemetry HMAC key and grant the runtime SA access.
+
+    No human needs to know this key, so Pulumi generates it rather than
+    bootstrap. The `RandomBytes` is protected: replacing it changes every
+    future argument hash, so hashes from before and after can't be compared.
+    Returns the resources Cloud Run services reading the key must depend on.
+    """
+    key = random.RandomBytes(
+        "internal-mcp-telemetry-hmac-key",
+        length=32,
+        opts=pulumi.ResourceOptions(protect=True),
+    )
+    secret = gcp.secretmanager.Secret(
+        "internal-mcp-telemetry-hmac-key",
+        secret_id=TELEMETRY_HMAC_KEY_SECRET_ID,
+        project=PROJECT,
+        replication=gcp.secretmanager.SecretReplicationArgs(
+            auto=gcp.secretmanager.SecretReplicationAutoArgs()
+        ),
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
+    version = gcp.secretmanager.SecretVersion(
+        "internal-mcp-telemetry-hmac-key",
+        secret=secret.id,
+        secret_data=key.base64.apply(
+            lambda b64: (
+                base64.urlsafe_b64encode(base64.b64decode(b64)).rstrip(b"=").decode()
+            )
+        ),
+    )
+    accessor = gcp.secretmanager.SecretIamMember(
+        "internal-mcp-telemetry-hmac-key-accessor",
+        secret_id=secret.id,
+        role="roles/secretmanager.secretAccessor",
+        member=service_account.email.apply(lambda email: f"serviceAccount:{email}"),
+        project=PROJECT,
+    )
+    return [version, accessor]
+
+
 def _otel_envs(
     service_name: str,
     environment: Literal["prod", "preview"],
@@ -500,7 +555,8 @@ def _otel_envs(
     Datadog intake hosts because that secret is a Datadog API key. All vars
     are inert for images that do not read them (e.g. today's released
     cloud-mcp image), so wiring them ahead of the runtime instrumentation is
-    safe.
+    safe. `AIRBYTE_MCP_TELEMETRY_HMAC_KEY` keys the argument hashes on tool
+    spans.
     """
     return [
         _env("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", OTEL_TRACES_ENDPOINT),
@@ -513,6 +569,7 @@ def _otel_envs(
         _env("OTEL_RESOURCE_ATTRIBUTES", f"deployment.environment.name={environment}"),
         _env("AIRBYTE_MCP_OTEL_VENDOR", "datadog"),
         _env("AIRBYTE_MCP_INTENT_CAPTURE", "1"),
+        _secret_env("AIRBYTE_MCP_TELEMETRY_HMAC_KEY", TELEMETRY_HMAC_KEY_SECRET_ID),
     ]
 
 
@@ -1095,6 +1152,7 @@ def main() -> None:
         CLOUD_MCP_PREVIEW_FIRESTORE_DATABASE, api_services
     )
     firestore_iam = define_firestore_iam(service_account, api_services)
+    telemetry_hmac_key = define_telemetry_hmac_key(service_account, api_services)
     # The runtime-SA `secretAccessor` grants for the Ops MCP backend secrets
     # (GitHub PAT, Orb key, MotherDuck token, shared Slack token, Zendesk API
     # token, subscription API bearer token) are manual bootstrap steps -- same
@@ -1199,7 +1257,7 @@ def main() -> None:
             *_otel_envs(CLOUD_MCP_SERVICE_NAME, "prod"),
             *_cloud_mcp_kapa_envs(),
         ],
-        extra_depends=[firestore_iam],
+        extra_depends=[firestore_iam, *telemetry_hmac_key],
         **mcp_common,
     )
     cloud_mcp_preview = define_mcp_cloud_run_service(
@@ -1219,7 +1277,7 @@ def main() -> None:
             *_otel_envs(CLOUD_MCP_PREVIEW_SERVICE_NAME, "preview"),
             *_cloud_mcp_kapa_envs(),
         ],
-        extra_depends=[firestore_iam],
+        extra_depends=[firestore_iam, *telemetry_hmac_key],
         **mcp_common,
     )
     # agent-mcp still runs a generic pre-rename PyAirbyte image (its rebrand is a

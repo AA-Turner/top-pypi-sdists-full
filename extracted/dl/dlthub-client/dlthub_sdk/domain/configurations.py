@@ -20,11 +20,15 @@ from dlthub_sdk._glue.base import Collection, Entity
 from dlthub_sdk._glue.context import Async, Listing, M, Sync, _Ctx
 from dlthub_sdk._glue.enums import EntityKind
 from dlthub_sdk.domain.files import FileEntry
+from dlthub_sdk.errors import NotFound
 
 if TYPE_CHECKING:
     # Typing only: domain never imports _gen at runtime.
     # Current package
-    from dlthub_sdk._gen.api.models import ConfigurationResponse
+    from dlthub_sdk._gen.api.models import (
+        ConfigurationResponse,
+        ListPageConfigurationResponse,
+    )
     from dlthub_sdk._gen.dataplane_api.models import (
         ConfigurationResponse as DataplaneConfigurationResponse,
     )
@@ -43,7 +47,7 @@ class Configuration(Entity[M]):
         content_hash: Hash of the uploaded content, so an unchanged upload is
             recognisable.
         file_count: How many files it holds.
-        size: Total size in bytes.
+        size_bytes: Total size in bytes.
         profiles: The profiles the configuration files define.
         created_at: When it was uploaded.
         created_by: Who uploaded it.
@@ -54,7 +58,7 @@ class Configuration(Entity[M]):
     id: str
     content_hash: str
     file_count: int
-    size: int
+    size_bytes: int
     profiles: tuple[str, ...]
     created_at: datetime
     created_by: str
@@ -105,16 +109,11 @@ class Configuration(Entity[M]):
                 id=str(payload.id),
                 content_hash=payload.content_hash,
                 file_count=payload.file_count,
-                size=payload.size,
-                # The platform sends one comma-separated string.
-                profiles=tuple(
-                    stripped
-                    for p in payload.profiles.split(",")
-                    if (stripped := p.strip())
-                ),
-                created_at=payload.date_added,
+                size_bytes=payload.size_bytes,
+                profiles=tuple(payload.profiles),
+                created_at=payload.created_at,
                 created_by=str(payload.created_by),
-                updated_at=payload.date_updated,
+                updated_at=payload.updated_at,
             ),
         )
 
@@ -127,7 +126,7 @@ class Configurations(Collection[M]):
     def _listing(self) -> Listing[ConfigurationResponse]:
         workspace_id = self._ctx.require_workspace()
         return lambda t, limit, offset: t.list_configurations(
-            workspace_id=workspace_id, limit=limit, offset=offset
+            workspace_id=workspace_id, limit=limit, offset=offset, version=None
         )
 
     @overload
@@ -198,9 +197,19 @@ class Configurations(Collection[M]):
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()
+
+        def parse(
+            ctx: _Ctx[Any], payload: ListPageConfigurationResponse
+        ) -> Configuration[Any]:
+            if not payload.items:
+                raise NotFound(EntityKind.CONFIGURATION, str(version))
+            return Configuration._from_payload(ctx, payload.items[0])
+
         return self._ctx.run(
-            lambda t: t.get_configuration(workspace_id=workspace_id, version=version),
-            Configuration._from_payload,
+            lambda t: t.list_configurations(
+                workspace_id=workspace_id, limit=1, offset=0, version=version
+            ),
+            parse,
         )
 
     @overload
@@ -221,7 +230,7 @@ class Configurations(Collection[M]):
         """
         workspace_id = self._ctx.require_workspace()
         return self._ctx.run(
-            lambda t: t.get_latest_configuration(workspace_id=workspace_id),
+            lambda t: t.get_configuration_latest(workspace_id=workspace_id),
             Configuration._from_payload,
         )
 

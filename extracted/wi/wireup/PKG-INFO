@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: wireup
-Version: 2.12.0
+Version: 2.12.1
 Summary: Python Dependency Injection Library
 Project-URL: Homepage, https://github.com/maldoinc/wireup
 Project-URL: Repository, https://github.com/maldoinc/wireup

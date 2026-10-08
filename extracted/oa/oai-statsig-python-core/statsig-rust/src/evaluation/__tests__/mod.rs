@@ -1,2 +1,5 @@
+mod array_optimization_bench;
+mod array_optimization_tests;
+mod case_sensitive_target_spellings_tests;
 mod dynamic_returnable_tests;
 mod rkyv_value_tests;

@@ -15,6 +15,25 @@ class EmbedWorker:
 
     def alive(self: Any) -> bool: ...
 
+    def drain(self: Any, timeout_s: float = 2.0) -> bool:
+        """
+        Block until nothing is queued or in flight. True if it went idle.
+        
+                The worker is asynchronous by design: a crop is offered on one frame
+                and its verdict collected some frames later, which keeps the frame
+                path off the GPU. The cost is that WHICH frame a verdict lands on
+                depends on thread scheduling, so the same video replayed twice can
+                resolve a track against a different gallery state and report a
+                different unique count (12-16 observed on one 3907-frame clip).
+        
+                Callers that need a repeatable number -- offline evaluation,
+                threshold calibration, regression tests -- call this after each
+                frame to pin the schedule. It makes the result bitwise repeatable
+                and costs throughput, so it is opt-in and must NOT be called on a
+                live realtime path.
+        """
+        ...
+
     def forget(self: Any, track_ids: Any) -> None:
         """
         Drop state for tracks the caller no longer cares about.

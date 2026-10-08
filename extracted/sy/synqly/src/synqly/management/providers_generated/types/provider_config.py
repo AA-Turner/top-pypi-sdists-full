@@ -79,6 +79,7 @@ from .http_receiver_auth_config import HttpReceiverAuthConfig
 from .http_receiver_method import HttpReceiverMethod
 from .http_receiver_signing_credential import HttpReceiverSigningCredential
 from .http_request_body_format import HttpRequestBodyFormat
+from .huntress_credential import HuntressCredential
 from .identity_crowd_strike_dataset import IdentityCrowdStrikeDataset
 from .identity_entra_id_dataset import IdentityEntraIdDataset
 from .identity_google_dataset import IdentityGoogleDataset
@@ -142,6 +143,7 @@ from .swimlane_credential import SwimlaneCredential
 from .tanium_cloud_credential import TaniumCloudCredential
 from .teams_credential import TeamsCredential
 from .teams_graph_chat_credential import TeamsGraphChatCredential
+from .tenable_asm_credential import TenableAsmCredential
 from .tenable_cloud_credential import TenableCloudCredential
 from .tenable_sc_credential import TenableScCredential
 from .threat_fox_credential import ThreatFoxCredential
@@ -936,6 +938,20 @@ class ProviderConfig_EdrEsetConnect(UncheckedBaseModel):
     type: typing.Literal["edr_eset_connect"] = "edr_eset_connect"
     credential: EsetCredential
     region: ApiRegion
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_EdrHuntress(UncheckedBaseModel):
+    type: typing.Literal["edr_huntress"] = "edr_huntress"
+    credential: HuntressCredential
+    url: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
@@ -2787,6 +2803,20 @@ class ProviderConfig_VulnerabilitiesTaniumCloudMock(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_VulnerabilitiesTenableAsm(UncheckedBaseModel):
+    type: typing.Literal["vulnerabilities_tenable_asm"] = "vulnerabilities_tenable_asm"
+    credential: TenableAsmCredential
+    url: typing.Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_VulnerabilitiesTenableCloud(UncheckedBaseModel):
     type: typing.Literal["vulnerabilities_tenable_cloud"] = "vulnerabilities_tenable_cloud"
     credential: TenableCloudCredential
@@ -2886,6 +2916,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_EdrCrowdstrikeMock,
         ProviderConfig_EdrDefender,
         ProviderConfig_EdrEsetConnect,
+        ProviderConfig_EdrHuntress,
         ProviderConfig_EdrIru,
         ProviderConfig_EdrMalwarebytes,
         ProviderConfig_EdrSentinelone,
@@ -3009,6 +3040,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_VulnerabilitiesServicenowVr,
         ProviderConfig_VulnerabilitiesTaniumCloud,
         ProviderConfig_VulnerabilitiesTaniumCloudMock,
+        ProviderConfig_VulnerabilitiesTenableAsm,
         ProviderConfig_VulnerabilitiesTenableCloud,
         ProviderConfig_VulnerabilitiesTenableSc,
         ProviderConfig_VulnerabilitiesWiz,

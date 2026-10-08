@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 from probe.sdk import config as sdk_config
 from probe.sdk.session_marker import WIZARD_HINT
@@ -52,6 +53,15 @@ KEEPALIVE_COUNT = 5
 SERVED_MODEL_HEADER = "x-probe-served-model"
 PREFER_MODEL_HEADER = "X-Probe-Prefer-Model"
 _CHAT_PATH = "/chat/completions"
+#: The server's context sizes for the two lanes, sent on every chat answer: a
+#: change reaches every client from its next request, with no release. Absent
+#: (an older server), the client's own sizes stand; a server size only LOWERS one.
+CONTEXT_CAP_HEADERS = {LANE_WRITE: "x-probe-context-tokens", LANE_READ: "x-probe-read-context-tokens"}
+#: A server size below this is ignored: one batch of new events holds ~40K
+#: estimated (up to ~85K real) tokens, so a smaller size would compact, or start
+#: the reader fresh, before every request. The server refuses the same floor.
+MIN_SERVER_CONTEXT_TOKENS = 100_000
+_SERVER_CONTEXT_TOKENS: dict[str, int] = {}
 
 _HTTP_CLIENT = None
 _PREFERRED_MODEL: str | None = None
@@ -64,9 +74,31 @@ async def _prefer_served_model(request) -> None:
 
 async def _remember_served_model(response) -> None:
     global _PREFERRED_MODEL
+    if not response.request.url.path.endswith(_CHAT_PATH):
+        return
     served = response.headers.get(SERVED_MODEL_HEADER)
-    if served and response.request.url.path.endswith(_CHAT_PATH):
+    if served:
         _PREFERRED_MODEL = served
+    remember_context_sizes(response.headers)
+
+
+def remember_context_sizes(headers: Any) -> None:
+    """Keep the server's size for each lane from a chat answer's headers. A
+    missing, malformed or too small value leaves the last good one."""
+    for lane, name in CONTEXT_CAP_HEADERS.items():
+        raw = headers.get(name)
+        try:
+            value = int(str(raw).strip()) if raw is not None else None
+        except ValueError:
+            value = None
+        if value is not None and value >= MIN_SERVER_CONTEXT_TOKENS:
+            _SERVER_CONTEXT_TOKENS[lane] = value
+
+
+def server_context_tokens(lane: str) -> int | None:
+    """The server's size for `lane` (`LANE_WRITE` / `LANE_READ`), once a chat
+    answer has sent one; None before that or from an older server."""
+    return _SERVER_CONTEXT_TOKENS.get(lane)
 
 
 def keepalive_socket_options() -> list[tuple[int, int, int]]:

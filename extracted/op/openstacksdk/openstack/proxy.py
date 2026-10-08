@@ -104,7 +104,7 @@ class Proxy(adapter.Adapter):
         *,
         service_type: str | None = None,
         service_name: str | None = None,
-        interface: str | None = None,
+        interface: list[str] | str | None = None,
         region_name: str | None = None,
         endpoint_override: str | None = None,
         version: str | None = None,
@@ -309,7 +309,7 @@ class Proxy(adapter.Adapter):
             warnings.warn(
                 "The 'service_type' parameter is unnecesary and will be "
                 "removed in a future release.",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
 
         url_path = urllib.parse.urlparse(url).path.strip()
@@ -483,9 +483,11 @@ class Proxy(adapter.Adapter):
                 'status_code': response.status_code,
             }
             self._prometheus_counter.labels(**labels).inc()
-            self._prometheus_histogram.labels(**labels).observe(
-                response.elapsed.total_seconds() * 1000
-            )
+
+            # NOTE: Seconds, not ms - Prometheus buckets are seconds-based.
+            # Do NOT "unify" the units.
+            duration = response.elapsed.total_seconds()
+            self._prometheus_histogram.labels(**labels).observe(duration)
 
     def _report_stats_influxdb(
         self,

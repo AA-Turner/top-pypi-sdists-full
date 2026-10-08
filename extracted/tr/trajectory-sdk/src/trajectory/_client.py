@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from functools import cached_property
 from typing import TYPE_CHECKING, Self
 
-import httpx
+import httpx2
 
 from trajectory._base_client import DEFAULT_MAX_RETRIES, APIClient, _merge_headers
 from trajectory._types import NotGiven, not_given
@@ -34,9 +34,9 @@ class Client(APIClient):
   def __init__(
     self,
     api_key: str | None = None,
-    base_url: str | httpx.URL | None = None,
-    http_client: httpx.Client | None = None,
-    timeout: httpx.Timeout | float | None | NotGiven = not_given,
+    base_url: str | httpx2.URL | None = None,
+    http_client: httpx2.Client | None = None,
+    timeout: httpx2.Timeout | float | None | NotGiven = not_given,
     max_retries: int = DEFAULT_MAX_RETRIES,
     default_headers: Mapping[str, str] | None = None,
     default_query: Mapping[str, object] | None = None,
@@ -71,9 +71,9 @@ class Client(APIClient):
   def copy(
     self,
     api_key: str | None = None,
-    base_url: str | httpx.URL | None = None,
-    timeout: httpx.Timeout | float | None | NotGiven = not_given,
-    http_client: httpx.Client | None = None,
+    base_url: str | httpx2.URL | None = None,
+    timeout: httpx2.Timeout | float | None | NotGiven = not_given,
+    http_client: httpx2.Client | None = None,
     max_retries: int | NotGiven = not_given,
     default_headers: Mapping[str, str] | None = None,
     set_default_headers: Mapping[str, str] | None = None,

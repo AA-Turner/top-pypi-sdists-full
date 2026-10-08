@@ -382,9 +382,11 @@ def map_sql_expr(
     from snowflake.snowpark_connect.expression.map_expression import map_expression
 
     sql = exp.expression_string.expression
-    # Flag-gated: Heidelberg DisState is F.expr("msg rlike '^Atm\\s*\\d+…'").
-    # Without this, Spark unescape eats \\s/\\d, the Java rlike gate never
-    # fires, and regexp_instr returns 0 rows for tab-separated Atm lines.
+    # Only under the deprecated 1.44.0 key: Heidelberg DisState is
+    # F.expr("msg rlike '^Atm\\s*\\d+…'"). Without this, Spark unescape eats
+    # \\s/\\d, the Java rlike gate never fires, and regexp_instr returns 0 rows
+    # for tab-separated Atm lines. Spark itself eats them too, so doing this under
+    # useJavaRegexSemantics would move F.expr results away from Spark's.
     # Skip when escapedStringLiterals is true: the JVM parser keeps
     # backslashes, so doubling would leave a literal \\s in the regex.
     if (

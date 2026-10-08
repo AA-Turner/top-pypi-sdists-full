@@ -154,29 +154,31 @@ fn test_checked_msgpack_len_boundaries() {
     assert_eq!(checked_msgpack_len(u32::MAX as usize + 1), None);
 }
 
-#[test]
-#[cfg(target_pointer_width = "64")]
-fn test_tuple_encoder_rejects_unrepresentable_container_and_payload_lengths() {
-    Python::initialize();
-
-    Python::attach(|py| {
-        let tuple = PyTuple::empty(py);
-        let too_large = u32::MAX as usize + 1;
-        let mut encoded = Vec::new();
-        assert_eq!(
-            NativeMsgpackEncoder::new().write_tuple_with_len(&tuple, &mut encoded, 0, too_large,),
-            None
-        );
-        assert!(encoded.is_empty());
-
-        let mut inner = Vec::new();
-        assert_eq!(
-            NativeMsgpackEncoder::append_tuple_extension(&mut encoded, &mut inner, too_large,),
-            None
-        );
-        assert!(encoded.is_empty());
-        assert!(inner.is_empty());
-    });
+fn assert_native_matches_python(
+    py: Python<'_>,
+    serializer: &Serializer,
+    value: &Bound<'_, PyAny>,
+    lightweight_repr: bool,
+    label: &str,
+) {
+    let native = serializer.dump_msgpack(py, value, lightweight_repr);
+    let python = serializer.python_dump_msgpack(py, value, lightweight_repr);
+    match (native, python) {
+        (Ok(native), Ok(python)) => assert_eq!(native, python, "bytes differ for {label}"),
+        (Err(native), Err(python)) => {
+            assert!(
+                native.get_type(py).is(python.get_type(py)),
+                "error types differ for {label}: {native} vs {python}"
+            );
+            // RecursionError wording varies across Python versions.
+            if !native.is_instance_of::<pyo3::exceptions::PyRecursionError>(py) {
+                assert_eq!(native.to_string(), python.to_string(), "{label}");
+            }
+        }
+        (native, python) => {
+            panic!("native and Python disagree for {label}: {native:?} vs {python:?}")
+        }
+    }
 }
 
 #[test]
@@ -192,15 +194,49 @@ fn test_native_msgpack_exact_builtin_zoo_matches_python_serializer() {
             )
             .expect("zoo module compiles");
         let value = module.getattr("value").expect("zoo exposes value");
+        let serializer = Serializer::new(py).expect("serializer loads");
 
         let mut native = Vec::new();
-        assert!(NativeMsgpackEncoder::new().write(&value, &mut native, 0));
+        let mut encoder = NativeMsgpackEncoder::new(&serializer, false);
+        assert!(encoder.encode(&value, &mut native).is_ok());
+        assert!(!encoder.used_default_hook());
 
-        let python = Serializer::new(py)
-            .expect("serializer loads")
-            .dump_msgpack(py, &value, false)
+        let python = serializer
+            .python_dump_msgpack(py, &value, false)
             .expect("Python serializer handles exact builtins");
         assert_eq!(native, python);
+    });
+}
+
+#[test]
+fn serializer_appends_mixed_values_byte_exactly_in_both_repr_modes() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"class Custom:\n    def __repr__(self): return 'custom-value'\nexact = {'nested': [None, True, 42, 'text', b'bytes']}\nmixed = {'prefix': [1, 2], 'custom': Custom()}\n",
+            c"native_mixed_values.py",
+            c"native_mixed_values",
+        )
+        .expect("mixed-value fixtures compile");
+        let sentinel = b"existing-bytes";
+
+        for name in ["exact", "mixed"] {
+            let value = module.getattr(name).expect("fixture exists");
+            for lightweight_repr in [false, true] {
+                let expected = serializer
+                    .python_dump_msgpack(py, &value, lightweight_repr)
+                    .expect("Python serializer handles fixture");
+                let mut encoded = sentinel.to_vec();
+                serializer
+                    .dump_msgpack_into(py, &value, lightweight_repr, &mut encoded)
+                    .expect("native encoding succeeds");
+                assert_eq!(&encoded[..sentinel.len()], sentinel);
+                assert_eq!(&encoded[sentinel.len()..], expected);
+            }
+        }
     });
 }
 
@@ -214,9 +250,12 @@ fn value_interner_uses_strong_exact_object_identity_not_equal_content() {
     ));
     let capture = TraceCapture::start(destination, b"\x80".to_vec());
     let interning = ValueInterning::default();
-    let mut encoder = NativeMsgpackEncoder::with_value_interning(ValueInterningContext::fixed(
-        &interning, &capture,
-    ));
+    let serializer = Python::attach(|py| Serializer::new(py).expect("serializer loads"));
+    let mut encoder = NativeMsgpackEncoder::with_value_interning(
+        &serializer,
+        false,
+        Some(ValueInterningContext::fixed(&interning, &capture)),
+    );
     let payload = vec![b'a'; MIN_INTERNED_VALUE_BYTES];
     let (first, equal_but_distinct) = Python::attach(|py| {
         (
@@ -342,9 +381,12 @@ fn value_interner_rolls_back_promotion_when_capture_is_closed() {
     let payload = vec![b'x'; MIN_INTERNED_VALUE_BYTES];
     let object = Python::attach(|py| PyBytes::new(py, &payload).clone().into_any().unbind());
     let identity = object.as_ptr() as usize;
-    let mut encoder = NativeMsgpackEncoder::with_value_interning(ValueInterningContext::fixed(
-        &interning, &capture,
-    ));
+    let serializer = Python::attach(|py| Serializer::new(py).expect("serializer loads"));
+    let mut encoder = NativeMsgpackEncoder::with_value_interning(
+        &serializer,
+        false,
+        Some(ValueInterningContext::fixed(&interning, &capture)),
+    );
     let mut output = Vec::new();
 
     assert_eq!(
@@ -389,21 +431,27 @@ fn value_interner_surfaces_writer_circuit_during_native_encoding() {
     let interning = ValueInterning::default();
     let payload = vec![b'x'; MIN_INTERNED_VALUE_BYTES];
     let object = Python::attach(|py| PyBytes::new(py, &payload).clone().into_any().unbind());
-    let mut encoder = NativeMsgpackEncoder::with_value_interning(ValueInterningContext::fixed(
-        &interning, &capture,
-    ));
+    let serializer = Python::attach(|py| Serializer::new(py).expect("serializer loads"));
+    let mut encoder = NativeMsgpackEncoder::with_value_interning(
+        &serializer,
+        false,
+        Some(ValueInterningContext::fixed(&interning, &capture)),
+    );
     let mut output = Vec::new();
 
-    Python::attach(|py| {
-        assert!(encoder.write(object.bind(py), &mut output, 0));
-        assert!(encoder.write(object.bind(py), &mut output, 0));
-        assert!(!encoder.write(object.bind(py), &mut output, 0));
+    let error = Python::attach(|py| {
+        assert!(encoder.encode(object.bind(py), &mut output).is_ok());
+        assert!(encoder.encode(object.bind(py), &mut output).is_ok());
+        let before = output.len();
+        let error = encoder.encode(object.bind(py), &mut output).err();
+        assert_eq!(output.len(), before);
+        error
     });
 
-    assert!(encoder
-        .writer_circuit_error
-        .as_deref()
-        .is_some_and(|error| error.contains("writer circuit breaker opened")));
+    assert!(matches!(
+        error,
+        Some(EncodeError::WriterCircuit(error)) if error.contains("writer circuit breaker opened")
+    ));
     assert!(interning.disabled.load(Ordering::Relaxed));
     assert!(interning.snapshot_all().is_empty());
     assert!(capture.published_value_ids().is_empty());
@@ -419,6 +467,9 @@ fn value_interning_promotes_concurrently_without_cross_thread_aliases() {
     ));
     let capture = TraceCapture::start(destination, b"\x80".to_vec());
     let interning = Arc::new(ValueInterning::default());
+    let serializer = Arc::new(Python::attach(|py| {
+        Serializer::new(py).expect("serializer loads")
+    }));
     let start = Arc::new(std::sync::Barrier::new(4));
     let values = Python::attach(|py| {
         (0..4)
@@ -436,12 +487,15 @@ fn value_interning_promotes_concurrently_without_cross_thread_aliases() {
         .map(|(payload, object)| {
             let capture = Arc::clone(&capture);
             let interning = Arc::clone(&interning);
+            let serializer = Arc::clone(&serializer);
             let start = Arc::clone(&start);
             std::thread::spawn(move || {
                 let identity = object.as_ptr() as usize;
                 let mut output = Vec::new();
                 let mut encoder = NativeMsgpackEncoder::with_value_interning(
-                    ValueInterningContext::fixed(&interning, &capture),
+                    &serializer,
+                    false,
+                    Some(ValueInterningContext::fixed(&interning, &capture)),
                 );
                 start.wait();
                 assert_eq!(
@@ -486,7 +540,7 @@ fn python_assign_reference(
     let mut inner = Vec::new();
     rmp::encode::write_array_len(&mut inner, 2).unwrap();
     rmp::encode::write_str(&mut inner, variable).unwrap();
-    inner.extend(serializer.dump_msgpack(py, value, lightweight_repr)?);
+    inner.extend(serializer.python_dump_msgpack(py, value, lightweight_repr)?);
 
     let mut expected = Vec::new();
     rmp::encode::write_str(&mut expected, "assign").unwrap();
@@ -501,26 +555,18 @@ fn python_assign_reference(
 }
 
 #[test]
-fn test_assign_exact_scalars_match_python_bytes_without_python_calls() {
+fn test_assign_exact_scalars_match_python_bytes() {
     Python::initialize();
 
     Python::attach(|py| {
         let module = PyModule::from_code(
                 py,
-                c"values = [\n    None, False, True,\n    -(1 << 63), -32769, -32768, -129, -128, -33, -32, -1,\n    0, 127, 128, 255, 256, 65535, 65536, (1 << 32) - 1, 1 << 32,\n    (1 << 63) - 1, 1 << 63, (1 << 64) - 1,\n    -0.0, 1.25, float('inf'), float('-inf'), float('nan'),\n    '', 'x' * 31, 'x' * 32, 'x' * 255, 'x' * 256,\n    'x' * 65535, 'x' * 65536, 'snowman \\N{SNOWMAN}',\n    b'', b'x' * 31, b'x' * 32, b'x' * 255, b'x' * 256,\n    b'x' * 65535, b'x' * 65536,\n]\ndef forbidden(value):\n    raise AssertionError('exact scalar crossed into Python')\n",
+                c"values = [\n    None, False, True,\n    -(1 << 63), -32769, -32768, -129, -128, -33, -32, -1,\n    0, 127, 128, 255, 256, 65535, 65536, (1 << 32) - 1, 1 << 32,\n    (1 << 63) - 1, 1 << 63, (1 << 64) - 1,\n    -0.0, 1.25, float('inf'), float('-inf'), float('nan'),\n    '', 'x' * 31, 'x' * 32, 'x' * 255, 'x' * 256,\n    'x' * 65535, 'x' * 65536, 'snowman \\N{SNOWMAN}',\n    b'', b'x' * 31, b'x' * 32, b'x' * 255, b'x' * 256,\n    b'x' * 65535, b'x' * 65536,\n]\n",
                 c"assign_exact_scalars.py",
                 c"assign_exact_scalars",
             )
             .expect("scalar fixtures compile");
-        let forbidden = module
-            .getattr("forbidden")
-            .expect("forbidden serializer exists")
-            .unbind();
-        let native_only = Serializer {
-            dump_msgpack: forbidden.clone_ref(py),
-            dump_msgpack_lightweight_repr: forbidden,
-        };
-        let python = Serializer::new(py).expect("serializer loads");
+        let serializer = Serializer::new(py).expect("serializer loads");
 
         for value in module
             .getattr("values")
@@ -531,16 +577,16 @@ fn test_assign_exact_scalars_match_python_bytes_without_python_calls() {
         {
             for lightweight_repr in [false, true] {
                 let expected =
-                    python_assign_reference(py, &python, "boundary", &value, lightweight_repr)
+                    python_assign_reference(py, &serializer, "boundary", &value, lightweight_repr)
                         .expect("Python reference serializes exact scalar");
                 let mut actual = Vec::new();
                 write_assign_tuple(
                     &mut actual,
-                    &native_only,
+                    &serializer,
                     ("boundary", value.clone()),
                     lightweight_repr,
                 )
-                .expect("exact scalar stays native");
+                .expect("exact scalar encodes");
                 assert_eq!(actual, expected);
             }
         }
@@ -548,46 +594,48 @@ fn test_assign_exact_scalars_match_python_bytes_without_python_calls() {
 }
 
 #[test]
-fn test_assign_unsafe_scalars_fall_back_once_with_identical_behavior() {
+fn test_assign_unsupported_values_match_python_bytes_errors_and_repr_calls() {
     Python::initialize();
 
     Python::attach(|py| {
         let module = PyModule::from_code(
                 py,
-                c"from kolo.serialize import dump_msgpack as original_dump\nfrom kolo.serialize import dump_msgpack_lightweight_repr as original_lightweight\ncalls = []\nclass IntSubclass(int): pass\nclass FloatSubclass(float): pass\nclass StrSubclass(str): pass\nclass BytesSubclass(bytes): pass\nclass Custom:\n    def __repr__(self):\n        calls.append('repr')\n        return '<custom>'\nclass BrokenRepr:\n    def __repr__(self):\n        calls.append('broken repr')\n        raise RuntimeError('broken repr')\nvalues = [\n    1 << 80, -(1 << 80), '\\ud800',\n    IntSubclass(1), FloatSubclass(1.5), StrSubclass('text'), BytesSubclass(b'bytes'),\n    Custom(), BrokenRepr(), object(),\n]\ndef tracked(value):\n    calls.append('dump')\n    return original_dump(value)\ndef tracked_lightweight(value):\n    calls.append('lightweight dump')\n    return original_lightweight(value)\n",
-                c"assign_scalar_fallbacks.py",
-                c"assign_scalar_fallbacks",
+                c"calls = []\nclass IntSubclass(int): pass\nclass FloatSubclass(float): pass\nclass StrSubclass(str): pass\nclass BytesSubclass(bytes): pass\nclass Custom:\n    def __repr__(self):\n        calls.append('repr')\n        return '<custom>'\nclass BrokenRepr:\n    def __repr__(self):\n        calls.append('broken repr')\n        raise RuntimeError('broken repr')\nvalues = [\n    1 << 80, -(1 << 80), '\\ud800',\n    IntSubclass(1), FloatSubclass(1.5), StrSubclass('text'), BytesSubclass(b'bytes'),\n    Custom(), BrokenRepr(), object(),\n]\n",
+                c"assign_unsupported_values.py",
+                c"assign_unsupported_values",
             )
-            .expect("fallback fixtures compile");
-        let tracked = Serializer {
-            dump_msgpack: module.getattr("tracked").unwrap().unbind(),
-            dump_msgpack_lightweight_repr: module.getattr("tracked_lightweight").unwrap().unbind(),
-        };
-        let python = Serializer::new(py).expect("serializer loads");
+            .expect("unsupported fixtures compile");
+        let serializer = Serializer::new(py).expect("serializer loads");
         let calls_object = module.getattr("calls").unwrap();
         let calls = calls_object.cast::<PyList>().unwrap();
 
         for value in module
             .getattr("values")
-            .expect("fallback fixtures exist")
+            .expect("unsupported fixtures exist")
             .cast::<PyList>()
-            .expect("fallback fixtures are a list")
+            .expect("unsupported fixtures are a list")
             .iter()
         {
             for lightweight_repr in [false, true] {
                 calls.call_method0("clear").unwrap();
-                let expected =
-                    python_assign_reference(py, &python, "unsafe", &value, lightweight_repr);
+                let expected = python_assign_reference(
+                    py,
+                    &serializer,
+                    "unsupported",
+                    &value,
+                    lightweight_repr,
+                );
+                let expected_calls = calls.extract::<Vec<String>>().unwrap();
                 calls.call_method0("clear").unwrap();
 
-                // The destination is deliberately non-empty: if Python
-                // serialization fails, assignment encoding must not expose a
-                // partial extension header or payload to its caller.
+                // The destination is deliberately non-empty: if serialization
+                // fails, assignment encoding must not expose a partial
+                // extension header or payload to its caller.
                 let mut actual_bytes = vec![0xc0];
                 let actual = write_assign_tuple(
                     &mut actual_bytes,
-                    &tracked,
-                    ("unsafe", value.clone()),
+                    &serializer,
+                    ("unsupported", value.clone()),
                     lightweight_repr,
                 );
 
@@ -602,24 +650,10 @@ fn test_assign_unsafe_scalars_fall_back_once_with_identical_behavior() {
                         assert_eq!(actual.to_string(), expected.to_string());
                     }
                     (expected, actual) => panic!(
-                        "Python reference and native fallback disagree: {expected:?} vs {actual:?}"
+                        "Python reference and native encoder disagree: {expected:?} vs {actual:?}"
                     ),
                 }
-
-                let recorded = calls.extract::<Vec<String>>().unwrap();
-                let expected_dump = if lightweight_repr {
-                    "lightweight dump"
-                } else {
-                    "dump"
-                };
-                assert_eq!(recorded.first().map(String::as_str), Some(expected_dump));
-                assert_eq!(
-                    recorded
-                        .iter()
-                        .filter(|event| *event == expected_dump)
-                        .count(),
-                    1
-                );
+                assert_eq!(calls.extract::<Vec<String>>().unwrap(), expected_calls);
             }
         }
     });
@@ -676,53 +710,43 @@ fn test_serializer_dispatches_to_lightweight_repr() {
 }
 
 #[test]
-fn test_python_serializer_failures_leave_destination_unchanged() {
+fn test_serializer_failures_leave_destination_unchanged() {
     Python::initialize();
 
     Python::attach(|py| {
         let module = PyModule::from_code(
             py,
-            c"import sys\nframe = sys._getframe()\ncalls = 0\ndef wrong_type(value): return bytearray(b'not bytes')\ndef always_error(value): raise RuntimeError('argument serializer failed')\ndef good_then_error(value):\n    global calls\n    calls += 1\n    if calls == 1: return b'\\xc0'\n    raise RuntimeError('locals serializer failed')\n",
+            c"import sys\nframe = sys._getframe()\nsurrogate = '\\ud800'\nclass Interrupt(BaseException): pass\nclass Uncatchable:\n    def __repr__(self): raise Interrupt('argument serializer failed')\nuncatchable = Uncatchable()\n",
             c"serializer_failures.py",
             c"serializer_failures",
         )
         .expect("serializer failure fixtures compile");
-        let wrong_type = module.getattr("wrong_type").unwrap().unbind();
-        let wrong_type_serializer = Serializer {
-            dump_msgpack: wrong_type.clone_ref(py),
-            dump_msgpack_lightweight_repr: wrong_type,
-        };
-        let value = py.None().into_bound(py);
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let uncatchable = module.getattr("uncatchable").unwrap();
         let mut direct = vec![0xaa];
-        let error = wrong_type_serializer
-            .dump_msgpack_into(py, &value, false, &mut direct)
-            .expect_err("a non-bytes serializer result must fail");
-        assert!(error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+        let error = serializer
+            .dump_msgpack_into(py, &uncatchable, false, &mut direct)
+            .expect_err("a BaseException escapes msgpack_encode_hook");
+        assert_eq!(error.to_string(), "Interrupt: argument serializer failed");
         assert_eq!(direct, [0xaa]);
 
-        let good_then_error = module.getattr("good_then_error").unwrap().unbind();
-        let second_call_fails = Serializer {
-            dump_msgpack: good_then_error.clone_ref(py),
-            dump_msgpack_lightweight_repr: good_then_error,
-        };
         let frame = module
             .getattr("frame")
             .unwrap()
             .cast_into::<PyFrame>()
             .unwrap();
-        let write_frame = |serializer: &Serializer, marker| {
+        let write_frame = |marker, arg| {
             let mut bytes = vec![marker];
             let result = write_frame_with_cached_code_metadata(
                 &mut bytes,
                 &frame,
-                serializer,
+                &serializer,
                 &FramePathCache::new(),
                 None,
-                Arg::None,
+                arg,
                 Event::Call,
                 "fixture",
                 "frame-id",
-                false,
                 false,
                 false,
                 ("serializer_failures.py", Some("fixture"), None),
@@ -730,116 +754,245 @@ fn test_python_serializer_failures_leave_destination_unchanged() {
             );
             (bytes, result)
         };
-        let (frame_bytes, result) = write_frame(&second_call_fails, 0xbb);
-        let error = result.expect_err("the second serializer failure must propagate");
-        assert!(error.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py));
-        assert_eq!(error.to_string(), "RuntimeError: locals serializer failed");
-        assert_eq!(frame_bytes, [0xbb]);
-        assert_eq!(
-            module.getattr("calls").unwrap().extract::<usize>().unwrap(),
-            2
-        );
 
-        let always_error = module.getattr("always_error").unwrap().unbind();
-        let first_call_fails = Serializer {
-            dump_msgpack: always_error.clone_ref(py),
-            dump_msgpack_lightweight_repr: always_error,
-        };
-        let (frame_bytes, result) = write_frame(&first_call_fails, 0xcc);
-        let error = result.expect_err("the first serializer failure must propagate");
-        assert!(error.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py));
-        assert_eq!(
-            error.to_string(),
-            "RuntimeError: argument serializer failed"
-        );
+        let (frame_bytes, result) = write_frame(0xcc, Arg::Argument(&uncatchable));
+        let error = result.expect_err("the argument failure must propagate");
+        assert_eq!(error.to_string(), "Interrupt: argument serializer failed");
         assert_eq!(frame_bytes, [0xcc]);
+
+        // The module frame's locals hold a lone surrogate, which msgpack
+        // cannot encode outside an extension payload.
+        let exact_argument = 42_i64.into_pyobject(py).unwrap().into_any();
+        let (frame_bytes, result) = write_frame(0xdd, Arg::Argument(&exact_argument));
+        let error = result.expect_err("locals failure after an argument must propagate");
+        assert!(error.is_instance_of::<pyo3::exceptions::PyUnicodeEncodeError>(py));
+        assert_eq!(frame_bytes, [0xdd]);
     });
 }
 
 #[test]
-fn test_native_msgpack_rejects_unsafe_scalar_and_container_shapes() {
+fn test_native_msgpack_matches_python_for_formerly_rejected_shapes() {
     Python::initialize();
 
     Python::attach(|py| {
         let module = PyModule::from_code(
                 py,
-                c"deep = None\nfor _ in range(66):\n    deep = [deep]\ndeep_tuple = None\nfor _ in range(66):\n    deep_tuple = (deep_tuple,)\nhuge_positive = 1 << 80\nhuge_negative = -(1 << 80)\nlone_surrogate = '\\ud800'\nlist_cycle = []\nlist_cycle.append(list_cycle)\noverflow_cycle = []\noverflow_cursor = overflow_cycle\nfor _ in range(8):\n    child = []\n    overflow_cursor.append(child)\n    overflow_cursor = child\noverflow_cursor.append(overflow_cursor)\ntuple_cycle_list = []\ntuple_cycle = (tuple_cycle_list,)\ntuple_cycle_list.append(tuple_cycle)\nunsupported_list_child = [1, object()]\ndict_cycle = {}\ndict_cycle['self'] = dict_cycle\n",
-                c"native_msgpack_rejections.py",
-                c"native_msgpack_rejections",
+                c"class MyInt(int): pass\nclass MyFloat(float): pass\nclass MyStr(str): pass\nclass MyBytes(bytes): pass\nclass MyTuple(tuple): pass\nclass MyList(list): pass\nclass MyDict(dict): pass\nclass Custom: pass\ndeep = None\nfor _ in range(66):\n    deep = [deep]\ndeep_tuple = None\nfor _ in range(66):\n    deep_tuple = (deep_tuple,)\ntoo_deep = None\nfor _ in range(1100):\n    too_deep = [too_deep]\nlist_cycle = []\nlist_cycle.append(list_cycle)\ntuple_cycle_list = []\ntuple_cycle = (tuple_cycle_list,)\ntuple_cycle_list.append(tuple_cycle)\ndict_cycle = {}\ndict_cycle['self'] = dict_cycle\nvalues = {\n    'deep': deep, 'deep_tuple': deep_tuple, 'too_deep': too_deep,\n    'huge_positive': 1 << 80, 'huge_negative': -(1 << 80), 'lone_surrogate': '\\ud800',\n    'surrogate_in_tuple': ('\\ud800',), 'list_cycle': list_cycle, 'tuple_cycle': tuple_cycle,\n    'dict_cycle': dict_cycle, 'unsupported_list_child': [1, object()],\n    'subclasses': [MyInt(1), MyFloat(1), MyStr('x'), MyBytes(b'x'), MyTuple(), MyList([1]), MyDict(a=1)],\n    'custom_key': {Custom(): 1}, 'bytearray': bytearray(b'x'), 'memoryview': memoryview(b'xy'),\n}\n",
+                c"native_msgpack_shapes.py",
+                c"native_msgpack_shapes",
             )
-            .expect("rejection fixtures compile");
-        let mut encoder = NativeMsgpackEncoder::new();
-
-        for name in [
-            "deep",
-            "deep_tuple",
-            "huge_positive",
-            "huge_negative",
-            "lone_surrogate",
-            "list_cycle",
-            "overflow_cycle",
-            "tuple_cycle",
-            "unsupported_list_child",
-            "dict_cycle",
-        ] {
-            let value = module.getattr(name).expect("rejection fixture exists");
-            let mut scratch = Vec::new();
-            assert!(
-                !encoder.write(&value, &mut scratch, 0),
-                "native encoding unexpectedly accepted {name}"
-            );
-            assert!(
-                encoder.active_containers.is_empty(),
-                "container tracking leaked after rejecting {name}"
-            );
+            .expect("shape fixtures compile");
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let values = module.getattr("values").unwrap();
+        for (name, value) in values.cast::<PyDict>().unwrap().iter() {
+            for lightweight_repr in [false, true] {
+                let label = format!("{name} (lightweight={lightweight_repr})");
+                // Default-address reprs differ between objects, not runs.
+                assert_native_matches_python(py, &serializer, &value, lightweight_repr, &label);
+            }
         }
-
-        let mut scratch = Vec::new();
-        let primitive = 42_i64
-            .into_pyobject(py)
-            .expect("integer converts to Python")
-            .into_any();
-        assert!(encoder.write(&primitive, &mut scratch, 0));
     });
 }
 
 #[test]
-fn test_native_msgpack_rejects_entire_unsupported_zoo() {
-    Python::initialize();
+fn test_frame_id_keeps_existing_wire_format_inline() {
+    let frame_id = frame_id();
 
+    assert_eq!(frame_id.len(), std::mem::size_of::<FrameId>());
+    assert!(frame_id.starts_with("frm_"));
+    assert!(ulid::Ulid::from_string(&frame_id[4..]).is_ok());
+}
+
+#[test]
+fn test_direct_frame_line_number_matches_f_lineno() {
+    Python::initialize();
     Python::attach(|py| {
         let module = PyModule::from_code(
-                py,
-                c"class MyInt(int): pass\nclass MyFloat(float): pass\nclass MyStr(str): pass\nclass MyBytes(bytes): pass\nclass MyTuple(tuple): pass\nclass MyList(list): pass\nclass MyDict(dict): pass\nclass Custom: pass\ncycle = []\ncycle.append(cycle)\ndeep = None\nfor _ in range(66):\n    deep = [deep]\nunsupported = [\n    MyInt(1), MyFloat(1), MyStr('x'), MyBytes(b'x'), MyTuple(), MyList(), MyDict(),\n    Custom(), 1 << 80, -(1 << 80), cycle, deep,\n    {Custom(): 1}, chr(0xD800),\n]\n",
-                c"native_msgpack_unsupported.py",
-                c"native_msgpack_unsupported",
-            )
-            .expect("unsupported zoo module compiles");
-        let unsupported = module
-            .getattr("unsupported")
-            .expect("module exposes unsupported values")
-            .cast_into::<PyList>()
-            .expect("unsupported values are a list");
+            py,
+            c"import inspect\nnormal_frame = inspect.currentframe()\n",
+            c"missing_line.py",
+            c"missing_line",
+        )
+        .expect("line number fixture compiles");
+        let normal_frame = module
+            .getattr("normal_frame")
+            .expect("normal frame exists")
+            .cast_into::<PyFrame>()
+            .expect("normal frame is a frame");
+        assert_eq!(
+            frame_line_number(&normal_frame).expect("normal frames have a line"),
+            normal_frame
+                .getattr("f_lineno")
+                .expect("f_lineno exists")
+                .extract::<usize>()
+                .expect("normal line number is non-negative")
+        );
+    });
+}
 
-        for value in unsupported.iter() {
-            let mut scratch = Vec::new();
-            assert!(
-                !NativeMsgpackEncoder::new().write(&value, &mut scratch, 0),
-                "unexpectedly accepted {}",
-                value
-                    .get_type()
-                    .name()
-                    .expect("type has a name")
-                    .to_string_lossy()
-            );
-        }
+#[test]
+fn test_call_site_dicts_preserve_native_and_plugin_frame_ids() {
+    Python::initialize();
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"import inspect\nframe = inspect.currentframe()\nnot_frame = object()\n",
+            c"call_site.py",
+            c"call_site",
+        )
+        .expect("call-site fixture compiles");
+        let frame = module
+            .getattr("frame")
+            .expect("frame exists")
+            .cast_into::<PyFrame>()
+            .expect("frame is a frame");
+        let expected_line = frame
+            .getattr("f_lineno")
+            .expect("f_lineno exists")
+            .extract::<i32>()
+            .expect("normal line number is an integer");
+
+        let plugin_call_site = user_code_call_site(
+            vec![(
+                frame.as_any().clone(),
+                "external-plugin-frame-id".to_string(),
+            )],
+            "different-current-frame-id",
+        )
+        .expect("normal plugin call site builds")
+        .expect("a different parent frame is a call site")
+        .into_pydict(py);
+        assert_eq!(
+            plugin_call_site
+                .get_item("call_frame_id")
+                .expect("dict lookup succeeds")
+                .expect("call_frame_id exists")
+                .extract::<&str>()
+                .expect("call_frame_id is text"),
+            "external-plugin-frame-id"
+        );
+        assert_eq!(
+            plugin_call_site
+                .get_item("line_number")
+                .expect("dict lookup succeeds")
+                .expect("line_number exists")
+                .extract::<i32>()
+                .expect("line_number is an integer"),
+            expected_line
+        );
+
+        let native_call_site = build_user_code_call_site(
+            frame.as_any(),
+            FrameId::from_str("frm_00000000000000000000000003"),
+        )
+        .expect("normal native call site builds")
+        .expect("native call site exists")
+        .into_pydict(py);
+        assert_eq!(
+            native_call_site
+                .get_item("call_frame_id")
+                .expect("dict lookup succeeds")
+                .expect("call_frame_id exists")
+                .extract::<&str>()
+                .expect("call_frame_id is text"),
+            "frm_00000000000000000000000003"
+        );
+        assert_eq!(
+            native_call_site
+                .get_item("line_number")
+                .expect("dict lookup succeeds")
+                .expect("line_number exists")
+                .extract::<i32>()
+                .expect("line_number is an integer"),
+            expected_line
+        );
+
+        let not_frame = module.getattr("not_frame").expect("not-frame exists");
+        let plugin_frame_error = user_code_call_site(
+            vec![(not_frame.clone(), "external-plugin-frame-id".to_string())],
+            "different-current-frame-id",
+        )
+        .err()
+        .expect("plugin call sites reject non-frame objects");
+        assert!(plugin_frame_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+        let native_frame_error = build_user_code_call_site(
+            &not_frame,
+            FrameId::from_str("frm_00000000000000000000000004"),
+        )
+        .err()
+        .expect("native call sites reject non-frame objects");
+        assert!(native_frame_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+    });
+}
+
+#[cfg(Py_3_10)]
+#[test]
+fn test_direct_frame_line_number_preserves_missing_line_errors() {
+    Python::initialize();
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"import inspect, types\ndef generator():\n    yield inspect.currentframe()\nno_line_frame = next(types.FunctionType(generator.__code__.replace(co_linetable=b''), globals())())\n",
+            c"missing_line.py",
+            c"missing_line",
+        )
+        .expect("missing-line fixture compiles");
+        let no_line_frame = module
+            .getattr("no_line_frame")
+            .expect("missing-line frame exists")
+            .cast_into::<PyFrame>()
+            .expect("missing-line frame is a frame");
+        assert!(no_line_frame
+            .getattr("f_lineno")
+            .expect("f_lineno exists")
+            .is_none());
+        assert!(frame_line_number(&no_line_frame)
+            .expect_err("None cannot be extracted as usize")
+            .is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+        let missing_line_error = build_user_code_call_site(
+            no_line_frame.as_any(),
+            FrameId::from_str("frm_00000000000000000000000000"),
+        )
+        .err()
+        .expect("None cannot be extracted as i32");
+        assert!(missing_line_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+
+        let frame_path_error = FramePathCache::new()
+            .format_frame_path(&no_line_frame)
+            .err()
+            .expect("missing line propagates through frame path formatting");
+        assert!(frame_path_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+
+        let parent_id = FrameId::from_str("frm_00000000000000000000000001");
+        let child_id = FrameId::from_str("frm_00000000000000000000000002");
+        let mut call_frames = CallFrames::default();
+        assert!(call_frames
+            .get_user_code_call_site(&no_line_frame, Event::Call, &parent_id)
+            .expect("the first frame has no call site")
+            .is_none());
+        let call_site_error = call_frames
+            .get_user_code_call_site(&no_line_frame, Event::Call, &child_id)
+            .err()
+            .expect("missing parent line propagates through native call sites");
+        assert!(call_site_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+
+        let plugin_line_error = user_code_call_site(
+            vec![(
+                no_line_frame.as_any().clone(),
+                "external-plugin-frame-id".to_string(),
+            )],
+            "different-current-frame-id",
+        )
+        .err()
+        .expect("missing parent line propagates through plugin call sites");
+        assert!(plugin_line_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
     });
 }
 
 #[test]
 fn test_user_code_call_site_native_bytes_match_existing_encoding() {
     let call_site = UserCodeCallSite {
-        call_frame_id: "frm_parent".to_string(),
+        call_frame_id: FrameId::from_str("frm_00000000000000000000000000"),
         line_number: 42,
     };
     let mut expected = Vec::new();
@@ -847,7 +1000,10 @@ fn test_user_code_call_site_native_bytes_match_existing_encoding() {
     rmpv::encode::write_value(
         &mut expected,
         &rmpv::Value::Map(vec![
-            ("call_frame_id".into(), "frm_parent".into()),
+            (
+                "call_frame_id".into(),
+                "frm_00000000000000000000000000".into(),
+            ),
             ("line_number".into(), 42.into()),
         ]),
     )
@@ -936,7 +1092,6 @@ fn test_frame_qualname_with_surrogate_uses_existing_serializer_error() {
             "frm_surrogate",
             false,
             false,
-            true,
             (
                 "surrogate_module.py",
                 Some("<module>"),
@@ -949,30 +1104,6 @@ fn test_frame_qualname_with_surrogate_uses_existing_serializer_error() {
         assert!(error.is_instance_of::<pyo3::exceptions::PyUnicodeEncodeError>(py));
         assert!(buf.is_empty());
     });
-}
-
-#[test]
-fn active_containers_stay_inline_for_ordinary_depth_and_spill_exactly() {
-    let mut active = ActiveContainers::default();
-    assert!(active.is_empty());
-    active.pop();
-    assert!(active.is_empty());
-
-    for identity in 0..INLINE_ACTIVE_CONTAINERS {
-        active.push(identity);
-    }
-    assert_eq!(active.inline_len, INLINE_ACTIVE_CONTAINERS);
-    assert!(active.overflow.is_empty());
-    assert!((0..INLINE_ACTIVE_CONTAINERS).all(|identity| active.contains(identity)));
-
-    active.push(INLINE_ACTIVE_CONTAINERS);
-    assert_eq!(active.overflow, [INLINE_ACTIVE_CONTAINERS]);
-    assert!(active.contains(INLINE_ACTIVE_CONTAINERS));
-
-    active.pop();
-    assert!(!active.contains(INLINE_ACTIVE_CONTAINERS));
-    active.pop();
-    assert!(!active.contains(INLINE_ACTIVE_CONTAINERS - 1));
 }
 
 #[test]

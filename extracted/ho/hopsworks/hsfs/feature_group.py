@@ -33,7 +33,7 @@ import avro.schema
 import hsfs.expectation_suite
 import humps
 from hopsworks_apigen import deprecated, deprecation, public
-from hopsworks_common import job
+from hopsworks_common import client, job
 from hopsworks_common.client.exceptions import FeatureStoreException, RestAPIError
 from hopsworks_common.core import alerts_api
 from hopsworks_common.core.constants import (
@@ -41,6 +41,7 @@ from hopsworks_common.core.constants import (
     HAS_DELTALAKE_SPARK,
     HAS_NUMPY,
     HAS_POLARS,
+    HAS_PYICEBERG,
 )
 from hopsworks_common.core.sink_job_configuration import SinkJobConfiguration
 from hsfs import (
@@ -73,6 +74,7 @@ from hsfs.core import (
     job_api,
     online_ingestion,
     online_ingestion_api,
+    partition_transforms,
     spine_group_engine,
     statistics_engine,
     transformation_execution_dag,
@@ -117,6 +119,247 @@ if HAS_GREAT_EXPECTATIONS:
     import great_expectations
 
 _logger = logging.getLogger(__name__)
+
+
+def _validate_partitioned_by(
+    partitioned_by: list[str] | None,
+    partition_key: list[str] | None,
+    event_time: str | None,
+    time_travel_format: str | None,
+    primary_key: list[str] | None,
+) -> list[str] | None:
+    """Fast-fail client-side validation for `partitioned_by` transform expressions.
+
+    Parses the expressions and applies the per-format matrix from
+    [`partition_transforms`][hsfs.core.partition_transforms], returning the
+    canonical expression strings. The backend remains the source of truth —
+    schema-dependent checks (source column existence and types) run
+    server-side against the final feature list.
+    """
+    if partitioned_by is None:
+        return None
+    if not isinstance(partitioned_by, list) or len(partitioned_by) == 0:
+        raise FeatureStoreException(
+            "partitioned_by must be a non-empty list of transform "
+            "expressions, e.g. ['day(ts)', 'bucket(16, id)']."
+        )
+    if partition_key:
+        raise FeatureStoreException(
+            "Set either partition_key or partitioned_by, not both. "
+            "partition_key is identity partitioning on columns; "
+            "partitioned_by is the transform form."
+        )
+    transforms = partition_transforms._parse(partitioned_by)
+    partition_transforms._validate_for_format(
+        transforms, time_travel_format, primary_key, event_time
+    )
+    return partition_transforms._serialize(transforms)
+
+
+def _canonical_columns(columns: list[str], param: str) -> list[str]:
+    """Canonicalize a column list to stored feature names, rejecting duplicates.
+
+    Hopsworks sanitizes feature names (lower case, spaces to underscores) via
+    [`_autofix_feature_name`][hopsworks.util._autofix_feature_name], so a layout
+    column list is rewritten to match the stored names; `["id", "ID"]` is one
+    logical column and is rejected as a duplicate rather than silently kept.
+    """
+    canonical = []
+    seen = set()
+    for col in columns:
+        if not isinstance(col, str) or not col:
+            raise FeatureStoreException(f"{param} entries must be column names.")
+        fixed = util._autofix_feature_name(col)
+        if fixed in seen:
+            raise FeatureStoreException(
+                f"{param} contains duplicate columns: {columns}."
+            )
+        seen.add(fixed)
+        canonical.append(fixed)
+    return canonical
+
+
+def _validate_zorder_by(
+    zorder_by: list[str] | None,
+    time_travel_format: str | None,
+) -> list[str] | None:
+    """Fast-fail client-side validation for `zorder_by`.
+
+    z-ordering is supported for ICEBERG (applied by
+    [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize]) and
+    HUDI (inline clustering on writes). DELTA is rejected: liquid clustering
+    through `clustered_by` covers the use case.
+    """
+    if zorder_by is None:
+        return None
+    if not isinstance(zorder_by, list) or len(zorder_by) == 0:
+        raise FeatureStoreException(
+            "zorder_by must be a non-empty list of column names."
+        )
+    # Feature names are sanitized to lower case, so columns are canonicalized
+    # and deduplicated case-insensitively (["id", "ID"] is one column).
+    canonical = _canonical_columns(zorder_by, "zorder_by")
+    if len(canonical) > partition_transforms.MAX_CLUSTER_COLUMNS:
+        raise FeatureStoreException(
+            f"zorder_by supports at most "
+            f"{partition_transforms.MAX_CLUSTER_COLUMNS} columns."
+        )
+    fmt = (time_travel_format or "NONE").upper()
+    if fmt == "DELTA":
+        raise FeatureStoreException(
+            "zorder_by is not supported on DELTA. Use clustered_by: liquid "
+            "clustering covers the same use case."
+        )
+    if fmt not in ("ICEBERG", "HUDI"):
+        raise FeatureStoreException(
+            f"zorder_by requires time_travel_format ICEBERG or HUDI; got {fmt!r}."
+        )
+    return canonical
+
+
+def _validate_clustered_by(
+    clustered_by: list[str] | None,
+    time_travel_format: str | None,
+    partition_key: list[str] | None,
+) -> list[str] | None:
+    """Fast-fail client-side validation for `clustered_by`.
+
+    Liquid clustering is a Delta mechanism, so `clustered_by` requires
+    `time_travel_format="DELTA"`.
+    Delta forbids combining clustering with hive-style partitioning on the
+    same table, so `clustered_by` and `partition_key` are mutually exclusive.
+    """
+    if clustered_by is None:
+        return None
+    if not isinstance(clustered_by, list) or len(clustered_by) == 0:
+        raise FeatureStoreException(
+            "clustered_by must be a non-empty list of column names."
+        )
+    # Feature names are sanitized to lower case, so columns are canonicalized
+    # and deduplicated case-insensitively (["id", "ID"] is one column).
+    canonical = _canonical_columns(clustered_by, "clustered_by")
+    if len(canonical) > partition_transforms.MAX_CLUSTER_COLUMNS:
+        raise FeatureStoreException(
+            f"clustered_by supports at most "
+            f"{partition_transforms.MAX_CLUSTER_COLUMNS} columns (the Delta "
+            "liquid clustering limit)."
+        )
+    fmt = (time_travel_format or "NONE").upper()
+    if fmt != "DELTA":
+        raise FeatureStoreException(
+            "clustered_by is Delta liquid clustering and requires "
+            f"time_travel_format DELTA; got {fmt!r}. On ICEBERG use "
+            "partitioned_by transforms and zorder_by instead."
+        )
+    if partition_key:
+        raise FeatureStoreException(
+            "Set either partition_key or clustered_by, not both: Delta does "
+            "not support liquid clustering on a hive-partitioned table."
+        )
+    return canonical
+
+
+def _validate_bucket_index(
+    bucket_index: dict[str, Any] | None,
+    time_travel_format: str | None,
+    primary_key: list[str] | None,
+) -> dict[str, Any] | None:
+    """Fast-fail client-side validation for `bucket_index`.
+
+    The Hudi bucket index hashes the given primary key field into a fixed
+    number of buckets; other formats express bucketing as a partition
+    transform (`bucket(N, col)` on Iceberg), so `bucket_index` requires
+    `time_travel_format="HUDI"`.
+    """
+    if bucket_index is None:
+        return None
+    if not isinstance(bucket_index, dict) or not (
+        {"field", "num_buckets"}
+        <= set(bucket_index.keys())
+        <= {"field", "num_buckets", "engine"}
+    ):
+        raise FeatureStoreException(
+            "bucket_index must be a dict with the keys 'field' and "
+            "'num_buckets' (and optionally 'engine'), e.g. "
+            "{'field': 'id', 'num_buckets': 16}."
+        )
+    if (
+        not isinstance(bucket_index["num_buckets"], int)
+        or bucket_index["num_buckets"] < 1
+    ):
+        raise FeatureStoreException(
+            "bucket_index 'num_buckets' must be a positive integer."
+        )
+    if bucket_index.get("engine") not in (None, "simple"):
+        raise FeatureStoreException(
+            "bucket_index 'engine' must be 'simple'. Consistent hashing "
+            "requires a merge-on-read table with a clustering lifecycle, "
+            "which Hopsworks Hudi feature groups (copy-on-write) do not "
+            "support."
+        )
+    fmt = (time_travel_format or "NONE").upper()
+    if fmt != "HUDI":
+        raise FeatureStoreException(
+            "bucket_index configures the Hudi bucket index and requires "
+            f"time_travel_format HUDI; got {fmt!r}. On ICEBERG use the "
+            "bucket(N, col) partition transform instead."
+        )
+    # Feature names are sanitized (lower case, spaces to underscores);
+    # canonicalize the field so it matches the stored primary key.
+    field = bucket_index["field"]
+    if not isinstance(field, str) or not field:
+        raise FeatureStoreException("bucket_index 'field' must be a column name.")
+    field = util._autofix_feature_name(field)
+    if primary_key and field not in [
+        util._autofix_feature_name(pk) for pk in primary_key
+    ]:
+        raise FeatureStoreException(
+            f"bucket_index field {bucket_index['field']!r} must be part of "
+            f"the primary key {primary_key} (a Hudi bucket index hashes the "
+            "record key)."
+        )
+    canonical = dict(bucket_index)
+    canonical["field"] = field
+    return canonical
+
+
+def _validate_sort_order(
+    sort_order: list[str] | None,
+    time_travel_format: str | None,
+    zorder_by: list[str] | None = None,
+) -> list[str] | None:
+    """Fast-fail client-side validation for `sort_order`.
+
+    A persistent write sort order is an Iceberg table property, so
+    `sort_order` requires `time_travel_format="ICEBERG"`.
+    `sort_order` and `zorder_by` prescribe conflicting file layouts (writes
+    sorted linearly, maintenance rewriting on the z-curve), so only one may
+    be the stored default.
+    Returns the canonical expression strings
+    (`"col asc nulls first"` / `"col desc nulls last"`).
+    """
+    if sort_order is None:
+        return None
+    if not isinstance(sort_order, list) or len(sort_order) == 0:
+        raise FeatureStoreException(
+            "sort_order must be a non-empty list of sort expressions, "
+            "e.g. ['merchant_id asc', 'amount desc nulls last']."
+        )
+    fmt = (time_travel_format or "NONE").upper()
+    if fmt != "ICEBERG":
+        raise FeatureStoreException(
+            "sort_order is a persistent Iceberg table sort order and "
+            f"requires time_travel_format ICEBERG; got {fmt!r}. On DELTA "
+            "use clustered_by; on HUDI use zorder_by."
+        )
+    if zorder_by:
+        raise FeatureStoreException(
+            "Set either sort_order or zorder_by, not both: they prescribe "
+            "conflicting file layouts (writes would sort linearly while "
+            "optimize() rewrites on the z-curve). A one-off z-order stays "
+            "available via optimize(strategy='zorder', columns=[...])."
+        )
+    return [str(f) for f in partition_transforms._parse_sort_order(sort_order)]
 
 
 @public
@@ -731,7 +974,7 @@ class FeatureGroupBase:
         self._feature_group_engine._delete_tag(self, name)
 
     @public
-    def get_tag(self, name: str) -> tag.Tag | None:
+    def get_tag(self, name: str) -> Any | None:
         """Get the tags of a feature group.
 
         Example:
@@ -757,16 +1000,132 @@ class FeatureGroupBase:
         return self._feature_group_engine._get_tag(self, name)
 
     @public
-    def get_tags(self) -> dict[str, tag.Tag]:
+    def get_tags(self) -> dict[str, Any]:
         """Retrieves all tags attached to a feature group.
 
         Returns:
-            The dictionary of tags.
+            The dictionary of tag names and values.
 
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
         return self._feature_group_engine._get_tags(self)
+
+    @public
+    def get_tag_metadata(self, name: str) -> tag.Tag | None:
+        """Get a tag with its metadata, including the time it was attached.
+
+        Unlike [`FeatureGroupBase.get_tag`][hsfs.feature_group.FeatureGroupBase.get_tag], which returns only the tag's value, this returns the [`Tag`][hopsworks.tag.Tag] object, whose [`Tag.created_on`][hopsworks_common.tag.Tag.created_on] is the attachment time.
+
+        Example:
+            ```python
+            fg_tag = fg.get_tag_metadata("example_tag")
+            print(fg_tag.value, fg_tag.created_on)
+            ```
+
+        Parameters:
+            name: Name of the tag to get.
+
+        Returns:
+            The tag object or `None` if it does not exist.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        return self._feature_group_engine._get_tag_metadata(self, name)
+
+    @public
+    def get_tags_metadata(self) -> dict[str, tag.Tag]:
+        """Retrieves all tags attached to a feature group, with their metadata.
+
+        Unlike [`FeatureGroupBase.get_tags`][hsfs.feature_group.FeatureGroupBase.get_tags], which returns only the tag values, this keeps the [`Tag`][hopsworks.tag.Tag] objects, whose [`Tag.created_on`][hopsworks_common.tag.Tag.created_on] is the attachment time.
+
+        Returns:
+            The dictionary of tag names to tag objects.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        return self._feature_group_engine._get_tags_metadata(self)
+
+    @public
+    def get_keywords(self) -> list[str]:
+        """Retrieve all keywords attached to a feature group.
+
+        A keyword is a plain label without a value, used to categorize and search for artifacts.
+
+        Returns:
+            List of keywords.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        return self._feature_group_engine._get_keywords(self)
+
+    @public
+    def get_keywords_metadata(self) -> dict[str, datetime | None]:
+        """Retrieve all keywords attached to a feature group, with the time each was attached.
+
+        Returns:
+            Dictionary of keyword to attachment time.
+            The time is `None` when it is unknown, for example for a keyword attached before Hopsworks recorded attachment times.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        return self._feature_group_engine._get_keywords_metadata(self)
+
+    @public
+    def set_keywords(self, keywords: list[str]) -> list[str]:
+        """Replace the whole keyword set of a feature group.
+
+        Keywords not in `keywords` are removed.
+
+        Parameters:
+            keywords: The new keyword set.
+
+        Returns:
+            The updated list of keywords.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        return self._feature_group_engine._set_keywords(self, keywords)
+
+    @public
+    def add_keywords(self, keywords: str | list[str]) -> list[str]:
+        """Add keywords to a feature group, keeping the existing ones.
+
+        This reads the current keywords and writes back their union with `keywords`, so a concurrent `add_keywords` or [`FeatureGroupBase.set_keywords`][hsfs.feature_group.FeatureGroupBase.set_keywords] call can lose additions.
+        When the full keyword set is known, prefer [`FeatureGroupBase.set_keywords`][hsfs.feature_group.FeatureGroupBase.set_keywords].
+
+        Parameters:
+            keywords: A keyword or a list of keywords to add.
+
+        Returns:
+            The updated list of keywords.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        if isinstance(keywords, str):
+            keywords = [keywords]
+        return self._feature_group_engine._add_keywords(self, keywords)
+
+    @public
+    def delete_keyword(self, keyword: str) -> list[str]:
+        """Remove a single keyword from a feature group.
+
+        Parameters:
+            keyword: The keyword to remove.
+
+        Returns:
+            The updated list of keywords.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        return self._feature_group_engine._delete_keyword(self, keyword)
 
     @public
     def get_parent_feature_groups(self) -> explicit_provenance.Links | None:
@@ -2236,6 +2595,19 @@ class FeatureGroupBase:
             )
 
     @public
+    @property
+    def online_config(self) -> OnlineConfig | None:
+        """Online (RonDB) serving configuration of the feature group, or None.
+
+        Exposes the online table settings, including the secondary indexes.
+        Read [`OnlineConfig.secondary_indexes`][hsfs.online_config.OnlineConfig.secondary_indexes]
+        to see which column groups are indexed in the online store; combine with
+        [`FeatureGroup.partitioned_by`][hsfs.feature_group.FeatureGroup.partitioned_by]
+        to tell apart online-indexed columns and event-time partition grains.
+        """
+        return self._online_config
+
+    @public
     def get_latest_online_ingestion(self) -> online_ingestion.OnlineIngestion:
         """Retrieve the latest online ingestion operation for this feature group.
 
@@ -3098,6 +3470,12 @@ class FeatureGroup(FeatureGroupBase):
         sink_job: job.Job | dict[str, Any] | None = None,
         missing_mandatory_tags: list[dict[str, Any]] | None = None,
         tags: list[tag.Tag] | None = None,
+        partitioned_by: list[str] | None = None,
+        online_partition_columns: bool = False,
+        zorder_by: list[str] | None = None,
+        clustered_by: list[str] | None = None,
+        bucket_index: dict[str, Any] | None = None,
+        sort_order: list[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -3147,6 +3525,24 @@ class FeatureGroup(FeatureGroupBase):
         self._parents = parents
         self._deltastreamer_jobconf = delta_streamer_job_conf
         self._tags: list[tag.Tag] | None = tags
+        # Preserve [] so the validators below reject it explicitly rather
+        # than silently treating it as unset.
+        self._partitioned_by: list[str] | None = (
+            None if partitioned_by is None else list(partitioned_by)
+        )
+        self._zorder_by: list[str] | None = (
+            None if zorder_by is None else list(zorder_by)
+        )
+        self._clustered_by: list[str] | None = (
+            None if clustered_by is None else list(clustered_by)
+        )
+        self._bucket_index: dict[str, Any] | None = (
+            None if bucket_index is None else dict(bucket_index)
+        )
+        self._sort_order: list[str] | None = (
+            None if sort_order is None else list(sort_order)
+        )
+        self._online_partition_columns: bool = bool(online_partition_columns)
 
         self._materialization_job: Job = None
 
@@ -3158,6 +3554,11 @@ class FeatureGroup(FeatureGroupBase):
             self.foreign_key: list[str] = [
                 feat.name for feat in self._features if feat.foreign is True
             ]
+            # Grain columns synthesised by partitioned_by carry partition=True
+            # on the backend FG schema, so they flow into partition_key like any
+            # other partition column. The client materializes their values from
+            # event_time before the offline write (see DeltaEngine), and the
+            # offline_only flag keeps them out of the online write.
             self._partition_key: list[str] = [
                 feat.name for feat in self._features if feat.partition is True
             ]
@@ -3185,6 +3586,48 @@ class FeatureGroup(FeatureGroupBase):
                 stream,
                 time_travel_format,
             )
+
+            # Validate against the resolved time travel format, before any
+            # storage interaction. The existing-FG branch skips this: stored
+            # specs are already validated, and unparseable pre-transform
+            # specs are treated as opaque rather than failing the object.
+            self._partitioned_by = _validate_partitioned_by(
+                self._partitioned_by,
+                partition_key,
+                event_time,
+                self._time_travel_format,
+                primary_key,
+            )
+            self._zorder_by = _validate_zorder_by(
+                self._zorder_by, self._time_travel_format
+            )
+            self._clustered_by = _validate_clustered_by(
+                self._clustered_by, self._time_travel_format, partition_key
+            )
+            self._bucket_index = _validate_bucket_index(
+                self._bucket_index, self._time_travel_format, primary_key
+            )
+            self._sort_order = _validate_sort_order(
+                self._sort_order, self._time_travel_format, self._zorder_by
+            )
+            # Liquid clustering needs the Clustering and DomainMetadata Delta
+            # writer features, which delta-rs does not implement, so a
+            # clustered feature group is only writable by Spark. On the
+            # python engine, stream=True routes writes through the Spark
+            # materialization job and is therefore fine.
+            if (
+                self._clustered_by
+                and engine._get_type() == "python"
+                and not self._stream
+            ):
+                raise FeatureStoreException(
+                    "clustered_by requires Spark writers: Delta liquid "
+                    "clustering uses the Clustering and DomainMetadata "
+                    "writer table features, which delta-rs does not "
+                    "support. Create the feature group from a Spark "
+                    "environment, or pass stream=True so writes go through "
+                    "the Spark materialization job."
+                )
 
             self.primary_key = primary_key
             self.foreign_key = foreign_key
@@ -3272,6 +3715,7 @@ class FeatureGroup(FeatureGroupBase):
             self._stream = FeatureGroup._resolve_stream_python(
                 stream=stream,
                 time_travel_format=self._time_travel_format,
+                hopsfs_external=self._is_hopsfs_external(),
             )
 
     def _is_hopsfs_storage(self) -> bool:
@@ -3317,6 +3761,7 @@ class FeatureGroup(FeatureGroupBase):
             and self.storage_connector.type
             in [
                 sc.StorageConnector.CRM,
+                sc.StorageConnector.GOOGLE_SHEETS,
                 sc.StorageConnector.REST,
                 sc.StorageConnector.SNOWFLAKE,
                 sc.StorageConnector.REDSHIFT,
@@ -3344,27 +3789,45 @@ class FeatureGroup(FeatureGroupBase):
             )
             raise FeatureStoreException(
                 f"Sink cannot be enabled for storage connector type '{connector_type}'. "
-                "Supported connector types: CRM, REST, SNOWFLAKE, REDSHIFT, BIGQUERY, MONGODB, "
-                "and SQL connectors with database_type MYSQL, POSTGRESQL, or ORACLE."
+                "Supported connector types: CRM, GOOGLE_SHEETS, REST, SNOWFLAKE, REDSHIFT, "
+                "BIGQUERY, MONGODB, and SQL connectors with database_type MYSQL, POSTGRESQL, "
+                "or ORACLE."
             )
 
-        # CRM/REST connectors always have sink enabled.
+        # CRM/Google Sheets/REST connectors always have sink enabled.
         if self.storage_connector is not None and self.storage_connector.type in [
             sc.StorageConnector.CRM,
+            sc.StorageConnector.GOOGLE_SHEETS,
             sc.StorageConnector.REST,
         ]:
             self._sink_enabled = True
         else:
             self._sink_enabled = requested_sink and supported_sink_connector
 
+    def _is_hopsfs_external(self) -> bool:
+        """Whether the offline storage is HopsFS accessed from an external client."""
+        try:
+            is_external = client._get_instance()._is_external()
+        except Exception:  # noqa: BLE001 - no client configured yet means not external
+            return False
+        return is_external and self._is_hopsfs_storage()
+
     @staticmethod
     def _resolve_stream_python(
         stream: bool,
         time_travel_format: str,
+        hopsfs_external: bool = False,
     ) -> bool | None:
         # If stream is explicitly set to True, use it.
-        # Otherwise, only DELTA format disables stream by default.
-        return stream or time_travel_format != "DELTA"
+        # Otherwise, formats with direct offline writes from the Python engine
+        # (DELTA via delta-rs, ICEBERG via pyiceberg) disable stream by
+        # default; everything else writes through the materialization job.
+        direct_write_formats = ["DELTA", "ICEBERG"]
+        if hopsfs_external:
+            # PyIceberg reaches HopsFS through libhdfs, which external Python
+            # clients do not have; route through the materialization job.
+            direct_write_formats.remove("ICEBERG")
+        return stream or time_travel_format not in direct_write_formats
 
     @staticmethod
     def _resolve_time_travel_format(
@@ -3378,6 +3841,10 @@ class FeatureGroup(FeatureGroupBase):
             raise FeatureStoreException(
                 "Cannot use time_travel_format='DELTA': delta library is not installed."
             )
+        if fmt == "ICEBERG" and not FeatureGroup._has_pyiceberg():
+            raise FeatureStoreException(
+                "Cannot use time_travel_format='ICEBERG': pyiceberg library is not installed."
+            )
         return fmt
 
     @staticmethod
@@ -3385,6 +3852,14 @@ class FeatureGroup(FeatureGroupBase):
         if engine._get_type() == "python":
             return HAS_DELTALAKE_PYTHON
         return HAS_DELTALAKE_SPARK
+
+    @staticmethod
+    def _has_pyiceberg():
+        # The Spark engine talks to Iceberg through the JVM and does not need
+        # the pyiceberg package.
+        if engine._get_type() == "python":
+            return HAS_PYICEBERG
+        return True
 
     @staticmethod
     def _sort_transformation_functions(
@@ -4009,7 +4484,7 @@ class FeatureGroup(FeatureGroupBase):
             operation: Apache Hudi operation type `"insert"` or `"upsert"`.
             storage:
                 Overwrite default behaviour, write to offline storage only with `"offline"` or online only with `"online"`.
-                If the streaming APIs are enabled, specifying the storage option is not supported.
+                On a stream feature group the records reach both stores through the same Kafka topic, so the choice travels with them and selects which store ingests them: `"online"` does not start the offline materialization job, and `"offline"` does not run an online ingestion.
             write_options:
                 Additional write options as key-value pairs.
 
@@ -4074,11 +4549,15 @@ class FeatureGroup(FeatureGroupBase):
             hopsworks.client.exceptions.DataValidationException:
                 If data validation fails and the expectation suite `validation_ingestion_policy` is set to `STRICT`.
                 Data is NOT ingested.
+            hopsworks.client.exceptions.FeatureStoreException: If `storage` is not one of `"offline"`, `"online"` or unset.
         """
-        if storage and self.stream:
-            warnings.warn(
-                "Specifying the storage option is not supported if the streaming APIs are enabled",
-                stacklevel=1,
+        storage_normalized = storage.lower() if storage is not None else None
+        if storage_normalized is not None and storage_normalized not in (
+            "offline",
+            "online",
+        ):
+            raise FeatureStoreException(
+                f"Invalid storage: {storage}. Use 'offline', 'online', or leave it unset."
             )
 
         feature_dataframe = engine._get_instance()._convert_to_default_dataframe(
@@ -4105,7 +4584,6 @@ class FeatureGroup(FeatureGroupBase):
             # New delta FG allow for change data capture query
             write_options["delta.enableChangeDataFeed"] = "true"
 
-        storage_normalized = storage.lower() if storage is not None else None
         job, ge_report = self._feature_group_engine._insert(
             self,
             feature_dataframe=feature_dataframe,
@@ -4427,7 +4905,7 @@ class FeatureGroup(FeatureGroupBase):
 
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
-            hopsworks.client.exceptions.FeatureStoreException: If the feature group does not have `HUDI` time travel format.
+            hopsworks.client.exceptions.FeatureStoreException: If the feature group does not have a time travel enabled format (`HUDI`, `DELTA`, or `ICEBERG`).
         """
         return self._feature_group_engine._commit_details(self, wallclock_time, limit)
 
@@ -4440,7 +4918,7 @@ class FeatureGroup(FeatureGroupBase):
     ) -> None:
         """Drops records present in the provided DataFrame and commits it as update to this Feature group.
 
-        This method can only be used on feature groups stored as HUDI or DELTA.
+        This method can only be used on feature groups stored as HUDI, DELTA, or ICEBERG.
 
         Both stores of an online-enabled feature group are affected, mirroring [`insert`][hsfs.feature_group.FeatureGroup.insert], which writes to both.
         A feature group without an online store is deleted from offline only.
@@ -4525,14 +5003,23 @@ class FeatureGroup(FeatureGroupBase):
             delete_online = False
 
         if delete_offline:
-            # The guard is a property of the offline delete: a HUDI delete needs Spark.
-            # An online-only delete goes to Kafka and does not, so it stays available on
-            # those feature groups.
+            # Both guards are properties of the offline delete: a HUDI delete needs Spark,
+            # and an ICEBERG one needs pyiceberg without it. An online-only delete goes to
+            # Kafka and needs neither, so it stays available on those feature groups.
             if self.time_travel_format == "HUDI" and not engine._get_type().startswith(
                 "spark"
             ):
                 raise NotImplementedError(
                     "Deleting rows is only supported for HUDI feature groups when using the Spark engine."
+                )
+            if (
+                self.time_travel_format == "ICEBERG"
+                and not engine._get_type().startswith("spark")
+                and not HAS_PYICEBERG
+            ):
+                raise NotImplementedError(
+                    "Deleting rows from ICEBERG feature groups without Spark requires pyiceberg. "
+                    "Install 'pyiceberg' to enable it."
                 )
 
             self._feature_group_engine._commit_delete(
@@ -4603,6 +5090,253 @@ class FeatureGroup(FeatureGroupBase):
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
         self._feature_group_engine._delta_vacuum(self, retention_hours)
+
+    def _require_time_travel_format(self, expected: str, operation: str) -> None:
+        """Reject a format-specific layout operation on the wrong format.
+
+        Returning None on the wrong format would be indistinguishable from
+        an unconfigured layout, so the mismatch fails loudly instead.
+        """
+        if self.time_travel_format != expected:
+            raise FeatureStoreException(
+                f"{operation} requires a {expected} feature group; this "
+                f"feature group has time_travel_format="
+                f"{self.time_travel_format!r}. Use describe_layout() for a "
+                "format-independent view."
+            )
+
+    @public
+    def optimize(
+        self,
+        full: bool = False,
+        strategy: str | None = None,
+        columns: list[str] | None = None,
+        rewrite_all: bool | None = None,
+        target_file_size_mb: int | None = None,
+        where: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Rewrite the offline data files to apply or maintain the layout.
+
+        On ICEBERG feature groups this runs an Iceberg `rewriteDataFiles` action and requires the Spark engine.
+        `strategy` picks the rewrite: `"zorder"` (over `columns`, defaulting to [`zorder_by`][hsfs.feature_group.FeatureGroup.zorder_by]), `"sort"` (the table's persistent [`sort_order`][hsfs.feature_group.FeatureGroup.sort_order]), or `"binpack"`; unset, it follows the feature group's stored layout in that order.
+        `rewrite_all` forces rewriting every file and defaults to False for every strategy, so a routine maintenance call never rewrites the whole table by accident; pass `rewrite_all=True` for the initial full z-order (the planner otherwise skips file groups below its thresholds).
+        `target_file_size_mb` overrides the target file size, and `where` restricts the rewrite to the matching files through an Iceberg filter expression over the feature group's columns.
+        On DELTA feature groups this runs `OPTIMIZE`, which incrementally clusters the data when the feature group has [`clustered_by`][hsfs.feature_group.FeatureGroup.clustered_by].
+        `full=True` runs `OPTIMIZE FULL` to recluster all existing data after the clustering columns changed (clustered feature groups only), `where` restricts the rewrite with a predicate, and `strategy="zorder"` with `columns` runs the legacy `OPTIMIZE ... ZORDER BY`, which Delta only supports on unclustered tables (z-order and liquid clustering are incompatible).
+        Clustered feature groups require Spark; without Spark only unclustered compaction is available.
+        HUDI feature groups are rejected: layout maintenance runs through Hudi inline clustering on writes.
+
+        Example:
+            ```python
+            fg = fs.get_feature_group("transactions", version=1)
+            # initial full z-order after backfill
+            fg.optimize(rewrite_all=True)
+            # cheap incremental maintenance thereafter
+            metrics = fg.optimize()
+            ```
+
+        Parameters:
+            full: Recluster all existing data (DELTA only).
+            strategy: Rewrite strategy: "zorder", "sort", or "binpack".
+            columns: Columns for a z-order rewrite; defaults to `zorder_by`.
+            rewrite_all: Rewrite every file regardless of thresholds (ICEBERG only).
+            target_file_size_mb: Target rewritten file size (ICEBERG only).
+            where: Predicate restricting the rewrite (DELTA and ICEBERG).
+
+        Returns:
+            Rewrite metrics as reported by the format, or None when unavailable.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format does not support the requested optimize.
+        """
+        return self._feature_group_engine._optimize(
+            self,
+            full=full,
+            strategy=strategy,
+            columns=columns,
+            rewrite_all=rewrite_all,
+            target_file_size_mb=target_file_size_mb,
+            where=where,
+        )
+
+    @public
+    def get_partition_spec(self) -> list[str] | None:
+        """Return the table's current partition spec, read from the table format.
+
+        Unlike
+        [`partitioned_by`][hsfs.feature_group.FeatureGroup.partitioned_by],
+        which returns the stored Hopsworks metadata, this inspects the
+        actual Iceberg table, so external modifications and drift are
+        visible. Each element is `"<field_name>: <transform>(<source>)"`.
+        ICEBERG only.
+
+        Returns:
+            The current partition spec fields, or None for an unpartitioned table.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format is not ICEBERG.
+        """
+        self._require_time_travel_format("ICEBERG", "get_partition_spec()")
+        return self._feature_group_engine._describe_layout(self)["partition_spec"]
+
+    @public
+    def get_partition_specs(self) -> list[list[str]] | None:
+        """Return the table's partition spec history (Iceberg spec evolution).
+
+        Ordered by spec id; because external engines can add non-default
+        specs, the last element is not necessarily the current one — use
+        [`FeatureGroup.get_partition_spec`][hsfs.feature_group.FeatureGroup.get_partition_spec]
+        for that. ICEBERG only.
+
+        Returns:
+            One spec per evolution step, oldest first, or None when unavailable.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format is not ICEBERG.
+        """
+        self._require_time_travel_format("ICEBERG", "get_partition_specs()")
+        return self._feature_group_engine._describe_layout(self)["partition_specs"]
+
+    @public
+    def get_clustering_columns(self) -> list[str] | None:
+        """Return the table's actual Delta liquid clustering columns.
+
+        Unlike
+        [`clustered_by`][hsfs.feature_group.FeatureGroup.clustered_by],
+        which returns the stored Hopsworks metadata, this inspects the Delta
+        table itself. DELTA only, and requires the Spark engine.
+
+        Returns:
+            The clustering columns, or None when the table is not clustered.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format is not DELTA.
+        """
+        self._require_time_travel_format("DELTA", "get_clustering_columns()")
+        return self._feature_group_engine._describe_layout(self)["clustering_columns"]
+
+    @public
+    def get_sort_order(self) -> list[str] | None:
+        """Return the table's actual persistent sort order. ICEBERG only.
+
+        Returns:
+            Canonical sort expressions, or None when the table is unsorted.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format is not ICEBERG.
+        """
+        self._require_time_travel_format("ICEBERG", "get_sort_order()")
+        return self._feature_group_engine._describe_layout(self)["sort_order"]
+
+    @public
+    def describe_layout(self) -> dict[str, Any]:
+        """Return the stored layout metadata next to the actual table state.
+
+        The `stored` entry carries the Hopsworks metadata
+        (`partitioned_by`, `clustered_by`, `bucket_index`, `zorder_by`,
+        `sort_order`) and the format-specific actual entries
+        (`partition_spec`, `partition_specs`, `sort_order` for ICEBERG;
+        `clustering_columns` for DELTA) come from the table itself, so a
+        difference indicates drift (e.g. an external tool evolved the
+        table).
+
+        Returns:
+            The layout description.
+        """
+        return self._feature_group_engine._describe_layout(self)
+
+    @public
+    def update_partition_spec(
+        self,
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> FeatureGroup:
+        """Evolve the Iceberg partition spec of the feature group.
+
+        Iceberg partition evolution is a metadata operation: existing data
+        keeps its old layout and new writes use the evolved spec, so no data
+        is rewritten.
+        `add` and `remove` take transform expressions with the
+        [`partitioned_by`][hsfs.feature_group.FeatureGroup.partitioned_by]
+        grammar, e.g. `add=["hour(ts)"], remove=["day(ts)"]`.
+        After the table commit the evolved spec is read back from the table
+        and persisted to Hopsworks, so the stored metadata always reflects
+        the actual table state (including changes made by external engines).
+        Called with neither `add` nor `remove`, no table change happens and
+        only that metadata re-sync runs; use this to reconcile after a
+        failed metadata update or an external spec evolution.
+        ICEBERG only, and requires the Spark engine; from a pure Python
+        environment this raises, evolve the spec from a Spark job or
+        notebook instead.
+        HUDI cannot evolve partitions (they are physical directories) and
+        DELTA clustering changes go through
+        [`FeatureGroup.update_clustering`][hsfs.feature_group.FeatureGroup.update_clustering].
+
+        Example:
+            ```python
+            fg.update_partition_spec(add=["hour(ts)"], remove=["day(ts)"])
+            ```
+
+        Parameters:
+            add: Transform expressions to add to the spec.
+            remove: Transform expressions to remove from the spec.
+
+        Returns:
+            The updated feature group object.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format is not ICEBERG or Spark is not available.
+        """
+        self._feature_group_engine._update_partition_spec(self, add, remove)
+        return self
+
+    @public
+    def update_clustering(self, columns: list[str]) -> FeatureGroup:
+        """Change the Delta liquid clustering columns of the feature group.
+
+        Runs `ALTER TABLE ... CLUSTER BY (...)`: new writes cluster on the
+        new columns, and existing data is reclustered by
+        [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize]
+        with `full=True`.
+        DELTA only, and requires the Spark engine; from a pure Python
+        environment this raises, change the clustering from a Spark job or
+        notebook instead.
+
+        Example:
+            ```python
+            fg.update_clustering(["ts", "customer_id"])
+            fg.optimize(full=True)
+            ```
+
+        Parameters:
+            columns: The new clustering columns, at most 4.
+
+        Returns:
+            The updated feature group object.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format is not DELTA or Spark is not available.
+        """
+        self._feature_group_engine._update_clustering(self, columns)
+        return self
+
+    @public
+    def disable_clustering(self) -> FeatureGroup:
+        """Disable Delta liquid clustering on the feature group.
+
+        Runs `ALTER TABLE ... CLUSTER BY NONE`: new writes are no longer
+        clustered; existing data keeps its layout.
+        DELTA only, and requires the Spark engine; from a pure Python
+        environment this raises.
+
+        Returns:
+            The updated feature group object.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the format is not DELTA or Spark is not available.
+        """
+        self._feature_group_engine._update_clustering(self, None)
+        return self
 
     @public
     def as_of(
@@ -4934,7 +5668,25 @@ class FeatureGroup(FeatureGroupBase):
             "ttl": self.ttl,
             "ttlEnabled": self._ttl_enabled,
             "sinkEnabled": self._sink_enabled,
+            "onlinePartitionColumns": self._online_partition_columns,
         }
+        # None means unset; [] is the explicit clear sentinel used by the
+        # layout evolution APIs, so both fields serialize when not None.
+        if self._partitioned_by is not None:
+            fg_meta_dict["partitionedBy"] = list(self._partitioned_by)
+        if self._zorder_by:
+            fg_meta_dict["zorderBy"] = list(self._zorder_by)
+        if self._clustered_by is not None:
+            fg_meta_dict["clusteredBy"] = list(self._clustered_by)
+        if self._bucket_index:
+            fg_meta_dict["bucketIndex"] = {
+                "field": self._bucket_index["field"],
+                "numBuckets": self._bucket_index["num_buckets"],
+            }
+            if self._bucket_index.get("engine"):
+                fg_meta_dict["bucketIndex"]["engine"] = self._bucket_index["engine"]
+        if self._sort_order:
+            fg_meta_dict["sortOrder"] = list(self._sort_order)
         if self.data_source:
             fg_meta_dict["dataSource"] = self.data_source.to_dict()
         if self._online_config:
@@ -5054,6 +5806,87 @@ class FeatureGroup(FeatureGroupBase):
     def partition_key(self) -> list[str]:
         """List of features building the partition key."""
         return self._partition_key
+
+    @public
+    @property
+    def partitioned_by(self) -> list[str] | None:
+        """Partition transform expressions of the feature group, or None.
+
+        Each element is one transform, e.g. `"day(ts)"`, `"bucket(16,id)"`.
+        The list is a native partition specification: an Iceberg
+        `PartitionSpec` (hidden partitioning) or Hudi materialized identity
+        and grain partition columns.
+        Returns a fresh copy of the ordered expression list; `None` when the
+        feature group was not created with `partitioned_by`.
+        """
+        return list(self._partitioned_by) if self._partitioned_by else None
+
+    @public
+    @property
+    def zorder_by(self) -> list[str] | None:
+        """Columns the offline data is z-ordered by, or None.
+
+        On ICEBERG the z-order rewrite runs through
+        [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize];
+        on HUDI it is applied by inline clustering on writes.
+        Returns a fresh copy of the column list; `None` when the feature
+        group was not created with `zorder_by`.
+        """
+        return list(self._zorder_by) if self._zorder_by else None
+
+    @public
+    @property
+    def clustered_by(self) -> list[str] | None:
+        """Delta liquid clustering columns of the feature group, or None.
+
+        Clustered feature groups are writable by Spark only: liquid
+        clustering uses Delta writer table features that delta-rs does not
+        support.
+        Returns a fresh copy of the column list; `None` when the feature
+        group was not created with `clustered_by`.
+        """
+        return list(self._clustered_by) if self._clustered_by else None
+
+    @public
+    @property
+    def bucket_index(self) -> dict[str, Any] | None:
+        """Hudi bucket index configuration of the feature group, or None.
+
+        A dict with `field` (a primary key column), `num_buckets`, and
+        optionally `engine` (`"simple"`, the only supported engine); the
+        write path injects the corresponding `hoodie.bucket.index.*`
+        options.
+        Returns a fresh copy; `None` when the feature group was not created
+        with `bucket_index`.
+        """
+        return dict(self._bucket_index) if self._bucket_index else None
+
+    @public
+    @property
+    def sort_order(self) -> list[str] | None:
+        """Persistent Iceberg write sort order of the feature group, or None.
+
+        Each element is canonical `"col asc nulls first"` /
+        `"col desc nulls last"`; new writes are range-distributed and sorted
+        on these fields, and
+        [`FeatureGroup.optimize`][hsfs.feature_group.FeatureGroup.optimize]
+        with `strategy="sort"` rewrites existing files to the order.
+        Returns a fresh copy; `None` when the feature group was not created
+        with `sort_order`.
+        """
+        return list(self._sort_order) if self._sort_order else None
+
+    @public
+    @property
+    def online_partition_columns(self) -> bool:
+        """Whether `partitioned_by` columns are also written to the online store.
+
+        Only meaningful on HUDI, the one format whose `partitioned_by`
+        creates synthetic grain columns; the other formats add no columns.
+        Defaults to `False`: the derived columns live only in the offline
+        storage and the online ingestion path filters them out.
+        """
+        return self._online_partition_columns
 
     @public
     @property

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.104.0
+Version: 1.104.1
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: filelock>=3.16.1,<4.0
 Requires-Dist: httpx[http2]>=0.28.0,<1.0

@@ -1,60 +1,90 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 2.5.0
+Version: 3.0.0
 Summary: Local-first SDK for clinical extraction and de-identification workflows on hardware you control.
 Author: Maziyar Panahi
 License: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
 Keywords: LLM,NLP,biomedical,clinical,healthcare,medical,medical LLMs,medical NER,medical NLP,medical de-identification,medical extraction,medical language models,medical reasoning,natural language processing
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: faker>=22.0
 Requires-Dist: jieba<0.43,>=0.42.1
 Requires-Dist: pysbd<0.4,>=0.3.4
 Requires-Dist: pyyaml>=6.0
+Requires-Dist: tomli>=2.0; python_version < '3.11'
 Provides-Extra: agents
+Requires-Dist: banks>=2.4.5; extra == 'agents'
+Requires-Dist: fsspec>=2026.6.0; extra == 'agents'
+Requires-Dist: jinja2>=3.1.6; extra == 'agents'
 Requires-Dist: langchain-core<2,>=0.2; extra == 'agents'
+Requires-Dist: langgraph-sdk>=0.4.4; extra == 'agents'
 Requires-Dist: langgraph<2,>=0.2; extra == 'agents'
 Requires-Dist: llama-index-core<1,>=0.10; extra == 'agents'
 Provides-Extra: airflow
 Requires-Dist: apache-airflow<4,>=3.2.2; extra == 'airflow'
+Requires-Dist: fsspec>=2026.6.0; extra == 'airflow'
+Requires-Dist: jinja2>=3.1.6; extra == 'airflow'
 Provides-Extra: awq
 Requires-Dist: autoawq==0.2.9; (sys_platform == 'linux') and extra == 'awq'
+Requires-Dist: datasets>=5.0.1; (sys_platform == 'linux') and extra == 'awq'
+Requires-Dist: fsspec>=2026.6.0; (sys_platform == 'linux') and extra == 'awq'
+Requires-Dist: jinja2>=3.1.6; (sys_platform == 'linux') and extra == 'awq'
+Requires-Dist: torch>=2.13.0; (sys_platform == 'linux') and extra == 'awq'
 Requires-Dist: transformers==5.12.1; (sys_platform == 'linux') and extra == 'awq'
 Provides-Extra: beam
 Requires-Dist: apache-beam<3,>=2.73; extra == 'beam'
+Requires-Dist: h2>=4.4.1; extra == 'beam'
+Requires-Dist: pymongo>=4.18.2; extra == 'beam'
 Provides-Extra: cli
 Requires-Dist: rich>=13.0; extra == 'cli'
 Requires-Dist: typer>=0.12; extra == 'cli'
 Provides-Extra: cloud
 Requires-Dist: adlfs>=2025.8.0; extra == 'cloud'
-Requires-Dist: fsspec>=2025.9.0; extra == 'cloud'
+Requires-Dist: fsspec>=2026.6.0; extra == 'cloud'
 Requires-Dist: gcsfs>=2025.9.0; extra == 'cloud'
+Requires-Dist: jinja2>=3.1.6; extra == 'cloud'
+Requires-Dist: oauthlib>=4.0.0; extra == 'cloud'
 Requires-Dist: s3fs>=2025.9.0; extra == 'cloud'
 Provides-Extra: columnar
 Requires-Dist: pyarrow>=16; extra == 'columnar'
 Provides-Extra: coreml
 Requires-Dist: coremltools>=8.0; extra == 'coreml'
+Requires-Dist: fsspec>=2026.6.0; extra == 'coreml'
 Requires-Dist: huggingface-hub>=0.30; extra == 'coreml'
-Requires-Dist: torch>=2.0; extra == 'coreml'
+Requires-Dist: jinja2>=3.1.6; extra == 'coreml'
+Requires-Dist: torch>=2.13.0; extra == 'coreml'
 Requires-Dist: transformers>=4.50; extra == 'coreml'
 Provides-Extra: dagster
 Requires-Dist: dagster<2,>=1.8; extra == 'dagster'
+Requires-Dist: fsspec>=2026.6.0; extra == 'dagster'
+Requires-Dist: jinja2>=3.1.6; extra == 'dagster'
 Provides-Extra: dask
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dask'
+Requires-Dist: fsspec>=2026.6.0; extra == 'dask'
+Requires-Dist: jinja2>=3.1.6; extra == 'dask'
 Provides-Extra: dev
 Requires-Dist: cryptography<51,>=50; extra == 'dev'
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dev'
 Requires-Dist: duckdb<2,>=1.0; extra == 'dev'
 Requires-Dist: fastapi>=0.110; extra == 'dev'
 Requires-Dist: fonttools[woff]==4.61.1; extra == 'dev'
-Requires-Dist: fsspec>=2025.9.0; extra == 'dev'
+Requires-Dist: fsspec>=2026.6.0; extra == 'dev'
 Requires-Dist: grpcio-tools>=1.64; extra == 'dev'
 Requires-Dist: grpcio>=1.64; extra == 'dev'
 Requires-Dist: httpx>=0.27; extra == 'dev'
 Requires-Dist: huggingface-hub>=0.30; extra == 'dev'
 Requires-Dist: hypothesis>=6.100; extra == 'dev'
 Requires-Dist: ipykernel>=6.0; extra == 'dev'
+Requires-Dist: jinja2>=3.1.6; extra == 'dev'
 Requires-Dist: jsonschema>=4.0; extra == 'dev'
 Requires-Dist: mcp<2,>=1.27; extra == 'dev'
 Requires-Dist: mypy==2.3.0; extra == 'dev'
@@ -82,7 +112,7 @@ Requires-Dist: strawberry-graphql[fastapi]<1,>=0.316; extra == 'dev'
 Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: typer>=0.12; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: gitpython<4,>=3.1.58; extra == 'docs'
+Requires-Dist: gitpython<4,>=3.1.60; extra == 'docs'
 Requires-Dist: griffe; extra == 'docs'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.6; extra == 'docs'
 Requires-Dist: mkdocs-llmstxt<1,>=0.5.0; extra == 'docs'
@@ -96,6 +126,8 @@ Provides-Extra: duckdb
 Requires-Dist: duckdb<2,>=1.0; extra == 'duckdb'
 Requires-Dist: numpy>=1.26; extra == 'duckdb'
 Provides-Extra: edge-sbc
+Requires-Dist: fsspec>=2026.6.0; extra == 'edge-sbc'
+Requires-Dist: jinja2>=3.1.6; extra == 'edge-sbc'
 Requires-Dist: numpy>=1.26; extra == 'edge-sbc'
 Requires-Dist: onnxruntime>=1.16; extra == 'edge-sbc'
 Requires-Dist: tokenizers>=0.15; extra == 'edge-sbc'
@@ -104,10 +136,16 @@ Requires-Dist: extract-msg<0.57,>=0.56; extra == 'email-msg-gpl'
 Provides-Extra: fhir
 Requires-Dist: httpx>=0.27; extra == 'fhir'
 Provides-Extra: gliner
+Requires-Dist: fsspec>=2026.6.0; extra == 'gliner'
 Requires-Dist: gliner[tokenizers]>=0.2.0; extra == 'gliner'
-Requires-Dist: torch>=2.0; extra == 'gliner'
+Requires-Dist: jinja2>=3.1.6; extra == 'gliner'
+Requires-Dist: torch>=2.13.0; extra == 'gliner'
 Provides-Extra: gptq
 Requires-Dist: auto-gptq>=0.7.1; extra == 'gptq'
+Requires-Dist: datasets>=5.0.1; extra == 'gptq'
+Requires-Dist: fsspec>=2026.6.0; extra == 'gptq'
+Requires-Dist: jinja2>=3.1.6; extra == 'gptq'
+Requires-Dist: torch>=2.13.0; extra == 'gptq'
 Provides-Extra: grounding
 Requires-Dist: hnswlib<1,>=0.8; extra == 'grounding'
 Requires-Dist: numpy>=1.26; extra == 'grounding'
@@ -117,28 +155,43 @@ Provides-Extra: haystack
 Requires-Dist: haystack-ai<3,>=2; extra == 'haystack'
 Provides-Extra: hf
 Requires-Dist: accelerate>=0.29; extra == 'hf'
+Requires-Dist: fsspec>=2026.6.0; extra == 'hf'
 Requires-Dist: huggingface-hub>=0.30; extra == 'hf'
+Requires-Dist: jinja2>=3.1.6; extra == 'hf'
 Requires-Dist: tokenizers>=0.15; extra == 'hf'
+Requires-Dist: torch>=2.13.0; extra == 'hf'
 Requires-Dist: transformers>=4.50; extra == 'hf'
 Provides-Extra: indic
 Requires-Dist: indic-nlp-library>=0.92; extra == 'indic'
 Provides-Extra: integrity
 Requires-Dist: cryptography<51,>=50; extra == 'integrity'
 Provides-Extra: interop-gpl
+Provides-Extra: journey
+Requires-Dist: fsspec>=2026.6.0; extra == 'journey'
+Requires-Dist: jinja2>=3.1.6; extra == 'journey'
+Requires-Dist: pg8000<2,>=1.31.5; extra == 'journey'
 Provides-Extra: kafka
 Requires-Dist: confluent-kafka>=2.3; extra == 'kafka'
 Provides-Extra: langchain
 Requires-Dist: langchain-core<2,>=0.2; extra == 'langchain'
 Provides-Extra: langgraph
+Requires-Dist: langgraph-sdk>=0.4.4; extra == 'langgraph'
 Requires-Dist: langgraph<2,>=0.2; extra == 'langgraph'
 Provides-Extra: lid
 Requires-Dist: pycld2<1,>=0.41; extra == 'lid'
 Provides-Extra: llamaindex
+Requires-Dist: banks>=2.4.5; extra == 'llamaindex'
+Requires-Dist: fsspec>=2026.6.0; extra == 'llamaindex'
+Requires-Dist: jinja2>=3.1.6; extra == 'llamaindex'
 Requires-Dist: llama-index-core<1,>=0.10; extra == 'llamaindex'
 Provides-Extra: mcp
 Requires-Dist: mcp<2,>=1.27; extra == 'mcp'
+Provides-Extra: medspacy
+Requires-Dist: medspacy<2,>=1.3.1; (python_version >= '3.12') and extra == 'medspacy'
 Provides-Extra: mlx
+Requires-Dist: fsspec>=2026.6.0; extra == 'mlx'
 Requires-Dist: huggingface-hub>=0.30; extra == 'mlx'
+Requires-Dist: jinja2>=3.1.6; extra == 'mlx'
 Requires-Dist: mlx-lm>=0.31; extra == 'mlx'
 Requires-Dist: mlx>=0.22; extra == 'mlx'
 Requires-Dist: pillow>=10.0; extra == 'mlx'
@@ -148,6 +201,8 @@ Requires-Dist: tokenizers>=0.15; extra == 'mlx'
 Requires-Dist: transformers>=4.50; extra == 'mlx'
 Provides-Extra: multimodal
 Requires-Dist: easyocr>=1.7; extra == 'multimodal'
+Requires-Dist: fsspec>=2026.6.0; extra == 'multimodal'
+Requires-Dist: jinja2>=3.1.6; extra == 'multimodal'
 Requires-Dist: markdown-it-py<5,>=3.0; extra == 'multimodal'
 Requires-Dist: numpy>=1.26; extra == 'multimodal'
 Requires-Dist: onnx>=1.21; extra == 'multimodal'
@@ -161,24 +216,31 @@ Requires-Dist: pytesseract>=0.3.10; extra == 'multimodal'
 Requires-Dist: python-doctr>=1.0; extra == 'multimodal'
 Requires-Dist: python-docx>=1.1; extra == 'multimodal'
 Requires-Dist: python-pptx>=1.0; extra == 'multimodal'
+Requires-Dist: torch>=2.13.0; extra == 'multimodal'
 Provides-Extra: notebook
 Requires-Dist: nbformat>=5.9.0; extra == 'notebook'
 Provides-Extra: ocr-paddle
 Requires-Dist: paddleocr>=2.7; extra == 'ocr-paddle'
 Provides-Extra: onnx
+Requires-Dist: fsspec>=2026.6.0; extra == 'onnx'
+Requires-Dist: jinja2>=3.1.6; extra == 'onnx'
 Requires-Dist: onnx>=1.21; extra == 'onnx'
 Requires-Dist: onnxruntime>=1.16; extra == 'onnx'
 Requires-Dist: onnxscript>=0.1.0; extra == 'onnx'
-Requires-Dist: torch>=2.0; extra == 'onnx'
+Requires-Dist: torch>=2.13.0; extra == 'onnx'
 Requires-Dist: transformers>=4.50; extra == 'onnx'
 Provides-Extra: onnx-runtime
+Requires-Dist: fsspec>=2026.6.0; extra == 'onnx-runtime'
 Requires-Dist: huggingface-hub>=0.30; extra == 'onnx-runtime'
+Requires-Dist: jinja2>=3.1.6; extra == 'onnx-runtime'
 Requires-Dist: numpy>=1.26; extra == 'onnx-runtime'
 Requires-Dist: onnxruntime>=1.16; extra == 'onnx-runtime'
 Requires-Dist: tokenizers>=0.15; extra == 'onnx-runtime'
 Provides-Extra: openmrs
 Requires-Dist: httpx>=0.27; extra == 'openmrs'
 Provides-Extra: openvino
+Requires-Dist: fsspec>=2026.6.0; extra == 'openvino'
+Requires-Dist: jinja2>=3.1.6; extra == 'openvino'
 Requires-Dist: nncf>=2.10; extra == 'openvino'
 Requires-Dist: onnxruntime>=1.16; extra == 'openvino'
 Requires-Dist: openvino>=2024.0; extra == 'openvino'
@@ -195,6 +257,10 @@ Requires-Dist: philter-ucsf<2,>=1.0.3; extra == 'philter'
 Provides-Extra: polars
 Requires-Dist: polars>=0.20; extra == 'polars'
 Provides-Extra: prefect
+Requires-Dist: fsspec>=2026.6.0; extra == 'prefect'
+Requires-Dist: h2>=4.4.1; extra == 'prefect'
+Requires-Dist: jinja2>=3.1.6; extra == 'prefect'
+Requires-Dist: oauthlib>=4.0.0; extra == 'prefect'
 Requires-Dist: prefect<4,>=3.7; extra == 'prefect'
 Provides-Extra: presidio
 Requires-Dist: presidio-analyzer<3,>=2.2.354; extra == 'presidio'
@@ -203,6 +269,8 @@ Requires-Dist: pydeid>=0.0.1; extra == 'pydeid'
 Provides-Extra: quickumls
 Requires-Dist: quickumls<2,>=1.4; extra == 'quickumls'
 Provides-Extra: ray
+Requires-Dist: fsspec>=2026.6.0; extra == 'ray'
+Requires-Dist: jinja2>=3.1.6; extra == 'ray'
 Requires-Dist: ray[data]<3,>=2.30; extra == 'ray'
 Provides-Extra: scispacy
 Requires-Dist: scispacy<1,>=0.5.4; extra == 'scispacy'
@@ -231,8 +299,10 @@ Requires-Dist: pyspark<4,>=3.5; extra == 'spark'
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy<3,>=2.0; extra == 'sqlalchemy'
 Provides-Extra: triton
+Requires-Dist: fsspec>=2026.6.0; extra == 'triton'
 Requires-Dist: grpcio>=1.64; extra == 'triton'
 Requires-Dist: httpx>=0.27; extra == 'triton'
+Requires-Dist: jinja2>=3.1.6; extra == 'triton'
 Requires-Dist: numpy>=1.26; extra == 'triton'
 Requires-Dist: protobuf<7,>=5.26; extra == 'triton'
 Requires-Dist: transformers>=4.50; extra == 'triton'
@@ -243,7 +313,10 @@ Requires-Dist: jieba>=0.42; extra == 'zh'
 Requires-Dist: opencc<2,>=1.4.1; extra == 'zh'
 Requires-Dist: pypinyin>=0.51; extra == 'zh'
 Provides-Extra: zh-hanlp
+Requires-Dist: fsspec>=2026.6.0; extra == 'zh-hanlp'
 Requires-Dist: hanlp<3,>=2.1; extra == 'zh-hanlp'
+Requires-Dist: jinja2>=3.1.6; extra == 'zh-hanlp'
+Requires-Dist: torch>=2.13.0; extra == 'zh-hanlp'
 Provides-Extra: zh-pkuseg
 Requires-Dist: pkuseg<0.1,>=0.0.25; extra == 'zh-pkuseg'
 Description-Content-Type: text/markdown
@@ -274,7 +347,7 @@ OpenMed's core local runtime performs extraction and de-identification after req
 </p>
 
 <p>
-  <b>2,266 manifest entries</b> &nbsp;·&nbsp; <b>33 model-backed PII languages</b> &nbsp;·&nbsp; <b>Apache-2.0 SDK</b>
+  <b>2,266 manifest entries</b> &nbsp;·&nbsp; <b>35 model-backed PII languages</b> &nbsp;·&nbsp; <b>Apache-2.0 SDK</b>
 </p>
 
 <p>
@@ -339,6 +412,24 @@ A clinical NER model using the local runtime after its required artifacts are av
 
 ---
 
+## Clinical brief in 30 seconds
+
+From a source checkout, run the CPU-only synthetic contract demonstration:
+
+```bash
+python examples/v30_clinical_brief.py
+# Optional: --model mlx, with the pinned model already cached on Apple silicon.
+```
+
+It de-identifies an embedded note, extracts and grounds a finding, then prints
+a cited brief, verdicts and a value-free review packet. **NER/NLI providers are
+explicit synthetic test doubles, not trained-model or clinical validation.**
+No external note input is accepted. The MLX option may refuse unsupported output;
+it never bypasses the guards. See the [brief guide](docs/clinical/clinical-brief.md)
+and [demo script](docs/demo/clinical-brief.md) for the boundaries and local setup.
+
+---
+
 ## Building with an agent?
 
 Start with the [consumer agent-usage guide](docs/agent-usage.md), or load the
@@ -374,7 +465,7 @@ On supported Apple hardware, OpenMed can use **MLX** and **[OpenMedKit](swift/Op
 ```swift
 // Add OpenMedKit to your app
 dependencies: [
-    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "2.5.0"),
+    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "3.0.0"),
 ]
 ```
 
@@ -418,11 +509,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Then use the immutable OpenMed `v2.5.0` release:
+Then use the immutable OpenMed `v3.0.0` release:
 
 ```kotlin
 dependencies {
-    implementation("com.github.maziyarpanahi:openmed:v2.5.0")
+    implementation("com.github.maziyarpanahi:openmed:v3.0.0")
 }
 ```
 
@@ -766,20 +857,20 @@ On non-Apple-Silicon hosts, MLX model names are automatically substituted with t
 
 ---
 
-## Multilingual PII (36 supported routes; 33 model-backed)
+## Multilingual PII (42 supported routes; 35 model-backed)
 
-Extraction and de-identification support **36 supported PII language codes**:
-`am`, `ar`, `as`, `bn`, `cs`, `da`, `de`, `el`, `en`, `es`, `fa`, `fr`, `he`, `hi`, `id`,
-`it`, `ja`, `ko`, `mr`, `nl`, `no`, `or`, `pt`, `ro`, `ru`, `sv`, `sw`, `ta`,
-`te`, `th`, `tr`, `uk`, `vi`, `xh`, `zh`, and `zu`, with **the registry-backed PII model catalog** in total.
+Extraction and de-identification support **42 supported PII language codes**:
+`am`, `ar`, `as`, `bn`, `cs`, `da`, `de`, `el`, `en`, `es`, `fa`, `fr`, `gu`, `he`, `hi`, `id`,
+`it`, `ja`, `kn`, `ko`, `ml`, `mr`, `nl`, `no`, `or`, `pa`, `pl`, `pt`, `ro`, `ru`, `sv`, `sw`, `ta`,
+`te`, `th`, `tr`, `uk`, `ur`, `vi`, `xh`, `zh`, and `zu`, with **the registry-backed PII model catalog** in total.
 Russian routing currently uses a documented multilingual default-model
 placeholder. Bengali, Chinese, and Tamil have dedicated registry entries.
-An optional, user-configured Indic NER family accepts four additional routes
-(`gu`, `kn`, `ml`, and `pa`) and can also serve Assamese, Bengali, Hindi,
-Marathi, Odia, Tamil, and Telugu. Set `OPENMED_INDIC_NER_MODEL`; OpenMed never
+An optional, user-configured Indic NER family can serve Assamese, Bengali,
+Gujarati, Hindi, Kannada, Malayalam, Marathi, Odia, Punjabi, Tamil, and
+Telugu. Set `OPENMED_INDIC_NER_MODEL`; OpenMed never
 bundles or automatically selects those optional weights.
 OpenMed also includes validator-backed national-ID coverage for additional
-ID-only locales such as Polish, Latvian, Slovak, Malay, Filipino, and Finnish.
+ID-only locales such as Latvian, Slovak, Malay, Filipino, and Finnish.
 
 See the [per-language guide](docs/languages.md) for each code's default PII
 model, Faker locale, and a before/after de-identification example.
@@ -906,7 +997,7 @@ MkDocs build.
 | [FAQ](docs/faq.md) | [Anonymization](docs/anonymization.md) | [Batch Processing](https://openmed.life/docs/batch-processing) |
 | [Configuration Profiles](https://openmed.life/docs/profiles) | [REST Service](docs/rest-service.md) | [MLX Backend](docs/mlx-backend.md) |
 | [Transformers.js Export](docs/export-transformersjs.md) | [FHIR Interop](docs/fhir-interop.md) | [HL7 v2 De-identification](docs/hl7v2-deidentification.md) |
-| [OpenMed 2.5.0 Release Notes](docs/release/v2.5.0.md) | [OpenMed 2.2.0 Release Notes](docs/release/v2.2.0.md) | [Examples](docs/examples.md) |
+| [OpenMed 3.0.0 Migration Guide](docs/migration/2.5-to-3.0.md) | [OpenMed 2.2.0 Release Notes](docs/release/v2.2.0.md) | [Examples](docs/examples.md) |
 | [Release Streams](docs/release/semver-and-channels.md) | [Generative Model Policy](docs/generative-model-policy.md) | [Contributing](docs/contributing.md) |
 | [Security Policy](SECURITY.md) | [Compliance Posture](docs/compliance.md) | [Extension Plugin SDK](docs/plugin-sdk.md) |
 | [v1 to v2 Migration](docs/migration.md) | [MCP Client Connections](docs/mcp-clients.md) | [African Developer Onboarding](docs/africa-onboarding.md) |
@@ -977,7 +1068,7 @@ papers, posters, and derived documentation.
 
 If OpenMed is useful to you, a star helps others discover it.
 
-[5,100+ GitHub stars · 30 Aug 2026 snapshot](https://github.com/maziyarpanahi/openmed/stargazers)
+[5,400+ GitHub stars · 3 Oct 2026 snapshot](https://github.com/maziyarpanahi/openmed/stargazers)
 
 ---
 

@@ -27,6 +27,7 @@ Usage
 
 import argparse
 import json
+import logging
 import math
 import os
 import sys
@@ -35,6 +36,32 @@ from collections import Counter
 from itertools import pairwise
 
 import redis as redis_lib
+
+_logger = logging.getLogger(__name__)
+
+
+def _configure_cli_logging() -> None:
+    """Send the report to stdout and errors to stderr, with no log decoration.
+
+    This tool's stdout IS its product, so the handlers use a bare "%(message)s"
+    formatter: the bytes written are identical to the print() calls this
+    replaced. Configured here rather than at import so importing the module
+    stays side-effect free.
+    """
+    if _logger.handlers:
+        return
+    out = logging.StreamHandler(sys.stdout)
+    out.setLevel(logging.INFO)
+    out.addFilter(lambda record: record.levelno < logging.ERROR)
+    out.setFormatter(logging.Formatter("%(message)s"))
+    err = logging.StreamHandler(sys.stderr)
+    err.setLevel(logging.ERROR)
+    err.setFormatter(logging.Formatter("%(message)s"))
+    _logger.addHandler(out)
+    _logger.addHandler(err)
+    _logger.setLevel(logging.INFO)
+    _logger.propagate = False
+
 
 # RTP video clock rate (Hz). H.264/H.265 RTP timestamps tick at 90 kHz.
 RTP_CLOCK_HZ = 90_000
@@ -190,11 +217,12 @@ def main() -> int:
         "--fixture", default=None, help="Optional path to dump observed messages as JSONL."
     )
     args = ap.parse_args()
+    _configure_cli_logging()
 
     def req(name: str) -> str:
         v = os.environ.get(name)
         if not v:
-            print(f"ERROR: missing env var {name}", file=sys.stderr)
+            _logger.error("ERROR: missing env var %s", name)
             sys.exit(2)
         return v
 
@@ -206,7 +234,7 @@ def main() -> int:
 
     key = stream_key(cam, dep)
     r = redis_lib.Redis(host=host, port=port, password=password, decode_responses=True)
-    print(f"[probe] PING {r.ping()}  stream={key}  tailing {args.seconds:.0f}s ...")
+    _logger.info("[probe] PING %s  stream=%s  tailing %.0fs ...", r.ping(), key, args.seconds)
 
     rows: list[dict] = []
     fx = open(args.fixture, "w") if args.fixture else None  # noqa: SIM115 - closed in the finally below
@@ -226,24 +254,24 @@ def main() -> int:
                     if row:
                         rows.append(row)
     except KeyboardInterrupt:
-        print("\n[probe] interrupted — analysing what we have")
+        _logger.info("\n[probe] interrupted — analysing what we have")
     finally:
         if fx:
             fx.close()
-            print(f"[probe] wrote {len(rows)} messages to fixture {args.fixture}")
+            _logger.info("[probe] wrote %s messages to fixture %s", len(rows), args.fixture)
 
     report = probe(rows)
-    print("\n" + "=" * 64)
-    print("RTP PROBE REPORT")
-    print("=" * 64)
-    print(json.dumps(report, indent=2))
-    print("=" * 64)
+    _logger.info("%s", "\n" + "=" * 64)
+    _logger.info("RTP PROBE REPORT")
+    _logger.info("%s", "=" * 64)
+    _logger.info("%s", json.dumps(report, indent=2))
+    _logger.info("%s", "=" * 64)
     if report.get("case", "").startswith("A"):
-        print("Case A: collector anchors loop-start on rtp reset → exact src-frame-0.")
+        _logger.info("Case A: collector anchors loop-start on rtp reset → exact src-frame-0.")
     elif report.get("case", "").startswith("B"):
-        print("Case B: no reset seen — collector must segment by loop_span and may")
-        print("        need a one-time phase offset to gt-tracked.json. Run longer to")
-        print("        confirm no reset exists.")
+        _logger.info("Case B: no reset seen — collector must segment by loop_span and may")
+        _logger.info("        need a one-time phase offset to gt-tracked.json. Run longer to")
+        _logger.info("        confirm no reset exists.")
     return 0
 
 

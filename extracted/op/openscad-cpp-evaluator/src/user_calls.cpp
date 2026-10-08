@@ -12,6 +12,7 @@ const CompiledChunk* Evaluator::lookupOrCompileChunk(const oscad::FunctionDeclar
     auto it = chunkCache_.find(&decl);
     if (it == chunkCache_.end()) {
         it = chunkCache_.emplace(&decl, tryCompileFunction(decl, scopeTable_, coverage_)).first;
+        if (it->second) warnUndefinedEscapes(*it->second);
         if (it->second) flattenNestedLiterals(*it->second);
     }
     if (!it->second) return nullptr;
@@ -34,6 +35,7 @@ const CompiledChunk* Evaluator::lookupOrCompileModuleChunk(const oscad::ModuleDe
     auto it = moduleChunkCache_.find(&decl);
     if (it == moduleChunkCache_.end()) {
         it = moduleChunkCache_.emplace(&decl, tryCompileModuleBody(decl, scopeTable_, coverage_)).first;
+        if (it->second) warnUndefinedEscapes(*it->second);
         if (it->second) flattenNestedLiterals(*it->second);
     }
     if (!it->second) return nullptr;
@@ -53,6 +55,7 @@ Value Evaluator::evalExprMaybeCompiled(const oscad::Expression& node, EvalContex
     auto it = stmtExprChunkCache_.find(&node);
     if (it == stmtExprChunkCache_.end()) {
         it = stmtExprChunkCache_.emplace(&node, tryCompileStatementExpr(node, scopeOfNode(node), scopeTable_, coverage_)).first;
+        if (it->second) warnUndefinedEscapes(*it->second);
         // A zero-capture closure literal (e.g. `x = function(y) y + 1;`)
         // still reaches chunk.nestedLiterals even though it never touches
         // closureSites (see tryCompileStatementExpr's own doc comment: only
@@ -75,6 +78,7 @@ bool Evaluator::tryRunCompiledAssignmentBlock(const std::vector<const oscad::AST
         assigns.reserve(assignments.size());
         for (const oscad::ASTNode* n : assignments) assigns.push_back(static_cast<const oscad::Assignment*>(n));
         it = assignBlockChunkCache_.emplace(first, tryCompileAssignmentBlock(assigns, scopeTable_, scopeOfNode(*first), coverage_)).first;
+        if (it->second) warnUndefinedEscapes(*it->second);
         if (it->second) flattenNestedLiterals(*it->second);
     }
     if (!it->second || !chunkEligibleNow(*it->second)) return false;
@@ -103,6 +107,7 @@ const CompiledChunk* Evaluator::lookupOrCompileChildrenListChunk(const std::vect
     auto it = childrenListChunkCache_.find(key);
     if (it == childrenListChunkCache_.end()) {
         it = childrenListChunkCache_.emplace(key, tryCompileChildrenList(children, scopeTable_, scopeOfNode(*first), coverage_)).first;
+        if (it->second) warnUndefinedEscapes(*it->second);
         if (it->second) flattenNestedLiterals(*it->second);
     }
     if (!it->second || !chunkEligibleNow(*it->second)) return nullptr;
@@ -374,13 +379,14 @@ EvalContext Evaluator::buildModuleChildCtx(const oscad::ModuleDeclaration& decl,
     }
     applyDefaults(decl.parameters, bound, childCtx);
 
+    // OpenSCAD's $parent_modules is the user modules on the stack INCLUDING
+    // this one -- 1 in a module called from top level.
     // moduleCallDepth_ (maintained incrementally by enterUserCall/
-    // exitUserCall*) is already exactly "how many Module frames are on
-    // callStack_ right now" -- this call's OWN frame isn't pushed yet, so
-    // it correctly counts only ancestors, matching what a callStack_ scan
-    // would have found. See moduleCallDepth_'s own doc comment for why a
-    // scan here specifically used to be an O(depth) hazard.
-    childCtx.dyn->set("$parent_modules", Value{static_cast<double>(moduleCallDepth_)});
+    // exitUserCall*) counts the Module frames already on callStack_, and
+    // this call's own frame isn't pushed yet, hence + 1. This read one lower
+    // than OpenSCAD, so BOSL2's `$parent_modules > 0` guards in
+    // no_children()/req_children() never fired for a top-level call.
+    childCtx.dyn->set("$parent_modules", Value{static_cast<double>(moduleCallDepth_ + 1)});
     return childCtx;
 }
 
@@ -499,10 +505,14 @@ std::variant<Value, Evaluator::TailStep, Evaluator::NotTailStep> Evaluator::simp
         case oscad::NodeKind::LetOp: {
             auto& n = static_cast<const oscad::LetOp&>(node);
             EvalContext childCtx = ctx.letChildCtx();
-            for (const auto& assign : n.assignments) {
+            for (size_t i = 0; i < n.assignments.size(); ++i) {
+                const auto& assign = n.assignments[i];
                 checkDebug(*assign, childCtx);
                 Value v = evalExpr(*assign->expr, childCtx);
-                bindLetName(childCtx, assign->name->name, v);
+                if (repeatsEarlierLetName(n.assignments, i))
+                    warnDuplicateLet(assign->name->name, v, &n.position());
+                else
+                    bindLetName(childCtx, assign->name->name, v);
             }
             TailStep step;
             step.nextExpr = n.body.get();
@@ -519,24 +529,10 @@ std::variant<Value, Evaluator::TailStep, Evaluator::NotTailStep> Evaluator::simp
             return step;
         }
         case oscad::NodeKind::AssertOp: {
-            // Mirrors evalAssertExpr's own condition-check/error-building
-            // logic exactly (a small, deliberate duplication -- see this
-            // function's own header comment on why it doesn't delegate to
-            // evalExpr for these 5 node kinds).
+            // Mirrors evalAssertExpr.
             auto& n = static_cast<const oscad::AssertOp&>(node);
             checkDebug(n, ctx);
-            const auto& raw = n.arguments;
-            const bool condition = raw.empty() || truthy(evalExpr(*argExpr(*raw[0]), ctx));
-            if (!condition) {
-                std::string condText = raw.empty() ? "false" : argExpr(*raw[0])->toString();
-                std::string err = "Assertion '" + condText + "' failed";
-                if (raw.size() > 1) {
-                    Value msg = evalExpr(*argExpr(*raw[1]), ctx);
-                    const std::string* s = std::get_if<std::string>(&msg);
-                    err += ": \"" + (s ? *s : fmtValue(msg)) + "\"";
-                }
-                error(err, n, "assert");
-            }
+            evalAssert(n.arguments, n, ctx, /*maybeCompiled=*/false);
             TailStep step;
             step.nextExpr = n.body.get();
             step.ctx = ctx;
@@ -897,7 +893,7 @@ Value Evaluator::evalFunctionCall(const oscad::PrimaryCall& node, EvalContext& c
     if (leftId) {
         if (leftId->name == "import") {
             CallArgs args = resolveArgs(*this, node.arguments, ctx);
-            return importAsValue(*this, args, node);
+            return importAsValue(*this, args, node, ctx);
         }
         // A user-defined function SHADOWS a same-named builtin, so the
         // user lookup runs FIRST. Verified against OpenSCAD 2026.02.01:
@@ -976,12 +972,17 @@ Value Evaluator::parentModuleName(int idx) const {
 
 std::optional<Evaluator::ChildrenForward> Evaluator::prepareChildrenForward(const CallArgs& args, EvalContext& ctx) {
     Value idxArg = getArg(args, 0, "index", Value{});
+    // children(undef) is a bad index, not children(): OpenSCAD tells the two
+    // apart by whether an index was passed at all.
+    const bool hasIndex = args.findPositional(0) || args.findNamed("index");
     // Positional slot 1 is accepted as well as the name: adding "separate"
     // to the builtin's parameter list already suppresses the "Too many
     // unnamed arguments" warning for children(0, true), so reading it
     // named-only would silently ignore an argument the author wrote.
     const bool separate = truthy(getArg(args, 1, "separate", Value{false}));
-    if (!ctx.childrenNodes || ctx.childrenNodes->empty()) return std::nullopt;
+    // A module called with no children still checks an index it is given:
+    // children(0) there warns "out of bounds (0 children)", as OpenSCAD does.
+    if (!ctx.childrenNodes || (ctx.childrenNodes->empty() && !hasIndex)) return std::nullopt;
     const EvalContext* callerCtx = ctx.childrenCallerCtx;
     if (!callerCtx) return std::nullopt;
 
@@ -1025,7 +1026,7 @@ std::optional<Evaluator::ChildrenForward> Evaluator::prepareChildrenForward(cons
         if (!k.empty() && k[0] == '$') evalCtx.let_->set(k, v);
     }
 
-    if (std::holds_alternative<std::monostate>(idxArg)) {
+    if (!hasIndex) {
         std::vector<size_t> allIndices;
         size_t geoIdx = 0;
         for (const oscad::ASTNode* c : *ctx.childrenNodes) {
@@ -1063,11 +1064,19 @@ std::optional<Evaluator::ChildrenForward> Evaluator::prepareChildrenForward(cons
     if (std::holds_alternative<double>(idxArg)) {
         indexValues.push_back(idxArg);
     } else if (std::holds_alternative<ListPtr>(idxArg) || std::holds_alternative<OscRange>(idxArg)) {
-        const IterableValues iter = expandIterable(idxArg);
+        bool tooMany = false;
+        const IterableValues iter = expandIterable(idxArg, [&](size_t count) {
+            warn("Bad range parameter for children: too many elements (" + std::to_string(count) + ")",
+                 currentWarnEntry());
+            tooMany = true;
+        });
+        if (tooMany) return std::nullopt;
         for (const Value& v : iter) indexValues.push_back(v);
     } else {
+        // No full stop here, unlike the per-element message below: both
+        // are OpenSCAD's own wording.
         warn("Bad parameter type (" + fmtValue(idxArg) +
-                 ") for children, only accept: empty, number, vector, range.",
+                 ") for children, only accept: empty, number, vector, range",
              currentWarnEntry());
         return std::nullopt;
     }
@@ -1080,10 +1089,13 @@ std::optional<Evaluator::ChildrenForward> Evaluator::prepareChildrenForward(cons
     picked.reserve(indexValues.size());
     for (const Value& v : indexValues) {
         if (!std::holds_alternative<double>(v)) {
-            warn("Bad parameter type (" + fmtValue(v) +
+            // Skipped like an out-of-range index, and printed unquoted, as
+            // OpenSCAD prints it: children(["x", 0]) is child 0.
+            const std::string* s = std::get_if<std::string>(&v);
+            warn("Bad parameter type (" + (s ? *s : fmtValue(v)) +
                      ") for children, only accept: empty, number, vector, range.",
                  currentWarnEntry());
-            return std::nullopt;
+            continue;
         }
         // Truncates, matching the reference: children([1.7]) is child 1.
         const long long idx = static_cast<long long>(std::get<double>(v));

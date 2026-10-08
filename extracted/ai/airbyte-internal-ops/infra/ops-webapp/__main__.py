@@ -43,7 +43,7 @@ PUBLIC_URL = config.get("public-url") or f"https://{DOMAIN}"
 # Shared Cloud Run template settings applied to both prod and preview services.
 # Keeps infra parity explicit — only scaling (min/max instances) differs.
 MAX_INSTANCE_REQUEST_CONCURRENCY = 40
-CONTAINER_RESOURCES = {"cpu": "1", "memory": "1Gi"}
+CONTAINER_RESOURCES = {"cpu": "1", "memory": "2Gi"}
 STARTUP_CPU_BOOST = True
 
 PREVIEW_SERVICE_NAME = "ops-webapp-preview"

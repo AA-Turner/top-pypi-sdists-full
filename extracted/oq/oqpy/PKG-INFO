@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oqpy
-Version: 0.3.10
+Version: 0.3.11
 Summary: Generating OpenQASM 3 + OpenPulse in Python
 License: Apache-2.0
 License-File: LICENSE
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Requires-Dist: mypy-extensions (>=0.2.0)
 Requires-Dist: numpy (>=1.17.3) ; python_version == "3.8"

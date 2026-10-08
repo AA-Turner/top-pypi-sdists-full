@@ -90,6 +90,15 @@ class ConversationContinueInput(BaseModel):
         ),
         json_schema_extra=field_extras(widget="textarea", multiline_rows=3),
     )
+    host_turn: dict[str, JsonValue] | None = Field(
+        default=None,
+        description=(
+            "A turn the HOST writes — never something a person typed. "
+            "{text, reason, metadata}. Stored with empty user_content and "
+            "authored_by 'host'. Mutually exclusive with user_input and retry."
+        ),
+        json_schema_extra=field_extras(widget="json"),
+    )
     retry: bool = Field(
         default=False,
         description=(

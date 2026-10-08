@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kolo
-Version: 3.3.0
+Version: 3.4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -39,7 +40,7 @@ Requires-Dist: platformdirs>=4.2.2
 Requires-Dist: sqlglot>=23.6.4
 Requires-Dist: tomli>=2.0.0 ; python_full_version < '3.11'
 Requires-Dist: ulid-py>=1.1.0
-Summary: See everything happening in your running Django app
+Summary: Kolo is a text-based Python debugger for AI agents. Capture every executed function call, return value, local variable, HTTP request, and more in greppable trace files.
 Author-email: Wilhelm Klopp <team@kolo.app>
 License: © Kolo
 Requires-Python: >=3.8
@@ -50,9 +51,7 @@ Project-URL: Repository, https://github.com/koloai/kolo
 
 # Kolo
 
-See everything happening in your running Django app
+Kolo is a text-based Python debugger for AI agents. Capture every executed function call, return value, local variable, HTTP request, and more in greppable trace files.
 
 More information: https://kolo.app
-
-![Annotated Kolo screenshot](https://user-images.githubusercontent.com/7718702/120298398-f3d17800-c2c1-11eb-9052-9adbbff0b5f5.png)
 

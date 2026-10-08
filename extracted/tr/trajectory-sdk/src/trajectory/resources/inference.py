@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Iterable, Literal, Mapping, overload
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
@@ -39,7 +39,7 @@ class Inference(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> ChatCompletionResponse: ...
 
   @overload
@@ -56,7 +56,7 @@ class Inference(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> Stream[ChatCompletionChunk]: ...
 
   @overload
@@ -73,7 +73,7 @@ class Inference(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> ChatCompletionResponse | Stream[ChatCompletionChunk]: ...
 
   def create_playground_chat_completion(
@@ -89,7 +89,7 @@ class Inference(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> ChatCompletionResponse | Stream[ChatCompletionChunk]:
     """Create Playground Chat Completion
 
@@ -137,7 +137,7 @@ class Inference(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> ModelList:
     """List Models
 
@@ -168,7 +168,7 @@ class Inference(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> Model:
     """Get Model
 

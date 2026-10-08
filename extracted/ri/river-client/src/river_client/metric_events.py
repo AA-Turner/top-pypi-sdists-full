@@ -60,6 +60,17 @@ def warn_once(cause: str, message: str) -> None:
 
 def events_url(training_run_id: str, base_url: str | None = None) -> str | None:
     """Return the ingestion URL, or ``None`` when the destination is unsafe."""
+    return console_url(training_run_id, "events", base_url)
+
+
+def console_url(
+    training_run_id: str, endpoint: str, base_url: str | None = None
+) -> str | None:
+    """Return a run's metrics ``endpoint`` URL, or ``None`` when it is unsafe.
+
+    The destination is ``base_url``, else ``RIVER_CONSOLE_URL``, else River
+    Console. It must use HTTPS, or HTTP to a loopback address.
+    """
     base = (base_url or os.environ.get("RIVER_CONSOLE_URL") or DEFAULT_BASE_URL).rstrip(
         "/"
     )
@@ -68,7 +79,7 @@ def events_url(training_run_id: str, base_url: str | None = None) -> str | None:
         parts.scheme == "http" and _is_loopback(parts.hostname)
     ):
         return None
-    return f"{base}/api/metrics/runs/{quote(training_run_id, safe='')}/events"
+    return f"{base}/api/metrics/runs/{quote(training_run_id, safe='')}/{endpoint}"
 
 
 def _is_loopback(host: str | None) -> bool:

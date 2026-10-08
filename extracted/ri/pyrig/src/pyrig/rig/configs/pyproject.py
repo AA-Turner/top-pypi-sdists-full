@@ -20,10 +20,12 @@ from pyrig.rig import resources
 from pyrig.rig.configs.base.config_file import ConfigFile
 from pyrig.rig.configs.base.toml import TOMLConfigFile
 from pyrig.rig.configs.community.license import LicenseConfigFile
+from pyrig.rig.configs.dead_code import DeadCodeCheckerConfigFile
 from pyrig.rig.configs.package_init import PackageInitConfigFile
 from pyrig.rig.tools.base.tool import Tool
 from pyrig.rig.tools.dependencies.checker import DependencyChecker
 from pyrig.rig.tools.docs.builder import DocsBuilder
+from pyrig.rig.tools.linting.dead_code import DeadCodeChecker
 from pyrig.rig.tools.linting.python import PythonLinter
 from pyrig.rig.tools.linting.yaml import YAMLLinter
 from pyrig.rig.tools.packages.manager import PackageManager
@@ -49,9 +51,10 @@ class PyprojectConfigFile(TOMLConfigFile):
         """Validate the config file, then add missing project dependencies.
 
         Returns:
-            `True` if the file, its config file dependencies, and its
-            project dependencies were all already correct; `False` if any
-            of them needed to be created, updated, or added.
+            `True` if this file and its config file dependencies were already
+            correct and no project dependencies needed to be added; `False`
+            if this file or one of its config file dependencies was updated,
+            or project dependencies were added.
         """
         correct = super().validate()
         dependencies = self.add_additional_dependencies()
@@ -178,6 +181,14 @@ class PyprojectConfigFile(TOMLConfigFile):
                 "per_rule_ignores": {
                     "DEP002": sorted(Pyrigger.I.runtime_dependencies()),
                 },
+            },
+            DeadCodeChecker.I.config_name(): {
+                "paths": sorted(
+                    (
+                        PackageManager.I.source_root().as_posix(),
+                        DeadCodeCheckerConfigFile.I.path().as_posix(),
+                    ),
+                ),
             },
             ProjectTester.I.config_name(): {
                 "testpaths": [ProjectTester.I.package_root().as_posix()],

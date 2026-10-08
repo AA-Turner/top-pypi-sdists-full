@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.organization_membership_role import OrganizationMembershipRole
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -22,53 +23,57 @@ class OrganizationMeResponse:
     """
     Attributes:
         email (str): The email of the current user
-        identity_id (UUID): The ID of the organization member for this organization
         organization (OrganizationResponse): The organization where new workspaces are created by default
-        role (str): The role of the user in this organization
+        organization_membership_id (UUID): The ID of the organization member for this organization
+        role (OrganizationMembershipRole | str): The role of the user in this organization
         user_id (UUID): The ID of the current user
-        workspaces (list[WorkspaceMembershipResponse] | Unset): Workspace memberships in this organization with role
-            information
+        workspace_memberships (list[WorkspaceMembershipResponse] | Unset): Workspace memberships in this organization
+            with role information
     """
 
     email: str
-    identity_id: UUID
     organization: OrganizationResponse
-    role: str
+    organization_membership_id: UUID
+    role: OrganizationMembershipRole | str
     user_id: UUID
-    workspaces: list[WorkspaceMembershipResponse] | Unset = UNSET
+    workspace_memberships: list[WorkspaceMembershipResponse] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         email = self.email
 
-        identity_id = str(self.identity_id)
-
         organization = self.organization.to_dict()
 
-        role = self.role
+        organization_membership_id = str(self.organization_membership_id)
+
+        role: str
+        if isinstance(self.role, OrganizationMembershipRole):
+            role = self.role.value
+        else:
+            role = self.role
 
         user_id = str(self.user_id)
 
-        workspaces: list[dict[str, Any]] | Unset = UNSET
-        if not isinstance(self.workspaces, Unset):
-            workspaces = []
-            for workspaces_item_data in self.workspaces:
-                workspaces_item = workspaces_item_data.to_dict()
-                workspaces.append(workspaces_item)
+        workspace_memberships: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.workspace_memberships, Unset):
+            workspace_memberships = []
+            for workspace_memberships_item_data in self.workspace_memberships:
+                workspace_memberships_item = workspace_memberships_item_data.to_dict()
+                workspace_memberships.append(workspace_memberships_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "email": email,
-                "identity_id": identity_id,
                 "organization": organization,
+                "organization_membership_id": organization_membership_id,
                 "role": role,
                 "user_id": user_id,
             }
         )
-        if workspaces is not UNSET:
-            field_dict["workspaces"] = workspaces
+        if workspace_memberships is not UNSET:
+            field_dict["workspace_memberships"] = workspace_memberships
 
         return field_dict
 
@@ -80,32 +85,43 @@ class OrganizationMeResponse:
         d = dict(src_dict)
         email = d.pop("email")
 
-        identity_id = UUID(d.pop("identity_id"))
-
         organization = OrganizationResponse.from_dict(d.pop("organization"))
 
-        role = d.pop("role")
+        organization_membership_id = UUID(d.pop("organization_membership_id"))
+
+        def _parse_role(data: object) -> OrganizationMembershipRole | str:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                role_type_0 = OrganizationMembershipRole(data)
+
+                return role_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(OrganizationMembershipRole | str, data)
+
+        role = _parse_role(d.pop("role"))
 
         user_id = UUID(d.pop("user_id"))
 
-        _workspaces = d.pop("workspaces", UNSET)
-        workspaces: list[WorkspaceMembershipResponse] | Unset = UNSET
-        if _workspaces is not UNSET:
-            workspaces = []
-            for workspaces_item_data in _workspaces:
-                workspaces_item = WorkspaceMembershipResponse.from_dict(
-                    workspaces_item_data
+        _workspace_memberships = d.pop("workspace_memberships", UNSET)
+        workspace_memberships: list[WorkspaceMembershipResponse] | Unset = UNSET
+        if _workspace_memberships is not UNSET:
+            workspace_memberships = []
+            for workspace_memberships_item_data in _workspace_memberships:
+                workspace_memberships_item = WorkspaceMembershipResponse.from_dict(
+                    workspace_memberships_item_data
                 )
 
-                workspaces.append(workspaces_item)
+                workspace_memberships.append(workspace_memberships_item)
 
         organization_me_response = cls(
             email=email,
-            identity_id=identity_id,
             organization=organization,
+            organization_membership_id=organization_membership_id,
             role=role,
             user_id=user_id,
-            workspaces=workspaces,
+            workspace_memberships=workspace_memberships,
         )
 
         organization_me_response.additional_properties = d

@@ -74,3 +74,4 @@ def test_generate_markdown_docs_against_repo_server(tmp_path: Path) -> None:
     assert module_pages, "Generator did not emit any per-module Markdown"
     # Spot-check one file we know this repo's MCP server registers.
     assert (output / "github_ops.md").exists()
+    assert (output / "data_ops.md").exists()

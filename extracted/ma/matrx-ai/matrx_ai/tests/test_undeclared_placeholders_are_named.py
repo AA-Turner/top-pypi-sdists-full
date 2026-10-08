@@ -132,3 +132,17 @@ def test_braces_inside_a_delivered_value_are_data_not_an_omission() -> None:
     assert undelivered() == ("missing",)
     sentence = omission_sentence()
     assert sentence is not None and "first_name" not in sentence
+
+
+def test_a_placeholder_the_prompt_teaches_in_backticks_is_not_an_omission() -> None:
+    """The Pitch Assistant teaches its merge fields as `{{party.first_name}}`; telling the
+    model they were "not delivered, do not repeat them" countermanded the prompt.
+    A placeholder in plain prose is still named."""
+    begin_turn()
+    text = (
+        "Merge fields you may write:\n- `{{party.first_name}}`\n"
+        "```\nHi {{party.display_name}},\n```\n"
+        "Write to {{recipient_company}} today."
+    )
+    note_unresolved(text, template=text)
+    assert undelivered() == ("recipient_company",)

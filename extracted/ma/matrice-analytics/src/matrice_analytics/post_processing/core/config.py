@@ -485,10 +485,23 @@ class PeopleCountingExtendedConfig(PeopleCountingConfig):
     #: deployment: measure same-person p5 against different-person p99.
     reid_match_threshold: float = 0.67
 
-    #: Required gap between the best and second-best candidate. The ratio
-    #: test -- a lone high score in a crowded gallery is far less
-    #: trustworthy than one clearly separated from the runner-up.
-    reid_match_margin: float = 0.06
+    #: Required gap between the best and second-best candidate -- the ratio
+    #: test. DISABLED (0.0) by default.
+    #:
+    #: The idea was that a lone high score in a crowded gallery is less
+    #: trustworthy than one clearly separated from the runner-up. That holds
+    #: only when gallery members look different from each other. On real
+    #: deployments they often do not: seven people in identical hi-vis vests
+    #: and helmets produced a median best-to-runner-up gap of 0.050, below
+    #: the old 0.06 margin, so the guard fired on 19 of 33 lookups and
+    #: discarded correct matches scoring 0.875 and 0.888. The use case then
+    #: counted 26 people where the truth was 7 -- no better than running the
+    #: tracker with no re-identification at all, which is the one thing this
+    #: use case exists to improve on.
+    #:
+    #: Re-enable per deployment only with measurements showing false merges;
+    #: the absolute threshold remains the primary guard.
+    reid_match_margin: float = 0.0
 
     #: DEPRECATED and inert. The gallery is bounded by identity COUNT, not
     #: by elapsed time -- see ``reid_gallery_capacity``. Still accepted so a
@@ -521,14 +534,27 @@ class PeopleCountingExtendedConfig(PeopleCountingConfig):
     #: Frames between refresh embeddings for an already-known track.
     reid_refresh_interval_frames: int = 45
 
-    # --- crop quality gates (a bad crop poisons a prototype) ---
-    reid_min_crop_height: int = 96
-    reid_min_crop_width: int = 40
-    reid_min_aspect_ratio: float = 1.6
-    reid_max_aspect_ratio: float = 4.5
-    reid_edge_margin_px: int = 6
-    reid_max_occlusion_iou: float = 0.25
-    reid_min_confidence: float = 0.5
+    # --- crop size gate ---
+    #
+    # Size is the ONLY crop gate. The earlier set (aspect ratio, frame-edge
+    # margin, occlusion IoU, a separate confidence floor) rejected 100% of
+    # detections on real deployed footage and ReID silently never ran: people
+    # standing at the bottom of frame tripped the edge margin, and a non-
+    # full-body camera angle tripped the aspect ratio. Those fields are gone
+    # rather than loosened -- a gate that cannot be satisfied by the footage
+    # the camera actually produces is worse than no gate, because it fails
+    # invisibly while every diagnostic still reports "ready".
+    #
+    # A person below this size carries too few pixels for a stable embedding,
+    # so they are excluded from counting as well as from embedding -- the two
+    # must agree, or the total counts someone the gallery can never match.
+    reid_min_crop_width: int = 18
+    reid_min_crop_height: int = 36
+
+    #: Publish window for total_people_in_interval / new_people_in_interval.
+    #: Must match AGGREGATION_INTERVAL_SEC in legacy_analytics_bridge; exposed
+    #: so a changed publish cadence does not need a code change here.
+    reid_interval_window_seconds: float = 60.0
 
     #: Half precision on GPU. Validated at cosine 0.99998 vs FP32.
     reid_fp16: bool = True

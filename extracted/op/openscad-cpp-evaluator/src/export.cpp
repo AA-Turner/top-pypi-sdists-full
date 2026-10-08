@@ -347,7 +347,9 @@ bool isExportable(const ColoredBody& b) {
     // `%` is scenery: drawn so other things can be lined up against it, and
     // excluded from booleans upstream, so letting it reach a file would put
     // geometry there that no boolean ever accounted for.
-    return b.role != BodyRole::Background;
+    // A HighlightGhost is the drawing-only copy of a `#` operand that an
+    // operation already merged; exporting it would add the operand twice.
+    return b.role != BodyRole::Background && b.role != BodyRole::HighlightGhost;
 }
 
 void meshToArrays(const manifold::MeshGL& mesh, std::vector<float>& verts, std::vector<uint32_t>& tris) {
@@ -420,6 +422,43 @@ std::vector<std::array<float, 4>> carryTriColors(const std::vector<std::array<fl
 
 } // namespace
 
+// The dimension a render of these top-level bodies has: that of the first
+// one with any geometry, as OpenSCAD's root union decides it (isValidDim).
+// 0 for nothing at all.
+int topLevelDimension(const std::vector<ColoredBody>& bodies) {
+    for (const ColoredBody& cb : bodies) {
+        if (!isExportable(cb)) continue;
+        if (cb.section && !cb.section->IsEmpty()) return 2;
+        if (cb.flatPreview) continue;  // an extruded empty section
+        if (cb.isDisplayOnly() && !cb.rawMesh->triVerts.empty()) return 3;
+        if (cb.body && !cb.body->IsEmpty()) return 3;
+    }
+    return 0;
+}
+
+// OpenSCAD's render warnings for a top level that mixes 2D and 3D, once for
+// the mix and once per object it drops. The viewport shows both silently
+// (as OpenSCAD's preview does); a file holds only the first object's
+// dimension, and these say so.
+std::vector<std::string> mixedDimensionWarnings(const std::vector<ColoredBody>& bodies) {
+    std::vector<std::string> out;
+    const int dim = topLevelDimension(bodies);
+    if (dim == 0) return out;
+    for (const ColoredBody& cb : bodies) {
+        if (!isExportable(cb)) continue;
+        int d = 0;
+        if (cb.section && !cb.section->IsEmpty()) d = 2;
+        else if (!cb.flatPreview && ((cb.isDisplayOnly() && !cb.rawMesh->triVerts.empty()) ||
+                                     (cb.body && !cb.body->IsEmpty())))
+            d = 3;
+        if (d == 0 || d == dim) continue;
+        if (out.empty()) out.push_back("Mixing 2D and 3D objects is not supported");
+        out.push_back(std::string("Ignoring ") + (d == 3 ? "3D" : "2D") + " child object for " +
+                      (dim == 3 ? "3D" : "2D") + " operation");
+    }
+    return out;
+}
+
 std::vector<ExportObject> splitBodiesForExport(const std::vector<ColoredBody>& bodies, std::vector<int>* openParts,
                                                 bool splitComponents, bool splitColors) {
     struct Solid {
@@ -433,22 +472,18 @@ std::vector<ExportObject> splitBodiesForExport(const std::vector<ColoredBody>& b
     std::vector<ExportObject> loose;
 
     // A `flatPreview` body is a top-level 2D shape thin-extruded so it can be
-    // SEEN (toRenderableBodies). The top level keeps 2D and 3D side by side
-    // for exactly that reason -- but a mesh export of a mixed script must
-    // not smuggle a 1-unit-tall slab in beside the real solids, which is what
-    // the reference drops there too. A 2D-ONLY script still exports its
-    // slab, unchanged: that is the only geometry there is, and dropping it
-    // would leave nothing to write.
-    bool hasRealSolid = false;
-    for (const ColoredBody& cb : bodies) {
-        if (!cb.flatPreview && isExportable(cb)) { hasRealSolid = true; break; }
-    }
+    // SEEN (toRenderableBodies). The viewport keeps 2D and 3D side by side,
+    // but a file holds what OpenSCAD's render holds: the FIRST object
+    // decides the dimension, and a model whose first object is 2D -- or a
+    // 2D-only one, which used to be written as a 1-unit slab -- is not a 3D
+    // object at all.
+    if (topLevelDimension(bodies) == 2) throw std::runtime_error("Current top level object is not a 3D object.");
 
     int index = 0;
     for (const ColoredBody& cb : bodies) {
         ++index;
         if (!isExportable(cb)) continue;
-        if (cb.flatPreview && hasRealSolid) continue;
+        if (cb.flatPreview) continue;
         if (cb.isDisplayOnly()) {
             // Manifold rejected this one -- an open shell is not a solid --
             // so it can join no boolean. Its triangles are real geometry the
@@ -937,7 +972,7 @@ std::optional<manifold::MeshGL> mergeBodies(const std::vector<ColoredBody>& bodi
     int index = 0;
     for (const ColoredBody& b : bodies) {
         ++index;
-        if (b.role == BodyRole::Background) continue;
+        if (b.role == BodyRole::Background || b.role == BodyRole::HighlightGhost) continue;
         if (b.isDisplayOnly()) {
             if (!b.rawMesh->triVerts.empty()) {
                 loose.push_back(&*b.rawMesh);
@@ -945,6 +980,8 @@ std::optional<manifold::MeshGL> mergeBodies(const std::vector<ColoredBody>& bodi
             }
             continue;
         }
+        // A section's display slab is not a solid; see topLevelDimension.
+        if (b.flatPreview || b.section) continue;
         if (b.body && !b.body->IsEmpty()) solids.push_back(*b.body);
     }
     if (solids.empty() && loose.empty()) return std::nullopt;
@@ -1069,10 +1106,12 @@ Flat2d collect2d(const std::vector<ColoredBody>& bodies) {
     // level. There is no sane projection to fall back on -- a silhouette
     // would be a different model from the one the script describes -- so
     // refusing is the honest answer.
-    const char* kNot2d = "Current top level object is not a 2D object";
+    const char* kNot2d = "Current top level object is not a 2D object.";
 
     Flat2d out;
     bool any = false;
+    const int firstDim = topLevelDimension(bodies);
+    if (firstDim == 3) throw std::runtime_error(kNot2d);
     for (const ColoredBody& cb : bodies) {
         if (!isExportable(cb)) continue;
         // The section decides, not the Manifold: a body that has been
@@ -1082,6 +1121,10 @@ Flat2d collect2d(const std::vector<ColoredBody>& bodies) {
         // binding hands export that same converted list, so reading `body`
         // first would make 2D export unreachable for every 2D script.
         if (!cb.section) {
+            // A 3D object after a 2D first one is dropped, as OpenSCAD's
+            // render drops it (with the warnings generation already gave);
+            // a 3D one first makes the whole model 3D.
+            if (firstDim == 2) continue;
             if (cb.isDisplayOnly()) throw std::runtime_error(kNot2d);
             if (cb.body && !cb.body->IsEmpty()) throw std::runtime_error(kNot2d);
             continue;
@@ -1183,9 +1226,9 @@ std::string dxfNum(double v) {
     return o.str();
 }
 
-// The header, tables and (empty) blocks sections, verbatim from OpenSCAD's
-// export_dxf.cc -- its comments record which readers each piece was needed
-// for (Inkscape, LibreCAD, Illustrator, sharecad.org, generic cutters).
+// The header, tables and (empty) blocks sections, byte-compatible with
+// OpenSCAD's DXF output (needed by Inkscape, LibreCAD, Illustrator,
+// sharecad.org and generic cutters).
 void writeDxfHeader(std::ostream& out, double xMin, double yMin, double xMax, double yMax) {
     out << "999\nDXF from OpenSCAD\n"
         << "  0\nSECTION\n  2\nHEADER\n"
@@ -1284,6 +1327,83 @@ std::string povVec(double x, double y, double z) {
     return "<" + dxfNum(x) + ", " + dxfNum(y) + ", " + dxfNum(z) + ">";
 }
 
+// The scene around the meshes: everything but the mesh2 objects and a
+// camera from the viewport. Each mesh's textures use `finish { MATERIAL }`
+// and its interior `interior { MATERIAL_INT }`, so the preamble declares
+// both. `lo`/`hi` are the bounding box of all the meshes.
+//
+// The look is a neutral studio: a soft light-grey backdrop, a warm key light
+// high and to the front left, a cool fill from the right, a rim light from
+// behind, and radiosity to soften the shadows.
+void writePovPreamble(std::ostream& out) {
+    out << "// Generated by BelfrySCAD (openscad_cpp_evaluator)\n"
+        << "#version 3.7;\n"
+        << "global_settings { assumed_gamma 1.0 max_trace_level 8 }\n"
+        << "#declare MATERIAL = finish { ambient 0 diffuse 0.7 specular 0.3 roughness 0.02 }\n"
+        << "#declare MATERIAL_INT = interior { ior 1.45 }\n"
+        << "background { color rgb <0.86, 0.87, 0.9> }\n";
+}
+
+// The middle of the box and its half-diagonal, never zero, so a flat or
+// single-point model still gets a scene of some size.
+void povBounds(const double lo[3], const double hi[3], double centre[3], double& radius) {
+    double sq = 0;
+    for (int k = 0; k < 3; ++k) {
+        centre[k] = (lo[k] + hi[k]) / 2;
+        sq += (hi[k] - lo[k]) * (hi[k] - lo[k]);
+    }
+    radius = std::max(std::sqrt(sq) / 2, 1e-3);
+}
+
+void writePovLights(std::ostream& out, const double lo[3], const double hi[3]) {
+    double c[3], r;
+    povBounds(lo, hi, c, r);
+    // Direction from the centre (in bounding radii) and colour of each light.
+    struct Light {
+        double dir[3];
+        const char* colour;
+        bool shadows;
+    };
+    const Light lights[] = {
+        {{-3, -4, 5}, "<1, 0.97, 0.92>", true},      // key
+        {{5, -2, 1.5}, "<0.32, 0.34, 0.4>", false},  // fill
+        {{1, 5, 3}, "<0.35, 0.35, 0.35>", false},    // rim
+        {{0, 0, -6}, "<0.1, 0.1, 0.1>", false},      // a little from below
+    };
+    for (const Light& l : lights) {
+        out << "light_source { " << povVec(c[0] + l.dir[0] * r, c[1] + l.dir[1] * r, c[2] + l.dir[2] * r)
+            << " color rgb " << l.colour << (l.shadows ? "" : " shadowless") << " }\n";
+    }
+}
+
+// A three-quarter view from the front left and above, far enough back that
+// the box's bounding sphere fits both across and up the image whatever its
+// aspect ratio.
+void writePovDefaultCamera(std::ostream& out, const double lo[3], const double hi[3]) {
+    double c[3], r;
+    povBounds(lo, hi, c, r);
+    out << "#declare BB_CENTER = " << povVec(c[0], c[1], c[2]) << ";\n"
+        << "#declare BB_RADIUS = " << dxfNum(r) << ";\n"
+        << "#declare VIEW_ASPECT = image_width / image_height;\n"
+        << "#declare HALF_FOV_V = radians(17.5);\n"
+        << "#declare HALF_FOV_H = atan(tan(HALF_FOV_V) * VIEW_ASPECT);\n"
+        << "#declare VIEW_DISTANCE = 1.05 * BB_RADIUS / sin(min(HALF_FOV_V, HALF_FOV_H));\n"
+        << "camera {\n"
+        << "  perspective\n"
+        << "  location BB_CENTER + VIEW_DISTANCE * vnormalize(<-1, -1.6, 1.1>)\n"
+        << "  sky <0, 0, 1>\n"
+        << "  up <0, 1, 0>\n"
+        << "  right <-VIEW_ASPECT, 0, 0>\n"
+        << "  angle degrees(2 * HALF_FOV_H)\n"
+        << "  look_at BB_CENTER\n"
+        << "}\n";
+}
+
+void writePovEnding(std::ostream& out) {
+    out << "#include \"rad_def.inc\"\n"
+        << "global_settings { radiosity { Rad_Settings(Radiosity_Normal, off, off) } }\n";
+}
+
 }  // namespace
 
 void writePov(const std::string& path, const std::vector<ExportObject>& objects, const ExportPovOptions& opts) {
@@ -1291,13 +1411,7 @@ void writePov(const std::string& path, const std::vector<ExportObject>& objects,
     if (!out) throw std::runtime_error("Could not open '" + path + "' for writing");
     out.imbue(std::locale::classic());
 
-    out << "// Generated by BelfrySCAD (openscad_cpp_evaluator)\n\n"
-        << "// Camera settings are at the bottom of this script\n\n"
-        << "#version 3.7;\n"
-        << "global_settings { assumed_gamma 1.0 }\n"
-        << "#declare MATERIAL=finish { specular 0.5 roughness 0.001 reflection{0 0.63 fresnel} ambient 0 "
-           "diffuse 0.6 conserve_energy }\n"
-        << "#declare MATERIAL_INT=interior{ior 1.32}\n";
+    writePovPreamble(out);
 
     const auto rgbf = [](const std::array<float, 4>& c) {
         return "<" + floatNum(c[0]) + ", " + floatNum(c[1]) + ", " + floatNum(c[2]) + ", " +
@@ -1357,36 +1471,17 @@ void writePov(const std::string& path, const std::vector<ExportObject>& objects,
     }
     if (!any) throw std::runtime_error("No geometry to export");
 
-    // 27 lights: every combination of {below, centre, above} on each axis,
-    // twice the model's size out, at OpenSCAD's brightness.
-    const double move = 2.0;
-    double at[3][3];
-    for (int k = 0; k < 3; ++k) {
-        const double d = hi[k] - lo[k];
-        at[k][0] = lo[k] - d * move;
-        at[k][1] = (lo[k] + hi[k]) / 2.0;
-        at[k][2] = hi[k] + d * move;
-    }
-    for (double x : at[0]) {
-        for (double y : at[1]) {
-            for (double z : at[2]) {
-                out << "light_source { " << povVec(x, y, z) << " color rgb <0.2, 0.2, 0.2> }\n";
-            }
-        }
-    }
+    writePovLights(out, lo, hi);
 
     if (opts.camera) {
-        // OpenSCAD's camera block, with two fixes, both checked by rendering
-        // in POV-Ray against BelfrySCAD's own image of the same camera:
-        //  - rotate BEFORE translate. The eye orbits $vpt, so it is rotated
-        //    about the origin and then moved; OpenSCAD translates first,
-        //    which rotates $vpt itself away and frames the wrong place
-        //    whenever a view both pans and turns.
+        // The viewport's camera. Checked by rendering in POV-Ray against
+        // BelfrySCAD's own image of the same camera:
+        //  - rotate BEFORE translate: the eye orbits $vpt, so it is rotated
+        //    about the origin and then moved.
         //  - the field of view is VERTICAL in the viewport and HORIZONTAL to
-        //    POV-Ray's `angle`. OpenSCAD writes it straight across, so its
-        //    renders come out zoomed in by the aspect ratio (1.33x at 4:3).
-        //    The horizontal angle is left to POV-Ray to work out from the
-        //    image it is asked for, so any size frames the same.
+        //    POV-Ray's `angle`, so the horizontal angle is left to POV-Ray to
+        //    work out from the image it is asked for, and any size frames the
+        //    same.
         const ExportPovCamera& c = *opts.camera;
         out << "camera { look_at <0, 0, 0>\n"
             << " location <0, 0, " << dxfNum(c.distance) << ">\n"
@@ -1397,15 +1492,9 @@ void writePov(const std::string& path, const std::vector<ExportObject>& objects,
             << "translate " << povVec(c.vpt[0], c.vpt[1], c.vpt[2]) << "\n"
             << "}\n";
     } else {
-        const double dx = hi[0] - lo[0], dy = hi[1] - lo[1], dz = hi[2] - lo[2];
-        out << "camera { look_at " << povVec((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2)
-            << " location " << povVec(lo[0] + dx * move, lo[1] - dy * move, lo[2] + dz * move)
-            << " up <0, 0, 1> right <1, 0, 0> sky <0, 0, 1> rotate <-55, clock * 3, clock + 25> right "
-               "x*image_width/image_height }\n";
+        writePovDefaultCamera(out, lo, hi);
     }
-    out << "#include \"rad_def.inc\"\n"
-        << "global_settings { photons { count 20000 autostop 0 jitter .4 } radiosity { "
-           "Rad_Settings(Radiosity_Normal, off, off) } }\n";
+    writePovEnding(out);
 }
 
 namespace {
@@ -1766,7 +1855,15 @@ std::vector<std::string> exportModel(const std::string& path, const std::vector<
         throw std::runtime_error("Unsupported export format '" + ext + "'");
     }
 
-    std::vector<std::string> warnings;
+    // Nothing to write, in OpenSCAD's words: a 2D format calls an empty
+    // model "not a 2D object", every other format calls it empty.
+    if (topLevelDimension(bodies) == 0) {
+        const bool twoD = ext == ".svg" || ext == ".pdf" || ext == ".dxf";
+        throw std::runtime_error(twoD ? "Current top level object is not a 2D object."
+                                      : "Current top level object is empty.");
+    }
+
+    std::vector<std::string> warnings = mixedDimensionWarnings(bodies);
     const auto reportOpen = [&](const std::vector<int>& openParts) {
         for (int n : openParts) {
             warnings.push_back("part " + std::to_string(n) +
@@ -1792,6 +1889,10 @@ std::vector<std::string> exportModel(const std::string& path, const std::vector<
         writeSvg(path, bodies, opts.svg);
         return warnings;
     }
+
+    // Every mesh format below: a model whose first object is 2D (or that is
+    // 2D only) is not a 3D object, exactly as OpenSCAD says.
+    if (topLevelDimension(bodies) == 2) throw std::runtime_error("Current top level object is not a 3D object.");
 
     if (isMultiObject(ext)) {
         // These keep the parts as separate objects, so each is checked on

@@ -502,7 +502,7 @@ def _upgrade_to(monkeypatch, result: updater.CliResult):
 
     monkeypatch.setattr(versions, "_installed_cli", None)
     monkeypatch.setattr(run_lock, "any_live", lambda: False)
-    monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt: None)
+    monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt, **_: None)
     monkeypatch.setattr(updater, "fetch_latest", lambda base: {"cli": {"latest": "99.0.0"}})
     monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
     monkeypatch.setattr(updater, "upgrade_cli", lambda install, current, target: result)

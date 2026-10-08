@@ -109,6 +109,20 @@ fn frame_key_names(payload: &serde_json::Map<String, Value>) -> String {
 }
 
 impl Normalizer {
+    /// Parse gateway-requested Chat probabilities into the capture side buffer
+    /// only, never into events (see `crate::capture::logprobs`).
+    pub(crate) fn enable_logprobs_capture(&mut self) {
+        self.chat_logprobs =
+            crate::capture::logprobs::ChatProbabilities::Capture(Default::default());
+    }
+
+    /// Hand over the capture-only probabilities parsed since the last call.
+    pub(crate) fn take_captured_logprobs(
+        &mut self,
+    ) -> Option<(Vec<crate::logprobs::ChoiceLogprobsDelta>, bool)> {
+        self.chat_logprobs.take()
+    }
+
     pub(in crate::dialects) fn feed_openai_compatible(
         &mut self,
         frame: &crate::sse::SseEvent,
@@ -207,17 +221,37 @@ impl Normalizer {
             .as_object()
             .ok_or_else(|| malformed("OpenAI-compatible choice must be an object"))?;
         let choice_index = choice.get("index").and_then(Value::as_u64).unwrap_or(0);
-        if self.chat_logprobs
+        if self.chat_logprobs.requested_by_caller()
             && (choice_index != 0 || choice.get("index").is_some_and(|value| !value.is_u64()))
         {
             return Err(malformed("OpenAI-compatible stream choice index must be 0"));
         }
-        if self.chat_logprobs {
+        if self.chat_logprobs.requested_by_caller() {
             if let Some(event) =
                 crate::logprobs::parse(choice.get("logprobs"), choice_index as u32)?
             {
                 events.push(Event::ChoiceLogprobsDelta(event));
             }
+        } else if self.chat_logprobs.captures() {
+            // Capture-only probabilities never fail or shape the caller's answer.
+            // Answer text per channel: typed thinking or reference parts carry none.
+            let text = |key: &str| -> String {
+                match choice.get("delta").and_then(|delta| delta.get(key)) {
+                    Some(Value::String(text)) => text.clone(),
+                    Some(Value::Array(parts)) => parts
+                        .iter()
+                        .filter(|part| part.get("type").and_then(Value::as_str) == Some("text"))
+                        .filter_map(|part| part.get("text").and_then(Value::as_str))
+                        .collect(),
+                    _ => String::new(),
+                }
+            };
+            let output = crate::capture::logprobs::FrameOutput {
+                content: text("content"),
+                refusal: text("refusal"),
+            };
+            self.chat_logprobs
+                .retain(choice.get("logprobs"), choice_index as u32, &output);
         }
         // Azure asynchronous content-filter annotations carry no delta. Treat
         // their metadata-only choice as an empty delta, then still process the
@@ -233,10 +267,12 @@ impl Normalizer {
             None if is_filter_annotation => &empty_delta,
             _ => return Err(malformed("OpenAI-compatible delta must be an object")),
         };
-        if let Some(Value::String(content)) = delta.get("content") {
-            if !content.is_empty() {
+        match delta.get("content") {
+            Some(Value::String(content)) if !content.is_empty() => {
                 events.push(Event::TextDelta(content.clone()));
             }
+            Some(Value::Array(parts)) => self.content_part_events(parts, &mut events)?,
+            _ => {}
         }
         if let Some(images) = delta.get("images").filter(|value| !value.is_null()) {
             let images = images.as_array().ok_or_else(|| {
@@ -256,30 +292,14 @@ impl Normalizer {
             .get("reasoning_content")
             .filter(|value| !value.is_null())
             .or_else(|| delta.get("reasoning"));
-        if let Some(route_sha256) = self.reasoning_content_route_sha256.clone() {
-            if let Some(value) = reasoning {
-                let reasoning = match value {
-                    Value::Null => None,
-                    Value::String(text) => Some(text),
-                    _ => return Err(malformed("Fireworks reasoning_content delta must be text")),
-                };
-                if let Some(reasoning) = reasoning.filter(|text| !text.is_empty()) {
-                    self.reserve_summary_bytes(reasoning.len())?;
-                    events.push(Event::ReasoningContentDelta {
-                        route_sha256,
-                        delta: reasoning.clone(),
-                    });
-                }
+        if self.reasoning_content_route_sha256.is_some() {
+            match reasoning {
+                None | Some(Value::Null) => {}
+                Some(Value::String(text)) => self.push_reasoning_text(text, &mut events)?,
+                Some(_) => return Err(malformed("Fireworks reasoning_content delta must be text")),
             }
-        } else if let Some(text) = reasoning
-            .and_then(Value::as_str)
-            .filter(|text| !text.is_empty())
-        {
-            // No replay route: the plaintext is display copy only. Encoders
-            // render it on rungs whose reasoning display is on; it never seals
-            // a carrier and never replays.
-            self.reserve_summary_bytes(text.len())?;
-            events.push(Event::ReasoningTextDelta(text.to_string()));
+        } else if let Some(text) = reasoning.and_then(Value::as_str) {
+            self.push_reasoning_text(text, &mut events)?;
         }
         if let Some(raw_tools) = delta.get("tool_calls") {
             if !raw_tools.is_null() {
@@ -410,6 +430,79 @@ impl Normalizer {
             }
         }
         Ok(events)
+    }
+
+    /// Emit one reasoning fragment. On a replay route (Fireworks, Hunyuan)
+    /// it is the sealed `reasoning_content` carrier; otherwise the plaintext
+    /// is display copy only: encoders render it on rungs whose reasoning
+    /// display is on, and it never seals a carrier or replays.
+    fn push_reasoning_text(&mut self, text: &str, events: &mut Vec<Event>) -> Result<(), Failure> {
+        if text.is_empty() {
+            return Ok(());
+        }
+        self.reserve_summary_bytes(text.len())?;
+        events.push(match self.reasoning_content_route_sha256.clone() {
+            Some(route_sha256) => Event::ReasoningContentDelta {
+                route_sha256,
+                delta: text.to_string(),
+            },
+            None => Event::ReasoningTextDelta(text.to_string()),
+        });
+        Ok(())
+    }
+
+    /// Decode a `content` array of typed parts, in order. Mistral answers
+    /// this shape whenever the model reasons, streamed and whole alike:
+    /// `{"type":"thinking","thinking":[{"type":"text","text":…}]}` parts are
+    /// the model's reasoning and surface exactly like a `reasoning` field,
+    /// and `{"type":"text","text":…}` parts are the answer, so a chunk that
+    /// closes the reasoning and opens the answer keeps both. Other part types
+    /// (Mistral's citation `reference` chunks) carry no answer text and are
+    /// skipped.
+    fn content_part_events(
+        &mut self,
+        parts: &[Value],
+        events: &mut Vec<Event>,
+    ) -> Result<(), Failure> {
+        for part in parts {
+            let part = part
+                .as_object()
+                .ok_or_else(|| malformed("OpenAI-compatible content part must be an object"))?;
+            match part.get("type").and_then(Value::as_str) {
+                Some("text") => {
+                    let text = wire_text(part.get("text"), "OpenAI-compatible text part")?;
+                    if let Some(text) = text.filter(|text| !text.is_empty()) {
+                        events.push(Event::TextDelta(text));
+                    }
+                }
+                Some("thinking") => match part.get("thinking") {
+                    None | Some(Value::Null) => {}
+                    Some(Value::String(text)) => self.push_reasoning_text(text, events)?,
+                    Some(Value::Array(inner)) => {
+                        for fragment in inner {
+                            let fragment = fragment.as_object().ok_or_else(|| {
+                                malformed("OpenAI-compatible thinking part must be an object")
+                            })?;
+                            if fragment.get("type").and_then(Value::as_str) != Some("text") {
+                                continue;
+                            }
+                            let text =
+                                wire_text(fragment.get("text"), "OpenAI-compatible thinking text")?;
+                            if let Some(text) = text {
+                                self.push_reasoning_text(&text, events)?;
+                            }
+                        }
+                    }
+                    Some(_) => {
+                        return Err(malformed(
+                            "OpenAI-compatible thinking part must be text or an array",
+                        ))
+                    }
+                },
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     /// End an OpenAI-compatible stream on the finish reason it carried.

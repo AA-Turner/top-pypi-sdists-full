@@ -1,18 +1,11 @@
 from __future__ import annotations
 
 import copy
-import sys
 from typing import Any, TypeVar
 
 import numpy as np
 
 from ..typing.serialization import AnyHistogramIR, AxisIR, HistogramIR
-
-if sys.version_info < (3, 11):
-    from typing_extensions import assert_never
-else:
-    from typing import assert_never
-
 
 __all__ = ["ARRAY_KEYS", "LIST_KEYS", "from_sparse", "remove_writer_info", "to_sparse"]
 
@@ -72,8 +65,10 @@ def _compute_axis_length(axis: AxisIR) -> int:
             return len(axis["categories"]) + axis["flow"]
         case "boolean":
             return 2
-        case unreachable:
-            assert_never(unreachable)
+        case unknown:
+            # Reachable with input that does not match the schema
+            msg = f"Unknown axis type {unknown!r}"  # type: ignore[unreachable]
+            raise ValueError(msg)
 
 
 def _empty_is_zero(storage_type: str, key: str) -> bool:
@@ -155,11 +150,17 @@ def from_sparse(sparse: H, /) -> H:
         if k in {"index", "type"}:
             continue
         arr1dnp = np.asarray(arr1d)
+        empty_is_zero = _empty_is_zero(storage_type, k)
+        dtype = arr1dnp.dtype
+        if arr1dnp.size == 0 and storage_type == "int" and dtype.kind == "f":
+            # Empty JSON arrays read as float
+            dtype = np.dtype(np.int64)
+        elif not empty_is_zero and dtype.kind != "f":
+            # NaN fill needs a float dtype
+            dtype = np.dtype(np.float64)
 
         # Allocate a zeros (or nan) array of the original shape
-        full = np.full(
-            shape, 0 if _empty_is_zero(storage_type, k) else np.nan, dtype=arr1dnp.dtype
-        )
+        full = np.full(shape, 0 if empty_is_zero else np.nan, dtype=dtype)
 
         # Scatter sparse values back into dense array
         full[tuple(index)] = arr1dnp

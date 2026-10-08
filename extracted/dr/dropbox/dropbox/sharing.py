@@ -4596,6 +4596,10 @@ class LinkAudience(bb.Union):
         password is required to access the link. Login is not required.
     :ivar LinkAudience.members:
         Field is deprecated. Link is accessible only by members of the content.
+    :ivar LinkAudience.public_logged_in_only:
+        Link is accessible only by signed-in Dropbox users. This audience is
+        currently read-only through API v2: API v2 write methods reject requests
+        that set it.
     """
 
     _catch_all = "other"
@@ -4609,6 +4613,8 @@ class LinkAudience(bb.Union):
     password = None
     # Attribute is overwritten below the class definition
     members = None
+    # Attribute is overwritten below the class definition
+    public_logged_in_only = None
     # Attribute is overwritten below the class definition
     other = None
 
@@ -4651,6 +4657,14 @@ class LinkAudience(bb.Union):
         :rtype: bool
         """
         return self._tag == "members"
+
+    def is_public_logged_in_only(self):
+        """
+        Check if the union tag is ``public_logged_in_only``.
+
+        :rtype: bool
+        """
+        return self._tag == "public_logged_in_only"
 
     def is_other(self):
         """
@@ -9349,9 +9363,11 @@ class SharePathError(bb.Union):
     :ivar SharePathError.inside_osx_package:
         We do not support sharing a folder inside a Mac OS X package.
     :ivar SharePathError.is_vault:
-        We do not support sharing the Vault folder.
+        Field is deprecated. We do not support sharing the Vault folder.
+        Deprecated: Vault sharing errors are no longer emitted.
     :ivar SharePathError.is_vault_locked:
-        We do not support sharing a folder inside a locked Vault.
+        Field is deprecated. We do not support sharing a folder inside a locked
+        Vault. Deprecated: Vault sharing errors are no longer emitted.
     :ivar SharePathError.is_family:
         We do not support sharing the Family folder.
     """
@@ -9593,9 +9609,11 @@ class SharePathErrorBaseV2(bb.Union):
     :ivar SharePathErrorBaseV2.inside_osx_package:
         We do not support sharing a folder inside a Mac OS X package.
     :ivar SharePathErrorBaseV2.is_vault:
-        We do not support sharing the Vault folder.
+        Field is deprecated. We do not support sharing the Vault folder.
+        Deprecated: Vault sharing errors are no longer emitted.
     :ivar SharePathErrorBaseV2.is_vault_locked:
-        We do not support sharing a folder inside a locked Vault.
+        Field is deprecated. We do not support sharing a folder inside a locked
+        Vault. Deprecated: Vault sharing errors are no longer emitted.
     """
 
     _catch_all = "other"
@@ -13743,6 +13761,7 @@ LinkAudience._team_validator = bv.Void()
 LinkAudience._no_one_validator = bv.Void()
 LinkAudience._password_validator = bv.Void()
 LinkAudience._members_validator = bv.Void()
+LinkAudience._public_logged_in_only_validator = bv.Void()
 LinkAudience._other_validator = bv.Void()
 LinkAudience._tagmap = {
     "public": LinkAudience._public_validator,
@@ -13750,6 +13769,7 @@ LinkAudience._tagmap = {
     "no_one": LinkAudience._no_one_validator,
     "password": LinkAudience._password_validator,
     "members": LinkAudience._members_validator,
+    "public_logged_in_only": LinkAudience._public_logged_in_only_validator,
     "other": LinkAudience._other_validator,
 }
 
@@ -13758,6 +13778,7 @@ LinkAudience.team = LinkAudience("team")
 LinkAudience.no_one = LinkAudience("no_one")
 LinkAudience.password = LinkAudience("password")
 LinkAudience.members = LinkAudience("members")
+LinkAudience.public_logged_in_only = LinkAudience("public_logged_in_only")
 LinkAudience.other = LinkAudience("other")
 
 VisibilityPolicyDisallowedReason._delete_and_recreate_validator = bv.Void()

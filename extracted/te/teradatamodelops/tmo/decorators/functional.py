@@ -1,7 +1,7 @@
 import inspect
 import logging
 
-from typing import Optional, Literal, Any, Union
+from typing import Literal, Any
 
 logger = logging.getLogger(__name__)
 
@@ -213,9 +213,7 @@ class functional(object):  # noqa @ NOSONAR
         """Adds an attributes getter method to the class. Takes a list of attribute names to get and an output type (dict or list)."""
 
         def wrapper(
-            attributes: Optional[
-                Union[list[str], Literal["dict", "list", "all"]]
-            ] = None,
+            attributes: list[str] | Literal["dict", "list", "all"] | None = None,
             output: Literal["dict", "list"] = "list",
         ):
             if attributes in ["dict", "list"]:
@@ -275,7 +273,7 @@ class functional(object):  # noqa @ NOSONAR
     @staticmethod
     def _add_csl_setter_kwargs(cls: object, kwargs) -> object:
         for key, value in kwargs.items():
-            if key not in functional._get_cls_attrs(cls).keys():
+            if key not in functional._get_cls_attrs(cls):
                 raise AttributeError(
                     f"Attribute {key} not found in class {cls.__class__.__name__}"
                 )
@@ -286,7 +284,7 @@ class functional(object):  # noqa @ NOSONAR
         """Adds an attributes deleter method to the class. Takes a list of attribute names to delete."""
 
         def wrapper(
-            attributes: Optional[Union[list[str], Literal["all"]]] = None,
+            attributes: list[str] | Literal["all"] | None = None,
         ) -> object:
             if attributes is None or len(attributes) == 0:
                 raise ValueError("Attributes list cannot be None or empty")

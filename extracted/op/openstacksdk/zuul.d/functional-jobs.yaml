@@ -11,7 +11,6 @@
       - zuul: opendev.org/openstack/tempest
     required-projects:
       - name: openstack/openstacksdk
-      - name: openstack/os-client-config
     timeout: 9000
     vars:
       devstack_localrc:
@@ -50,7 +49,7 @@
       tox_install_siblings: false
       tox_envlist: functional
       zuul_copy_output:
-          '{{ ansible_user_dir }}/stackviz': logs
+        '{{ ansible_user_dir }}/stackviz': logs
       zuul_work_dir: src/opendev.org/openstack/openstacksdk
 
 - job:
@@ -95,6 +94,7 @@
       networking services enabled.
     required-projects:
       - openstack/designate
+      - openstack/neutron
       - openstack/octavia
     vars:
       configure_swap_size: 8192
@@ -138,14 +138,16 @@
     name: openstacksdk-functional-devstack-networking-ext
     parent: openstacksdk-functional-devstack-networking
     description: |
-      Run openstacksdk functional tests against a devstack with super advanced
+      Run openstacksdk functional tests against a devstack with advanced
       networking services enabled (VPNaas, FWaas) which still require ovs.
     required-projects:
+      - openstack/neutron
       - openstack/neutron-fwaas
+      - openstack/neutron-lib
       - openstack/neutron-vpnaas
       - openstack/tap-as-a-service
     vars:
-      INSTALL_OVN: False
+      INSTALL_OVN: false
       configure_swap_size: 8192
       devstack_local_conf:
         post-config:
@@ -160,8 +162,8 @@
               cert_manager: local_cert_manager
           $NEUTRON_CONF:
             DEFAULT:
-              router_distributed: True
-              l3_ha: True
+              router_distributed: true
+              l3_ha: true
           "/$NEUTRON_CORE_PLUGIN_CONF":
             ovs:
               tunnel_bridge: br-tun
@@ -171,7 +173,7 @@
               agent_mode: dvr_snat
             agent:
               availability_zone: nova
-              debug_iptables_rules: True
+              debug_iptables_rules: true
           $NEUTRON_DHCP_CONF:
             agent:
               availability_zone: nova
@@ -182,7 +184,7 @@
         Q_ML2_TENANT_NETWORK_TYPE: vxlan
         Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch
         IPSEC_PACKAGE: libreswan
-        TAAS_SERVICE_DRIVER: TAAS:TAAS:neutron_taas.services.taas.service_drivers.taas_rpc.TaasRpcDriver:default
+        TAAS_SERVICE_DRIVER: "TAAS:TAAS:neutron_taas.services.taas.service_drivers.taas_rpc.TaasRpcDriver:default"
       devstack_plugins:
         designate: https://opendev.org/openstack/designate
         octavia: https://opendev.org/openstack/octavia
@@ -227,26 +229,56 @@
 
 - job:
     name: openstacksdk-functional-devstack-magnum
-    parent: openstacksdk-functional-devstack
+    parent: openstacksdk-functional-devstack-base
     description: |
       Run openstacksdk functional tests against a master devstack with magnum
     required-projects:
+      - openstack/barbican
       - openstack/magnum
+      - openstack/manila
+      - openstack/octavia
+      - openstack/ovn-octavia-provider
       - openstack/python-magnumclient
+      - name: github.com/vexxhost/magnum-cluster-api
+        override-checkout: main
     vars:
       devstack_plugins:
+        barbican: https://opendev.org/openstack/barbican
         magnum: https://opendev.org/openstack/magnum
+        manila: https://opendev.org/openstack/manila
+        octavia: https://opendev.org/openstack/octavia
+        ovn-octavia-provider: https://opendev.org/openstack/ovn-octavia-provider
+        magnum-cluster-api: https://github.com/vexxhost/magnum-cluster-api
       devstack_localrc:
-        MAGNUM_GUEST_IMAGE_URL: https://tarballs.openstack.org/magnum/images/fedora-atomic-f23-dib.qcow2
-        MAGNUM_IMAGE_NAME: fedora-atomic-f23-dib
+        DISABLE_AMP_IMAGE_BUILD: true
+        GIT_BASE: https://github.com
+        GLANCE_LIMIT_IMAGE_SIZE_TOTAL: 5000
+        MAGNUM_GUEST_IMAGE_URL: https://github.com/vexxhost/capo-image-elements/releases/download/2026.05-1/ubuntu-24.04-v1.35.4.qcow2
+        OCTAVIA_NODE: api
+      devstack_local_conf:
+        post-config:
+          /etc/barbican/barbican.conf:
+            secretstore:
+              enable_multiple_secret_stores: true
+              stores_lookup_suffix: software
+            "secretstore:software":
+              secret_store_plugin: store_crypto
+              crypto_plugin: simple_crypto
+              global_default: true
+          /etc/magnum/magnum.conf:
+            cluster_template:
+              kubernetes_allowed_network_drivers: calico,cilium
+              kubernetes_default_network_driver: calico
       devstack_services:
         s-account: false
         s-container: false
         s-object: false
         s-proxy: false
+        c-bak: false
       tox_environment:
         OPENSTACKSDK_HAS_SWIFT: 0
         OPENSTACKSDK_HAS_MAGNUM: 1
+      tox_extra_args: "-vv --skip-missing-interpreters=false -- openstack.tests.functional.cloud.test_coe"
 
 - job:
     name: openstacksdk-functional-devstack-ironic
@@ -294,55 +326,6 @@
         OPENSTACKSDK_TESTS_SUBDIR: baremetal
       zuul_copy_output:
         '{{ devstack_base_dir }}/ironic-bm-logs': logs
-
-- job:
-    name: openstacksdk-ansible-functional-devstack
-    parent: openstacksdk-functional-devstack
-    description: |
-      Run openstacksdk ansible functional tests against a master devstack
-      using released version of ansible.
-    vars:
-      tox_envlist: ansible
-
-- job:
-    name: openstacksdk-ansible-stable-2.8-functional-devstack
-    parent: openstacksdk-ansible-functional-devstack
-    description: |
-      Run openstacksdk ansible functional tests against a master devstack
-      using git stable-2.8 branch version of ansible.
-    required-projects:
-      - name: github.com/ansible/ansible
-        override-checkout: stable-2.8
-      - name: openstack/openstacksdk
-        override-checkout: master
-      - name: openstack/devstack
-        override-checkout: master
-    vars:
-      # test-matrix grabs branch from the zuul branch setting. If the job
-      # is triggered by ansible, that branch will be devel which doesn't
-      # make sense to devstack. Override so that we run the right thing.
-      test_matrix_branch: master
-      tox_install_siblings: true
-
-- job:
-    name: openstacksdk-ansible-stable-2.9-functional-devstack
-    parent: openstacksdk-ansible-functional-devstack
-    description: |
-      Run openstacksdk ansible functional tests against a master devstack
-      using git stable-2.9 branch version of ansible.
-    required-projects:
-      - name: github.com/ansible/ansible
-        override-checkout: stable-2.9
-      - name: openstack/openstacksdk
-        override-checkout: master
-      - name: openstack/devstack
-        override-checkout: master
-    vars:
-      # test-matrix grabs branch from the zuul branch setting. If the job
-      # is triggered by ansible, that branch will be devel which doesn't
-      # make sense to devstack. Override so that we run the right thing.
-      test_matrix_branch: master
-      tox_install_siblings: true
 
 - job:
     name: openstacksdk-functional-devstack-masakari
@@ -443,21 +426,18 @@
     vars:
       devstack_localrc:
         # LVM Backend config options
-        MANILA_SERVICE_IMAGE_ENABLED: False
+        MANILA_SERVICE_IMAGE_ENABLED: false
         SHARE_DRIVER: manila.share.drivers.lvm.LVMShareDriver
         MANILA_ENABLED_BACKENDS: chicago,denver
-        MANILA_OPTGROUP_chicago_driver_handles_share_servers: False
-        MANILA_OPTGROUP_denver_driver_handles_share_servers: False
+        MANILA_OPTGROUP_chicago_driver_handles_share_servers: false
+        MANILA_OPTGROUP_denver_driver_handles_share_servers: false
         SHARE_BACKING_FILE_SIZE: 32000M
         MANILA_DEFAULT_SHARE_TYPE_EXTRA_SPECS: 'snapshot_support=True create_share_from_snapshot_support=True revert_to_snapshot_support=True mount_snapshot_support=True'
-        MANILA_CONFIGURE_DEFAULT_TYPES: True
-
+        MANILA_CONFIGURE_DEFAULT_TYPES: true
         # Required for mounting shares
-        MANILA_ALLOW_NAS_SERVER_PORTS_ON_HOST: True
-
+        MANILA_ALLOW_NAS_SERVER_PORTS_ON_HOST: true
       devstack_plugins:
         manila: https://opendev.org/openstack/manila
-
       devstack_services:
         c-api: false
         c-bak: false
@@ -477,11 +457,9 @@
         nova: true
         placement-api: true
         dstat: false
-
       tox_environment:
         OPENSTACKSDK_HAS_MANILA: 1
         OPENSTACKSDK_TESTS_SUBDIR: compute_shared_file_system
-
       # Enable file backed memory to allow virtiofs
       devstack_local_conf:
         post-config:

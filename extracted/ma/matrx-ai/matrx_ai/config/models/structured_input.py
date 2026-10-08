@@ -126,7 +126,7 @@ class NotesInputContentModel(StructuredInputBaseModel):
 class TableInputContentModel(StructuredInputBaseModel):
     type: Literal["input_table"] = "input_table"
     bookmarks: list[dict[str, Any]] = Field(default_factory=list)
-    _editable_tools: frozenset[str] = PrivateAttr(default=frozenset({"dataset"}))
+    _editable_tools: frozenset[str] = PrivateAttr(default=frozenset({"table"}))
 
 
 class TaskInputContentModel(StructuredInputBaseModel):

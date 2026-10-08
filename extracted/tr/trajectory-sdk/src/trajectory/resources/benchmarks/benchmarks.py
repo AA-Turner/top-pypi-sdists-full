@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Iterable, Literal
 
-import httpx
+import httpx2
 
 from trajectory._base_client import SyncPage, make_request_options, path_template
 from trajectory._resource import APIResource
@@ -62,7 +62,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[BenchmarkListItem]:
     """List Benchmarks
 
@@ -105,7 +105,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkListItem:
     """Get Benchmark
 
@@ -143,7 +143,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> dict[str, str]:
     """Update Benchmark
 
@@ -186,7 +186,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteBenchmarkResponse:
     """Delete a benchmark, all of its tasks and cascading task metadata, its benchmark and
     env-eval result rows, and runtimes not referenced by another benchmark's tasks. Shared
@@ -226,7 +226,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CreateBenchmarkUploadResponse:
     """Allocate signed GCS PUT URLs for one batch of benchmark artifacts. Omit bench_id to mint
     a new benchmark; pass the returned bench_id on later calls to add more files to the same
@@ -277,7 +277,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> IngestBenchmarkResponse:
     """Validate a benchmark manifest for a bench_id allocated by createBenchmarkUpload, persist
     it canonically, and write the bench, task, and runtime rows.
@@ -334,7 +334,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[BenchmarkRuntime]:
     """List the caller's organization-scoped benchmark runtimes.
 
@@ -374,7 +374,7 @@ class Benchmarks(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkReadiness:
     """Return whether a benchmark is ready to launch. A benchmark is ready when it is fully
     ingested, all required organization secrets are available, and all task environments are

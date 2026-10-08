@@ -32,7 +32,8 @@ class FetchDiscoveredAgentsJobSpec(BaseModel):
     data_plane_id: StrictStr = Field(description="The ID of the engine whose GenAI Engine holds the tasks.")
     discovery_source_id: StrictStr = Field(description="ID of the discovery source whose tasks to fetch.")
     reported_since: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["job_type", "workspace_id", "data_plane_id", "discovery_source_id", "reported_since"]
+    scan_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["job_type", "workspace_id", "data_plane_id", "discovery_source_id", "reported_since", "scan_id"]
 
     @field_validator('job_type')
     def job_type_validate_enum(cls, value):
@@ -88,6 +89,11 @@ class FetchDiscoveredAgentsJobSpec(BaseModel):
         if self.reported_since is None and "reported_since" in self.model_fields_set:
             _dict['reported_since'] = None
 
+        # set to None if scan_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.scan_id is None and "scan_id" in self.model_fields_set:
+            _dict['scan_id'] = None
+
         return _dict
 
     @classmethod
@@ -104,7 +110,8 @@ class FetchDiscoveredAgentsJobSpec(BaseModel):
             "workspace_id": obj.get("workspace_id"),
             "data_plane_id": obj.get("data_plane_id"),
             "discovery_source_id": obj.get("discovery_source_id"),
-            "reported_since": obj.get("reported_since")
+            "reported_since": obj.get("reported_since"),
+            "scan_id": obj.get("scan_id")
         })
         return _obj
 

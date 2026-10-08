@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 import logging
 import uuid
-from typing import Any, Union, Optional
+from typing import Any, Optional
 
 import pandas
 from teradataml import DataFrame
@@ -87,7 +87,7 @@ class BaseApi(object):
             query_params,
         )
 
-    def find_by_id(self, entity_id: Union[str, uuid.UUID], projection: str = None):
+    def find_by_id(self, entity_id: str | uuid.UUID, projection: str = None):
         """
         returns the entity
 
@@ -176,7 +176,7 @@ class BaseApi(object):
 
     def find_entity_by_id(
         self,
-        entity_id: Union[str, uuid.UUID],
+        entity_id: str | uuid.UUID,
         projection: str = None,
         return_dataframe: bool = False,
     ) -> None | DataFrame | Any:
@@ -207,7 +207,7 @@ class BaseApi(object):
             return_dataframe=return_dataframe,
         )
 
-    def archive(self, entity_id: Union[str, uuid.UUID]):
+    def archive(self, entity_id: str | uuid.UUID):
         """
         archives the entity
         Parameters:
@@ -225,7 +225,7 @@ class BaseApi(object):
             {},
         )
 
-    def unarchive(self, entity_id: Union[str, uuid.UUID]):
+    def unarchive(self, entity_id: str | uuid.UUID):
         """
         unarchives the entity
         Parameters:
@@ -552,7 +552,7 @@ class BaseApi(object):
 
     @staticmethod
     def validate_uuid(
-        entity_id: Union[str, uuid.UUID], to_string: bool = True
+        entity_id: str | uuid.UUID, to_string: bool = True
     ) -> Optional[uuid.UUID] | str:
         """
         Validates that the provided ID is a valid UUID. If it's a string, attempts to convert it to a UUID.

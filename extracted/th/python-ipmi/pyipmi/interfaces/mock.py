@@ -1,25 +1,26 @@
-class Mock(object):
+from __future__ import annotations
+
+from typing import Any
+
+from .. import Target
+from ..msgs import Message
+from .base import Interface
+
+
+class Mock(Interface):
     """This interface is used as mock."""
 
     NAME = 'mock'
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def open(self):
+    def is_ipmc_accessible(self, target: Target) -> Any:
         pass
 
-    def close(self):
+    def send_and_receive_raw(self, target: Target, lun: int, netfn: int,
+                             raw_bytes: bytes) -> Any:
         pass
 
-    def establish_session(self, session):
-        pass
-
-    def is_ipmc_accessible(self, target):
-        pass
-
-    def send_and_receive_raw(self, target, lun, netfn, raw_bytes):
-        pass
-
-    def send_and_receive(self, req):
+    def send_and_receive(self, req: Message) -> Any:
         pass

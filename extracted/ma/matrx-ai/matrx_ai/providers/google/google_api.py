@@ -84,22 +84,25 @@ _TTS_MAX_CHARS_PER_SEGMENT = 2000
 # by ~2 minutes, and it mumbles by ~3 (Google's own AI-dev forum thread "voice
 # slowly changing, massive audio quality + volume dropping on TTS requests
 # longer than ~1 minute"; independent long-form audits report ~90% of >1-minute
-# generations degraded). At ~150 wpm / ~5.5 chars per word, 60s of speech is
-# ~800 chars — so the generic 2000-char window is ~2.5 minutes, deep inside the
-# collapse zone. Segmenting smaller keeps every 3.1-flash call inside the
-# window where it is genuinely as good as (or better than) 2.5 pro.
+# generations degraded). The window is stated in SECONDS of speech and turned
+# into characters with the ONE speaking pace (``matrx_graph.speech_pace`` — the
+# ``speech/pace_wpm`` setting): 55 s at 150 wpm is ~750 chars, the cap this map
+# carried as a literal until 2026-10-07. The generic 2000-char window is
+# ~2.5 minutes, deep inside the collapse zone, so 3.1-flash segments smaller.
 # 2.5-pro-preview-tts is long-form stable and keeps the generic window.
-_TTS_MAX_CHARS_BY_MODEL: dict[str, int] = {
-    "3.1-flash-tts": 750,
+_TTS_MAX_SECONDS_BY_MODEL: dict[str, int] = {
+    "3.1-flash-tts": 55,
 }
 
 
-def _tts_segment_chars(provider_model_id: str) -> int:
-    """The per-segment character cap for this TTS model (see the map above)."""
+def _tts_segment_chars(provider_model_id: str, wpm: int) -> int:
+    """The per-segment character cap for this TTS model at this speaking pace."""
+    from matrx_graph.speech_pace import chars_for_seconds
+
     model = (provider_model_id or "").lower()
-    for needle, cap in _TTS_MAX_CHARS_BY_MODEL.items():
+    for needle, seconds in _TTS_MAX_SECONDS_BY_MODEL.items():
         if needle in model:
-            return cap
+            return chars_for_seconds(seconds, wpm)
     return _TTS_MAX_CHARS_PER_SEGMENT
 
 
@@ -587,7 +590,13 @@ class GoogleChat:
         required = _required_speaker_labels(config_data["config"])
         model = config_data["model"]
         cfg = config_data["config"]
-        max_chars = _tts_segment_chars(str(model))
+        from matrx_connect.context.app_context import try_get_app_context
+        from matrx_graph.speech_pace import speech_pace
+
+        pace = await speech_pace(
+            organization_id=getattr(try_get_app_context(), "organization_id", None)
+        )
+        max_chars = _tts_segment_chars(str(model), pace.wpm)
         segments = _split_tts_text(full_text, required, max_chars=max_chars)
         if len(segments) > 1:
             vcprint(
@@ -595,7 +604,7 @@ class GoogleChat:
                 f"{len(segments)} segmented TTS calls (<= {max_chars} "
                 f"chars each) so no single provider stream can run long enough to "
                 f"stall (2026-07-10 incident) or to enter this model's long-form "
-                f"quality-degradation window (see _TTS_MAX_CHARS_BY_MODEL).",
+                f"quality-degradation window (see _TTS_MAX_SECONDS_BY_MODEL).",
                 color="cyan",
             )
 

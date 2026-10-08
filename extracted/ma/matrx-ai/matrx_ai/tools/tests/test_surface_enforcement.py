@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from matrx_connect.emitters.silent_emitter import SilentEmitter
+
 from matrx_ai.tools.merge import (
     ACTIVE_UI_SURFACE_KEY,
     _surface_check_failed,
@@ -23,7 +25,9 @@ from matrx_ai.tools.merge import (
 from matrx_ai.tools.specs import RegisteredToolSpec
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_reasoning_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...

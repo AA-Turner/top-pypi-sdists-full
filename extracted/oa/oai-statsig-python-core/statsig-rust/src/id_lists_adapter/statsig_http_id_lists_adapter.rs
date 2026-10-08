@@ -138,9 +138,12 @@ impl StatsigHttpIdListsAdapter {
     async fn download_id_list(
         &self,
         job: &IdListDownloadJob,
-    ) -> Result<(String, Option<std::ops::Range<u64>>), StatsigErr> {
+    ) -> Result<(String, std::ops::Range<u64>), StatsigErr> {
+        let fallback_url = (self.fallback_to_statsig_api
+            && job.url != job.metadata.url
+            && is_default_cdn_url(&job.metadata.url))
+        .then_some(job.metadata.url.as_str());
         let mut download_url = job.url.as_str();
-        let mut using_fallback = false;
         for attempt in 1..=self.download_retry_count + 1 {
             let request = Self::id_list_file_request_args(
                 download_url,
@@ -148,55 +151,46 @@ impl StatsigHttpIdListsAdapter {
                 job.metadata.size,
                 job.metadata.file_id.clone(),
             );
-            let response = if using_fallback {
+            let response = if download_url == job.url {
+                self.network.get(request).await
+            } else {
                 // Only the captured default CDN is trusted with SDK credentials.
                 // Never forward those credentials through a fallback redirect.
                 self.network.get_without_redirects(request).await
-            } else {
-                self.network.get(request).await
             };
-            let can_fallback = !using_fallback
-                && self.fallback_to_statsig_api
-                && job.url != job.metadata.url
-                && is_default_cdn_url(&job.metadata.url)
-                && matches!(&response, Err(NetworkError::RetriesExhausted(_, status, _, _)) if *status != Some(401));
             self.add_diagnostics_start_marker(
                 KeyType::GetIDList,
                 StepType::Process,
                 None,
                 Some(download_url.to_owned()),
             );
-            let result = match response {
-                Err(error) => Err(StatsigErr::NetworkError(error)),
-                Ok(response) => {
+            let result = response
+                .map_err(StatsigErr::NetworkError)
+                .and_then(|response| {
+                    let request_failed = |message| {
+                        StatsigErr::NetworkError(NetworkError::RequestFailed(
+                            download_url.to_owned(),
+                            response.status_code,
+                            message,
+                        ))
+                    };
                     if let Some(error) = response.error {
-                        Err(StatsigErr::NetworkError(NetworkError::RequestFailed(
-                            download_url.to_owned(),
-                            response.status_code,
-                            error,
-                        )))
-                    } else if let Some(mut body) = response.data {
-                        // I/O failures are retryable; malformed UTF-8 is terminal.
-                        let content_range = body.get_header_ref("content-range").cloned();
-                        body.read_to_string().map(|text| {
-                            let range = downloaded_range(
-                                response.status_code,
-                                content_range.as_deref(),
-                                job.range_start,
-                                text.len(),
-                                is_default_cdn_url(download_url),
-                            );
-                            (text, range)
-                        })
-                    } else {
-                        Err(StatsigErr::NetworkError(NetworkError::RequestFailed(
-                            download_url.to_owned(),
-                            response.status_code,
-                            "Missing ID list body".into(),
-                        )))
+                        return Err(request_failed(error));
                     }
-                }
-            };
+                    let mut body = response
+                        .data
+                        .ok_or_else(|| request_failed("Missing ID list body".into()))?;
+                    // I/O failures are retryable; malformed UTF-8 is terminal.
+                    let text = body.read_to_string()?;
+                    normalize_id_list_download(
+                        response.status_code,
+                        body.get_header_ref("content-range").map(String::as_str),
+                        job.range_start,
+                        job.metadata.size,
+                        text,
+                    )
+                    .map_err(|message| request_failed(message.into()))
+                });
             self.add_diagnostics_end_marker(
                 KeyType::GetIDList,
                 StepType::Process,
@@ -230,12 +224,11 @@ impl StatsigHttpIdListsAdapter {
                         error.to_string(),
                     )));
                 }
-                Err(_) => {
+                Err(error) => {
                     // Fallback consumes the same per-file retry budget. Explicit zero
                     // retries means one SDK attempt, including when fallback is enabled.
-                    if can_fallback {
-                        download_url = &job.metadata.url;
-                        using_fallback = true;
+                    if let StatsigErr::NetworkError(NetworkError::RetriesExhausted(..)) = error {
+                        download_url = fallback_url.unwrap_or(download_url);
                     }
                     sleep(Duration::from_millis(100 * 2_u64.pow(attempt))).await;
                 }
@@ -250,28 +243,38 @@ impl StatsigHttpIdListsAdapter {
         new_file_size: u64,
         id_list_file_id: Option<String>,
     ) -> RequestArgs {
-        let (headers, query_params) = if is_default_cdn_url(list_url) {
-            (
-                None,
-                Some(HashMap::from([("range".into(), format!("{start_index}-"))])),
-            )
-        } else {
-            (
-                Some(HashMap::from([
-                    ("Range".into(), format!("bytes={start_index}-")),
-                    (
-                        "statsig-id-list-file-size".into(),
-                        new_file_size.to_string(),
-                    ),
-                ])),
-                None,
-            )
-        };
+        let mut request_url = list_url.to_string();
+        // A manifest may contain a legacy query range. Every destination uses
+        // one representation URL and the HTTP Range header to slice it.
+        if let Ok(mut url) = url::Url::parse(list_url) {
+            if url
+                .query_pairs()
+                .any(|(key, _)| key.eq_ignore_ascii_case("range"))
+            {
+                let params: Vec<_> = url
+                    .query_pairs()
+                    .filter(|(key, _)| !key.eq_ignore_ascii_case("range"))
+                    .map(|(key, value)| (key.into_owned(), value.into_owned()))
+                    .collect();
+                url.set_query(None);
+                if !params.is_empty() {
+                    url.query_pairs_mut().extend_pairs(params);
+                }
+                request_url = url.to_string();
+            }
+        }
 
         RequestArgs {
-            url: list_url.to_string(),
-            headers,
-            query_params,
+            url: request_url,
+            headers: Some(HashMap::from([
+                ("Range".into(), format!("bytes={start_index}-")),
+                (
+                    "statsig-id-list-file-size".into(),
+                    new_file_size.to_string(),
+                ),
+                // Byte offsets refer to the unencoded append log.
+                ("Accept-Encoding".into(), "identity".into()),
+            ])),
             id_list_file_id,
             // Each request is one attempt in the adapter-owned retry budget.
             diagnostics_key: Some(KeyType::GetIDList),
@@ -507,7 +510,7 @@ impl StatsigHttpIdListsAdapter {
                 Ok((raw_changeset, applied_range)) => {
                     *successful_downloads += 1;
                     if let Some(observation) = propagation.get_mut(&job.name) {
-                        observation.applied_range = applied_range;
+                        observation.applied_range = Some(applied_range);
                     }
                     updates.insert(
                         job.name,
@@ -626,6 +629,45 @@ struct IdListDownloadJob {
     range_start: u64,
 }
 
+fn normalize_id_list_download(
+    status: Option<u16>,
+    content_range: Option<&str>,
+    requested_start: u64,
+    manifest_size: u64,
+    mut text: String,
+) -> Result<(String, std::ops::Range<u64>), &'static str> {
+    match status {
+        Some(200) if content_range.is_none() => {
+            let end = text.len() as u64;
+            // SFP may have useful bytes without having reached the manifest size yet.
+            if end < requested_start || (end == requested_start && end < manifest_size) {
+                return Err("ID-list download returned no unread bytes");
+            }
+            let start = usize::try_from(requested_start)
+                .map_err(|_| "ID-list download offset is too large")?;
+            if !text.is_char_boundary(start) {
+                return Err("ID-list download offset splits a UTF-8 character");
+            }
+            // Applying the whole file as a delta would advance the local offset
+            // twice over its existing prefix and skip later membership updates.
+            if start != 0 {
+                text = text.split_off(start);
+            }
+            Ok((text, requested_start..end))
+        }
+        Some(200 | 206) => {
+            let range = content_range
+                .and_then(|header| downloaded_range(header, text.len()))
+                .ok_or("ID-list download returned an invalid Content-Range")?;
+            if range.start != requested_start || range.end <= requested_start {
+                return Err("ID-list download returned an unexpected or empty byte range");
+            }
+            Ok((text, range))
+        }
+        _ => Err("ID-list download returned an unexpected response status or Content-Range"),
+    }
+}
+
 fn is_retryable_download_error(error: &StatsigErr) -> bool {
     match error {
         StatsigErr::SerializationError(_) => true,
@@ -706,1032 +748,8 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::hashing::HashUtil;
-    use crate::id_lists_adapter::IdList;
-
-    use super::*;
-    // todo: update to use wiremock instead of mockito
-    use mockito::{Mock, Server, ServerGuard};
-    use std::fs;
-    use std::path::PathBuf;
-
-    struct TestIdListsUpdateListener {
-        id_lists: RwLock<HashMap<String, IdList>>,
-    }
-
-    impl TestIdListsUpdateListener {
-        fn does_list_contain_id(&self, list_name: &str, id: &str) -> bool {
-            let id_lists = self
-                .id_lists
-                .try_read_for(std::time::Duration::from_secs(5))
-                .unwrap();
-            if let Some(list) = id_lists.get(list_name) {
-                list.ids.contains(id)
-            } else {
-                false
-            }
-        }
-
-        async fn does_list_contain_id_eventually(
-            &self,
-            list_name: &str,
-            id: &str,
-            timeout_duration: Duration,
-        ) -> bool {
-            let start = tokio::time::Instant::now();
-            loop {
-                if self.does_list_contain_id(list_name, id) {
-                    return true;
-                }
-
-                if start.elapsed() >= timeout_duration {
-                    return false;
-                }
-
-                sleep(Duration::from_millis(10)).await;
-            }
-        }
-    }
-
-    impl IdListsUpdateListener for TestIdListsUpdateListener {
-        fn get_current_id_list_metadata(&self) -> HashMap<String, IdListMetadata> {
-            self.id_lists
-                .try_read_for(std::time::Duration::from_secs(5))
-                .unwrap()
-                .iter()
-                .map(|(key, list)| (key.clone(), list.metadata.clone()))
-                .collect()
-        }
-
-        fn did_receive_id_list_updates(&self, updates: HashMap<String, IdListUpdate>) {
-            let mut id_lists = self
-                .id_lists
-                .try_write_for(std::time::Duration::from_secs(5))
-                .unwrap();
-
-            // delete any id_lists that are not in the changesets
-            id_lists.retain(|list_name, _| updates.contains_key(list_name));
-
-            for (list_name, update) in updates {
-                if let Some(entry) = id_lists.get_mut(&list_name) {
-                    // update existing
-                    entry.apply_update(update);
-                } else {
-                    // add new
-                    let mut list = IdList::new(update.new_metadata.clone());
-                    list.apply_update(update);
-                    id_lists.insert(list_name.clone(), list);
-                }
-            }
-        }
-    }
-
-    fn get_hashed_marcos() -> String {
-        let hashed = HashUtil::new().sha256("Marcos");
-        hashed.chars().take(8).collect()
-    }
-
-    async fn setup_mock_server() -> (ServerGuard, Mock, Mock) {
-        let mut server = Server::new_async().await;
-        let mock_server_url = server.url();
-
-        let id_lists_response_path = PathBuf::from(format!(
-            "{}/tests/data/get_id_lists.json",
-            env!("CARGO_MANIFEST_DIR")
-        ));
-
-        let id_lists_response = fs::read_to_string(id_lists_response_path)
-            .unwrap()
-            .replace("URL_REPLACE", &format!("{mock_server_url}/id_lists"));
-
-        let mocked_get_id_lists = server
-            .mock("POST", "/get_id_lists")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(id_lists_response)
-            .create();
-
-        let company_ids_response_path = PathBuf::from(format!(
-            "{}/tests/data/company_id_list",
-            env!("CARGO_MANIFEST_DIR")
-        ));
-
-        let company_ids_response = fs::read_to_string(company_ids_response_path)
-            .unwrap()
-            .replace("URL_REPLACE", &format!("{mock_server_url}/id_lists"));
-
-        let mocked_individual_id_list = server
-            .mock("GET", "/id_lists/company_id_list")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(company_ids_response)
-            .create();
-
-        (server, mocked_get_id_lists, mocked_individual_id_list)
-    }
-
-    async fn setup(
-        id_lists_sync_interval_ms: Option<u32>,
-    ) -> (
-        ServerGuard,
-        Arc<StatsigHttpIdListsAdapter>,
-        Arc<TestIdListsUpdateListener>,
-        Arc<StatsigRuntime>,
-    ) {
-        let (server, _, _) = setup_mock_server().await;
-
-        let options = StatsigOptions {
-            id_lists_url: Some(format!("{}/get_id_lists", server.url())),
-            id_lists_sync_interval_ms,
-            wait_for_country_lookup_init: Some(true),
-            wait_for_user_agent_init: Some(true),
-            ..StatsigOptions::default()
-        };
-
-        let adapter = Arc::new(StatsigHttpIdListsAdapter::new("secret-key", &options));
-        let listener = Arc::new(TestIdListsUpdateListener {
-            id_lists: RwLock::new(HashMap::new()),
-        });
-
-        let statsig_rt = StatsigRuntime::get_runtime();
-        adapter
-            .clone()
-            .start(&statsig_rt, listener.clone())
-            .await
-            .unwrap();
-
-        (server, adapter, listener, statsig_rt)
-    }
-
-    #[tokio::test]
-    async fn test_id_list_download_uses_override_api() {
-        let mut manifest_server = Server::new_async().await;
-        let mut download_server = Server::new_async().await;
-
-        let id_lists_response_path = PathBuf::from(format!(
-            "{}/tests/data/get_id_lists.json",
-            env!("CARGO_MANIFEST_DIR")
-        ));
-        let id_lists_response = fs::read_to_string(id_lists_response_path).unwrap().replace(
-            "URL_REPLACE",
-            "https://fake-id-list-host/v1/download_id_list_file",
-        );
-
-        let mocked_get_id_lists = manifest_server
-            .mock("POST", "/get_id_lists")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(id_lists_response)
-            .create();
-
-        let company_ids_response_path = PathBuf::from(format!(
-            "{}/tests/data/company_id_list",
-            env!("CARGO_MANIFEST_DIR")
-        ));
-        let company_ids_response = fs::read_to_string(company_ids_response_path)
-            .unwrap()
-            .replace(
-                "URL_REPLACE",
-                "https://fake-id-list-host/v1/download_id_list_file",
-            );
-
-        let mocked_individual_id_list = download_server
-            .mock("GET", "/v1/download_id_list_file/company_id_list")
-            .match_header("range", "bytes=0-")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(company_ids_response)
-            .create();
-
-        let options = StatsigOptions {
-            id_lists_url: Some(format!("{}/get_id_lists", manifest_server.url())),
-            download_id_list_file_api: Some(download_server.url()),
-            wait_for_country_lookup_init: Some(true),
-            wait_for_user_agent_init: Some(true),
-            ..StatsigOptions::default()
-        };
-
-        let adapter = Arc::new(StatsigHttpIdListsAdapter::new("secret-key", &options));
-        let listener = Arc::new(TestIdListsUpdateListener {
-            id_lists: RwLock::new(HashMap::new()),
-        });
-
-        let statsig_rt = StatsigRuntime::get_runtime();
-        adapter
-            .clone()
-            .start(&statsig_rt, listener.clone())
-            .await
-            .unwrap();
-
-        mocked_get_id_lists.assert();
-        mocked_individual_id_list.assert();
-        assert!(listener.does_list_contain_id("company_id_list", &get_hashed_marcos()));
-    }
-
-    #[tokio::test]
-    async fn test_id_list_download_passes_file_size_with_range_header() {
-        let mut manifest_server = Server::new_async().await;
-        let mut download_server = Server::new_async().await;
-
-        let existing_list_size = 10_u64;
-        let new_list_size = existing_list_size + 1;
-        let existing_creation_time = 1721417546000_i64;
-        let file_id = "4t0BEqak3w1UcidsPcpQXN".to_string();
-        let manifest_download_url = "https://fake-id-list-host/v1/download_id_list_file";
-        let expected_range_start = existing_list_size;
-        let expected_file_size = new_list_size.to_string();
-        let expected_range_header = format!("bytes={expected_range_start}-");
-
-        let manifest_response = format!(
-            r#"{{
-  "company_id_list": {{
-    "name": "company_id_list",
-    "size": {},
-    "url": "{}/company_id_list",
-    "creationTime": {},
-    "fileID": "{}"
-  }}
-}}"#,
-            new_list_size, manifest_download_url, existing_creation_time, file_id
-        );
-
-        let mocked_get_id_lists = manifest_server
-            .mock("POST", "/get_id_lists")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(manifest_response)
-            .create();
-
-        let mocked_individual_id_list = download_server
-            .mock("GET", "/v1/download_id_list_file/company_id_list")
-            .match_header("range", expected_range_header.as_str())
-            .match_header("statsig-id-list-file-size", expected_file_size.as_str())
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body("+2Tv4fIVX\n")
-            .create();
-
-        let options = StatsigOptions {
-            id_lists_url: Some(format!("{}/get_id_lists", manifest_server.url())),
-            download_id_list_file_api: Some(download_server.url()),
-            wait_for_country_lookup_init: Some(true),
-            wait_for_user_agent_init: Some(true),
-            ..StatsigOptions::default()
-        };
-
-        let adapter = Arc::new(StatsigHttpIdListsAdapter::new("secret-key", &options));
-        let listener = Arc::new(TestIdListsUpdateListener {
-            id_lists: RwLock::new(HashMap::new()),
-        });
-
-        {
-            let mut existing_lists = listener
-                .id_lists
-                .try_write_for(std::time::Duration::from_secs(5))
-                .unwrap();
-
-            let mut local_list = IdList::new(IdListMetadata {
-                name: "company_id_list".to_string(),
-                url: format!("{}/company_id_list", manifest_download_url),
-                file_id: Some(file_id),
-                size: existing_list_size,
-                creation_time: existing_creation_time,
-            });
-            local_list.metadata.size = existing_list_size;
-            existing_lists.insert("company_id_list".to_string(), local_list);
-        }
-
-        let statsig_rt = StatsigRuntime::get_runtime();
-        adapter
-            .clone()
-            .start(&statsig_rt, listener.clone())
-            .await
-            .unwrap();
-
-        mocked_get_id_lists.assert();
-        mocked_individual_id_list.assert();
-        assert!(listener.does_list_contain_id("company_id_list", "2Tv4fIVX"));
-    }
-
-    #[test]
-    fn test_override_id_list_download_url_preserves_manifest_path_suffix() {
-        let options = StatsigOptions {
-            download_id_list_file_api: Some("https://download-proxy.example".to_string()),
-            ..StatsigOptions::default()
-        };
-
-        let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
-        let manifest_download_url =
-            "https://fake-id-list-host/v1/download_id_list_file/3wHgh0FhoQH0p";
-
-        let actual = adapter.get_override_id_list_download_url(manifest_download_url);
-
-        assert_eq!(
-            actual,
-            "https://download-proxy.example/v1/download_id_list_file/3wHgh0FhoQH0p"
-        );
-    }
-
-    #[test]
-    fn test_normalizes_default_cdn_manifest_url_prefix() {
-        for id_lists_url in [
-            DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX,
-            "https://statsigcdn.openai.com/v1/get_id_lists/",
-            "https://statsigcdn.openai.com:443/v1/get_id_lists",
-            "https://statsigcdn.openai.com:443/v1/get_id_lists/",
-        ] {
-            let options = StatsigOptions {
-                id_lists_url: Some(id_lists_url.to_string()),
-                ..StatsigOptions::default()
-            };
-
-            let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
-
-            assert_eq!(
-                adapter.id_lists_manifest_url, DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX,
-                "failed to normalize {id_lists_url}"
-            );
-            assert!(adapter.is_cdn_url());
-        }
-    }
-
-    #[test]
-    fn test_default_manifest_url_is_keyless() {
-        let adapter = StatsigHttpIdListsAdapter::new("secret-key", &StatsigOptions::default());
-
-        assert_eq!(
-            adapter.id_lists_manifest_url,
-            DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX
-        );
-        assert!(adapter.is_cdn_url());
-    }
-
-    #[test]
-    fn test_preserves_custom_id_lists_manifest_urls() {
-        for id_lists_url in [
-            "https://statsigcdn.openai.com/v1/get_id_lists/secret-existing.json",
-            "https://statsigcdn.openai.com/v1/get_id_lists?token=example",
-            "https://statsigcdn.openai.com:8443/v1/get_id_lists",
-            "https://statsigcdn.openai.com:443@proxy.example/v1/get_id_lists",
-            "https://api.oaistatsig.com/v1/get_id_lists",
-            "https://proxy.example/v1/get_id_lists",
-        ] {
-            let options = StatsigOptions {
-                id_lists_url: Some(id_lists_url.to_string()),
-                ..StatsigOptions::default()
-            };
-
-            let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
-
-            assert_eq!(
-                adapter.id_lists_manifest_url, id_lists_url,
-                "unexpectedly rewrote {id_lists_url}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_preserves_custom_proxy_id_lists_fallback_behavior() {
-        let id_lists_url = "https://proxy.example/v1/get_id_lists?upstream=https://statsigcdn.openai.com/v1/get_id_lists";
-        let options = StatsigOptions {
-            id_lists_url: Some(id_lists_url.to_string()),
-            fallback_to_statsig_api: Some(true),
-            ..StatsigOptions::default()
-        };
-
-        let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
-
-        assert_eq!(adapter.id_lists_manifest_url, id_lists_url);
-        assert!(!adapter.is_cdn_url());
-        assert!(adapter.fallback_url.is_none());
-    }
-
-    #[test]
-    fn test_custom_id_lists_manifest_can_fall_back_to_default_cdn() {
-        let options = StatsigOptions {
-            id_lists_url: Some("https://proxy.example/v1/get_id_lists".to_string()),
-            fallback_to_statsig_api: Some(true),
-            ..StatsigOptions::default()
-        };
-
-        let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
-        let expected_fallback = DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX;
-
-        assert_eq!(adapter.fallback_url.as_deref(), Some(expected_fallback));
-    }
-
-    #[tokio::test]
-    async fn test_syncing_new_id_lists() {
-        let (_server, adapter, listener, _statsig_rt) = setup(None).await;
-
-        adapter.sync_id_lists().await.unwrap();
-
-        let result = listener.does_list_contain_id("company_id_list", &get_hashed_marcos());
-        assert!(result);
-    }
-
-    #[tokio::test]
-    async fn test_syncing_deleting_id_lists() {
-        let (mut server, adapter, listener, _statsig_rt) = setup(None).await;
-
-        adapter.sync_id_lists().await.unwrap();
-
-        server
-            .mock("POST", "/get_id_lists")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body("{}")
-            .create();
-
-        adapter.sync_id_lists().await.unwrap();
-
-        let result = listener.does_list_contain_id("company_id_list", &get_hashed_marcos());
-        assert!(!result);
-    }
-
-    #[tokio::test]
-    async fn test_bg_syncing() {
-        let (_server, _adapter, listener, _statsig_rt) = setup(Some(1)).await;
-
-        let result = listener
-            .does_list_contain_id_eventually(
-                "company_id_list",
-                &get_hashed_marcos(),
-                Duration::from_millis(100),
-            )
-            .await;
-        assert!(result);
-    }
-
-    #[tokio::test]
-    async fn test_bg_sync_shutdown() {
-        let (_server, adapter, listener, statsig_rt) = setup(Some(10)).await;
-
-        statsig_rt.shutdown();
-        let _ = adapter.shutdown(Duration::from_millis(1)).await;
-
-        let result = listener
-            .does_list_contain_id_eventually(
-                "company_id_list",
-                &get_hashed_marcos(),
-                Duration::from_millis(100),
-            )
-            .await;
-
-        assert!(result);
-    }
-
-    impl StatsigHttpIdListsAdapter {
-        async fn fetch_individual_id_list_changes_from_network(
-            &self,
-            url: &str,
-            range_start: u64,
-            size: u64,
-            file_id: Option<String>,
-        ) -> Result<String, StatsigErr> {
-            self.download_id_list(&IdListDownloadJob {
-                name: "test-list".into(),
-                url: self.get_override_id_list_download_url(url),
-                metadata: IdListMetadata {
-                    name: "test-list".into(),
-                    url: url.into(),
-                    size,
-                    file_id,
-                    creation_time: 0,
-                },
-                range_start,
-            })
-            .await
-            .map(|(body, _)| body)
-        }
-    }
-
-    const TEST_CDN_BASE: &str = "https://statsigcdn.openai.com";
-    const TEST_CDN_FILE: &str = "https://statsigcdn.openai.com/file";
-
-    struct LocalCdnProvider {
-        origin: String,
-        delegate: Arc<dyn crate::networking::NetworkProvider>,
-        requests: RwLock<Vec<RequestArgs>>,
-    }
-
-    impl LocalCdnProvider {
-        fn local_args(&self, args: &RequestArgs) -> RequestArgs {
-            self.requests.write().push(args.clone());
-            let mut local_args = args.clone();
-            if let Some(path) = args.url.strip_prefix(&format!("{TEST_CDN_BASE}/")) {
-                local_args.url = format!("{}/{path}", self.origin);
-            }
-            let local_url = url::Url::parse(&local_args.url).unwrap();
-            assert_eq!(local_url.scheme(), "http");
-            assert_eq!(local_url.host_str(), Some("127.0.0.1"));
-            assert!(local_url.port().is_some());
-            local_args
-        }
-    }
-
-    #[async_trait]
-    impl crate::networking::NetworkProvider for LocalCdnProvider {
-        async fn send(
-            &self,
-            method: &crate::networking::HttpMethod,
-            args: &RequestArgs,
-        ) -> Response {
-            self.delegate.send(method, &self.local_args(args)).await
-        }
-
-        async fn send_without_redirects(
-            &self,
-            method: &crate::networking::HttpMethod,
-            args: &RequestArgs,
-        ) -> Response {
-            self.delegate
-                .send_without_redirects(method, &self.local_args(args))
-                .await
-        }
-    }
-
-    // Retain the provider beside the adapter: NetworkClient holds only a Weak reference.
-    fn with_local_cdn(
-        mut adapter: StatsigHttpIdListsAdapter,
-        origin: &ServerGuard,
-    ) -> (StatsigHttpIdListsAdapter, Arc<LocalCdnProvider>) {
-        let provider = Arc::new(LocalCdnProvider {
-            origin: origin.url(),
-            delegate: crate::networking::providers::get_network_provider()
-                .upgrade()
-                .unwrap(),
-            requests: RwLock::new(Vec::new()),
-        });
-        let network_provider: Arc<dyn crate::networking::NetworkProvider> = provider.clone();
-        adapter
-            .network
-            .set_network_provider_for_test(Arc::downgrade(&network_provider));
-        (adapter, provider)
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_preserves_initial_and_incremental_membership() {
-        let mut manifest_server = Server::new_async().await;
-        let mut proxy = Server::new_async().await;
-        let mut origin = Server::new_async().await;
-        let path = "/v1/download_id_list_file/company%2Fids?token=a%2Bb";
-        let url = format!("{TEST_CDN_BASE}{path}");
-        let adapter = StatsigHttpIdListsAdapter::new(
-            "secret-key",
-            &StatsigOptions {
-                id_lists_url: Some(format!("{}/get_id_lists", manifest_server.url())),
-                download_id_list_file_api: Some(proxy.url()),
-                fallback_to_statsig_api: Some(true),
-                ..StatsigOptions::default()
-            },
-        );
-        let (adapter, provider) = with_local_cdn(adapter, &origin);
-        let listener = Arc::new(TestIdListsUpdateListener {
-            id_lists: RwLock::new(HashMap::new()),
-        });
-        adapter.set_listener(listener.clone());
-        let marcos = get_hashed_marcos();
-        let initial = format!("+{marcos}\n+retained\n");
-        let delta = format!("-{marcos}\n+new-id\n");
-        let mut size = 0;
-        for body in [&initial, &delta] {
-            let start = size;
-            size += body.len() as u64;
-            let manifest = manifest_server
-                .mock("POST", "/get_id_lists")
-                .with_status(200)
-                .with_body(
-                    serde_json::json!({"company_id_list": {
-                        "name": "company_id_list", "size": size, "url": url,
-                        "creationTime": 1, "fileID": "stable-file"
-                    }})
-                    .to_string(),
-                )
-                .expect(1)
-                .create();
-            let primary = proxy
-                .mock("GET", path)
-                .match_header("range", format!("bytes={start}-").as_str())
-                .match_header("statsig-id-list-file-size", size.to_string().as_str())
-                .match_header("statsig-api-key", "secret-key")
-                .with_status(503)
-                .expect(1)
-                .create();
-            let fallback = origin
-                .mock("GET", format!("{path}&range={start}-").as_str())
-                .match_header("range", mockito::Matcher::Missing)
-                .match_header("statsig-id-list-file-size", mockito::Matcher::Missing)
-                .match_header("statsig-api-key", "secret-key")
-                .with_status(200)
-                .with_body(body)
-                .expect(1)
-                .create();
-            adapter.sync_id_lists().await.unwrap();
-            manifest.assert();
-            primary.assert();
-            fallback.assert();
-            let requests = provider.requests.read();
-            let cdn_request = requests.last().unwrap();
-            assert_eq!(cdn_request.url, url);
-            assert_eq!(cdn_request.id_list_file_id.as_deref(), Some("stable-file"));
-            assert_eq!(
-                cdn_request.query_params.as_ref().unwrap()["range"],
-                format!("{start}-")
-            );
-            assert_eq!(cdn_request.diagnostics_key, Some(KeyType::GetIDList));
-            assert!(listener.does_list_contain_id("company_id_list", "retained"));
-            assert_eq!(
-                listener.does_list_contain_id("company_id_list", &marcos),
-                start == 0
-            );
-            assert_eq!(
-                listener.does_list_contain_id("company_id_list", "new-id"),
-                start != 0
-            );
-            assert_eq!(
-                listener.get_current_id_list_metadata()["company_id_list"].size,
-                size
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_requires_explicit_opt_in() {
-        for enabled in [None, Some(false)] {
-            let mut proxy = Server::new_async().await;
-            let mut origin = Server::new_async().await;
-            let primary = proxy
-                .mock("GET", "/file")
-                .with_status(503)
-                .expect(3)
-                .create();
-            let fallback = origin.mock("GET", mockito::Matcher::Any).expect(0).create();
-            let adapter = StatsigHttpIdListsAdapter::new(
-                "secret-key",
-                &StatsigOptions {
-                    download_id_list_file_api: Some(proxy.url()),
-                    fallback_to_statsig_api: enabled,
-                    ..StatsigOptions::default()
-                },
-            );
-            let (adapter, _provider) = with_local_cdn(adapter, &origin);
-            assert!(
-                adapter
-                    .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None,)
-                    .await
-                    .is_err()
-            );
-            primary.assert();
-            fallback.assert();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_shares_total_attempt_budget_including_zero() {
-        for retries in [0, 1, 2] {
-            let mut proxy = Server::new_async().await;
-            let mut origin = Server::new_async().await;
-            let primary = proxy
-                .mock("GET", "/file")
-                .with_status(503)
-                .expect(1)
-                .create();
-            let fallback = origin
-                .mock("GET", "/file?range=0-")
-                .with_status(502)
-                .expect(retries as usize)
-                .create();
-            let mut adapter = StatsigHttpIdListsAdapter::new(
-                "secret-key",
-                &StatsigOptions {
-                    download_id_list_file_api: Some(proxy.url()),
-                    fallback_to_statsig_api: Some(true),
-                    ..StatsigOptions::default()
-                },
-            );
-            adapter.download_retry_count = retries;
-            let (adapter, provider) = with_local_cdn(adapter, &origin);
-            let error = adapter
-                .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
-                .await
-                .unwrap_err();
-            assert!(
-                matches!(error, StatsigErr::NetworkError(NetworkError::RetriesExhausted(_, _, attempts, _)) if attempts == retries + 1)
-            );
-            primary.assert();
-            fallback.assert();
-            let requests = provider.requests.read();
-            assert_eq!(requests.len(), retries as usize + 1);
-            assert_eq!(requests[0].url, format!("{}/file", proxy.url()));
-            assert!(
-                requests[1..]
-                    .iter()
-                    .all(|request| request.url == TEST_CDN_FILE && request.retries == 0)
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_skips_success_and_terminal_http_statuses() {
-        for status in [200, 401, 403, 400, 429] {
-            let mut proxy = Server::new_async().await;
-            let mut origin = Server::new_async().await;
-            let primary = proxy
-                .mock("GET", "/file")
-                .with_status(status)
-                .with_body("+proxy-id\n")
-                .expect(1)
-                .create();
-            let fallback = origin.mock("GET", mockito::Matcher::Any).expect(0).create();
-            let adapter = StatsigHttpIdListsAdapter::new(
-                "secret-key",
-                &StatsigOptions {
-                    download_id_list_file_api: Some(proxy.url()),
-                    fallback_to_statsig_api: Some(true),
-                    ..StatsigOptions::default()
-                },
-            );
-            let (adapter, _provider) = with_local_cdn(adapter, &origin);
-            let result = adapter
-                .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
-                .await;
-            if status == 200 {
-                assert_eq!(result.unwrap(), "+proxy-id\n");
-            } else {
-                assert!(result.is_err(), "status {status} must remain terminal");
-            }
-            primary.assert();
-            fallback.assert();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_skips_invalid_response_body() {
-        let mut proxy = Server::new_async().await;
-        let mut origin = Server::new_async().await;
-        let primary = proxy
-            .mock("GET", "/file")
-            .with_status(200)
-            .with_body([0xff])
-            .expect(1)
-            .create();
-        let fallback = origin.mock("GET", mockito::Matcher::Any).expect(0).create();
-        let adapter = StatsigHttpIdListsAdapter::new(
-            "secret-key",
-            &StatsigOptions {
-                download_id_list_file_api: Some(proxy.url()),
-                fallback_to_statsig_api: Some(true),
-                ..StatsigOptions::default()
-            },
-        );
-        let (adapter, _provider) = with_local_cdn(adapter, &origin);
-        let error = adapter
-            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
-            .await
-            .unwrap_err();
-        assert!(matches!(error, StatsigErr::JsonParseError(_, _)));
-        primary.assert();
-        fallback.assert();
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_does_not_repeat_original_destination() {
-        for has_override in [false, true] {
-            let mut origin = Server::new_async().await;
-            let request = origin
-                .mock("GET", "/file?range=0-")
-                .with_status(503)
-                .expect(3)
-                .create();
-            let adapter = StatsigHttpIdListsAdapter::new(
-                "secret-key",
-                &StatsigOptions {
-                    download_id_list_file_api: has_override.then(|| TEST_CDN_BASE.to_string()),
-                    fallback_to_statsig_api: Some(true),
-                    ..StatsigOptions::default()
-                },
-            );
-            let (adapter, _provider) = with_local_cdn(adapter, &origin);
-            assert!(
-                adapter
-                    .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None,)
-                    .await
-                    .is_err()
-            );
-            request.assert();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_failure_is_bounded_and_returns_origin_error() {
-        let mut proxy = Server::new_async().await;
-        let mut origin = Server::new_async().await;
-        let primary = proxy
-            .mock("GET", "/file")
-            .with_status(503)
-            .expect(1)
-            .create();
-        let fallback = origin
-            .mock("GET", "/file?range=0-")
-            .with_status(502)
-            .expect(2)
-            .create();
-        let url = TEST_CDN_FILE.to_string();
-        let adapter = StatsigHttpIdListsAdapter::new(
-            "secret-key",
-            &StatsigOptions {
-                download_id_list_file_api: Some(proxy.url()),
-                fallback_to_statsig_api: Some(true),
-                ..StatsigOptions::default()
-            },
-        );
-        let (adapter, _provider) = with_local_cdn(adapter, &origin);
-        let error = adapter
-            .fetch_individual_id_list_changes_from_network(&url, 0, 10, None)
-            .await
-            .unwrap_err();
-        assert!(matches!(error,
-            StatsigErr::NetworkError(NetworkError::RetriesExhausted(ref failed_url, Some(502), 3, _))
-                if failed_url == &url
-        ));
-        primary.assert();
-        fallback.assert();
-    }
-
-    #[test]
-    fn test_id_list_file_fallback_rebuilds_cdn_range_arguments() {
-        let url =
-            "https://statsigcdn.openai.com/v1/download_id_list_file/company%2Fids?token=a%2Bb";
-        let adapter = StatsigHttpIdListsAdapter::new(
-            "secret-key",
-            &StatsigOptions {
-                download_id_list_file_api: Some("https://proxy.example".to_string()),
-                ..StatsigOptions::default()
-            },
-        );
-        let proxy_url = adapter.get_override_id_list_download_url(url);
-        assert_eq!(
-            proxy_url,
-            "https://proxy.example/v1/download_id_list_file/company%2Fids?token=a%2Bb"
-        );
-        let primary = StatsigHttpIdListsAdapter::id_list_file_request_args(
-            &proxy_url,
-            17,
-            42,
-            Some("stable-file".to_string()),
-        );
-        assert!(primary.query_params.is_none());
-        let headers = primary.headers.as_ref().unwrap();
-        assert_eq!(headers["Range"], "bytes=17-");
-        assert_eq!(headers["statsig-id-list-file-size"], "42");
-        let fallback = StatsigHttpIdListsAdapter::id_list_file_request_args(
-            url,
-            17,
-            42,
-            primary.id_list_file_id.clone(),
-        );
-        assert_eq!(fallback.url, url);
-        assert!(fallback.headers.is_none());
-        assert_eq!(fallback.query_params.as_ref().unwrap()["range"], "17-");
-        for args in [primary, fallback] {
-            assert_eq!(args.id_list_file_id.as_deref(), Some("stable-file"));
-            assert_eq!(args.diagnostics_key, Some(KeyType::GetIDList));
-            assert_eq!(args.retries, 0);
-        }
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_does_not_follow_redirects() {
-        for status in [301, 302, 303, 307, 308] {
-            let mut proxy = Server::new_async().await;
-            let mut origin = Server::new_async().await;
-            let mut foreign = Server::new_async().await;
-            let primary = proxy
-                .mock("GET", "/file")
-                .with_status(503)
-                .expect(1)
-                .create();
-            let fallback = origin
-                .mock("GET", "/file?range=17-")
-                .match_header("statsig-api-key", "secret-key")
-                .with_status(status)
-                .with_header("location", &format!("{}/escaped", foreign.url()))
-                .expect(2)
-                .create();
-            let foreign_request = foreign
-                .mock("GET", mockito::Matcher::Any)
-                .with_status(200)
-                .with_body("+foreign-id\n")
-                .expect(0)
-                .create();
-            let adapter = StatsigHttpIdListsAdapter::new(
-                "secret-key",
-                &StatsigOptions {
-                    download_id_list_file_api: Some(proxy.url()),
-                    fallback_to_statsig_api: Some(true),
-                    ..StatsigOptions::default()
-                },
-            );
-            let (adapter, _provider) = with_local_cdn(adapter, &origin);
-            let result = adapter
-                .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 17, 42, None)
-                .await;
-
-            primary.assert();
-            fallback.assert();
-            foreign_request.assert();
-            assert!(matches!(result,
-                Err(StatsigErr::NetworkError(NetworkError::RetriesExhausted(ref url, Some(code), 3, _)))
-                    if url == TEST_CDN_FILE && code == status as u16
-            ));
-        }
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_primary_keeps_redirect_behavior() {
-        let mut proxy = Server::new_async().await;
-        let mut target = Server::new_async().await;
-        let mut origin = Server::new_async().await;
-        let primary = proxy
-            .mock("GET", "/file")
-            .with_status(302)
-            .with_header("location", &format!("{}/file", target.url()))
-            .expect(1)
-            .create();
-        let redirected = target
-            .mock("GET", "/file")
-            .with_status(200)
-            .with_body("+proxy-id\n")
-            .expect(1)
-            .create();
-        let fallback = origin.mock("GET", mockito::Matcher::Any).expect(0).create();
-        let adapter = StatsigHttpIdListsAdapter::new(
-            "secret-key",
-            &StatsigOptions {
-                download_id_list_file_api: Some(proxy.url()),
-                fallback_to_statsig_api: Some(true),
-                ..StatsigOptions::default()
-            },
-        );
-        let (adapter, _provider) = with_local_cdn(adapter, &origin);
-        let body = adapter
-            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
-            .await
-            .unwrap();
-
-        assert_eq!(body, "+proxy-id\n");
-        primary.assert();
-        redirected.assert();
-        fallback.assert();
-    }
-
-    #[tokio::test]
-    async fn test_id_list_file_fallback_rejects_untrusted_manifest_destinations() {
-        let mut proxy = Server::new_async().await;
-        let mut foreign = Server::new_async().await;
-        let foreign_request = foreign
-            .mock("GET", mockito::Matcher::Any)
-            .expect(0)
-            .create();
-        for url in [
-            format!("{}/file", foreign.url()),
-            "http://statsigcdn.openai.com/file".to_string(),
-            "https://statsigcdn.openai.com:8443/file".to_string(),
-            "https://statsigcdn.openai.com@foreign.example/file".to_string(),
-        ] {
-            let primary = proxy
-                .mock("GET", "/file")
-                .with_status(503)
-                .expect(3)
-                .create();
-            let adapter = StatsigHttpIdListsAdapter::new(
-                "secret-key",
-                &StatsigOptions {
-                    download_id_list_file_api: Some(proxy.url()),
-                    fallback_to_statsig_api: Some(true),
-                    ..StatsigOptions::default()
-                },
-            );
-            let (adapter, provider) = with_local_cdn(adapter, &foreign);
-            let error = adapter
-                .fetch_individual_id_list_changes_from_network(&url, 0, 10, None)
-                .await
-                .unwrap_err();
-            let proxy_url = format!("{}/file", proxy.url());
-            assert!(matches!(error,
-                StatsigErr::NetworkError(NetworkError::RetriesExhausted(ref failed_url, Some(503), _, _))
-                    if failed_url == &proxy_url
-            ));
-            primary.assert();
-            foreign_request.assert();
-            let requests = provider.requests.read();
-            assert_eq!(requests.len(), 3, "unexpected fallback to {url}");
-            assert_eq!(requests[0].url, proxy_url);
-        }
-    }
-}
+#[path = "statsig_http_id_lists_adapter_tests.rs"]
+mod tests;
 
 #[cfg(test)]
 #[path = "id_list_download_concurrency_tests.rs"]
@@ -1748,3 +766,7 @@ mod propagation_tests;
 #[cfg(test)]
 #[path = "id_list_cursor_tests.rs"]
 mod cursor_tests;
+
+#[cfg(test)]
+#[path = "id_list_range_tests.rs"]
+mod range_tests;

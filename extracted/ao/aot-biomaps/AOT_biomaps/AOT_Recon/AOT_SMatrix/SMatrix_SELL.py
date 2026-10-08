@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 import warnings
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union
 import contextlib
+import os
+import gc
+import zipfile
+import psutil
 
 from AOT_biomaps.AOT_Recon.AOT_SMatrix._mainSMatrix import SMatrix
 from AOT_biomaps.AOT_Recon.ReconEnums import SMatrixType, SMATRIX_FORMAT_TAG, SMATRIX_FORMAT_TAGS
@@ -421,10 +427,20 @@ class SMatrix_SELL(SMatrix):
     def _load_sparse_matrix_gpu(self, filePath):
         """ 
         Loads the arrays directly from the .npz file into the GPU VRAM.
-        To be executed on the compute node (e.g., H100) before run().
-        """       
+
+        Adaptive strategy per array:
+        - If enough host RAM is available (array + safety margin), load the
+        fast way (single cp.asarray, no temp file).
+        - Otherwise, fall back to the memory-safe path: streaming zip
+        extraction -> temp .npy -> mmap -> chunked GPU upload
+        (peak host RAM ~ chunk size).
+
+        A MemoryError caught during the fast path automatically triggers
+        the safe path, so the choice is self-correcting.
+        """
         print(f"[AOT-biomaps] Direct-to-GPU loading of SMatrix from {filePath}...")
         self.load_module()
+
         data = np.load(filePath)
         if 'normalization_factor' in data:
             self.normalization_factor = float(data['normalization_factor'])
@@ -444,26 +460,103 @@ class SMatrix_SELL(SMatrix):
 
         cp_dtype = self._get_cp_dtype()
 
-        with cp.cuda.Device(self.gpu_index):
-            # Force the exact dtype expected by the CUDA kernels
-            self.sell_values_gpu = cp.asarray(data['values']).astype(cp_dtype)
-            self.sell_colinds_gpu = cp.asarray(data['colinds']).astype(cp.uint32)
-            self.slice_ptr_gpu = cp.asarray(data['slice_ptr']).astype(cp.int64)
-            self.slice_len_gpu = cp.asarray(data['slice_len']).astype(cp.int32)
-            
-            self.row_perm_gpu = cp.asarray(data['row_perm']).astype(cp.int32)
-            self.inv_row_perm_gpu = cp.asarray(data['inv_row_perm']).astype(cp.int32)
-            
-            if data['norm_factor_inv'].size > 0:
-                self.norm_factor_inv_gpu = cp.asarray(data['norm_factor_inv'])
-                self.norm_factor_inv = data['norm_factor_inv']
+        # Uncompressed size of each npz member, read from the zip index
+        with zipfile.ZipFile(filePath, 'r') as zf:
+            infos = {i.filename: i for i in zf.infolist()}
 
-        self.slice_ptr = data['slice_ptr']
-        self.slice_len = data['slice_len']
-        self.row_perm = data['row_perm']
-        self.inv_row_perm = data['inv_row_perm']
-        self._release_pool()
-        data.close()  
+        def _member_bytes(key):
+            info = infos.get(key + '.npy')
+            if info is None:
+                raise KeyError(f"[AOT-biomaps] Array '{key}' not found in {filePath}")
+            return info.file_size
+
+        # Budget: 2.2x the array (host buffer + pinned staging) + system reserve
+        SAFETY_FACTOR = 2.2
+        SYSTEM_RESERVE_GB = 1.5
+
+        with cp.cuda.Device(self.gpu_index):
+
+            # --- FAST PATH: direct read + single upload ---
+            def _direct_upload(npz_key, cp_type):
+                host = data[npz_key]
+                gpu = cp.asarray(host).astype(cp_type, copy=False)
+                del host
+                gc.collect()
+                self._release_pool()
+                return gpu
+
+            # --- SAFE PATH: zip streaming -> temp .npy -> mmap -> chunks ---
+            def _mmap_upload(npz_key, cp_type, chunk_mb=256):
+                tmp_path = os.path.join("/tmp", npz_key + ".npy")
+
+                with zipfile.ZipFile(filePath, mode='r') as zf:
+                    with zf.open(npz_key + ".npy") as src, open(tmp_path, "wb") as dst:
+                        while True:
+                            buf = src.read(1 << 24)  # 16 MB blocks
+                            if not buf:
+                                break
+                            dst.write(buf)
+
+                host = np.load(tmp_path, mmap_mode='r')
+
+                gpu = cp.empty(host.shape, dtype=cp_type)
+                itemsize = cp.dtype(cp_type).itemsize
+                chunk_elems = (chunk_mb * 1024 * 1024) // itemsize
+                for i in range(0, host.size, chunk_elems):
+                    j = min(i + chunk_elems, host.size)
+                    gpu[i:j] = cp.asarray(host[i:j]).astype(cp_type, copy=False)
+                    self._release_pool()
+
+                del host
+                gc.collect()
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+                return gpu
+
+            # --- ADAPTIVE dispatcher with MemoryError fallback ---
+            def _adaptive_upload(npz_key, cp_type):
+                need_gb = (_member_bytes(npz_key) * SAFETY_FACTOR) / 1e9 + SYSTEM_RESERVE_GB
+                avail_gb = psutil.virtual_memory().available / 1e9
+
+                if avail_gb > need_gb:
+                    print(f"[AOT-biomaps] Loading '{npz_key}' directly ({need_gb:.1f} GB needed, {avail_gb:.1f} GB available)")
+                    try:
+                        return _direct_upload(npz_key, cp_type)
+                    except MemoryError:
+                        print(f"[AOT-biomaps] MemoryError on '{npz_key}', falling back to chunked upload")
+                        gc.collect()
+                        self._release_pool()
+                else:
+                    print(f"[AOT-biomaps] Low RAM ({avail_gb:.1f} GB avail, {need_gb:.1f} GB needed): chunked upload for '{npz_key}'")
+
+                return _mmap_upload(npz_key, cp_type)
+
+            # --- Big arrays (adaptive) ---
+            self.sell_values_gpu = _adaptive_upload('values', cp_dtype)
+            self.sell_colinds_gpu = _adaptive_upload('colinds', cp.uint32)
+
+            # --- Small index arrays: always direct (tiny), keep CPU copy ---
+            def _to_gpu(npz_key, cp_type):
+                host = data[npz_key]
+                gpu = cp.asarray(host).astype(cp_type, copy=False)
+                return gpu, host
+
+            self.slice_ptr_gpu, self.slice_ptr = _to_gpu('slice_ptr', cp.int64)
+            self.slice_len_gpu, self.slice_len = _to_gpu('slice_len', cp.int32)
+            self.row_perm_gpu, self.row_perm = _to_gpu('row_perm', cp.int32)
+            self.inv_row_perm_gpu, self.inv_row_perm = _to_gpu('inv_row_perm', cp.int32)
+
+            if data['norm_factor_inv'].size > 0:
+                nfi = data['norm_factor_inv']
+                self.norm_factor_inv_gpu = cp.asarray(nfi)
+                self.norm_factor_inv = nfi
+
+            self._release_pool()
+
+        data.close()
+        gc.collect()
 
         print(f"[AOT-biomaps] SELL SMatrix loaded into VRAM. Density restored.")
 

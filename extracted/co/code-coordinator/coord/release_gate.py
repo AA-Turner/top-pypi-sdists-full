@@ -90,6 +90,45 @@ class LaneResult:
 
 
 @dataclass(frozen=True)
+class NightlyArtifactResult:
+    """One #3652 real-platform nightly-smoke observation for one SHIPPED
+    artifact at one commit — the nightly-runner's analogue of
+    :class:`LaneResult`.
+
+    ``artifact`` names the shipped build the nightly runner exercised
+    (e.g. ``"macos-dmg"``, ``"windows-installer"``,
+    ``"linux-gtk-appimage"``) — the per-repo set a release must cover is
+    declared in ``coordinator.yml`` as
+    ``coord.config.ReleaseGateRepoConfig.nightly_artifacts``. This is
+    deliberately the SAME shape (and the SAME #2096 staleness/missing-data
+    discipline, INCLUDING #3510's ``unavailable`` distinction) as
+    :class:`LaneResult` — a real-platform run and a synthetic Tier-2 lane
+    run answer the identical question ("did this pass AT the release SHA,
+    on real hardware/a real build"), so they are graded by the identical
+    pattern (:func:`_nightly_artifact_step` mirrors :func:`_lane_step`
+    exactly) rather than two gates quietly drifting apart (#2096 "one
+    question, one answer"). A real-platform nightly run is, if anything,
+    the case that hits a locked/absent GUI session MOST often — dropping
+    ``unavailable`` here would make `_nightly_artifact_step` file an
+    app-repo bug for a locked host it should instead report as "unlock the
+    host and re-run".
+    """
+
+    artifact: str
+    sha: str
+    passed: bool
+    detail: str = ""
+    #: Epoch seconds the observation was taken — same role as
+    #: :attr:`LaneResult.checked_at`.
+    checked_at: float | None = None
+    #: ``True`` when this observation is the driver's own ``unavailable``
+    #: verdict (#3510) — same role as :attr:`LaneResult.unavailable`:
+    #: a locked/absent GUI session or missing display, never an app bug.
+    #: ``passed`` must be ``False`` whenever this is ``True``.
+    unavailable: bool = False
+
+
+@dataclass(frozen=True)
 class BugbashRunRecord:
     """One ``coord bugbash`` run (:class:`coord.bugbash.BugbashReport`),
     reduced to what the release gate needs to grade it.
@@ -363,6 +402,74 @@ def _lane_step(
     )
 
 
+def _nightly_artifact_step(
+    artifact: str,
+    release_sha: str,
+    nightly_results: Sequence[NightlyArtifactResult],
+) -> GateStepResult:
+    """Grade one required nightly artifact (#3652) — deliberately the exact
+    same logic as :func:`_lane_step`: no result at the release SHA is a
+    FAILING step (never a default pass, #2096), a result at some OTHER SHA
+    is "too stale to certify this release" rather than silently accepted,
+    and among several results at the release SHA the most recently checked
+    one wins."""
+    at_release_sha = [
+        r for r in nightly_results if r.artifact == artifact and r.sha == release_sha
+    ]
+    if not at_release_sha:
+        any_result = [r for r in nightly_results if r.artifact == artifact]
+        if any_result:
+            stale = max(any_result, key=lambda r: r.checked_at or 0.0)
+            return GateStepResult(
+                name=f"nightly:{artifact}",
+                passed=False,
+                detail=(
+                    f"most recent nightly real-platform smoke result for "
+                    f"artifact {artifact!r} is at {stale.sha!r}, not the "
+                    f"release SHA {release_sha!r} — too stale to certify "
+                    "this release"
+                ),
+            )
+        return GateStepResult(
+            name=f"nightly:{artifact}",
+            passed=False,
+            detail=(
+                f"no nightly real-platform smoke result recorded for "
+                f"artifact {artifact!r}"
+            ),
+        )
+
+    chosen = max(at_release_sha, key=lambda r: r.checked_at or 0.0)
+    if chosen.unavailable:
+        # #3510, mirrored from `_lane_step`: blocking, but distinctly
+        # labeled — a locked/absent GUI session or missing display is an
+        # environment condition, not an app bug, even though it still
+        # fails the gate (#2096: a gate must be able to fail).
+        return GateStepResult(
+            name=f"nightly:{artifact}",
+            passed=False,
+            unavailable=True,
+            detail=chosen.detail or (
+                f"nightly artifact {artifact!r} was unavailable at "
+                f"{release_sha!r} — no usable interactive/GUI session "
+                "(locked or absent); unlock the host and re-run rather "
+                "than debugging the app"
+            ),
+        )
+    if chosen.passed:
+        return GateStepResult(
+            name=f"nightly:{artifact}", passed=True, detail=chosen.detail or "passed",
+        )
+    return GateStepResult(
+        name=f"nightly:{artifact}",
+        passed=False,
+        detail=chosen.detail or (
+            f"nightly real-platform smoke failed for artifact {artifact!r} "
+            f"at {release_sha!r}"
+        ),
+    )
+
+
 def _bugbash_step(
     release_sha: str,
     bugbash_runs: Sequence[BugbashRunRecord],
@@ -411,22 +518,64 @@ def evaluate_release_gate(
     lane_results: Sequence[LaneResult] = (),
     bugbash_required: bool = False,
     bugbash_runs: Sequence[BugbashRunRecord] = (),
+    nightly_required: bool = False,
+    required_nightly_artifacts: Sequence[str] = (),
+    nightly_results: Sequence[NightlyArtifactResult] = (),
     sha_is_at_or_after: ShaComparator = _default_sha_at_or_after,
 ) -> ReleaseGateVerdict:
     """Evaluate the #3488 release gate for *repo* at *release_sha*.
 
     One :class:`GateStepResult` per required lane (named ``lane:<lane>``),
-    plus one more named ``"bugbash"`` when *bugbash_required*. Every step is
-    graded from an OBSERVATION passed in — this function never assumes a
-    step passed because no data was given for it (see the module docstring
-    for the #2096 rationale behind each failure mode).
+    plus one more named ``"bugbash"`` when *bugbash_required*, plus — when
+    *nightly_required*, mirroring *bugbash_required* exactly — one more
+    per *required_nightly_artifacts* entry (named ``nightly:<artifact>``,
+    #3652 — the real-platform nightly smoke runner's own per-repo gate:
+    "the latest nightly for this SHA is green across all shipped
+    artifacts"). Every step is graded from an OBSERVATION passed in — this
+    function never assumes a step passed because no data was given for it
+    (see the module docstring for the #2096 rationale behind each failure
+    mode; :func:`_nightly_artifact_step` applies the identical discipline
+    :func:`_lane_step` already does, deliberately, so the two gates can
+    never silently disagree about what "green" means — #2096 "one
+    question, one answer").
+
+    *nightly_required* is a second, independent guard on top of
+    *required_nightly_artifacts* being non-empty — #3652 review: a
+    :class:`~coord.config.ReleaseGateRepoConfig` not built by the YAML
+    parser's own cross-check (:func:`coord.config._parse_release_gate`,
+    which already refuses ``nightly: required`` with an empty
+    ``nightly_artifacts``) could otherwise set ``nightly_required=True``
+    with ``required_nightly_artifacts=()`` and get a silent VACUOUS PASS —
+    zero nightly steps are added, so the gate reports green having
+    evaluated nothing. Raises :class:`ValueError` on that combination
+    instead (#2096 "a gate must be able to fail"). ``False`` (the default)
+    never raises regardless of *required_nightly_artifacts*, so every
+    pre-#3652 and bugbash-only/lane-only caller is unaffected.
 
     Callers: :func:`coord.commands.release._release_gate_evaluate` wires
-    this to real Tier-2 lane fetchers and a real bugbash journal/git
-    ancestry check; ``tests/test_release_gate.py`` calls it directly against
-    fixtures.
+    this to real Tier-2 lane fetchers, a real bugbash journal/git ancestry
+    check, and (#3652) the nightly smoke runner's own results store;
+    ``tests/test_release_gate.py`` calls it directly against fixtures.
     """
+    if nightly_required and not required_nightly_artifacts:
+        raise ValueError(
+            f"evaluate_release_gate({repo!r}): nightly_required=True but "
+            "required_nightly_artifacts is empty — refusing a vacuous "
+            "pass (#2096: a gate must be able to fail)"
+        )
     steps = [_lane_step(lane, release_sha, lane_results) for lane in required_lanes]
     if bugbash_required:
         steps.append(_bugbash_step(release_sha, bugbash_runs, sha_is_at_or_after))
+    # #3652 review: nightly steps are gated on `nightly_required` exactly
+    # as bugbash is on `bugbash_required` — adding them whenever
+    # `required_nightly_artifacts` was non-empty was only ever harmless by
+    # accident (it is strictly stricter, and `_parse_release_gate` refuses
+    # artifacts-without-required), but the asymmetry would have let a
+    # future caller reasonably assume `nightly_required=False` means "no
+    # nightly steps" and get the opposite.
+    if nightly_required:
+        steps.extend(
+            _nightly_artifact_step(artifact, release_sha, nightly_results)
+            for artifact in required_nightly_artifacts
+        )
     return ReleaseGateVerdict(repo=repo, release_sha=release_sha, steps=tuple(steps))

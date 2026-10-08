@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import tomllib
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import PurePath
@@ -22,6 +24,7 @@ from pants.backend.python.util_rules.partition import (
     _partition_by_interpreter_constraints_and_resolve,
 )
 from pants.backend.python.util_rules.pex import Pex, PexRequest, create_pex, create_venv_pex
+from pants.backend.python.util_rules.pex_environment import find_pex_python
 from pants.backend.python.util_rules.pex_from_targets import RequirementsPexRequest
 from pants.backend.python.util_rules.pex_requirements import PexRequirements
 from pants.backend.python.util_rules.python_sources import (
@@ -52,10 +55,10 @@ from pants_pyrefly.skip_field import SkipPyreflyField
 from pants_pyrefly.subsystems import Pyrefly
 
 try:
-    # Pants >= 2.30 renamed this call-by-name rule.
+    # Pants >= 2.29 renamed this call-by-name rule.
     from pants.engine.internals.graph import resolve_coarsened_targets as coarsened_targets_get
 except ImportError:
-    # Pants < 2.30 (e.g. 2.27) — identical call signature, earlier name.
+    # Pants < 2.29 (2.27, 2.28) — identical call signature, earlier name.
     from pants.engine.internals.graph import coarsened_targets as coarsened_targets_get
 from pants.engine.intrinsics import (
     add_prefix,
@@ -65,6 +68,7 @@ from pants.engine.intrinsics import (
     get_digest_contents,
     merge_digests,
     path_globs_to_digest,
+    path_globs_to_paths,
     remove_prefix,
 )
 from pants.engine.platform import Platform
@@ -105,6 +109,10 @@ class PyreflyPartition:
     root_targets: CoarsenedTargets
     resolve_description: str | None
     interpreter_constraints: InterpreterConstraints
+    # True for exactly one partition per run (the first). Under `--error-stale-baseline`, baseline
+    # entries for files that no longer exist belong to no partition; this one carries them so
+    # Pyrefly reports them as stale once. See `_partition_baseline`.
+    carries_orphan_baseline_entries: bool = False
 
     def description(self) -> str:
         ics = str(sorted(str(c) for c in self.interpreter_constraints))
@@ -142,16 +150,72 @@ async def pyrefly_determine_partitions(
             ),
             resolve if len(python_setup.resolves) > 1 else None,
             interpreter_constraints or pyrefly.interpreter_constraints,
+            carries_orphan_baseline_entries=(index == 0),
         )
-        for (resolve, interpreter_constraints), field_sets in sorted(
-            resolve_and_interpreter_constraints_to_field_sets.items()
+        for index, ((resolve, interpreter_constraints), field_sets) in enumerate(
+            sorted(resolve_and_interpreter_constraints_to_field_sets.items())
         )
     )
 
 
+# The config the plugin writes into the sandbox when the project gives it none to pass: what Pyrefly
+# itself falls back to when it finds no config (the `basic` preset). Any name but `pyproject.toml`
+# is parsed as a `pyrefly.toml`.
+_GENERATED_CONFIG = "__pyrefly_config.toml"
+_GENERATED_CONFIG_CONTENT = b'preset = "basic"\n'
+# A missing-import hint names the config its search path came from ("Looked in these locations
+# (from config in `<sandbox>/__pyrefly_config.toml`):"). For the generated config that is a file the
+# user does not have, and Pyrefly prints no such clause without a config, so drop it.
+_GENERATED_CONFIG_CLAUSE = re.compile(
+    rf" \(from config in `[^`]*/{re.escape(_GENERATED_CONFIG)}`\)"
+)
+
 # Fixed sandbox path where `--update-baseline` writes the baseline; the update-baseline goal
 # relocates it to the user's configured `[pyrefly].baseline` path on write-back.
 _BASELINE_OUTPUT = "__pyrefly_baseline_out.json"
+
+# Baseline-maintenance flags Pyrefly 1.3 added to `check`. Users pass them via `[pyrefly].args`.
+_ERROR_STALE_BASELINE = "--error-stale-baseline"
+_PRUNE_BASELINE = "--prune-baseline"
+
+
+def _is_flag(arg: str, flag: str) -> bool:
+    return arg == flag or arg.startswith(f"{flag}=")
+
+
+def _has_flag(args: Iterable[str], flag: str) -> bool:
+    return any(_is_flag(arg, flag) for arg in args)
+
+
+# Pyrefly's `--error-stale-baseline` failure says to rerun with `--prune-baseline`, which Pants
+# rejects; rewrite that advice in `check` output.
+_PYREFLY_PRUNE_HINT = f"rerun with `{_PRUNE_BASELINE}` to update it"
+_PANTS_PRUNE_HINT = "run `pants pyrefly-update-baseline ::` to update it"
+
+
+class PyreflyArgsError(Exception):
+    """`[pyrefly].args` contains a Pyrefly flag that cannot work under Pants."""
+
+
+def validate_pyrefly_args(pyrefly: Pyrefly) -> None:
+    """Fail fast on `[pyrefly].args` that would silently do nothing under Pants.
+
+    `--prune-baseline` rewrites the `--baseline` file in place. Pyrefly runs in a sandbox on a
+    per-partition copy of the baseline, so the pruned copy would be discarded and the user's file
+    would never change. (`check` never writes to the workspace anyway, by Pants convention.)
+    """
+    if _has_flag(pyrefly.args, _PRUNE_BASELINE):
+        raise PyreflyArgsError(
+            softwrap(
+                f"""
+                `{_PRUNE_BASELINE}` in `[pyrefly].args` is not supported: Pyrefly would prune a
+                temporary copy of the baseline inside the Pants sandbox, and `[pyrefly].baseline`
+                would never change. Remove it from `[pyrefly].args`, then run
+                `pants pyrefly-update-baseline ::` to regenerate the baseline from every target,
+                which drops stale entries (it also records any current errors).
+                """
+            )
+        )
 
 
 def _root_covers(root: str, dir_path: str) -> bool:
@@ -320,10 +384,42 @@ def _real_prefix(root: str) -> str:
 
 
 def _remap_text(text: str, synth_root_to_real: FrozenDict[str, str]) -> str:
-    """Rewrite every `__pyrefly_root_<n>/…` path in `text` back to its real repo path."""
-    for synth, root in synth_root_to_real.items():
-        text = text.replace(f"{synth}/", _real_prefix(root))
-    return text
+    """Rewrite every synthetic root in Pyrefly's output `text` back to its real repo path.
+
+    Pyrefly names a synthetic root in two shapes: as the leading segment of a file path
+    (`__pyrefly_root_<n>/pkg/m.py`, e.g. an error location), and on its own (e.g. the
+    `Search path override` line of a missing-import hint, where it is the last segment of an
+    absolute sandbox path). The former maps to the file's real repo path (`src/python/pkg/m.py`;
+    the build root adds no prefix); the latter to the real source root itself (`src/python`, or
+    `.` for the build root).
+
+    Only the synthetic names generated for this invocation are rewritten, and only as whole path
+    segments: a name must not be preceded or followed by a word character, `.`, or `-`, so
+    `__pyrefly_root_1` is left alone in `__pyrefly_root_10`, `my__pyrefly_root_1`,
+    `a.__pyrefly_root_1`, and `__pyrefly_root_1.sub`. The one exception is a name directly after an
+    ANSI color code (`\x1b[...m`, e.g. under `--color=always`), whose final `m` would otherwise
+    look like part of a word; the code is kept as-is.
+
+    Also drops the clause naming the generated config from missing-import hints (see
+    `_GENERATED_CONFIG_CLAUSE`), whether or not sources were re-staged.
+    """
+    text = _GENERATED_CONFIG_CLAUSE.sub("", text)
+    if not synth_root_to_real:
+        return text
+    # Longest name first, so no name can win over a longer one it prefixes.
+    names = "|".join(re.escape(s) for s in sorted(synth_root_to_real, key=len, reverse=True))
+    # Segment start: either an ANSI SGR sequence (any parameters, e.g. `\x1b[0m`, `\x1b[1;31m`,
+    # `\x1b[38;5;12m`), matched and put back, or no name character or `.` before the name. Segment
+    # end: `/` (a path under the root), or nothing that could continue a name.
+    pattern = re.compile(rf"(?:(\x1b\[[0-9;:]*m)|(?<![\w.-]))({names})(?:(/)|(?![\w.-]))")
+
+    def to_real(match: re.Match[str]) -> str:
+        sgr, synth, slash = match.groups()
+        root = synth_root_to_real[synth]
+        real = _real_prefix(root) if slash else ("." if root in (".", "") else root)
+        return f"{sgr or ''}{real}"
+
+    return pattern.sub(to_real, text)
 
 
 def _remap_path(path: str, synth_root_to_real: FrozenDict[str, str]) -> str:
@@ -351,28 +447,126 @@ async def _unstage_digest(digest: Digest, synth_root_to_real: FrozenDict[str, st
     return await merge_digests(MergeDigests(tuple(parts)))
 
 
-async def _restage_baseline_paths(
-    baseline_digest: Digest, baseline_path: str, real_to_synth: FrozenDict[str, str]
-) -> Digest:
-    """Rewrite a baseline file's recorded real paths to the synthetic staged paths Pyrefly reports.
+def _filter_baseline_entries(
+    errors: Iterable, root_real_to_synth: dict[str, str], orphan_paths: frozenset[str]
+) -> list:
+    """Select (and path-remap) the baseline entries one partition's Pyrefly run should see.
 
-    `pyrefly-update-baseline` writes real repo paths, but under re-staging Pyrefly reports (and
-    matches `--baseline` against) synthetic `__pyrefly_root_<n>/…` paths. Remap the paths so
-    gating still suppresses them. Entries for files outside the current check (absent from
-    `real_to_synth`) are left as-is — they cannot match anything being checked anyway.
+    Pure planning for `_partition_baseline` (extracted so it is unit-testable):
+      - entries for the partition's own files (keys of `root_real_to_synth`) are kept, with their
+        real repo path rewritten to the staged path Pyrefly reports;
+      - entries whose path is in `orphan_paths` (files that no longer exist) are kept as-is;
+      - entries without a string `path` are passed through untouched, for Pyrefly to judge;
+      - every other entry (a file checked by another partition, or not checked at all) is dropped.
+    """
+    kept: list = []
+    for error in errors:
+        path = error.get("path") if isinstance(error, dict) else None
+        if not isinstance(path, str):
+            kept.append(error)
+        elif path in root_real_to_synth:
+            kept.append({**error, "path": root_real_to_synth[path]})
+        elif path in orphan_paths:
+            kept.append(error)
+    return kept
+
+
+def _globbable(path: str) -> bool:
+    """Whether `path` can be looked up as a literal relative path with `PathGlobs`."""
+    return bool(path) and not (
+        os.path.isabs(path)
+        or path.startswith("!")
+        or any(c in path for c in "*?[]{}")
+        or ".." in path.split("/")
+    )
+
+
+async def _partition_baseline(
+    baseline_digest: Digest,
+    baseline_path: str,
+    root_real_to_synth: dict[str, str],
+    *,
+    include_orphans: bool,
+) -> Digest:
+    """Give one partition's Pyrefly run only the baseline entries for its own files.
+
+    `pyrefly-update-baseline` writes one merged baseline at real repo paths, but each partition's
+    Pyrefly runs on re-staged sources and reports (and matches `--baseline` against) synthetic
+    `__pyrefly_root_<n>/…` paths. Entries for this partition's files are remapped to those paths so
+    gating still suppresses them.
+
+    All other entries are dropped. Pyrefly (>= 1.3) treats a baseline entry as stale when its file
+    is checked and no longer has the error, or when its file does not exist. In the sandbox, an
+    entry for a file another partition checks names a path that does not exist, so passing it
+    through made `--error-stale-baseline` fail every partition on the others' entries. Dropping
+    them does not change which errors are gated, since an entry only matches errors in its own
+    file and Pyrefly reports errors only for the files it is asked to check.
+
+    With `include_orphans` (one partition per run, under `--error-stale-baseline`), entries for
+    files that do not exist in the repo are passed through at their real path, which does not
+    exist in the sandbox either, so Pyrefly reports them as stale exactly once.
     """
     contents = await get_digest_contents(baseline_digest)
-    remapped: list[FileContent] = []
+    out: list[FileContent] = []
     for file_content in contents:
-        if file_content.path == baseline_path and file_content.content.strip():
-            data = json.loads(file_content.content)
-            for error in data.get("errors", []):
-                if isinstance(error, dict) and error.get("path") in real_to_synth:
-                    error["path"] = real_to_synth[error["path"]]
-            remapped.append(FileContent(baseline_path, json.dumps(data, indent=2).encode()))
-        else:
-            remapped.append(file_content)
-    return await create_digest(CreateDigest(remapped))
+        if file_content.path != baseline_path or not file_content.content.strip():
+            out.append(file_content)
+            continue
+        data = json.loads(file_content.content)
+        errors = data.get("errors", []) if isinstance(data, dict) else None
+        if not isinstance(errors, list):
+            # Not a shape we understand; let Pyrefly report on it.
+            out.append(file_content)
+            continue
+        orphan_paths: frozenset[str] = frozenset()
+        if include_orphans:
+            candidates = sorted(
+                {
+                    error["path"]
+                    for error in errors
+                    if isinstance(error, dict)
+                    and isinstance(error.get("path"), str)
+                    and error["path"] not in root_real_to_synth
+                    and _globbable(error["path"])
+                }
+            )
+            if candidates:
+                existing = await path_globs_to_paths(
+                    PathGlobs(candidates, glob_match_error_behavior=GlobMatchErrorBehavior.ignore)
+                )
+                orphan_paths = frozenset(candidates) - set(existing.files)
+        data["errors"] = _filter_baseline_entries(errors, root_real_to_synth, orphan_paths)
+        out.append(FileContent(baseline_path, json.dumps(data, indent=2).encode()))
+    return await create_digest(CreateDigest(out))
+
+
+def _has_config_flag(args: Iterable[str]) -> bool:
+    """Whether `args` sets Pyrefly's config: `--config x`, `--config=x`, `-c x` or `-cx`."""
+    return any(_is_flag(arg, "--config") or arg.startswith("-c") for arg in args)
+
+
+def _discovered_config(files: Iterable[str]) -> str | None:
+    """The discovered config Pyrefly itself would use: `pyrefly.toml` wins over `pyproject.toml`."""
+    for name in ("pyrefly.toml", "pyproject.toml"):
+        if name in files:
+            return name
+    return None
+
+
+def _has_pyrefly_table(pyproject: bytes) -> bool:
+    """Whether a `pyproject.toml` really has a `[tool.pyrefly]` table.
+
+    Discovery only matches the text `[tool.pyrefly`, which a comment also contains. Pyrefly treats
+    a `pyproject.toml` without the table as no config, so passing it as `--config` would switch to
+    the stricter `default` preset. One that does not parse is still passed, so Pyrefly reports why.
+    """
+    try:
+        # `utf-8-sig`: Pyrefly accepts a leading BOM, `tomllib` does not.
+        data = tomllib.loads(pyproject.decode("utf-8-sig"))
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return True
+    tool = data.get("tool")
+    return isinstance(tool, dict) and "pyrefly" in tool
 
 
 async def _setup_pyrefly_process(
@@ -448,6 +642,11 @@ async def _setup_pyrefly_process(
             )
         )
     )
+    # The venv's Python shim runs the venv out of the sandbox's `.cache/pex_root`, rebuilding it
+    # there if it is missing. Pants' own `VenvPexProcess` mounts the shared `pex_root` named cache
+    # at that path; we build our `Process` by hand, so mount it ourselves. Without it, every run
+    # rebuilds the entire third-party venv before Pyrefly starts.
+    pex_environment = await find_pex_python(**implicitly())
 
     is_check = subcommand == ("check",)
 
@@ -507,20 +706,24 @@ async def _setup_pyrefly_process(
             )
         )
         if baseline_digest != EMPTY_DIGEST:
-            if real_to_synth:
-                # Re-staging renames paths, so a baseline recorded at real paths (how
-                # `pyrefly-update-baseline` writes it) would not match Pyrefly's synthetic output.
-                # Remap the recorded paths to the synthetic ones so gating still suppresses them.
-                baseline_digest = await _restage_baseline_paths(
-                    baseline_digest, pyrefly.baseline, real_to_synth
-                )
+            # Hand Pyrefly only this partition's entries, at the (re-staged) paths it reports, so
+            # that gating and `--error-stale-baseline` are scoped to the partition's own files.
+            baseline_digest = await _partition_baseline(
+                baseline_digest,
+                pyrefly.baseline,
+                {f: real_to_synth.get(f, f) for f in root_sources.snapshot.files},
+                include_orphans=(
+                    partition.carries_orphan_baseline_entries
+                    and _has_flag(pyrefly.args, _ERROR_STALE_BASELINE)
+                ),
+            )
             baseline_args = [f"--baseline={pyrefly.baseline}"]
         else:
             logger.warning(
                 softwrap(
                     f"""
                     `[pyrefly].baseline` is set to `{pyrefly.baseline}`, but that file does not
-                    exist. Run `pants pyrefly-update-baseline` to create it; checking without a
+                    exist. Run `pants pyrefly-update-baseline ::` to create it; checking without a
                     baseline for now.
                     """
                 )
@@ -529,9 +732,29 @@ async def _setup_pyrefly_process(
     # Pass the files to check via an argfile rather than argv, so we never hit OS command-line
     # length limits on targets with many files (Pyrefly reads `@<file>`, like other clap CLIs).
     file_list_path = "__pyrefly_files.txt"
-    file_list_digest = await create_digest(
-        CreateDigest([FileContent(file_list_path, "\n".join(reported_files).encode())])
-    )
+    generated_files = [FileContent(file_list_path, "\n".join(reported_files).encode())]
+
+    # Pin one config for every file Pyrefly loads, as `pyrefly check` does in project mode and as
+    # Pyrefly's own Bazel and Buck integrations do. Passing files explicitly otherwise makes Pyrefly
+    # search upward from each file for its own config, and third-party files live in the
+    # `pex_root` named cache outside the sandbox: they would get whatever config sits above that
+    # cache, or one migrated from a `mypy.ini` a wheel ships, instead of the project's. An explicit
+    # or discovered config is materialized into the input digest below; with neither, we generate
+    # the config Pyrefly falls back to. A config the user passes in `[pyrefly].args` wins instead
+    # (Pyrefly rejects a repeated `--config`), but those args only reach `check`.
+    config_path: str | None = None
+    if not (is_check and _has_config_flag(pyrefly.args)):
+        config_path = pyrefly.config or _discovered_config(config_file_snapshot.snapshot.files)
+        if config_path == "pyproject.toml" and not pyrefly.config:
+            contents = await get_digest_contents(config_file_snapshot.snapshot.digest)
+            if not any(
+                fc.path == config_path and _has_pyrefly_table(fc.content) for fc in contents
+            ):
+                config_path = None
+        if not config_path:
+            config_path = _GENERATED_CONFIG
+            generated_files.append(FileContent(_GENERATED_CONFIG, _GENERATED_CONFIG_CONTENT))
+    generated_digest = await create_digest(CreateDigest(generated_files))
 
     input_digest = await merge_digests(
         MergeDigests(
@@ -539,7 +762,7 @@ async def _setup_pyrefly_process(
                 *source_digests,
                 config_file_snapshot.snapshot.digest,
                 requirements_venv_pex.digest,
-                file_list_digest,
+                generated_digest,
                 baseline_digest,
             )
         )
@@ -560,10 +783,9 @@ async def _setup_pyrefly_process(
     argv.append(f"--python-interpreter-path={requirements_venv_pex.python.argv0}")
     if python_version:
         argv.append(f"--python-version={python_version}")
-    # An explicitly-configured config file. Discovered configs are found by Pyrefly itself
-    # relative to the sandbox cwd; both are materialized into the input digest above.
-    if pyrefly.config:
-        argv.append(f"--config={pyrefly.config}")
+    # The one config every file uses (see above).
+    if config_path:
+        argv.append(f"--config={config_path}")
     if is_check:
         # `check`-only flags; `coverage report`/`check` do not accept these.
         if pyrefly.output_format:
@@ -572,8 +794,14 @@ async def _setup_pyrefly_process(
             argv.append(f"--min-severity={pyrefly.min_severity}")
         argv.extend(f"--only={error_kind}" for error_kind in pyrefly.only)
         argv.extend(baseline_args)
-        # User-provided args (can override any of the above).
-        argv.extend(pyrefly.args)
+        # User-provided args (can override any of the above). `--error-stale-baseline` is a gate
+        # for `pants check`; Pyrefly rejects it alongside `--update-baseline`, so drop it when
+        # regenerating rather than make `pyrefly-update-baseline` unusable for users who set it.
+        argv.extend(
+            arg
+            for arg in pyrefly.args
+            if not (update_baseline and _is_flag(arg, _ERROR_STALE_BASELINE))
+        )
     # Subcommand-specific flags (e.g. `suppress --remove-unused`), for non-`check` subcommands.
     argv.extend(subcommand_args)
     # The files to report on, passed via the argfile created above.
@@ -583,7 +811,10 @@ async def _setup_pyrefly_process(
         argv=tuple(argv),
         input_digest=input_digest,
         immutable_input_digests={tool_key: downloaded_pyrefly.digest},
-        append_only_caches=requirements_venv_pex.append_only_caches or {},
+        append_only_caches={
+            **pex_environment.in_sandbox(working_directory=None).append_only_caches,
+            **(requirements_venv_pex.append_only_caches or {}),
+        },
         output_files=output_files,
         description=f"Run Pyrefly on {pluralize(len(root_sources.snapshot.files), 'file')}.",
         level=LogLevel.DEBUG,
@@ -609,8 +840,8 @@ async def pyrefly_typecheck_partition(
         platform,
         python_setup,
         update_baseline=False,
-        # `default_process_cache_scope` (which honors `--force`) exists on Pants >= 2.30;
-        # on 2.27 fall back to the normal "cache successful runs" scope.
+        # `default_process_cache_scope` (which honors `--force`) exists on Pants >= 2.32;
+        # on older versions fall back to the normal "cache successful runs" scope.
         cache_scope=getattr(
             check_subsystem, "default_process_cache_scope", ProcessCacheScope.SUCCESSFUL
         ),
@@ -630,15 +861,17 @@ async def pyrefly_typecheck_partition(
         )
     if invocation.synth_root_to_real:
         # Pyrefly reported synthetic re-staged paths (`__pyrefly_root_<n>/…`); translate diagnostics
-        # back to real repo paths before surfacing them to the user.
+        # back to real repo paths before surfacing them to the user. Also point Pyrefly's stale-
+        # baseline hint at the goal that works under Pants (see `validate_pyrefly_args`).
+
+        def rewrite(output: bytes) -> bytes:
+            text = _remap_text(output.decode(errors="replace"), invocation.synth_root_to_real)
+            return text.replace(_PYREFLY_PRUNE_HINT, _PANTS_PRUNE_HINT).encode()
+
         process_result = replace(
             process_result,
-            stdout=_remap_text(
-                process_result.stdout.decode(errors="replace"), invocation.synth_root_to_real
-            ).encode(),
-            stderr=_remap_text(
-                process_result.stderr.decode(errors="replace"), invocation.synth_root_to_real
-            ).encode(),
+            stdout=rewrite(process_result.stdout),
+            stderr=rewrite(process_result.stderr),
         )
     return CheckResult.from_fallible_process_result(
         process_result,
@@ -650,6 +883,7 @@ async def pyrefly_typecheck_partition(
 async def pyrefly_typecheck(request: PyreflyRequest, pyrefly: Pyrefly) -> CheckResults:
     if pyrefly.skip:
         return CheckResults([], checker_name=request.tool_name)
+    validate_pyrefly_args(pyrefly)
 
     partitions = await pyrefly_determine_partitions(request, **implicitly())
     partitioned_results = await concurrently(

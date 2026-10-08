@@ -14,14 +14,23 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
+from __future__ import annotations
+
 import time
+from collections.abc import Callable
 
 from .errors import CompletionCodeError, RetryError
 from .utils import check_completion_code, ByteBuffer
-from .msgs import constants
+from .msgs import constants, Message
 
 
-def get_sdr_chunk_helper(send_fn, req, reserve_fn, retry=5):
+# bytes per read request (Get SDR, Read FRU Data), like ipmitool
+DEFAULT_READ_LENGTH = 32
+
+
+def get_sdr_chunk_helper(send_fn: Callable[[Message], Message], req: Message,
+                         reserve_fn: Callable[[], int],
+                         retry: int = 5) -> Message:
 
     while True:
         retry -= 1
@@ -46,7 +55,32 @@ def get_sdr_chunk_helper(send_fn, req, reserve_fn, retry=5):
     return rsp
 
 
-def get_sdr_data_helper(reserve_fn, get_fn, record_id, reservation_id=None):
+class ReadLength:
+    """Number of bytes requested per read command (Get SDR, Read FRU Data).
+
+    Starts with `DEFAULT_READ_LENGTH` and is reduced if the device cannot
+    return that many bytes. Use the same instance for all reads from a device,
+    so the reduced length has to be found only once.
+    """
+
+    def __init__(self, length: int = DEFAULT_READ_LENGTH) -> None:
+        self.length = length
+
+    def reduce(self, failed_length: int, step: int) -> None:
+        """Reduce the length after a request of `failed_length` bytes failed.
+
+        Raises RetryError if no bytes are left.
+        """
+        self.length = min(self.length, failed_length - step)
+        if self.length <= 0:
+            raise RetryError()
+
+
+def get_sdr_data_helper(reserve_fn: Callable[[], int], get_fn: Callable,
+                        record_id: int,
+                        reservation_id: int | None = None,
+                        read_length: ReadLength | None = None
+                        ) -> tuple[int, ByteBuffer]:
     """Helper function to retrieve the sdr data.
 
     A specified helper function is used to retrieve the chunks.
@@ -56,6 +90,8 @@ def get_sdr_data_helper(reserve_fn, get_fn, record_id, reservation_id=None):
     """
     if reservation_id is None:
         reservation_id = reserve_fn()
+    if read_length is None:
+        read_length = ReadLength()
 
     (next_id, data) = get_fn(reservation_id, record_id, 0, 5)
 
@@ -68,7 +104,6 @@ def get_sdr_data_helper(reserve_fn, get_fn, record_id, reservation_id=None):
     record_data = ByteBuffer(data)
 
     offset = len(record_data)
-    max_req_len = 20
     retry = 20
 
     # now get the other record data
@@ -77,20 +112,16 @@ def get_sdr_data_helper(reserve_fn, get_fn, record_id, reservation_id=None):
         if retry == 0:
             raise RetryError()
 
-        length = max_req_len
-        if (offset + length) > record_length:
-            length = record_length - offset
+        length = min(read_length.length, record_length - offset)
 
         try:
             (next_id, data) = get_fn(reservation_id, record_id, offset, length)
         except CompletionCodeError as e:
-            if e.cc == constants.CC_CANT_RET_NUM_REQ_BYTES:
-                # reduce max length
-                max_req_len -= 4
-                if max_req_len <= 0:
-                    retry = 0
-            else:
-                raise CompletionCodeError(e.cc)
+            if e.cc != constants.CC_CANT_RET_NUM_REQ_BYTES:
+                raise CompletionCodeError(e.cc) from e
+            # reduce the length and retry this chunk
+            read_length.reduce(length, 4)
+            continue
 
         record_data.extend(data[:])
         offset = len(record_data)
@@ -100,7 +131,8 @@ def get_sdr_data_helper(reserve_fn, get_fn, record_id, reservation_id=None):
     return (next_id, record_data)
 
 
-def _clear_repository(reserve_fn, clear_fn, ctrl, retry, reservation):
+def _clear_repository(reserve_fn: Callable[[], int], clear_fn: Callable,
+                      ctrl: int, retry: int, reservation: int) -> int:
     while True:
         retry -= 1
         if retry <= 0:
@@ -124,7 +156,9 @@ def _clear_repository(reserve_fn, clear_fn, ctrl, retry, reservation):
     return reservation
 
 
-def clear_repository_helper(reserve_fn, clear_fn, retry=5, reservation=None):
+def clear_repository_helper(reserve_fn: Callable[[], int], clear_fn: Callable,
+                            retry: int = 5,
+                            reservation: int | None = None) -> None:
     """Helper function to start repository erasure and wait until finish.
 
     This helper is used by clear_sel and clear_sdr_repository.

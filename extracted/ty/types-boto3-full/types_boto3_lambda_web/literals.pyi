@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_lambda_web.literals import ApplicationLogLevelType
+    from types_boto3_lambda_web.literals import LambdaWebServiceName
 
-    data: ApplicationLogLevelType = "DEBUG"
+    data: LambdaWebServiceName = "lambda-web"
     ```
 """
 
@@ -21,51 +21,8 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Literal
 
-__all__ = (
-    "ApplicationLogLevelType",
-    "AuthTypeType",
-    "AutoDeploymentModeType",
-    "EndpointStateType",
-    "EndpointTypeType",
-    "EndpointUpdateStatusType",
-    "FunctionStateType",
-    "LambdaWebServiceName",
-    "ListWebFunctionEndpointsPaginatorName",
-    "ListWebFunctionRevisionsPaginatorName",
-    "ListWebFunctionsPaginatorName",
-    "PaginatorName",
-    "RegionName",
-    "ResourceServiceName",
-    "RevisionStateType",
-    "ServiceName",
-    "SystemLogLevelType",
-    "WaiterName",
-    "WebFunctionActiveWaiterName",
-    "WebFunctionDeletedWaiterName",
-    "WebFunctionEndpointActiveWaiterName",
-    "WebFunctionEndpointDeletedWaiterName",
-    "WebFunctionEndpointUpdatedWaiterName",
-    "WebFunctionRevisionActiveWaiterName",
-)
+__all__ = ("LambdaWebServiceName", "RegionName", "ResourceServiceName", "ServiceName")
 
-ApplicationLogLevelType = Literal["DEBUG", "ERROR", "FATAL", "INFO", "TRACE", "WARN"]
-AuthTypeType = Literal["ApplicationManaged", "IamAuth"]
-AutoDeploymentModeType = Literal["Disabled", "LatestRevision"]
-EndpointStateType = Literal["Active", "Deleting", "Failed", "Pending"]
-EndpointTypeType = Literal["HomeRegion", "MultiRegion", "PerRegion"]
-EndpointUpdateStatusType = Literal["Failed", "InProgress", "Successful"]
-FunctionStateType = Literal["Active", "Deleting", "Failed", "Pending"]
-ListWebFunctionEndpointsPaginatorName = Literal["list_web_function_endpoints"]
-ListWebFunctionRevisionsPaginatorName = Literal["list_web_function_revisions"]
-ListWebFunctionsPaginatorName = Literal["list_web_functions"]
-RevisionStateType = Literal["Active", "Failed", "Pending"]
-SystemLogLevelType = Literal["DEBUG", "INFO", "WARN"]
-WebFunctionActiveWaiterName = Literal["web_function_active"]
-WebFunctionDeletedWaiterName = Literal["web_function_deleted"]
-WebFunctionEndpointActiveWaiterName = Literal["web_function_endpoint_active"]
-WebFunctionEndpointDeletedWaiterName = Literal["web_function_endpoint_deleted"]
-WebFunctionEndpointUpdatedWaiterName = Literal["web_function_endpoint_updated"]
-WebFunctionRevisionActiveWaiterName = Literal["web_function_revision_active"]
 LambdaWebServiceName = Literal["lambda-web"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -506,17 +463,6 @@ ServiceName = Literal[
 ]
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
-]
-PaginatorName = Literal[
-    "list_web_function_endpoints", "list_web_function_revisions", "list_web_functions"
-]
-WaiterName = Literal[
-    "web_function_active",
-    "web_function_deleted",
-    "web_function_endpoint_active",
-    "web_function_endpoint_deleted",
-    "web_function_endpoint_updated",
-    "web_function_revision_active",
 ]
 RegionName = Literal[
     "af-south-1",

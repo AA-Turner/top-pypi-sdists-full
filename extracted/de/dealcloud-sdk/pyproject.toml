@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dealcloud_sdk"
-version = "0.1.9"
+version = "0.1.10"
 description = "DealCloud SDK is a wrapper around the DealCloud API, designed to assist clients and partners to build on top of our platform quickly and easily."
 authors = ["Intapp <support@dealcloud.com>"]
 readme = "README.md"

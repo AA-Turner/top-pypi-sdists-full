@@ -117,11 +117,11 @@ def _clean_seams():
 def test_only_the_failing_tool_is_removed_and_the_run_keeps_the_rest():
     """The 2026-09-20 defect verbatim: 8 failures on one tool used to empty
     ``config.tools`` AND ``config.custom_tools``."""
-    history = _history([("dataset", False)] * 8 + [("search", True)] * 0)
-    config = _config(["dataset", "search", "memory"], custom=["browser_dom"])
+    history = _history([("table", False)] * 8 + [("search", True)] * 0)
+    config = _config(["table", "search", "memory"], custom=["browser_dom"])
 
     failing = failing_tool_from_history(history, window_size=20)
-    assert failing == "dataset"
+    assert failing == "table"
 
     outcome = disable_failing_tool(config, failing)
 
@@ -144,7 +144,7 @@ def test_an_inline_custom_tool_is_removed_by_name_and_only_it():
 def test_the_only_tool_is_still_a_pause_not_a_toolless_pretence():
     """When the failing tool WAS the whole belt there is no 'carry on with the
     rest' — the caller must keep the pause-for-a-human path."""
-    outcome = disable_failing_tool(_config(["dataset"]), "dataset")
+    outcome = disable_failing_tool(_config(["table"]), "table")
     assert outcome.removed is True
     assert outcome.was_only_tool is True
     assert outcome.remaining_tools == ()
@@ -152,16 +152,16 @@ def test_the_only_tool_is_still_a_pause_not_a_toolless_pretence():
 
 def test_an_already_disabled_tool_is_never_blamed_twice():
     """Its failures stay in the window; re-choosing it would trip forever."""
-    history = _history([("dataset", False)] * 8)
-    assert failing_tool_from_history(history, window_size=20, exclude=("dataset",)) is None
+    history = _history([("table", False)] * 8)
+    assert failing_tool_from_history(history, window_size=20, exclude=("table",)) is None
 
 
 def test_the_assistant_is_told_which_tool_left_and_why():
     """A control that vanished without a word is the dead screen the platform
     forbids."""
-    outcome = disable_failing_tool(_config(["dataset", "search"]), "dataset")
+    outcome = disable_failing_tool(_config(["table", "search"]), "table")
     note = disabled_tool_notice(outcome, reason="it failed 8 time(s) in this run")
-    assert "dataset" in note
+    assert "table" in note
     assert "search" in note
     assert "failed 8" in note
 
@@ -194,7 +194,7 @@ async def test_thresholds_come_from_the_settings_door_and_govern_the_verdict():
     assert limits.standoff_decision_confidence == 0.9
 
     # 10 failures: stuck at the package default of 8, healthy at the org's 12.
-    history = _history([("dataset", False)] * 10)
+    history = _history([("table", False)] * 10)
     assert evaluate_loop_health(history).verdict == "stuck"
     assert evaluate_loop_health(history, thresholds=limits).verdict == "healthy"
 
@@ -238,13 +238,13 @@ async def test_no_holder_bound_falls_back_to_disabling_only_this_tool(caplog):
         return None  # exactly what the host returns for an unfulfilled mandate
 
     _ext.configure_ext(tool_failure_standoff_decider=decider)
-    verdict = await decide_tool_standoff({"tool_name": "dataset"})
+    verdict = await decide_tool_standoff({"tool_name": "table"})
 
     assert verdict.action == "disable_this_tool"
     assert verdict.source == "fallback"
     out = _warnings(caplog)
     assert STANDOFF_MANDATE_KEY in out
-    assert "dataset" in out
+    assert "table" in out
 
 
 @pytest.mark.asyncio
@@ -261,7 +261,7 @@ async def test_a_decider_that_raises_falls_back_rather_than_killing_the_run(capl
         raise RuntimeError("model unavailable")
 
     _ext.configure_ext(tool_failure_standoff_decider=decider)
-    verdict = await decide_tool_standoff({"tool_name": "dataset"})
+    verdict = await decide_tool_standoff({"tool_name": "table"})
     assert verdict.source == "fallback"
     assert STANDOFF_MANDATE_KEY in _warnings(caplog)
 
@@ -305,7 +305,7 @@ async def test_an_under_confident_verdict_falls_back_rather_than_letting_it_run(
 
     _ext.configure_ext(tool_failure_standoff_decider=decider)
     verdict = await decide_tool_standoff(
-        {"tool_name": "dataset"},
+        {"tool_name": "table"},
         thresholds=LoopGuardThresholds(standoff_decision_confidence=0.7),
     )
     assert verdict.action == "disable_this_tool"
@@ -363,7 +363,7 @@ def test_identical_repeats_are_a_fact_not_an_impression():
     """20.3% of adjacent same-tool failures ARE byte-identical; the fingerprints
     let a verdict confirm that instead of eyeballing prose."""
     same = {
-        "name": "dataset",
+        "name": "table",
         "call_id": "c",
         "success": False,
         "arguments": {"id": "x"},
@@ -373,7 +373,7 @@ def test_identical_repeats_are_a_fact_not_an_impression():
         ToolCallUsage(iteration=1, tool_calls_count=2, tool_calls_details=[same, dict(same)])
     ]
     provision = build_standoff_provision(
-        history, tool_name="dataset", health=evaluate_loop_health(history)
+        history, tool_name="table", health=evaluate_loop_health(history)
     )
     prints = provision["arguments_fingerprints"]
     assert len(prints) == 2
@@ -381,9 +381,9 @@ def test_identical_repeats_are_a_fact_not_an_impression():
 
 
 def test_adapting_arguments_do_not_look_like_a_repeat():
-    history = _history([("dataset", False), ("dataset", False)])
+    history = _history([("table", False), ("table", False)])
     provision = build_standoff_provision(
-        history, tool_name="dataset", health=evaluate_loop_health(history)
+        history, tool_name="table", health=evaluate_loop_health(history)
     )
     prints = provision["arguments_fingerprints"]
     assert prints[0] != prints[1]

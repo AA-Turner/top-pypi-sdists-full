@@ -1,6 +1,6 @@
 [project]
 name = "fraiseql-confiture"
-version = "1.30.0"
+version = "1.31.0"
 description = "PostgreSQL migrations, sweetly done: build from DDL, migrate, preflight, sync 🍓"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -389,5 +389,5 @@ invalid-argument-type = "error"
 [dependency-groups]
 dev = [
     "maturin>=1.9.6",
-    "ruff==0.16.9",
+    "ruff==0.16.10",
 ]

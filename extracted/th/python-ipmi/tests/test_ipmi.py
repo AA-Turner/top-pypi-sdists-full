@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 from unittest.mock import MagicMock
 
@@ -42,6 +41,14 @@ def test_target_routing():
     assert target.routing[1].rq_sa == 0x20
     assert target.routing[1].rs_sa == 0x82
     assert target.routing[1].channel == 7
+
+
+def test_target_str():
+    assert str(Target()) == 'Target: IPMB: none\n'
+    target = Target(0x82, routing=[(0x81, 0x20, 0), (0x20, 0x82, None)])
+    assert str(target) == ('Target: IPMB: 0x82\n'
+                           ' Routing: Rq: 129 Rs: 32 Ch: 0\n'
+                           ' Routing: Rq: 32 Rs: 130 Ch: None\n')
 
 
 def test_routing():
@@ -112,6 +119,14 @@ def test_ipmi():
     assert isinstance(ipmi.session, Session)
     assert isinstance(ipmi.session.interface, interfaces.mock.Mock)
     assert isinstance(ipmi.requester, NullRequester)
+
+
+def test_ipmi_default_session_not_shared():
+    ipmi1 = Ipmi(interface=interfaces.create_interface('mock'))
+    ipmi2 = Ipmi(interface=interfaces.create_interface('mock'))
+    assert ipmi1.session is not ipmi2.session
+    assert ipmi1.session.interface is not ipmi2.session.interface
+    assert isinstance(ipmi1.requester, NullRequester)
 
 
 def test_ipmi_with_statemetn():

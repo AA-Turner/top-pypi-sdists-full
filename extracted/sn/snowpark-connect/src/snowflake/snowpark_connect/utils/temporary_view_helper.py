@@ -4,7 +4,7 @@
 import re
 import uuid
 from collections import Counter
-from typing import Optional, Tuple
+from typing import Iterator, Optional, Tuple
 
 from pyspark.errors import AnalysisException
 from pyspark.errors.exceptions.base import TempTableAlreadyExistsException
@@ -103,13 +103,38 @@ def unregister_temp_view(name: str) -> bool:
     return False
 
 
-def get_temp_view(name: str) -> Optional[DataFrameContainer]:
+def _matching_temp_view_keys(name: str) -> Iterator[Tuple[str, str, bool]]:
+    """Yield ``_temp_views`` keys in the current Spark session whose view name
+    matches *name*.
+
+    Callers pass a Snowflake-formatted name (quoted per part, as stored at
+    registration -- e.g. the ``sf_name`` used for read-back), so ``_normalize``
+    only needs to fold case: the same per-part quoting on both sides makes
+    ``"global_temp"."tv"`` match and a bare ``"TV"`` match ``"tv"``.
+    """
     normalized_name = _normalize(name)
+    current_session_id = get_spark_session_id()
     for key in _temp_views.keys():
-        normalized_key = _normalize(key[0])
-        if normalized_name == normalized_key and key[1] == get_spark_session_id():
-            return _temp_views.get(key)
+        if _normalize(key[0]) == normalized_name and key[1] == current_session_id:
+            yield key
+
+
+def get_temp_view(name: str) -> Optional[DataFrameContainer]:
+    for key in _matching_temp_view_keys(name):
+        return _temp_views.get(key)
     return None
+
+
+def is_registered_temp_view(name: str) -> bool:
+    """Return True if *name* resolves to a temporary view registered in the
+    current Spark session.
+
+    Unlike ``get_temp_view``, this tests key presence rather than the cached
+    value, so it also returns True for views materialized in Snowflake
+    (``create_in_snowflake``), whose cached DataFrame is ``None``. Pass the
+    Snowflake-formatted ``sf_name`` (matching how the view was registered).
+    """
+    return next(_matching_temp_view_keys(name), None) is not None
 
 
 def get_temp_view_normalized_names(
@@ -128,14 +153,7 @@ def _normalize(name: str) -> str:
 
 
 def _is_temp_view_created_in_snowflake(name: str) -> bool:
-    normalized_name = _normalize(name)
-    current_session_id = get_spark_session_id()
-    return any(
-        _normalize(key[0]) == normalized_name
-        and key[1] == current_session_id
-        and key[2]
-        for key in _temp_views.keys()
-    )
+    return any(key[2] for key in _matching_temp_view_keys(name))
 
 
 def assert_snowflake_view_does_not_exist_in_cache(name: str, replace: bool):

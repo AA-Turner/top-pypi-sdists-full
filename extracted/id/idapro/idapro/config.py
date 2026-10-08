@@ -9,7 +9,9 @@ def get_user_config_path():
 
     idausr_env = os.getenv("IDAUSR")
     if idausr_env:
-        config_dir = Path(idausr_env)
+        # IDAUSR is a platform-separated search path. IDA's writable user
+        # directory, and therefore ida-config.json, live in its first entry.
+        config_dir = Path(idausr_env.split(os.pathsep, 1)[0])
     else:
         if system == "Windows":
             # On Windows, use the %APPDATA%\Hex-Rays\IDA Pro directory

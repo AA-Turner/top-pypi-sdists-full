@@ -6,7 +6,7 @@ import asyncio
 import concurrent.futures
 import datetime
 from functools import partial
-from collections.abc import Callable, Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 import json as _json
 import logging
@@ -18,6 +18,7 @@ import tempfile
 import time
 import uuid
 import warnings
+import weakref
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request as _UrlRequest
@@ -39,6 +40,7 @@ from river_client.images import (
     image_handles,
     map_images,
 )
+from river_client import _run_metrics
 from river_client.sampling import PendingSamplingBatch, submit_batch
 from river_client.tokenizers import load_tokenizer
 from river_client.types import (
@@ -1230,6 +1232,13 @@ class Model:
         self._tokenizer = tokenizer
         self._step = 0
         self._seq_id = 0
+        # Metrics belong to this process, and `_river/runtime` counts from
+        # here even when the first metric is logged later.
+        self._created_pid = os.getpid()
+        self._created_at = time.time()
+        self._created_monotonic = time.monotonic()
+        self._metrics: _run_metrics._RunMetrics | None = None
+        self._metrics_lock = threading.Lock()
 
     def __repr__(self) -> str:
         return (
@@ -1258,6 +1267,62 @@ class Model:
         a failed or timed-out optimizer step leaves it advanced.
         """
         return self._step
+
+    def define_metric(
+        self,
+        name: str,
+        *,
+        step_metric: str | None = None,
+        hidden: bool | None = None,
+    ) -> None:
+        """Set River Console chart defaults for metrics matching ``name``.
+
+        ``name`` is an exact metric name, ``*``, or a prefix ending in ``*``
+        such as ``"train/*"``. An exact name wins over patterns, then the
+        longest matching prefix. Calling again for the same ``name`` updates
+        only the options passed. ``step_metric`` names another logged value,
+        or ``_river/timestamp`` / ``_river/runtime``, to use as the x axis.
+        ``hidden=True`` leaves matching metrics out of automatic charts.
+
+        The latest definitions apply to the run's whole history; they never
+        change recorded values.
+        """
+        self._get_metrics().define_metric(name, step_metric=step_metric, hidden=hidden)
+
+    def log(self, data: Mapping[str, float]) -> None:
+        """Record one observation of scalar metrics for this model's training run.
+
+        ``data`` maps metric names to finite numbers. Put every related value,
+        including custom coordinates, in one call: values are never carried
+        over from earlier calls, and :attr:`step` is never read. Invalid data
+        raises immediately. The observation is buffered and delivered to
+        River Console in the background; session exit waits for delivery.
+        """
+        self._get_metrics().log(data)
+
+    def _get_metrics(self) -> _run_metrics._RunMetrics:
+        """This model's metrics writer, created on first use."""
+        if self._metrics is not None:
+            return self._metrics
+        writer = _run_metrics._RunMetrics(
+            training_run_id=self._training_run_id,
+            api_key=self._session._client._api_key,
+            user_agent=_CLIENT_IDENTIFIER,
+            owner_pid=self._created_pid,
+            started_at=self._created_at,
+            started_monotonic=self._created_monotonic,
+        )
+        if os.getpid() != self._created_pid:
+            # A forked child never touches the parent's locks; the writer
+            # skips every call, so it is not registered for draining.
+            self._metrics = writer
+            return writer
+        with self._metrics_lock:
+            if self._metrics is None:
+                self._session._metric_writers.append(writer)
+                self._session._client._register_metric_writer(writer)
+                self._metrics = writer
+            return self._metrics
 
     def get_server_capabilities(self) -> ServerCapabilities:
         """Read the endpoint's public protocol support (used by RL preflight)."""
@@ -2437,6 +2502,8 @@ class Session:
         self._heartbeat_last_success = time.monotonic()
         self._heartbeat_last_error: SessionHeartbeatError | None = None
         self._models: list[Model] = []
+        # Kept after models unload so session exit can deliver their metrics.
+        self._metric_writers: list[_run_metrics._RunMetrics] = []
         self._model_seq_id = 0
         self._sampling_capability_lock = threading.Lock()
         self._sampling_capability_stub = None
@@ -2694,6 +2761,10 @@ class Session:
             raise SessionHeartbeatError(
                 "Session heartbeat did not stop before cleanup completed"
             )
+
+    def _drain_metrics(self) -> None:
+        """Deliver metrics this session's models buffered; never raises."""
+        _run_metrics.drain(list(self._metric_writers))
 
     def _unload_all_models(self) -> None:
         """Unload all models created in this session."""
@@ -4359,6 +4430,8 @@ class SessionContext:
             self._session._close_images()
         except BaseException as error:
             cleanup_errors.append(error)
+        # Last, so metrics never delay model cleanup.
+        self._session._drain_metrics()
         if not cleanup_errors and self._on_session_closed is not None:
             try:
                 self._on_session_closed()
@@ -4452,6 +4525,10 @@ class Client:
         self._heartbeat_stub: pb2_grpc.RiverServiceStub | None = None
         self._upload_channels: list[grpc.Channel] = []
         self._upload_stubs: list[pb2_grpc.RiverServiceStub] = []
+        self._metric_writers: weakref.WeakSet[_run_metrics._RunMetrics] = (
+            weakref.WeakSet()
+        )
+        self._metric_writers_lock = threading.Lock()
         self._chunked_upload_unsupported = False
         self._image_uploads = ImageUploads(self, image_upload_concurrency)
         self._image_cache = tempfile.TemporaryDirectory(prefix="river-images-")
@@ -5522,7 +5599,10 @@ class Client:
         )
 
     def close(self) -> None:
-        """Close connections after any started image uploads finish."""
+        """Close connections after any started image uploads finish.
+
+        Then delivers metrics that models still buffer, for up to 30 seconds.
+        """
         self._image_uploads.close()
         self._image_cache.cleanup()
         if self._session_channel is not None:
@@ -5538,6 +5618,14 @@ class Client:
         self._upload_channels = []
         self._upload_stubs = []
         self._reset_heartbeat_channel()
+        with self._metric_writers_lock:
+            writers = list(self._metric_writers)
+        _run_metrics.drain(writers)
+
+    def _register_metric_writer(self, writer: _run_metrics._RunMetrics) -> None:
+        """Track a model's metrics writer so ``close()`` can deliver its metrics."""
+        with self._metric_writers_lock:
+            self._metric_writers.add(writer)
 
 
 def _submit_independent_samples(session, *args, **kwargs):

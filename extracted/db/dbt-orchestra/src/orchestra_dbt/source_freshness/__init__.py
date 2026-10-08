@@ -1,10 +1,10 @@
 import threading
-from datetime import datetime
+from datetime import UTC, datetime
 
-from ..compatibility import dbt_core_import_error_message
+from ..compatibility import dbt_core_import_error_message, release_connections
 from ..logger import log_error, log_info, log_warn
 from ..models import SourceFreshness
-from ..target_finder import find_target_in_args
+from ..target_finder import find_flag_value, find_target_in_args
 from ..utils import load_json
 from .fallbacks.registry import FALLBACK_BY_ADAPTER_TYPE, loaded_at_fields_unset
 
@@ -30,6 +30,10 @@ def get_args_for_source_freshness(
     target = find_target_in_args(list(user_args))
     if target:
         args.extend(["--target", target])
+    # Otherwise freshness resolves a different profile than the user's run.
+    for flag in ("--profiles-dir", "--profile", "--vars"):
+        if (value := find_flag_value(list(user_args), flag)) is not None:
+            args.extend([flag, value])
     if scope_to_selection and selectors_to_run:
         args.append("--select")
         args.extend(f"+{selector}" for selector in selectors_to_run)
@@ -49,6 +53,7 @@ def get_source_freshness(
     selectors_to_run: list[str] | None = None,
 ) -> SourceFreshness | None:
     try:
+        from dbt.adapters.factory import FACTORY
         from dbt.artifacts.resources.v1.components import FreshnessThreshold
         from dbt.artifacts.schemas.freshness import SourceDefinition
         from dbt.artifacts.schemas.freshness.v3.freshness import (
@@ -61,7 +66,7 @@ def get_source_freshness(
         from dbt_common.exceptions import DbtRuntimeError
     except ImportError as missing_dbt_core_error:
         log_error(dbt_core_import_error_message(missing_dbt_core_error))
-        raise missing_dbt_core_error
+        raise
 
     def default_freshness_result(compiled_node) -> SourceFreshnessResult:
         return SourceFreshnessResult(
@@ -73,8 +78,8 @@ def get_source_freshness(
             message=None,
             failures=None,
             node=compiled_node,
-            max_loaded_at=datetime.now(),
-            snapshotted_at=datetime.now(),
+            max_loaded_at=datetime.now(UTC),
+            snapshotted_at=datetime.now(UTC),
             age=0,
         )
 
@@ -134,3 +139,6 @@ def get_source_freshness(
         )
     except Exception as e:
         log_warn(f"Error running dbt source freshness: {e}")
+    finally:
+        for adapter in FACTORY.adapters.values():
+            release_connections(adapter)

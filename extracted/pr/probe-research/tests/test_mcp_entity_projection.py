@@ -148,6 +148,134 @@ def test_nonshared_artifact_actual_id_resolution_preserves_its_limitation(client
     assert "name" not in record["data"]["record"]
 
 
+class IntentSource(EntitySource):
+    def __init__(self, kind, entity, intent):
+        super().__init__(kind, entity)
+        self._intent = intent
+        self.intent_reads = []
+
+    def intent(self, kind, entity_id):
+        self.intent_reads.append((kind, entity_id))
+        return self._intent
+
+
+_INTENT = {
+    "entity_type": "run", "entity_id": "one", "ask": "now try lr 3e-4 with the same warmup",
+    "ask_truncated": False, "match": "exact", "context": None, "session_goal": "fix the spike",
+    "queued": False, "asked_at": "2026-09-30T14:20:00+00:00", "asked_by": "u-1",
+    "asked_by_name": "Researcher A", "session": "claude_code/s-1", "step_id": 5,
+    "provisional": False,
+}
+
+
+@pytest.mark.parametrize("kind", [EntityType.RUN, EntityType.EXPERIMENT, EntityType.PROJECT])
+def test_cards_carry_the_researchers_ask(kind):
+    source = IntentSource(kind, {"id": "one", "name": "lr-3e-4"}, dict(_INTENT))
+    card = ResearchReadService(source).get_entity(f"{kind}:one")["data"]
+    assert card["intent"]["ask"] == "now try lr 3e-4 with the same warmup"
+    assert card["intent"]["match"] == "exact"
+    assert card["intent"]["asked_by_name"] == "Researcher A"
+    # Internal ids and nulls do not ride the card.
+    assert "asked_by" not in card["intent"] and "context" not in card["intent"]
+    assert source.intent_reads == [(kind, "one")]
+
+
+def test_only_the_card_reads_intent_and_other_kinds_never_do():
+    source = IntentSource(EntityType.RUN, {"id": "one"}, dict(_INTENT))
+    ResearchReadService(source).get_entity("run:one", view=View.RECORD, token_budget=100000)
+    assert source.intent_reads == []
+    artifact = IntentSource(EntityType.ARTIFACT, {"id": "a"}, dict(_INTENT))
+    card = ResearchReadService(artifact).get_entity("artifact:a")["data"]
+    assert "intent" not in card and artifact.intent_reads == []
+
+
+@pytest.mark.parametrize("found", [None, {}, {"ask": ""}, "junk"])
+def test_no_known_ask_leaves_the_card_without_intent(found):
+    card = ResearchReadService(IntentSource(EntityType.RUN, {"id": "one"}, found)).get_entity(
+        "run:one"
+    )["data"]
+    assert "intent" not in card
+
+
+def test_a_source_without_the_intent_read_still_serves_a_card():
+    card = ResearchReadService(EntitySource(EntityType.RUN, {"id": "one"})).get_entity("run:one")
+    assert "intent" not in card["data"]
+
+
+def test_the_intent_read_swallows_transport_errors():
+    calls = []
+
+    def boom(path, **_):
+        calls.append(path)
+        raise errors.NotFoundError("no intent recorded")
+
+    source = ResearchOSSource.__new__(ResearchOSSource)
+    source.client = SimpleNamespace(transport=SimpleNamespace(get=boom))
+    assert source.intent("run", "one") is None
+    assert calls == ["/v1/intent/run/one"]
+
+
+class PageSource(EntitySource):
+    """A source whose Overview page read answers `page` (or raises it)."""
+
+    def __init__(self, kind, entity, page):
+        super().__init__(kind, entity)
+        self._page = page
+        self.page_reads = []
+
+    def project_overview(self, project_id):
+        self.page_reads.append(("project", project_id))
+        if isinstance(self._page, Exception):
+            raise self._page
+        return self._page
+
+    def experiment_overview(self, experiment_id, *, project_id=None):
+        self.page_reads.append(("experiment", experiment_id))
+        if isinstance(self._page, Exception):
+            raise self._page
+        return self._page
+
+
+_PAGE = {"anchor_type": "project", "anchor_id": "one", "content": "fresh", "html": "<p>x</p>",
+         "blurb": "Warmup 500 removed the 7B spike; lr 3e-4 is next.", "version": 3,
+         "saved_page_readable": True}
+
+
+@pytest.mark.parametrize("kind", [EntityType.PROJECT, EntityType.EXPERIMENT])
+def test_project_and_experiment_cards_carry_the_pages_blurb(kind):
+    source = PageSource(kind, {"id": "one", "name": "warmup"}, dict(_PAGE))
+    card = ResearchReadService(source).get_entity(f"{kind}:one")["data"]
+    assert card["blurb"] == "Warmup 500 removed the 7B spike; lr 3e-4 is next."
+    assert source.page_reads == [(str(kind), "one")]
+
+
+def test_a_withheld_page_gives_the_card_no_blurb():
+    """The page is written over the project's whole family; a caller refused it
+    (a project in that family hidden from them) gets no blurb on the card either."""
+    withheld = {**_PAGE, "content": "absent", "saved_page_readable": False}
+    card = ResearchReadService(PageSource(EntityType.PROJECT, {"id": "one"}, withheld)).get_entity(
+        "project:one"
+    )["data"]
+    assert "blurb" not in card
+
+
+@pytest.mark.parametrize("page", [errors.NotFoundError("no page"), RuntimeError("boom"), {"blurb": ""}, {}])
+def test_no_blurb_or_a_failed_page_read_leaves_the_card_as_it_was(page):
+    card = ResearchReadService(PageSource(EntityType.PROJECT, {"id": "one"}, page)).get_entity(
+        "project:one"
+    )["data"]
+    assert "blurb" not in card and card["entity_type"] == EntityType.PROJECT
+
+
+def test_only_project_and_experiment_cards_read_the_page():
+    source = PageSource(EntityType.RUN, {"id": "one"}, dict(_PAGE))
+    card = ResearchReadService(source).get_entity("run:one")["data"]
+    assert "blurb" not in card and source.page_reads == []
+    record = PageSource(EntityType.PROJECT, {"id": "one"}, dict(_PAGE))
+    ResearchReadService(record).get_entity("project:one", view=View.RECORD, token_budget=100000)
+    assert record.page_reads == []
+
+
 def test_artifact_resolution_note_is_bounded_without_losing_the_versions_door():
     source = EntitySource(EntityType.ARTIFACT, {
         "id": "one", "shared": False, "resolution_note": "Metadata unavailable. " * 1000,

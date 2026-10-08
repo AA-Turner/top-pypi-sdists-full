@@ -92,10 +92,21 @@ class _EntryDumper(Dumper):
 
 class _CollectionDumper(Dumper):
     def dump(self, system, writer):
+        self.dump_summary(system, writer)
+        self.dump_mapping(system, writer)
+
+    def dump_summary(self, system, writer):
         with writer.loop("_ihm_entry_collection",
                          ["id", "name", "details"]) as lp:
             for c in system.collections:
                 lp.write(id=c.id, name=c.name, details=c.details)
+
+    def dump_mapping(self, system, writer):
+        with writer.loop("_ihm_entry_collection_mapping",
+                         ["collection_id", "entry_id"]) as lp:
+            for c in system.collections:
+                for eid in (c.entries or [system.id]):
+                    lp.write(collection_id=c.id, entry_id=eid)
 
 
 class _AuditConformDumper(Dumper):
@@ -105,8 +116,8 @@ class _AuditConformDumper(Dumper):
     def dump(self, system, writer):
         with writer.category("_audit_conform") as lp:
             # Update to match the version of the IHM dictionary we support:
-            lp.write(dict_name="mmcif_ihm.dic", dict_version="1.28",
-                     dict_location=self.URL % "44ed2c3")
+            lp.write(dict_name="mmcif_ihm.dic", dict_version="1.29",
+                     dict_location=self.URL % "630553d")
 
 
 class _StructDumper(Dumper):
@@ -908,27 +919,32 @@ class _EntityBranchDumper(Dumper):
 
 class _PolySeqSchemeDumper(Dumper):
     """Output the _pdbx_poly_seq_scheme table.
-       This is needed because it is a parent category of atom_site."""
+       This is needed because it is a parent category of atom_site.
+       This class only outputs PDBx data items (and is also used outside
+       of python-ihm, such as in python-modelcif). For IHMCIF output,
+       use _IHMPolySeqSchemeDumper instead."""
+    _keywords = ["asym_id", "entity_id", "seq_id", "mon_id",
+                 "pdb_seq_num", "auth_seq_num", "pdb_mon_id",
+                 "auth_mon_id", "pdb_strand_id",
+                 "pdb_ins_code"]
+
     def dump(self, system, writer):
-        with writer.loop("_pdbx_poly_seq_scheme",
-                         ["asym_id", "entity_id", "seq_id", "mon_id",
-                          "pdb_seq_num", "auth_seq_num", "pdb_mon_id",
-                          "auth_mon_id", "pdb_strand_id",
-                          "pdb_ins_code"]) as lp:
+        with writer.loop("_pdbx_poly_seq_scheme", self._keywords) as lp:
             for asym in system.asym_units:
                 entity = asym.entity
                 if not entity.is_polymeric():
                     continue
-                for start, end, modeled in self._get_ranges(system, asym):
+                for (start, end, modeled,
+                     model_ids) in self._get_ranges(system, asym):
                     for num in range(start, end + 1):
                         comp = entity.sequence[num - 1]
                         auth_comp_id = comp.id
                         pdb_seq_num, auth_seq_num, ins = \
                             asym._get_pdb_auth_seq_id_ins_code(num)
                         if not modeled:
-                            # If a residue wasn't modeled, PDB convention is
-                            # to state ? for auth_seq_num, pdb_mon_id,
-                            # auth_mon_id.
+                            # If a residue wasn't modeled in any models,
+                            # PDB convention is to state ? for auth_seq_num,
+                            # pdb_mon_id, auth_mon_id.
                             # See, e.g., https://files.rcsb.org/view/8QB4.cif
                             auth_comp_id = ihm.unknown
                             auth_seq_num = ihm.unknown
@@ -942,13 +958,16 @@ class _PolySeqSchemeDumper(Dumper):
                                  pdb_seq_num=pdb_seq_num,
                                  auth_seq_num=auth_seq_num, mon_id=comp.id,
                                  pdb_mon_id=auth_comp_id,
-                                 auth_mon_id=auth_comp_id, pdb_ins_code=ins)
+                                 auth_mon_id=auth_comp_id, pdb_ins_code=ins,
+                                 ihm_model_id_list=model_ids)
 
     def _get_ranges(self, system, asym):
-        """Get a list of (seq_id_begin, seq_id_end, modeled) residue ranges
-           for the given asym. The list is guaranteed to be sorted and to cover
-           all residues in the asym. `modeled` is True if no Model has any
-           residue in that range in a NotModeledResidueRange."""
+        """Get a list of (seq_id_begin, seq_id_end, modeled, model_ids)
+           residue ranges for the given asym. The list is guaranteed to be
+           sorted and to cover all residues in the asym. `model_ids` is a list
+           of all Models (as a comma-separated string of model IDs) that have
+           no residue in that range in a NotModeledResidueRange, or None if
+           the residues are not modeled in any Model."""
         _all_modeled = []
         num_models = 0
         for group, model in system._all_models():
@@ -964,14 +983,20 @@ class _PolySeqSchemeDumper(Dumper):
                 (rr.seq_id_begin, rr.seq_id_end)
                 for rr in ranges if rr.asym_unit is asym)
             # Invert to get a list of modeled ranges for this model
-            _all_modeled.extend(util._invert_ranges(_all_not_modeled,
-                                                    len(asym.entity.sequence)))
-        # If no models, there are no "not modeled residues", so say everything
-        # was modeled
+            for rng in util._invert_ranges(_all_not_modeled,
+                                           len(asym.entity.sequence)):
+                _all_modeled.append((rng[0], rng[1], model._id))
+        # If no models, there are no explicitly "not modeled residues",
+        # so say everything was modeled (even though there are no model IDs)
         if num_models == 0:
-            _all_modeled = [(1, len(asym.entity.sequence))]
-        return util._pred_ranges(util._combine_ranges(_all_modeled),
-                                 len(asym.entity.sequence))
+            return [(1, len(asym.entity.sequence), True, None)]
+        return util._pred_id_ranges(util._combine_id_ranges(_all_modeled),
+                                    len(asym.entity.sequence))
+
+
+class _IHMPolySeqSchemeDumper(_PolySeqSchemeDumper):
+    """Output the _pdbx_poly_seq_scheme table."""
+    _keywords = _PolySeqSchemeDumper._keywords + ["ihm_model_id_list"]
 
 
 class _NonPolySchemeDumper(Dumper):
@@ -2610,6 +2635,10 @@ class _CrossLinkDumper(Dumper):
                 if self._check:
                     util._check_residue(xl.residue1)
                     util._check_residue(xl.residue2)
+                if hasattr(r, '_force_other'):
+                    linker_type = 'Other'
+                else:
+                    linker_type = r.linker.auth_name
                 lp.write(id=xl._id, group_id=xl._group_id,
                          entity_description_1=entity1.description,
                          entity_id_1=entity1._id,
@@ -2620,7 +2649,7 @@ class _CrossLinkDumper(Dumper):
                          seq_id_2=xl.residue2.seq_id,
                          comp_id_2=_get_comp_id(entity2, xl.residue2.seq_id),
                          linker_chem_comp_descriptor_id=r.linker._id,
-                         linker_type=r.linker.auth_name,
+                         linker_type=linker_type,
                          dataset_list_id=r.dataset._id,
                          details=xl.details)
 
@@ -4231,7 +4260,7 @@ class IHMVariant(Variant):
         _EntitySrcNatDumper, _EntitySrcSynDumper, _StructRefDumper,
         _EntityPolyDumper, _EntityNonPolyDumper, _EntityPolySeqDumper,
         _EntityPolySegmentDumper, _EntityBranchListDumper, _EntityBranchDumper,
-        _StructAsymDumper, _PolySeqSchemeDumper,
+        _StructAsymDumper, _IHMPolySeqSchemeDumper,
         _NonPolySchemeDumper, _BranchSchemeDumper, _BranchDescriptorDumper,
         _BranchLinkDumper, _AssemblyDumper, _ExternalReferenceDumper,
         _DatasetDumper, _ModelRepresentationDumper, _StartingModelDumper,

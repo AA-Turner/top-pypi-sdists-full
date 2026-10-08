@@ -810,6 +810,61 @@ class Client:
             empty_response=True,
         )
 
+    def list_query_runner_keys(
+        self,
+        pool_id: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> Any:
+        return self._api_call(
+            "query_runner_keys",
+            pool_id=pool_id,
+            limit=limit,
+            offset=offset,
+            method="GET",
+        )
+
+    def get_query_runner_key(self, query_runner_key_id: str) -> Any:
+        return self._api_call(f"query_runner_keys/{query_runner_key_id}", method="GET")
+
+    def create_query_runner_key(
+        self,
+        name: str,
+        pool_id: str | None = None,
+        expires: str | NotSet | None = NOT_SET,
+    ) -> Any:
+        """Issue a Query Runner key. The response holds the full key, once.
+
+        `expires` is an ISO 8601 datetime. Leave it unset for the deployment's
+        default expiration, or pass None for a key that never expires.
+        """
+        kwargs: dict[str, Any] = {"name": name, "pool_id": pool_id}
+        if expires is not NOT_SET:
+            kwargs["expires"] = expires
+        return self._api_call("query_runner_keys", method="POST", **kwargs)
+
+    def rotate_query_runner_key(
+        self, query_runner_key_id: str, expires: str | NotSet | None = NOT_SET
+    ) -> Any:
+        """Issue a replacement key with the same name and pool.
+
+        The old key keeps working until it is revoked with
+        `revoke_query_runner_key`.
+        """
+        kwargs: dict[str, Any] = {}
+        if expires is not NOT_SET:
+            kwargs["expires"] = expires
+        return self._api_call(
+            f"query_runner_keys/{query_runner_key_id}/rotate", method="POST", **kwargs
+        )
+
+    def revoke_query_runner_key(self, query_runner_key_id: str) -> None:
+        self._api_call(
+            f"query_runner_keys/{query_runner_key_id}",
+            method="DELETE",
+            empty_response=True,
+        )
+
     def add_table_lineage_edge(
         self,
         *,

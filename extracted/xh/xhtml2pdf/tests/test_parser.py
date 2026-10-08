@@ -27,6 +27,8 @@ from xhtml2pdf.properties import (
     PROPERTY_NAMES,
     SUPPORTED_PROPERTIES,
     CSSAttrs,
+    compact_frag,
+    reset_non_inherited,
 )
 
 #: The two literal blocks in the reference documentation that list properties.
@@ -181,7 +183,8 @@ class CSSFunctionValueTest(TestCase):
             "list-style-image: linear-gradient()",
         ),
         ("color", "color: hsl(120, 50%, 50%)", "color: hsl()"),
-        ("color", "color: var(--brand, #000)", "color: var()"),
+        # var() is substituted now; what it leaves is judged like any value.
+        ("width", "width: calc(var(--w, 10pt) + 2pt)", "width: calc()"),
         ("width", "width: min(100pt, 50%)", "width: min()"),
         ("margin-left", "margin-left: clamp(1pt, 2pt, 3pt)", "margin-left: clamp()"),
     )
@@ -510,12 +513,60 @@ class CSSAttrCacheTest(TestCase):
         document that filled them.
         """
         first, second = pisaContext("."), pisaContext(".")
-        pisaParser(b"<p>one</p>", first)
-        pisaParser(b"<p>two</p>", second)
+        self.assertIsNot(first.cssAttrCache, second.cssAttrCache)
 
-        self.assertTrue(first.cssAttrCache)
-        self.assertTrue(second.cssAttrCache)
-        self.assertFalse(set(first.cssAttrCache) & set(second.cssAttrCache))
+    def test_the_walk_lets_go_of_the_document(self) -> None:
+        """
+        The cache's keys name each element's parent, and the context kept the
+        last element visited, so the whole DOM used to live on through the
+        ReportLab build, where the story is at its largest.
+        """
+        context = pisaContext(".")
+        pisaParser(b"<div><p>one</p><p>two</p></div>", context)
+
+        self.assertIsNone(context.node)
+        self.assertEqual(context.cssAttrCache, {})
+
+
+class FragDefaultsTest(TestCase):
+    """A frag holds what its element changed and reads the rest as defaults."""
+
+    def test_a_clone_copies_only_what_was_changed(self) -> None:
+        context = pisaContext(".")
+        root = context.frag
+        self.assertEqual({}, root.__dict__)
+        self.assertEqual(10, root.fontSize)
+
+        # clone() always writes bulletText: a clone never carries the bullet.
+        child = root.clone(fontSize=20)
+        self.assertEqual({"fontSize": 20, "bulletText": None}, child.__dict__)
+        self.assertEqual(root.leading, child.leading)
+
+    def test_resetting_drops_a_copy_of_the_initial_value(self) -> None:
+        context = pisaContext(".")
+        frag = context.frag.clone()
+        frag.flexGrow = 2.0
+        reset_non_inherited(frag)
+        self.assertNotIn("flexGrow", frag.__dict__)
+        self.assertEqual(0.0, frag.flexGrow)
+
+    def test_compacting_keeps_what_only_looks_equal(self) -> None:
+        context = pisaContext(".")
+        defaults = type(context.frag)
+        frag = context.frag.clone()
+        defaults.offset = 0.0
+        frag.fontSize = defaults.fontSize  # the same value: dropped
+        frag.offset = -0.0  # equal to 0.0, printed apart: kept
+        frag.bold = 0.0  # equal to 0, another type: kept
+        frag.fontFamilies = list(defaults.fontFamilies)  # mutable: kept
+        compact_frag(frag)
+        self.assertEqual({"offset", "bold", "fontFamilies"}, set(frag.__dict__))
+
+    def test_each_render_has_its_own_defaults(self) -> None:
+        first, second = pisaContext("."), pisaContext(".")
+        self.assertIsNot(type(first.frag), type(second.frag))
+        first.frag.__class__.fontSize = 99
+        self.assertNotEqual(99, second.frag.fontSize)
 
 
 class InlineOnlyPropertyTest(TestCase):
@@ -1022,6 +1073,53 @@ class PageNumberExampleTest(TestCase):
         self.assertNotIn("88", text)
 
 
+class LonePageNumberTest(TestCase):
+    """
+    A block holding nothing but <pdf:pagenumber/> or <pdf:pagecount/> (#670).
+
+    The number is not known until the page is drawn, so it never reached the
+    text the paragraph is judged by, and a paragraph with no other text was
+    dropped as empty.
+    """
+
+    @staticmethod
+    def footers(footer: str) -> list[str]:
+        html = (
+            "<html><head><style>@page { size: a5;"
+            " @frame f { -pdf-frame-content: foot; left: 10mm; right: 10mm;"
+            " bottom: 10mm; height: 10mm; }"
+            " @frame b { left: 10mm; right: 10mm; top: 10mm; bottom: 25mm; } }"
+            "</style></head><body>"
+            f'<div id="foot">{footer}</div>'
+            "<p>one</p><pdf:nextpage/><p>two</p></body></html>"
+        )
+        dest = io.BytesIO()
+        pisa.pisaDocument(io.StringIO(html), dest)
+        dest.seek(0)
+        # The footer's line on each page, the one line that is a number.
+        return [
+            " ".join(
+                line for line in (page.extract_text() or "").split() if line.isdigit()
+            )
+            for page in PdfReader(dest).pages
+        ]
+
+    def test_alone_in_the_frame(self) -> None:
+        self.assertEqual(["1", "2"], self.footers("<pdf:pagenumber/>"))
+
+    def test_alone_in_a_paragraph(self) -> None:
+        self.assertEqual(["1", "2"], self.footers("<p><pdf:pagenumber/></p>"))
+
+    def test_alone_in_a_cell(self) -> None:
+        self.assertEqual(
+            ["1", "2"],
+            self.footers("<table><tr><td><pdf:pagenumber/></td></tr></table>"),
+        )
+
+    def test_page_count_alone(self) -> None:
+        self.assertEqual(["2", "2"], self.footers("<p><pdf:pagecount/></p>"))
+
+
 class WrappedListItemTest(TestCase):
     """
     Where the marker of a multi-line item is drawn, not merely whether the
@@ -1336,3 +1434,149 @@ class BorderRadiusCascadeTest(TestCase):
             b"<div style='border-radius: 4pt'><p>child</p>own text</div>"
         )
         self.assertEqual([((0, 0),) * 4, ((4, 4),) * 4], radii)
+
+
+class PageMarginWithFrameTest(TestCase):
+    """
+    A margin on @page and a content @frame (#303, #765): the frame is where
+    the story goes. The margins used to make a frame of their own ahead of
+    it, and the story filled the page, then the @frame on top of itself.
+    """
+
+    ITEMS = "".join(f"<li>Item number {i}</li>" for i in range(60))
+
+    def items_per_page(self, page: str) -> list[int]:
+        html = (
+            f"<html><head><style>@page {{ size: a5; {page} }}</style></head>"
+            f"<body><div id='f'>foot</div><ul>{self.ITEMS}</ul></body></html>"
+        )
+        dest = io.BytesIO()
+        pisa.pisaDocument(io.StringIO(html), dest)
+        dest.seek(0)
+        return [
+            (p.extract_text() or "").count("Item number") for p in PdfReader(dest).pages
+        ]
+
+    def test_the_margin_does_not_add_a_frame(self) -> None:
+        frame = "@frame content { left: 50pt; width: 300pt; top: 50pt; height: 400pt; }"
+        self.assertEqual(
+            self.items_per_page(frame), self.items_per_page(f"margin: 20px; {frame}")
+        )
+        self.assertGreater(len(self.items_per_page(f"margin: 20px; {frame}")), 1)
+
+    def test_with_static_frames_only_the_margin_still_makes_the_content_frame(
+        self,
+    ) -> None:
+        footer = "@frame footer { -pdf-frame-content: f; bottom: 1cm; height: 1cm; left: 2cm; width: 5cm; }"
+        wide = self.items_per_page(f"margin: 1cm; {footer}")
+        narrow = self.items_per_page(f"margin: 4cm; {footer}")
+        self.assertGreater(wide[0], narrow[0])
+
+
+class PageBreakAvoidTest(TestCase):
+    """page-break-*: avoid and the CSS 3 break-* names (#27)."""
+
+    @staticmethod
+    def story(html: str) -> list:
+        from xhtml2pdf.document import pisaStory
+
+        return pisaStory(html).story
+
+    def test_the_break_names(self) -> None:
+        from xhtml2pdf.parser import pageBreakValue
+
+        self.assertEqual("always", pageBreakValue({"break-before": "page"}, "before"))
+        self.assertEqual(
+            "avoid", pageBreakValue({"break-after": "avoid-page"}, "after")
+        )
+        self.assertEqual(
+            "left",
+            pageBreakValue(
+                {"page-break-after": "left", "break-after": "right"}, "after"
+            ),
+        )
+        self.assertIsNone(pageBreakValue({}, "inside"))
+
+    def test_after_avoid_keeps_the_block_with_the_next(self) -> None:
+        story = self.story('<h2 style="page-break-after: avoid">T</h2><p>text</p>')
+        heading = next(f for f in story if "T" in getattr(f, "text", ""))
+        self.assertTrue(heading.keepWithNext)
+
+    def test_before_avoid_keeps_the_previous_block_with_it(self) -> None:
+        story = self.story('<h2>T</h2><p style="break-before: avoid">text</p>')
+        heading = next(f for f in story if "T" in getattr(f, "text", ""))
+        self.assertTrue(heading.keepWithNext)
+
+    def test_inside_avoid_wraps_the_block(self) -> None:
+        from reportlab.platypus.flowables import KeepTogether
+
+        story = self.story(
+            '<div style="page-break-inside: avoid"><p>a</p><p>b</p></div>'
+        )
+        self.assertTrue(any(isinstance(f, KeepTogether) for f in story))
+
+    def test_no_avoid_keeps_nothing(self) -> None:
+        story = self.story("<h2>T</h2><p>text</p>")
+        self.assertFalse(any(getattr(f, "keepWithNext", False) for f in story))
+
+    @staticmethod
+    def pages_with(html: str, *needles: str) -> list[tuple[bool, ...]]:
+        dest = io.BytesIO()
+        pisa.pisaDocument(io.StringIO(html), dest)
+        dest.seek(0)
+        return [
+            tuple(needle in (page.extract_text() or "") for needle in needles)
+            for page in PdfReader(dest).pages
+        ]
+
+    def test_inside_avoid_keeps_a_single_paragraph_whole(self) -> None:
+        """It wrapped only a block of two flowables or more."""
+        html = (
+            "<p>filler</p>" * 30
+            + '<p style="page-break-inside: avoid">'
+            + "a long paragraph of text " * 200
+            + "</p>"
+        )
+        self.assertEqual([(False,), (True,)], self.pages_with(html, "long paragraph"))
+
+    def test_a_heading_stays_with_a_block_kept_whole(self) -> None:
+        """
+        ReportLab does not group a keepWithNext flowable with a KeepTogether.
+
+        The heading stayed alone at the foot of the page the block had left.
+        """
+        block = (
+            '<div style="page-break-inside: avoid">'
+            "<p>A</p><p>B</p><p>C</p><p>D</p><p>E</p></div>"
+        )
+        for keep in ("page-break-after: avoid", "-pdf-keep-with-next: true"):
+            with self.subTest(keep):
+                html = "<p>filler</p>" * 38 + f'<h2 style="{keep}">HEADING</h2>' + block
+                self.assertEqual(
+                    [(False, False), (True, True)],
+                    self.pages_with(html, "HEADING", "\nE"),
+                )
+
+
+class RightToLeftListMarkerTest(TestCase):
+    """In a right-to-left list the marker is on the right, in visual order (#663)."""
+
+    def test_the_bullet_is_right_of_the_text(self) -> None:
+        chunks = text_positions(
+            '<html dir="rtl"><body><ul><li>item text</li></ul></body></html>'
+        )
+        bullet_x = next(x for x, _y, text in chunks if text == "•")
+        text_x = next(x for x, _y, text in chunks if text != "•")
+        self.assertGreater(bullet_x, text_x)
+
+    def test_a_number_reads_right_to_left(self) -> None:
+        chunks = text_positions(
+            '<html dir="rtl"><body><ol><li>item</li></ol></body></html>'
+        )
+        self.assertIn(".1", [text for _x, _y, text in chunks])
+
+    def test_a_left_to_right_list_is_unchanged(self) -> None:
+        chunks = text_positions("<ul><li>item text</li></ul>")
+        bullet_x = next(x for x, _y, text in chunks if text == "•")
+        text_x = next(x for x, _y, text in chunks if text != "•")
+        self.assertLess(bullet_x, text_x)

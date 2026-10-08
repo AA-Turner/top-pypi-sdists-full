@@ -1,59 +1,58 @@
 Metadata-Version: 2.4
 Name: firebolt_sdk
-Version: 1.18.6
+Version: 1.19.0
 Summary: Python SDK for Firebolt
 Home-page: https://github.com/firebolt-db/firebolt-sdk
 Author: Firebolt
 Author-email: support@firebolt.io
 License: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/firebolt-db/firebolt-sdk/issues
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiorwlock==1.5.1
-Requires-Dist: anyio>=3.7.1
+Requires-Dist: anyio>=4.15.1
 Requires-Dist: appdirs>=1.4.4
-Requires-Dist: appdirs-stubs>=0.1.0
+Requires-Dist: appdirs-stubs>=0.2.0
 Requires-Dist: async-generator>=1.10
-Requires-Dist: async-property>=0.2.1
-Requires-Dist: cryptography>=3.4.0
-Requires-Dist: httpcore>=0.17.0
-Requires-Dist: httpx[http2]>=0.19.0
-Requires-Dist: pydantic[dotenv]<3.0.0,>=1.8.2
-Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: async-property>=0.2.2
+Requires-Dist: cryptography>=50.0.2
+Requires-Dist: httpcore>=1.0.9
+Requires-Dist: httpx[http2]>=0.28.1
+Requires-Dist: pydantic<3.0.0,>=2.13.5
+Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: readerwriterlock>=1.0.9
-Requires-Dist: sqlparse==0.5.5
-Requires-Dist: trio>=0.22.0
-Requires-Dist: truststore>=0.10; python_version >= "3.10"
+Requires-Dist: sqlparse==0.6.0
+Requires-Dist: trio>=0.34.0
+Requires-Dist: truststore>=0.10.4
 Provides-Extra: ciso8601
 Requires-Dist: ciso8601==2.3.3; extra == "ciso8601"
 Provides-Extra: dev
-Requires-Dist: allure-pytest==2.*; extra == "dev"
 Requires-Dist: devtools==0.12.2; extra == "dev"
-Requires-Dist: mypy<2,>=1; extra == "dev"
-Requires-Dist: pre-commit==3.5.0; extra == "dev"
+Requires-Dist: mypy<3,>=2.4.0; extra == "dev"
+Requires-Dist: pre-commit==4.6.2; extra == "dev"
 Requires-Dist: psutil==7.2.2; extra == "dev"
-Requires-Dist: pyfakefs<=5.6.0,>=4.5.3; extra == "dev"
-Requires-Dist: pytest==8.4.1; extra == "dev"
+Requires-Dist: pyfakefs<7,>=6.2.0; extra == "dev"
+Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
-Requires-Dist: pytest-httpx>=0.13.0; extra == "dev"
-Requires-Dist: pytest-mock==3.15.1; extra == "dev"
+Requires-Dist: pytest-httpx>=0.36.2; extra == "dev"
+Requires-Dist: pytest-mock==3.16.0; extra == "dev"
 Requires-Dist: pytest-timeout==2.4.0; extra == "dev"
 Requires-Dist: pytest-trio==0.8.0; extra == "dev"
 Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
-Requires-Dist: trio-typing[mypy]<0.11,>=0.6; extra == "dev"
+Requires-Dist: trio-typing[mypy]<0.11,>=0.10; extra == "dev"
 Requires-Dist: types-cryptography==3.3.23.2; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: sphinx<10,>=7; extra == "docs"
-Requires-Dist: sphinx-rtd-theme<4,>=2; extra == "docs"
+Requires-Dist: sphinx<10,>=8.1.3; extra == "docs"
+Requires-Dist: sphinx-rtd-theme<4,>=3.1.0; extra == "docs"
 Dynamic: license-file
 
 # firebolt-sdk
@@ -67,12 +66,12 @@ Dynamic: license-file
 
 ### Installation
 
-* Requires Python `>=3.8`
+* Requires Python `>=3.10`
 * `pip install "firebolt-sdk>=1.0.0a1"`
 
 ## Documentation
 
-For reference and tutorials, see the [Firebolt Python SDK reference](https://python.docs.firebolt.io/sdk_documenation/latest/).
+For reference and tutorials, see the [Firebolt Python SDK reference](https://python.docs.firebolt.io/sdk_documentation/latest/).
 
 ## Connection parameters
 These parameters are used to connect to a Firebolt database:

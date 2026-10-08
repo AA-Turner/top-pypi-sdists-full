@@ -1,42 +1,30 @@
 Metadata-Version: 2.4
 Name: shapely
-Version: 2.1.2
+Version: 2.2.0
 Summary: Manipulation and analysis of geometric objects
+Keywords: geometry,topology,gis
 Author: Sean Gillies
 Maintainer: Shapely contributors
-License: BSD 3-Clause
-Project-URL: Documentation, https://shapely.readthedocs.io/
-Project-URL: Repository, https://github.com/shapely/shapely
-Keywords: geometry,topology,gis
+License-Expression: BSD-3-Clause
+License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.10
+Project-URL: Documentation, https://shapely.readthedocs.io/
+Project-URL: Repository, https://github.com/shapely/shapely
+Requires-Python: >=3.11
+Requires-Dist: numpy>=1.26
 Description-Content-Type: text/x-rst
-License-File: LICENSE.txt
-Requires-Dist: numpy>=1.21
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: scipy-doctest; extra == "test"
-Provides-Extra: docs
-Requires-Dist: numpydoc==1.1.*; extra == "docs"
-Requires-Dist: matplotlib; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-book-theme; extra == "docs"
-Requires-Dist: sphinx-remove-toctrees; extra == "docs"
-Dynamic: license-file
 
 =======
 Shapely
@@ -108,7 +96,13 @@ Shapely functions generally support multithreading by releasing the Global
 Interpreter Lock (GIL) during execution. Normally in Python, the GIL prevents
 multiple threads from computing at the same time. Shapely functions
 internally release this constraint so that the heavy lifting done by GEOS can
-be done in parallel, from a single Python process.
+be done concurrently from a single Python process.
+
+When sharing NumPy array of geometries between threads, extreme care
+must be taken to avoid creating thread safety issues when mutating arrays. This
+holds for any NumPy array, but even more so for arrays of Shapely geometries.
+When overwriting a geometry in an array, the old geometry is deallocated. If at the
+same time another thread operates on that geometry, interpreter crashes will occur.
 
 Usage
 =====
@@ -143,11 +137,11 @@ See the documentation for more examples and guidance: https://shapely.readthedoc
 Requirements
 ============
 
-Shapely 2.1 requires
+Shapely 2.2 requires
 
-* Python >=3.10
-* GEOS >=3.9
-* NumPy >=1.21
+* Python >=3.11
+* GEOS >=3.10
+* NumPy >=1.26
 
 Installing Shapely
 ==================

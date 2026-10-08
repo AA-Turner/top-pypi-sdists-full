@@ -1,6 +1,6 @@
 import abc
 import uuid
-from typing import Any, Union
+from typing import Any
 
 from teradataml import DataFrame
 
@@ -64,7 +64,7 @@ class BaseEntityApiMixin(IteratorBaseApi):
 
     def find_by_id(
         self,
-        entity_id: Union[str, uuid.UUID],
+        entity_id: str | uuid.UUID,
         projection: str = None,
         return_dataframe: bool = False,
     ) -> Any | None | DataFrame:

@@ -2,10 +2,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use ahash::HashMap as AHashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::value::RawValue;
 use serde_with::skip_serializing_none;
 
 use crate::evaluation::dynamic_string::DynamicString;
-use crate::evaluation::{dynamic_returnable::DynamicReturnable, evaluator_value::EvaluatorValue};
+use crate::evaluation::{
+    dynamic_returnable::DynamicReturnable,
+    evaluator_value::{EvaluatorArrayKeyMode, EvaluatorValue},
+};
 use crate::gcir::gcir_formatter::GCIRHashable;
 use crate::hashing::opt_bool_to_hashable;
 use crate::interned_string::InternedString;
@@ -186,6 +190,13 @@ pub(crate) enum ConditionOperator {
 }
 
 impl ConditionOperator {
+    pub(crate) fn evaluator_array_key_mode(self) -> EvaluatorArrayKeyMode {
+        match self {
+            Self::AnyCaseSensitive | Self::NoneCaseSensitive => EvaluatorArrayKeyMode::ExactCase,
+            _ => EvaluatorArrayKeyMode::Normalized,
+        }
+    }
+
     pub(crate) fn from_str(value: Option<&str>) -> Self {
         match value {
             None => Self::Missing,
@@ -424,7 +435,7 @@ impl<'de> Deserialize<'de> for Condition {
         struct ConditionInternal {
             #[serde(rename = "type")]
             condition_type: InternedString,
-            target_value: Option<EvaluatorValue>,
+            target_value: Option<Box<RawValue>>,
             operator: Option<InternedString>,
             field: Option<DynamicString>,
             additional_values: Option<HashMap<InternedString, InternedString>>,
@@ -432,23 +443,30 @@ impl<'de> Deserialize<'de> for Condition {
             checksum: Option<InternedString>,
         }
 
-        let mut internal = ConditionInternal::deserialize(deserializer)?;
+        let internal = ConditionInternal::deserialize(deserializer)?;
+        let compiled_condition_type = ConditionType::from_str(internal.condition_type.as_str());
+        let compiled_operator = ConditionOperator::from_str(internal.operator.as_deref());
+        // The operator determines which spellings the target map must retain.
+        // Defer parsing until it is known, regardless of JSON field order.
+        let mut target_value = internal.target_value.map(|value| {
+            EvaluatorValue::from_raw_value_with_array_key_mode(
+                std::borrow::Cow::Owned(value),
+                compiled_operator.evaluator_array_key_mode(),
+            )
+        });
 
         if let Some(ref op) = internal.operator {
             if op == "str_matches" {
-                if let Some(ref mut tv) = internal.target_value {
+                if let Some(ref mut tv) = target_value {
                     tv.compile_regex();
                 }
             }
         }
 
-        let compiled_condition_type = ConditionType::from_str(internal.condition_type.as_str());
-        let compiled_operator = ConditionOperator::from_str(internal.operator.as_deref());
-
         Ok(Condition {
             condition_type: internal.condition_type,
             compiled_condition_type,
-            target_value: internal.target_value,
+            target_value,
             operator: internal.operator,
             compiled_operator,
             field: internal.field,

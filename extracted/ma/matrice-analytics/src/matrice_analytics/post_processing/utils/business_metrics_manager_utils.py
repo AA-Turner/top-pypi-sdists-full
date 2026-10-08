@@ -168,17 +168,17 @@ class BusinessMetricsManagerFactory:
 
             self._store_action_identifiers(action_details, job_params)
 
-            print("----- BUSINESS METRICS MANAGER ACTION DETAILS -----")
-            print(f"action_id: {self._action_id}")
-            print(f"server_type: {server_type}")
-            print(f"server_id: {server_id}")
-            print(f"deployment_id: {self._deployment_id}")
-            print(f"app_deployment_id: {self._app_deployment_id}")
-            print(f"application_id: {self._application_id}")
-            print(f"instance_id: {self._instance_id}")
-            print(f"external_ip: {self._external_ip}")
-            print(f"jobParams keys: {list(job_params.keys()) if job_params else []}")
-            print("----------------------------------------------------")
+            self.logger.debug("----- BUSINESS METRICS MANAGER ACTION DETAILS -----")
+            self.logger.debug(f"action_id: {self._action_id}")
+            self.logger.debug(f"server_type: {server_type}")
+            self.logger.debug(f"server_id: {server_id}")
+            self.logger.debug(f"deployment_id: {self._deployment_id}")
+            self.logger.debug(f"app_deployment_id: {self._app_deployment_id}")
+            self.logger.debug(f"application_id: {self._application_id}")
+            self.logger.debug(f"instance_id: {self._instance_id}")
+            self.logger.debug(f"external_ip: {self._external_ip}")
+            self.logger.debug(f"jobParams keys: {list(job_params.keys()) if job_params else []}")
+            self.logger.debug("----------------------------------------------------")
 
             self.logger.info(
                 f"[BUSINESS_METRICS_MANAGER_FACTORY] Action details - server_type={server_type}, "
@@ -200,10 +200,10 @@ class BusinessMetricsManagerFactory:
                 f"[BUSINESS_METRICS_MANAGER_FACTORY] ❌ Failed to fetch action details: {e}",
                 exc_info=True,
             )
-            print("----- BUSINESS METRICS MANAGER ACTION DETAILS ERROR -----")
-            print(f"action_id: {self._action_id}")
-            print(f"error: {e}")
-            print("---------------------------------------------------------")
+            self.logger.debug("----- BUSINESS METRICS MANAGER ACTION DETAILS ERROR -----")
+            self.logger.debug(f"action_id: {self._action_id}")
+            self.logger.debug(f"error: {e}")
+            self.logger.debug("---------------------------------------------------------")
             return None
 
     def _detect_localhost(self, action_details: Dict[str, Any]) -> bool:
@@ -223,7 +223,7 @@ class BusinessMetricsManagerFactory:
             or action_details.get("externalIp")
             or action_details.get("external_Ip")
         )
-        print(f"server_host: {server_host}")
+        self.logger.debug(f"server_host: {server_host}")
         self.logger.info(f"[BUSINESS_METRICS_MANAGER_FACTORY] DEBUG - server_host: {server_host}")
 
         localhost_indicators = ["localhost", "127.0.0.1", "0.0.0.0"]  # nosec B104
@@ -265,16 +265,16 @@ class BusinessMetricsManagerFactory:
             f"yes, master={master_name}, nodes={len(sentinel_hosts)}" if sentinel_hosts else "no"
         )
 
-        print("----- BUSINESS METRICS MANAGER REDIS SERVER PARAMS -----")
-        print(f"instance_id: {self._instance_id}")
-        print(f"host: {server.host}")
-        print(f"port: {server.port}")
-        print(f"username: {None}")
-        print(f"password: {'*' * len(password) if password else ''}")
-        print(f"db: {0}")
-        print(f"connection_timeout: {120}")
-        print(f"sentinel: {sentinel_str}")
-        print("--------------------------------------------------------")
+        self.logger.debug("----- BUSINESS METRICS MANAGER REDIS SERVER PARAMS -----")
+        self.logger.debug(f"instance_id: {self._instance_id}")
+        self.logger.debug(f"host: {server.host}")
+        self.logger.debug(f"port: {server.port}")
+        self.logger.debug(f"username: {None}")
+        self.logger.debug(f"password: {'*' * len(password) if password else ''}")
+        self.logger.debug(f"db: {0}")
+        self.logger.debug(f"connection_timeout: {120}")
+        self.logger.debug(f"sentinel: {sentinel_str}")
+        self.logger.debug("--------------------------------------------------------")
 
         self.logger.info(
             f"[BUSINESS_METRICS_MANAGER_FACTORY] Redis params - "
@@ -362,7 +362,7 @@ class BusinessMetricsManagerFactory:
         self.logger.info(
             f"[BUSINESS_METRICS_MANAGER_FACTORY] ✓ Business metrics manager created with {transport}"
         )
-        print(f"----- BUSINESS METRICS MANAGER INITIALIZED ({transport}) -----")
+        self.logger.debug(f"----- BUSINESS METRICS MANAGER INITIALIZED ({transport}) -----")
 
     def initialize(
         self,
@@ -407,9 +407,9 @@ class BusinessMetricsManagerFactory:
                 self.logger.error(
                     "[BUSINESS_METRICS_MANAGER_FACTORY] ❌ Could not discover action_id"
                 )
-                print("----- BUSINESS METRICS MANAGER ACTION DISCOVERY -----")
-                print("action_id: NOT FOUND")
-                print("------------------------------------------------------")
+                self.logger.debug("----- BUSINESS METRICS MANAGER ACTION DISCOVERY -----")
+                self.logger.debug("action_id: NOT FOUND")
+                self.logger.debug("------------------------------------------------------")
                 self._initialized = True
                 return None
 

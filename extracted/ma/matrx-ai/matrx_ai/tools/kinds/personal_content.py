@@ -83,21 +83,20 @@ class MemoryToolResult(KindModel):
 
 
 @kind(
-    "dataset_tool_result",
+    "table_tool_result",
     disposition="record",
-    label="Dataset Tool Result",
-    family="datasets",
+    label="Table Tool Result",
+    family="tables",
     example={"tables": [{"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "table_name": "leads"}], "count": 1},
     # PLACEHOLDER — list/get/search/create/add_rows/update_row/delete_row over
-    # user datasets.
+    # a person's tables.
     maturity="placeholder",
 )
-class DatasetToolResult(KindModel):
+class TableToolResult(KindModel):
     #: `list`.
     tables: list[dict] | None = None
     count: int | None = None
     #: `get` — the requested projections.
-    dataset_id: str | None = None
     metadata: dict | None = None
     fields: list[dict] | None = None
     rows: list[dict] | None = None
@@ -105,6 +104,12 @@ class DatasetToolResult(KindModel):
     limit: int | None = None
     #: `search`.
     search_term: str | None = None
+    #: What a big page says about itself (`get` / `search` / `list`).
+    truncated: bool | None = None
+    total_rows: int | None = None
+    cap: dict | None = None
+    partial: bool | None = None
+    totals_note: str | None = None
     #: `create` receipt.
     table_id: str | None = None
     table_name: str | None = None
@@ -119,4 +124,4 @@ class DatasetToolResult(KindModel):
     deleted_row_id: str | None = None
 
 
-__all__ = ["NoteToolResult", "MemoryToolResult", "DatasetToolResult"]
+__all__ = ["NoteToolResult", "MemoryToolResult", "TableToolResult"]

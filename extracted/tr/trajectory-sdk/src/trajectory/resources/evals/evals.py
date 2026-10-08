@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Literal
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options, serialize_header
 from trajectory._resource import APIResource
@@ -74,7 +74,7 @@ class Evals(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> StartEvalResponse:
     """Evaluate the test split by default. Set task_split to all to evaluate test and train
     tasks.
@@ -167,7 +167,7 @@ class Evals(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> RunOptionsResponse:
     """Get Eval Options Route
 
@@ -203,7 +203,7 @@ class Evals(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> ListSupportedModelsResponse:
     """List Supported Eval Models
 

@@ -5752,7 +5752,12 @@ def sessions_command(args: argparse.Namespace) -> int:
         ]
 
     if args.json:
-        print(_json.dumps(rows, indent=2))
+        # THE MACHINE PAYLOAD GETS THE SAME RULE AS THE TABLE (agent review
+        # round 2, F4): a pre-correction peer's stored row must not carry its
+        # legacy claim into `--json` when the text beside it refuses it.
+        from local_operator.network.types import row_without_stored_claims
+
+        print(_json.dumps([row_without_stored_claims(row) for row in rows], indent=2))
         return 0
 
     if not rows:
@@ -5898,6 +5903,15 @@ def sessions_command(args: argparse.Namespace) -> int:
     if show_held:
         header += f" {'STALLED':<{HELD_COLUMN_WIDTH}}"
     print(header)
+    # THE ROW-LEVEL RULE, not the raw field: a STORED session has no runtime
+    # and no gate, so a claim on its row (from a peer that predates the
+    # stored-half correction) names a waiting nothing can answer and no receipt
+    # can clear — the permanent "needs you" mark this column would otherwise
+    # print forever (``types.row_needs_claim``). Imported here rather than at
+    # module scope for the reason every other network import in this file is
+    # (``cli`` is on the boot path).
+    from local_operator.network.types import row_needs_claim
+
     now = time.time()
     for row in rows:
         # CELLS, not characters, for the three columns that carry text this
@@ -5912,7 +5926,10 @@ def sessions_command(args: argparse.Namespace) -> int:
             CONVERSATION_COLUMN_WIDTH,
         )
         model = _fit_cell(row["model_label"] or "", MODEL_COLUMN_WIDTH)
-        needs = _fit_cell(row.get("pending") or "", NEEDS_COLUMN_WIDTH)
+        needs = _fit_cell(
+            row_needs_claim(state=row.get("state"), pending=row.get("pending")) or "",
+            NEEDS_COLUMN_WIDTH,
+        )
         stored = row["state"] == "stored"
         state = _state_cell(row["state"])
         # A remote row has no local uptime or heartbeat: those are facts of a
@@ -13670,6 +13687,7 @@ def main() -> int:
                 backfill_session_origins,
                 backfill_session_titles,
                 format_age,
+                is_session_id_shape,
                 recent_sessions,
                 resolve_resume_id,
             )
@@ -13713,12 +13731,48 @@ def main() -> int:
                 # deliberately left AS TYPED rather than resolved: it names a
                 # conversation this device does not hold, and the viewer factory
                 # below is what opens it.
+                #
+                # THE MISS AND THE SILENCE COME FROM ONE READ
+                # (``remote_row_and_silence``, mesh-wire-honesty S2 follow-up
+                # R2-2). The row-only lookup discarded the silence, so an id that
+                # did not resolve BECAUSE a device stayed silent printed the
+                # generic "no session to resume" sentence below — the claim of
+                # absence the refusal family exists to avoid — while the
+                # mid-session ``viewer_factory`` arm and the desktop routes said
+                # "did not answer". This pre-check answers the ``--resume`` FLAG
+                # (it is a sibling of the subprocess-subcommand branch, so it
+                # runs for the TUI launch too and returns before ``use_tui`` is
+                # computed); the ``viewer_factory`` arm further down guards the
+                # mid-session ``/resume`` path, which never passes through here.
                 from local_operator.session.remote_open import (
-                    remote_row_for,
+                    remote_row_and_silence,
                     unreachable_peer_sentence,
+                    unresolved_peer_sentence,
                 )
 
-                remote_row = remote_row_for(str(args.resume), config_dir())
+                #
+                # ONLY FOR AN ID A DEVICE COULD BE HOLDING (agent review round 1,
+                # F-1). The bare ``--resume`` sentinel and a path-shaped string
+                # name no conversation on any device, so a silent peer is not
+                # evidence about them: they keep their own refusals ("no previous
+                # session to resume", "not a session id") rather than being
+                # reported as a peer's silence.
+                remote_row, silent = remote_row_and_silence(str(args.resume), config_dir())
+                if (
+                    remote_row is None
+                    and silent
+                    and str(args.resume) != RESUME_LATEST
+                    and is_session_id_shape(str(args.resume))
+                ):
+                    # Same refusal family as the unreachable arm below: nothing
+                    # boots locally for an id a silent device may be holding
+                    # (INV-1), and no recent-sessions listing — this machine's
+                    # list is not the help for an id that may live elsewhere.
+                    print(
+                        f"\033[31m{unresolved_peer_sentence(str(args.resume), silent)}\033[0m",
+                        file=sys.stderr,
+                    )
+                    return 1
                 if remote_row is None:
                     print(f"\033[31m{error}\033[0m", file=sys.stderr)
                     # With the age: a column of bare 12-hex ids gives the reader
@@ -14735,14 +14789,28 @@ def main() -> int:
                     # directory or runs no relay, so the local path below pays
                     # nothing for this check — the same zero-peer property the
                     # TUI's guard and the desktop pool rely on.
+                    #
+                    # AND THE LOCAL FALL-THROUGH BELOW IS NOW ONLY FOR A MISS
+                    # EVERY DEVICE ANSWERED (agent review round 1, R-2). A miss
+                    # WITH a silent device used to land here too and boot the
+                    # LOCAL cold viewer for a conversation this device does not
+                    # hold — the INV-1 two-writer case this very block exists to
+                    # make unreachable, left open on the one path the design note
+                    # calls CLI scope. The silence is read from the SAME listing
+                    # read that missed (``remote_row_and_silence``), so the
+                    # refusal costs no second fan-out, and the sentence is the
+                    # shared one, composed once in ``remote_open``.
                     from local_operator.resume import UNNAMED_DEVICE
                     from local_operator.session.remote_open import (
                         open_remote_viewer,
-                        remote_row_for,
+                        remote_row_and_silence,
                         unreachable_peer_sentence,
+                        unresolved_peer_sentence,
                     )
 
-                    peer_row = await asyncio.to_thread(remote_row_for, session_id, config_directory)
+                    peer_row, silent = await asyncio.to_thread(
+                        remote_row_and_silence, session_id, config_directory
+                    )
                     if peer_row is not None:
                         if not peer_row.reachable:
                             raise ValueError(unreachable_peer_sentence(session_id, peer_row))
@@ -14760,6 +14828,14 @@ def main() -> int:
                             ) from error
                         if peer_viewer is not None:
                             return peer_viewer
+                    elif silent:
+                        # A silent device is not the absence of the conversation,
+                        # and this is the surface where saying otherwise is worst:
+                        # the shell would open a viewer for an id this device does
+                        # not hold. Same shape as the unreachable refusal above —
+                        # the sentence says what the devices did, not what the id
+                        # is not.
+                        raise ValueError(unresolved_peer_sentence(session_id, silent))
 
                 record = None
                 if resume_id:

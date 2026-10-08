@@ -5,6 +5,7 @@ use pyo3::sync::MutexExt;
 use pyo3::types::PyBytes;
 use pyo3::types::PyCode;
 use pyo3::types::PyDict;
+use pyo3::types::PyFrame;
 use pyo3::types::PyList;
 use std::cell::{Cell, RefCell};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -173,6 +174,8 @@ struct CodeEventMetadata {
     name: String,
     relative_path: String,
     co_qualname: String,
+    // Diagnostics only: cleared once this code's values need msgpack's
+    // default hook (non-builtin values, formerly serialized in Python).
     native_msgpack_eligible: AtomicBool,
     include_frame: bool,
     has_processor_candidates: bool,
@@ -408,9 +411,9 @@ impl KoloMonitor {
         // Extract trace point return targets from config
         let mut trace_point_return_targets = HashSet::new();
         if let Ok(Some(trace_points)) = config_dict.get_item("trace_points") {
-            if let Ok(trace_points_dict) = trace_points.downcast::<PyDict>() {
+            if let Ok(trace_points_dict) = trace_points.cast::<PyDict>() {
                 if let Ok(Some(targets)) = trace_points_dict.get_item("on_return") {
-                    if let Ok(targets_list) = targets.downcast::<PyList>() {
+                    if let Ok(targets_list) = targets.cast::<PyList>() {
                         for item in targets_list.iter() {
                             if let Ok(s) = item.extract::<String>() {
                                 trace_point_return_targets.insert(s);
@@ -531,18 +534,17 @@ impl KoloMonitor {
         &self,
         py: Python,
         processor: &PluginProcessor,
+        pyframe: &Bound<'_, PyFrame>,
         event: Event,
-        filename: &str,
-        arg: utils::Arg,
+        arg: &Py<PyAny>,
     ) -> Result<Option<(String, SerializedFrame)>, PyErr> {
-        let frame = self.sys_getframe_fn.bind(py).call1((0,))?;
-        let arg = arg.into_inner(py);
-        if !processor.matches_frame(py, &frame, event, &arg, filename)? {
+        // The caller must prefilter with `matches_filename`; keeping that
+        // check outside avoids resolving a Python frame for filename misses.
+        if !processor.matches_event(py, pyframe.as_any(), event, arg)? {
             return Ok(None);
         }
-        let frame = frame.cast()?;
         let call_frames = self.call_frames.get_or_default().borrow().get_bound(py);
-        processor.process(py, frame, event, &arg, call_frames, self.lightweight_repr)
+        processor.process(py, pyframe, event, arg, call_frames, self.lightweight_repr)
     }
 
     fn monitor(
@@ -630,11 +632,43 @@ impl KoloMonitor {
                 .default_include_frames
                 .lock_py_attached(py)
                 .expect("default_include_frames mutex poisoned");
-            if let Some(processors) = default_include_frames.get(name) {
+            let processors = default_include_frames.get(name);
+            let has_matching_processor = processors.is_some_and(|processors| {
+                processors
+                    .iter()
+                    .any(|processor| processor.matches_filename(filename))
+            });
+            if !include_frame && !has_matching_processor {
+                return match event {
+                    Event::Call | Event::Return | Event::Resume | Event::Yield => {
+                        Ok(Some(self.disable.clone_ref(py)))
+                    }
+                    Event::Unwind | Event::Throw => Ok(None),
+                };
+            }
+            // Plugin candidates and the ordinary frame describe the same
+            // monitoring event. Resolve its live frame once rather than
+            // dispatching back through ``sys._getframe`` once per candidate
+            // and then again for the ordinary frame.
+            let frame = self.sys_getframe_fn.bind(py).call1((0,))?;
+            let pyframe = frame.cast::<PyFrame>()?;
+            if let Some(processors) = processors {
+                // Convert the callback argument at most once, and only when a
+                // filename-matched plugin can actually consume it.
+                let plugin_arg = has_matching_processor.then(|| arg.clone().into_inner(py));
                 for processor in processors.iter() {
-                    if let Some((frame_type, frame_data)) =
-                        self.include(py, processor, event, filename, arg.clone())?
-                    {
+                    if !processor.matches_filename(filename) {
+                        continue;
+                    }
+                    if let Some((frame_type, frame_data)) = self.include(
+                        py,
+                        processor,
+                        pyframe,
+                        event,
+                        plugin_arg
+                            .as_ref()
+                            .expect("matched processor has a converted argument"),
+                    )? {
                         frames.push(frame_data);
                         frame_types.push(frame_type);
                     }
@@ -642,7 +676,9 @@ impl KoloMonitor {
             }
             drop(default_include_frames);
             if include_frame {
-                if let Some(frame_data) = self.process(py, name, event, arg, metadata.as_deref())? {
+                if let Some(frame_data) =
+                    self.process(pyframe, name, event, arg, metadata.as_deref())?
+                {
                     frames.push(frame_data);
                     frame_types.push("frame".to_string());
                 }
@@ -818,14 +854,13 @@ impl KoloMonitor {
 
     fn process(
         &self,
-        py: Python,
+        pyframe: &Bound<'_, PyFrame>,
         name: &str,
         event: Event,
         arg: utils::Arg,
         metadata: Option<&CodeEventMetadata>,
     ) -> Result<Option<SerializedFrame>, PyErr> {
-        let frame = self.sys_getframe_fn.bind(py).call1((0,))?;
-        let pyframe_id = frame.as_ptr() as usize;
+        let pyframe_id = pyframe.as_ptr() as usize;
         let frame_ids = self._frame_ids.get_or_default();
         let frame_id = match event {
             Event::Call | Event::Resume | Event::Throw => {
@@ -838,7 +873,6 @@ impl KoloMonitor {
                 frame_id
             }
         };
-        let pyframe = frame.cast()?;
         let user_code_call_site = self
             .call_frames
             .get_or_default()
@@ -858,7 +892,6 @@ impl KoloMonitor {
                 &frame_id,
                 self.lightweight_repr,
                 self.omit_return_locals,
-                true,
                 (
                     metadata.relative_path.as_str(),
                     Some(metadata.co_qualname.as_str()),
@@ -878,7 +911,6 @@ impl KoloMonitor {
                 &frame_id,
                 self.lightweight_repr,
                 self.omit_return_locals,
-                true,
                 None,
             )?,
         }
@@ -927,7 +959,6 @@ impl KoloMonitor {
                 &frame_id,
                 self.lightweight_repr,
                 self.omit_return_locals,
-                true,
                 (
                     metadata.relative_path.as_str(),
                     Some(metadata.co_qualname.as_str()),
@@ -950,7 +981,6 @@ impl KoloMonitor {
                 &frame_id,
                 self.lightweight_repr,
                 self.omit_return_locals,
-                true,
                 Some(utils::ValueInterningContext::fixed(
                     &self.value_interning,
                     capture,
@@ -1215,7 +1245,7 @@ impl KoloMonitor {
             self.frame_paths.format_frame_path(pyframe)?,
             name.to_string(),
             utils::get_qualname(pyframe, py)?.expect("qualname always exists on Python 3.12+"),
-            frame_id,
+            frame_id.map(|frame_id| frame_id.as_str().to_owned()),
             utils::timestamp(),
         );
         self.instruction_data
@@ -2554,9 +2584,9 @@ impl KoloMonitor {
             .count()
     }
 
-    /// Paths for code objects whose values made the native frame encoder
-    /// fall back to Python serialization. This scans cached metadata only
-    /// when requested; tracking eligibility already happens on the event path.
+    /// Paths for code objects whose values needed msgpack's default hook,
+    /// which used to route their frames through the Python serializer. This
+    /// scans cached metadata only when requested; the event path records it.
     #[getter]
     fn _python_serializer_code_paths(&self, py: Python) -> Vec<String> {
         self.code_metadata_cache
@@ -2785,10 +2815,11 @@ mod tests {
         CodeMetadataCache, FrameSequence, FrameStore, InstructionData, KoloMonitor, LineFrame,
         Opname, RestoreGuard, SerializedFrame, TraceCapture,
     };
+    use crate::_kolo::plugins::load_plugin_data_for_test;
     use hashbrown::HashMap;
     use pyo3::exceptions::PyRuntimeError;
     use pyo3::sync::MutexExt;
-    use pyo3::types::{PyAnyMethods, PyBytes, PyCode, PyCodeInput, PyDict, PyModule};
+    use pyo3::types::{PyAnyMethods, PyBytes, PyCode, PyCodeInput, PyDict, PyList, PyModule};
     use pyo3::{Py, PyResult, Python};
     use rmpv::Value;
     use std::path::PathBuf;
@@ -2947,6 +2978,65 @@ mod tests {
             // The generic callback error path must also attempt to turn the
             // process-wide event mask off after the circuit opens.
             monitor.return_or_log(py, Err(PyRuntimeError::new_err("writer circuit")));
+        });
+    }
+
+    #[cfg(Py_3_12)]
+    #[test]
+    fn excluded_plugin_candidate_with_wrong_filename_does_not_resolve_frame() {
+        let _monitoring_patch = MONITORING_PATCH_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        Python::initialize();
+
+        Python::attach(|py| {
+            let fixture = PyModule::from_code(
+                py,
+                c"calls = 0\n\nplugin_data = {\n    'co_names': ['target'],\n    'path_fragment': 'never/matches/this.py',\n    'call_type': 'plugin_call',\n    'return_type': 'plugin_return',\n}\n\ndef fake_getframe(depth):\n    global calls\n    calls += 1\n    raise AssertionError('excluded event resolved a frame')\n\ndef target():\n    pass\n",
+                c"/tmp/site-packages/example/target.py",
+                c"excluded_plugin_fixture",
+            )
+            .expect("fixture compiles");
+
+            let config = PyDict::new(py);
+            let mut monitor = KoloMonitor::new(
+                test_capture_path("excluded-plugin-frame-lookup")
+                    .display()
+                    .to_string(),
+                &config,
+                "test".to_string(),
+                false,
+                None,
+            )
+            .expect("monitor builds");
+            let plugin_data = fixture.getattr("plugin_data").expect("plugin data exists");
+            let plugin_data = PyList::new(py, [plugin_data]).expect("plugin list builds");
+            *monitor
+                .default_include_frames
+                .lock_py_attached(py)
+                .expect("plugin map mutex") =
+                load_plugin_data_for_test(py, &plugin_data, &config).expect("plugin data loads");
+            monitor.sys_getframe_fn = fixture
+                .getattr("fake_getframe")
+                .expect("fake getframe exists")
+                .unbind();
+            let code = fixture
+                .getattr("target")
+                .expect("target exists")
+                .getattr("__code__")
+                .expect("target code exists");
+            let code = code.cast::<PyCode>().expect("target has code");
+
+            let result = monitor.monitor_pystart(code, 0);
+            assert!(result.bind(py).is(monitor.disable.bind(py)));
+            assert_eq!(
+                fixture
+                    .getattr("calls")
+                    .unwrap()
+                    .extract::<usize>()
+                    .unwrap(),
+                0
+            );
         });
     }
 

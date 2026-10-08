@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 PGD.py
 
@@ -66,7 +68,6 @@ MATHEMATICAL FORMULATION & OPTIMIZATION THEORY:
        λ_{k+1} = max(0, λ_k - α * P^{-1} * A^H (A * λ_k - y))
 =============================================================================
 """
-import contextlib
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
@@ -85,6 +86,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 # =====================================================================
@@ -272,4 +274,4 @@ def PGD(
         final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
         final_result *= y_max / SMatrix.normalization_factor
         
-        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)
+        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else ([final_result], [it + 1], cost_history)

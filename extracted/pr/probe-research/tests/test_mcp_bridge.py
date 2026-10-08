@@ -242,6 +242,20 @@ def test_both_are_hidden_from_help(capsys):
     assert "Probe MCP tool" not in top
 
 
+@pytest.mark.parametrize("typo", ["tool", "cal", "calls"])
+def test_a_typo_never_suggests_the_hidden_commands(capsys, typo):
+    """Typer's "Did you mean" listed hidden commands too, so `probe mcp tool`
+    outside inline answered "Did you mean 'tools'?"."""
+    code, out, err = _run(["mcp", typo], capsys)
+    assert code != 0 and "No such command" in out + err
+    assert "'tools'" not in out + err and "'call'" not in out + err
+
+
+def test_a_typo_still_suggests_a_listed_command(capsys):
+    code, out, err = _run(["mcp", "statu"], capsys)
+    assert code != 0 and "Did you mean 'status'?" in out + err
+
+
 # ---------------------------------------------------------------------------
 # The guard (the daemon plugin's PreToolUse) agrees: allowed inline, refused otherwise.
 # ---------------------------------------------------------------------------

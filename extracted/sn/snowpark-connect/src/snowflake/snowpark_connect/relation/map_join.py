@@ -75,6 +75,107 @@ class JoinInfo:
         return self.condition_type == ConditionType.USING_COLUMNS
 
 
+def _resolve_join_children(
+    left_rel: relation_proto.Relation,
+    right_rel: relation_proto.Relation,
+) -> tuple[DataFrameContainer, DataFrameContainer]:
+    """Resolve left and right join children, overlapping PD table registration.
+
+    Each child's ``map_relation`` call may trigger Parquet Direct table creation
+    (``CREATE ICEBERG TABLE`` DDL via ``_ensure_pd_table``), which blocks for 2–16 s
+    waiting for GlobalServices.  When both children are PD reads (e.g.
+    STORE_SALES JOIN DATE_DIM), resolving them sequentially leaves the smaller
+    table's registration idle while the larger one completes.
+
+    When Parquet Direct is enabled, this helper resolves both children concurrently
+    using a two-thread pool.  Each worker gets its own ``contextvars.copy_context()``
+    snapshot so scalar ContextVar bindings (``_pd_join_depth``, ``_current_plan_id``)
+    are isolated.  The snapshot captures the caller's ``_pd_join_depth`` (already
+    incremented by ``_join_context()``) so both workers see depth > 0 and keep NDV
+    sampling enabled — without this, the optimizer may flip join build sides and spill.
+
+    When Parquet Direct is **not** enabled, both children are resolved sequentially
+    (the original behavior) since there are no blocking CIT DDLs to overlap.
+
+    Self-joins (``left_rel.common.plan_id == right_rel.common.plan_id``) fall back
+    to sequential resolution to avoid concurrent cache writes for the same plan_id.
+
+    NOTE on ContextVar isolation: ``copy_context()`` copies ContextVar *bindings*,
+    not the objects they reference.  Scalar rebinds (``.set()``) are isolated per
+    worker — e.g. ``gen_sql_plan_id()`` increments ``_next_sql_plan_id`` only in its
+    own context copy; the parent counter is advanced after both workers complete to
+    avoid duplicate IDs in any subsequent SQL generation.  Mutable-collection
+    ContextVars (``_plan_id_map``, ``_outer_dataframes``) share the underlying object
+    across copies; workers write to *distinct* plan-ID keys (GIL-atomic for CPython).
+    ``register_request_external_table`` (rebind, not mutate) is never called in PD
+    leaf reads — PD returns from ``pd_direct_container`` before the external-table
+    branch in ``map_read_parquet``.
+
+    Falls back to sequential resolution if the thread pool itself fails to start.
+    Errors from ``map_relation`` (e.g. SQL compilation failures) propagate normally.
+    """
+    from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+        parquet_direct_enabled,
+    )
+    from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+
+    if not parquet_direct_enabled():
+        return map_relation(left_rel), map_relation(right_rel)
+
+    # Self-joins share the same plan_id — resolving concurrently would race on
+    # the plan-id cache and potentially double-create the same PD table.
+    if left_rel.common.plan_id == right_rel.common.plan_id:
+        return map_relation(left_rel), map_relation(right_rel)
+
+    import concurrent.futures
+    import contextvars
+
+    from snowflake.snowpark_connect.utils.context import _next_sql_plan_id
+
+    try:
+        left_ctx = contextvars.copy_context()
+        right_ctx = contextvars.copy_context()
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    except Exception:
+        logger.debug(
+            "Thread pool creation failed, falling back to sequential join resolution"
+        )
+        return map_relation(left_rel), map_relation(right_rel)
+
+    # Snapshot the counter before workers start so we can advance the parent
+    # past both workers' ranges afterward (prevents duplicate synthetic IDs).
+    counter_before = _next_sql_plan_id.get()
+
+    try:
+        left_future = pool.submit(left_ctx.run, map_relation, left_rel)
+        right_future = pool.submit(right_ctx.run, map_relation, right_rel)
+        left_container = left_future.result()
+        right_container = right_future.result()
+    except Exception:
+        left_future.cancel()
+        right_future.cancel()
+        logger.debug(
+            "Concurrent join child resolution failed, re-raising", exc_info=True
+        )
+        raise
+    finally:
+        # Wait for both workers to finish (including the sibling of a failed
+        # child) before returning, so no orphan thread mutates shared state
+        # after we leave this scope.
+        pool.shutdown(wait=True)
+
+    # Both workers started from the same _next_sql_plan_id snapshot and
+    # independently incremented it.  Advance the parent counter past both
+    # workers' ranges so subsequent gen_sql_plan_id() calls don't collide.
+    left_counter = left_ctx[_next_sql_plan_id]
+    right_counter = right_ctx[_next_sql_plan_id]
+    parent_advance = max(left_counter, right_counter)
+    if parent_advance > counter_before:
+        _next_sql_plan_id.set(parent_advance)
+
+    return left_container, right_container
+
+
 def map_join(rel: relation_proto.Relation) -> DataFrameContainer:
     # Signal to _ensure_pd_table that PD tables created inside this join need
     # NDV sampling — without it the optimizer may lose cardinality estimates and
@@ -85,8 +186,9 @@ def map_join(rel: relation_proto.Relation) -> DataFrameContainer:
     )
 
     with _join_context():
-        left_container: DataFrameContainer = map_relation(rel.join.left)
-        right_container: DataFrameContainer = map_relation(rel.join.right)
+        left_container, right_container = _resolve_join_children(
+            rel.join.left, rel.join.right
+        )
 
     # Remove any metadata columns(like metada$filename) present in the dataframes.
     # We cannot support inputfilename for multisources as each dataframe has it's own source.

@@ -375,6 +375,46 @@ def _tier_estimate(tier: str, count: int) -> TierEligibilityEstimate:
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
+    "age_minutes,expected",
+    [
+        pytest.param(60, False, id="before-alert-threshold"),
+        pytest.param(120, True, id="first-alert-window-start"),
+        pytest.param(179, True, id="first-alert-window-end"),
+        pytest.param(180, False, id="outside-first-alert-window"),
+        pytest.param(600, False, id="not-a-realert-window"),
+        pytest.param(1560, True, id="first-realert-window-start"),
+        pytest.param(1619, True, id="first-realert-window-end"),
+        pytest.param(1620, False, id="outside-first-realert-window"),
+        pytest.param(3000, True, id="second-realert-window-start"),
+    ],
+)
+def test_should_alert_stale_workflow_started(
+    age_minutes: float,
+    expected: bool,
+) -> None:
+    assert autopilot.should_alert_stale_workflow_started(age_minutes) is expected
+
+
+@pytest.mark.unit
+def test_stale_workflow_started_reason_includes_age() -> None:
+    rollout = ConnectorRolloutRecord(
+        rollout_id="rollout-stale",
+        actor_definition_id="def-1",
+        state="workflow_started",
+        rc_docker_repository="airbyte/source-faker",
+        rc_docker_image_tag="7.2.0-rc.1",
+        updated_at=(datetime.now(timezone.utc) - timedelta(minutes=125)).isoformat(),
+    )
+
+    decision = autopilot._stale_workflow_started_reason(rollout)
+
+    assert decision is not None
+    assert decision.kind == "stale"
+    assert decision.age_minutes == pytest.approx(125, abs=1)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
     "current_tier,tier_counts,expected_kind,expected_tier",
     [
         pytest.param(
@@ -1201,7 +1241,7 @@ def test_run_auto_promote_skips_non_autopilot_before_sibling_hold(
 def test_run_auto_advance_stale_workflow_started_holds_without_restart(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A stale workflow-started row is held and never sent to `manual_start`."""
+    """A stale row outside an alert window is held without notification."""
     row = {
         "rollout_id": "rollout-stale",
         "actor_definition_id": "def-1",
@@ -1211,7 +1251,7 @@ def test_run_auto_advance_stale_workflow_started_holds_without_restart(
         "tag": "TIER_1",
         "current_target_rollout_pct": 0,
         "final_target_rollout_pct": 100,
-        "updated_at": "2020-01-01T00:00:00Z",
+        "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=600)).isoformat(),
     }
     monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
     monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
@@ -1228,6 +1268,12 @@ def test_run_auto_advance_stale_workflow_started_holds_without_restart(
         "progress_connector_rollout",
         lambda **_: pytest.fail("stale recovery must not progress"),
     )
+    notification_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot,
+        "send_hitl_notification",
+        lambda **kwargs: notification_calls.append(kwargs),
+    )
 
     result = autopilot.run_auto_advance(
         auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
@@ -1236,6 +1282,118 @@ def test_run_auto_advance_stale_workflow_started_holds_without_restart(
     assert len(result.holds) == 1
     assert result.holds[0].action == "hold"
     assert "unchanged for" in result.holds[0].message
+    assert not notification_calls
+
+
+@pytest.mark.unit
+def test_run_auto_advance_alerts_for_aged_workflow_started_hold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stale workflow-started row in an alert window notifies its release contact."""
+    row = {
+        "rollout_id": "rollout-stale-alert",
+        "actor_definition_id": "def-1",
+        "state": "workflow_started",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_2",
+        "current_target_rollout_pct": 0,
+        "final_target_rollout_pct": 100,
+        "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=125)).isoformat(),
+    }
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    release_context = autopilot.ReleaseContext(
+        text="Release context details",
+        target="@release-owner",
+        pr_url=_RELEASE_PR_URL,
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "_release_context",
+        lambda *_args, **_kwargs: release_context,
+    )
+    notification_calls: list[dict[str, object]] = []
+
+    def _notify(**kwargs: object) -> SlackPostResult:
+        notification_calls.append(kwargs)
+        return _HITL_THREAD
+
+    monkeypatch.setattr(autopilot, "send_hitl_notification", _notify)
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(result.holds) == 1
+    assert len(notification_calls) == 1
+    assert notification_calls[0]["target_person"] == "@release-owner"
+    assert notification_calls[0]["header_label"] == (
+        "AutoPilot: rollout stuck in workflow_started"
+    )
+    assert "Release context details" in str(notification_calls[0]["message"])
+    assert "escalated to @release-owner" in result.holds[0].message
+
+
+@pytest.mark.unit
+def test_run_auto_advance_alerts_when_sibling_hold_wins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stale row still alerts when a sibling hold takes precedence."""
+    active = {
+        "rollout_id": "rollout-stale-alert",
+        "actor_definition_id": "def-1",
+        "state": "workflow_started",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_1",
+        "current_target_rollout_pct": 0,
+        "final_target_rollout_pct": 100,
+        "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=125)).isoformat(),
+    }
+    sibling = {
+        **active,
+        "rollout_id": "rollout-blocker",
+        "state": "paused",
+        "tag": "TIER_2",
+        "paused_reason": "operator requested hold",
+    }
+    monkeypatch.setattr(
+        autopilot, "query_connector_rollouts", lambda **_: [active, sibling]
+    )
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "_release_context",
+        lambda *_args, **_kwargs: autopilot.ReleaseContext(target="@release-owner"),
+    )
+    notification_calls: list[dict[str, object]] = []
+
+    def _notify(**kwargs: object) -> SlackPostResult:
+        notification_calls.append(kwargs)
+        return _HITL_THREAD
+
+    monkeypatch.setattr(autopilot, "send_hitl_notification", _notify)
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    sibling_reason = (
+        "Sibling rollout rollout-blocker (TIER_2) is paused: operator requested hold"
+    )
+    assert len(result.holds) == 1
+    assert sibling_reason in result.holds[0].message
+    assert len(notification_calls) == 1
+    assert f"AutoPilot hold reason: {sibling_reason}" in str(
+        notification_calls[0]["message"]
+    )
 
 
 @pytest.mark.unit

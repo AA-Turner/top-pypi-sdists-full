@@ -212,8 +212,14 @@ class ObservationalMemory:
             return
 
         try:
+            # The Observer returns the COMPLETE list (existing + new), so a second
+            # buffered pass must build on the newest chunk, not on the active
+            # block alone, or it would drop what the first chunk added.
+            buffered = list(record.buffered_observations or [])
             obs_result = await self.observer.call(
-                existing_observations=record.active_observations,
+                existing_observations=(
+                    buffered[-1].observations if buffered else record.active_observations
+                ),
                 messages_to_observe=unobserved,
                 prior_current_task=record.current_task,
                 prior_suggested_response=record.suggested_response,
@@ -249,19 +255,15 @@ class ObservationalMemory:
             await self.storage.set_buffering_observation_flag(record.id, False)
 
     async def activate(self, thread_id: str, resource_id: str) -> None:
-        """Merge pending buffer chunks into active observations."""
+        """Promote the newest buffered block (the complete list) to active observations."""
         record = await self.get_or_create_record(thread_id, resource_id)
         if not record.buffered_observations:
             return
 
-        combined = []
-        if record.active_observations:
-            combined.append(record.active_observations)
-
-        for chunk in record.buffered_observations:
-            combined.append(chunk.observations)
-
-        new_text = "\n\n".join(combined)
+        # Every chunk is the Observer's complete list as of its pass (each built on
+        # the one before), so the newest chunk IS the new active block. Appending
+        # would duplicate every existing observation.
+        new_text = record.buffered_observations[-1].observations
         record.active_observations = new_text
         record.observation_token_count = self.count_tokens_fn(new_text)
         record.buffered_observations = []

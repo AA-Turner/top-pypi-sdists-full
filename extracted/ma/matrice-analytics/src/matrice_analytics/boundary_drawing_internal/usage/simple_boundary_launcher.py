@@ -5,9 +5,12 @@ Simple Boundary Drawing Tool Launcher
 A simpler version of the boundary drawing launcher with more configuration options.
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 
 # Add the python-sdk to the path
 # Navigate up from usage folder to find the src directory
@@ -33,19 +36,19 @@ def launch_boundary_tool(video_path, custom_zones=None):
     try:
         from matrice_analytics.boundary_drawing_internal import EasyBoundaryTool
     except ImportError as e:
-        print(f"❌ Error importing matrice modules: {e}")
+        _logger.info("❌ Error importing matrice modules: %s", e)
         return None
 
     # Default zones if none provided
     if custom_zones is None:
         custom_zones = ["zone1", "zone2", "zone3", "zone4"]
 
-    print(f"🎯 Launching boundary tool for: {os.path.basename(video_path)}")
-    print(f"📍 Zones to create: {', '.join(custom_zones)}")
+    _logger.info("🎯 Launching boundary tool for: %s", os.path.basename(video_path))
+    _logger.info("📍 Zones to create: %s", ", ".join(custom_zones))
 
     # Check if file exists
     if not os.path.exists(video_path):
-        print(f"❌ File not found: {video_path}")
+        _logger.info("❌ File not found: %s", video_path)
         return None
 
     try:
@@ -58,20 +61,22 @@ def launch_boundary_tool(video_path, custom_zones=None):
         # Create the boundary tool
         html_path = tool.quick_setup(video_path, zones_needed=custom_zones)
 
-        print("✅ Tool created successfully!")
-        print("🌐 Browser should open automatically")
-        print(f"📄 Tool file: {html_path}")
+        _logger.info("✅ Tool created successfully!")
+        _logger.info("🌐 Browser should open automatically")
+        _logger.info("📄 Tool file: %s", html_path)
 
         return html_path
 
-    except Exception as e:
-        print(f"❌ Error creating tool: {e}")
+    except Exception as e:  # noqa: BLE001 - launcher reports any failure and returns None
+        _logger.info("❌ Error creating tool: %s", e)
         return None
 
 
 if __name__ == "__main__":
     # Your video path
-    VIDEO_PATH = r"C:\Users\pathi\OneDrive\Desktop\matriceai\matrice-applications\airport-security\door2.mp4"
+    VIDEO_PATH = (
+        r"C:\Users\pathi\OneDrive\Desktop\matriceai\matrice-applications\airport-security\door2.mp4"
+    )
 
     # Custom zones for airport security (you can modify these)
     SECURITY_ZONES = [
@@ -83,26 +88,26 @@ if __name__ == "__main__":
         "exit_door",
     ]
 
-    print("🔒 Airport Security Boundary Drawing Tool")
-    print("=" * 45)
+    _logger.info("🔒 Airport Security Boundary Drawing Tool")
+    _logger.info("%s", "=" * 45)
 
     # Launch the tool
     result = launch_boundary_tool(VIDEO_PATH, SECURITY_ZONES)
 
     if result:
-        print("\n✨ Success! The boundary drawing tool is now open.")
-        print("\n📋 How to use:")
-        print("1. Select a zone type from the dropdown menu")
-        print("2. Click points on the video frame to draw boundaries")
-        print("3. Complete each zone by right-clicking or pressing Enter")
-        print("4. Click 'Generate Code' when finished")
-        print("5. Copy the generated Python code for your application")
+        _logger.info("\n✨ Success! The boundary drawing tool is now open.")
+        _logger.info("\n📋 How to use:")
+        _logger.info("1. Select a zone type from the dropdown menu")
+        _logger.info("2. Click points on the video frame to draw boundaries")
+        _logger.info("3. Complete each zone by right-clicking or pressing Enter")
+        _logger.info("4. Click 'Generate Code' when finished")
+        _logger.info("5. Copy the generated Python code for your application")
 
-        print("\n💾 The generated code will look like:")
-        print("zones = {")
-        print('    "entry_door": [[x1, y1], [x2, y2], ...],')
-        print('    "security_line": [[x1, y1], [x2, y2], ...],')
-        print("    ...")
-        print("}")
+        _logger.info("\n💾 The generated code will look like:")
+        _logger.info("zones = {")
+        _logger.info('    "entry_door": [[x1, y1], [x2, y2], ...],')
+        _logger.info('    "security_line": [[x1, y1], [x2, y2], ...],')
+        _logger.info("    ...")
+        _logger.info("}")
     else:
-        print("\n❌ Failed to launch the tool. Please check the error messages above.")
+        _logger.info("\n❌ Failed to launch the tool. Please check the error messages above.")

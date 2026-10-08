@@ -5,8 +5,9 @@ import time
 from collections import deque
 from typing import Any
 
-import httpx
+import httpx2
 import pytest
+import truststore
 
 from trajectory import APITimeoutError, Client
 from trajectory._base_client import _DefaultHttpxClient
@@ -97,11 +98,12 @@ def network(monkeypatch: pytest.MonkeyPatch) -> RecordingNetwork:
       monkeypatch.delenv(name)
   result = RecordingNetwork()
   monkeypatch.setattr(socket, "create_connection", result.connect)
-  monkeypatch.setattr(
-    ssl.SSLContext,
-    "wrap_socket",
-    lambda context, sock, **kwargs: result.wrap_tls(context, sock, **kwargs),
-  )
+  for context_type in (ssl.SSLContext, truststore.SSLContext):
+    monkeypatch.setattr(
+      context_type,
+      "wrap_socket",
+      lambda context, sock, **kwargs: result.wrap_tls(context, sock, **kwargs),
+    )
   return result
 
 
@@ -124,15 +126,15 @@ def test_default_network_deadlines_allow_slow_responses(
 @pytest.mark.parametrize(
   ("client_options", "request_options", "copy_options", "http_options", "expected"),
   [
-    ({}, {}, None, None, httpx.Timeout(600, connect=5)),
-    ({}, {}, {}, None, httpx.Timeout(600, connect=5)),
-    ({}, {}, None, {"timeout": 5}, httpx.Timeout(5)),
-    ({}, {}, {}, {"timeout": 5}, httpx.Timeout(5)),
-    ({}, {}, None, {}, httpx.Timeout(5)),
-    ({"timeout": 120}, {}, None, {"timeout": 5}, httpx.Timeout(120)),
-    ({"timeout": 120}, {"timeout": 9}, None, None, httpx.Timeout(9)),
-    ({}, {"timeout": None}, None, None, httpx.Timeout(None)),
-    ({}, {}, {"timeout": 60}, None, httpx.Timeout(60)),
+    ({}, {}, None, None, httpx2.Timeout(600, connect=5)),
+    ({}, {}, {}, None, httpx2.Timeout(600, connect=5)),
+    ({}, {}, None, {"timeout": 5}, httpx2.Timeout(5)),
+    ({}, {}, {}, {"timeout": 5}, httpx2.Timeout(5)),
+    ({}, {}, None, {}, httpx2.Timeout(5)),
+    ({"timeout": 120}, {}, None, {"timeout": 5}, httpx2.Timeout(120)),
+    ({"timeout": 120}, {"timeout": 9}, None, None, httpx2.Timeout(9)),
+    ({}, {"timeout": None}, None, None, httpx2.Timeout(None)),
+    ({}, {}, {"timeout": 60}, None, httpx2.Timeout(60)),
   ],
 )
 def test_inference_preserves_explicit_deadlines_without_extra_retries(
@@ -141,19 +143,19 @@ def test_inference_preserves_explicit_deadlines_without_extra_retries(
   request_options: dict[str, Any],
   copy_options: dict[str, Any] | None,
   http_options: dict[str, Any] | None,
-  expected: httpx.Timeout,
+  expected: httpx2.Timeout,
 ) -> None:
   requests = []
 
-  def handle_request(request: httpx.Request) -> httpx.Response:
+  def handle_request(request: httpx2.Request) -> httpx2.Response:
     requests.append(request)
-    raise httpx.ReadTimeout("offline read timeout", request=request)
+    raise httpx2.ReadTimeout("offline read timeout", request=request)
 
   monkeypatch.setattr(
-    httpx.HTTPTransport, "handle_request", lambda _transport, request: handle_request(request)
+    httpx2.HTTPTransport, "handle_request", lambda _transport, request: handle_request(request)
   )
   http_client = (
-    httpx.Client(transport=httpx.MockTransport(handle_request), **http_options)
+    httpx2.Client(transport=httpx2.MockTransport(handle_request), **http_options)
     if http_options is not None
     else None
   )
@@ -313,7 +315,7 @@ def test_trust_env_false_keeps_direct_transport(
 
 
 def test_custom_transport_keeps_its_socket_options(network: RecordingNetwork) -> None:
-  transport = httpx.HTTPTransport(socket_options=[(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 0)])
+  transport = httpx2.HTTPTransport(socket_options=[(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 0)])
   with _DefaultHttpxClient(transport=transport) as client:
     assert client.get("http://api.example.com/ping").json() == {"ok": True}
   assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 0) in network.sockets[0].options
@@ -322,7 +324,7 @@ def test_custom_transport_keeps_its_socket_options(network: RecordingNetwork) ->
 
 def test_custom_mount_routes_without_default_socket_changes(network: RecordingNetwork) -> None:
   requests = []
-  transport = httpx.MockTransport(lambda request: requests.append(request) or httpx.Response(200))
+  transport = httpx2.MockTransport(lambda request: requests.append(request) or httpx2.Response(200))
   with _DefaultHttpxClient(mounts={"https://custom.example.com": transport}) as client:
     assert client.get("https://custom.example.com").status_code == 200
     assert client.get("http://api.example.com").json() == {"ok": True}
@@ -333,10 +335,10 @@ def test_custom_mount_routes_without_default_socket_changes(network: RecordingNe
 
 def test_supplied_http_client_and_copies_keep_custom_transport(network: RecordingNetwork) -> None:
   requests = []
-  transport = httpx.MockTransport(
-    lambda request: requests.append(request) or httpx.Response(200, json={"ok": True})
+  transport = httpx2.MockTransport(
+    lambda request: requests.append(request) or httpx2.Response(200, json={"ok": True})
   )
-  http_client = httpx.Client(transport=transport, timeout=12)
+  http_client = httpx2.Client(transport=transport, timeout=12)
   with Client(api_key="test-key", http_client=http_client, max_retries=0) as sdk:
     copied = sdk.with_options(timeout=17)
     assert sdk._client is http_client
@@ -389,15 +391,15 @@ def test_environment_ca_respects_trust_env(
 
 
 def test_connection_limit_remains_enforced(network: RecordingNetwork) -> None:
-  with _DefaultHttpxClient(limits=httpx.Limits(max_connections=1), timeout=0) as client:
+  with _DefaultHttpxClient(limits=httpx2.Limits(max_connections=1), timeout=0) as client:
     with client.stream("GET", "http://api.example.com/first"):
-      with pytest.raises(httpx.PoolTimeout):
+      with pytest.raises(httpx2.PoolTimeout):
         client.get("http://api.example.com/second")
   assert len(network.addresses) == 1
 
 
 def test_disabled_pool_reuse_remains_disabled(network: RecordingNetwork) -> None:
-  with _DefaultHttpxClient(limits=httpx.Limits(max_keepalive_connections=0)) as client:
+  with _DefaultHttpxClient(limits=httpx2.Limits(max_keepalive_connections=0)) as client:
     assert client.get("http://api.example.com/first").status_code == 200
     assert client.get("http://api.example.com/second").status_code == 200
   assert len(network.addresses) == 2
@@ -440,9 +442,9 @@ def test_http_version_options_reach_the_wire(
     if http1:
       assert client.get("https://api.example.com/ping").status_code == 200
     else:
-      with pytest.raises(httpx.WriteError):
+      with pytest.raises(httpx2.WriteError):
         client.get("https://api.example.com/ping")
-  assert ["http/1.1", "h2"] in protocols
+  assert (["h2", "http/1.1"] if http1 else ["h2"]) in protocols
   expected = b"GET /ping HTTP/1.1" if http1 else b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
   assert network.sockets[0].sent.startswith(expected)
 
@@ -452,7 +454,7 @@ def test_connection_expiry_remains_enforced(
 ) -> None:
   now = 0.0
   monkeypatch.setattr(time, "monotonic", lambda: now)
-  with _DefaultHttpxClient(limits=httpx.Limits(keepalive_expiry=1)) as client:
+  with _DefaultHttpxClient(limits=httpx2.Limits(keepalive_expiry=1)) as client:
     assert client.get("http://api.example.com/first").status_code == 200
     now = 2.0
     assert client.get("http://api.example.com/second").status_code == 200
@@ -460,7 +462,7 @@ def test_connection_expiry_remains_enforced(
 
 
 def test_separate_timeout_values_remain_effective(network: RecordingNetwork) -> None:
-  timeout = httpx.Timeout(connect=2, read=900, write=3, pool=4)
+  timeout = httpx2.Timeout(connect=2, read=900, write=3, pool=4)
   with _DefaultHttpxClient(timeout=timeout) as client:
     assert client.get("https://api.example.com/ping").status_code == 200
   assert network.connect_timeouts == [2]

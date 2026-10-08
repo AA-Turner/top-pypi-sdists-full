@@ -10,7 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from collections.abc import Mapping
+from typing import Any
 
 from keystoneauth1.identity.v3 import base
 from keystoneauth1 import session as ks_session
@@ -22,11 +23,11 @@ __all__ = ('TOTPMethod', 'TOTP')
 class TOTPMethod(base.AuthMethod):
     """Construct a User/Passcode based authentication method.
 
-    :param string passcode: TOTP passcode for authentication.
-    :param string username: Username for authentication.
-    :param string user_id: User ID for authentication.
-    :param string user_domain_id: User's domain ID for authentication.
-    :param string user_domain_name: User's domain name for authentication.
+    :param passcode: TOTP passcode for authentication.
+    :param username: Username for authentication.
+    :param user_id: User ID for authentication.
+    :param user_domain_id: User's domain ID for authentication.
+    :param user_domain_name: User's domain name for authentication.
     """
 
     passcode: str
@@ -56,8 +57,8 @@ class TOTPMethod(base.AuthMethod):
         auth: base.Auth,
         headers: dict[str, str],
         request_kwargs: dict[str, object],
-    ) -> tuple[None, None] | tuple[str, ty.Mapping[str, object]]:
-        user: dict[str, ty.Any] = {'passcode': self.passcode}
+    ) -> tuple[None, None] | tuple[str, Mapping[str, object]]:
+        user: dict[str, Any] = {'passcode': self.passcode}
 
         if self.user_id:
             user['id'] = self.user_id
@@ -72,9 +73,8 @@ class TOTPMethod(base.AuthMethod):
         return 'totp', {'user': user}
 
     def get_cache_id_elements(self) -> dict[str, str | None]:
-        # NOTE(gyee): passcode is not static so we cannot use it as part of
-        # the key in caching.
         return {
+            'totp_passcode': self.passcode,
             'totp_user_id': self.user_id,
             'totp_username': self.username,
             'totp_user_domain_id': self.user_domain_id,
@@ -85,21 +85,21 @@ class TOTPMethod(base.AuthMethod):
 class TOTP(base.Auth):
     """A plugin for authenticating with a username and TOTP passcode.
 
-    :param string auth_url: Identity service endpoint for authentication.
-    :param string passcode: TOTP passcode for authentication.
-    :param string user_id: User ID for authentication.
-    :param string username: Username for authentication.
-    :param string user_domain_id: User's domain ID for authentication.
-    :param string user_domain_name: User's domain name for authentication.
-    :param string trust_id: Trust ID for trust scoping.
-    :param string domain_id: Domain ID for domain scoping.
-    :param string domain_name: Domain name for domain scoping.
-    :param string project_id: Project ID for project scoping.
-    :param string project_name: Project name for project scoping.
-    :param string project_domain_id: Project's domain ID for project.
-    :param string project_domain_name: Project's domain name for project.
-    :param bool reauthenticate: Allow fetching a new token if the current one
-                                is going to expire. (optional) default True
+    :param auth_url: Identity service endpoint for authentication.
+    :param passcode: TOTP passcode for authentication.
+    :param user_id: User ID for authentication.
+    :param username: Username for authentication.
+    :param user_domain_id: User's domain ID for authentication.
+    :param user_domain_name: User's domain name for authentication.
+    :param trust_id: Trust ID for trust scoping.
+    :param domain_id: Domain ID for domain scoping.
+    :param domain_name: Domain name for domain scoping.
+    :param project_id: Project ID for project scoping.
+    :param project_name: Project name for project scoping.
+    :param project_domain_id: Project's domain ID for project.
+    :param project_domain_name: Project's domain name for project.
+    :param reauthenticate: Allow fetching a new token if the current one is
+        going to expire. (optional) default True
     """
 
     _auth_method_class = TOTPMethod

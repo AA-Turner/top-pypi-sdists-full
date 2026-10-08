@@ -20,11 +20,15 @@ from dlthub_sdk._glue.base import Collection, Entity
 from dlthub_sdk._glue.context import Async, Listing, M, Sync, _Ctx
 from dlthub_sdk._glue.enums import EntityKind
 from dlthub_sdk.domain.files import FileEntry
+from dlthub_sdk.errors import NotFound
 
 if TYPE_CHECKING:
     # Typing only: domain never imports _gen at runtime.
     # Current package
-    from dlthub_sdk._gen.api.models import DeploymentResponse
+    from dlthub_sdk._gen.api.models import (
+        DeploymentResponse,
+        ListPageDeploymentResponse,
+    )
     from dlthub_sdk._gen.dataplane_api.models import (
         DeploymentResponse as DataplaneDeploymentResponse,
     )
@@ -43,8 +47,8 @@ class Deployment(Entity[M]):
         content_hash: Hash of the uploaded content, so an unchanged upload is
             recognisable.
         file_count: How many files it holds.
-        size: Total size in bytes.
-        requirements_size: Size of the requirements manifest in bytes.
+        size_bytes: Total size in bytes.
+        requirements_size_bytes: Size of the requirements manifest in bytes.
         created_at: When it was uploaded.
         created_by: Who uploaded it.
         updated_at: When it last changed.
@@ -54,8 +58,8 @@ class Deployment(Entity[M]):
     id: str
     content_hash: str
     file_count: int
-    size: int
-    requirements_size: int
+    size_bytes: int
+    requirements_size_bytes: int
     created_at: datetime
     created_by: str
     updated_at: datetime
@@ -103,11 +107,11 @@ class Deployment(Entity[M]):
                 id=str(payload.id),
                 content_hash=payload.content_hash,
                 file_count=payload.file_count,
-                size=payload.size,
-                requirements_size=payload.requirements_size,
-                created_at=payload.date_added,
+                size_bytes=payload.size_bytes,
+                requirements_size_bytes=payload.requirements_size_bytes,
+                created_at=payload.created_at,
                 created_by=str(payload.created_by),
-                updated_at=payload.date_updated,
+                updated_at=payload.updated_at,
             ),
         )
 
@@ -120,7 +124,7 @@ class Deployments(Collection[M]):
     def _listing(self) -> Listing[DeploymentResponse]:
         workspace_id = self._ctx.require_workspace()
         return lambda t, limit, offset: t.list_deployments(
-            workspace_id=workspace_id, limit=limit, offset=offset
+            workspace_id=workspace_id, limit=limit, offset=offset, version=None
         )
 
     @overload
@@ -200,9 +204,19 @@ class Deployments(Collection[M]):
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()
+
+        def parse(
+            ctx: _Ctx[Any], payload: ListPageDeploymentResponse
+        ) -> Deployment[Any]:
+            if not payload.items:
+                raise NotFound(EntityKind.DEPLOYMENT, str(version))
+            return Deployment._from_payload(ctx, payload.items[0])
+
         return self._ctx.run(
-            lambda t: t.get_deployment(workspace_id=workspace_id, version=version),
-            Deployment._from_payload,
+            lambda t: t.list_deployments(
+                workspace_id=workspace_id, limit=1, offset=0, version=version
+            ),
+            parse,
         )
 
     @overload
@@ -223,7 +237,7 @@ class Deployments(Collection[M]):
         """
         workspace_id = self._ctx.require_workspace()
         return self._ctx.run(
-            lambda t: t.get_latest_deployment(workspace_id=workspace_id),
+            lambda t: t.get_deployment_latest(workspace_id=workspace_id),
             Deployment._from_payload,
         )
 

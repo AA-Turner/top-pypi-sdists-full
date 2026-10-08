@@ -834,3 +834,217 @@ def test_doctor_is_silent_about_an_enabled_unit(valid_config_path, monkeypatch) 
     result = _run_doctor(valid_config_path, monkeypatch, statuses)
     assert result.exit_code == 0, result.output
     assert "unit enablement" not in result.output
+
+
+# ── gui_lane_preflight (#3651) ───────────────────────────────────────────────
+#
+# `coord doctor` projects the machine's own `gui_lane_preflight` H-1 result
+# (coord/health/checks/gui_lane_preflight.py) out of
+# `/health["health"]["results"]` — see `_gui_lane_preflight_lines` in
+# coord/commands/status.py. Reuses `_health_with_unit_drift`'s generic
+# `h["health"] = {"results": ...}` wiring (it's check-id-agnostic despite the
+# name) rather than a near-duplicate helper.
+
+
+def test_doctor_reports_a_locked_gui_host_as_crit_with_the_fix(
+    valid_config_path, monkeypatch
+) -> None:
+    """The acceptance criteria's core case: a GUI-capable host whose screen
+    is locked is reported CRIT, distinctly labeled, with the exact fix."""
+    from coord.config import load
+
+    cfg = load(valid_config_path)
+    m = cfg.machines[0]
+    statuses = [
+        MachineStatus(
+            machine=m, state=ONLINE,
+            health=_health_with_unit_drift(
+                {"git": _ok_probe(), "gh": _ok_probe()}, m,
+                unit_results=[{
+                    "check_id": "gui_lane_preflight",
+                    "subject": "mac-native",
+                    "severity": "crit",
+                    "headroom": "INFRA: the screen is locked (CGSSessionScreenIsLocked)",
+                    "detail": (
+                        "the screen is locked — unlock it, then keep it "
+                        "unlocked for the run window with `caffeinate -d`"
+                    ),
+                }],
+            ),
+        ),
+        *[
+            MachineStatus(
+                machine=other, state=ONLINE,
+                health=_health({"git": _ok_probe(), "gh": _ok_probe()}, other),
+            )
+            for other in cfg.machines[1:]
+        ],
+    ]
+    result = _run_doctor(valid_config_path, monkeypatch, statuses)
+    assert result.exit_code == 1, result.output
+    assert "GUI lane pre-flight mac-native" in result.output
+    assert "INFRA:" in result.output
+    assert "fix:" in result.output
+    assert "caffeinate" in result.output
+
+
+def test_doctor_reports_a_ready_gui_host_with_an_explicit_ok_line(
+    valid_config_path, monkeypatch
+) -> None:
+    """Unlike unit_drift/unit_enablement (silent when clean), a ready GUI
+    lane prints an explicit ✓ line — "can the GUI lane run tonight?" needs a
+    positive one-command answer, not silence that could equally mean
+    "nothing to check"."""
+    from coord.config import load
+
+    cfg = load(valid_config_path)
+    m = cfg.machines[0]
+    statuses = [
+        MachineStatus(
+            machine=m, state=ONLINE,
+            health=_health_with_unit_drift(
+                {"git": _ok_probe(), "gh": _ok_probe()}, m,
+                unit_results=[{
+                    "check_id": "gui_lane_preflight",
+                    "subject": "mac-native",
+                    "severity": "ok",
+                    "headroom": "ready — display/session unlocked, permission present",
+                }],
+            ),
+        ),
+        *[
+            MachineStatus(
+                machine=other, state=ONLINE,
+                health=_health({"git": _ok_probe(), "gh": _ok_probe()}, other),
+            )
+            for other in cfg.machines[1:]
+        ],
+    ]
+    result = _run_doctor(valid_config_path, monkeypatch, statuses)
+    assert result.exit_code == 0, result.output
+    assert "✓ GUI lane pre-flight mac-native: ready" in result.output
+
+
+def test_doctor_is_silent_about_gui_lane_preflight_for_a_non_gui_host(
+    valid_config_path, monkeypatch
+) -> None:
+    """A host with no `gui_lane_preflight` entry at all (no GUI capability
+    declared, or an agent predating #3651) prints nothing for it."""
+    from coord.config import load
+
+    cfg = load(valid_config_path)
+    statuses = [
+        MachineStatus(
+            machine=m, state=ONLINE,
+            health=_health({"git": _ok_probe(), "gh": _ok_probe()}, m),
+        )
+        for m in cfg.machines
+    ]
+    result = _run_doctor(valid_config_path, monkeypatch, statuses)
+    assert result.exit_code == 0, result.output
+    assert "GUI lane pre-flight" not in result.output
+
+
+# `_gui_lane_preflight_lines` is exercised directly (not just through the
+# full `doctor` CLI above) for the cases below — pure-function unit tests,
+# per its own "testable without a live fleet" docstring promise.
+
+
+def test_gui_lane_preflight_lines_names_the_silence_for_a_capable_host_with_no_result(
+) -> None:
+    """#3651 review round 1 non-blocking finding: a GUI-capable host whose
+    `/health` carries NO `gui_lane_preflight` entry at all (config-free
+    agent, unresolved local-machine identity, or an agent predating #3651)
+    must not render as pure silence — that is exactly the "didn't look yet"
+    case `coord doctor`'s GUI readiness answer exists to rule out."""
+    from coord.commands.status import _gui_lane_preflight_lines
+
+    health = {"health": {"results": []}}
+
+    lines = _gui_lane_preflight_lines(health, ["macos", "python"])
+
+    assert any(
+        "mac-native" in line and "no pre-flight result from this host" in line
+        for _is_problem, line in lines
+    )
+
+
+def test_gui_lane_preflight_lines_present_result_suppresses_the_silence_line(
+) -> None:
+    """The opposite of the case above: when a lane's result IS present, no
+    redundant "no pre-flight result" line is added for it."""
+    from coord.commands.status import _gui_lane_preflight_lines
+
+    health = {
+        "health": {
+            "results": [{
+                "check_id": "gui_lane_preflight", "subject": "mac-native",
+                "severity": "ok", "headroom": "ready",
+            }],
+        },
+    }
+
+    lines = _gui_lane_preflight_lines(health, ["macos"])
+
+    assert not any("no pre-flight result" in line for _is_problem, line in lines)
+    assert any("mac-native" in line and "ready" in line for _is_problem, line in lines)
+
+
+def test_gui_lane_preflight_lines_omitting_capabilities_skips_the_cross_check(
+) -> None:
+    """Every pre-existing caller (and the three e2e tests above) omits
+    *capabilities* — confirms that keeps behaving exactly as before: no
+    cross-check, no silence line, just the per-result rendering."""
+    from coord.commands.status import _gui_lane_preflight_lines
+
+    lines = _gui_lane_preflight_lines({"health": {"results": []}})
+
+    assert lines == []
+
+
+def test_gui_lane_preflight_lines_renders_a_warn_result() -> None:
+    """Nit raised in #3651 review round 1: the renderer had no `warn`
+    branch, so a future WARN row from this check would be silently
+    dropped."""
+    from coord.commands.status import _gui_lane_preflight_lines
+
+    health = {
+        "health": {
+            "results": [{
+                "check_id": "gui_lane_preflight", "subject": "win-native",
+                "severity": "warn", "headroom": "nearly locked",
+                "detail": "unlock soon",
+            }],
+        },
+    }
+
+    lines = _gui_lane_preflight_lines(health)
+
+    assert any(
+        is_problem and "win-native" in line and "nearly locked" in line
+        for is_problem, line in lines
+    )
+    assert any("fix: unlock soon" in line for _is_problem, line in lines)
+
+
+def test_gui_lane_preflight_lines_renders_an_unknown_result() -> None:
+    """Nit raised in #3651 review round 1: the `unknown` branch (reachable
+    in production via `registry.run_check`'s fail-soft wrapper, since the
+    probe's own fail-soft otherwise makes it unreachable) had no test."""
+    from coord.commands.status import _gui_lane_preflight_lines
+
+    health = {
+        "health": {
+            "results": [{
+                "check_id": "gui_lane_preflight", "subject": "gtk-native",
+                "severity": "unknown", "headroom": "probe raised: boom",
+            }],
+        },
+    }
+
+    lines = _gui_lane_preflight_lines(health)
+
+    assert any(
+        not is_problem and "gtk-native" in line and "boom" in line
+        for is_problem, line in lines
+    )

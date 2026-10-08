@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: Qubx
-Version: 3.22.1
+Version: 4.0.0
 Summary: Qubx - Quantitative Trading Framework
 Project-URL: homepage, https://xlydian.com
 Project-URL: repository, https://github.com/xLydianSoftware/Qubx
@@ -34,7 +34,6 @@ Requires-Dist: psycopg<4,>=3.1.18
 Requires-Dist: pyarrow>=15.0.0
 Requires-Dist: pydantic-settings<3,>=2.4.0
 Requires-Dist: pydantic<3,>=2.9.2
-Requires-Dist: pymongo<5,>=4.6.1
 Requires-Dist: python-dotenv<2,>=1.0.0
 Requires-Dist: pyyaml<7,>=6.0.2
 Requires-Dist: questdb<3,>=2.0.3

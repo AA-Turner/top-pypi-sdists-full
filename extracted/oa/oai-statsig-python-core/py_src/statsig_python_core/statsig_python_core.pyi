@@ -359,12 +359,12 @@ class StatsigOptions:
     @property
     def prefer_http2(self) -> typing.Optional[builtins.bool]:
         r"""
-        Prefer HTTP/2 while allowing HTTP/1.1. Unset enables it; False restores the existing transport.
+        Prefer HTTP/2 while allowing HTTP/1.1. Disabled by default; True opts in.
         """
     @prefer_http2.setter
     def prefer_http2(self, value: typing.Optional[builtins.bool]) -> None:
         r"""
-        Prefer HTTP/2 while allowing HTTP/1.1. Unset enables it; False restores the existing transport.
+        Prefer HTTP/2 while allowing HTTP/1.1. Disabled by default; True opts in.
         """
     @property
     def event_logging_flush_interval_ms(self) -> typing.Optional[builtins.int]: ...

@@ -25,6 +25,7 @@ from typing import Any, TYPE_CHECKING
 import warnings
 
 from keystoneauth1 import adapter
+from keystoneauth1 import exceptions as ksa_exceptions
 from keystoneauth1 import loading
 from keystoneauth1 import session
 import platformdirs
@@ -34,6 +35,7 @@ from openstack import _log
 from openstack.config import _util
 from openstack.config import cloud_region
 from openstack.config import defaults
+from openstack.config import types
 from openstack.config import vendors
 from openstack import exceptions
 from openstack import warnings as os_warnings
@@ -143,12 +145,13 @@ def _fix_argv(argv: list[str]) -> None:
     for new, old in processed.items():
         if len(old) > 1:
             overlap.extend(old)
+
     if overlap:
         raise exceptions.ConfigException(
-            "The following options were given: '{options}' which contain "
-            "duplicates except that one has _ and one has -. There is "
-            "no sane way for us to know what you're doing. Remove the "
-            "duplicate option and try again".format(options=','.join(overlap))
+            f"The following options were given: '{','.join(overlap)}' which "
+            f"contain duplicates except that one has '_' and one has '-'. "
+            f"There is no sane way for us to know what you're doing. "
+            f"Remove the duplicate option and try again."
         )
 
 
@@ -183,9 +186,10 @@ class OpenStackConfig:
         load_yaml_config: bool = True,
         load_envvars: bool = True,
         statsd_host: str | None = None,
-        statsd_port: str | None = None,
+        statsd_port: int | None = None,
         statsd_prefix: str | None = None,
-        influxdb_config: dict[str, Any] | None = None,
+        statsd_config: types.StatsdConfig | None = None,
+        influxdb_config: types.InfluxDBConfig | None = None,
     ):
         self.log = _log.setup_logging('openstack.config')
         self._session_constructor = session_constructor
@@ -252,36 +256,10 @@ class OpenStackConfig:
         self.extra_config = copy.deepcopy(self.cloud_config)
         self.extra_config.pop('clouds', None)
 
-        # Grab ipv6 preference settings from env
-        client_config = self.cloud_config.get('client', {})
-
-        if force_ipv4 is not None:
-            # If it's passed in to the constructor, honor it.
-            self.force_ipv4 = force_ipv4
-        else:
-            # Get the backwards compat value
-            prefer_ipv6 = get_boolean(
-                self._get_envvar(
-                    'OS_PREFER_IPV6',
-                    client_config.get(
-                        'prefer_ipv6', client_config.get('prefer-ipv6', True)
-                    ),
-                )
-            )
-            force_ipv4 = get_boolean(
-                self._get_envvar(
-                    'OS_FORCE_IPV4',
-                    client_config.get(
-                        'force_ipv4', client_config.get('broken-ipv6', False)
-                    ),
-                )
-            )
-
-            self.force_ipv4 = force_ipv4
-            if not prefer_ipv6:
-                # this will only be false if someone set it explicitly
-                # honor their wishes
-                self.force_ipv4 = True
+        client_config = self._parse_section__client(
+            load_yaml_config, load_envvars, force_ipv4=force_ipv4
+        )
+        self.force_ipv4 = client_config['force_ipv4']
 
         # Next, process environment variables and add them to the mix
         self.envvar_key = self._get_envvar('OS_CLOUD_NAME', 'envvars')
@@ -322,60 +300,275 @@ class OpenStackConfig:
             self.cloud_config = dict(clouds=dict(defaults=dict(self.defaults)))
             self.default_cloud = 'defaults'
 
-        self._cache_auth = False
-        self._cache_expiration_time = 0
-        self._cache_path = CACHE_PATH
-        self._cache_class = 'dogpile.cache.null'
-        self._cache_arguments: dict[str, Any] = {}
-        self._cache_expirations: dict[str, int] = {}
-        self._influxdb_config = {}
-        if 'cache' in self.cloud_config:
+        cache = self._parse_section__cache(load_yaml_config, load_envvars)
+        self._cache_auth = cache['auth']
+        self._cache_expiration_time = cache['expiration_time']
+        self._cache_class = cache['cache_class']
+        self._cache_path = cache['path']
+        self._cache_arguments = cache['arguments']
+        self._cache_expirations = cache['expirations']
+
+        if statsd_host or statsd_port or statsd_prefix:
+            if statsd_config:
+                raise exceptions.ConfigException(
+                    'cannot specify statsd_config and any of statsd_host, '
+                    'statsd_port, and statsd_prefix: remove the latter'
+                )
+
+            self.log.warning(
+                'the statsd_host, statsd_port, and statsd_prefix arguments '
+                'have been deprecated in favour of statsd_config'
+            )
+            statsd_config = {
+                'host': statsd_host,
+                'port': statsd_port,
+                'prefix': statsd_prefix,
+            }
+
+        self._statsd_config = self._parse_section__metrics_statsd(
+            statsd_config,
+            load_config=load_yaml_config,
+            load_envvars=load_envvars,
+        )
+
+        self._influxdb_config = self._parse_section__metrics_influxdb(
+            influxdb_config,
+            load_config=load_yaml_config,
+            load_envvars=load_envvars,
+        )
+
+        # Flag location to hold the peeked value of an argparse timeout value
+        self._argv_timeout = False
+
+        # Save the password callback
+        # password = self._pw_callback(prompt="Password: ")
+        self._pw_callback = pw_func
+
+    def _parse_section__cache(
+        self,
+        load_config: bool,
+        load_envvars: bool,
+    ) -> types.CacheConfig:
+        """Parse the '.cache' section of the config file.
+
+        :param load_config: Whether to load configuration from the config file.
+        :param load_envvars: Whether to load configuration from environment
+            variables.
+        :returns: The parsed cache configuration.
+        """
+        cache: types.CacheConfig = {
+            'auth': False,
+            'expiration_time': 0,
+            'cache_class': 'dogpile.cache.null',
+            'path': CACHE_PATH,
+            'arguments': {},
+            'expirations': {},
+        }
+
+        if load_config and 'cache' in self.cloud_config:
             cache_settings = _util.normalize_keys(self.cloud_config['cache'])
 
-            self._cache_auth = get_boolean(
-                cache_settings.get('auth', self._cache_auth)
+            cache['auth'] = get_boolean(
+                cache_settings.get('auth', cache['auth'])
             )
 
             # expiration_time used to be 'max_age' but the dogpile setting
             # is expiration_time. Support max_age for backwards compat.
-            self._cache_expiration_time = cache_settings.get(
+            cache['expiration_time'] = cache_settings.get(
                 'expiration_time',
-                cache_settings.get('max_age', self._cache_expiration_time),
+                cache_settings.get('max_age', cache['expiration_time']),
             )
 
             # If cache class is given, use that. If not, but if cache time
             # is given, default to memory. Otherwise, default to nothing.
-            if self._cache_expiration_time:
-                self._cache_class = 'dogpile.cache.memory'
-            self._cache_class = self.cloud_config['cache'].get(
-                'class', self._cache_class
+            if cache['expiration_time']:
+                cache['cache_class'] = 'dogpile.cache.memory'
+            cache['cache_class'] = self.cloud_config['cache'].get(
+                'class', cache['cache_class']
             )
 
-            self._cache_path = os.path.expanduser(
-                cache_settings.get('path', self._cache_path)
+            cache['path'] = os.path.expanduser(
+                cache_settings.get('path', cache['path'])
             )
-            self._cache_arguments = cache_settings.get(
-                'arguments', self._cache_arguments
+            cache['arguments'] = cache_settings.get(
+                'arguments', cache['arguments']
             )
-            self._cache_expirations = cache_settings.get(
-                'expiration', self._cache_expirations
+            cache['expirations'] = cache_settings.get(
+                'expiration', cache['expirations']
             )
 
-        if load_yaml_config:
+        return cache
+
+    # FIXME(stephenfin): Respect the load_envvars, load_config options
+    def _parse_section__client(
+        self,
+        load_config: bool,
+        load_envvars: bool,
+        *,
+        force_ipv4: bool | None,
+    ) -> types.ClientConfig:
+        """Parse the '.client' section of the config file.
+
+        :param load_config: Whether to load configuration from the config file.
+        :param load_envvars: Whether to load configuration from environment
+            variables.
+        :param force_ipv4: Whether to force/not force IPv4 and ignore
+            configuration.
+        :returns: The parsed client configuration.
+        """
+        client: types.ClientConfig = {'force_ipv4': False}
+        client_config = self.cloud_config.get('client', {})
+
+        if force_ipv4 is not None:
+            # If it's passed in to the constructor, honor it.
+            client['force_ipv4'] = force_ipv4
+            return client
+
+        # Get the backwards compat value
+        prefer_ipv6 = get_boolean(
+            self._get_envvar(
+                'OS_PREFER_IPV6',
+                client_config.get(
+                    'prefer_ipv6', client_config.get('prefer-ipv6', True)
+                ),
+            )
+        )
+        force_ipv4 = get_boolean(
+            self._get_envvar(
+                'OS_FORCE_IPV4',
+                client_config.get(
+                    'force_ipv4', client_config.get('broken-ipv6', False)
+                ),
+            )
+        )
+
+        if prefer_ipv6 is False:
+            # this will only be false if someone set it explicitly
+            # honor their wishes
+            force_ipv4 = True
+
+        client['force_ipv4'] = force_ipv4
+        return client
+
+    def _parse_section__metrics_statsd(
+        self,
+        config: types.StatsdConfig | None,
+        *,
+        load_config: bool,
+        load_envvars: bool,
+    ) -> types.StatsdConfig:
+        """Parse the '.metrics.statsd' section of the config file.
+
+        :param config: Configuration provided explicitly. Any values specified
+            here supersede those specified via environment variables or the
+            configuration file.
+        :param load_config: Whether to load configuration from the config file.
+        :param load_envvars: Whether to load configuration from environment
+            variables.
+
+        :returns: Configuration for the statsd connection.
+        """
+        config = copy.deepcopy(config) if config else {}
+
+        host = config.pop('host', None)
+        port = config.pop('port', None)
+        prefix = config.pop('prefix', None)
+
+        if config:
+            self.log.warning(
+                'statsd_config contained unrecognised keys: %s',
+                ', '.join(config),
+            )
+
+        # Values are resolved in order of precedence: explicit configuration
+        # (i.e. the 'config' argument) first, then environment variables and
+        # finally the configuration file.
+        if load_envvars:
+            host = host or os.environ.get('STATSD_HOST')
+            if not port and 'STATSD_PORT' in os.environ:
+                port = int(os.environ['STATSD_PORT'])
+            prefix = prefix or os.environ.get('STATSD_PREFIX')
+
+        if load_config:
             metrics_config = self.cloud_config.get('metrics', {})
             statsd_config = metrics_config.get('statsd', {})
-            statsd_host = statsd_host or statsd_config.get('host')
-            statsd_port = statsd_port or statsd_config.get('port')
-            statsd_prefix = statsd_prefix or statsd_config.get('prefix')
 
-            influxdb_cfg = metrics_config.get('influxdb', {})
-            # Parse InfluxDB configuration
-            if not influxdb_config:
-                influxdb_config = influxdb_cfg
+            host = host or statsd_config.get('host')
+            port = port or statsd_config.get('port')
+            prefix = prefix or statsd_config.get('prefix')
+
+        return {
+            'host': host,
+            'port': port,
+            'prefix': prefix,
+        }
+
+    # FIXME(stephenfin): Allow loading configuration from environment variables
+    def _parse_section__metrics_influxdb(
+        self,
+        config: types.InfluxDBConfig | None,
+        *,
+        load_config: bool,
+        load_envvars: bool,
+    ) -> types.InfluxDBConfig:
+        """Parse the '.metrics.influxdb' section of the config file.
+
+        For more information on the significance of these values, refer to the
+        InfluxDB reference guide.
+
+        https://docs.influxdata.com/influxdb/v2/reference/glossary/
+
+        :param config: The influxdb_config argument. Any values specified here
+            supersede those specified via the configuration file or environment
+            variables.
+        :param load_config: Whether to load configuration from the config file.
+        :param load_envvars: Whether to load configuration from environment
+            variables. (currently ignored)
+        :returns: Configuration for the influxdb connection, if any.
+        """
+        config = copy.deepcopy(config) if config else {}
+
+        host = config.pop('host', None)
+        port = config.pop('port', None)
+        username = config.pop('username', None)
+        password = config.pop('password', None)
+        database = config.pop('database', None)
+        measurement = config.pop('measurement', None)
+        timeout = config.pop('timeout', None)
+        use_udp = config.pop('use_udp', None)
+
+        if config:
+            self.log.warning(
+                'influxdb_config contained unrecognised keys: %s',
+                ', '.join(config),
+            )
+
+        if load_config:
+            metrics_config = self.cloud_config.get('metrics', {})
+            influxdb_config = metrics_config.get('influxdb', {})
+
+            host = host or influxdb_config.get('host')
+            port = port or influxdb_config.get('port')
+            username = username or influxdb_config.get('username')
+            password = password or influxdb_config.get('password')
+            database = database or influxdb_config.get('database')
+            measurement = measurement or influxdb_config.get('measurement')
+            timeout = timeout or influxdb_config.get('timeout')
+            if use_udp is None:
+                use_udp = influxdb_config.get('use_udp')
+
+        # normalise use_udp, but only if a value was actually provided
+        if use_udp is not None and not isinstance(use_udp, bool):
+            if isinstance(use_udp, str):
+                use_udp = use_udp.lower() in ('true', 'yes', '1')
             else:
-                influxdb_config.update(influxdb_cfg)
+                use_udp = False
+                self.log.warning(
+                    'InfluxDB.use_udp value type is not supported. '
+                    'Use one of [true|false|yes|no|1|0]'
+                )
 
-        if influxdb_config:
+        if host:
             # NOTE(stephenfin): defer the warning to here so we catch config in
             # both clouds.yaml and directly passed in
             warnings.warn(
@@ -386,47 +579,16 @@ class OpenStackConfig:
                 os_warnings.RemovedInSDK60Warning,
             )
 
-            config = {}
-            if 'use_udp' in influxdb_config:
-                use_udp = influxdb_config['use_udp']
-                if isinstance(use_udp, str):
-                    use_udp = use_udp.lower() in ('true', 'yes', '1')
-                elif not isinstance(use_udp, bool):
-                    use_udp = False
-                    self.log.warning(
-                        'InfluxDB.use_udp value type is not '
-                        'supported. Use one of '
-                        '[true|false|yes|no|1|0]'
-                    )
-                config['use_udp'] = use_udp
-            for key in [
-                'host',
-                'port',
-                'username',
-                'password',
-                'database',
-                'measurement',
-                'timeout',
-            ]:
-                if key in influxdb_config:
-                    config[key] = influxdb_config[key]
-            self._influxdb_config = config
-
-        if load_envvars:
-            statsd_host = statsd_host or os.environ.get('STATSD_HOST')
-            statsd_port = statsd_port or os.environ.get('STATSD_PORT')
-            statsd_prefix = statsd_prefix or os.environ.get('STATSD_PREFIX')
-
-        self._statsd_host = statsd_host
-        self._statsd_port = statsd_port
-        self._statsd_prefix = statsd_prefix
-
-        # Flag location to hold the peeked value of an argparse timeout value
-        self._argv_timeout = False
-
-        # Save the password callback
-        # password = self._pw_callback(prompt="Password: ")
-        self._pw_callback = pw_func
+        return {
+            'host': host,
+            'port': port,
+            'username': username,
+            'password': password,
+            'database': database,
+            'measurement': measurement,
+            'timeout': timeout,
+            'use_udp': use_udp,
+        }
 
     def _get_os_environ(
         self, envvar_prefix: str | None = None
@@ -1045,19 +1207,28 @@ class OpenStackConfig:
     def get_all(self) -> list[cloud_region.CloudRegion]:
         clouds = []
 
-        for cloud in self.get_cloud_names():
-            for region in self._get_regions(cloud):
-                if region:
-                    clouds.append(
-                        self.get_one(cloud, region_name=region['name'])
+        for name in self.get_cloud_names():
+            for region in self._get_regions(name):
+                if not region:
+                    continue
+
+                try:
+                    cloud = self.get_one(name, region_name=region['name'])
+                except ksa_exceptions.AuthPluginException:
+                    self.log.exception(
+                        'Failed to load cloud entry',
                     )
+                    continue
+
+                clouds.append(cloud)
+
         return clouds
 
     def get_all_clouds(self) -> list[cloud_region.CloudRegion]:
         warnings.warn(
             "The 'get_all_clouds' method is a deprecated alias for "
             "'get_clouds' and will be removed in a future release.",
-            os_warnings.RemovedInSDK60Warning,
+            os_warnings.RemovedInSDK50Warning,
         )
         return self.get_all()
 
@@ -1326,7 +1497,7 @@ class OpenStackConfig:
             to be created. It's really only useful for testing.
         :param Namespace argparse:
             An argparse Namespace object; allows direct passing in of
-            argparse options to be added to the cloud config.  Values
+            argparse options to be added to the cloud config. Values
             of None and '' will be removed.
         :param region_name: Name of the region of the cloud.
         :param kwargs: Additional configuration options
@@ -1395,10 +1566,15 @@ class OpenStackConfig:
         # Override global metrics config with more specific per-cloud
         # details.
         metrics_config = config.get('metrics', {})
+
         statsd_config = metrics_config.get('statsd', {})
-        statsd_host = statsd_config.get('host') or self._statsd_host
-        statsd_port = statsd_config.get('port') or self._statsd_port
-        statsd_prefix = statsd_config.get('prefix') or self._statsd_prefix
+        if statsd_config:
+            merged_statsd = copy.deepcopy(self._statsd_config)
+            merged_statsd.update(statsd_config)
+            statsd_config = merged_statsd
+        else:
+            statsd_config = self._statsd_config
+
         influxdb_config = metrics_config.get('influxdb', {})
         if influxdb_config:
             merged_influxdb = copy.deepcopy(self._influxdb_config)
@@ -1429,9 +1605,7 @@ class OpenStackConfig:
             cache_class=self._cache_class,
             cache_arguments=self._cache_arguments,
             password_callback=self._pw_callback,
-            statsd_host=statsd_host,
-            statsd_port=statsd_port,
-            statsd_prefix=statsd_prefix,
+            statsd_config=statsd_config,
             influxdb_config=influxdb_config,
         )
 
@@ -1445,7 +1619,7 @@ class OpenStackConfig:
         warnings.warn(
             "The 'get_one_cloud' method is a deprecated alias for 'get_one' "
             "and will be removed in a future release.",
-            os_warnings.RemovedInSDK60Warning,
+            os_warnings.RemovedInSDK50Warning,
         )
         return self.get_one(
             cloud=cloud,

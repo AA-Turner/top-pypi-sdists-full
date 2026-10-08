@@ -44,7 +44,7 @@ def map_co_group_map(
     Uses UNION ALL with source markers to combine both DataFrames, then applies
     a UDTF that separates rows by source and processes them together.
     """
-    from snowflake.snowpark_connect.relation.map_relation import map_relation
+    from snowflake.snowpark_connect.relation.map_join import _resolve_join_children
 
     # cogroup processes two DataFrames that are later combined via UNION ALL +
     # a UDTF keyed by a grouping expression — functionally a join-like
@@ -56,8 +56,9 @@ def map_co_group_map(
     )
 
     with _join_context():
-        input_container = map_relation(rel.co_group_map.input)
-        other_container = map_relation(rel.co_group_map.other)
+        input_container, other_container = _resolve_join_children(
+            rel.co_group_map.input, rel.co_group_map.other
+        )
 
     input_typer = ExpressionTyper(input_container.dataframe)
     other_typer = ExpressionTyper(other_container.dataframe)

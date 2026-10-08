@@ -6,7 +6,7 @@ from datetime import timedelta
 from functools import wraps
 from typing import Any, Generic, ParamSpec, TypeVar, cast, get_args
 
-import httpx
+import httpx2
 
 from trajectory._exceptions import APIResponseValidationError
 from trajectory._models import FinalRequestOptions
@@ -36,7 +36,7 @@ class APIResponse(Generic[ResponseT]):
   def __init__(
     self,
     cast_to: type[ResponseT] | None,
-    response: httpx.Response,
+    response: httpx2.Response,
     client: Any,
     options: FinalRequestOptions,
     page_options: FinalRequestOptions,
@@ -54,11 +54,11 @@ class APIResponse(Generic[ResponseT]):
     self.retries_taken = retries_taken
 
   @property
-  def headers(self) -> httpx.Headers:
+  def headers(self) -> httpx2.Headers:
     return self.http_response.headers
 
   @property
-  def http_request(self) -> httpx.Request:
+  def http_request(self) -> httpx2.Request:
     return self.http_response.request
 
   @property
@@ -66,7 +66,7 @@ class APIResponse(Generic[ResponseT]):
     return self.http_response.status_code
 
   @property
-  def url(self) -> httpx.URL:
+  def url(self) -> httpx2.URL:
     return self.http_response.url
 
   @property
@@ -118,7 +118,7 @@ class APIResponse(Generic[ResponseT]):
   def iter_lines(self) -> Iterator[str]:
     yield from self.http_response.iter_lines()
 
-  def parse(self) -> ResponseT | httpx.Response | Stream[Any]:
+  def parse(self) -> ResponseT | httpx2.Response | Stream[Any]:
     if self._stream:
       if self._stream_cls is None:
         raise TypeError("The `stream_cls` argument must be given when `stream=True`")

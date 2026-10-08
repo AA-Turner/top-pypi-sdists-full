@@ -21,6 +21,12 @@ import sys
 
 from .api_call import ApiCall
 from .document import Document
+from .stream import (
+    SearchStream,
+    consume_stream,
+    notify_error,
+    resolve_stream_config,
+)
 from typesense.exceptions import TypesenseClientError
 from typesense.logger import logger
 from typesense.preprocess import stringify_search_params
@@ -59,6 +65,17 @@ TDoc = typing.TypeVar("TDoc", bound=DocumentSchema)
 _ImportParameters = typing.Union[
     DocumentImportParameters,
     None,
+]
+
+# One line of an import response. ``ImportResponse`` is a union of lists, one per
+# return mode, so the helpers below build a list of these and ``import_`` casts it
+# to the list type its overloads promise.
+_ImportResponseItem = typing.Union[
+    ImportResponseWithDoc[TDoc],
+    ImportResponseWithId,
+    ImportResponseWithDocAndId[TDoc],
+    ImportResponseSuccess,
+    ImportResponseFail[TDoc],
 ]
 
 
@@ -125,12 +142,14 @@ class Documents(typing.Generic[TDoc]):
         Returns:
             TDoc: The created document.
         """
-        dirty_values_parameters = dirty_values_parameters or {}
-        dirty_values_parameters["action"] = "create"
+        write_parameters: typing.Dict[str, object] = {
+            **(dirty_values_parameters or {}),
+            "action": "create",
+        }
         response = self.api_call.post(
             self._endpoint_path(),
             body=document,
-            params=dirty_values_parameters,
+            params=write_parameters,
             as_json=True,
             entity_type=typing.Dict[str, str],
         )
@@ -154,7 +173,14 @@ class Documents(typing.Generic[TDoc]):
                 The list of import responses.
         """
         logger.warn("`create_many` is deprecated: please use `import_`.")
-        return self.import_(documents, dirty_values_parameters)
+        # Dirty values parameters are a subset of the write parameters.
+        return self.import_(
+            documents,
+            typing.cast(
+                typing.Optional[DocumentWriteParameters],
+                dirty_values_parameters,
+            ),
+        )
 
     def upsert(
         self,
@@ -172,12 +198,14 @@ class Documents(typing.Generic[TDoc]):
         Returns:
             TDoc: The upserted document.
         """
-        dirty_values_parameters = dirty_values_parameters or {}
-        dirty_values_parameters["action"] = "upsert"
+        write_parameters: typing.Dict[str, object] = {
+            **(dirty_values_parameters or {}),
+            "action": "upsert",
+        }
         response = self.api_call.post(
             self._endpoint_path(),
             body=document,
-            params=dirty_values_parameters,
+            params=write_parameters,
             as_json=True,
             entity_type=typing.Dict[str, str],
         )
@@ -199,12 +227,14 @@ class Documents(typing.Generic[TDoc]):
         Returns:
             UpdateByFilterResponse: The response containing information about the update.
         """
-        dirty_values_parameters = dirty_values_parameters or {}
-        dirty_values_parameters["action"] = "update"
+        update_parameters: typing.Dict[str, object] = {
+            **(dirty_values_parameters or {}),
+            "action": "update",
+        }
         response: UpdateByFilterResponse = self.api_call.patch(
             self._endpoint_path(),
             body=document,
-            params=dirty_values_parameters,
+            params=update_parameters,
             entity_type=UpdateByFilterResponse,
         )
         return response
@@ -301,9 +331,14 @@ class Documents(typing.Generic[TDoc]):
             return self._import_raw(documents, import_parameters)
 
         if batch_size:
-            return self._batch_import(documents, import_parameters, batch_size)
-
-        return self._bulk_import(documents, import_parameters)
+            response_objs = self._batch_import(
+                documents,
+                import_parameters,
+                batch_size,
+            )
+        else:
+            response_objs = self._bulk_import(documents, import_parameters)
+        return typing.cast(ImportResponse[TDoc], response_objs)
 
     def export(
         self,
@@ -331,13 +366,38 @@ class Documents(typing.Generic[TDoc]):
         """
         Search for documents in the collection.
 
+        With ``conversation_stream`` enabled, the LLM's answer is streamed and the
+        callbacks in ``stream_config`` run as it arrives. To iterate over the answer
+        instead, use ``search_stream``.
+
         Args:
             search_parameters (SearchParameters): The search parameters.
 
         Returns:
             SearchResponse[TDoc]: The search response containing matching documents.
         """
-        stringified_search_params = stringify_search_params(search_parameters)
+        if search_parameters.get("conversation_stream"):
+            stream_config = resolve_stream_config(
+                search_parameters.get("stream_config"),
+            )
+            try:
+                search_stream = self._open_search_stream(search_parameters)
+                streamed_response: SearchResponse[TDoc] = consume_stream(
+                    search_stream,
+                    stream_config,
+                )
+            except Exception as error:
+                notify_error(stream_config, error)
+                raise
+            return streamed_response
+
+        stringified_search_params = stringify_search_params(
+            {
+                param: param_value
+                for param, param_value in search_parameters.items()
+                if param != "stream_config"
+            },
+        )
         response: SearchResponse[TDoc] = self.api_call.get(
             self._endpoint_path("search"),
             params=stringified_search_params,
@@ -345,6 +405,46 @@ class Documents(typing.Generic[TDoc]):
             as_json=True,
         )
         return response
+
+    def search_stream(
+        self,
+        search_parameters: SearchParameters,
+    ) -> SearchStream[SearchResponse[TDoc]]:
+        """
+        Search, streaming the LLM's answer as it is generated.
+
+        Iterate over the returned stream for the pieces of the answer, then call
+        its ``get_final_response`` for the search response. Use the stream as a
+        context manager so the connection is released if you stop early.
+
+        ``conversation`` and ``conversation_stream`` are enabled for you; pass the
+        ``conversation_model_id`` to answer with. ``stream_config`` is ignored.
+
+        Args:
+            search_parameters (SearchParameters): The search parameters.
+
+        Returns:
+            SearchStream[SearchResponse[TDoc]]: The open stream.
+        """
+        return self._open_search_stream(search_parameters)
+
+    def _open_search_stream(
+        self,
+        search_parameters: SearchParameters,
+    ) -> SearchStream[SearchResponse[TDoc]]:
+        """Open the search request as a stream."""
+        stream_params: typing.Dict[str, object] = {
+            "conversation": True,
+            **search_parameters,
+            "conversation_stream": True,
+        }
+        stream_params.pop("stream_config", None)
+        return self.api_call.stream(
+            "GET",
+            self._endpoint_path("search"),
+            entity_type=SearchResponse,
+            params=stringify_search_params(stream_params),
+        )
 
     def delete(
         self,
@@ -410,9 +510,9 @@ class Documents(typing.Generic[TDoc]):
         documents: typing.List[TDoc],
         import_parameters: _ImportParameters,
         batch_size: int,
-    ) -> ImportResponse[TDoc]:
+    ) -> typing.List[_ImportResponseItem[TDoc]]:
         """Import documents in batches."""
-        response_objs: ImportResponse[TDoc] = []
+        response_objs: typing.List[_ImportResponseItem[TDoc]] = []
         for batch_index in range(0, len(documents), batch_size):
             batch = documents[batch_index : batch_index + batch_size]
             api_response = self._bulk_import(batch, import_parameters)
@@ -423,7 +523,7 @@ class Documents(typing.Generic[TDoc]):
         self,
         documents: typing.List[TDoc],
         import_parameters: _ImportParameters,
-    ) -> ImportResponse[TDoc]:
+    ) -> typing.List[_ImportResponseItem[TDoc]]:
         """Import a list of documents in bulk."""
         document_strs = [json.dumps(doc) for doc in documents]
         if not document_strs:
@@ -439,9 +539,12 @@ class Documents(typing.Generic[TDoc]):
         )
         return self._parse_import_response(res)
 
-    def _parse_import_response(self, response: str) -> ImportResponse[TDoc]:
+    def _parse_import_response(
+        self,
+        response: str,
+    ) -> typing.List[_ImportResponseItem[TDoc]]:
         """Parse the import response string into a list of response objects."""
-        response_objs: typing.List[ImportResponse] = []
+        response_objs: typing.List[_ImportResponseItem[TDoc]] = []
         for res_obj_str in response.split("\n"):
             try:
                 res_obj_json = json.loads(res_obj_str)

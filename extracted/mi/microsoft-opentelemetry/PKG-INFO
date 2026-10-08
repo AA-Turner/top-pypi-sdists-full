@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-opentelemetry
-Version: 1.3.9
+Version: 1.4.0
 Summary: Minimal template for the Microsoft OpenTelemetry distro for Python
 Project-URL: Homepage, https://github.com/microsoft/opentelemetry-distro-python
 Project-URL: Repository, https://github.com/microsoft/opentelemetry-distro-python
@@ -21,34 +21,32 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.md
-Requires-Dist: azure-core<2.0.0,>=1.28.0
+Requires-Dist: azure-core<2.0.0,>=1.38.0
 Requires-Dist: azure-core-tracing-opentelemetry~=1.0.0b11
-Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b57
-Requires-Dist: opentelemetry-sdk~=1.44.0
-Requires-Dist: opentelemetry-api~=1.44.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.44.0
-Requires-Dist: opentelemetry-instrumentation<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-django<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-fastapi<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-flask<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-httpx<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-psycopg2<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-requests<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-urllib<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-urllib3<0.66b0,>=0.65b0
-Requires-Dist: opentelemetry-instrumentation-logging<0.66b0,>=0.65b0
+Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b58
+Requires-Dist: opentelemetry-sdk~=1.45.0
+Requires-Dist: opentelemetry-api~=1.45.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.45.0
+Requires-Dist: opentelemetry-instrumentation<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-django<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-flask<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-httpx<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-psycopg2<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-requests<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-urllib<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-urllib3<0.67b0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation-logging<0.67b0,>=0.66b0
 Requires-Dist: opentelemetry-instrumentation-openai-agents-v2==0.1.0
 Requires-Dist: opentelemetry-instrumentation-openai-v2==2.3b0
-Requires-Dist: opentelemetry-resource-detector-azure<1.0.0,>=0.2.0
+Requires-Dist: opentelemetry-resource-detector-azure<1.0.0,>=0.3.0
 Requires-Dist: wrapt<2.0.0,>=1.0.0
 Requires-Dist: opentelemetry-util-genai==0.3b0
 Requires-Dist: aiohttp>=3.8.0
 Requires-Dist: PyJWT
 Requires-Dist: requests
-Provides-Extra: langchain
-Requires-Dist: langchain-core>=1.6.0; extra == "langchain"
 Provides-Extra: agent-framework
-Requires-Dist: agent-framework>=1.4.0; extra == "agent-framework"
+Requires-Dist: agent-framework>=1.19.0; extra == "agent-framework"
 Provides-Extra: openai-agents
 Requires-Dist: openai-agents>=0.0.7; extra == "openai-agents"
 Provides-Extra: hosting
@@ -146,6 +144,26 @@ use_microsoft_opentelemetry(
 
 See the [A365 guide](https://github.com/microsoft/opentelemetry-distro-python/blob/main/A365_DOCUMENTATION.md) for A365-specific configuration.
 
+Agent365 manual execute-tool spans support typed JSON schema payloads:
+
+```python
+from microsoft.opentelemetry.a365.core import ExecuteToolCallArguments, ToolCallAction, ToolCallResource
+
+arguments = ExecuteToolCallArguments(
+    action=ToolCallAction.READ,
+    resources=[ToolCallResource(resource_id="file-1", resource_type="file", provider="sharepoint")],
+    extension_data={"provider_operation": "lookup"},
+)
+```
+
+The Python `extension_data` dictionary is emitted as a non-empty `metadata` object in the JSON payload,
+preventing provider-specific keys from colliding with declared schema fields.
+
+Typed arguments and results emit `schema_version: "1.0"` and serialize with schema field names such as
+`id`, `type`, `provider_code`, and `has_more`. Serialization never raises: an unserializable payload is
+replaced by `{"serialization_error": "Failed to serialize execute tool payload."}`. Raw dictionary and
+string arguments/results remain supported. See the A365 guide for complete examples.
+
 ---
 
 ## Configuration Reference
@@ -195,6 +213,49 @@ See the [A365 guide](https://github.com/microsoft/opentelemetry-distro-python/bl
 | `a365_exporter_storage_directory` | `str` | `None` | Custom directory for durable offline storage. Restrict to the service account; payloads may contain prompts or completions when sensitive-data capture is enabled. |
 
 > For A365 token resolver patterns, baggage, and scope classes, see the [A365 guide](https://github.com/microsoft/opentelemetry-distro-python/blob/main/A365_DOCUMENTATION.md).
+
+### InvokeAgent semantic parameters
+
+Manual `InvokeAgentScope` instrumentation accepts Python-native request and response parameter models:
+
+```python
+from microsoft.opentelemetry.a365.core import (
+    AgentDetails,
+    GenAiRequestParameters,
+    GenAiResponseParameters,
+    InvokeAgentScope,
+    InvokeAgentScopeDetails,
+    Request,
+    TextPart,
+)
+
+request = Request(content="Hello")
+agent_details = AgentDetails(agent_id="agent-001")
+details = InvokeAgentScopeDetails(
+    request_parameters=GenAiRequestParameters(
+        model="gpt-4o",
+        max_tokens=256,
+        stop_sequences=["END"],
+        system_instructions=[TextPart(content="Be concise.")],
+    )
+)
+
+with InvokeAgentScope.start(request, details, agent_details) as scope:
+    # Invoke your agent here.
+    scope.record_response_parameters(
+        GenAiResponseParameters(
+            finish_reasons=["stop"],
+            output_tokens=18,
+            cache_write_input_tokens=4,
+        )
+    )
+```
+
+Unset fields are omitted. Supported attributes include `gen_ai.request.*`,
+`gen_ai.data_source.id`, `gen_ai.output.type`, `gen_ai.system_instructions`,
+`gen_ai.response.finish_reasons`, and `gen_ai.usage.*` token counts. See the
+[A365 guide](https://github.com/microsoft/opentelemetry-distro-python/blob/main/A365_DOCUMENTATION.md#invokeagentscope)
+for the full list.
 
 ### Sampling
 
@@ -302,12 +363,25 @@ Toggle individual instrumentations:
 
 ```python
 use_microsoft_opentelemetry(
+    enable_sensitive_data=True,
     instrumentation_options={
         "flask": {"enabled": False},
         "openai": {"enabled": True},
+        "agent_framework": {
+            "enabled": True,
+            "enable_message_events": True,
+            "force": True,
+        },
     },
 )
 ```
+
+For Agent Framework, `enable_sensitive_data` controls prompt, completion,
+tool argument, and tool result capture. Message events are enabled by default
+when the installed Agent Framework version supports them and can be disabled
+with `instrumentation_options["agent_framework"]["enable_message_events"]`.
+Set `instrumentation_options["agent_framework"]["force"]` to `True` to
+re-enable Agent Framework instrumentation after it was previously disabled.
 
 ### Default Instrumentations When `enable_a365=True`
 
@@ -359,6 +433,7 @@ remain enabled by default.
 |---|---|---|
 | [samples/a365/exporter.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/a365/exporter.py) | A365 | LangChain with A365 auto-instrumentation |
 | [samples/a365/manual_telemetry.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/a365/manual_telemetry.py) | A365 | Manual instrumentation using all scope classes |
+| [samples/a365/s2s/s2s_exporter.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/a365/s2s/s2s_exporter.py) | A365 | Store-ready S2S export with all manual observability scopes |
 | [samples/distro/tracing.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/distro/tracing.py) | Azure Monitor | Basic tracing |
 | [samples/distro/metrics.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/distro/metrics.py) | Azure Monitor | Metrics collection |
 | [samples/distro/logging_sample.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/distro/logging_sample.py) | Azure Monitor | Log export |

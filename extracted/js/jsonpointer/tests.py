@@ -2,6 +2,10 @@
 
 import copy
 import doctest
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
 
 import jsonpointer
@@ -192,6 +196,31 @@ class ComparisonTests(unittest.TestCase):
         ptr12e = self.ptr1 / ["a", "b"]
         self.assertEqual(ptr12e.path, "/a/b/c/a/b")
 
+    def test_join_subclass(self):
+        class Pointer(JsonPointer):
+            pass
+
+        class OtherPointer(JsonPointer):
+            pass
+
+        ptr = Pointer("/a~1b")
+        suffixes = [JsonPointer("/m~0n"), Pointer("/m~0n"),
+                    OtherPointer("/m~0n"), "/m~0n", ["m~n"]]
+        for suffix in suffixes:
+            with self.subTest(suffix=suffix):
+                joined = ptr.join(suffix)
+                self.assertIs(type(joined), Pointer)
+                self.assertEqual(joined.path, "/a~1b/m~0n")
+        self.assertEqual(ptr.path, "/a~1b")
+
+    def test_join_magic_subclass(self):
+        class Pointer(JsonPointer):
+            pass
+
+        ptr = Pointer("/a") / JsonPointer("/b") / ["c"]
+        self.assertIs(type(ptr), Pointer)
+        self.assertEqual(ptr.path, "/a/b/c")
+
 
 class WrongInputTests(unittest.TestCase):
 
@@ -218,6 +247,54 @@ class WrongInputTests(unittest.TestCase):
     def test_leading_zero(self):
         doc = [0, 1, 2]
         self.assertRaises(JsonPointerException, resolve_pointer, doc, '/01')
+
+    def test_string_not_indexable(self):
+        doc = {"foo": "should-not-be-indexable"}
+        self.assertRaises(JsonPointerException, resolve_pointer, doc, "/foo/0")
+
+        ptr = JsonPointer("/foo/0")
+        self.assertRaises(JsonPointerException, ptr.resolve, doc)
+
+
+@unittest.skipUnless(hasattr(sys, 'get_int_max_str_digits'),
+                     'Integer string conversion limits are not available')
+class LargeIndexTests(unittest.TestCase):
+
+    def setUp(self):
+        limit = sys.get_int_max_str_digits()
+        if not limit:
+            self.skipTest('Integer string conversion limit is disabled')
+        self.token = '1' * (limit + 1)
+        self.pointer = '/' + self.token
+
+    def test_resolve_large_index(self):
+        self.assertRaises(JsonPointerException, resolve_pointer,
+                          [0], self.pointer)
+
+    def test_resolve_large_index_default(self):
+        default = object()
+        self.assertIs(resolve_pointer([0], self.pointer, default), default)
+        self.assertIs(resolve_pointer({'items': [0]},
+                                      '/items' + self.pointer, default),
+                      default)
+
+    def test_to_last_large_index(self):
+        self.assertRaises(JsonPointerException,
+                          JsonPointer(self.pointer).to_last, [0])
+
+    def test_set_large_index(self):
+        for inplace in (True, False):
+            with self.subTest(inplace=inplace):
+                doc = [0]
+                self.assertRaises(JsonPointerException, set_pointer,
+                                  doc, self.pointer, 1, inplace=inplace)
+                self.assertEqual(doc, [0])
+
+    def test_large_numeric_object_member(self):
+        doc = {self.token: 'old'}
+        self.assertEqual(resolve_pointer(doc, self.pointer), 'old')
+        set_pointer(doc, self.pointer, 'new')
+        self.assertEqual(doc, {self.token: 'new'})
 
 
 class ToLastTests(unittest.TestCase):
@@ -392,6 +469,135 @@ class AltTypesTests(unittest.TestCase):
         doc = self.mdict
         self.assertRaises(JsonPointerException, resolve_pointer, doc, '/foo')
         self.assertRaises(JsonPointerException, resolve_pointer, doc, '/root/1/2/3/4')
+
+
+class CommandLineTests(unittest.TestCase):
+    """ Tests the jsonpointer command line utility """
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SCRIPT = os.path.join(ROOT, 'bin', 'jsonpointer')
+
+    A_OUT = '[1, 2, 3]\n'
+    B_OUT = '{"b": [1, 3, 4]}\n'
+
+    def setUp(self):
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        self.dir = tmpdir.name
+
+        self._write('a.json', '{ "a": [1, 2, 3] }')
+        self._write('b.json', '{ "a": {"b": [1, 3, 4]}, "b": 1 }')
+        self._write('ptr.txt', '/a\n')
+
+    def _write(self, name, content):
+        with open(os.path.join(self.dir, name), 'w') as f:
+            f.write(content)
+
+    def _run(self, *args):
+        env = dict(os.environ, PYTHONPATH=self.ROOT)
+        return subprocess.run([sys.executable, self.SCRIPT] + list(args),
+                              cwd=self.dir, env=env, capture_output=True,
+                              text=True)
+
+    def test_positional_pointer(self):
+        proc = self._run('/a', 'a.json', 'b.json')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, self.A_OUT + self.B_OUT)
+
+    def test_positional_pointer_single_file(self):
+        proc = self._run('/a', 'a.json')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, self.A_OUT)
+
+    def test_pointer_file(self):
+        proc = self._run('-f', 'ptr.txt', 'a.json', 'b.json')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, self.A_OUT + self.B_OUT)
+
+    def test_pointer_file_single_file(self):
+        proc = self._run('-f', 'ptr.txt', 'a.json')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, self.A_OUT)
+
+    def test_pointer_option(self):
+        proc = self._run('-p', '/a', 'a.json', 'b.json')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, self.A_OUT + self.B_OUT)
+
+    def test_no_pointer(self):
+        proc = self._run('a.json')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn('a JSON pointer is required', proc.stderr)
+
+    def test_missing_pointer_multiple_files(self):
+        proc = self._run('a.json', 'b.json')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("invalid JSON pointer 'a.json'", proc.stderr)
+        self.assertEqual(proc.stdout, '')
+
+    def test_invalid_pointer_file(self):
+        self._write('bad.txt', 'a\n')
+        proc = self._run('-f', 'bad.txt', 'a.json')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("invalid JSON pointer 'a'", proc.stderr)
+
+    def test_empty_pointer(self):
+        proc = self._run('', 'a.json')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, '{"a": [1, 2, 3]}\n')
+
+    def test_unresolvable_pointer(self):
+        proc = self._run('/x', 'a.json')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn('Could not resolve pointer', proc.stderr)
+        self.assertEqual(proc.stdout, '')
+
+    def test_unresolvable_pointer_in_one_file(self):
+        # /b resolves in b.json only; a.json is still reported but b.json
+        # is processed
+        proc = self._run('/b', 'a.json', 'b.json')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn('Could not resolve pointer', proc.stderr)
+        self.assertEqual(proc.stdout, '1\n')
+
+    def test_pointer_file_requires_value(self):
+        proc = self._run('-f', '-p', '/a', 'a.json')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn('expected one argument', proc.stderr)
+
+    def test_pointer_and_pointer_file_exclusive(self):
+        proc = self._run('-p', '/a', '-f', 'ptr.txt', 'a.json')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn('not allowed with', proc.stderr)
+
+
+class VerboseExceptionsTests(unittest.TestCase):
+
+    def setUp(self):
+        # Save original value and ensure verbose mode is on for each test
+        self._original = jsonpointer.VERBOSE_EXCEPTIONS
+        jsonpointer.VERBOSE_EXCEPTIONS = True
+
+    def tearDown(self):
+        jsonpointer.VERBOSE_EXCEPTIONS = self._original
+
+    def test_verbose_exception_includes_doc(self):
+        doc = {'foo': 1}
+        try:
+            resolve_pointer(doc, '/bar')
+            self.fail('Expected JsonPointerException')
+        except JsonPointerException as e:
+            self.assertIn(repr(doc), str(e))
+
+    def test_non_verbose_exception_excludes_doc(self):
+        doc = {'foo': 1}
+        jsonpointer.VERBOSE_EXCEPTIONS = False
+        try:
+            resolve_pointer(doc, '/bar')
+            self.fail('Expected JsonPointerException')
+        except JsonPointerException as e:
+            self.assertNotIn(repr(doc), str(e))
+            self.assertIn('bar', str(e))
 
 
 def load_tests(loader, tests, ignore):

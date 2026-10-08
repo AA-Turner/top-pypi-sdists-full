@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sarj-python-lint
-Version: 1.22.1
+Version: 1.25.6
 Summary: Custom Python lint rules — AST-based, pre-commit-friendly, hypermodern defaults
 Project-URL: Homepage, https://code-standards.sarj.ai/rules/python/
 Project-URL: Documentation, https://code-standards.sarj.ai/rules/python/
@@ -18,8 +18,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Python: >=3.14
 Requires-Dist: packaging==26.3
-Requires-Dist: ruff>=0.16.9
-Requires-Dist: sarj-rule-contracts==0.2.0
+Requires-Dist: ruff>=0.16.10
+Requires-Dist: sarj-rule-contracts==0.2.1
 Requires-Dist: sqlglot==30.19.0
 Requires-Dist: typer==0.27.2
 Description-Content-Type: text/markdown

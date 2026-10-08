@@ -1,4 +1,5 @@
 """S3 Stream client."""
+
 from typing import Generator, Iterable, Optional, Tuple, Union, cast
 
 import boto3

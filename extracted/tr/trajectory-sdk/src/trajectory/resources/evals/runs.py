@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
@@ -29,7 +29,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> list[EvalRun]:
     """List Eval Runs Route
 
@@ -65,7 +65,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> EvalRun:
     """Get Eval Run Route
 
@@ -101,7 +101,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteEvalRunResponse:
     """Delete Eval Run Route
 
@@ -137,8 +137,8 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
-  ) -> httpx.Response:
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> httpx2.Response:
     """Cancel a pending or running evaluation.
 
     Args:
@@ -173,7 +173,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> EvalProgressResponse:
     """Get Eval Progress Route
 
@@ -209,7 +209,7 @@ class Runs(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> EvalRolloutStatisticsResponse:
     """Get Eval Rollout Statistics Route
 

@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBool, PyBytes, PyFloat, PyInt, PyString};
+use pyo3::types::PyAny;
 use rmpv::Value as RmpvValue;
 
 use super::frame_store::SerializedFrame;
@@ -113,7 +113,7 @@ pub(super) fn write_user_code_call_site(
     write_str_pair(
         buf,
         "call_frame_id",
-        Some(&user_code_call_site.call_frame_id),
+        Some(user_code_call_site.call_frame_id.as_str()),
     );
     rmp::encode::write_str(buf, "line_number").expect("Writing to memory, not I/O");
     rmp::encode::write_sint(buf, i64::from(user_code_call_site.line_number))
@@ -213,16 +213,7 @@ pub(super) fn write_assign_tuple(
     let mut inner: Vec<u8> = vec![];
     rmp::encode::write_array_len(&mut inner, 2).expect("Writing to memory, not I/O");
     rmp::encode::write_str(&mut inner, variable).expect("Writing to memory, not I/O");
-    let assigned_start = inner.len();
-    if !write_exact_msgpack_scalar(&assigned, &mut inner) {
-        // Exact scalar probes never invoke user code and write nothing on
-        // failure. Unsupported values therefore enter the established Python
-        // serializer atomically, preserving subclass behavior, repr ordering,
-        // and serialization errors.
-        debug_assert_eq!(inner.len(), assigned_start);
-        inner.truncate(assigned_start);
-        serializer.dump_msgpack_into(py, &assigned, lightweight_repr, &mut inner)?;
-    }
+    serializer.dump_msgpack_into(py, &assigned, lightweight_repr, &mut inner)?;
 
     rmp::encode::write_str(buf, "assign").expect("Writing to memory, not I/O");
     rmp::encode::write_ext_meta(
@@ -233,66 +224,4 @@ pub(super) fn write_assign_tuple(
     .expect("Writing to memory, not I/O");
     buf.append(&mut inner);
     Ok(())
-}
-
-/// Write the exact scalar types that msgpack handles without its Python
-/// `default` callback. This intentionally excludes containers and subclasses:
-/// line assignments need a bounded, side-effect-free probe before falling
-/// back atomically to the established Python serializer. Keep these byte
-/// choices aligned with the scalar arms of `NativeMsgpackEncoder::write`.
-pub(super) fn write_exact_msgpack_scalar(value: &Bound<'_, PyAny>, buf: &mut Vec<u8>) -> bool {
-    if value.is_none() {
-        rmp::encode::write_nil(buf).expect("Writing to memory, not I/O");
-        return true;
-    }
-    if value.is_exact_instance_of::<PyBool>() {
-        let value = value
-            .extract::<bool>()
-            .expect("an exact bool extracts as bool");
-        rmp::encode::write_bool(buf, value).expect("Writing to memory, not I/O");
-        return true;
-    }
-    if value.is_exact_instance_of::<PyInt>() {
-        if let Ok(value) = value.extract::<i64>() {
-            rmp::encode::write_sint(buf, value).expect("Writing to memory, not I/O");
-            return true;
-        }
-        if let Ok(value) = value.extract::<u64>() {
-            rmp::encode::write_uint(buf, value).expect("Writing to memory, not I/O");
-            return true;
-        }
-        return false;
-    }
-    if value.is_exact_instance_of::<PyFloat>() {
-        let value = value
-            .extract::<f64>()
-            .expect("an exact float extracts as f64");
-        rmp::encode::write_f64(buf, value).expect("Writing to memory, not I/O");
-        return true;
-    }
-    if value.is_exact_instance_of::<PyString>() {
-        let value = value
-            .cast::<PyString>()
-            .expect("exact string type already checked");
-        let Ok(value) = value.to_str() else {
-            return false;
-        };
-        if u32::try_from(value.len()).is_err() {
-            return false;
-        }
-        rmp::encode::write_str(buf, value).expect("Writing to memory, not I/O");
-        return true;
-    }
-    if value.is_exact_instance_of::<PyBytes>() {
-        let value = value
-            .cast::<PyBytes>()
-            .expect("exact bytes type already checked");
-        if u32::try_from(value.as_bytes().len()).is_err() {
-            return false;
-        }
-        rmp::encode::write_bin(buf, value.as_bytes()).expect("Writing to memory, not I/O");
-        return true;
-    }
-
-    false
 }

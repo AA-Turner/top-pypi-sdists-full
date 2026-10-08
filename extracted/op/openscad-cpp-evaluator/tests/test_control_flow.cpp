@@ -78,7 +78,7 @@ TEST(ForLoop, MultipleVariablesProduceCartesianProduct) {
 // dimension's current binding (a standard triangular-loop idiom) --
 // verified directly against real OpenSCAD.app: `for (i=[0:2], j=[0:i])`
 // produces (0,0)(1,0)(1,1)(2,0)(2,1)(2,2), NOT a flat 3x3 product and NOT
-// an "unknown variable 'i'" warning. Regression test for a real bug: this
+// an "unknown variable \"i\"" warning. Regression test for a real bug: this
 // used to evaluate every dimension's own range expression exactly once,
 // upfront, against the ORIGINAL (pre-loop) ctx, so `j`'s own `[0:i]` never
 // saw `i` at all. Pinned under both VM states explicitly (compileForLoop
@@ -560,7 +560,7 @@ TEST(AssertStatement, FailingAssertionThrowsWithExactMessageFormat) {
         runScript("assert(1 == 2, \"nope\");");
         FAIL() << "expected EvalError";
     } catch (const EvalError& e) {
-        EXPECT_NE(std::string(e.what()).find("Assertion '1 == 2' failed: \"nope\""), std::string::npos);
+        EXPECT_NE(std::string(e.what()).find("Assertion '(1 == 2)' failed: \"nope\""), std::string::npos);
     }
 }
 
@@ -1440,7 +1440,7 @@ TEST(FunctionBuiltins, ParentModuleAtTopLevelIsUndef) {
 // compileIntersectionForLoop). Verified against real OpenSCAD.app:
 // `intersection_for(i=[0:1], j=[0:i]) { echo(i,j); cube(1); }` fires the
 // body (and its echo) exactly 3 times, for (0,0),(1,0),(1,1) -- a flat
-// 2x2 product (4 firings) or an "unknown variable 'i'" warning would both
+// 2x2 product (4 firings) or an "unknown variable \"i\"" warning would both
 // be wrong.
 TEST(IntersectionFor, LaterDimensionRangeCanDependOnEarlierBindingCompiled) {
     ScopedVm vm(true);
@@ -1483,15 +1483,20 @@ TEST(IntersectionFor, TwoDeeChildrenExerciseSectionPath) {
     EXPECT_NEAR(bounds.max.x, 3.0, 1e-6);
 }
 
-TEST(IntersectionFor, MultipleStatementsPerIterationAreUnionedFirst) {
-    // combineBodies' multi-body-per-iteration union branch: each iteration
-    // here contributes TWO sibling cube() statements (not one), which must
-    // be unioned together before intersecting across iterations.
+TEST(IntersectionFor, EveryStatementOfEveryIterationIsAnOperand) {
+    // Upstream instantiates the children straight into the intersection
+    // node, so every child statement of every iteration is intersected --
+    // they are NOT unioned per iteration first, as this used to do.
+    // Checked against OpenSCAD 2026.02.01: two disjoint statements per
+    // iteration intersect to nothing.
     Evaluated e = evalSrc("intersection_for (i = [0,1]) { translate([i,0,0]) cube(3); translate([i,0,0]) cube(3); }");
     ASSERT_EQ(e.bodies.size(), 1u);
     manifold::Box bbox = e.bodies[0].body->BoundingBox();
     EXPECT_NEAR(bbox.min.x, 1.0, 1e-6);
     EXPECT_NEAR(bbox.max.x, 3.0, 1e-6);
+    Evaluated disjoint = evalSrc(
+        "intersection_for (i = [0:1]) { translate([i*0.5,0,0]) cube(1); translate([3,0,0]) cube(1); }");
+    for (const ColoredBody& b : disjoint.bodies) EXPECT_TRUE(!b.body || b.body->IsEmpty());
 }
 
 // -- render() ---------------------------------------------------------------
@@ -1778,14 +1783,21 @@ TEST(ChildrenIndex, EachBadIndexInAVectorWarnsSeparately) {
 }
 
 TEST(ChildrenIndex, BadParameterTypeWarns) {
-    // Quoted verbatim from the reference, trailing period included.
-    for (const char* src : {"children(\"a\");", "children([\"a\"]);",
-                             "children(true);", "children([true]);"}) {
+    // Quoted verbatim from the reference: a bad element of a vector gets a
+    // trailing full stop and prints unquoted; a bad whole argument does not.
+    for (const char* src : {"children([\"a\"]);", "children([true]);"}) {
         const std::vector<std::string> w = childWarnings(src);
         ASSERT_FALSE(w.empty()) << src;
         EXPECT_NE(w[0].find("for children, only accept: empty, number, vector, range."),
                   std::string::npos) << src << " -> " << w[0];
     }
+    for (const char* src : {"children(\"a\");", "children(true);", "children(undef);"}) {
+        const std::vector<std::string> w = childWarnings(src);
+        ASSERT_FALSE(w.empty()) << src;
+        EXPECT_NE(w[0].find("for children, only accept: empty, number, vector, range in"),
+                  std::string::npos) << src << " -> " << w[0];
+    }
+    EXPECT_NE(childWarnings("children([\"a\"]);")[0].find("type (a)"), std::string::npos);
 }
 
 TEST(ChildrenIndex, GeometryFollowsTheSelection) {

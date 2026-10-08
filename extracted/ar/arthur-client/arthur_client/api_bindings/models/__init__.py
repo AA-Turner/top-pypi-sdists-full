@@ -158,6 +158,7 @@ from arthur_client.api_bindings.models.discovery_run import DiscoveryRun
 from arthur_client.api_bindings.models.discovery_run_list import DiscoveryRunList
 from arthur_client.api_bindings.models.discovery_run_status import DiscoveryRunStatus
 from arthur_client.api_bindings.models.discovery_scan import DiscoveryScan
+from arthur_client.api_bindings.models.discovery_scan_fetch_status import DiscoveryScanFetchStatus
 from arthur_client.api_bindings.models.discovery_scan_source_state import DiscoveryScanSourceState
 from arthur_client.api_bindings.models.discovery_scan_source_status import DiscoveryScanSourceStatus
 from arthur_client.api_bindings.models.discovery_scan_state import DiscoveryScanState
@@ -282,6 +283,7 @@ from arthur_client.api_bindings.models.otel_agent_creation_source_output import 
 from arthur_client.api_bindings.models.object_type import ObjectType
 from arthur_client.api_bindings.models.object_value import ObjectValue
 from arthur_client.api_bindings.models.organization import Organization
+from arthur_client.api_bindings.models.organization_bulk_unregistered_agents_response import OrganizationBulkUnregisteredAgentsResponse
 from arthur_client.api_bindings.models.output_column_check_result import OutputColumnCheckResult
 from arthur_client.api_bindings.models.pii_config import PIIConfig
 from arthur_client.api_bindings.models.pagination import Pagination

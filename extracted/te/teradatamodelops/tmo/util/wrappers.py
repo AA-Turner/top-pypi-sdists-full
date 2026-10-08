@@ -17,7 +17,7 @@ __all__ = ["copy_to_sql", "to_sql", "execute_sql_in_context", "execute_sql"]
 # When copy_to_sql is called with temporary=True, teradataml internally sets
 # schema_name=None (volatile tables always live in the user's session database
 # and do not accept a schema_name). However, _DataTransferUtils._validate()
-# then calls DataFrameUtils._get_database_names(connection, None) BEFORE
+# then calls DataFrameUtils(ctx)._get_database_names(connection, None) BEFORE
 # checking "if self.schema_name is not None", executing:
 #
 #   SELECT ... FROM dbc.databasesV WHERE databasename = ? [parameters: (None,)]
@@ -26,28 +26,74 @@ __all__ = ["copy_to_sql", "to_sql", "execute_sql_in_context", "execute_sql"]
 # We patch _get_database_names to return [] immediately when schema_name is
 # None — which is semantically correct (nothing to validate) and matches what
 # the caller does with the result when schema_name is None anyway.
+#
+# This package requires teradataml>=20.0.0.12, which defines
+# _get_database_names as a regular instance method with signature
+# (self, connection, schema_name), called internally as
+# DataFrameUtils(ctx)._get_database_names(connection, schema_name). (An older
+# teradataml <= 20.0.0.11 shape defined it as a @staticmethod with signature
+# (connection, schema_name) instead; that shape is no longer supported since
+# this package's minimum pin guarantees the instance-method shape.)
 # ---------------------------------------------------------------------------
+
+
+def _safe_get_database_names(original_func, self, connection, schema_name):
+    """None-guard wrapper around the original
+    DataFrameUtils._get_database_names instance method.
+
+    Returns [] immediately when schema_name is None instead of calling
+    ``original_func``, which would otherwise execute a SQL query with a NULL
+    parameter (which Teradata rejects).
+    """
+    if schema_name is None:
+        return []
+    return original_func(self, connection, schema_name)
+
 
 # Populated at import time if the patch is successfully applied.
 _original_get_database_names = None
 _patched_get_database_names = None
 
+# Attribute name used to mark a function as "our patch", carrying a reference
+# to the true, unwrapped original. This makes patch installation idempotent:
+# if `tmo.util.wrappers` is reloaded in the same process (e.g. by a test
+# fixture that swaps `sys.modules["teradataml.dataframe.dataframe_utils"]`
+# and calls `importlib.reload`), the class may already carry our own
+# previously-installed wrapper. Capturing that wrapper as "the original"
+# without unwrapping it would make the new wrapper call the old wrapper,
+# which in turn reads the (now reassigned) module-global
+# `_original_get_database_names` at call time and ends up calling itself —
+# causing infinite recursion (RecursionError) on every non-None call.
+_PATCH_MARKER_ATTR = "_tmo_unpatched_get_database_names"
+
 try:
     from teradataml.dataframe.dataframe_utils import DataFrameUtils as _DataFrameUtils
 
-    _original_get_database_names = _DataFrameUtils._get_database_names
+    _installed_get_database_names = _DataFrameUtils.__dict__["_get_database_names"]
+    # Unwrap to the true original if this patch was already applied before
+    # (idempotent install), instead of treating our own prior wrapper as the
+    # original.
+    _original_get_database_names = getattr(
+        _installed_get_database_names, _PATCH_MARKER_ATTR, _installed_get_database_names
+    )
 
-    def _patched_get_database_names(connection, schema_name):
+    def _patched_get_database_names(self, connection, schema_name):
         """Null-safe wrapper for DataFrameUtils._get_database_names.
 
-        Returns an empty list immediately when schema_name is None instead of
-        executing a SQL query with a NULL parameter (which Teradata rejects).
+        Returns [] immediately when schema_name is None instead of
+        executing a SQL query with a NULL parameter (which Teradata
+        rejects).
         """
-        if schema_name is None:
-            return []
-        return _original_get_database_names(connection, schema_name)
+        return _safe_get_database_names(
+            _original_get_database_names, self, connection, schema_name
+        )
 
-    _DataFrameUtils._get_database_names = staticmethod(_patched_get_database_names)
+    setattr(
+        _patched_get_database_names, _PATCH_MARKER_ATTR, _original_get_database_names
+    )
+
+    _DataFrameUtils._get_database_names = _patched_get_database_names
+
     logger.debug(
         "Applied teradataml bug workaround: DataFrameUtils._get_database_names "
         "now guards against schema_name=None (temporary=True path)."
@@ -108,7 +154,22 @@ def copy_to_sql(
 # Capture the original teradataml implementation before we replace it so both
 # the standalone helper and the monkey-patch can delegate to it without risk
 # of infinite recursion.
-_original_DataFrame_to_sql = DataFrame.to_sql
+#
+# This capture must be idempotent against repeated module reloads (e.g. a
+# test fixture that reloads this module multiple times in the same process):
+# if ``DataFrame.to_sql`` is already our own previously-installed patch,
+# naively treating it as "the original" would make the new patch delegate
+# back into the old patch, which resolves `_original_DataFrame_to_sql` as a
+# module-global at call time — once that global is reassigned, the old patch
+# ends up calling itself indefinitely (RecursionError). Unwrap any
+# already-installed patch back to the true original via a marker attribute.
+_TO_SQL_PATCH_MARKER_ATTR = "_tmo_unpatched_DataFrame_to_sql"
+_installed_DataFrame_to_sql = DataFrame.to_sql
+_original_DataFrame_to_sql = getattr(
+    _installed_DataFrame_to_sql,
+    _TO_SQL_PATCH_MARKER_ATTR,
+    _installed_DataFrame_to_sql,
+)
 
 
 def _resolve_schema_and_call_to_sql(
@@ -182,6 +243,10 @@ def _tmo_patched_DataFrame_to_sql(
     """
     _resolve_schema_and_call_to_sql(self, table_name, schema_name=schema_name, **kwargs)
 
+
+setattr(
+    _tmo_patched_DataFrame_to_sql, _TO_SQL_PATCH_MARKER_ATTR, _original_DataFrame_to_sql
+)
 
 # Apply the patch so ``df.to_sql(...)`` benefits from automatic schema resolution.
 DataFrame.to_sql = _tmo_patched_DataFrame_to_sql

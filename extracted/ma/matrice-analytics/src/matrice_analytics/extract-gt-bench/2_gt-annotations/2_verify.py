@@ -45,11 +45,11 @@ Usage
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
 import cv2
-
 from loitering_common import (
     LOITERING_CLASS_ID,
     PERSON_CLASS_ID,
@@ -59,17 +59,17 @@ from loitering_common import (
 
 # BGR — interactive verify only
 VERIFY_COLORS = {
-    PERSON_CLASS_ID: (180, 50, 200),       # purple
-    LOITERING_CLASS_ID: (0, 140, 255),     # orange
+    PERSON_CLASS_ID: (180, 50, 200),  # purple
+    LOITERING_CLASS_ID: (0, 140, 255),  # orange
 }
 
 
 state = {
     "cap": None,
     "data": {},
-    "samples": [],          # ordered list of source-frame indices that were collected
-    "cur": 0,               # index INTO samples
-    "phase_offset": 0,      # added to src_idx before seeking the video
+    "samples": [],  # ordered list of source-frame indices that were collected
+    "cur": 0,  # index INTO samples
+    "phase_offset": 0,  # added to src_idx before seeking the video
     "n_source_frames": 0,
     "current_class": 0,
     "dirty": False,
@@ -82,6 +82,33 @@ state = {
     "alerts": {},
     "last_mouse": (0, 0),
 }
+
+
+_logger = logging.getLogger(__name__)
+
+
+def _configure_cli_logging() -> None:
+    """Send INFO to stdout and ERROR to stderr, with no level/name decoration.
+
+    This script is an interactive operator CLI: its stdout IS its output, and the
+    previous print() calls wrote the bare message with no prefix. A plain logger
+    would change both the stream and the text, so the handlers below reproduce
+    the original split exactly -- status lines on stdout, the GUI-support error
+    on stderr, format "%(message)s".
+    """
+    if _logger.handlers:
+        return
+    out = logging.StreamHandler(sys.stdout)
+    out.setLevel(logging.INFO)
+    out.addFilter(lambda record: record.levelno < logging.ERROR)
+    out.setFormatter(logging.Formatter("%(message)s"))
+    err = logging.StreamHandler(sys.stderr)
+    err.setLevel(logging.ERROR)
+    err.setFormatter(logging.Formatter("%(message)s"))
+    _logger.addHandler(out)
+    _logger.addHandler(err)
+    _logger.setLevel(logging.INFO)
+    _logger.propagate = False
 
 
 def src_idx_now():
@@ -102,7 +129,9 @@ def video_frame_now():
 def adjust_phase(delta):
     """Nudge the constant Case-B rotation S used to seek the video (wraps mod N)."""
     n = _frame_span()
-    state["phase_offset"] = (state["phase_offset"] + delta) % n if n else state["phase_offset"] + delta
+    state["phase_offset"] = (
+        (state["phase_offset"] + delta) % n if n else state["phase_offset"] + delta
+    )
 
 
 def get_dets(src_idx):
@@ -126,6 +155,7 @@ def read_video_frame(video_frame_idx):
     if not ok:
         # fall back to a black canvas so the tool keeps working past the tail
         import numpy as np
+
         return np.zeros((state["height"], state["width"], 3), dtype="uint8")
     return frame
 
@@ -143,8 +173,16 @@ def draw_box(img, det, w, h):
     scale, thickness = 0.45, 1
     (tw, th), _ = cv2.getTextSize(label, font, scale, thickness)
     cv2.rectangle(img, (x1, max(0, y1 - th - 6)), (x1 + tw + 6, y1), c, -1)
-    cv2.putText(img, label, (x1 + 3, max(th + 1, y1 - 4)), font, scale,
-                (255, 255, 255), thickness, cv2.LINE_AA)
+    cv2.putText(
+        img,
+        label,
+        (x1 + 3, max(th + 1, y1 - 4)),
+        font,
+        scale,
+        (255, 255, 255),
+        thickness,
+        cv2.LINE_AA,
+    )
 
 
 def draw_overlay(img):
@@ -155,10 +193,14 @@ def draw_overlay(img):
     boxes = len(get_dets(sidx))
     dirty = " *" if state["dirty"] else ""
     has_alert = " [ALERT]" if state["alerts"].get(str(sidx)) else ""
-    line1 = (f"sample {cur + 1}/{total}  src_idx={sidx}  video_frame={video_frame_now()}"
-             f"  phase={state['phase_offset']}  |  draw: {class_label(cc)}  |  boxes: {boxes}{dirty}{has_alert}")
-    line2 = ("<-/-> nav   +/- class   l toggle   drag draw   R del   s save   q quit"
-             "   |   PHASE align: , . (1)  < > (25)  [ ] (100)")
+    line1 = (
+        f"sample {cur + 1}/{total}  src_idx={sidx}  video_frame={video_frame_now()}"
+        f"  phase={state['phase_offset']}  |  draw: {class_label(cc)}  |  boxes: {boxes}{dirty}{has_alert}"
+    )
+    line2 = (
+        "<-/-> nav   +/- class   l toggle   drag draw   R del   s save   q quit"
+        "   |   PHASE align: , . (1)  < > (25)  [ ] (100)"
+    )
     lines = (line1, line2)
     font = cv2.FONT_HERSHEY_SIMPLEX
     scale, thickness, line_gap, pad = 0.45, 1, 18, 8
@@ -168,8 +210,7 @@ def draw_overlay(img):
     cv2.rectangle(img, (6, 6), (6 + panel_w, 6 + panel_h), (0, 0, 0), -1)
     y = 6 + pad + sizes[0][1]
     for line in lines:
-        cv2.putText(img, line, (6 + pad, y), font, scale, (220, 220, 220),
-                    thickness, cv2.LINE_AA)
+        cv2.putText(img, line, (6 + pad, y), font, scale, (220, 220, 220), thickness, cv2.LINE_AA)
         y += line_gap
 
 
@@ -219,12 +260,14 @@ def on_mouse(event, x, y, flags, _userdata):
             return
         x1, x2 = max(0, min(w, x1)), max(0, min(w, x2))
         y1, y2 = max(0, min(h, y1)), max(0, min(h, y2))
-        get_dets(src_idx_now()).append({
-            "class_id": int(state["current_class"]),
-            "confidence": 1.0,
-            "bbox": [x1 / w, y1 / h, x2 / w, y2 / h],
-            "track_id": "-1",
-        })
+        get_dets(src_idx_now()).append(
+            {
+                "class_id": int(state["current_class"]),
+                "confidence": 1.0,
+                "bbox": [x1 / w, y1 / h, x2 / w, y2 / h],
+                "track_id": "-1",
+            }
+        )
         state["dirty"] = True
     elif event == cv2.EVENT_RBUTTONDOWN:
         i = find_box_at(src_idx_now(), x, y)
@@ -248,12 +291,11 @@ def ensure_opencv_gui():
         cv2.namedWindow(probe, cv2.WINDOW_NORMAL)
         cv2.destroyWindow(probe)
     except cv2.error:
-        print(
+        _logger.error(
             "ERROR: OpenCV in this environment has no GUI support.\n"
             "Interactive verify needs the opencv-python wheel, not opencv-python-headless.\n"
             "  python -m pip uninstall -y opencv-python-headless\n"
-            "  python -m pip install --force-reinstall opencv-python",
-            file=sys.stderr,
+            "  python -m pip install --force-reinstall opencv-python"
         )
         sys.exit(1)
 
@@ -280,19 +322,40 @@ def export_annotated(video_path, out_path):
         writer.write(frame)
     cap.release()
     writer.release()
-    print(f"exported -> {out_path}")
+    _logger.info("exported -> %s", out_path)
+
+
+def _parse_args():
+    """Build the CLI parser and parse argv. Split out of main() verbatim."""
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--video", required=True, help="ORIGINAL source video that was streamed in section 1."
+    )
+    p.add_argument(
+        "--json", required=True, help="Consolidated predictions JSON (from 1_consolidate.py)."
+    )
+    p.add_argument(
+        "--meta", default=None, help="meta.json (optional; for n_source_frames + coverage check)."
+    )
+    p.add_argument(
+        "--phase-offset",
+        type=int,
+        default=0,
+        help="Add this to each src_idx before seeking the video (Case B, if unresolved).",
+    )
+    p.add_argument(
+        "--export",
+        default=None,
+        help="If set, render saved boxes onto the sampled frames and exit (headless).",
+    )
+    return p.parse_args()
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--video", required=True, help="ORIGINAL source video that was streamed in section 1.")
-    p.add_argument("--json", required=True, help="Consolidated predictions JSON (from 1_consolidate.py).")
-    p.add_argument("--meta", default=None, help="meta.json (optional; for n_source_frames + coverage check).")
-    p.add_argument("--phase-offset", type=int, default=0,
-                   help="Add this to each src_idx before seeking the video (Case B, if unresolved).")
-    p.add_argument("--export", default=None,
-                   help="If set, render saved boxes onto the sampled frames and exit (headless).")
-    args = p.parse_args()
+    _configure_cli_logging()
+    args = _parse_args()
 
     data = json.loads(Path(args.json).read_text())
     data.setdefault("frames", {})
@@ -304,7 +367,7 @@ def main():
     state["phase_offset"] = args.phase_offset or int(data.get("view_phase_offset", 0))
     state["class_names"] = data["class_names"]
     state["alerts"] = data.get("alerts", {})
-    state["samples"] = sorted((int(k) for k in data["frames"].keys()))
+    state["samples"] = sorted(int(k) for k in data["frames"].keys())
     if not state["samples"]:
         sys.exit("ERROR: no frames in the predictions JSON — nothing to verify.")
 
@@ -313,8 +376,11 @@ def main():
         state["n_source_frames"] = int(meta.get("n_source_frames") or 0)
         covered = meta.get("source_frames_covered")
         if covered is not None and covered != len(state["samples"]):
-            print(f"[WARN] meta says {covered} covered frames, JSON has "
-                  f"{len(state['samples'])} — proceeding with the JSON.")
+            _logger.info(
+                "[WARN] meta says %s covered frames, JSON has %s — proceeding with the JSON.",
+                covered,
+                len(state["samples"]),
+            )
 
     cap = cv2.VideoCapture(args.video)
     if not cap.isOpened():
@@ -327,13 +393,17 @@ def main():
     data["width"], data["height"] = w, h
 
     if args.export:
-        print(f"exporting sampled frames {args.video} -> {args.export} ...")
+        _logger.info("exporting sampled frames %s -> %s ...", args.video, args.export)
         export_annotated(args.video, args.export)
         cap.release()
         return
 
-    print(f"opening {args.video}  ({len(state['samples'])} sampled frames, "
-          f"video has {state['n_video_frames']} frames) ...", flush=True)
+    _logger.info(
+        "opening %s  (%s sampled frames, video has %s frames) ...",
+        args.video,
+        len(state["samples"]),
+        state["n_video_frames"],
+    )
     ensure_opencv_gui()
     win = "verify"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
@@ -353,51 +423,53 @@ def main():
                     break
                 continue
             ascii_k = k & 0xFF
-            if k == KEY_LEFT or ascii_k == ord('a'):
+            if k == KEY_LEFT or ascii_k == ord("a"):
                 state["cur"] = max(0, state["cur"] - 1)
                 state["drag_anchor"] = state["drag_now"] = None
-            elif k == KEY_RIGHT or ascii_k == ord('d'):
+            elif k == KEY_RIGHT or ascii_k == ord("d"):
                 state["cur"] = min(len(state["samples"]) - 1, state["cur"] + 1)
                 state["drag_anchor"] = state["drag_now"] = None
-            elif ascii_k in (ord('+'), ord('=')):
+            elif ascii_k in (ord("+"), ord("=")):
                 state["current_class"] = clamp_class_id(state["current_class"] + 1)
-            elif ascii_k in (ord('-'), ord('_')):
+            elif ascii_k in (ord("-"), ord("_")):
                 state["current_class"] = clamp_class_id(state["current_class"] - 1)
-            elif ascii_k == ord(','):
+            elif ascii_k == ord(","):
                 adjust_phase(-1)
-            elif ascii_k == ord('.'):
+            elif ascii_k == ord("."):
                 adjust_phase(1)
-            elif ascii_k == ord('<'):
+            elif ascii_k == ord("<"):
                 adjust_phase(-25)
-            elif ascii_k == ord('>'):
+            elif ascii_k == ord(">"):
                 adjust_phase(25)
-            elif ascii_k == ord('['):
+            elif ascii_k == ord("["):
                 adjust_phase(-100)
-            elif ascii_k == ord(']'):
+            elif ascii_k == ord("]"):
                 adjust_phase(100)
-            elif ascii_k == ord('l'):
+            elif ascii_k == ord("l"):
                 mx, my = state["last_mouse"]
                 i = find_box_at(src_idx_now(), mx, my)
                 if i >= 0:
                     d = get_dets(src_idx_now())[i]
-                    d["class_id"] = (LOITERING_CLASS_ID
-                                     if int(d["class_id"]) == PERSON_CLASS_ID
-                                     else PERSON_CLASS_ID)
+                    d["class_id"] = (
+                        LOITERING_CLASS_ID
+                        if int(d["class_id"]) == PERSON_CLASS_ID
+                        else PERSON_CLASS_ID
+                    )
                     state["dirty"] = True
-            elif ascii_k == ord('s'):
+            elif ascii_k == ord("s"):
                 save_json()
-                print("saved")
-            elif ascii_k == ord('e'):
+                _logger.info("saved")
+            elif ascii_k == ord("e"):
                 save_json()
                 out = Path(args.video).with_name(Path(args.video).stem + "_annotated.mp4")
                 export_annotated(args.video, out)
-            elif ascii_k == ord('q') or k == 27:
+            elif ascii_k == ord("q") or k == 27:
                 break
     finally:
         save_json()
         cap.release()
         cv2.destroyAllWindows()
-    print("bye.")
+    _logger.info("bye.")
 
 
 if __name__ == "__main__":

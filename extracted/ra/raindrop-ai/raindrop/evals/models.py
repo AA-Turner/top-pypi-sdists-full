@@ -241,7 +241,7 @@ class EvalProgram(Model):
     slug: str = Field(max_length=64, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
     name: str = Field(min_length=1, max_length=120)
     output: Output
-    scope: Literal["batch"] = "batch"
+    scope: Literal["trace"] = "trace"
     execution_mode: Literal["deterministic", "judge"]
     source: str = Field(min_length=1)
     description: str | None = Field(default=None, max_length=2000)
@@ -255,6 +255,20 @@ class LocalEvaluatorContext(Model):
     reference: dict[str, Any] | None = None
     row: ReplayRow
     result: Any
+
+    @property
+    def expected_output(self) -> JsonValue:
+        """The authored dataset expectation, independent of the captured baseline."""
+        return self.row.output
+
+    @property
+    def row_metadata(self) -> dict[str, str]:
+        """Dataset columns; candidate and baseline properties stay on their traces."""
+        return self.row.properties
+
+    @property
+    def reference_trace(self) -> dict[str, Any] | None:
+        return self.reference["trace"] if self.reference is not None else None
 
 
 class LocalEvaluator(Model):

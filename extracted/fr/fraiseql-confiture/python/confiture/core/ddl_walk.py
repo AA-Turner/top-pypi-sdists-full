@@ -53,6 +53,7 @@ _CONSTR_NOTNULL = _pg_member("ConstrType", "CONSTR_NOTNULL")
 _CONSTR_DEFAULT = _pg_member("ConstrType", "CONSTR_DEFAULT")
 
 _AT_ADD_CONSTRAINT = _pg_member("AlterTableType", "AT_AddConstraint")
+_AT_DROP_CONSTRAINT = _pg_member("AlterTableType", "AT_DropConstraint")
 _CONSTR_PRIMARY = _pg_member("ConstrType", "CONSTR_PRIMARY")
 
 _LIKE_DEFAULTS = _pg_member("TableLikeOption", "CREATE_TABLE_LIKE_DEFAULTS")
@@ -216,10 +217,15 @@ def column_edit(cmd: Any) -> ColumnEdit | None:
 
 
 class TViewOptions(TypedDict, total=False):
-    """pg_tviews' ``options`` keys a tree can pin; a key it does not pin is absent."""
+    """pg_tviews' ``options`` keys a tree can pin; a key it does not pin is absent.
+
+    ``uncascaded_policy`` is passed in ``options`` too, though pg_tviews stores it
+    beside them (``tviews.registry.uncascaded_policy``).
+    """
 
     logged: bool
     fillfactor: int
+    uncascaded_policy: str
 
 
 def tview_options(stmt: Any) -> TViewOptions:
@@ -396,6 +402,10 @@ def _options_passed(arg: Any) -> TViewOptions:
     fillfactor = passed.get("fillfactor")
     if isinstance(fillfactor, int) and not isinstance(fillfactor, bool):
         options["fillfactor"] = fillfactor
+    # Kept as written, a value pg_tviews refuses included: the generated call then
+    # fails where pg_tviews names the values it accepts.
+    if isinstance(policy := passed.get("uncascaded_policy"), str):
+        options["uncascaded_policy"] = policy
     return options
 
 
@@ -427,9 +437,14 @@ def _tview_named(arg: Any) -> tuple[str | None, str | None]:
 #: with where.
 MODELLED_ELSEWHERE: dict[str, str] = {
     "AT_AddConstraint": (
-        "`adds_primary_key` above sets the table's primary-key flag, and "
-        "`differ._collect_alter_table_constraints` models FK / CHECK / UNIQUE for "
-        "`migrate diff`. A table-level constraint is the table's fact, not a column's"
+        "`added_constraint` hands the node to `read_constraint`, and the inventory "
+        "records it on the table the model is built from. A table-level constraint is "
+        "the table's fact, not a column's"
+    ),
+    "AT_DropConstraint": (
+        "`dropped_constraint` names the constraint, and the inventory removes the one "
+        "the tree named so, in statement order (#624). A constraint the tree left "
+        "unnamed is identified by what it says, so no name drops it"
     ),
     "AT_SetLogged": (
         "`storage_pinned` reads it into a TVIEW's pinned `logged` option, which drift, "
@@ -473,11 +488,15 @@ _NOT_A_FACT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     (
-        "the model reads a constraint where it is declared — on a column, at table level "
-        "and in `ADD CONSTRAINT` — but nothing compares constraints against a live "
-        "database yet, so dropping, altering or validating one would change nothing "
-        "anything asks for. When that comparison lands, this group moves",
-        ("AT_DropConstraint", "AT_AlterConstraint", "AT_ValidateConstraint"),
+        "`VALIDATE CONSTRAINT` turns a `NOT VALID` constraint valid, and the model holds "
+        "no validity: a constraint is the same constraint either way",
+        ("AT_ValidateConstraint",),
+    ),
+    (
+        "`ALTER CONSTRAINT` changes a foreign key's deferrability, which the model holds "
+        "(`Constraint.deferrable`) but this fold does not yet read: a tree that writes it "
+        "compares with the deferrability its `ADD` gave the key",
+        ("AT_AlterConstraint",),
     ),
     (
         "the model reads a generated column's expression where `CREATE TABLE` or "
@@ -1570,6 +1589,19 @@ def added_constraint(cmd: Any) -> Any | None:
         return None
     definition = getattr(cmd, "def_", None)
     return definition if type(definition).__name__ == "Constraint" else None
+
+
+def dropped_constraint(cmd: Any) -> str | None:
+    """The name an ``ALTER TABLE … DROP CONSTRAINT`` drops, else ``None``.
+
+    ``IF EXISTS`` and ``CASCADE`` are not carried: the first only says the
+    author guarded the drop, and what a cascade takes with it is PostgreSQL's
+    dependency graph, which :class:`ObjectEdit` does not model either.
+    """
+    if enum_int(getattr(cmd, "subtype", None)) != _AT_DROP_CONSTRAINT:
+        return None
+    name = getattr(cmd, "name", None)
+    return str(name) if name else None
 
 
 def declared_constraints(stmt: Any) -> tuple[Constraint, ...]:

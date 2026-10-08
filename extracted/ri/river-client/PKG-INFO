@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.13.0
+Version: 0.14.0
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -193,11 +193,12 @@ Apache-2.0. See [`LICENSE`](LICENSE).
 
 ## Export downloaded checkpoints to Hugging Face
 
-In Console, open an inference checkpoint and choose **Download HF export script**.
+The converter is available in `river-client` 0.13.0 and later. In Console, open
+an inference checkpoint and choose **Download HF export script**.
 Install the script's dependencies and run it with your API key:
 
 ```bash
-pip install -U "river-client[hf-export]" requests
+pip install -U "river-client[hf-export]>=0.13.0" requests
 RIVER_API_KEY=... python download.py
 ```
 
@@ -206,44 +207,52 @@ under the checkpoint ID. Load that directory with PEFT and the corresponding
 base model. Conversion reads the base model's safetensors headers from Hugging
 Face; it does not download base weights. Set `HF_TOKEN` for gated base models.
 
-For a checkpoint already on disk:
+For a checkpoint already on disk, install the export extra and run the converter:
 
 ```bash
+pip install -U "river-client[hf-export]>=0.13.0"
 python -m river_client.hf_export ./river-checkpoint ./hf-adapter
-# Optional: --base-model /path/to/local/base --revision <base-commit>
+```
+
+The source directory must contain `adapter_config.json` and either
+`adapter_model.safetensors` or its sharded index and referenced files. The output
+contains `adapter_config.json` and `adapter_model.safetensors` in HF/PEFT adapter
+format. The converter uses `base_model_name_or_path` from the adapter
+configuration unless you override it:
+
+```bash
+python -m river_client.hf_export ./river-checkpoint ./hf-adapter \
+  --base-model "<base-model-id>" --revision "<base-model-commit>"
+```
+
+Use `--base-model /path/to/local/base` to read a local base model's safetensors
+headers. In Python, call the same converter directly:
+
+```python
+from river_client.hf_export import export_hf_adapter
+
+output = export_hf_adapter("./river-checkpoint", "./hf-adapter")
+# Optional keyword arguments: base_model="...", revision="...".
+print(output)
 ```
 
 The converter checks every target name and tensor shape against the base model.
-It restores text-model prefixes, splits Qwen's fused QKVZ adapters into QKV and
-Z, preserves rank/alpha scaling, and combines indexed adapter shards into PEFT's
-single safetensors file. It runs on CPU with memory proportional to adapter size.
+It restores text-model prefixes, splits supported fused projections, preserves
+rank/alpha scaling, and combines indexed adapter shards into PEFT's single
+safetensors file. It runs on CPU with memory proportional to adapter size.
 The source is preserved, and an existing output directory is never overwritten.
 Unsupported layouts fail before an output directory is published. This exports
 LoRA adapters, not merged base weights or training/optimizer state.
 
-### Loading a Qwen3.8 FP8 export with HF/PEFT
+Conversion preserves adapter values and dtype; inference compatibility also
+depends on the loader. In our tests with Transformers 5.8.1 and PEFT 0.18.1,
+loading BF16 adapters onto native FP8 layers cast the adapter weights to FP8,
+changing their values. Use a loader that preserves BF16 adapters alongside the
+FP8 base. The workaround verified in that test was to load the base with
+`FineGrainedFP8Config(dequantize=True)` before attaching the adapter. This
+requires more memory and does not quantize the adapter.
 
-The verified HF path dequantizes the FP8 base weights while loading:
-
-```python
-import torch
-from peft import PeftModel
-from transformers import AutoModelForImageTextToText, FineGrainedFP8Config
-
-base = AutoModelForImageTextToText.from_pretrained(
-    "Qwen/Qwen3.8-27B-FP8",
-    quantization_config=FineGrainedFP8Config(dequantize=True),
-    dtype=torch.bfloat16,
-    device_map="auto",
-)
-model = PeftModel.from_pretrained(base, "./hf-adapter")
-```
-
-Install `peft` to run this example. This loads the same quantized base checkpoint
-into BF16 storage and therefore requires more GPU memory than native FP8.
-
-With Transformers 5.8.1 and PEFT 0.18.1, loading directly onto native FP8 layers
-casts BF16 adapter tensors to FP8 and changes their values. Dequantizing the base
-avoids that problem. A real step-29 checkpoint passed exact adapter-weight and
-logit comparisons through the dequantized path; native HF FP8 inference was not
-qualified by that test.
+For unsupported layouts, including NVFP4 expert adapters, choose **Download raw
+script** in Console. Run `RIVER_API_KEY=... python download-raw.py` after installing
+`requests`. It saves the original files under `<checkpoint-id>-raw` without
+conversion; those files are not guaranteed to load in HF/PEFT.

@@ -4,6 +4,7 @@ from sqlalchemy import exc
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import text
 from sqlalchemy.testing import exclusions
+from sqlalchemy.testing import profiling
 from sqlalchemy.testing.exclusions import against
 from sqlalchemy.testing.exclusions import fails_if
 from sqlalchemy.testing.exclusions import fails_on
@@ -1602,6 +1603,16 @@ class DefaultRequirements(SuiteRequirements):
         return exclusions.open()
 
     @property
+    def float_cast(self):
+        """target backend supports CAST to a FLOAT type"""
+
+        return skip_if(
+            lambda config: against(config, ["mysql", "mariadb"])
+            and not config.db.dialect._support_float_cast,
+            "MySQL < 8.0.17 / MariaDB < 10.4.5 can't CAST to FLOAT",
+        )
+
+    @property
     def precision_numerics_many_significant_digits(self):
         """target backend supports values with many digits on both sides,
         such as 319438950232418390.273596, 87673.594069654243
@@ -2156,7 +2167,28 @@ class DefaultRequirements(SuiteRequirements):
 
     @property
     def python_profiling_backend(self):
-        return only_on([self._sqlite_memory_db])
+        """target is the in-memory SQLite database used for profiling
+        tests that measure Python overhead only, and profiles.txt has
+        counts for it."""
+
+        return only_on([self._sqlite_memory_db]) + self.dbapi_profiling_backend
+
+    @property
+    def dbapi_profiling_backend(self):
+        """profiles.txt has counts for the current platform, including
+        python version, driver and cext.
+
+        Test classes that make use of profiling.function_call_count()
+        should require either this or python_profiling_backend, so that
+        the class isn't generated, and therefore doesn't run its fixture
+        setup, for platforms where every test would skip anyway.
+
+        """
+
+        return only_if(
+            lambda config: profiling._profile_stats.has_platform(config.db),
+            "no profiling counts in profiles.txt for this platform",
+        )
 
     @property
     def computed_columns_stored(self):

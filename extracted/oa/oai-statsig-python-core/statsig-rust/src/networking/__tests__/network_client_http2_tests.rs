@@ -75,7 +75,7 @@ fn http2_options(enabled: bool) -> StatsigOptions {
 }
 
 #[tokio::test]
-async fn http2_is_default_on_and_scoped_per_client() {
+async fn http2_is_default_off_and_scoped_per_client() {
     let provider = Arc::new(RoutingProvider {
         normal_calls: AtomicUsize::new(0),
         http2_calls: AtomicUsize::new(0),
@@ -100,8 +100,8 @@ async fn http2_is_default_on_and_scoped_per_client() {
             .await
             .unwrap();
     }
-    assert_eq!(provider.normal_calls.load(Ordering::SeqCst), 2);
-    assert_eq!(provider.http2_calls.load(Ordering::SeqCst), 4);
+    assert_eq!(provider.normal_calls.load(Ordering::SeqCst), 5);
+    assert_eq!(provider.http2_calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

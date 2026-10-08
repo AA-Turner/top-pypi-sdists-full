@@ -28,13 +28,13 @@ if TYPE_CHECKING:
     # Typing only: domain never imports _gen at runtime.
     # Current package
     from dlthub_sdk._gen.api.models import (
-        BulkCancelResponse,
-        DetailedRunResponse,
+        CancelJobRunsResponse,
+        DetailedJobRunResponse,
         PipelineRunSummaryResponse,
     )
     from dlthub_sdk._gen.telemetry.models import (
-        GetJobResultTraceResponse200,
         JobResultResponse,
+        JobResultTraceResponse,
     )
 
 
@@ -83,35 +83,35 @@ FAILED_STATUSES = frozenset({JobRunStatus.FAILED, JobRunStatus.CANCELLED})
 class PipelineRunSummary:
     """One dlt pipeline a run executed, as telemetry reported it.
 
-    A run executes whatever pipelines its script calls, so a job that loads two
+    A run executes whatever pipelines its job calls, so a job that loads two
     sources reports two. Telemetry fills this in after the pipeline reports, so
-    a run that has just started carries none, and a run whose script never
+    a run that has just started carries none, and a run whose job never
     reached a pipeline carries none for good.
 
     Attributes:
         pipeline_name: The dlt pipeline's name.
         pipeline_run_id: Addresses this pipeline run's detail and trace.
         transaction_id: Identifies this pipeline run in telemetry.
-        destination: Where it wrote, when telemetry reported one.
-        dataset: The dataset it wrote to, when telemetry reported one.
+        destination_name: Where it wrote, when telemetry reported one.
+        dataset_name: The dataset it wrote to, when telemetry reported one.
         status: What the pipeline run ended as. Free-form: it is dlt's own
             wording, not :class:`JobRunStatus`.
         total_rows: Rows loaded, across every table.
-        duration_seconds: How long the pipeline ran.
+        duration_ms: How long the pipeline ran, in milliseconds.
         started_at: When the pipeline began.
-        ended_at: When the pipeline finished.
+        finished_at: When the pipeline finished.
     """
 
     pipeline_name: str
     pipeline_run_id: str | None
     transaction_id: str | None
-    destination: str | None
-    dataset: str | None
+    destination_name: str | None
+    dataset_name: str | None
     status: str | None
     total_rows: int | None
-    duration_seconds: float | None
+    duration_ms: int | None
     started_at: datetime | None
-    ended_at: datetime | None
+    finished_at: datetime | None
 
     @staticmethod
     def _from_payload(payload: PipelineRunSummaryResponse) -> PipelineRunSummary:
@@ -123,13 +123,13 @@ class PipelineRunSummary:
                 else None
             ),
             transaction_id=_narrow.text(payload.transaction_id),
-            destination=_narrow.text(payload.destination_name),
-            dataset=_narrow.text(payload.dataset_name),
+            destination_name=_narrow.text(payload.destination_name),
+            dataset_name=_narrow.text(payload.dataset_name),
             status=_narrow.text(payload.status),
             total_rows=_narrow.whole(payload.total_rows),
-            duration_seconds=_narrow.seconds(payload.duration_ms),
+            duration_ms=_narrow.whole(payload.duration_ms),
             started_at=_narrow.moment(payload.started_at),
-            ended_at=_narrow.moment(payload.finished_at),
+            finished_at=_narrow.moment(payload.finished_at),
         )
 
 
@@ -139,14 +139,14 @@ class CancelledRun:
 
     Attributes:
         job_ref: The job it belonged to.
-        run_id: The run's uuid.
-        run_number: Its number within the workspace.
+        job_run_id: The run's uuid.
+        job_run_number: Its number within the workspace.
         previous_status: What it was doing when the cancel landed.
     """
 
     job_ref: str
-    run_id: str
-    run_number: int
+    job_run_id: str
+    job_run_number: int
     previous_status: JobRunStatus
 
 
@@ -163,18 +163,22 @@ class CancelReport:
     not_running: tuple[str, ...]
 
     @staticmethod
-    def _from_payload(_ctx: _Ctx[Any], payload: BulkCancelResponse) -> CancelReport:
+    def _from_payload(
+        _ctx: _Ctx[Any], payload: CancelJobRunsResponse, job_refs: Sequence[str]
+    ) -> CancelReport:
+        cancelled = tuple(
+            CancelledRun(
+                job_ref=item.job_ref,
+                job_run_id=str(item.job_run_id),
+                job_run_number=item.job_run_number,
+                previous_status=JobRunStatus(str(item.previous_status)),
+            )
+            for item in payload.succeeded
+        )
+        stopped = {run.job_ref for run in cancelled}
         return CancelReport(
-            cancelled=tuple(
-                CancelledRun(
-                    job_ref=item.job_ref,
-                    run_id=str(item.run_id),
-                    run_number=item.run_number,
-                    previous_status=JobRunStatus(str(item.previous_status)),
-                )
-                for item in payload.cancelled
-            ),
-            not_running=tuple(payload.not_running),
+            cancelled=cancelled,
+            not_running=tuple(ref for ref in job_refs if ref not in stopped),
         )
 
 
@@ -186,14 +190,14 @@ class JobResultTrace:
     where an agent's per-turn tool calls live.
 
     Attributes:
-        run_id: The run that declared it.
+        job_run_id: The run that declared it.
         result: The envelope exactly as delivered — the declared output and, for
             an agent, its trace: turns and the tools each called, token counts,
             stop reason. Left opaque: the platform stores and returns it verbatim
             and declares no shape for it.
     """
 
-    run_id: str
+    job_run_id: str
     result: Mapping[str, Any]
 
 
@@ -206,7 +210,7 @@ class JobResult:
     ``None`` for any other kind of result.
 
     Attributes:
-        run_id: The run that declared it.
+        job_run_id: The run that declared it.
         job_ref: The job that ran.
         result_type: What kind of result this is, as the job declared it.
         engine_version: Manifest engine version the job was written for.
@@ -230,7 +234,7 @@ class JobResult:
         updated_at: When it last changed.
     """
 
-    run_id: str
+    job_run_id: str
     job_ref: str
     result_type: str
     engine_version: int
@@ -251,7 +255,7 @@ class JobResult:
     @staticmethod
     def _from_payload(_ctx: _Ctx[Any], payload: JobResultResponse) -> JobResult:
         return JobResult(
-            run_id=str(payload.run_id),
+            job_run_id=str(payload.job_run_id),
             job_ref=payload.job_ref,
             result_type=payload.result_type,
             engine_version=payload.engine_version,
@@ -266,8 +270,8 @@ class JobResult:
             cost_usd=_narrow.text(payload.cost_usd),
             turn_count=_narrow.whole(payload.turn_count),
             stop_reason=_narrow.text(payload.stop_reason),
-            created_at=payload.date_added,
-            updated_at=payload.date_updated,
+            created_at=payload.created_at,
+            updated_at=payload.updated_at,
         )
 
 
@@ -283,18 +287,18 @@ class JobRun(Entity[M]):
         trigger: The trigger that started it.
         profile: The profile it ran under.
         started_at: When it began, or ``None`` if it has not.
-        ended_at: When it finished, or ``None`` if it has not.
+        finished_at: When it finished, or ``None`` if it has not.
         duration_seconds: How long it ran, once it has finished.
-        timeout_seconds: How long the job's version is allowed to run before the
+        max_run_time_seconds: How long the job's version is allowed to run before the
             platform stops it. What an in-flight run's elapsed time is measured
             against.
         interval_start: Start of the data window this run covers, when the job
             declares one.
         interval_end: End of that window.
-        pipelines: The dlt pipelines this run executed, in the order telemetry
+        pipeline_run_summaries: The dlt pipelines this run executed, in the order telemetry
             reported them. Empty until telemetry has heard from them, so it
             says nothing about a run still in flight.
-        prev_run_id: The run that triggered this one, when a job event did.
+        previous_job_run_id: The run that triggered this one, when a job event did.
             ``None`` for a schedule, a manual trigger, or the first run of a
             chain — so it is how a chain is walked backwards.
         created_at: When the run was created.
@@ -307,13 +311,13 @@ class JobRun(Entity[M]):
     trigger: str
     profile: str
     started_at: datetime | None
-    ended_at: datetime | None
+    finished_at: datetime | None
     duration_seconds: float | None
-    timeout_seconds: int | None
+    max_run_time_seconds: int | None
     interval_start: datetime | None
     interval_end: datetime | None
-    pipelines: tuple[PipelineRunSummary, ...]
-    prev_run_id: str | None
+    pipeline_run_summaries: tuple[PipelineRunSummary, ...]
+    previous_job_run_id: str | None
     created_at: datetime
 
     _identity = ("number", "id")
@@ -529,21 +533,21 @@ class JobRun(Entity[M]):
         return JobRuns(self._ctx).trace(id=self.id)
 
     @staticmethod
-    def _from_payload(ctx: _Ctx[Any], payload: DetailedRunResponse) -> JobRun[Any]:
+    def _from_payload(ctx: _Ctx[Any], payload: DetailedJobRunResponse) -> JobRun[Any]:
         return JobRun._bind(
             ctx,
             JobRun(
                 number=payload.number,
                 id=str(payload.id),
-                job_ref=payload.script.job_ref,
+                job_ref=payload.job.job_ref,
                 status=JobRunStatus(str(payload.status)),
                 trigger=payload.trigger,
                 profile=payload.profile,
-                started_at=payload.time_started,
-                ended_at=payload.time_ended,
-                duration_seconds=payload.duration,
-                timeout_seconds=getattr(
-                    payload.script_version, "max_run_time_seconds", None
+                started_at=payload.started_at,
+                finished_at=payload.finished_at,
+                duration_seconds=payload.duration_seconds,
+                max_run_time_seconds=getattr(
+                    payload.job_version, "max_run_time_seconds", None
                 ),
                 interval_start=(
                     payload.interval_start
@@ -555,18 +559,18 @@ class JobRun(Entity[M]):
                     if isinstance(payload.interval_end, datetime)
                     else None
                 ),
-                pipelines=tuple(
+                pipeline_run_summaries=tuple(
                     PipelineRunSummary._from_payload(summary)
                     for summary in payload.pipeline_run_summaries
                 )
                 if isinstance(payload.pipeline_run_summaries, list)
                 else (),
-                prev_run_id=(
-                    str(payload.prev_run_id)
-                    if isinstance(payload.prev_run_id, UUID)
+                previous_job_run_id=(
+                    str(payload.previous_job_run_id)
+                    if isinstance(payload.previous_job_run_id, UUID)
                     else None
                 ),
-                created_at=payload.date_added,
+                created_at=payload.created_at,
             ),
         )
 
@@ -579,11 +583,17 @@ class JobRuns(Collection[M]):
     def _job(self, job_id: str | None) -> str | None:
         return self._ctx.job_id if job_id is None else job_id
 
-    def _listing(self, job_id: str | None) -> Listing[DetailedRunResponse]:
+    def _listing(
+        self, job_id: str | None, number: int | None = None
+    ) -> Listing[DetailedJobRunResponse]:
         workspace_id = self._ctx.require_workspace()
         wanted = self._job(job_id)
         return lambda t, limit, offset: t.list_runs(
-            workspace_id=workspace_id, job_id=wanted, limit=limit, offset=offset
+            workspace_id=workspace_id,
+            job_id=wanted,
+            number=number,
+            limit=limit,
+            offset=offset,
         )
 
     @overload
@@ -595,8 +605,8 @@ class JobRuns(Collection[M]):
     def get(self, *, id: str) -> JobRun[Any] | Awaitable[JobRun[Any]]:
         """Return one run by id.
 
-        Job runs are addressed by uuid, not by number; the platform offers no
-        lookup by number.
+        Job runs are addressed by uuid; to find one by number, filter
+        :meth:`list` with ``number``.
 
         Args:
             id: The run's uuid.
@@ -639,7 +649,7 @@ class JobRuns(Collection[M]):
         workspace_id = self._ctx.require_workspace()
         dataplane_url = self._ctx.require_dataplane()
         return self._ctx.run(
-            lambda t: t.get_job_result(
+            lambda t: t.get_job_run_result(
                 workspace_id=workspace_id,
                 dataplane_url=dataplane_url,
                 run_id=id,
@@ -671,15 +681,11 @@ class JobRuns(Collection[M]):
         workspace_id = self._ctx.require_workspace()
         dataplane_url = self._ctx.require_dataplane()
 
-        def parse(
-            _ctx: _Ctx[Any], payload: GetJobResultTraceResponse200
-        ) -> JobResultTrace:
-            # Returned verbatim, so the generated model declares no fields and
-            # everything lands in additional_properties.
-            return JobResultTrace(run_id=id, result=dict(payload.additional_properties))
+        def parse(_ctx: _Ctx[Any], payload: JobResultTraceResponse) -> JobResultTrace:
+            return JobResultTrace(job_run_id=id, result=payload.to_dict())
 
         return self._ctx.run(
-            lambda t: t.get_job_result_trace(
+            lambda t: t.get_job_run_result_trace(
                 workspace_id=workspace_id,
                 dataplane_url=dataplane_url,
                 run_id=id,
@@ -746,6 +752,7 @@ class JobRuns(Collection[M]):
         self: JobRuns[Sync],
         *,
         job_id: str | None = None,
+        number: int | None = None,
         limit: int | None = None,
         offset: int = 0,
     ) -> Iterable[JobRun[Sync]]: ...
@@ -755,6 +762,7 @@ class JobRuns(Collection[M]):
         self: JobRuns[Async],
         *,
         job_id: str | None = None,
+        number: int | None = None,
         limit: int | None = None,
         offset: int = 0,
     ) -> AsyncIterable[JobRun[Async]]: ...
@@ -763,6 +771,7 @@ class JobRuns(Collection[M]):
         self,
         *,
         job_id: str | None = None,
+        number: int | None = None,
         limit: int | None = None,
         offset: int = 0,
     ) -> Iterable[JobRun[Any]] | AsyncIterable[JobRun[Any]]:
@@ -771,6 +780,8 @@ class JobRuns(Collection[M]):
         Args:
             job_id: Narrow to one job's runs. Omit to use the job in scope, or
                 the whole workspace when there is none.
+            number: Keep only the run with this per-job number. Numbers repeat
+                across jobs, so pair it with a job.
             limit: Return at most this many. ``None`` walks to the end, or
                 to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
@@ -784,7 +795,10 @@ class JobRuns(Collection[M]):
             ValueError: A negative ``limit`` or ``offset``.
         """
         return self._ctx.page(
-            self._listing(job_id), JobRun._from_payload, limit=limit, offset=offset
+            self._listing(job_id, number),
+            JobRun._from_payload,
+            limit=limit,
+            offset=offset,
         )
 
     @overload
@@ -824,5 +838,5 @@ class JobRuns(Collection[M]):
             lambda t: t.cancel_runs(
                 workspace_id=workspace_id, job_refs=refs, dry_run=dry_run
             ),
-            CancelReport._from_payload,
+            lambda ctx, payload: CancelReport._from_payload(ctx, payload, refs),
         )

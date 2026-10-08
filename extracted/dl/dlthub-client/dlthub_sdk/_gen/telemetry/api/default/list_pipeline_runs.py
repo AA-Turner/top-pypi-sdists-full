@@ -8,7 +8,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.error_response_400 import ErrorResponse400
+from ...models.error_response import ErrorResponse
 from ...models.list_page_pipeline_run_response import ListPagePipelineRunResponse
 from ...models.list_pipeline_runs_order_type_0_item import (
     ListPipelineRunsOrderType0Item,
@@ -23,9 +23,9 @@ def _get_kwargs(
     *,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
-    start: datetime.datetime,
-    end: datetime.datetime,
-    tz: str | Unset = "UTC",
+    start: datetime.datetime | None | Unset = UNSET,
+    end: datetime.datetime | None | Unset = UNSET,
+    timezone: str | Unset = "UTC",
     q: None | str | Unset = UNSET,
     status: list[PipelineRunStatus] | None | Unset = UNSET,
     pipeline_name: list[str] | None | Unset = UNSET,
@@ -43,13 +43,25 @@ def _get_kwargs(
 
     params["offset"] = offset
 
-    json_start = start.isoformat()
+    json_start: None | str | Unset
+    if isinstance(start, Unset):
+        json_start = UNSET
+    elif isinstance(start, datetime.datetime):
+        json_start = start.isoformat()
+    else:
+        json_start = start
     params["start"] = json_start
 
-    json_end = end.isoformat()
+    json_end: None | str | Unset
+    if isinstance(end, Unset):
+        json_end = UNSET
+    elif isinstance(end, datetime.datetime):
+        json_end = end.isoformat()
+    else:
+        json_end = end
     params["end"] = json_end
 
-    params["tz"] = tz
+    params["timezone"] = timezone
 
     json_q: None | str | Unset
     if isinstance(q, Unset):
@@ -169,16 +181,31 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse400 | ListPagePipelineRunResponse | None:
+) -> ErrorResponse | ListPagePipelineRunResponse | None:
     if response.status_code == 200:
         response_200 = ListPagePipelineRunResponse.from_dict(response.json())
 
         return response_200
 
     if response.status_code == 400:
-        response_400 = ErrorResponse400.from_dict(response.json())
+        response_400 = ErrorResponse.from_dict(response.json())
 
         return response_400
+
+    if response.status_code == 401:
+        response_401 = ErrorResponse.from_dict(response.json())
+
+        return response_401
+
+    if response.status_code == 403:
+        response_403 = ErrorResponse.from_dict(response.json())
+
+        return response_403
+
+    if response.status_code == 500:
+        response_500 = ErrorResponse.from_dict(response.json())
+
+        return response_500
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -188,7 +215,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse400 | ListPagePipelineRunResponse]:
+) -> Response[ErrorResponse | ListPagePipelineRunResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -203,9 +230,9 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
-    start: datetime.datetime,
-    end: datetime.datetime,
-    tz: str | Unset = "UTC",
+    start: datetime.datetime | None | Unset = UNSET,
+    end: datetime.datetime | None | Unset = UNSET,
+    timezone: str | Unset = "UTC",
     q: None | str | Unset = UNSET,
     status: list[PipelineRunStatus] | None | Unset = UNSET,
     pipeline_name: list[str] | None | Unset = UNSET,
@@ -216,7 +243,7 @@ def sync_detailed(
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> Response[ErrorResponse400 | ListPagePipelineRunResponse]:
+) -> Response[ErrorResponse | ListPagePipelineRunResponse]:
     """ListPipelineRuns
 
     Lists the pipeline runs of a workspace within a time range.
@@ -229,12 +256,12 @@ def sync_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime): Start of period. Naive datetime (no offset), interpreted in
-            `tz`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime): End of period. Naive datetime (no offset), interpreted in `tz`.
-            E.g. `2026-03-11T00:00:00`.
-        tz (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York', 'UTC').
-            Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
+        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
@@ -260,7 +287,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ListPagePipelineRunResponse]
+        Response[ErrorResponse | ListPagePipelineRunResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -268,7 +295,7 @@ def sync_detailed(
         offset=offset,
         start=start,
         end=end,
-        tz=tz,
+        timezone=timezone,
         q=q,
         status=status,
         pipeline_name=pipeline_name,
@@ -294,9 +321,9 @@ def sync(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
-    start: datetime.datetime,
-    end: datetime.datetime,
-    tz: str | Unset = "UTC",
+    start: datetime.datetime | None | Unset = UNSET,
+    end: datetime.datetime | None | Unset = UNSET,
+    timezone: str | Unset = "UTC",
     q: None | str | Unset = UNSET,
     status: list[PipelineRunStatus] | None | Unset = UNSET,
     pipeline_name: list[str] | None | Unset = UNSET,
@@ -307,7 +334,7 @@ def sync(
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> ErrorResponse400 | ListPagePipelineRunResponse | None:
+) -> ErrorResponse | ListPagePipelineRunResponse | None:
     """ListPipelineRuns
 
     Lists the pipeline runs of a workspace within a time range.
@@ -320,12 +347,12 @@ def sync(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime): Start of period. Naive datetime (no offset), interpreted in
-            `tz`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime): End of period. Naive datetime (no offset), interpreted in `tz`.
-            E.g. `2026-03-11T00:00:00`.
-        tz (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York', 'UTC').
-            Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
+        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
@@ -351,7 +378,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ListPagePipelineRunResponse
+        ErrorResponse | ListPagePipelineRunResponse
     """
     return sync_detailed(
         workspace_id=workspace_id,
@@ -360,7 +387,7 @@ def sync(
         offset=offset,
         start=start,
         end=end,
-        tz=tz,
+        timezone=timezone,
         q=q,
         status=status,
         pipeline_name=pipeline_name,
@@ -380,9 +407,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
-    start: datetime.datetime,
-    end: datetime.datetime,
-    tz: str | Unset = "UTC",
+    start: datetime.datetime | None | Unset = UNSET,
+    end: datetime.datetime | None | Unset = UNSET,
+    timezone: str | Unset = "UTC",
     q: None | str | Unset = UNSET,
     status: list[PipelineRunStatus] | None | Unset = UNSET,
     pipeline_name: list[str] | None | Unset = UNSET,
@@ -393,7 +420,7 @@ async def asyncio_detailed(
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> Response[ErrorResponse400 | ListPagePipelineRunResponse]:
+) -> Response[ErrorResponse | ListPagePipelineRunResponse]:
     """ListPipelineRuns
 
     Lists the pipeline runs of a workspace within a time range.
@@ -406,12 +433,12 @@ async def asyncio_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime): Start of period. Naive datetime (no offset), interpreted in
-            `tz`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime): End of period. Naive datetime (no offset), interpreted in `tz`.
-            E.g. `2026-03-11T00:00:00`.
-        tz (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York', 'UTC').
-            Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
+        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
@@ -437,7 +464,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ListPagePipelineRunResponse]
+        Response[ErrorResponse | ListPagePipelineRunResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -445,7 +472,7 @@ async def asyncio_detailed(
         offset=offset,
         start=start,
         end=end,
-        tz=tz,
+        timezone=timezone,
         q=q,
         status=status,
         pipeline_name=pipeline_name,
@@ -469,9 +496,9 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     limit: int | Unset = 100,
     offset: int | Unset = 0,
-    start: datetime.datetime,
-    end: datetime.datetime,
-    tz: str | Unset = "UTC",
+    start: datetime.datetime | None | Unset = UNSET,
+    end: datetime.datetime | None | Unset = UNSET,
+    timezone: str | Unset = "UTC",
     q: None | str | Unset = UNSET,
     status: list[PipelineRunStatus] | None | Unset = UNSET,
     pipeline_name: list[str] | None | Unset = UNSET,
@@ -482,7 +509,7 @@ async def asyncio(
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> ErrorResponse400 | ListPagePipelineRunResponse | None:
+) -> ErrorResponse | ListPagePipelineRunResponse | None:
     """ListPipelineRuns
 
     Lists the pipeline runs of a workspace within a time range.
@@ -495,12 +522,12 @@ async def asyncio(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime): Start of period. Naive datetime (no offset), interpreted in
-            `tz`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime): End of period. Naive datetime (no offset), interpreted in `tz`.
-            E.g. `2026-03-11T00:00:00`.
-        tz (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York', 'UTC').
-            Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
+        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
+            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
@@ -526,7 +553,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ListPagePipelineRunResponse
+        ErrorResponse | ListPagePipelineRunResponse
     """
     return (
         await asyncio_detailed(
@@ -536,7 +563,7 @@ async def asyncio(
             offset=offset,
             start=start,
             end=end,
-            tz=tz,
+            timezone=timezone,
             q=q,
             status=status,
             pipeline_name=pipeline_name,

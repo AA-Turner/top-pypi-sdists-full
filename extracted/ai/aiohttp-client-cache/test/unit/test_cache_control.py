@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from contextlib import nullcontext
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from email.utils import format_datetime
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -35,7 +35,7 @@ DEFAULT_FAKER_SEED = os.getenv('CUSTOM_FAKER_SEED') or 42
 Faker.seed(os.getenv('GITHUB_JOB') or DEFAULT_FAKER_SEED)
 fake = Faker()
 # Make sure "pytest-xdist" collects the same datetime object.
-RANDOM_DATETIME_NOW_UTC = fake.date_time(tzinfo=timezone.utc).replace(second=0)
+RANDOM_DATETIME_NOW_UTC = fake.date_time(tzinfo=UTC).replace(second=0)
 
 IGNORED_DIRECTIVES = [
     'must-revalidate',
@@ -333,10 +333,14 @@ def test_split_kv_directive(value, expected_output) -> None:
             RANDOM_DATETIME_NOW_UTC.replace(tzinfo=None),
             RANDOM_DATETIME_NOW_UTC.replace(tzinfo=None),
         ),
+        (
+            datetime(2026, 1, 1, 12, tzinfo=timezone(timedelta(hours=2))),
+            datetime(2026, 1, 1, 10),
+        ),
     ],
 )
 def test_convert_to_utc_naive(dt: datetime, dt_utc: datetime) -> None:
-    assert convert_to_utc_naive(dt) == pytest.approx(dt_utc)
+    assert convert_to_utc_naive(dt) == dt_utc
 
 
 @pytest.mark.parametrize(

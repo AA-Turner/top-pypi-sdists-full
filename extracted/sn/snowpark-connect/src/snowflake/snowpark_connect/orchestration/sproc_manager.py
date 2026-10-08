@@ -26,10 +26,26 @@ from snowflake.snowpark_connect.utils.identifiers import UNQUOTED_IDENTIFIER_REG
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 _VALID_IDENTIFIER_RE = re.compile(rf"\A{UNQUOTED_IDENTIFIER_REGEX}\Z")
+# Portable JAR filename: no quotes, slashes, or whitespace, so the basename
+# cannot close the SQL IMPORTS string or become Python source in the handler.
+_PORTABLE_JAR_BASENAME_RE = re.compile(
+    r"\A[A-Za-z0-9][A-Za-z0-9._-]*\.jar\Z", re.IGNORECASE
+)
 
 
 def is_valid_snowflake_identifier(name: str) -> bool:
     return bool(_VALID_IDENTIFIER_RE.match(name))
+
+
+def _portable_jar_basename(path: str) -> str:
+    basename = os.path.basename(path)
+    if _PORTABLE_JAR_BASENAME_RE.fullmatch(basename) is None:
+        raise ValueError(
+            f"JAR basename {basename!r} is not a portable filename. "
+            "Use only letters, digits, '.', '_', and '-', "
+            "start with a letter or digit, and end with '.jar'."
+        )
+    return basename
 
 
 # ---------------------------------------------------------------------------
@@ -46,8 +62,9 @@ def resolve_jars(raw_patterns: list[str]) -> list[str]:
 
     Raises:
         FileNotFoundError: If a pattern matches no files or the list is empty.
-        ValueError: If two JARs share the same basename (Snowflake requires
-            unique filenames in the import directory).
+        ValueError: If a JAR basename is not a portable ``.jar`` filename, or
+            two JARs share the same basename (Snowflake requires unique
+            filenames in the import directory).
     """
     jar_files: list[str] = []
     for pattern in raw_patterns:
@@ -59,7 +76,7 @@ def resolve_jars(raw_patterns: list[str]) -> list[str]:
     if not jar_files:
         raise FileNotFoundError("No JAR files resolved from the supplied patterns.")
 
-    basenames = [os.path.basename(j) for j in jar_files]
+    basenames = [_portable_jar_basename(j) for j in jar_files]
     seen: set[str] = set()
     for bn in basenames:
         if bn in seen:
@@ -144,7 +161,7 @@ def _generate_jvm_sproc_sql(
         else "snowpark-connect"
     )
 
-    jar_basenames = [os.path.basename(j) for j in jar_files]
+    jar_basenames = [_portable_jar_basename(j) for j in jar_files]
     if native_app:
         # Version-stage-relative imports (bundled as app artifacts at the
         # version-stage root). Direct '@stage/...' refs are rejected in a
@@ -154,7 +171,7 @@ def _generate_jvm_sproc_sql(
         imports_list = ", ".join(f"'@{stage_name}/{bn}'" for bn in jar_basenames)
 
     jar_paths_py = "\n".join(
-        f'        os.path.join(import_dir, "{bn}"),' for bn in jar_basenames
+        f"        os.path.join(import_dir, {bn!r})," for bn in jar_basenames
     )
 
     scala_kw = f', scala_version="{scala_version}"' if scala_version else ""
@@ -397,8 +414,9 @@ def create_jvm_sproc(
 
     Raises:
         FileNotFoundError: No JAR files provided.
-        ValueError: Class not found, missing ``main(String[])`` method, or
-            unsupported *scala_version*.
+        ValueError: Class not found, missing ``main(String[])`` method,
+            unsupported *scala_version*, or a JAR basename that is not a
+            portable ``.jar`` filename.
         RuntimeError: Procedure already exists (when *replace* is False).
     """
     if not jar_files:

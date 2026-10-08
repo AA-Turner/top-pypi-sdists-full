@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from chalk._validation.validation import Validation
 from chalk._version import __version__
 from chalk.context import ACTIVE_MODEL_VERSIONS, ServerContextVariable
@@ -48,7 +50,7 @@ from chalk.metrics import log_custom_metric
 from chalk.ml.model_handler import model_handler
 from chalk.ml.model_reference import ModelReference
 from chalk.operators import StaticOperator, scan_parquet
-from chalk.prompts import Prompt, completion, run_prompt
+from chalk.prompts import Prompt, completion
 from chalk.queries.materialized_feature_view import MaterializedFeatureView
 from chalk.queries.named_query import NamedQuery
 from chalk.queries.query_context import ChalkContext
@@ -61,6 +63,18 @@ from chalk.utils.duration import CronTab, Duration, ScheduleOptions
 from chalk.utils.json import JSON
 from chalk.utils.secret import Secret
 from chalk.workflows import task, workflow
+
+if TYPE_CHECKING:
+    from chalk.client._model_remote import gather as gather
+
+
+def __getattr__(name: str):
+    if name == "gather":
+        from chalk.client._model_remote import gather
+
+        return gather
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 batch = offline
 realtime = online
@@ -118,6 +132,7 @@ __all__ = (
     "embedding",
     "feature",
     "freeze_time",
+    "gather",
     "get_resolver",
     "group_by_windowed",
     "has_many",
@@ -135,7 +150,6 @@ __all__ = (
     "owner",
     "realtime",
     "resolver",
-    "run_prompt",
     "scan_parquet",
     "select",
     "stream",

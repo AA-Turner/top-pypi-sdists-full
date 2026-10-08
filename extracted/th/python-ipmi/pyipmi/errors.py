@@ -14,43 +14,47 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
-from .msgs.constants import COMPLETION_CODE_DESCR, CC_ERR_CMD_SPECIFIC_DESC
+from __future__ import annotations
+
+from .msgs.constants import (COMPLETION_CODE_DESCR, CC_ERR_CMD_SPECIFIC_DESC,
+                             MESSAGE_STATUS_CODE_DESCR)
 
 
 class DecodingError(Exception):
     """Error on message decoding."""
-    pass
 
 
 class EncodingError(Exception):
     """Error on message encoding."""
-    pass
 
 
 class IpmiTimeoutError(Exception):
     """Timeout occurred."""
-    pass
 
 
 class CompletionCodeError(Exception):
     """IPMI completion code not OK."""
 
-    def __init__(self, cc, cmdid=None, netfn=None, group_extension=None):
+    def __init__(self, cc: int, cmdid: int | None = None,
+                 netfn: int | None = None,
+                 group_extension: int | None = None) -> None:
         self.cc = cc
         self.cc_desc = self.find_cc_desc(cc, cmdid, netfn, group_extension)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "%s cc=0x%02x desc=%s" \
             % (self.__class__.__name__, self.cc, self.cc_desc)
 
     @staticmethod
-    def find_cc_desc(error_cc, cmdid=None, netfn=None, group_extension=None):
+    def find_cc_desc(error_cc: int, cmdid: int | None = None,
+                     netfn: int | None = None,
+                     group_extension: int | None = None) -> str:
         # Search in global completion codes first
         for cc in COMPLETION_CODE_DESCR:
             if error_cc == cc[0]:
                 return cc[1]
         # Then search in command specific completion codes
-        if cmdid is not None:
+        if cmdid is not None and netfn is not None:
             command_cc = CC_ERR_CMD_SPECIFIC_DESC.get((netfn, cmdid, group_extension), {})
             descr = command_cc.get(error_cc, "Unknown error description")
             return descr
@@ -58,53 +62,61 @@ class CompletionCodeError(Exception):
         return "Unknown error description"
 
 
+class MessageStatusCodeError(Exception):
+    """RMCP+ session setup message status code not OK."""
+
+    def __init__(self, msc: int) -> None:
+        self.msc = msc
+        self.msc_desc = dict(MESSAGE_STATUS_CODE_DESCR).get(
+            msc, "Unknown error description")
+
+    def __str__(self) -> str:
+        return "%s msc=0x%02x desc=%s" \
+            % (self.__class__.__name__, self.msc, self.msc_desc)
+
+
 class NotSupportedError(Exception):
     """Not supported yet."""
-    pass
 
 
 class DescriptionError(Exception):
     """Message description incorrect."""
-    pass
 
 
 class RetryError(Exception):
     """Maximum number of retries exceeded."""
-    pass
 
 
 class DataNotFound(Exception):
     """Requested data not found."""
-    pass
 
 
 class HpmError(Exception):
     """HPM.1 error."""
-    pass
 
 
 class IpmiConnectionError(Exception):
     """Connection error."""
-    def __init__(self, msg=None):
+    def __init__(self, msg: str | None = None) -> None:
         self.msg = msg
 
-    def __str__(self):
-        return "{}".format(self.msg)
+    def __str__(self) -> str:
+        return f"{self.msg}"
 
 
 class IpmiLongPasswordError(Exception):
     """Password longer than 20 bytes."""
-    def __init__(self, msg=None):
+    def __init__(self, msg: str | None = None) -> None:
         self.msg = msg
 
-    def __str__(self):
-        return "{}".format(self.msg)
+    def __str__(self) -> str:
+        return f"{self.msg}"
 
 
 class AuthenticationError(Exception):
     """Authentication error."""
-    def __init__(self, msg=None):
+    def __init__(self, msg: str | None = None) -> None:
         self.msg = msg
 
-    def __str__(self):
-        return "{}".format(self.msg)
+    def __str__(self) -> str:
+        return f"{self.msg}"

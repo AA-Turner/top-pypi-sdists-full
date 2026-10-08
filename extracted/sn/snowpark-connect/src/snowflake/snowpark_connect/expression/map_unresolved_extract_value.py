@@ -13,6 +13,7 @@ from snowflake.snowpark import Session
 from snowflake.snowpark._internal.analyzer.expression import Literal
 from snowflake.snowpark.types import (
     ArrayType,
+    DataType,
     MapType,
     NullType,
     StructType,
@@ -23,6 +24,9 @@ from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.expression.map_unresolved_attribute import (
+    _sql_null_if_json_null,
+)
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.typed_column import TypedColumn
 
@@ -38,6 +42,18 @@ def _check_if_array_type(
         and len(container_type) == 1
         and isinstance(container_type[0], (_IntegralType, NullType))
     )
+
+
+def _lookup_struct_field(struct_type: StructType, field_name: str) -> DataType | None:
+    if not global_config.spark_sql_caseSensitive:
+        field_name = field_name.lower()
+    for field in struct_type.fields:
+        name = (
+            field.name if global_config.spark_sql_caseSensitive else field.name.lower()
+        )
+        if name == field_name:
+            return field.datatype
+    return None
 
 
 def _is_array_struct_field_access(
@@ -132,13 +148,12 @@ def map_unresolved_extract_value(
     elif is_array_struct_field:
         var_name = f"item_{uuid.uuid4().hex[:8]}"
         inner_exp = extract_fn(snowpark_fn.sql_expr(var_name), extract_typed_column.col)
-        inner_exp = snowpark_fn.iff(
-            snowpark_fn.call_function(
-                "IS_NULL_VALUE", snowpark_fn.to_variant(inner_exp)
-            ),
-            snowpark_fn.lit(None),
-            inner_exp,
+        field_type = _lookup_struct_field(
+            child_typed_column.typ.element_type,
+            extract_typed_column.col._expression.value,
         )
+        if isinstance(field_type, (ArrayType, MapType, StructType)):
+            inner_exp = _sql_null_if_json_null(inner_exp, field_type)
         analyzer = Session.get_active_session()._analyzer
         inner_sql = analyzer.analyze(inner_exp._expression, defaultdict())
         result_exp = snowpark_fn.call_function(
@@ -175,17 +190,21 @@ def map_unresolved_extract_value(
             raise exception
 
         result_exp = extract_fn(child_typed_column.col, extract_typed_column.col)
-        # Snowflake's GET/GET_IGNORE_CASE on structured types may return a value
-        # where JSON null != SQL NULL. Spark treats null struct fields as SQL NULL,
-        # so we convert JSON null -> SQL NULL here to match Spark semantics.
+        # GET on a structured value returns a nested JSON null as is, while
+        # Spark treats a null struct field or map value as SQL NULL.
+        key = extract_typed_column.col._expression
         if isinstance(child_typed_column.typ, StructType):
-            result_exp = snowpark_fn.iff(
-                snowpark_fn.call_function(
-                    "IS_NULL_VALUE", snowpark_fn.to_variant(result_exp)
-                ),
-                snowpark_fn.lit(None),
-                result_exp,
+            field_type = (
+                _lookup_struct_field(child_typed_column.typ, key.value)
+                if isinstance(key, Literal) and isinstance(key.value, str)
+                else None
             )
+        elif isinstance(child_typed_column.typ, MapType):
+            field_type = child_typed_column.typ.value_type
+        else:
+            field_type = None
+        if isinstance(field_type, (ArrayType, MapType, StructType)):
+            result_exp = _sql_null_if_json_null(result_exp, field_type)
 
     spark_sql_ansi_enabled = global_config.spark_sql_ansi_enabled
 

@@ -477,6 +477,15 @@ impl<'a> UserValueRef<'a> {
         }
     }
 
+    pub(crate) fn original_lookup_key(self) -> Option<&'a InternedString> {
+        match self {
+            Self::Dynamic(value) => value.string_value.as_ref().map(|value| &value.value),
+            Self::User(UserValue::String(value)) => Some(&value.value),
+            Self::User(UserValue::Array { string_value, .. }) => Some(&string_value.value),
+            Self::User(_) => None,
+        }
+    }
+
     pub fn lowercased_lookup_key(self) -> Option<&'a InternedString> {
         match self {
             Self::Dynamic(value) => value

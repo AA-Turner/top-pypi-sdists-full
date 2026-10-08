@@ -21,7 +21,11 @@ from typing import Optional, Protocol
 from packaging.version import InvalidVersion, Version
 from snowflake.cli import __about__
 from snowflake.cli.__about__ import CLIInstallationSource
-from snowflake.cli._plugins.upgrade.layout import ManagedLayout
+from snowflake.cli._plugins.upgrade.layout import (
+    ManagedLayout,
+    clear_reverted_from,
+    write_reverted_from,
+)
 from snowflake.cli._plugins.upgrade.repo import HttpRepo
 from snowflake.cli.api.exceptions import CliError
 
@@ -30,6 +34,7 @@ STATUS_ALREADY_CURRENT = "already_current"
 STATUS_NEW_MAJOR = "new_major"
 STATUS_DRY_RUN = "dry_run"
 STATUS_UPGRADED = "upgraded"
+STATUS_REVERTED = "reverted"
 
 INSTALL_SH_COMMAND = (
     "curl -LsS https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh | sh"
@@ -102,10 +107,10 @@ def refuse_result() -> UpgradeDecision:
     channel = _channel()
     command = install_command()
     message = (
-        "snow upgrade can only be used with the snowflake-managed distribution of Snowflake CLI.\n"
+        "snow upgrade can only be used with a direct install of Snowflake CLI.\n"
         f"This install is {channel}.\n"
         "\n"
-        "Install the snowflake-managed distribution:\n"
+        "Install using a direct install:\n"
         f"  {command}"
     )
     return UpgradeDecision(
@@ -174,6 +179,8 @@ def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
     layout = ManagedLayout()
     materialize(latest, layout)
     shim_target = layout.retarget(latest)
+    layout.gc()
+    clear_reverted_from(layout)
     return UpgradeDecision(
         payload={
             "channel": _channel(),
@@ -186,7 +193,48 @@ def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
     )
 
 
-def plan_upgrade(*, dry_run: bool) -> UpgradeDecision:
+def apply_revert(*, dry_run: bool) -> UpgradeDecision:
+    """Retarget the shim at the previous snowflake-managed version.
+
+    Does not fetch sfc-repo and does not touch ``~/.snowflake`` config.
+    """
+    channel = _channel()
+    layout = ManagedLayout()
+    previous = layout.previous_version()
+    if previous is None:
+        raise CliError(
+            "No previous snowflake-managed version is recorded. "
+            "Revert is only available after a successful upgrade."
+        )
+    current = layout.current_version() or _current_version()
+    if dry_run:
+        return UpgradeDecision(
+            payload={
+                "channel": channel,
+                "status": STATUS_DRY_RUN,
+                "from": current,
+                "to": previous,
+            },
+            message=f"Would revert {current} → {previous}.",
+        )
+
+    shim_target = layout.revert()
+    write_reverted_from(layout, current)
+    return UpgradeDecision(
+        payload={
+            "channel": channel,
+            "status": STATUS_REVERTED,
+            "from": current,
+            "to": previous,
+            "shim_target": str(shim_target),
+        },
+        message=f"Reverted {current} → {previous}.",
+    )
+
+
+def plan_upgrade(*, dry_run: bool, revert: bool = False) -> UpgradeDecision:
     if __about__.INSTALLATION_SOURCE != CLIInstallationSource.SNOWFLAKE_MANAGED:
         return refuse_result()
+    if revert:
+        return apply_revert(dry_run=dry_run)
     return evaluate_managed_upgrade(dry_run=dry_run)

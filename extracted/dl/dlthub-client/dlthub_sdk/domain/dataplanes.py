@@ -14,7 +14,7 @@ from dlthub_sdk._glue.enums import EntityKind
 if TYPE_CHECKING:
     # Typing only: domain never imports _gen at runtime.
     # Current package
-    from dlthub_sdk._gen.api.models import DataplaneInfo
+    from dlthub_sdk._gen.api.models import DataplaneResponse
 
 
 @dataclass(frozen=True, repr=False)
@@ -37,7 +37,7 @@ class Dataplane(Entity[M]):
     _kind = EntityKind.DATAPLANE
 
     @staticmethod
-    def _from_payload(ctx: _Ctx[Any], payload: DataplaneInfo) -> Dataplane[Any]:
+    def _from_payload(ctx: _Ctx[Any], payload: DataplaneResponse) -> Dataplane[Any]:
         return Dataplane._bind(
             ctx,
             Dataplane(
@@ -54,7 +54,7 @@ class Dataplane(Entity[M]):
 
     @staticmethod
     def _all_from_payload(
-        ctx: _Ctx[Any], payload: list[DataplaneInfo]
+        ctx: _Ctx[Any], payload: list[DataplaneResponse]
     ) -> tuple[Dataplane[Any], ...]:
         return tuple(Dataplane._from_payload(ctx, item) for item in payload)
 

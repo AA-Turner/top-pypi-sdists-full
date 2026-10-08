@@ -503,3 +503,84 @@ class DocumentTest(ParserTestCase):
             b"<p title='big one'>x</p><p title='small'>y</p>"
         )
         self.assertEqual(["Color(1,0,0,1)", "Color(0,0,0,1)"], self._colors(html))
+
+
+class SourceTest(ParserTestCase):
+    """Each stylesheet is parsed on its own, and a warning names it (#780)."""
+
+    def _render(self, html: str, files: dict[str, str]) -> tuple[list[str], list]:
+        logging.disable(logging.NOTSET)
+        with tempfile.TemporaryDirectory() as directory:
+            for name, text in files.items():
+                Path(directory, name).write_text(text, encoding="utf-8")
+            with self.assertLogs("xhtml2pdf", logging.WARNING) as logs:
+                logging.getLogger("xhtml2pdf").warning("start")
+                context = pisaStory(html, path=str(Path(directory, "doc.html")))
+        styles = [f.style for f in context.story if hasattr(f, "style")]
+        return logs.output, styles
+
+    def test_a_warning_names_the_stylesheet(self) -> None:
+        output, _ = self._render(
+            '<link rel="stylesheet" href="fa.css"><style>p { width: calc(1px }</style>'
+            '<p class="fa" style="color: calc(2px">x</p>',
+            {"fa.css": ".fa { margin-left: calc(var(--w, 2em) * -1) }"},
+        )
+        messages = "\n".join(output)
+        # The issue's own declaration: var() is substituted when an element
+        # uses it, and what comes out is still traced to its stylesheet.
+        self.assertRegex(
+            messages, r"fa\.css, var\(\) in margin-left: Ignoring CSS declaration"
+        )
+        self.assertIn("<style> block 2: Ignoring CSS declaration", messages)
+        self.assertIn("the style attribute of <p>: Ignoring", messages)
+
+    def test_unimplemented_properties_are_named_by_source(self) -> None:
+        output, _ = self._render(
+            '<style>p { box-shadow: 1px 1px red }</style><link rel="stylesheet"'
+            ' href="ext.css"><p style="opacity: 0.5; width: min(1pt, 2pt)">y</p>',
+            {"ext.css": "p { float: left }"},
+        )
+        unimplemented = [
+            # "WARNING:logger:message"
+            line.split(":", 2)[2]
+            for line in output
+            if "does not implement" in line
+        ]
+        self.assertEqual(3, len(unimplemented), output)
+        style, ext, attribute = unimplemented
+        self.assertTrue(style.startswith("<style> block 1: "), style)
+        self.assertTrue(style.endswith(": box-shadow"), style)
+        self.assertIn("ext.css: ", ext)
+        self.assertTrue(ext.endswith(": float"), ext)
+        # A style attribute used to be read without a word about it.
+        self.assertTrue(attribute.startswith("the style attribute of <p>: "))
+        self.assertTrue(attribute.endswith(": opacity"), attribute)
+        self.assertIn(
+            "the style attribute of <p>: Ignoring CSS declarations whose value"
+            " xhtml2pdf cannot evaluate: width: min()",
+            "\n".join(output),
+        )
+
+    def test_the_default_css_is_not_reported(self) -> None:
+        output, _ = self._render("<p>x</p>", {})
+        self.assertFalse([line for line in output if "does not implement" in line])
+
+    def test_a_link_after_a_style_applies(self) -> None:
+        # Both used to be one source, the <link> an "@import" in the middle
+        # of it, and an @import after a rule is ignored.
+        output, styles = self._render(
+            '<style>p { color: #ff0000 }</style><link rel="stylesheet" href="b.css">'
+            "<p>x</p>",
+            {"b.css": "p { font-size: 30pt }"},
+        )
+        self.assertNotIn("@import", "\n".join(output))
+        self.assertEqual(30, styles[0].fontSize)
+        self.assertEqual("Color(1,0,0,1)", str(styles[0].textColor))
+
+    def test_a_later_stylesheet_wins_a_tie(self) -> None:
+        _, styles = self._render(
+            '<link rel="stylesheet" href="a.css"><style>p { color: #0000ff }</style>'
+            '<link rel="stylesheet" href="a2.css"><p>x</p>',
+            {"a.css": "p { color: #ff0000 }", "a2.css": "p { color: #00ff00 }"},
+        )
+        self.assertEqual("Color(0,1,0,1)", str(styles[0].textColor))

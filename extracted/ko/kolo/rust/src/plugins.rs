@@ -105,6 +105,10 @@ fn get_filename(plugin_data: &Bound<'_, PyDict>) -> Result<String, PyErr> {
 }
 
 impl PluginProcessor {
+    pub fn matches_filename(&self, filename: &str) -> bool {
+        self.filename_finder.find(filename).is_some()
+    }
+
     /// Create a new `PluginProcessor` from `plugin_data`.
     fn new(plugin_data: &Bound<'_, PyDict>, context: &Bound<'_, PyDict>) -> Result<Self, PyErr> {
         let filename = &get_filename(plugin_data)?;
@@ -155,15 +159,25 @@ impl PluginProcessor {
         arg: &Py<PyAny>,
         filename: &str,
     ) -> Result<bool, PyErr> {
-        let filename_matches = self.filename_finder.find(filename).is_some();
+        if !self.matches_filename(filename) {
+            return Ok(false);
+        }
+        self.matches_event(py, frame, event, arg)
+    }
+
+    pub fn matches_event(
+        &self,
+        py: Python,
+        frame: &Bound<'_, PyAny>,
+        event: Event,
+        arg: &Py<PyAny>,
+    ) -> Result<bool, PyErr> {
         match &self.call {
-            None => Ok(filename_matches),
+            None => Ok(true),
             Some(call) => {
                 let event: &str = event.into();
-                Ok(filename_matches
-                    && call
-                        .call1(py, (frame, event, arg, &self.context))?
-                        .extract(py)?)
+                call.call1(py, (frame, event, arg, &self.context))?
+                    .extract(py)
             }
         }
     }
@@ -280,7 +294,7 @@ impl PluginProcessor {
             data.update(
                 process
                     .call1(py, (pyframe, event, arg, &self.context))?
-                    .downcast_bound(py)?,
+                    .cast_bound(py)?,
             )?;
         }
 
@@ -289,8 +303,10 @@ impl PluginProcessor {
             .expect("type is always set")
             .extract::<String>()?;
 
-        let data = self.serializer.dump_msgpack(py, &data, lightweight_repr)?;
-        Ok(Some((frame_type, data)))
+        let serialized = self
+            .serializer
+            .dump_msgpack(py, data.as_any(), lightweight_repr)?;
+        Ok(Some((frame_type, serialized)))
     }
 }
 
@@ -304,7 +320,7 @@ fn load_plugin_data(
         HashMap::with_capacity(plugins.len());
 
     for plugin_data in plugins {
-        let plugin_data: &Bound<'_, PyDict> = plugin_data.downcast()?;
+        let plugin_data: &Bound<'_, PyDict> = plugin_data.cast()?;
         let co_names = plugin_data.as_any().get_item("co_names")?;
         let context = match plugin_data
             .get_item("build_context")
@@ -326,6 +342,15 @@ fn load_plugin_data(
         }
     }
     Ok(processors)
+}
+
+#[cfg(test)]
+pub(crate) fn load_plugin_data_for_test(
+    py: Python,
+    plugins: &Bound<'_, PyList>,
+    config: &Bound<'_, PyDict>,
+) -> Result<HashMap<String, Vec<PluginProcessor>>, PyErr> {
+    load_plugin_data(py, plugins, config)
 }
 
 /// Load all plugins based on config data.
@@ -410,7 +435,7 @@ mod tests {
                 py,
                 &context,
                 &plugin_data,
-                "'NoneType' object cannot be converted to 'PyString'",
+                "'None' is not an instance of 'str'",
             )?;
 
             plugin_data.set_item("path_fragment", "kolo").unwrap();
@@ -421,7 +446,7 @@ mod tests {
                 py,
                 &context,
                 &plugin_data,
-                "'NoneType' object cannot be converted to 'PyString'",
+                "'None' is not an instance of 'str'",
             )?;
 
             plugin_data.set_item("call_type", "call").unwrap();
@@ -432,7 +457,7 @@ mod tests {
                 py,
                 &context,
                 &plugin_data,
-                "'NoneType' object cannot be converted to 'PyString'",
+                "'None' is not an instance of 'str'",
             )?;
 
             plugin_data.set_item("return_type", "return")?;
@@ -457,7 +482,7 @@ mod tests {
                 py,
                 &context,
                 &plugin_data,
-                "'NoneType' object cannot be converted to 'PyString'",
+                "'None' is not an instance of 'str'",
             )?;
 
             plugin_data.set_item("subtype", "subtype")?;
@@ -565,10 +590,20 @@ frame = inspect.currentframe()
                 .matches_frame(py, &frame, Event::Call, &py.None(), &filename)
                 .unwrap_err();
             assert!(err.is_instance_of::<PyTypeError>(py));
-            assert_error_message(py, err, "'str' object cannot be converted to 'PyBool'")?;
+            assert_error_message(py, err, "'str' object is not an instance of 'bool'")?;
 
             plugin_data.set_item("call", "invalid_callable")?;
             let processor = PluginProcessor::new(&plugin_data, &context)?;
+            let filename_miss = processor
+                .matches_frame(
+                    py,
+                    &frame,
+                    Event::Call,
+                    &py.None(),
+                    "/application/no-match.py",
+                )
+                .expect("filename miss must short-circuit the invalid callable");
+            assert!(!filename_miss);
             let err = processor
                 .matches_frame(py, &frame, Event::Call, &py.None(), &filename)
                 .unwrap_err();
@@ -669,7 +704,7 @@ frame = inspect.currentframe()
                 .process(py, frame, Event::Call, &py.None(), vec![], false)
                 .unwrap_err();
             assert!(err.is_instance_of::<PyTypeError>(py));
-            assert_error_message(py, err, "'str' object cannot be converted to 'Mapping'")?;
+            assert_error_message(py, err, "'str' object is not an instance of 'Mapping'")?;
 
             plugin_data.set_item("process", "invalid_callable")?;
             let processor = PluginProcessor::new(&plugin_data, &context)?;
@@ -715,6 +750,61 @@ def process(frame, event, arg, context):
     }
 
     #[test]
+    fn test_plugin_serialization_matches_python_bytes_in_both_repr_modes() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let context = PyDict::new(py);
+            let plugin_data = PyDict::new(py);
+            plugin_data.set_item("path_fragment", "kolo").unwrap();
+            plugin_data.set_item("call_type", "call").unwrap();
+            plugin_data.set_item("return_type", "return").unwrap();
+            let module = PyModule::from_code(
+                py,
+                c"class Custom:\n    def __repr__(self): return 'custom'\n\nvalue = Custom()\nlast = None\n\ndef process(frame, event, arg, context):\n    global last\n    if event == 'call':\n        last = {'value': value, 'items': [1, (value,)]}\n    else:\n        last = {'value': 'exact'}\n    return last\n",
+                c"plugin_values.py",
+                c"plugin_values",
+            )
+            .unwrap();
+            plugin_data
+                .set_item("process", module.getattr("process").unwrap())
+                .unwrap();
+            let processor = PluginProcessor::new(&plugin_data, &context).unwrap();
+            let frame = PyModule::from_code(
+                py,
+                c"import inspect\nframe = inspect.currentframe()\n",
+                c"kolo/filename.py",
+                c"module",
+            )
+            .unwrap()
+            .getattr("frame")
+            .unwrap();
+            let frame = frame.cast().unwrap();
+
+            for lightweight_repr in [false, true] {
+                for event in [Event::Call, Event::Return, Event::Call] {
+                    let (_frame_type, serialized) = processor
+                        .process(py, frame, event, &py.None(), vec![], lightweight_repr)
+                        .unwrap()
+                        .unwrap();
+                    // Swap the original process() values back in so Python
+                    // serializes the same objects the native encoder saw.
+                    let data = load_msgpack(py, serialized.clone())
+                        .cast_into::<PyDict>()
+                        .unwrap();
+                    data.update(module.getattr("last").unwrap().cast().unwrap())
+                        .unwrap();
+                    let python = processor
+                        .serializer
+                        .python_dump_msgpack(py, data.as_any(), lightweight_repr)
+                        .unwrap();
+                    assert_eq!(serialized, python);
+                }
+            }
+        });
+    }
+
+    #[test]
     fn test_load_plugin_data() -> TestResult {
         Python::initialize();
 
@@ -728,7 +818,7 @@ def process(frame, event, arg, context):
             let plugins = PyList::new(py, vec![py.None()])?;
             let err = load_plugin_data(py, &plugins, &config).unwrap_err();
             assert!(err.is_instance_of::<PyTypeError>(py));
-            assert_error_message(py, err, "'NoneType' object cannot be converted to 'PyDict'")?;
+            assert_error_message(py, err, "'None' is not an instance of 'dict'")?;
 
             let plugin_data = PyDict::new(py);
             let plugins = PyList::new(py, vec![&plugin_data])?;
@@ -747,7 +837,7 @@ def process(frame, event, arg, context):
             assert_error_message(
                 py,
                 err,
-                "'NoneType' object cannot be converted to 'PyString'",
+                "'None' is not an instance of 'str'",
             )?;
 
             let weird_co_names = PyModule::from_code(
@@ -802,7 +892,7 @@ weird = weird_gen()
             plugin_data.set_item("build_context", invalid_return_type)?;
             let err = load_plugin_data(py, &plugins, &config).unwrap_err();
             assert!(err.is_instance_of::<PyTypeError>(py));
-            assert_error_message(py, err, "'str' object cannot be converted to 'PyDict'")?;
+            assert_error_message(py, err, "'str' object is not an instance of 'dict'")?;
 
             let build_context = PyModule::from_code(
                 py,

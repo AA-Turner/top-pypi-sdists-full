@@ -1,4 +1,5 @@
 """Client exceptions."""
+
 from tentaclio.clients.exceptions import ClientError
 
 

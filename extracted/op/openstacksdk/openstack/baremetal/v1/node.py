@@ -101,7 +101,7 @@ class Node(_common.Resource):
         'provision_state',
         'resource_class',
         'shard',
-        fields={'type': _common.fields_type},
+        fields={'format': 'csv'},
         instance_id='instance_uuid',
         is_maintenance='maintenance',
     )
@@ -1600,7 +1600,7 @@ class Node(_common.Resource):
             warnings.warn(
                 "The 'node_id' field is unnecessary and will be removed in "
                 "a future release.",
-                os_warnings.RemovedInSDK60Warning,
+                os_warnings.RemovedInSDK50Warning,
             )
         session = self._get_session(session)
         version = self._get_microversion(session)

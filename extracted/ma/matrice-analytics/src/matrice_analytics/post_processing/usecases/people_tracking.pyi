@@ -6,6 +6,14 @@ from ..core.config import LineConfig, PeopleTrackingConfig
 from ..utils import BBoxSmoothingConfig, BBoxSmoothingTracker, apply_category_mapping, bbox_smoothing, calculate_iou, count_objects_in_zones, match_results_structure
 from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
 
+# Functions
+def get_trend(data: Any, lookback: Any = 900, threshold: Any = 0.6) -> Any:
+    """
+    Determine if the trend is ascending or descending based on actual value progression.
+    Now works with values 0,1,2,3 (not just binary).
+    """
+    ...
+
 # Classes
 class PeopleTrackingUseCase:
     # People counting use case with zone analysis and alerting.

@@ -39,7 +39,8 @@ class TestFetchDiscoveredAgentsJobSpec(unittest.TestCase):
                 workspace_id = '',
                 data_plane_id = '',
                 discovery_source_id = '',
-                reported_since = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
+                reported_since = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                scan_id = ''
             )
         else:
             return FetchDiscoveredAgentsJobSpec(

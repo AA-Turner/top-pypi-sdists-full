@@ -7,6 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
+    from ..models.bulk_item_failure import BulkItemFailure
     from ..models.triggered_job import TriggeredJob
 
 
@@ -17,23 +18,39 @@ T = TypeVar("T", bound="TriggerJobsResponse")
 class TriggerJobsResponse:
     """
     Attributes:
-        triggered (list[TriggeredJob]): Jobs that were matched and triggered.
+        failed (list[BulkItemFailure]): Requested jobs that do not exist in the workspace.
+        skipped (list[TriggeredJob]): Jobs that did not start; their `status` and `reasons` say why.
+        succeeded (list[TriggeredJob]): Jobs that started a run, or would in dry-run mode.
     """
 
-    triggered: list[TriggeredJob]
+    failed: list[BulkItemFailure]
+    skipped: list[TriggeredJob]
+    succeeded: list[TriggeredJob]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        triggered = []
-        for triggered_item_data in self.triggered:
-            triggered_item = triggered_item_data.to_dict()
-            triggered.append(triggered_item)
+        failed = []
+        for failed_item_data in self.failed:
+            failed_item = failed_item_data.to_dict()
+            failed.append(failed_item)
+
+        skipped = []
+        for skipped_item_data in self.skipped:
+            skipped_item = skipped_item_data.to_dict()
+            skipped.append(skipped_item)
+
+        succeeded = []
+        for succeeded_item_data in self.succeeded:
+            succeeded_item = succeeded_item_data.to_dict()
+            succeeded.append(succeeded_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "triggered": triggered,
+                "failed": failed,
+                "skipped": skipped,
+                "succeeded": succeeded,
             }
         )
 
@@ -41,18 +58,35 @@ class TriggerJobsResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.bulk_item_failure import BulkItemFailure
         from ..models.triggered_job import TriggeredJob
 
         d = dict(src_dict)
-        triggered = []
-        _triggered = d.pop("triggered")
-        for triggered_item_data in _triggered:
-            triggered_item = TriggeredJob.from_dict(triggered_item_data)
+        failed = []
+        _failed = d.pop("failed")
+        for failed_item_data in _failed:
+            failed_item = BulkItemFailure.from_dict(failed_item_data)
 
-            triggered.append(triggered_item)
+            failed.append(failed_item)
+
+        skipped = []
+        _skipped = d.pop("skipped")
+        for skipped_item_data in _skipped:
+            skipped_item = TriggeredJob.from_dict(skipped_item_data)
+
+            skipped.append(skipped_item)
+
+        succeeded = []
+        _succeeded = d.pop("succeeded")
+        for succeeded_item_data in _succeeded:
+            succeeded_item = TriggeredJob.from_dict(succeeded_item_data)
+
+            succeeded.append(succeeded_item)
 
         trigger_jobs_response = cls(
-            triggered=triggered,
+            failed=failed,
+            skipped=skipped,
+            succeeded=succeeded,
         )
 
         trigger_jobs_response.additional_properties = d

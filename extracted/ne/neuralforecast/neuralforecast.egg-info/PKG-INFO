@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neuralforecast
-Version: 3.2.2
+Version: 3.3.0
 Summary: Time series forecasting suite using deep learning models
 Author-email: Nixtla <business@nixtla.io>
 License: Apache-2.0
@@ -25,7 +25,8 @@ Requires-Dist: pandas>=1.3.5
 Requires-Dist: scipy
 Requires-Dist: torch>=2.9.1
 Requires-Dist: tornado>=6.5.5
-Requires-Dist: pytorch-lightning<2.6.0,>=2.0.0
+Requires-Dist: pytorch-lightning>=2.6.6
+Requires-Dist: safetensors>=0.8.0
 Requires-Dist: ray[train,tune]>=2.2.0
 Requires-Dist: optuna
 Requires-Dist: utilsforecast>=0.2.3
@@ -134,6 +135,36 @@ The [documentation page](https://nixtlaverse.nixtla.io/neuralforecast/docs/getti
 👑 [Hierarchical Forecasting](https://nixtlaverse.nixtla.io/neuralforecast/docs/tutorials/hierarchical_forecasting.html): forecast series with very few non-zero observations.
 
 👩‍🔬 [Add Your Own Model](https://nixtlaverse.nixtla.io/neuralforecast/docs/tutorials/adding_models.html): Learn how to add a new model to the library.
+
+## Saving and loading models
+
+From 3.3.0 a saved directory holds [safetensors](https://github.com/huggingface/safetensors)
+weights and JSON metadata, and is loaded without executing any code it contains. Earlier versions
+used pickle, which runs arbitrary code from the artifact on load, so the legacy format is now
+opt-in:
+
+```python
+nf.save('./checkpoints/')                      # writes the new format
+nf2 = NeuralForecast.load('./checkpoints/')    # no pickle, no code execution
+```
+
+What changed, if you have artifacts or code from an earlier version:
+
+* **Older directories need consent or conversion.** Pass `allow_pickle=True` to read one in place,
+  which executes code contained in it, or convert it once with
+  `python -m neuralforecast.migrate ./old_checkpoints/`. A directory saved with
+  `save_dataset=True` must be converted — its dataset has no safe reader.
+* **Remote paths are opt-in.** `NeuralForecast.load('s3://bucket/models/', trust_remote=True)`,
+  because whoever can write that location chooses what runs on the loading machine.
+* **Custom losses, optimizers and schedulers must be registered** with `register_loss`,
+  `register_optimizer` or `register_lr_scheduler`, in the process that loads as well as the one
+  that saves.
+* **`TimeLLM` can no longer be saved or loaded.** It resolves its `llm` argument through
+  `from_pretrained` while being constructed, so an artifact could direct that fetch. Train and
+  predict with it in the same process.
+
+The [save and load guide](https://nixtlaverse.nixtla.io/neuralforecast/docs/capabilities/save_load_models.html)
+covers this in full.
 
 ## Models
 

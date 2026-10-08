@@ -93,6 +93,11 @@ def EnvList(description: str = "") -> FieldMarker:
 
 
 class WorkspaceMarker:
+    # File that ``workspace download --extract`` drops into a git payload and
+    # ``workspace upload git`` reads back: pins the dvc ``dir_name`` the ref
+    # restores into. The world restores git workspaces into the workspace
+    # dir's own name ("data"); any other pinned name restores nowhere it reads.
+    ROUND_TRIP_MARKER = ".plato-workspace.json"
     """Marker for workspace fields in world configs.
 
     Declares a workspace directory that is automatically created, registered

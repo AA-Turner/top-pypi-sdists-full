@@ -1296,6 +1296,7 @@ JSON Schema:
         accumulated_text = ""
         google_thought_signature = None
         grounding_metadata = None
+        url_context_metadata = None
         model_version = None
         response_id = None
         last_chunk = None
@@ -1328,6 +1329,8 @@ JSON Schema:
 
                     if cand.grounding_metadata:
                         grounding_metadata = cand.grounding_metadata
+                    if getattr(cand, "url_context_metadata", None):
+                        url_context_metadata = cand.url_context_metadata
 
                     if cand.content and cand.content.parts:
                         for part in cand.content.parts:
@@ -1430,6 +1433,12 @@ JSON Schema:
                 normalized = normalize_google_grounding(grounding_metadata, accumulated_text)
                 if normalized:
                     metadata["citations"] = [c.model_dump(exclude_none=True) for c in normalized]
+            if url_context_metadata:
+                metadata["url_context_metadata"] = (
+                    url_context_metadata.model_dump(exclude_none=True)
+                    if hasattr(url_context_metadata, "model_dump")
+                    else url_context_metadata
+                )
             content.append(TextContent(text=accumulated_text, metadata=metadata))
 
         messages = []

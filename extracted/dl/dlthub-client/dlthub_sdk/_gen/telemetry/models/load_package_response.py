@@ -8,6 +8,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.load_package_status import LoadPackageStatus
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="LoadPackageResponse")
@@ -21,11 +22,11 @@ class LoadPackageResponse:
         completed_at (datetime.datetime | None | Unset):
         completed_job_count (int | None | Unset):  Default: 0.
         failed_job_count (int | None | Unset):  Default: 0.
-        has_failed_jobs (bool | None | Unset):  Default: False.
+        has_failed_load_jobs (bool | None | Unset):  Default: False.
         has_schema_migration (bool | None | Unset):  Default: False.
         is_pending (bool | None | Unset):  Default: False.
         job_count (int | None | Unset):  Default: 0.
-        load_status (None | str | Unset):
+        load_status (LoadPackageStatus | None | str | Unset):
         schema_hash (None | str | Unset):
         schema_name (None | str | Unset):
         total_bytes_loaded (int | None | Unset):  Default: 0.
@@ -36,11 +37,11 @@ class LoadPackageResponse:
     completed_at: datetime.datetime | None | Unset = UNSET
     completed_job_count: int | None | Unset = 0
     failed_job_count: int | None | Unset = 0
-    has_failed_jobs: bool | None | Unset = False
+    has_failed_load_jobs: bool | None | Unset = False
     has_schema_migration: bool | None | Unset = False
     is_pending: bool | None | Unset = False
     job_count: int | None | Unset = 0
-    load_status: None | str | Unset = UNSET
+    load_status: LoadPackageStatus | None | str | Unset = UNSET
     schema_hash: None | str | Unset = UNSET
     schema_name: None | str | Unset = UNSET
     total_bytes_loaded: int | None | Unset = 0
@@ -70,11 +71,11 @@ class LoadPackageResponse:
         else:
             failed_job_count = self.failed_job_count
 
-        has_failed_jobs: bool | None | Unset
-        if isinstance(self.has_failed_jobs, Unset):
-            has_failed_jobs = UNSET
+        has_failed_load_jobs: bool | None | Unset
+        if isinstance(self.has_failed_load_jobs, Unset):
+            has_failed_load_jobs = UNSET
         else:
-            has_failed_jobs = self.has_failed_jobs
+            has_failed_load_jobs = self.has_failed_load_jobs
 
         has_schema_migration: bool | None | Unset
         if isinstance(self.has_schema_migration, Unset):
@@ -97,6 +98,8 @@ class LoadPackageResponse:
         load_status: None | str | Unset
         if isinstance(self.load_status, Unset):
             load_status = UNSET
+        elif isinstance(self.load_status, LoadPackageStatus):
+            load_status = self.load_status.value
         else:
             load_status = self.load_status
 
@@ -137,8 +140,8 @@ class LoadPackageResponse:
             field_dict["completed_job_count"] = completed_job_count
         if failed_job_count is not UNSET:
             field_dict["failed_job_count"] = failed_job_count
-        if has_failed_jobs is not UNSET:
-            field_dict["has_failed_jobs"] = has_failed_jobs
+        if has_failed_load_jobs is not UNSET:
+            field_dict["has_failed_load_jobs"] = has_failed_load_jobs
         if has_schema_migration is not UNSET:
             field_dict["has_schema_migration"] = has_schema_migration
         if is_pending is not UNSET:
@@ -200,14 +203,16 @@ class LoadPackageResponse:
 
         failed_job_count = _parse_failed_job_count(d.pop("failed_job_count", UNSET))
 
-        def _parse_has_failed_jobs(data: object) -> bool | None | Unset:
+        def _parse_has_failed_load_jobs(data: object) -> bool | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(bool | None | Unset, data)
 
-        has_failed_jobs = _parse_has_failed_jobs(d.pop("has_failed_jobs", UNSET))
+        has_failed_load_jobs = _parse_has_failed_load_jobs(
+            d.pop("has_failed_load_jobs", UNSET)
+        )
 
         def _parse_has_schema_migration(data: object) -> bool | None | Unset:
             if data is None:
@@ -238,12 +243,20 @@ class LoadPackageResponse:
 
         job_count = _parse_job_count(d.pop("job_count", UNSET))
 
-        def _parse_load_status(data: object) -> None | str | Unset:
+        def _parse_load_status(data: object) -> LoadPackageStatus | None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                load_status_type_0 = LoadPackageStatus(data)
+
+                return load_status_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(LoadPackageStatus | None | str | Unset, data)
 
         load_status = _parse_load_status(d.pop("load_status", UNSET))
 
@@ -290,7 +303,7 @@ class LoadPackageResponse:
             completed_at=completed_at,
             completed_job_count=completed_job_count,
             failed_job_count=failed_job_count,
-            has_failed_jobs=has_failed_jobs,
+            has_failed_load_jobs=has_failed_load_jobs,
             has_schema_migration=has_schema_migration,
             is_pending=is_pending,
             job_count=job_count,

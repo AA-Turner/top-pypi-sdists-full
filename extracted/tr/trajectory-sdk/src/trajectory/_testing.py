@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from types import UnionType
 from typing import Any, Literal, Union, get_args, get_origin, get_type_hints
 
-import httpx
+import httpx2
 from pydantic import BaseModel
 
 from trajectory._client import Client
@@ -15,14 +15,14 @@ from trajectory._client import Client
 def client_for(
   response_body: object,
   status_code: int,
-) -> Generator[tuple[Client, list[httpx.Request]], None, None]:
+) -> Generator[tuple[Client, list[httpx2.Request]], None, None]:
   requests = []
 
-  def handle_request(request: httpx.Request) -> httpx.Response:
+  def handle_request(request: httpx2.Request) -> httpx2.Response:
     requests.append(request)
-    return httpx.Response(status_code, json=response_body)
+    return httpx2.Response(status_code, json=response_body)
 
-  http_client = httpx.Client(transport=httpx.MockTransport(handle_request))
+  http_client = httpx2.Client(transport=httpx2.MockTransport(handle_request))
   with Client(
     api_key="test-api-key",
     base_url="https://api.example.com",

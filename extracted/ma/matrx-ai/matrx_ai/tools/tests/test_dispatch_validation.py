@@ -12,6 +12,7 @@ import asyncio
 from typing import Any
 
 import pytest
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.tools.executor import ToolExecutor
 from matrx_ai.tools.guardrails import GuardrailEngine
@@ -69,7 +70,9 @@ async def test_web_inner_constraints_reject_before_dispatch(
     assert "at most 5 items" in result.error.message
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_reasoning_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...
@@ -359,7 +362,8 @@ class TestMustCompleteExecution:
 
 
 async def test_validation_capture_keeps_codes_without_model_content(monkeypatch, app_ctx_set):
-    from pydantic import BaseModel, ValidationError, Field
+    from pydantic import BaseModel, Field, ValidationError
+
     from matrx_ai.tools.executor import _capture_tool_argument_validation_failed
 
     class Arguments(BaseModel):
@@ -390,6 +394,7 @@ async def test_validation_capture_keeps_codes_without_model_content(monkeypatch,
 async def test_validation_capture_hides_custom_code_and_message(monkeypatch, app_ctx_set):
     from pydantic import BaseModel, ValidationError, field_validator
     from pydantic_core import PydanticCustomError
+
     from matrx_ai.tools.executor import _capture_tool_argument_validation_failed
 
     class Arguments(BaseModel):

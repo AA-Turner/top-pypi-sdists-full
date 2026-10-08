@@ -6,10 +6,10 @@ Mirrors: packages/memory/src/processors/observational-memory/observer-runner.ts
 """
 
 import logging
-from typing import Callable, Coroutine, Optional
+from collections.abc import Callable, Coroutine
 
-from .observer_agent import build_observer_prompt, run_observer
-from .types import Message, ModelConfig, ObservationConfig, ObserverResult
+from .observer_agent import build_observer_variables, run_observer
+from .types import Message, ObservationConfig, ObserverResult
 
 logger = logging.getLogger(__name__)
 
@@ -33,16 +33,16 @@ class ObserverRunner:
 
     async def call(
         self,
-        existing_observations: Optional[str],
+        existing_observations: str | None,
         messages_to_observe: list[Message],
-        prior_current_task: Optional[str] = None,
-        prior_suggested_response: Optional[str] = None,
+        prior_current_task: str | None = None,
+        prior_suggested_response: str | None = None,
         timezone: str = "UTC",
     ) -> ObserverResult:
         """
         Call the Observer agent for a single thread.
         """
-        user_prompt = build_observer_prompt(
+        variables = build_observer_variables(
             existing_observations=existing_observations,
             messages=messages_to_observe,
             timezone=timezone,
@@ -58,13 +58,13 @@ class ObserverRunner:
         try:
             result = await run_observer(
                 model_config=self.observation_config.model,
-                user_prompt=user_prompt,
+                variables=variables,
                 llm_call_fn=self.llm_call_fn
             )
             
             self.last_exchange = {
                 "mandate_key": self.observation_config.model.mandate_key,
-                "user_prompt": user_prompt,
+                "variables": variables,
                 "parsed_result": result,
                 "is_multi_thread": False
             }

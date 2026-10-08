@@ -53,5 +53,7 @@ RequiresAccess = _requires_access()
 #: Reads the context graph — telemetry, runs and job definitions — and nothing
 #: else. Verbs are tuples: an ``Annotated`` alias carrying a list is unhashable.
 CONTEXT_READ = RequiresAccess(context=("read",))
+#: Context graph for the destination, then the pipeline's state from it.
+RESTORE_ACCESS = RequiresAccess(context=("read",), data=("read",))
 
-__all__ = ["CONTEXT_READ", "RequiresAccess"]
+__all__ = ["CONTEXT_READ", "RESTORE_ACCESS", "RequiresAccess"]

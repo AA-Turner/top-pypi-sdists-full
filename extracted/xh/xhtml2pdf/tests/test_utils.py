@@ -87,6 +87,17 @@ class UtilsColorTestCase(TestCase):
         res = getColor("#F00")
         self.assertEqual(res, Color(1, 0, 0, 1))
 
+    def test_get_color_for_hex_with_alpha(self):
+        """#rgba and #rrggbbaa carry an alpha channel (#811)."""
+        self.assertEqual(getColor("#ff000080"), Color(1, 0, 0, alpha=128 / 255))
+        self.assertEqual(getColor("#00f8"), Color(0, 0, 1, alpha=0x88 / 255))
+        self.assertEqual(getColor("#0000"), Color(0, 0, 0, alpha=0))
+
+    def test_get_color_for_unreadable_hex_gives_default(self):
+        """A four-digit hex that is not hex is logged, not raised (#811)."""
+        with self.assertLogs("xhtml2pdf.util", level="WARNING"):
+            self.assertEqual(getColor("#zzzz", default="TOKEN"), "TOKEN")
+
     def test_get_color_for_CSS_RGB_function(self):
         # It's regexp based, let's try common cases.
         res = getColor("rgb(255,0,0)")
@@ -611,6 +622,59 @@ class MemoizedTest(TestCase):
         self.assertTrue(utils.getSize.cache)
         rl_config._reset()
         self.assertEqual({}, utils.getSize.cache)
+
+
+class StringWidthCacheTest(TestCase):
+    def tearDown(self) -> None:  # noqa: PLR6301
+        utils.reset_caches()
+
+    def test_a_width_is_the_one_reportlab_measures(self) -> None:
+        from reportlab.pdfbase import pdfmetrics
+
+        for text in ("word", "Ünïcode", ""):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    pdfmetrics.stringWidth(text, "Helvetica", 11),
+                    utils.stringWidth(text, "Helvetica", 11),
+                )
+
+    def test_a_word_is_measured_once_per_render(self) -> None:
+        from unittest import mock
+
+        from reportlab.pdfbase import pdfmetrics
+
+        with mock.patch.object(
+            pdfmetrics, "stringWidth", wraps=pdfmetrics.stringWidth
+        ) as measure:
+            utils.stringWidth("again", "Helvetica", 11)
+            utils.stringWidth("again", "Helvetica", 11)
+            utils.stringWidth("again", "Helvetica", 12)
+            self.assertEqual(2, measure.call_count)
+            utils.reset_caches()
+            utils.stringWidth("again", "Helvetica", 11)
+            self.assertEqual(3, measure.call_count)
+
+    def test_the_cache_is_bounded(self) -> None:
+        from unittest import mock
+
+        with mock.patch.object(utils, "STRING_WIDTHS_MAX", 3):
+            for text in "abcde":
+                utils.stringWidth(text, "Helvetica", 11)
+            self.assertLessEqual(len(utils._string_widths), 3)
+
+
+class SplitByCoverageTest(TestCase):
+    def test_text_the_first_face_covers_is_one_run(self) -> None:
+        self.assertEqual(
+            [("plain text", "Helvetica")],
+            utils.split_by_coverage("plain text", ["Helvetica", "Symbol"]),
+        )
+
+    def test_a_character_only_a_later_face_has_gets_its_own_run(self) -> None:
+        self.assertEqual(
+            [("a ", "Helvetica"), ("\u03b1 ", "Symbol"), ("b", "Helvetica")],
+            utils.split_by_coverage("a \u03b1 b", ["Helvetica", "Symbol"]),
+        )
 
 
 class _RecordingCanvas:

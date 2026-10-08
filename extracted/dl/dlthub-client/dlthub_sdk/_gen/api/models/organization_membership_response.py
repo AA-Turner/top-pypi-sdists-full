@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..models.organization_membership_role import OrganizationMembershipRole
 
 if TYPE_CHECKING:
     from ..models.organization_response import OrganizationResponse
@@ -18,33 +20,37 @@ T = TypeVar("T", bound="OrganizationMembershipResponse")
 class OrganizationMembershipResponse:
     """
     Attributes:
-        active (bool): Whether the membership is active
-        identity_id (UUID): The ID of the organization member
+        id (UUID): The ID of the organization membership
+        is_active (bool): Whether the membership is active
         organization (OrganizationResponse): The organization where new workspaces are created by default
-        role (str): The role of the user in the organization
+        role (OrganizationMembershipRole | str): The role of the user in the organization
     """
 
-    active: bool
-    identity_id: UUID
+    id: UUID
+    is_active: bool
     organization: OrganizationResponse
-    role: str
+    role: OrganizationMembershipRole | str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        active = self.active
+        id = str(self.id)
 
-        identity_id = str(self.identity_id)
+        is_active = self.is_active
 
         organization = self.organization.to_dict()
 
-        role = self.role
+        role: str
+        if isinstance(self.role, OrganizationMembershipRole):
+            role = self.role.value
+        else:
+            role = self.role
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "active": active,
-                "identity_id": identity_id,
+                "id": id,
+                "is_active": is_active,
                 "organization": organization,
                 "role": role,
             }
@@ -57,17 +63,28 @@ class OrganizationMembershipResponse:
         from ..models.organization_response import OrganizationResponse
 
         d = dict(src_dict)
-        active = d.pop("active")
+        id = UUID(d.pop("id"))
 
-        identity_id = UUID(d.pop("identity_id"))
+        is_active = d.pop("is_active")
 
         organization = OrganizationResponse.from_dict(d.pop("organization"))
 
-        role = d.pop("role")
+        def _parse_role(data: object) -> OrganizationMembershipRole | str:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                role_type_0 = OrganizationMembershipRole(data)
+
+                return role_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(OrganizationMembershipRole | str, data)
+
+        role = _parse_role(d.pop("role"))
 
         organization_membership_response = cls(
-            active=active,
-            identity_id=identity_id,
+            id=id,
+            is_active=is_active,
             organization=organization,
             role=role,
         )

@@ -1,9 +1,8 @@
 use super::*;
 use crate::SpecStore;
-use crate::id_lists_adapter::IdList;
+use crate::id_lists_adapter::{IdList, IdListIds};
 use crate::sdk_event_emitter::SdkEventEmitter;
 use mockito::Server;
-use std::collections::HashSet;
 
 fn metadata() -> IdListMetadata {
     IdListMetadata {
@@ -29,7 +28,7 @@ fn same_file_and_creation_time_appends_changes() {
 
     assert_eq!(
         *list.ids,
-        HashSet::from(["bob".to_string(), "carol".to_string()])
+        IdListIds::from(["bob".to_string(), "carol".to_string()])
     );
     assert_eq!(
         list.metadata.size,
@@ -53,7 +52,7 @@ fn new_file_at_same_or_newer_creation_time_replaces_members_and_cursor() {
             new_metadata: replacement,
         });
 
-        assert_eq!(*list.ids, HashSet::from(["bob".to_string()]));
+        assert_eq!(*list.ids, IdListIds::from(["bob".to_string()]));
         assert_eq!(list.metadata.size, "+bob\n".len() as u64);
         assert_eq!(list.metadata.file_id.as_deref(), Some("file-2"));
         assert_eq!(list.metadata.creation_time, creation_time);
@@ -160,6 +159,10 @@ async fn test_same_file_full_replay_updates_cursor_and_only_downloads_once() {
         .mock("GET", "/employees")
         .match_header("range", "bytes=0-")
         .with_status(206)
+        .with_header(
+            "content-range",
+            &format!("bytes 0-{}/{}", full_body.len() - 1, full_body.len()),
+        )
         .with_body(full_body)
         .expect(1)
         .create_async()
@@ -203,6 +206,15 @@ async fn test_same_file_full_replay_updates_cursor_and_only_downloads_once() {
         .mock("GET", "/employees")
         .match_header("range", format!("bytes={}-", full_body.len()).as_str())
         .with_status(206)
+        .with_header(
+            "content-range",
+            &format!(
+                "bytes {}-{}/{}",
+                full_body.len(),
+                metadata.size - 1,
+                metadata.size
+            ),
+        )
         .with_body(appended_body)
         .expect(1)
         .create_async()

@@ -5,10 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.error_response_400 import ErrorResponse400
-from ...models.error_response_401 import ErrorResponse401
-from ...models.error_response_403 import ErrorResponse403
-from ...models.error_response_404 import ErrorResponse404
+from ...models.error_response import ErrorResponse
 from ...models.list_organizations_order_type_0_item import (
     ListOrganizationsOrderType0Item,
 )
@@ -77,38 +74,31 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageOrganizationResponse
-    | None
-):
+) -> ErrorResponse | ListPageOrganizationResponse | None:
     if response.status_code == 200:
         response_200 = ListPageOrganizationResponse.from_dict(response.json())
 
         return response_200
 
     if response.status_code == 400:
-        response_400 = ErrorResponse400.from_dict(response.json())
+        response_400 = ErrorResponse.from_dict(response.json())
 
         return response_400
 
     if response.status_code == 401:
-        response_401 = ErrorResponse401.from_dict(response.json())
+        response_401 = ErrorResponse.from_dict(response.json())
 
         return response_401
 
     if response.status_code == 403:
-        response_403 = ErrorResponse403.from_dict(response.json())
+        response_403 = ErrorResponse.from_dict(response.json())
 
         return response_403
 
-    if response.status_code == 404:
-        response_404 = ErrorResponse404.from_dict(response.json())
+    if response.status_code == 500:
+        response_500 = ErrorResponse.from_dict(response.json())
 
-        return response_404
+        return response_500
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -118,13 +108,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageOrganizationResponse
-]:
+) -> Response[ErrorResponse | ListPageOrganizationResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -141,13 +125,7 @@ def sync_detailed(
     sort: list[ListOrganizationsSortType0Item] | None | Unset = UNSET,
     order: list[ListOrganizationsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageOrganizationResponse
-]:
+) -> Response[ErrorResponse | ListPageOrganizationResponse]:
     """ListOrganizations
 
     Lists all organizations the current user is a member of, as a paginated list.
@@ -172,7 +150,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationResponse]
+        Response[ErrorResponse | ListPageOrganizationResponse]
     """
     kwargs = _get_kwargs(
         limit=limit,
@@ -197,14 +175,7 @@ def sync(
     sort: list[ListOrganizationsSortType0Item] | None | Unset = UNSET,
     order: list[ListOrganizationsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageOrganizationResponse
-    | None
-):
+) -> ErrorResponse | ListPageOrganizationResponse | None:
     """ListOrganizations
 
     Lists all organizations the current user is a member of, as a paginated list.
@@ -229,7 +200,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationResponse
+        ErrorResponse | ListPageOrganizationResponse
     """
     return sync_detailed(
         client=client,
@@ -249,13 +220,7 @@ async def asyncio_detailed(
     sort: list[ListOrganizationsSortType0Item] | None | Unset = UNSET,
     order: list[ListOrganizationsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> Response[
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageOrganizationResponse
-]:
+) -> Response[ErrorResponse | ListPageOrganizationResponse]:
     """ListOrganizations
 
     Lists all organizations the current user is a member of, as a paginated list.
@@ -280,7 +245,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationResponse]
+        Response[ErrorResponse | ListPageOrganizationResponse]
     """
     kwargs = _get_kwargs(
         limit=limit,
@@ -303,14 +268,7 @@ async def asyncio(
     sort: list[ListOrganizationsSortType0Item] | None | Unset = UNSET,
     order: list[ListOrganizationsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
-) -> (
-    ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ListPageOrganizationResponse
-    | None
-):
+) -> ErrorResponse | ListPageOrganizationResponse | None:
     """ListOrganizations
 
     Lists all organizations the current user is a member of, as a paginated list.
@@ -335,7 +293,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationResponse
+        ErrorResponse | ListPageOrganizationResponse
     """
     return (
         await asyncio_detailed(

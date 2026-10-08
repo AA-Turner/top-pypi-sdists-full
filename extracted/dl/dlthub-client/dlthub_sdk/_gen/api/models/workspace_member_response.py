@@ -7,6 +7,7 @@ from uuid import UUID
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.workspace_membership_role import WorkspaceMembershipRole
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="WorkspaceMemberResponse")
@@ -17,13 +18,18 @@ class WorkspaceMemberResponse:
     """
     Attributes:
         email (str): The email of the user
-        role (str): The role of the user in the workspace
+        id (UUID): The ID of the workspace membership
+        organization_membership_id (UUID): The ID of the member's organization membership, which `created_by` and
+            `triggered_by` hold
+        role (str | WorkspaceMembershipRole): The role of the user in the workspace
         user_id (UUID): The ID of the user
         name (None | str | Unset): Display name; null when the user has no name set.
     """
 
     email: str
-    role: str
+    id: UUID
+    organization_membership_id: UUID
+    role: str | WorkspaceMembershipRole
     user_id: UUID
     name: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -31,7 +37,15 @@ class WorkspaceMemberResponse:
     def to_dict(self) -> dict[str, Any]:
         email = self.email
 
-        role = self.role
+        id = str(self.id)
+
+        organization_membership_id = str(self.organization_membership_id)
+
+        role: str
+        if isinstance(self.role, WorkspaceMembershipRole):
+            role = self.role.value
+        else:
+            role = self.role
 
         user_id = str(self.user_id)
 
@@ -46,6 +60,8 @@ class WorkspaceMemberResponse:
         field_dict.update(
             {
                 "email": email,
+                "id": id,
+                "organization_membership_id": organization_membership_id,
                 "role": role,
                 "user_id": user_id,
             }
@@ -60,7 +76,22 @@ class WorkspaceMemberResponse:
         d = dict(src_dict)
         email = d.pop("email")
 
-        role = d.pop("role")
+        id = UUID(d.pop("id"))
+
+        organization_membership_id = UUID(d.pop("organization_membership_id"))
+
+        def _parse_role(data: object) -> str | WorkspaceMembershipRole:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                role_type_0 = WorkspaceMembershipRole(data)
+
+                return role_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(str | WorkspaceMembershipRole, data)
+
+        role = _parse_role(d.pop("role"))
 
         user_id = UUID(d.pop("user_id"))
 
@@ -75,6 +106,8 @@ class WorkspaceMemberResponse:
 
         workspace_member_response = cls(
             email=email,
+            id=id,
+            organization_membership_id=organization_membership_id,
             role=role,
             user_id=user_id,
             name=name,

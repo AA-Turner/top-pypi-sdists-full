@@ -1,4 +1,4 @@
-"""`dataset:create` (and its sibling `picklist:create`) carry the organization — or hold.
+"""`table:create` (and its sibling `picklist:create`) carry the organization — or hold.
 
 A dataset is born in the record store, in the organization the conversation carries
 (the store arm makes it under the ambient person and organization).
@@ -49,11 +49,11 @@ def _ctx(monkeypatch: pytest.MonkeyPatch, org: str | None) -> ToolContext:
 
 @pytest.mark.asyncio
 async def test_dataset_create_with_an_organization_is_made_in_the_store(monkeypatch):
-    from matrx_ai.tools.implementations.datasets_tools import dataset
+    from matrx_ai.tools.implementations.table_tools import table
 
     ctx = _ctx(monkeypatch, ORG)
-    result = await dataset(
-        {"action": "create", "dataset_name": "Insurance verification — week of Sep 28",
+    result = await table(
+        {"action": "create", "table_name": "Insurance verification — week of Sep 28",
          "data": CALL_SHEET},
         ctx,
     )
@@ -65,11 +65,11 @@ async def test_dataset_create_with_an_organization_is_made_in_the_store(monkeypa
 async def test_dataset_create_without_an_organization_is_held(monkeypatch):
     from matrx_connect.org_hold import assert_no_default_org_wording
 
-    from matrx_ai.tools.implementations.datasets_tools import dataset
+    from matrx_ai.tools.implementations.table_tools import table
 
     ctx = _ctx(monkeypatch, None)
-    result = await dataset(
-        {"action": "create", "dataset_name": "Insurance verification", "data": CALL_SHEET}, ctx
+    result = await table(
+        {"action": "create", "table_name": "Insurance verification", "data": CALL_SHEET}, ctx
     )
     assert not result.success
     assert result.error.error_type == "organization_required"

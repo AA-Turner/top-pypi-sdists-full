@@ -51,7 +51,10 @@ async def test_cdn_url_handle_resolves_through_the_media_funnel():
     fm = _FakeFileManager()
     data = await pg._read_media_handle_bytes(fm, CDN_URL)
     assert data == b"MP4BYTES"
-    assert fm.seen == [(None, CDN_URL)]
+    # Our CDN URL names the file: identity is recovered when the deployment's
+    # CDN host is configured, else the URL rides the funnel as-is. Either way
+    # the raw storage reader is never touched.
+    assert fm.seen in ([(FILE_ID, None)], [(None, CDN_URL)])
 
 
 @pytest.mark.asyncio
@@ -72,3 +75,14 @@ async def test_resolver_failure_is_raised_with_the_handle_named():
         await pg._read_media_handle_bytes(_Failing(), CDN_URL)
     assert "file_not_found" in str(exc.value)
     assert CDN_URL in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_durable_server_download_url_is_carried_as_identity():
+    """W8 compose received ``…/files/{id}/download?inline=1`` handles and the
+    funnel fetched them over anonymous HTTP → ``external_fetch_http_401``.
+    Our own durable route must be read by file_id, never fetched."""
+    fm = _FakeFileManager()
+    url = f"https://server.app.matrxserver.com/files/{FILE_ID}/download?inline=1"
+    await pg._read_media_handle_bytes(fm, url)
+    assert fm.seen == [(FILE_ID, None)], "our durable URL must resolve by file_id"

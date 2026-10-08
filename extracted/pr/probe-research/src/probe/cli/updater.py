@@ -26,7 +26,15 @@ from pathlib import Path
 import httpx
 
 from probe.cli import claude_cli, plugin_cli
-from probe.cli.capabilities import TAP_PLUGIN_ID, tracking_plugin_name
+from probe.cli.capabilities import (
+    DAEMON_PLUGIN_NAME,
+    TAP_PLUGIN_ID,
+    TAP_PLUGIN_NAME,
+    TRACKING_PLUGIN_NAME,
+    tracking_plugin_name,
+)
+from probe.cli.versions import _LEGACY_TAP_PLUGINS
+from probe.harness import get_registry
 from probe.sdk.redaction import scrub_text
 from probe.sdk.tls import ssl_context
 
@@ -296,6 +304,57 @@ def installed_tap_version() -> str | None:
     return _ledger_version(TAP_PLUGIN_ID)
 
 
+#: Probe plugin names an update can meet. A ledger entry under one of these
+#: names but NOT under `MARKETPLACE`, or under a retired name, is a copy no
+#: `claude plugin update <name>@research-os-agent` will ever move.
+_PROBE_PLUGIN_NAMES = (TRACKING_PLUGIN_NAME, DAEMON_PLUGIN_NAME, TAP_PLUGIN_NAME)
+
+#: The shape the server accepts for a reported plugin id. A ledger key outside it
+#: (an uppercase marketplace, a local path) is left out of the report rather than
+#: refusing the whole report over it.
+_REPORTABLE_PLUGIN_ID = re.compile(
+    r"^(?:probe|prbe)-[a-z0-9-]{1,60}(?:@[a-z0-9][a-z0-9._-]{0,63})?$"
+)
+
+
+def _ledger_ids() -> list[str]:
+    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+    try:
+        plugins = json.loads(path.read_text()).get("plugins") or {}
+    except Exception:
+        return []
+    return [key for key, entries in plugins.items() if isinstance(key, str) and entries]
+
+
+def legacy_plugin_ids(names: list[str] | None = None) -> tuple[str, ...]:
+    """Probe plugins installed under an id an update does not move.
+
+    Two kinds: a RETIRED name (`prbe-cc-tap-plugin`, `prbe-codex-tap-plugin`,
+    the tap's ids before the rename), and a current name from ANOTHER
+    marketplace. Either one can be the copy actually running -- and capturing --
+    on a machine where the update reports the tap "not installed".
+
+    Observation only: nothing here migrates them. `names` is Codex's installed
+    list (bare names); without it, Claude Code's ledger is read.
+    """
+    found: list[str] = []
+    for key in _ledger_ids() if names is None else names:
+        name, _, marketplace = key.partition("@")
+        retired = name in _LEGACY_TAP_PLUGINS
+        elsewhere = name in _PROBE_PLUGIN_NAMES and bool(marketplace) and marketplace != MARKETPLACE
+        if (retired or elsewhere) and _REPORTABLE_PLUGIN_ID.match(key):
+            found.append(key)
+    return tuple(dict.fromkeys(found))[:8]
+
+
+def legacy_tap_ids(ids: tuple[str, ...]) -> tuple[str, ...]:
+    """The tap among `legacy_plugin_ids`: a retired tap name, or the tap's own
+    name from another marketplace."""
+    return tuple(
+        key for key in ids if key.partition("@")[0] in (*_LEGACY_TAP_PLUGINS, TAP_PLUGIN_NAME)
+    )
+
+
 # -- upgrade actions --------------------------------------------------------
 @dataclass
 class CliResult:
@@ -305,6 +364,9 @@ class CliResult:
     before: str | None
     after: str | None
     message: str
+    #: The package manager this install needs (`uv`, `pipx`) is not on this
+    #: process's PATH. An observation for the server's update report only.
+    missing_binary: bool = False
 
 
 def _run(cmd: list[str], timeout: float) -> subprocess.CompletedProcess | None:
@@ -577,7 +639,10 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
         # The packages added beside it come along (read before the uninstall).
         kept = kept_from_uv_receipt() or KeptInstall()
         if _run(["uv", "tool", "uninstall", LEGACY_DIST], _UPGRADE_TIMEOUT_S) is None:
-            return CliResult(False, False, False, current, current, "`uv` not found on PATH")
+            return CliResult(
+                False, False, False, current, current, "`uv` not found on PATH",
+                missing_binary=True,
+            )
         _run(uv_tool_install_command(kept, force=True, legacy=True), _UPGRADE_TIMEOUT_S)
         return _finalize(current, target, "uv")
     if m == Method.PIPX:
@@ -586,7 +651,10 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
         # drops `pipx inject`-ed packages, so those go back in after.
         injected = pipx_injected()
         if _run(["pipx", "install", "--force", _dist(pipx_extras())], _UPGRADE_TIMEOUT_S) is None:
-            return CliResult(False, False, False, current, current, "`pipx` not found on PATH")
+            return CliResult(
+                False, False, False, current, current, "`pipx` not found on PATH",
+                missing_binary=True,
+            )
         if injected:
             _run(["pipx", "inject", DIST, *injected], _UPGRADE_TIMEOUT_S)
         return _finalize(current, target, "pipx")
@@ -606,7 +674,10 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
     if kept is not None:
         restated = _run(uv_tool_install_command(kept), _UPGRADE_TIMEOUT_S)
         if restated is None:
-            return CliResult(False, False, False, current, current, "`uv` not found on PATH")
+            return CliResult(
+                False, False, False, current, current, "`uv` not found on PATH",
+                missing_binary=True,
+            )
         if restated.returncode != 0:
             return CliResult(
                 True, False, False, current, current,
@@ -623,7 +694,10 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
             "`uv tool install --force 'probe-research[all]'` with your own `--with` packages"
         )
     if _run(["uv", "tool", "upgrade", DIST], _UPGRADE_TIMEOUT_S) is None:
-        return CliResult(False, False, False, current, current, "`uv` not found on PATH")
+        return CliResult(
+            False, False, False, current, current, "`uv` not found on PATH",
+            missing_binary=True,
+        )
     res = _finalize(current, target, "uv")
     if not res.ok:
         # `uv tool upgrade` no-ops on a version-pinned install (exits 0, changes
@@ -661,6 +735,23 @@ class PluginResult:
     # commands would fail the same way and `perform_update` leaves them off.
     # The fix is already in `message` or `tap_detail`, whichever is shown.
     git_blocked: bool = False
+    # OBSERVATIONS for the server's update report (`update_report`), never
+    # inputs to what this run does. Each separates a cause the message alone
+    # could only say in prose:
+    #: the coding agent's own CLI is not on this process's PATH -- the
+    #: detached updater's PATH, not the user's shell.
+    missing_binary: bool = False
+    #: the marketplace refresh failed, so nothing new could be installed.
+    refresh_failed: bool = False
+    #: a refresh, update or install command did not complete.
+    command_failed: bool = False
+    #: Probe plugins installed under an id this update does not move
+    #: (`legacy_plugin_ids`).
+    legacy_ids: tuple[str, ...] = ()
+    #: The tap version each live capture daemon of this agent still runs, for
+    #: every one older than `tap_after` (`stale_tap_daemons`): sessions that
+    #: started before the tap was updated. Set by `perform_update`.
+    tap_running_stale: tuple[str, ...] = ()
 
 
 #: The tap's counterpart of the plugin's "returned success but did not advance".
@@ -693,10 +784,165 @@ def tap_verdict(result: PluginResult, target: str | None) -> tuple[str, bool]:
         )
         return (f"{line}: {detail}" if detail else line, True)
     if is_newer(after, result.tap_before):
-        return (f"transcript tap updated to {after}", False)
-    if target:
-        return (f"transcript tap already at the latest ({after})", False)
-    return (f"transcript tap at {after}", False)
+        line = f"transcript tap updated to {after}"
+    elif target:
+        line = f"transcript tap already at the latest ({after})"
+    else:
+        line = f"transcript tap at {after}"
+    # Not "behind": the update did its part, and the manual commands would not
+    # help. What is left is a restart, which the line says.
+    note = running_stale_note(result)
+    return (f"{line}; {note}" if note else line, False)
+
+
+def running_stale_note(result: PluginResult) -> str:
+    """One sentence for live capture daemons still on an older tap, or ""."""
+    stale = result.tap_running_stale
+    if not stale or not result.tap_after:
+        return ""
+    count = len(stale)
+    versions = ", ".join(dict.fromkeys(stale))
+    sessions = "1 session" if count == 1 else f"{count} sessions"
+    run, them = ("runs", "it") if count == 1 else ("run", "them")
+    return (
+        f"{sessions} started before the update still {run} tap {versions}; "
+        f"restart {them} to switch to {result.tap_after}"
+    )
+
+
+# -- live capture daemons ---------------------------------------------------
+#
+# An update moves the tap a coding agent INSTALLS; it cannot move the daemon a
+# running session already started. Each session runs its own capture daemon for
+# as long as the session lives, the server shows a machine's OLDEST live tap,
+# and researchers keep sessions alive for days. So a machine whose update
+# worked can still report the old tap: anthrogen's dev pod and new-workspace's
+# laptop both read tap 0.9.3 on 2026-10-07, each with a session born on 10-04
+# (before its tap moved) still uploading, while the dev pod's own update report
+# said its tap was current at 0.9.14. These find those daemons, so the report
+# says why beside "current": the tap's detail, the printed line, `probe doctor`.
+
+#: A capture daemon as `hooks/session-start.sh` spawns it:
+#: `<python> -m tap watch --session-id <id> --cwd <dir> --plugin-root <root>
+#: --transcript <path>` (`--transcript-dir <dir>` for Codex). Its wrapper's own
+#: command line carries the same words with `"$SID"` quoted, which the id's
+#: character class refuses. `tap start` spawns without `--plugin-root`, from the
+#: tap installed now, so it is never the stale one this looks for.
+_TAP_DAEMON = re.compile(
+    r"-m tap watch --session-id (?P<sid>[A-Za-z0-9_.:-]+) (?:.*? )?"
+    r"--plugin-root (?P<root>.+?) --transcript"
+)
+_VERSION_DIR = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+@dataclass(frozen=True)
+class TapDaemon:
+    session_id: str
+    #: The plugin root it was started from (it may no longer exist: Codex
+    #: replaces a plugin's folder when it updates it).
+    root: str
+    version: str | None
+
+
+def _process_commands() -> list[str]:
+    """This user's processes' full command lines: `ps`, else Linux's `/proc`.
+    Empty when neither can be read (Windows, a sandbox)."""
+    if not hasattr(os, "getuid"):
+        return []
+    uid = os.getuid()
+    try:
+        listing = subprocess.run(  # noqa: S603 - fixed binary, no shell
+            ["ps", "-ww", "-U", str(uid), "-o", "command="],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=5, check=False,
+        )
+        if listing.returncode == 0:
+            return [line.strip() for line in listing.stdout.splitlines() if line.strip()]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    commands: list[str] = []
+    try:
+        entries = [entry for entry in os.scandir("/proc") if entry.name.isdigit()]
+    except OSError:
+        return []
+    for entry in entries:
+        try:
+            if entry.stat().st_uid != uid:
+                continue
+            with open(os.path.join(entry.path, "cmdline"), "rb") as handle:
+                raw = handle.read()
+        except OSError:
+            continue  # exited between the listing and the read
+        text = raw.replace(b"\0", b" ").decode(errors="replace").strip()
+        if text:
+            commands.append(text)
+    return commands
+
+
+def _daemon_version(session_id: str, root: str) -> str | None:
+    """The tap a daemon runs: its marketplace folder's name (Claude Code and
+    Codex keep one folder per version), else the record its spawner left beside
+    its pid file (taps 0.9.16+), else the manifest in its root."""
+    name = Path(root).name
+    if _VERSION_DIR.match(name):
+        return name
+    harnesses = [h for h in get_registry().all() if h.capture is not None]
+    for harness in harnesses:
+        record = Path("/tmp") / f"{harness.capture.watcher_prefix}-watcher-{session_id}.version"
+        try:
+            text = record.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if text:
+            return text
+    for harness in harnesses:
+        manifest_dir = (harness.plugin or {}).get("manifest_dir")
+        if not manifest_dir:
+            continue
+        try:
+            version = json.loads((Path(root) / manifest_dir / "plugin.json").read_text())["version"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if isinstance(version, str):
+            return version
+    return None
+
+
+def tap_daemons() -> list[TapDaemon]:
+    """Every live capture daemon this user runs, one per session and root."""
+    found: dict[tuple[str, str], TapDaemon] = {}
+    for command in _process_commands():
+        match = _TAP_DAEMON.search(command)
+        if match is None:
+            continue
+        key = (match["sid"], match["root"])
+        if key not in found:
+            found[key] = TapDaemon(key[0], key[1], _daemon_version(*key))
+    return list(found.values())
+
+
+def stale_tap_daemons(source: str, installed: str | None) -> tuple[str, ...]:
+    """The version each live capture daemon of `source` runs, for every one
+    older than the tap `installed` now, oldest first. A daemon is `source`'s
+    when it was started from a folder under that agent's home. NEVER RAISES:
+    an observation for the report, never a reason an update fails."""
+    if not installed:
+        return ()
+    try:
+        harness = get_registry().get(source)
+        home = harness.home_dir() if harness is not None else None
+        if home is None:
+            return ()
+        home = home.resolve()
+        stale = [
+            daemon.version
+            for daemon in tap_daemons()
+            if daemon.version
+            and Path(daemon.root).resolve().is_relative_to(home)
+            and is_newer(installed, daemon.version)
+        ]
+        return tuple(sorted(stale, key=lambda v: _triplet(v) or (0, 0, 0)))
+    except Exception:  # noqa: BLE001 - see docstring
+        return ()
 
 
 def tap_changed(result: PluginResult) -> bool:
@@ -712,8 +958,14 @@ def update_plugin(target_latest: str | None) -> PluginResult:
     """
     claude = shutil.which("claude")
     if not claude:
+        # The ledger is a file, readable without `claude`: what is installed
+        # rides along, so a report can say "tap 0.9.3, and `claude` was not on
+        # PATH" rather than just the second half.
+        tap = installed_tap_version()
         return PluginResult(
-            False, False, False, None, None, "`claude` not found on PATH (skipping plugin update)"
+            False, False, False, None, None, "`claude` not found on PATH (skipping plugin update)",
+            tap_before=tap, tap_after=tap, missing_binary=True,
+            legacy_ids=legacy_plugin_ids(),
         )
 
     before = installed_plugin_version()
@@ -768,6 +1020,9 @@ def update_plugin(target_latest: str | None) -> PluginResult:
         # the tap's when it is behind. Keyed on a later step, a plugin already
         # current could hide the commands with the fix nowhere in sight.
         "git_blocked": not refresh.ok and bool(git_blocker(refresh.detail)),
+        "refresh_failed": not refresh.ok,
+        "command_failed": not completed,
+        "legacy_ids": legacy_plugin_ids(),
     }
 
     after = installed_plugin_version()
@@ -934,12 +1189,14 @@ def update_codex_plugins() -> PluginResult:
     codex = shutil.which("codex")
     if not codex:
         return PluginResult(
-            False, False, False, None, None, "`codex` not found on PATH (skipping plugin update)"
+            False, False, False, None, None, "`codex` not found on PATH (skipping plugin update)",
+            missing_binary=True,
         )
     names = (tracking_plugin_name("codex"), "probe-research-tap")
     before_versions = _codex_plugin_versions(codex)
     failed_run = None
     result = plugin_cli.refresh_marketplace(plugin_cli.CODEX, MARKETPLACE)
+    refresh_failed = not result.ok
     if not result.ok:
         failed_run = result
     for name in names:
@@ -967,6 +1224,9 @@ def update_codex_plugins() -> PluginResult:
         "tap_detail": failure
         or ("" if is_newer(tap_after, tap_before) else CODEX_TAP_NOOP),
         "git_blocked": failed_run is not None and bool(git_blocker(failed_run.detail)),
+        "refresh_failed": refresh_failed,
+        "command_failed": failed_run is not None,
+        "legacy_ids": legacy_plugin_ids(sorted({*before_versions, *after_versions})),
     }
     if confirmed:
         message = f"Codex plugins {'updated' if changed else 'verified'} ({after})"
@@ -993,7 +1253,8 @@ def update_kimi_plugins() -> PluginResult:
 
     if not kimi_config.binary_available():
         return PluginResult(
-            False, False, False, None, None, "`kimi` not found on PATH (skipping plugin update)"
+            False, False, False, None, None, "`kimi` not found on PATH (skipping plugin update)",
+            missing_binary=True,
         )
     listed = plugin_cli.list_plugins(plugin_cli.KIMI)
     if not listed.ok:
@@ -1021,6 +1282,7 @@ def update_kimi_plugins() -> PluginResult:
         "tap_after": after_versions.get("probe-research-tap"),
         "tap_detail": failure,
         "git_blocked": False,
+        "command_failed": failed_run is not None,
     }
     if not installed:
         return PluginResult(False, False, False, None, None, "no Probe plugins installed in Kimi Code", **tap)

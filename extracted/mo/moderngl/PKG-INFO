@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: moderngl
-Version: 5.12.0
+Version: 5.13.0
 Summary: ModernGL: High performance rendering for Python 3
 Home-page: https://github.com/moderngl/moderngl
 Author: Szabolcs Dombi
@@ -26,6 +26,21 @@ License-File: LICENSE
 Requires-Dist: glcontext>=3.0.0
 Provides-Extra: headless
 Requires-Dist: glcontext>=3.0.0; extra == "headless"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 

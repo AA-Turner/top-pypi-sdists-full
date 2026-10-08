@@ -329,6 +329,7 @@ def map_project(
     projected_output_positions: list[int] = []
     projected_output_cast_types: list[DataType | None] = []
     projected_output_extract_fields: list[str | None] = []
+    implicit_multi_column_names: list[str] = []
     next_output_position = 1
 
     typer = ExpressionTyper(input_df)
@@ -491,14 +492,21 @@ def map_project(
                 mapper, all_result_columns
             )
             result_columns = [s.source_column_name for s in selected_specs]
-            output_name_to_offset = {
-                unquote_if_quoted(col_name): idx
-                for idx, col_name in enumerate(all_result_columns)
-            }
-            selected_output_offsets = [
-                output_name_to_offset[unquote_if_quoted(s.source_column_name)]
-                for s in selected_specs
-            ]
+            if mapper.get_selected_projection_specs() is None:
+                # Snowflake derives one name for struct fields that differ only
+                # by case (ADDR:"city" and ADDR:"City" both become ADDR:"CITY"),
+                # so a lookup by name would read the same field twice.
+                selected_output_offsets = list(range(len(all_result_columns)))
+                implicit_multi_column_names.extend(result_columns)
+            else:
+                output_name_to_offset = {
+                    unquote_if_quoted(col_name): idx
+                    for idx, col_name in enumerate(all_result_columns)
+                }
+                selected_output_offsets = [
+                    output_name_to_offset[unquote_if_quoted(s.source_column_name)]
+                    for s in selected_specs
+                ]
             projected_output_cast_types.extend(s.cast_type for s in selected_specs)
             projected_output_positions.extend(
                 next_output_position + offset for offset in selected_output_offsets
@@ -582,7 +590,9 @@ def map_project(
             new_spark_columns, rel.common.plan_id
         )
         # if there are duplicate snowpark column names, we need to disambiguate them by their index
-        if len(new_spark_columns) != len(set(new_spark_columns)):
+        if len(new_spark_columns) != len(set(new_spark_columns)) or len(
+            implicit_multi_column_names
+        ) != len(set(implicit_multi_column_names)):
             result = result.select(
                 [f"${i}" for i in range(1, len(new_spark_columns) + 1)]
             )

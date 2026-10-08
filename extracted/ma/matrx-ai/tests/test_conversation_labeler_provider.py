@@ -152,3 +152,61 @@ async def test_unresolvable_mandate_is_captured_not_silent(monkeypatch) -> None:
     assert result.success is False
     assert captured["kind"] == "conversation_labeler_failed"
     assert captured["payload"]["model"] is None
+
+
+async def test_agent_values_reach_the_holder_raw_and_bounded(held_calls) -> None:
+    """2026-10-07: the person's variable values travel as name → value, never
+    as "- **name**: value" lines composed in code; each value is bounded."""
+    await labeler.label_agent_conversation(
+        conversation_content="User:\nhi",
+        recent_titles="",
+        agent_name="Recipe Writer",
+        agent_description="Writes recipes.",
+        user_variables={"dish": "shakshuka", "notes": "y" * 50_000},
+        user_prompt="",
+    )
+    values = held_calls[0]["variables"]["user_variables"]
+    assert isinstance(values, dict)
+    assert values["dish"] == "shakshuka"
+    assert len(values["notes"]) <= labeler.USER_VARIABLES_MAX_CHARS
+    assert "[... content trimmed ...]" in values["notes"]
+
+
+async def test_the_provider_receives_the_holders_turn_with_the_values(monkeypatch) -> None:
+    """Read what the model is actually sent: the Holder's authored turn, the
+    values filled by name, the person's variables rendered by the prompt door."""
+    from matrx_ai.orchestrator import executor
+    from matrx_ai.testing.holders import install_inline_holders
+
+    names = ("conversation_content", "recent_titles", "agent_name", "agent_description",
+             "user_variables", "user_prompt")
+    install_inline_holders(monkeypatch, {
+        CONVERSATION_LABEL_AGENT_RUN_MANDATE: {
+            "model": "holder-model",
+            "messages": [{"role": "system", "content": "LABEL RULES"},
+                         {"role": "user", "content": "\n".join(f"{n}=<{{{{{n}}}}}>" for n in names)}],
+            "variables": [{"name": n, "defaultValue": "-"} for n in names],
+        }
+    })
+    sent: list = []
+
+    async def _execute(config, **_kwargs):
+        sent.append(config)
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(executor, "execute_ai_request", _execute)
+    await labeler.label_agent_conversation(
+        conversation_content="User:\nMake shakshuka for four",
+        recent_titles="- Pancake ratios",
+        agent_name="Recipe Writer",
+        agent_description="Writes recipes.",
+        user_variables={"dish": "shakshuka", "servings": 4},
+        user_prompt="",
+    )
+    messages = sent[0].messages
+    user = "".join(getattr(part, "text", "") for part in (messages[-1].content or []))
+    assert "agent_name=<Recipe Writer>" in user
+    assert "recent_titles=<- Pancake ratios>" in user
+    assert "user_variables=<" in user and '"dish": "shakshuka"' in user and '"servings": 4' in user
+    assert "**dish**" not in user
+    assert f"user_prompt=<{labeler.NONE_PROVIDED}>" in user

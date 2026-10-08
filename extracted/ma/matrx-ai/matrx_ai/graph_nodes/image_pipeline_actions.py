@@ -137,24 +137,12 @@ async def image_concept_generate(
     ctx: NodeExecutionContext, inputs: ConceptGenerateInput
 ) -> NodeResult[ConceptGenerateOutput]:
     on_delta, on_reset = node_panel_hooks(getattr(getattr(ctx, "app", None), "emitter", None))
-    audience_clause = f" The audience is: {inputs.audience}." if inputs.audience else ""
-    style_clause = (
-        f" Apply this overall style hint to every concept: {inputs.style_hint}."
-        if inputs.style_hint
-        else ""
-    )
-
-    user_message = (
-        f"Topic: {inputs.topic}\n"
-        f"Generate exactly {inputs.num_concepts} visual concepts.{audience_clause}{style_clause}"
-    )
-    # Offered for mapping only (pass_by_name=False in the host's provision): the
-    # current default-pin Holder never receives these.
+    # The Holder AUTHORS the user turn around these named values (2026-10-07):
+    # no clause is composed here.
     held = await hold_code_call(
         IMAGE_CONCEPT_MANDATE,
         consumer="ai.image.concept_generate",
         variables={
-            "composed_message": user_message,
             "topic_text": inputs.topic,
             "concept_count": inputs.num_concepts,
             **({"audience_text": inputs.audience} if inputs.audience else {}),
@@ -168,7 +156,7 @@ async def image_concept_generate(
         return success(
             await run_held_pydantic(
                 held,
-                user=user_message,
+                user=held.authored_user(),
                 output_cls=ConceptGenerateOutput,
                 model=inputs.model,
                 offering_id=inputs.offering_id,
@@ -288,20 +276,10 @@ async def image_prompt_write(
         style_layers.append(preset_text)
     style_block = ", ".join(s for s in style_layers if s)
 
-    user_message = (
-        f"Concept name: {inputs.concept.name}\n"
-        f"Concept description: {inputs.concept.description}\n"
-        f"Style guidance: {style_block or 'none'}\n"
-        f"Aspect ratio: {inputs.aspect_ratio}\n"
-        f"Write exactly {inputs.n_prompts} prompt(s)."
-    )
-    # Offered for mapping only (pass_by_name=False in the host's provision): the
-    # current default-pin Holder never receives these.
     held = await hold_code_call(
         IMAGE_PROMPT_WRITE_MANDATE,
         consumer="ai.image.prompt_write",
         variables={
-            "composed_message": user_message,
             "concept_name": inputs.concept.name,
             "concept_description": inputs.concept.description,
             **(
@@ -321,7 +299,7 @@ async def image_prompt_write(
         # into the same Failure shape — code = exception class name.
         written = await run_held_pydantic(
             held,
-            user=user_message,
+            user=held.authored_user(),
             output_cls=_PromptWriteLlmOutput,
             model=inputs.model,
             offering_id=inputs.offering_id,
@@ -495,14 +473,6 @@ async def image_qc_judge(
     rubric_lines.extend(f"Criterion: {c}" for c in inputs.extra_criteria)
     rubric_text = "\n".join(rubric_lines) or "Criterion: image is well-composed and on-topic."
 
-    text_block = {
-        "type": "text",
-        "text": (
-            f"Evaluate the image above against this rubric:\n\n{rubric_text}\n\n"
-            "Return a structured pass/fail verdict. Be strict — false positives "
-            "undermine the pipeline."
-        ),
-    }
     # Offered for mapping only (pass_by_name=False in the host's provision): the
     # current default-pin Holder never receives these.
     concept = inputs.expected_concept
@@ -510,7 +480,6 @@ async def image_qc_judge(
         IMAGE_QC_JUDGE_MANDATE,
         consumer="ai.image.qc_judge",
         variables={
-            "instruction_text": text_block["text"],
             "rubric_text": rubric_text,
             **({"expected_concept_name": concept.name} if concept else {}),
             **({"expected_concept_description": concept.description} if concept else {}),
@@ -521,7 +490,13 @@ async def image_qc_judge(
     try:
         verdict = await run_held_pydantic(
             held,
-            messages=[{"role": "user", "content": [image_block, text_block]}],
+            # The image rides beside the text the Holder authors, in one turn.
+            messages=[
+                {
+                    "role": "user",
+                    "content": [image_block, {"type": "text", "text": held.authored_user()}],
+                }
+            ],
             output_cls=ImageQcVerdict,
             model=inputs.model,
             offering_id=inputs.offering_id,

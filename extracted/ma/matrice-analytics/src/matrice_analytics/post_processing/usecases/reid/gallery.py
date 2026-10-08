@@ -79,7 +79,7 @@ class ReIDGallery:
         dim: int,
         capacity: int = 100,
         match_threshold: float = 0.67,
-        margin: float = 0.06,
+        margin: float = 0.0,
         min_absence_s: float = 3.0,
     ) -> None:
         if dim <= 0:

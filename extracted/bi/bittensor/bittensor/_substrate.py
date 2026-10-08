@@ -120,6 +120,10 @@ class Substrate(Protocol):
         """Current chain block number."""
         ...
 
+    async def finalized_block_number(self) -> int:
+        """Current finalized chain block number."""
+        ...
+
     async def block_time(self) -> float:
         """Seconds per block, detected from the chain."""
         ...
@@ -143,6 +147,14 @@ class Substrate(Protocol):
     ) -> Any:
         """Read one storage item, returning its plain decoded value."""
         ...
+
+    async def map_has_entries(
+        self,
+        module: str,
+        storage_function: str,
+        params: list,
+        block_hash: Optional[str] = None,
+    ) -> bool: ...
 
     async def query_map(
         self,
@@ -405,6 +417,9 @@ class RpcSubstrate:
     async def block_number(self) -> int:
         return await self._read(lambda raw: raw.get_block_number(None))
 
+    async def finalized_block_number(self) -> int:
+        return await self._read(lambda raw: raw.get_finalized_block_number())
+
     async def block_time(self) -> float:
         """Seconds per block, from the chain's ``Aura.SlotDuration`` constant.
 
@@ -454,6 +469,17 @@ class RpcSubstrate:
     ) -> Any:
         return await self._read(
             lambda raw: raw.query(module, storage_function, params or [], block_hash)
+        )
+
+    async def map_has_entries(
+        self,
+        module: str,
+        storage_function: str,
+        params: list,
+        block_hash: Optional[str] = None,
+    ) -> bool:
+        return await self._read(
+            lambda raw: raw.map_has_entries(module, storage_function, params, block_hash)
         )
 
     async def query_map(

@@ -223,13 +223,23 @@ _ihm_entry_collection.id
 _ihm_entry_collection.name
 _ihm_entry_collection.details
 foo bar 'more text'
+c2id c2name c2details
+#
+_ihm_entry_collection_mapping.collection_id c2id
+_ihm_entry_collection_mapping.entry_id      entry1
 """
         for fh in cif_file_handles(cif):
             s, = ihm.reader.read(fh)
-            c, = s.collections
-            self.assertEqual(c.id, 'foo')
-            self.assertEqual(c.name, 'bar')
-            self.assertEqual(c.details, 'more text')
+            c1, c2 = s.collections
+            self.assertEqual(c1.id, 'foo')
+            self.assertEqual(c1.name, 'bar')
+            self.assertEqual(c1.details, 'more text')
+            self.assertEqual(c1.entries, [])
+
+            self.assertEqual(c2.id, 'c2id')
+            self.assertEqual(c2.name, 'c2name')
+            self.assertEqual(c2.details, 'c2details')
+            self.assertEqual(c2.entries, ['entry1'])
 
     def test_software_handler(self):
         """Test SoftwareHandler"""
@@ -3361,14 +3371,15 @@ _ihm_cross_link_list.entity_id_2
 _ihm_cross_link_list.seq_id_2
 _ihm_cross_link_list.comp_id_2
 _ihm_cross_link_list.linker_chem_comp_descriptor_id
+_ihm_cross_link_list.linker_type
 _ihm_cross_link_list.dataset_list_id
 _ihm_cross_link_list.details
-1 1 foo 1 2 THR foo 1 3 CYS 44 97 .
-2 2 foo 1 2 THR bar 2 3 PHE 44 97 'test xl'
-3 2 foo 1 2 THR bar 2 2 GLU 44 97 .
-4 3 foo 1 1 ALA bar 2 1 ASP 44 97 .
-5 4 foo 1 1 ALA bar 2 1 ASP 88 97 .
-6 5 foo 1 1 ALA bar 2 1 ASP 44 98 .
+1 1 foo 1 2 THR foo 1 3 CYS 44 . 97 .
+2 2 foo 1 2 THR bar 2 3 PHE 44 . 97 'test xl'
+3 2 foo 1 2 THR bar 2 2 GLU 44 . 97 .
+4 3 foo 1 1 ALA bar 2 1 ASP 44 . 97 .
+5 4 foo 1 1 ALA bar 2 1 ASP 88 Other 97 .
+6 5 foo 1 1 ALA bar 2 1 ASP 44 . 98 .
 """)
         s, = ihm.reader.read(fh)
         # Check grouping
@@ -3377,6 +3388,9 @@ _ihm_cross_link_list.details
         r1, r2, r3 = s.restraints
         self.assertEqual(r1.dataset._id, '97')
         self.assertEqual(r1.linker._id, '44')
+        self.assertFalse(hasattr(r1, '_force_other'))
+        self.assertEqual(r2.linker._id, '88')
+        self.assertTrue(r2._force_other)
         xl = r1.experimental_cross_links[1][0]
         self.assertEqual(xl.residue1.entity._id, '1')
         self.assertEqual(xl.residue2.entity._id, '2')

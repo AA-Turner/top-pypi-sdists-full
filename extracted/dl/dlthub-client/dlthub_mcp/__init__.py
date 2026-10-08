@@ -26,11 +26,13 @@ JOBS_FEATURE = "dlthub.jobs"
 LOGS_FEATURE = "dlthub.logs"
 CONFIG_FEATURE = "dlthub.config"
 TELEMETRY_FEATURE = "dlthub.telemetry"
+RESTORE_FEATURE = "dlthub.restore_pipeline"
 
 _JOBS_TOKENS = frozenset({JOBS_FEATURE, "jobs"})
 _LOGS_TOKENS = frozenset({LOGS_FEATURE, "logs"})
 _CONFIG_TOKENS = frozenset({CONFIG_FEATURE, "config"})
 _TELEMETRY_TOKENS = frozenset({TELEMETRY_FEATURE, "telemetry"})
+_RESTORE_TOKENS = frozenset({RESTORE_FEATURE, "restore_pipeline"})
 
 
 def jobs_features(requested: Set[str]) -> Optional[McpFeatures]:
@@ -108,14 +110,33 @@ def telemetry_features(requested: Set[str]) -> Optional[McpFeatures]:
     return McpFeatures(name=TELEMETRY_FEATURE, tools=list(telemetry_tools.__tools__))
 
 
+def restore_features(requested: Set[str]) -> Optional[McpFeatures]:
+    """Return the pipeline restore tools when the caller asked for them.
+
+    Args:
+        requested: Feature names the MCP server is assembling.
+
+    Returns:
+        The feature, or ``None`` when it was not requested.
+    """
+    if not _RESTORE_TOKENS & requested:
+        return None
+    # Current package
+    from dlthub_mcp import restore_tools
+
+    return McpFeatures(name=RESTORE_FEATURE, tools=list(restore_tools.__tools__))
+
+
 __all__ = [
     "CONFIG_FEATURE",
     "JOBS_FEATURE",
     "LOGS_FEATURE",
+    "RESTORE_FEATURE",
     "TELEMETRY_FEATURE",
     "McpFeatures",
     "config_features",
     "jobs_features",
     "logs_features",
+    "restore_features",
     "telemetry_features",
 ]

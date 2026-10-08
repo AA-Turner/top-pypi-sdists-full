@@ -54,7 +54,6 @@ from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
     get_windows_permission_warning,
     issue_unix_permissions_warning,
-    restrict_file_permissions,
     should_skip_permission_warning,
 )
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
@@ -100,6 +99,8 @@ LOGS_SECTION = "logs"
 PLUGINS_SECTION = "plugins"
 ENCODING_SECTION = "encoding"
 IGNORE_NEW_VERSION_WARNING_KEY = "ignore_new_version_warning"
+AUTO_UPGRADE_KEY = "auto_upgrade"
+AUTO_UPGRADE_ALLOW_MAJOR_KEY = "auto_upgrade_allow_major"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
@@ -389,7 +390,11 @@ def _initialise_logs_section():
 
 def _initialise_cli_section():
     with _config_file() as conf_file_cache:
-        conf_file_cache[CLI_SECTION] = {IGNORE_NEW_VERSION_WARNING_KEY: False}
+        conf_file_cache[CLI_SECTION] = {
+            IGNORE_NEW_VERSION_WARNING_KEY: False,
+            AUTO_UPGRADE_KEY: False,
+            AUTO_UPGRADE_ALLOW_MAJOR_KEY: False,
+        }
 
 
 def set_config_value(path: List[str], value: Any) -> None:
@@ -590,17 +595,9 @@ def get_config_bool_value(*path, key: str, default: Optional[bool]) -> Optional[
 
 
 def _initialise_config(config_file: Path) -> None:
-    config_dir = config_file.parent
-    parent_existed = config_dir.exists()
-
     secure_config_file = SecurePath(config_file)
     secure_config_file.parent.mkdir(parents=True, exist_ok=True)
-    if IS_WINDOWS and not parent_existed:
-        restrict_file_permissions(config_dir)
-
     secure_config_file.touch()
-    if IS_WINDOWS:
-        restrict_file_permissions(config_file)
 
     _initialise_cli_section()
     _initialise_logs_section()

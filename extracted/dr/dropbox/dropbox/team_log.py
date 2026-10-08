@@ -16158,6 +16158,61 @@ class EventDetails(bb.Union):
         return cls("protect_action_stop_sharing_details", val)
 
     @classmethod
+    def protect_custom_data_type_created_details(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_created_details`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeCreatedDetails val:
+        :rtype: EventDetails
+        """
+        return cls("protect_custom_data_type_created_details", val)
+
+    @classmethod
+    def protect_custom_data_type_deleted_details(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_deleted_details`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeDeletedDetails val:
+        :rtype: EventDetails
+        """
+        return cls("protect_custom_data_type_deleted_details", val)
+
+    @classmethod
+    def protect_custom_data_type_disabled_details(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_disabled_details`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeDisabledDetails val:
+        :rtype: EventDetails
+        """
+        return cls("protect_custom_data_type_disabled_details", val)
+
+    @classmethod
+    def protect_custom_data_type_enabled_details(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_enabled_details`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeEnabledDetails val:
+        :rtype: EventDetails
+        """
+        return cls("protect_custom_data_type_enabled_details", val)
+
+    @classmethod
+    def protect_custom_data_type_modified_details(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_modified_details`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeModifiedDetails val:
+        :rtype: EventDetails
+        """
+        return cls("protect_custom_data_type_modified_details", val)
+
+    @classmethod
     def protect_internal_domains_changed_details(cls, val):
         """
         Create an instance of this class set to the
@@ -19019,6 +19074,17 @@ class EventDetails(bb.Union):
         :rtype: EventDetails
         """
         return cls("paper_enabled_users_group_removal_details", val)
+
+    @classmethod
+    def paper_offline_mode_policy_changed_details(cls, val):
+        """
+        Create an instance of this class set to the
+        ``paper_offline_mode_policy_changed_details`` tag with value ``val``.
+
+        :param PaperOfflineModePolicyChangedDetails val:
+        :rtype: EventDetails
+        """
+        return cls("paper_offline_mode_policy_changed_details", val)
 
     @classmethod
     def passkey_login_policy_changed_details(cls, val):
@@ -22354,6 +22420,46 @@ class EventDetails(bb.Union):
         """
         return self._tag == "protect_action_stop_sharing_details"
 
+    def is_protect_custom_data_type_created_details(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_created_details``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_created_details"
+
+    def is_protect_custom_data_type_deleted_details(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_deleted_details``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_deleted_details"
+
+    def is_protect_custom_data_type_disabled_details(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_disabled_details``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_disabled_details"
+
+    def is_protect_custom_data_type_enabled_details(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_enabled_details``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_enabled_details"
+
+    def is_protect_custom_data_type_modified_details(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_modified_details``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_modified_details"
+
     def is_protect_internal_domains_changed_details(self):
         """
         Check if the union tag is ``protect_internal_domains_changed_details``.
@@ -24409,6 +24515,14 @@ class EventDetails(bb.Union):
         :rtype: bool
         """
         return self._tag == "paper_enabled_users_group_removal_details"
+
+    def is_paper_offline_mode_policy_changed_details(self):
+        """
+        Check if the union tag is ``paper_offline_mode_policy_changed_details``.
+
+        :rtype: bool
+        """
+        return self._tag == "paper_offline_mode_policy_changed_details"
 
     def is_passkey_login_policy_changed_details(self):
         """
@@ -28026,6 +28140,56 @@ class EventDetails(bb.Union):
             raise AttributeError("tag 'protect_action_stop_sharing_details' not set")
         return self._value
 
+    def get_protect_custom_data_type_created_details(self):
+        """
+        Only call this if :meth:`is_protect_custom_data_type_created_details` is true.
+
+        :rtype: ProtectCustomDataTypeCreatedDetails
+        """
+        if not self.is_protect_custom_data_type_created_details():
+            raise AttributeError("tag 'protect_custom_data_type_created_details' not set")
+        return self._value
+
+    def get_protect_custom_data_type_deleted_details(self):
+        """
+        Only call this if :meth:`is_protect_custom_data_type_deleted_details` is true.
+
+        :rtype: ProtectCustomDataTypeDeletedDetails
+        """
+        if not self.is_protect_custom_data_type_deleted_details():
+            raise AttributeError("tag 'protect_custom_data_type_deleted_details' not set")
+        return self._value
+
+    def get_protect_custom_data_type_disabled_details(self):
+        """
+        Only call this if :meth:`is_protect_custom_data_type_disabled_details` is true.
+
+        :rtype: ProtectCustomDataTypeDisabledDetails
+        """
+        if not self.is_protect_custom_data_type_disabled_details():
+            raise AttributeError("tag 'protect_custom_data_type_disabled_details' not set")
+        return self._value
+
+    def get_protect_custom_data_type_enabled_details(self):
+        """
+        Only call this if :meth:`is_protect_custom_data_type_enabled_details` is true.
+
+        :rtype: ProtectCustomDataTypeEnabledDetails
+        """
+        if not self.is_protect_custom_data_type_enabled_details():
+            raise AttributeError("tag 'protect_custom_data_type_enabled_details' not set")
+        return self._value
+
+    def get_protect_custom_data_type_modified_details(self):
+        """
+        Only call this if :meth:`is_protect_custom_data_type_modified_details` is true.
+
+        :rtype: ProtectCustomDataTypeModifiedDetails
+        """
+        if not self.is_protect_custom_data_type_modified_details():
+            raise AttributeError("tag 'protect_custom_data_type_modified_details' not set")
+        return self._value
+
     def get_protect_internal_domains_changed_details(self):
         """
         Only call this if :meth:`is_protect_internal_domains_changed_details` is true.
@@ -30616,6 +30780,16 @@ class EventDetails(bb.Union):
             raise AttributeError("tag 'paper_enabled_users_group_removal_details' not set")
         return self._value
 
+    def get_paper_offline_mode_policy_changed_details(self):
+        """
+        Only call this if :meth:`is_paper_offline_mode_policy_changed_details` is true.
+
+        :rtype: PaperOfflineModePolicyChangedDetails
+        """
+        if not self.is_paper_offline_mode_policy_changed_details():
+            raise AttributeError("tag 'paper_offline_mode_policy_changed_details' not set")
+        return self._value
+
     def get_passkey_login_policy_changed_details(self):
         """
         Only call this if :meth:`is_passkey_login_policy_changed_details` is true.
@@ -32480,6 +32654,21 @@ class EventType(bb.Union):
     :ivar EventType.protect_action_stop_sharing:
         (protect) Stopped sharing content via Dropbox Protect
     :vartype EventType.protect_action_stop_sharing: ProtectActionStopSharingType
+    :ivar EventType.protect_custom_data_type_created:
+        (protect) Created a Dropbox Protect custom data type
+    :vartype EventType.protect_custom_data_type_created: ProtectCustomDataTypeCreatedType
+    :ivar EventType.protect_custom_data_type_deleted:
+        (protect) Deleted a Dropbox Protect custom data type
+    :vartype EventType.protect_custom_data_type_deleted: ProtectCustomDataTypeDeletedType
+    :ivar EventType.protect_custom_data_type_disabled:
+        (protect) Disabled a Dropbox Protect custom data type
+    :vartype EventType.protect_custom_data_type_disabled: ProtectCustomDataTypeDisabledType
+    :ivar EventType.protect_custom_data_type_enabled:
+        (protect) Enabled a Dropbox Protect custom data type
+    :vartype EventType.protect_custom_data_type_enabled: ProtectCustomDataTypeEnabledType
+    :ivar EventType.protect_custom_data_type_modified:
+        (protect) Modified a Dropbox Protect custom data type
+    :vartype EventType.protect_custom_data_type_modified: ProtectCustomDataTypeModifiedType
     :ivar EventType.protect_internal_domains_changed:
         (protect) Modified Protect internal domains list
     :vartype EventType.protect_internal_domains_changed: ProtectInternalDomainsChangedType
@@ -33293,6 +33482,9 @@ class EventType(bb.Union):
     :ivar EventType.paper_enabled_users_group_removal:
         (team_policies) Removed users from Paper-enabled users list
     :vartype EventType.paper_enabled_users_group_removal: PaperEnabledUsersGroupRemovalType
+    :ivar EventType.paper_offline_mode_policy_changed:
+        (team_policies) Enabled/disabled Paper offline mode for team
+    :vartype EventType.paper_offline_mode_policy_changed: PaperOfflineModePolicyChangedType
     :ivar EventType.passkey_login_policy_changed:
         (team_policies) Changed passkey login policy for team
     :vartype EventType.passkey_login_policy_changed: PasskeyLoginPolicyChangedType
@@ -36744,6 +36936,61 @@ class EventType(bb.Union):
         return cls("protect_action_stop_sharing", val)
 
     @classmethod
+    def protect_custom_data_type_created(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_created`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeCreatedType val:
+        :rtype: EventType
+        """
+        return cls("protect_custom_data_type_created", val)
+
+    @classmethod
+    def protect_custom_data_type_deleted(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_deleted`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeDeletedType val:
+        :rtype: EventType
+        """
+        return cls("protect_custom_data_type_deleted", val)
+
+    @classmethod
+    def protect_custom_data_type_disabled(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_disabled`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeDisabledType val:
+        :rtype: EventType
+        """
+        return cls("protect_custom_data_type_disabled", val)
+
+    @classmethod
+    def protect_custom_data_type_enabled(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_enabled`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeEnabledType val:
+        :rtype: EventType
+        """
+        return cls("protect_custom_data_type_enabled", val)
+
+    @classmethod
+    def protect_custom_data_type_modified(cls, val):
+        """
+        Create an instance of this class set to the
+        ``protect_custom_data_type_modified`` tag with value ``val``.
+
+        :param ProtectCustomDataTypeModifiedType val:
+        :rtype: EventType
+        """
+        return cls("protect_custom_data_type_modified", val)
+
+    @classmethod
     def protect_internal_domains_changed(cls, val):
         """
         Create an instance of this class set to the
@@ -39575,6 +39822,17 @@ class EventType(bb.Union):
         :rtype: EventType
         """
         return cls("paper_enabled_users_group_removal", val)
+
+    @classmethod
+    def paper_offline_mode_policy_changed(cls, val):
+        """
+        Create an instance of this class set to the
+        ``paper_offline_mode_policy_changed`` tag with value ``val``.
+
+        :param PaperOfflineModePolicyChangedType val:
+        :rtype: EventType
+        """
+        return cls("paper_offline_mode_policy_changed", val)
 
     @classmethod
     def passkey_login_policy_changed(cls, val):
@@ -42886,6 +43144,46 @@ class EventType(bb.Union):
         """
         return self._tag == "protect_action_stop_sharing"
 
+    def is_protect_custom_data_type_created(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_created``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_created"
+
+    def is_protect_custom_data_type_deleted(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_deleted``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_deleted"
+
+    def is_protect_custom_data_type_disabled(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_disabled``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_disabled"
+
+    def is_protect_custom_data_type_enabled(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_enabled``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_enabled"
+
+    def is_protect_custom_data_type_modified(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_modified``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_modified"
+
     def is_protect_internal_domains_changed(self):
         """
         Check if the union tag is ``protect_internal_domains_changed``.
@@ -44941,6 +45239,14 @@ class EventType(bb.Union):
         :rtype: bool
         """
         return self._tag == "paper_enabled_users_group_removal"
+
+    def is_paper_offline_mode_policy_changed(self):
+        """
+        Check if the union tag is ``paper_offline_mode_policy_changed``.
+
+        :rtype: bool
+        """
+        return self._tag == "paper_offline_mode_policy_changed"
 
     def is_passkey_login_policy_changed(self):
         """
@@ -49123,6 +49429,66 @@ class EventType(bb.Union):
             raise AttributeError("tag 'protect_action_stop_sharing' not set")
         return self._value
 
+    def get_protect_custom_data_type_created(self):
+        """
+        (protect) Created a Dropbox Protect custom data type
+
+        Only call this if :meth:`is_protect_custom_data_type_created` is true.
+
+        :rtype: ProtectCustomDataTypeCreatedType
+        """
+        if not self.is_protect_custom_data_type_created():
+            raise AttributeError("tag 'protect_custom_data_type_created' not set")
+        return self._value
+
+    def get_protect_custom_data_type_deleted(self):
+        """
+        (protect) Deleted a Dropbox Protect custom data type
+
+        Only call this if :meth:`is_protect_custom_data_type_deleted` is true.
+
+        :rtype: ProtectCustomDataTypeDeletedType
+        """
+        if not self.is_protect_custom_data_type_deleted():
+            raise AttributeError("tag 'protect_custom_data_type_deleted' not set")
+        return self._value
+
+    def get_protect_custom_data_type_disabled(self):
+        """
+        (protect) Disabled a Dropbox Protect custom data type
+
+        Only call this if :meth:`is_protect_custom_data_type_disabled` is true.
+
+        :rtype: ProtectCustomDataTypeDisabledType
+        """
+        if not self.is_protect_custom_data_type_disabled():
+            raise AttributeError("tag 'protect_custom_data_type_disabled' not set")
+        return self._value
+
+    def get_protect_custom_data_type_enabled(self):
+        """
+        (protect) Enabled a Dropbox Protect custom data type
+
+        Only call this if :meth:`is_protect_custom_data_type_enabled` is true.
+
+        :rtype: ProtectCustomDataTypeEnabledType
+        """
+        if not self.is_protect_custom_data_type_enabled():
+            raise AttributeError("tag 'protect_custom_data_type_enabled' not set")
+        return self._value
+
+    def get_protect_custom_data_type_modified(self):
+        """
+        (protect) Modified a Dropbox Protect custom data type
+
+        Only call this if :meth:`is_protect_custom_data_type_modified` is true.
+
+        :rtype: ProtectCustomDataTypeModifiedType
+        """
+        if not self.is_protect_custom_data_type_modified():
+            raise AttributeError("tag 'protect_custom_data_type_modified' not set")
+        return self._value
+
     def get_protect_internal_domains_changed(self):
         """
         (protect) Modified Protect internal domains list
@@ -52251,6 +52617,18 @@ class EventType(bb.Union):
             raise AttributeError("tag 'paper_enabled_users_group_removal' not set")
         return self._value
 
+    def get_paper_offline_mode_policy_changed(self):
+        """
+        (team_policies) Enabled/disabled Paper offline mode for team
+
+        Only call this if :meth:`is_paper_offline_mode_policy_changed` is true.
+
+        :rtype: PaperOfflineModePolicyChangedType
+        """
+        if not self.is_paper_offline_mode_policy_changed():
+            raise AttributeError("tag 'paper_offline_mode_policy_changed' not set")
+        return self._value
+
     def get_passkey_login_policy_changed(self):
         """
         (team_policies) Changed passkey login policy for team
@@ -53997,6 +54375,16 @@ class EventTypeArg(bb.Union):
         (protect) Removed a link via Dropbox Protect
     :ivar EventTypeArg.protect_action_stop_sharing:
         (protect) Stopped sharing content via Dropbox Protect
+    :ivar EventTypeArg.protect_custom_data_type_created:
+        (protect) Created a Dropbox Protect custom data type
+    :ivar EventTypeArg.protect_custom_data_type_deleted:
+        (protect) Deleted a Dropbox Protect custom data type
+    :ivar EventTypeArg.protect_custom_data_type_disabled:
+        (protect) Disabled a Dropbox Protect custom data type
+    :ivar EventTypeArg.protect_custom_data_type_enabled:
+        (protect) Enabled a Dropbox Protect custom data type
+    :ivar EventTypeArg.protect_custom_data_type_modified:
+        (protect) Modified a Dropbox Protect custom data type
     :ivar EventTypeArg.protect_internal_domains_changed:
         (protect) Modified Protect internal domains list
     :ivar EventTypeArg.protect_policy_activated:
@@ -54553,6 +54941,8 @@ class EventTypeArg(bb.Union):
         (team_policies) Added users to Paper-enabled users list
     :ivar EventTypeArg.paper_enabled_users_group_removal:
         (team_policies) Removed users from Paper-enabled users list
+    :ivar EventTypeArg.paper_offline_mode_policy_changed:
+        (team_policies) Enabled/disabled Paper offline mode for team
     :ivar EventTypeArg.passkey_login_policy_changed:
         (team_policies) Changed passkey login policy for team
     :ivar EventTypeArg.password_strength_requirements_change_policy:
@@ -55339,6 +55729,16 @@ class EventTypeArg(bb.Union):
     # Attribute is overwritten below the class definition
     protect_action_stop_sharing = None
     # Attribute is overwritten below the class definition
+    protect_custom_data_type_created = None
+    # Attribute is overwritten below the class definition
+    protect_custom_data_type_deleted = None
+    # Attribute is overwritten below the class definition
+    protect_custom_data_type_disabled = None
+    # Attribute is overwritten below the class definition
+    protect_custom_data_type_enabled = None
+    # Attribute is overwritten below the class definition
+    protect_custom_data_type_modified = None
+    # Attribute is overwritten below the class definition
     protect_internal_domains_changed = None
     # Attribute is overwritten below the class definition
     protect_policy_activated = None
@@ -55852,6 +56252,8 @@ class EventTypeArg(bb.Union):
     paper_enabled_users_group_addition = None
     # Attribute is overwritten below the class definition
     paper_enabled_users_group_removal = None
+    # Attribute is overwritten below the class definition
+    paper_offline_mode_policy_changed = None
     # Attribute is overwritten below the class definition
     passkey_login_policy_changed = None
     # Attribute is overwritten below the class definition
@@ -58319,6 +58721,46 @@ class EventTypeArg(bb.Union):
         """
         return self._tag == "protect_action_stop_sharing"
 
+    def is_protect_custom_data_type_created(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_created``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_created"
+
+    def is_protect_custom_data_type_deleted(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_deleted``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_deleted"
+
+    def is_protect_custom_data_type_disabled(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_disabled``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_disabled"
+
+    def is_protect_custom_data_type_enabled(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_enabled``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_enabled"
+
+    def is_protect_custom_data_type_modified(self):
+        """
+        Check if the union tag is ``protect_custom_data_type_modified``.
+
+        :rtype: bool
+        """
+        return self._tag == "protect_custom_data_type_modified"
+
     def is_protect_internal_domains_changed(self):
         """
         Check if the union tag is ``protect_internal_domains_changed``.
@@ -60374,6 +60816,14 @@ class EventTypeArg(bb.Union):
         :rtype: bool
         """
         return self._tag == "paper_enabled_users_group_removal"
+
+    def is_paper_offline_mode_policy_changed(self):
+        """
+        Check if the union tag is ``paper_offline_mode_policy_changed``.
+
+        :rtype: bool
+        """
+        return self._tag == "paper_offline_mode_policy_changed"
 
     def is_passkey_login_policy_changed(self):
         """
@@ -78910,6 +79360,130 @@ class PaperMemberPolicy(bb.Union):
 PaperMemberPolicy_validator = bv.Union(PaperMemberPolicy)
 
 
+class PaperOfflineModePolicy(bb.Union):
+    """
+    Policy for controlling if team members can use Paper offline mode
+
+    This class acts as a tagged union. Only one of the ``is_*`` methods will
+    return true. To get the associated value of a tag (if one exists), use the
+    corresponding ``get_*`` method.
+    """
+
+    _catch_all = "other"
+    # Attribute is overwritten below the class definition
+    default = None
+    # Attribute is overwritten below the class definition
+    disabled = None
+    # Attribute is overwritten below the class definition
+    enabled = None
+    # Attribute is overwritten below the class definition
+    other = None
+
+    def is_default(self):
+        """
+        Check if the union tag is ``default``.
+
+        :rtype: bool
+        """
+        return self._tag == "default"
+
+    def is_disabled(self):
+        """
+        Check if the union tag is ``disabled``.
+
+        :rtype: bool
+        """
+        return self._tag == "disabled"
+
+    def is_enabled(self):
+        """
+        Check if the union tag is ``enabled``.
+
+        :rtype: bool
+        """
+        return self._tag == "enabled"
+
+    def is_other(self):
+        """
+        Check if the union tag is ``other``.
+
+        :rtype: bool
+        """
+        return self._tag == "other"
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(PaperOfflineModePolicy, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+PaperOfflineModePolicy_validator = bv.Union(PaperOfflineModePolicy)
+
+
+class PaperOfflineModePolicyChangedDetails(bb.Struct):
+    """
+    Enabled/disabled Paper offline mode for team.
+
+    :ivar PaperOfflineModePolicyChangedDetails.new_value:
+        New Paper offline mode policy.
+    :ivar PaperOfflineModePolicyChangedDetails.previous_value:
+        Previous Paper offline mode policy.
+    """
+
+    __slots__ = [
+        "_new_value_value",
+        "_previous_value_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, new_value=None, previous_value=None):
+        self._new_value_value = bb.NOT_SET
+        self._previous_value_value = bb.NOT_SET
+        if new_value is not None:
+            self.new_value = new_value
+        if previous_value is not None:
+            self.previous_value = previous_value
+
+    # Instance attribute type: PaperOfflineModePolicy (validator is set below)
+    new_value = bb.Attribute("new_value", user_defined=True)
+
+    # Instance attribute type: PaperOfflineModePolicy (validator is set below)
+    previous_value = bb.Attribute("previous_value", user_defined=True)
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(PaperOfflineModePolicyChangedDetails, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+PaperOfflineModePolicyChangedDetails_validator = bv.Struct(PaperOfflineModePolicyChangedDetails)
+
+
+class PaperOfflineModePolicyChangedType(bb.Struct):
+    __slots__ = [
+        "_description_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, description=None):
+        self._description_value = bb.NOT_SET
+        if description is not None:
+            self.description = description
+
+    # Instance attribute type: str (validator is set below)
+    description = bb.Attribute("description")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(PaperOfflineModePolicyChangedType, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+PaperOfflineModePolicyChangedType_validator = bv.Struct(PaperOfflineModePolicyChangedType)
+
+
 class PaperPublishedLinkChangePermissionDetails(bb.Struct):
     """
     Changed permissions for published doc.
@@ -80906,6 +81480,326 @@ class ProtectActionStopSharingType(bb.Struct):
 
 
 ProtectActionStopSharingType_validator = bv.Struct(ProtectActionStopSharingType)
+
+
+class ProtectCustomDataTypeCreatedDetails(bb.Struct):
+    """
+    Created a Dropbox Protect custom data type.
+
+    :ivar ProtectCustomDataTypeCreatedDetails.custom_data_type_id:
+        ID.
+    :ivar ProtectCustomDataTypeCreatedDetails.name:
+        Name.
+    """
+
+    __slots__ = [
+        "_custom_data_type_id_value",
+        "_name_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, custom_data_type_id=None, name=None):
+        self._custom_data_type_id_value = bb.NOT_SET
+        self._name_value = bb.NOT_SET
+        if custom_data_type_id is not None:
+            self.custom_data_type_id = custom_data_type_id
+        if name is not None:
+            self.name = name
+
+    # Instance attribute type: str (validator is set below)
+    custom_data_type_id = bb.Attribute("custom_data_type_id")
+
+    # Instance attribute type: str (validator is set below)
+    name = bb.Attribute("name")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeCreatedDetails, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeCreatedDetails_validator = bv.Struct(ProtectCustomDataTypeCreatedDetails)
+
+
+class ProtectCustomDataTypeCreatedType(bb.Struct):
+    __slots__ = [
+        "_description_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, description=None):
+        self._description_value = bb.NOT_SET
+        if description is not None:
+            self.description = description
+
+    # Instance attribute type: str (validator is set below)
+    description = bb.Attribute("description")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeCreatedType, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeCreatedType_validator = bv.Struct(ProtectCustomDataTypeCreatedType)
+
+
+class ProtectCustomDataTypeDeletedDetails(bb.Struct):
+    """
+    Deleted a Dropbox Protect custom data type.
+
+    :ivar ProtectCustomDataTypeDeletedDetails.custom_data_type_id:
+        ID.
+    :ivar ProtectCustomDataTypeDeletedDetails.name:
+        Name.
+    """
+
+    __slots__ = [
+        "_custom_data_type_id_value",
+        "_name_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, custom_data_type_id=None, name=None):
+        self._custom_data_type_id_value = bb.NOT_SET
+        self._name_value = bb.NOT_SET
+        if custom_data_type_id is not None:
+            self.custom_data_type_id = custom_data_type_id
+        if name is not None:
+            self.name = name
+
+    # Instance attribute type: str (validator is set below)
+    custom_data_type_id = bb.Attribute("custom_data_type_id")
+
+    # Instance attribute type: str (validator is set below)
+    name = bb.Attribute("name")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeDeletedDetails, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeDeletedDetails_validator = bv.Struct(ProtectCustomDataTypeDeletedDetails)
+
+
+class ProtectCustomDataTypeDeletedType(bb.Struct):
+    __slots__ = [
+        "_description_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, description=None):
+        self._description_value = bb.NOT_SET
+        if description is not None:
+            self.description = description
+
+    # Instance attribute type: str (validator is set below)
+    description = bb.Attribute("description")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeDeletedType, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeDeletedType_validator = bv.Struct(ProtectCustomDataTypeDeletedType)
+
+
+class ProtectCustomDataTypeDisabledDetails(bb.Struct):
+    """
+    Disabled a Dropbox Protect custom data type.
+
+    :ivar ProtectCustomDataTypeDisabledDetails.custom_data_type_id:
+        ID.
+    :ivar ProtectCustomDataTypeDisabledDetails.name:
+        Name.
+    """
+
+    __slots__ = [
+        "_custom_data_type_id_value",
+        "_name_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, custom_data_type_id=None, name=None):
+        self._custom_data_type_id_value = bb.NOT_SET
+        self._name_value = bb.NOT_SET
+        if custom_data_type_id is not None:
+            self.custom_data_type_id = custom_data_type_id
+        if name is not None:
+            self.name = name
+
+    # Instance attribute type: str (validator is set below)
+    custom_data_type_id = bb.Attribute("custom_data_type_id")
+
+    # Instance attribute type: str (validator is set below)
+    name = bb.Attribute("name")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeDisabledDetails, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeDisabledDetails_validator = bv.Struct(ProtectCustomDataTypeDisabledDetails)
+
+
+class ProtectCustomDataTypeDisabledType(bb.Struct):
+    __slots__ = [
+        "_description_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, description=None):
+        self._description_value = bb.NOT_SET
+        if description is not None:
+            self.description = description
+
+    # Instance attribute type: str (validator is set below)
+    description = bb.Attribute("description")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeDisabledType, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeDisabledType_validator = bv.Struct(ProtectCustomDataTypeDisabledType)
+
+
+class ProtectCustomDataTypeEnabledDetails(bb.Struct):
+    """
+    Enabled a Dropbox Protect custom data type.
+
+    :ivar ProtectCustomDataTypeEnabledDetails.custom_data_type_id:
+        ID.
+    :ivar ProtectCustomDataTypeEnabledDetails.name:
+        Name.
+    """
+
+    __slots__ = [
+        "_custom_data_type_id_value",
+        "_name_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, custom_data_type_id=None, name=None):
+        self._custom_data_type_id_value = bb.NOT_SET
+        self._name_value = bb.NOT_SET
+        if custom_data_type_id is not None:
+            self.custom_data_type_id = custom_data_type_id
+        if name is not None:
+            self.name = name
+
+    # Instance attribute type: str (validator is set below)
+    custom_data_type_id = bb.Attribute("custom_data_type_id")
+
+    # Instance attribute type: str (validator is set below)
+    name = bb.Attribute("name")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeEnabledDetails, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeEnabledDetails_validator = bv.Struct(ProtectCustomDataTypeEnabledDetails)
+
+
+class ProtectCustomDataTypeEnabledType(bb.Struct):
+    __slots__ = [
+        "_description_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, description=None):
+        self._description_value = bb.NOT_SET
+        if description is not None:
+            self.description = description
+
+    # Instance attribute type: str (validator is set below)
+    description = bb.Attribute("description")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeEnabledType, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeEnabledType_validator = bv.Struct(ProtectCustomDataTypeEnabledType)
+
+
+class ProtectCustomDataTypeModifiedDetails(bb.Struct):
+    """
+    Modified a Dropbox Protect custom data type.
+
+    :ivar ProtectCustomDataTypeModifiedDetails.custom_data_type_id:
+        ID.
+    :ivar ProtectCustomDataTypeModifiedDetails.name:
+        Name.
+    """
+
+    __slots__ = [
+        "_custom_data_type_id_value",
+        "_name_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, custom_data_type_id=None, name=None):
+        self._custom_data_type_id_value = bb.NOT_SET
+        self._name_value = bb.NOT_SET
+        if custom_data_type_id is not None:
+            self.custom_data_type_id = custom_data_type_id
+        if name is not None:
+            self.name = name
+
+    # Instance attribute type: str (validator is set below)
+    custom_data_type_id = bb.Attribute("custom_data_type_id")
+
+    # Instance attribute type: str (validator is set below)
+    name = bb.Attribute("name")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeModifiedDetails, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeModifiedDetails_validator = bv.Struct(ProtectCustomDataTypeModifiedDetails)
+
+
+class ProtectCustomDataTypeModifiedType(bb.Struct):
+    __slots__ = [
+        "_description_value",
+    ]
+
+    _has_required_fields = True
+
+    def __init__(self, description=None):
+        self._description_value = bb.NOT_SET
+        if description is not None:
+            self.description = description
+
+    # Instance attribute type: str (validator is set below)
+    description = bb.Attribute("description")
+
+    def _process_custom_annotations(self, annotation_type, field_path, processor):
+        super(ProtectCustomDataTypeModifiedType, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
+
+ProtectCustomDataTypeModifiedType_validator = bv.Struct(ProtectCustomDataTypeModifiedType)
 
 
 class ProtectInternalDomainsChangedDetails(bb.Struct):
@@ -104793,6 +105687,21 @@ EventDetails._protect_action_remove_link_details_validator = (
 EventDetails._protect_action_stop_sharing_details_validator = (
     ProtectActionStopSharingDetails_validator
 )
+EventDetails._protect_custom_data_type_created_details_validator = (
+    ProtectCustomDataTypeCreatedDetails_validator
+)
+EventDetails._protect_custom_data_type_deleted_details_validator = (
+    ProtectCustomDataTypeDeletedDetails_validator
+)
+EventDetails._protect_custom_data_type_disabled_details_validator = (
+    ProtectCustomDataTypeDisabledDetails_validator
+)
+EventDetails._protect_custom_data_type_enabled_details_validator = (
+    ProtectCustomDataTypeEnabledDetails_validator
+)
+EventDetails._protect_custom_data_type_modified_details_validator = (
+    ProtectCustomDataTypeModifiedDetails_validator
+)
 EventDetails._protect_internal_domains_changed_details_validator = (
     ProtectInternalDomainsChangedDetails_validator
 )
@@ -105368,6 +106277,9 @@ EventDetails._paper_enabled_users_group_addition_details_validator = (
 EventDetails._paper_enabled_users_group_removal_details_validator = (
     PaperEnabledUsersGroupRemovalDetails_validator
 )
+EventDetails._paper_offline_mode_policy_changed_details_validator = (
+    PaperOfflineModePolicyChangedDetails_validator
+)
 EventDetails._passkey_login_policy_changed_details_validator = (
     PasskeyLoginPolicyChangedDetails_validator
 )
@@ -105882,6 +106794,11 @@ EventDetails._tagmap = {
     "protect_action_remove_domains_details": EventDetails._protect_action_remove_domains_details_validator,
     "protect_action_remove_link_details": EventDetails._protect_action_remove_link_details_validator,
     "protect_action_stop_sharing_details": EventDetails._protect_action_stop_sharing_details_validator,
+    "protect_custom_data_type_created_details": EventDetails._protect_custom_data_type_created_details_validator,
+    "protect_custom_data_type_deleted_details": EventDetails._protect_custom_data_type_deleted_details_validator,
+    "protect_custom_data_type_disabled_details": EventDetails._protect_custom_data_type_disabled_details_validator,
+    "protect_custom_data_type_enabled_details": EventDetails._protect_custom_data_type_enabled_details_validator,
+    "protect_custom_data_type_modified_details": EventDetails._protect_custom_data_type_modified_details_validator,
     "protect_internal_domains_changed_details": EventDetails._protect_internal_domains_changed_details_validator,
     "protect_policy_activated_details": EventDetails._protect_policy_activated_details_validator,
     "protect_policy_deactivated_details": EventDetails._protect_policy_deactivated_details_validator,
@@ -106139,6 +107056,7 @@ EventDetails._tagmap = {
     "paper_desktop_policy_changed_details": EventDetails._paper_desktop_policy_changed_details_validator,
     "paper_enabled_users_group_addition_details": EventDetails._paper_enabled_users_group_addition_details_validator,
     "paper_enabled_users_group_removal_details": EventDetails._paper_enabled_users_group_removal_details_validator,
+    "paper_offline_mode_policy_changed_details": EventDetails._paper_offline_mode_policy_changed_details_validator,
     "passkey_login_policy_changed_details": EventDetails._passkey_login_policy_changed_details_validator,
     "password_strength_requirements_change_policy_details": EventDetails._password_strength_requirements_change_policy_details_validator,
     "permanent_delete_change_policy_details": EventDetails._permanent_delete_change_policy_details_validator,
@@ -106620,6 +107538,11 @@ EventType._protect_action_remove_collaborator_validator = (
 EventType._protect_action_remove_domains_validator = ProtectActionRemoveDomainsType_validator
 EventType._protect_action_remove_link_validator = ProtectActionRemoveLinkType_validator
 EventType._protect_action_stop_sharing_validator = ProtectActionStopSharingType_validator
+EventType._protect_custom_data_type_created_validator = ProtectCustomDataTypeCreatedType_validator
+EventType._protect_custom_data_type_deleted_validator = ProtectCustomDataTypeDeletedType_validator
+EventType._protect_custom_data_type_disabled_validator = ProtectCustomDataTypeDisabledType_validator
+EventType._protect_custom_data_type_enabled_validator = ProtectCustomDataTypeEnabledType_validator
+EventType._protect_custom_data_type_modified_validator = ProtectCustomDataTypeModifiedType_validator
 EventType._protect_internal_domains_changed_validator = ProtectInternalDomainsChangedType_validator
 EventType._protect_policy_activated_validator = ProtectPolicyActivatedType_validator
 EventType._protect_policy_deactivated_validator = ProtectPolicyDeactivatedType_validator
@@ -107017,6 +107940,7 @@ EventType._paper_enabled_users_group_addition_validator = (
     PaperEnabledUsersGroupAdditionType_validator
 )
 EventType._paper_enabled_users_group_removal_validator = PaperEnabledUsersGroupRemovalType_validator
+EventType._paper_offline_mode_policy_changed_validator = PaperOfflineModePolicyChangedType_validator
 EventType._passkey_login_policy_changed_validator = PasskeyLoginPolicyChangedType_validator
 EventType._password_strength_requirements_change_policy_validator = (
     PasswordStrengthRequirementsChangePolicyType_validator
@@ -107468,6 +108392,11 @@ EventType._tagmap = {
     "protect_action_remove_domains": EventType._protect_action_remove_domains_validator,
     "protect_action_remove_link": EventType._protect_action_remove_link_validator,
     "protect_action_stop_sharing": EventType._protect_action_stop_sharing_validator,
+    "protect_custom_data_type_created": EventType._protect_custom_data_type_created_validator,
+    "protect_custom_data_type_deleted": EventType._protect_custom_data_type_deleted_validator,
+    "protect_custom_data_type_disabled": EventType._protect_custom_data_type_disabled_validator,
+    "protect_custom_data_type_enabled": EventType._protect_custom_data_type_enabled_validator,
+    "protect_custom_data_type_modified": EventType._protect_custom_data_type_modified_validator,
     "protect_internal_domains_changed": EventType._protect_internal_domains_changed_validator,
     "protect_policy_activated": EventType._protect_policy_activated_validator,
     "protect_policy_deactivated": EventType._protect_policy_deactivated_validator,
@@ -107725,6 +108654,7 @@ EventType._tagmap = {
     "paper_desktop_policy_changed": EventType._paper_desktop_policy_changed_validator,
     "paper_enabled_users_group_addition": EventType._paper_enabled_users_group_addition_validator,
     "paper_enabled_users_group_removal": EventType._paper_enabled_users_group_removal_validator,
+    "paper_offline_mode_policy_changed": EventType._paper_offline_mode_policy_changed_validator,
     "passkey_login_policy_changed": EventType._passkey_login_policy_changed_validator,
     "password_strength_requirements_change_policy": EventType._password_strength_requirements_change_policy_validator,
     "permanent_delete_change_policy": EventType._permanent_delete_change_policy_validator,
@@ -108107,6 +109037,11 @@ EventTypeArg._protect_action_remove_collaborator_validator = bv.Void()
 EventTypeArg._protect_action_remove_domains_validator = bv.Void()
 EventTypeArg._protect_action_remove_link_validator = bv.Void()
 EventTypeArg._protect_action_stop_sharing_validator = bv.Void()
+EventTypeArg._protect_custom_data_type_created_validator = bv.Void()
+EventTypeArg._protect_custom_data_type_deleted_validator = bv.Void()
+EventTypeArg._protect_custom_data_type_disabled_validator = bv.Void()
+EventTypeArg._protect_custom_data_type_enabled_validator = bv.Void()
+EventTypeArg._protect_custom_data_type_modified_validator = bv.Void()
 EventTypeArg._protect_internal_domains_changed_validator = bv.Void()
 EventTypeArg._protect_policy_activated_validator = bv.Void()
 EventTypeArg._protect_policy_deactivated_validator = bv.Void()
@@ -108364,6 +109299,7 @@ EventTypeArg._paper_default_folder_policy_changed_validator = bv.Void()
 EventTypeArg._paper_desktop_policy_changed_validator = bv.Void()
 EventTypeArg._paper_enabled_users_group_addition_validator = bv.Void()
 EventTypeArg._paper_enabled_users_group_removal_validator = bv.Void()
+EventTypeArg._paper_offline_mode_policy_changed_validator = bv.Void()
 EventTypeArg._passkey_login_policy_changed_validator = bv.Void()
 EventTypeArg._password_strength_requirements_change_policy_validator = bv.Void()
 EventTypeArg._permanent_delete_change_policy_validator = bv.Void()
@@ -108743,6 +109679,11 @@ EventTypeArg._tagmap = {
     "protect_action_remove_domains": EventTypeArg._protect_action_remove_domains_validator,
     "protect_action_remove_link": EventTypeArg._protect_action_remove_link_validator,
     "protect_action_stop_sharing": EventTypeArg._protect_action_stop_sharing_validator,
+    "protect_custom_data_type_created": EventTypeArg._protect_custom_data_type_created_validator,
+    "protect_custom_data_type_deleted": EventTypeArg._protect_custom_data_type_deleted_validator,
+    "protect_custom_data_type_disabled": EventTypeArg._protect_custom_data_type_disabled_validator,
+    "protect_custom_data_type_enabled": EventTypeArg._protect_custom_data_type_enabled_validator,
+    "protect_custom_data_type_modified": EventTypeArg._protect_custom_data_type_modified_validator,
     "protect_internal_domains_changed": EventTypeArg._protect_internal_domains_changed_validator,
     "protect_policy_activated": EventTypeArg._protect_policy_activated_validator,
     "protect_policy_deactivated": EventTypeArg._protect_policy_deactivated_validator,
@@ -109000,6 +109941,7 @@ EventTypeArg._tagmap = {
     "paper_desktop_policy_changed": EventTypeArg._paper_desktop_policy_changed_validator,
     "paper_enabled_users_group_addition": EventTypeArg._paper_enabled_users_group_addition_validator,
     "paper_enabled_users_group_removal": EventTypeArg._paper_enabled_users_group_removal_validator,
+    "paper_offline_mode_policy_changed": EventTypeArg._paper_offline_mode_policy_changed_validator,
     "passkey_login_policy_changed": EventTypeArg._passkey_login_policy_changed_validator,
     "password_strength_requirements_change_policy": EventTypeArg._password_strength_requirements_change_policy_validator,
     "permanent_delete_change_policy": EventTypeArg._permanent_delete_change_policy_validator,
@@ -109458,6 +110400,11 @@ EventTypeArg.protect_action_remove_collaborator = EventTypeArg("protect_action_r
 EventTypeArg.protect_action_remove_domains = EventTypeArg("protect_action_remove_domains")
 EventTypeArg.protect_action_remove_link = EventTypeArg("protect_action_remove_link")
 EventTypeArg.protect_action_stop_sharing = EventTypeArg("protect_action_stop_sharing")
+EventTypeArg.protect_custom_data_type_created = EventTypeArg("protect_custom_data_type_created")
+EventTypeArg.protect_custom_data_type_deleted = EventTypeArg("protect_custom_data_type_deleted")
+EventTypeArg.protect_custom_data_type_disabled = EventTypeArg("protect_custom_data_type_disabled")
+EventTypeArg.protect_custom_data_type_enabled = EventTypeArg("protect_custom_data_type_enabled")
+EventTypeArg.protect_custom_data_type_modified = EventTypeArg("protect_custom_data_type_modified")
 EventTypeArg.protect_internal_domains_changed = EventTypeArg("protect_internal_domains_changed")
 EventTypeArg.protect_policy_activated = EventTypeArg("protect_policy_activated")
 EventTypeArg.protect_policy_deactivated = EventTypeArg("protect_policy_deactivated")
@@ -109835,6 +110782,7 @@ EventTypeArg.paper_default_folder_policy_changed = EventTypeArg(
 EventTypeArg.paper_desktop_policy_changed = EventTypeArg("paper_desktop_policy_changed")
 EventTypeArg.paper_enabled_users_group_addition = EventTypeArg("paper_enabled_users_group_addition")
 EventTypeArg.paper_enabled_users_group_removal = EventTypeArg("paper_enabled_users_group_removal")
+EventTypeArg.paper_offline_mode_policy_changed = EventTypeArg("paper_offline_mode_policy_changed")
 EventTypeArg.passkey_login_policy_changed = EventTypeArg("passkey_login_policy_changed")
 EventTypeArg.password_strength_requirements_change_policy = EventTypeArg(
     "password_strength_requirements_change_policy"
@@ -114714,6 +115662,41 @@ PaperMemberPolicy.only_team = PaperMemberPolicy("only_team")
 PaperMemberPolicy.team_and_explicitly_shared = PaperMemberPolicy("team_and_explicitly_shared")
 PaperMemberPolicy.other = PaperMemberPolicy("other")
 
+PaperOfflineModePolicy._default_validator = bv.Void()
+PaperOfflineModePolicy._disabled_validator = bv.Void()
+PaperOfflineModePolicy._enabled_validator = bv.Void()
+PaperOfflineModePolicy._other_validator = bv.Void()
+PaperOfflineModePolicy._tagmap = {
+    "default": PaperOfflineModePolicy._default_validator,
+    "disabled": PaperOfflineModePolicy._disabled_validator,
+    "enabled": PaperOfflineModePolicy._enabled_validator,
+    "other": PaperOfflineModePolicy._other_validator,
+}
+
+PaperOfflineModePolicy.default = PaperOfflineModePolicy("default")
+PaperOfflineModePolicy.disabled = PaperOfflineModePolicy("disabled")
+PaperOfflineModePolicy.enabled = PaperOfflineModePolicy("enabled")
+PaperOfflineModePolicy.other = PaperOfflineModePolicy("other")
+
+PaperOfflineModePolicyChangedDetails.new_value.validator = PaperOfflineModePolicy_validator
+PaperOfflineModePolicyChangedDetails.previous_value.validator = PaperOfflineModePolicy_validator
+PaperOfflineModePolicyChangedDetails._all_field_names_ = set(
+    [
+        "new_value",
+        "previous_value",
+    ]
+)
+PaperOfflineModePolicyChangedDetails._all_fields_ = [
+    ("new_value", PaperOfflineModePolicyChangedDetails.new_value.validator),
+    ("previous_value", PaperOfflineModePolicyChangedDetails.previous_value.validator),
+]
+
+PaperOfflineModePolicyChangedType.description.validator = bv.String()
+PaperOfflineModePolicyChangedType._all_field_names_ = set(["description"])
+PaperOfflineModePolicyChangedType._all_fields_ = [
+    ("description", PaperOfflineModePolicyChangedType.description.validator)
+]
+
 PaperPublishedLinkChangePermissionDetails.event_uuid.validator = bv.String()
 PaperPublishedLinkChangePermissionDetails.new_permission_level.validator = bv.String()
 PaperPublishedLinkChangePermissionDetails.previous_permission_level.validator = bv.String()
@@ -115210,6 +116193,101 @@ ProtectActionStopSharingType.description.validator = bv.String()
 ProtectActionStopSharingType._all_field_names_ = set(["description"])
 ProtectActionStopSharingType._all_fields_ = [
     ("description", ProtectActionStopSharingType.description.validator)
+]
+
+ProtectCustomDataTypeCreatedDetails.custom_data_type_id.validator = bv.String()
+ProtectCustomDataTypeCreatedDetails.name.validator = bv.String()
+ProtectCustomDataTypeCreatedDetails._all_field_names_ = set(
+    [
+        "custom_data_type_id",
+        "name",
+    ]
+)
+ProtectCustomDataTypeCreatedDetails._all_fields_ = [
+    ("custom_data_type_id", ProtectCustomDataTypeCreatedDetails.custom_data_type_id.validator),
+    ("name", ProtectCustomDataTypeCreatedDetails.name.validator),
+]
+
+ProtectCustomDataTypeCreatedType.description.validator = bv.String()
+ProtectCustomDataTypeCreatedType._all_field_names_ = set(["description"])
+ProtectCustomDataTypeCreatedType._all_fields_ = [
+    ("description", ProtectCustomDataTypeCreatedType.description.validator)
+]
+
+ProtectCustomDataTypeDeletedDetails.custom_data_type_id.validator = bv.String()
+ProtectCustomDataTypeDeletedDetails.name.validator = bv.String()
+ProtectCustomDataTypeDeletedDetails._all_field_names_ = set(
+    [
+        "custom_data_type_id",
+        "name",
+    ]
+)
+ProtectCustomDataTypeDeletedDetails._all_fields_ = [
+    ("custom_data_type_id", ProtectCustomDataTypeDeletedDetails.custom_data_type_id.validator),
+    ("name", ProtectCustomDataTypeDeletedDetails.name.validator),
+]
+
+ProtectCustomDataTypeDeletedType.description.validator = bv.String()
+ProtectCustomDataTypeDeletedType._all_field_names_ = set(["description"])
+ProtectCustomDataTypeDeletedType._all_fields_ = [
+    ("description", ProtectCustomDataTypeDeletedType.description.validator)
+]
+
+ProtectCustomDataTypeDisabledDetails.custom_data_type_id.validator = bv.String()
+ProtectCustomDataTypeDisabledDetails.name.validator = bv.String()
+ProtectCustomDataTypeDisabledDetails._all_field_names_ = set(
+    [
+        "custom_data_type_id",
+        "name",
+    ]
+)
+ProtectCustomDataTypeDisabledDetails._all_fields_ = [
+    ("custom_data_type_id", ProtectCustomDataTypeDisabledDetails.custom_data_type_id.validator),
+    ("name", ProtectCustomDataTypeDisabledDetails.name.validator),
+]
+
+ProtectCustomDataTypeDisabledType.description.validator = bv.String()
+ProtectCustomDataTypeDisabledType._all_field_names_ = set(["description"])
+ProtectCustomDataTypeDisabledType._all_fields_ = [
+    ("description", ProtectCustomDataTypeDisabledType.description.validator)
+]
+
+ProtectCustomDataTypeEnabledDetails.custom_data_type_id.validator = bv.String()
+ProtectCustomDataTypeEnabledDetails.name.validator = bv.String()
+ProtectCustomDataTypeEnabledDetails._all_field_names_ = set(
+    [
+        "custom_data_type_id",
+        "name",
+    ]
+)
+ProtectCustomDataTypeEnabledDetails._all_fields_ = [
+    ("custom_data_type_id", ProtectCustomDataTypeEnabledDetails.custom_data_type_id.validator),
+    ("name", ProtectCustomDataTypeEnabledDetails.name.validator),
+]
+
+ProtectCustomDataTypeEnabledType.description.validator = bv.String()
+ProtectCustomDataTypeEnabledType._all_field_names_ = set(["description"])
+ProtectCustomDataTypeEnabledType._all_fields_ = [
+    ("description", ProtectCustomDataTypeEnabledType.description.validator)
+]
+
+ProtectCustomDataTypeModifiedDetails.custom_data_type_id.validator = bv.String()
+ProtectCustomDataTypeModifiedDetails.name.validator = bv.String()
+ProtectCustomDataTypeModifiedDetails._all_field_names_ = set(
+    [
+        "custom_data_type_id",
+        "name",
+    ]
+)
+ProtectCustomDataTypeModifiedDetails._all_fields_ = [
+    ("custom_data_type_id", ProtectCustomDataTypeModifiedDetails.custom_data_type_id.validator),
+    ("name", ProtectCustomDataTypeModifiedDetails.name.validator),
+]
+
+ProtectCustomDataTypeModifiedType.description.validator = bv.String()
+ProtectCustomDataTypeModifiedType._all_field_names_ = set(["description"])
+ProtectCustomDataTypeModifiedType._all_fields_ = [
+    ("description", ProtectCustomDataTypeModifiedType.description.validator)
 ]
 
 ProtectInternalDomainsChangedDetails.domains_added.validator = bv.Nullable(bv.List(bv.String()))

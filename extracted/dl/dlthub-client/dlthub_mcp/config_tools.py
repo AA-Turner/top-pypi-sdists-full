@@ -1,10 +1,9 @@
 """Read-only tools over a workspace's variables and configuration files.
 
-Variable **values are never served**, secret or not. The agent's own file tools
-are denied credential files while this server inherits the credential
-environment, so serving a value here would route around that. These answer which
-variables exist and which files a configuration version holds — not what is in
-them.
+Secret values are never served: the agent's own file tools are denied
+credential files while this server inherits the credential environment, so
+serving one here would route around that. Plain variables and configuration file
+listings are served as the platform reports them.
 """
 
 from __future__ import annotations
@@ -25,19 +24,19 @@ from dlthub_sdk import FileEntry
 
 @dataclass(frozen=True)
 class VariableInfo:
-    """One variable's existence and shape. Carries no value by construction.
+    """One variable as the platform reports it.
 
     Attributes:
         name: The variable's name, unique within its scope.
-        secret: Whether the platform stores it as a secret. A plain variable's
-            value is withheld here too — the flag says how it is stored, not
-            whether it could have been read.
+        secret: Whether the platform stores it as a secret.
+        value: A plain variable's value, or ``None`` for a secret.
         updated_at: When it was last changed.
         updated_by: Who last changed it.
     """
 
     name: str
     secret: bool
+    value: str | None
     updated_at: datetime
     updated_by: str
 
@@ -88,15 +87,16 @@ class ConfigurationFiles:
 def dlthub_list_variables(
     profile: Optional[str] = None, workspace_scope: bool = False
 ) -> Annotated[tuple[VariableScopeInfo, ...], CONTEXT_READ]:
-    """Which variables this workspace defines, in which scope, VALUES WITHHELD.
+    """Which variables this workspace defines, in which scope, SECRETS WITHHELD.
 
     Reach for this to find out whether a job's configuration is even present —
     a run failing on a missing credential shows up here as a name that is not
-    set, in a scope you can name. It never returns a value, so it cannot tell
-    you whether one is *correct*, only whether it exists.
+    set, in a scope you can name. Plain values come back as stored; a secret's
+    never does, so for a secret it tells you only that it exists.
 
     A workspace has one scope per profile plus a workspace-level scope that
-    every profile inherits, so a name can be set in one and not another.
+    every profile inherits, so a name can be set in one and not another. Every
+    scope is readable whatever profile this run executes under.
 
     Args:
         profile: Limit to one profile's scope, by name. Omit for every scope.
@@ -105,11 +105,12 @@ def dlthub_list_variables(
 
     Returns:
         One entry per scope, each listing its variables' names, whether they
-        are stored as secrets, and when they last changed.
+        are stored as secrets, plain values, and when they last changed.
 
     Raises:
         Exception: A ``ToolError`` when the caller may not read this
-            workspace's variables.
+            workspace's variables — a workspace viewer or developer outside a
+            platform run.
     """
     if profile is not None:
         scopes = workspace().variables.list(profile=profile)
@@ -124,6 +125,7 @@ def dlthub_list_variables(
                 VariableInfo(
                     name=variable.name,
                     secret=variable.secret,
+                    value=None if variable.secret else variable.value,
                     updated_at=variable.updated_at,
                     updated_by=variable.updated_by,
                 )
@@ -167,7 +169,7 @@ def dlthub_get_configuration_files(
         id=configuration.id,
         profiles=configuration.profiles,
         file_count=configuration.file_count,
-        size=configuration.size,
+        size=configuration.size_bytes,
         content_hash=configuration.content_hash,
         created_at=configuration.created_at,
         created_by=configuration.created_by,

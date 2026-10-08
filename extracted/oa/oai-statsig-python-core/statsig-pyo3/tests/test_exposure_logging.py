@@ -6,6 +6,7 @@ from statsig_python_core import (
     BulkEvaluationOptions,
     Statsig,
     StatsigOptions,
+    StatsigRandomUserID,
     StatsigUser,
 )
 from mock_scrapi import MockScrapi, decode_log_event_request
@@ -141,6 +142,135 @@ def test_sdk_configs_attach_callsite_metadata_to_experiment_and_layer_exposures(
         layer_event,
         "test_sdk_configs_attach_callsite_metadata_to_experiment_and_layer_exposures",
     )
+
+
+@pytest.mark.parametrize("api", ["ordinary", "context", "anonymous"])
+def test_layer_callsite_opt_in_tracks_refreshes_and_current_parameter_caller(
+    statsig_setup, monkeypatch, api
+):
+    statsig, mock_scrapi = statsig_setup
+    if api == "ordinary":
+        layer = statsig.get_layer(StatsigUser("refresh-user"), "layer_with_many_params")
+    elif api == "context":
+        layer = statsig.get_layer_with_context(
+            None, "layer_with_many_params", "refresh-user"
+        )
+    else:
+        layer = statsig.get_layer_anonymous(
+            "layer_with_many_params", StatsigRandomUserID("refresh", 16)
+        )
+    metadata = []
+    log_exposure = statsig._INTERNAL_log_layer_param_exposure
+
+    def record_exposure(exposure, param, callsite):
+        metadata.append(callsite)
+        return log_exposure(exposure, param, callsite)
+
+    monkeypatch.setattr(statsig, "_INTERNAL_log_layer_param_exposure", record_exposure)
+    layer.get_object("an_object", {})
+    assert metadata[-1] is None
+
+    key = "expo_callsite_logging_layer::layer_with_many_params"
+    statsig._internal_sdk_configs = {key: 1}
+
+    def first_caller():
+        return layer.get_string("a_string", "ERR")
+
+    def second_caller():
+        return layer.get_string("a_string", "ERR")
+
+    assert first_caller() != "ERR"
+    assert second_caller() != "ERR"
+    assert metadata[-2]["exposure_source_function"].endswith("first_caller")
+    assert metadata[-1]["exposure_source_function"].endswith("second_caller")
+    assert metadata[-2]["exposure_source_line"] != metadata[-1]["exposure_source_line"]
+
+    statsig._internal_sdk_configs.clear()
+    layer.get_array("an_array", [])
+    assert metadata[-1] is None
+    statsig.flush_events().wait()
+    events = [
+        event
+        for event in mock_scrapi.get_logged_events()
+        if event["eventName"] == "statsig::layer_exposure"
+    ]
+    assert len(events) == 3
+    string_event = next(
+        event for event in events if event["metadata"]["parameterName"] == "a_string"
+    )
+    assert string_event["metadata"]["exposure_source_function"].endswith("first_caller")
+
+
+def test_layer_parameter_reads_honor_live_private_metadata_overrides(
+    statsig_setup, monkeypatch
+):
+    statsig, mock_scrapi = statsig_setup
+    layer = statsig.get_layer(StatsigUser("override-user"), "layer_with_many_params")
+    original_metadata = statsig._get_layer_exposure_metadata
+    override = {
+        "exposure_source_file": "private-layer.py",
+        "exposure_source_function": "layer_override",
+        "exposure_source_line": 42,
+    }
+    names = []
+
+    def layer_metadata(name):
+        names.append(name)
+        return override
+
+    monkeypatch.setattr(statsig, "_get_layer_exposure_metadata", layer_metadata)
+    assert layer.get_string("a_string", "ERR") != "ERR"
+    assert names == ["layer_with_many_params"]
+
+    monkeypatch.setattr(statsig, "_get_layer_exposure_metadata", original_metadata)
+    config_keys = []
+
+    def config_enabled(key):
+        config_keys.append(key)
+        return True
+
+    monkeypatch.setattr(statsig, "_sdk_config_enabled", config_enabled)
+    monkeypatch.setattr(
+        statsig,
+        "_get_exposure_callsite_metadata",
+        lambda: dict(override, exposure_source_function="config_override"),
+    )
+    assert layer.get_object("an_object", {}) != {}
+    assert config_keys == ["expo_callsite_logging_layer::layer_with_many_params"]
+    statsig.flush_events().wait()
+    events = {
+        event["metadata"]["parameterName"]: event["metadata"]
+        for event in mock_scrapi.get_logged_events()
+        if event["eventName"] == "statsig::layer_exposure"
+    }
+    assert len(events) == 2
+    assert events["a_string"]["exposure_source_function"] == "layer_override"
+    assert events["an_object"]["exposure_source_function"] == "config_override"
+
+
+def test_layer_callsite_config_errors_still_return_value_and_log_exposure(
+    statsig_setup, capsys
+):
+    statsig, mock_scrapi = statsig_setup
+    layer = statsig.get_layer(
+        StatsigUser("broken-config-user"), "layer_with_many_params"
+    )
+
+    class BrokenConfigs(dict):
+        def get(self, key):
+            raise RuntimeError("broken callsite config")
+
+    statsig._internal_sdk_configs = BrokenConfigs()
+    assert layer.get_string("a_string", "ERR") != "ERR"
+    statsig.flush_events().wait()
+    assert "broken callsite config" in capsys.readouterr().out
+    events = [
+        event
+        for event in mock_scrapi.get_logged_events()
+        if event["eventName"] == "statsig::layer_exposure"
+    ]
+    assert len(events) == 1
+    assert "exposure_source_file" not in events[0]["metadata"]
 
 
 def test_sdk_configs_attach_callsite_metadata_to_manual_exposures(

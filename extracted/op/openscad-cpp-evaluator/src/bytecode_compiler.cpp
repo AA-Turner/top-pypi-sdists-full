@@ -404,13 +404,14 @@ public:
             case NodeKind::BooleanLiteral:
                 out.push_back({Op::PushBool, static_cast<const oscad::BooleanLiteral&>(node).val ? 1 : 0, 0, nullptr});
                 return;
-            case NodeKind::StringLiteral:
-                out.push_back({Op::PushConst,
-                                internConst(Value{unescapeStringLiteral(
-                                    static_cast<const oscad::StringLiteral&>(node).val)}),
-                                0,
-                                nullptr});
+            case NodeKind::StringLiteral: {
+                const auto& lit = static_cast<const oscad::StringLiteral&>(node);
+                int undefinedEscapes = 0;
+                Value v{unescapeStringLiteral(lit.val, &undefinedEscapes)};
+                if (undefinedEscapes) chunk_.undefinedEscapeLiterals.emplace_back(&lit, undefinedEscapes);
+                out.push_back({Op::PushConst, internConst(std::move(v)), 0, nullptr});
                 return;
+            }
             case NodeKind::UndefinedLiteral:
                 out.push_back({Op::PushConst, internConst(Value{}), 0, nullptr});
                 return;
@@ -797,7 +798,7 @@ public:
                 for (size_t i = 0; i < n.assignments.size(); ++i) {
                     const auto& assign = n.assignments[i];
                     const std::string& name = assign->name->name;
-                    if (name.empty() || name[0] == '$') continue;
+                    if (name.empty() || name[0] == '$' || Evaluator::repeatsEarlierLetName(n.assignments, i)) continue;
                     if (auto candidates = collectLetrecCandidateLiterals(*assign->expr)) {
                         letrecSlot[i] = declareLocal(scope, name);
                         letrecCandidates[i] = std::move(*candidates);
@@ -860,7 +861,9 @@ public:
                             }
                         }
                     }
-                    if (!name.empty() && name[0] == '$') {
+                    if (Evaluator::repeatsEarlierLetName(n.assignments, i)) {
+                        out.push_back({Op::WarnDuplicateLet, internName(name), 0, &n.position()});
+                    } else if (!name.empty() && name[0] == '$') {
                         out.push_back({Op::StoreDyn, internName(name), 0, &assign->position()});
                     } else {
                         int slot = selfBinding ? preDeclaredSlot : declareLocal(scope, name);
@@ -910,37 +913,10 @@ public:
             }
 
             case NodeKind::AssertOp: {
+                // Only the condition unless it fails -- see Evaluator::evalAssert.
                 auto& n = static_cast<const oscad::AssertOp&>(node);
-                if (n.arguments.empty()) {
-                    // Mirrors evalAssertExpr's own `raw.empty() || ...`
-                    // short-circuit exactly: a zero-argument assert() is
-                    // unconditionally true, so the check can never fail --
-                    // skip it entirely rather than compiling a check that
-                    // can never trigger.
-                    compileExpr(*n.body, out, scope, tail);
-                    return;
-                }
-                compileExpr(*argExpr(*n.arguments[0]), out, scope); // condition, never tail
-                size_t jumpPassed = out.size();
-                out.push_back({Op::JumpIfTrue, 0, 0, nullptr});
-                const bool hasMessage = n.arguments.size() > 1;
-                // Lazily compiled: only reachable on the condition-false
-                // path (guarded by the JumpIfTrue above) -- mirrors
-                // evalAssertExpr's own lazy evaluation of the message
-                // argument exactly (only evaluated when the assertion
-                // actually fails). Slot resolution is unaffected by which
-                // runtime path reaches this code -- CompileScope is purely
-                // a compile-time name/index table, same as every other
-                // conditionally-executed branch this compiler already
-                // handles (Ternary, LogicalAnd/Or, ListCompIf).
-                if (hasMessage) compileExpr(*argExpr(*n.arguments[1]), out, scope); // message, never tail
-                // Precomputed ONCE at compile time (cheaper than the
-                // interpreter, which recomputes this on every failing
-                // call) -- toString() is a pure, ctx-free AST-to-text
-                // operation.
-                int condTextIdx = internConst(Value{argExpr(*n.arguments[0])->toString()});
-                out.push_back({Op::AssertFail, hasMessage ? 1 : 0, condTextIdx, &n.position(), &n});
-                out[jumpPassed].a = static_cast<int>(out.size());
+                compileAssert(n.arguments, n, nullptr, out,
+                              [&](const oscad::Expression& e) { compileExpr(e, out, scope); }); // never tail
                 compileExpr(*n.body, out, scope, tail);
                 return;
             }
@@ -1202,10 +1178,13 @@ public:
                 size_t placeholderIdx = out.size();
                 out.push_back({Op::OpenLocalScope, 0, 0, nullptr});
                 int slotStart = nextSlot_;
-                for (const auto& assign : n.assignments) {
+                for (size_t i = 0; i < n.assignments.size(); ++i) {
+                    const auto& assign = n.assignments[i];
                     compileExpr(*assign->expr, out, scope);
                     const std::string& name = assign->name->name;
-                    if (!name.empty() && name[0] == '$') {
+                    if (Evaluator::repeatsEarlierLetName(n.assignments, i)) {
+                        out.push_back({Op::WarnDuplicateLet, internName(name), 0, &n.position()});
+                    } else if (!name.empty() && name[0] == '$') {
                         out.push_back({Op::StoreDyn, internName(name), 0, &assign->position()});
                     } else {
                         int slot = declareLocal(scope, name);
@@ -1327,6 +1306,40 @@ public:
         out.push_back({Op::CloseExprScope, 0, 0, nullptr});
     }
 
+    // assert(), either form, mirroring Evaluator::evalAssert:
+    //     <condition> JumpIfFalse fail [AssertPass] Jump end
+    //   fail: <every other argument, source order> AssertFail
+    //   end:
+    // AssertPass only when there is something for it to do; with no
+    // condition at all, straight to the failure path.
+    template <typename CompileArg>
+    void compileAssert(const std::vector<std::unique_ptr<oscad::Argument>>& arguments, const oscad::ASTNode& node,
+                       const oscad::ModularAssert* statement, std::vector<Instruction>& out, CompileArg compileArg) {
+        CompiledChunk::AssertSite site;
+        site.layout = assertLayout(arguments);
+        site.node = &node;
+        site.statement = statement;
+        site.arguments = &arguments;
+        const int siteIdx = static_cast<int>(chunk_.assertSites.size());
+        chunk_.assertSites.push_back(site);
+        const int cond = site.layout.cond;
+        std::optional<size_t> jumpEnd;
+        if (cond >= 0) {
+            compileArg(*argExpr(*arguments[static_cast<size_t>(cond)]));
+            const size_t jumpFail = out.size();
+            out.push_back({Op::JumpIfFalse, 0, 0, nullptr});
+            if (site.layout.warns || (statement && !statement->children.empty()))
+                out.push_back({Op::AssertPass, siteIdx, 0, &node.position()});
+            jumpEnd = out.size();
+            out.push_back({Op::Jump, 0, 0, nullptr});
+            out[jumpFail].a = static_cast<int>(out.size());
+        }
+        for (size_t i = 0; i < arguments.size(); ++i)
+            if (static_cast<int>(i) != cond) compileArg(*argExpr(*arguments[i]));
+        out.push_back({Op::AssertFail, siteIdx, 0, &node.position()});
+        if (jumpEnd) out[*jumpEnd].a = static_cast<int>(out.size());
+    }
+
     // Shared by ModularCall's Transform/Color-kind branch and the 3 real
     // modifier cases (ModularModifierHighlight/Background/ShowOnly),
     // below -- emits one Op::PushBuiltinWrap/PopBuiltinWrap bracket around
@@ -1404,42 +1417,7 @@ public:
         // geometry pass then reads from, so it cannot be bracketed per-pass.
         out.push_back({Op::OpenLetScope, 0, 0, nullptr});
 
-        std::vector<const oscad::ASTNode*> assignNodes;
-        std::vector<const oscad::ASTNode*> geoNodes;
-        for (const auto& c : call.children) {
-            if (c->kind() == oscad::NodeKind::Assignment) {
-                assignNodes.push_back(c.get());
-            } else if (c->kind() != oscad::NodeKind::ModuleDeclaration &&
-                       c->kind() != oscad::NodeKind::FunctionDeclaration) {
-                geoNodes.push_back(c.get());
-            }
-        }
-        compileStatementList(assignNodes, out);
-        for (const oscad::ASTNode* geoNode : geoNodes) {
-            // A separating children() forward contributes a runtime-decided
-            // NUMBER of groups, so it cannot be bracketed at compile time.
-            if (Evaluator::isSeparatingChildrenCall(*geoNode)) {
-                out.push_back({Op::CsgGroupChildren, internNativeStatement(geoNode), 0, &geoNode->position()});
-                continue;
-            }
-            out.push_back({Op::CsgGroupStart, 0, 0, nullptr});
-            compileStatementList(std::vector<const oscad::ASTNode*>{geoNode}, out);
-            // `a` = whether a group that turns out EMPTY is still an
-            // operand: a module instantiation or a loop builds a node
-            // whatever it contains, an `if`/block/`*` does not. Mirrors
-            // resolveCsg's own "empty_is_a_group" (booleans.cpp), where the
-            // full reasoning and the OpenSCAD checks live.
-            const oscad::NodeKind k = geoNode->kind();
-            const int emptyIsAGroup = (
-                                       k == oscad::NodeKind::ModularCall ||
-                                       k == oscad::NodeKind::ModularFor ||
-                                       k == oscad::NodeKind::ModularIntersectionFor ||
-                                       k == oscad::NodeKind::ModularLet ||
-                                       k == oscad::NodeKind::ModularModifierShowOnly ||
-                                       k == oscad::NodeKind::ModularModifierHighlight ||
-                                       k == oscad::NodeKind::ModularModifierBackground) ? 1 : 0;
-            out.push_back({Op::CsgGroupEnd, emptyIsAGroup, 0, nullptr});
-        }
+        emitOperandGroups(call.children, out);
         out.push_back({Op::CloseExprScope, 0, 0, nullptr});
         out.push_back({Op::PopCsgWrap, idx, 0, &call.position()});
     }
@@ -1474,6 +1452,41 @@ public:
     // fallback, so neither does this) -- but CsgGroupStart/CsgGroupEnd
     // themselves are UNCONDITIONAL, since native measures a (possibly
     // zero-size) group regardless of body emptiness.
+    // One CsgGroupStart/End bracket per child statement -- one boolean
+    // operand each -- after the block's assignments. Shared by the boolean
+    // modules and intersection_for, mirroring resolveCsg/
+    // resolveIntersectionFor.
+    template <typename Stmts>
+    void emitOperandGroups(const Stmts& stmts, std::vector<Instruction>& out) {
+        std::vector<const oscad::ASTNode*> assignNodes;
+        std::vector<const oscad::ASTNode*> geoNodes;
+        for (const auto& c : stmts) {
+            if (c->kind() == oscad::NodeKind::Assignment) {
+                assignNodes.push_back(c.get());
+            } else if (c->kind() != oscad::NodeKind::ModuleDeclaration &&
+                       c->kind() != oscad::NodeKind::FunctionDeclaration) {
+                geoNodes.push_back(c.get());
+            }
+        }
+        compileStatementList(assignNodes, out);
+        for (const oscad::ASTNode* geoNode : geoNodes) {
+            // A separating children() forward contributes a runtime-decided
+            // NUMBER of groups, so it cannot be bracketed at compile time.
+            if (Evaluator::isSeparatingChildrenCall(*geoNode)) {
+                out.push_back({Op::CsgGroupChildren, internNativeStatement(geoNode), 0, &geoNode->position()});
+                continue;
+            }
+            out.push_back({Op::CsgGroupStart, 0, 0, nullptr});
+            compileStatementList(std::vector<const oscad::ASTNode*>{geoNode}, out);
+            // `a` = whether a group that turns out EMPTY is still an
+            // operand. See emptyStatementIsAnOperand (booleans.cpp).
+            // and bit 2 = it is a `%` statement, never an operand at all.
+            const int flags = (emptyStatementIsAnOperand(*geoNode) ? 1 : 0) |
+                              (geoNode->kind() == oscad::NodeKind::ModularModifierBackground ? 2 : 0);
+            out.push_back({Op::CsgGroupEnd, flags, 0, nullptr});
+        }
+    }
+
     void compileIntersectionForLoop(const oscad::ModularIntersectionFor& n, std::vector<Instruction>& out) {
         out.push_back({Op::CheckDebugStatement, internNativeStatement(&n), 0, nullptr});
         CompiledChunk::CsgWrapSite site;
@@ -1488,12 +1501,13 @@ public:
         const size_t numDims = n.assignments.size();
         std::function<void(size_t)> emitDim = [&](size_t d) {
             if (d == numDims) {
+                if (d == 0) return; // for() with no loop variables iterates zero times in OpenSCAD, not once.
                 if (!n.body.empty()) {
                     out.push_back({Op::NativeCheckDebugExprLevel, internNativeStatement(n.body.front().get()), 0, nullptr});
                 }
-                out.push_back({Op::CsgGroupStart, 0, 0, nullptr});
-                compileStatementList(n.body, out);
-                out.push_back({Op::CsgGroupEnd, 0, 0, nullptr});
+                // One operand per child statement, intersected flat, as
+                // OpenSCAD does -- see resolveIntersectionFor.
+                emitOperandGroups(n.body, out);
                 return;
             }
             const int iterListId = nextIterList_++;
@@ -1557,7 +1571,7 @@ public:
                 return;
             // Assignment/ModularEcho/ModularAssert: real bytecode instead
             // of Op::NativeStatement -- a throughput improvement (see
-            // CheckDebugStatement/StoreModuleVar/AssertStatement's own doc
+            // CheckDebugStatement/StoreModuleVar/AssertPass+AssertFail's own doc
             // comments, bytecode.hpp), NOT a recursion-safety one (these
             // were never the risk Stage 2 targeted -- see NativeStatement's
             // own doc comment). Assignment specifically closes a real
@@ -1612,53 +1626,12 @@ public:
                 return;
             }
             case NodeKind::ModularAssert: {
-                // Genuinely different contract from AssertOp's own compiled
-                // form (Op::AssertFail): the statement form supports named
-                // arguments AND evaluates every argument EAGERLY (mirrors
-                // Evaluator::evalAssertStatement's own resolveArgs() call
-                // exactly -- unlike AssertOp's lazily-compiled message,
-                // guarded by a runtime JumpIfTrue), so every argument is
-                // compiled+pushed here unconditionally, in source order.
+                // Like AssertOp's compiled form, plus chained children.
                 auto& n = static_cast<const oscad::ModularAssert&>(stmt);
                 out.push_back({Op::CheckDebugStatement, internNativeStatement(&stmt), 0, nullptr});
-                CompiledChunk::AssertSite site;
-                site.node = &n;
-                site.argCount = static_cast<int>(n.arguments.size());
                 CompileScope exprScope;
-                for (size_t i = 0; i < n.arguments.size(); ++i) {
-                    compileIsolatedExpr(*argExpr(*n.arguments[i]), out, exprScope);
-                    if (n.arguments[i]->kind() == NodeKind::NamedArgument) {
-                        auto& na = static_cast<const oscad::NamedArgument&>(*n.arguments[i]);
-                        if (na.name->name == "condition") site.conditionArgIndex = static_cast<int>(i);
-                        else if (na.name->name == "message") site.messageArgIndex = static_cast<int>(i);
-                    }
-                }
-                // Second pass: positional 0/1 fill whichever logical
-                // parameter a named arg didn't already claim -- run AFTER
-                // the named pass above (not interleaved) so a named arg
-                // wins regardless of its position relative to its
-                // positional counterpart in source, matching
-                // Evaluator::getArg's own "named first" priority exactly.
-                int posCounter = 0;
-                for (size_t i = 0; i < n.arguments.size(); ++i) {
-                    if (n.arguments[i]->kind() == NodeKind::NamedArgument) continue;
-                    if (posCounter == 0 && !site.conditionArgIndex) site.conditionArgIndex = static_cast<int>(i);
-                    else if (posCounter == 1 && !site.messageArgIndex) site.messageArgIndex = static_cast<int>(i);
-                    ++posCounter;
-                }
-                // Precomputed once, like AssertFail's own condText --
-                // mirrors evalAssertStatement's `node.arguments.empty() ?
-                // "false" : argExpr(*node.arguments[0])->toString()`
-                // exactly (a MISSING condition arg -- e.g. a bare
-                // `assert(message="x");` -- reads the same as an EMPTY
-                // arg list here: no arg supplies "condition" either way).
-                site.condTextConstIdx = internConst(Value{
-                    site.conditionArgIndex
-                        ? argExpr(*n.arguments[static_cast<size_t>(*site.conditionArgIndex)])->toString()
-                        : std::string("false")});
-                int siteIdx = static_cast<int>(chunk_.assertSites.size());
-                chunk_.assertSites.push_back(std::move(site));
-                out.push_back({Op::AssertStatement, siteIdx, 0, &n.position()});
+                compileAssert(n.arguments, n, &n, out,
+                              [&](const oscad::Expression& e) { compileIsolatedExpr(e, out, exprScope); });
                 return;
             }
             case NodeKind::ModularLet: {
@@ -1683,10 +1656,14 @@ public:
                 auto& n = static_cast<const oscad::ModularLet&>(stmt);
                 CompileScope exprScope;
                 out.push_back({Op::OpenLetScope, 0, 0, nullptr});
-                for (const auto& assign : n.assignments) {
+                for (size_t i = 0; i < n.assignments.size(); ++i) {
+                    const auto& assign = n.assignments[i];
                     out.push_back({Op::CheckDebugStatement, internNativeStatement(assign.get()), 0, nullptr});
                     compileIsolatedExpr(*assign->expr, out, exprScope);
-                    out.push_back({Op::StoreLetVar, internName(assign->name->name), 0, &assign->position()});
+                    if (Evaluator::repeatsEarlierLetName(n.assignments, i))
+                        out.push_back({Op::WarnDuplicateLet, internName(assign->name->name), 0, &n.position()});
+                    else
+                        out.push_back({Op::StoreLetVar, internName(assign->name->name), 0, &assign->position()});
                 }
                 compileStatementList(n.children, out);
                 out.push_back({Op::CloseExprScope, 0, 0, nullptr});
@@ -1897,6 +1874,7 @@ public:
         const size_t numDims = n.assignments.size();
         std::function<void(size_t)> emitDim = [&](size_t d) {
             if (d == numDims) {
+                if (d == 0) return; // for() with no loop variables iterates zero times in OpenSCAD, not once.
                 const oscad::ASTNode* marker = n.body.empty() ? static_cast<const oscad::ASTNode*>(&n) : n.body.front().get();
                 out.push_back({Op::NativeCheckDebugExprLevel, internNativeStatement(marker), 0, nullptr});
                 compileStatementList(n.body, out);

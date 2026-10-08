@@ -136,10 +136,10 @@ class DealCloudData(DealCloudSchema):
                 if len(views) == 0:
                     raise AttributeError(f"no views found by the name: {view_id}")
                 view_id = views[0].get("id")
-                if include_nulls:
-                    self._logger.warning(
-                        "cannot include all null fields for a view as multiple objects can contribute to the view."
-                    )
+            if include_nulls:
+                self._logger.warning(
+                    "cannot include all null fields for a view as multiple objects can contribute to the view."
+                )
                 include_nulls = False
         parse_output_argument(output)
         if output != "pandas" and resolve:

@@ -6,8 +6,8 @@ use serde_json::Value;
 
 use crate::evaluation::cmab_evaluator::evaluate_cmab;
 use crate::evaluation::comparisons::{
-    compare_arrays, compare_numbers, compare_str_with_regex, compare_strings_in_array,
-    compare_time, compare_versions,
+    compare_arrays, compare_case_sensitive_strings_in_array, compare_numbers,
+    compare_str_with_regex, compare_strings_in_array, compare_time, compare_versions,
 };
 use crate::evaluation::dynamic_returnable::DynamicReturnable;
 use crate::evaluation::dynamic_string::DynamicString;
@@ -614,10 +614,9 @@ fn evaluate_condition<'a>(
         | ConditionOperator::StrStartsWithAny
         | ConditionOperator::StrEndsWithAny
         | ConditionOperator::StrContainsAny
-        | ConditionOperator::StrContainsNone
-        | ConditionOperator::AnyCaseSensitive
-        | ConditionOperator::NoneCaseSensitive) => {
-            compare_strings_in_array(value, target_value, op)
+        | ConditionOperator::StrContainsNone) => compare_strings_in_array(value, target_value, op),
+        op @ (ConditionOperator::AnyCaseSensitive | ConditionOperator::NoneCaseSensitive) => {
+            compare_case_sensitive_strings_in_array(value, target_value, op)
         }
         ConditionOperator::StrMatches => compare_str_with_regex(value, target_value),
 

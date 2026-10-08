@@ -14,25 +14,35 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
+from __future__ import annotations
+
+from typing import Any
+
 from .ipmitool import Ipmitool
 from .aardvark import Aardvark
+from .base import Interface
 from .ipmbdev import IpmbDev
+from .ipmidev import IpmiDev
 from .mock import Mock
+from .openipmblink import OpenIpmbLink
 from .rmcp import Rmcp
+from .rmcpplus import RmcpPlus
 
-INTERFACES = [
+INTERFACES: list[type[Interface]] = [
     Ipmitool,
     Aardvark,
     IpmbDev,
+    IpmiDev,
     Mock,
     Rmcp,
+    RmcpPlus,
+    OpenIpmbLink,
 ]
 
 
-def create_interface(interface, *args, **kwargs):
+def create_interface(interface: str, *args: Any, **kwargs: Any) -> Any:
     for intf in INTERFACES:
         if intf.NAME == interface:
-            intf = intf(*args, **kwargs)
-            return intf
+            return intf(*args, **kwargs)
 
     raise RuntimeError('unknown interface with name %s' % interface)

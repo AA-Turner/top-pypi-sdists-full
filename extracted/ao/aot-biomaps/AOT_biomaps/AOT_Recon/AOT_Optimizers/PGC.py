@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 PGC.py
 
@@ -7,7 +9,6 @@ Single unified function that works with any SMatrix type (CSR, SELL, DENSE) and 
 
 Supports spatial potential functions: QUADRATIC, HUBER, RELATIVE_DIFFERENCE
 """
-import contextlib
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
@@ -24,6 +25,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 # =====================================================================
@@ -197,4 +199,4 @@ def PGC(
                 saved_indices_list.append(it)
 
         final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
-        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)
+        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else ([final_result], [it + 1], cost_history)

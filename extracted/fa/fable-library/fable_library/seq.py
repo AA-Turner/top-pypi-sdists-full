@@ -32,6 +32,7 @@ from .array_ import try_find_index_back as try_find_index_back_1
 from .array_ import windowed as windowed_1
 from .bases import DisposableBase, EnumerableBase, EnumeratorBase, StringableBase
 from .core import int32
+from .exception_bases import ExceptionBase
 from .exceptions import to_string
 from .fsharp_core import Operators_NullArgCheck
 from .global_ import IGenericAdder_1, IGenericAverager_1, SR_indexOutOfBounds
@@ -46,7 +47,6 @@ from .protocols import IComparer_1, IDisposable, IEnumerable, IEnumerable_1, IEn
 from .record import Record
 from .reflection import TypeInfo, bool_type, class_type, option_type, record_type
 from .system import InvalidOperationException__ctor_Z721C83C5, NotSupportedException__ctor_Z721C83C5
-from .types import ExceptionBase
 from .util import (
     UNIT,
     Disposable,

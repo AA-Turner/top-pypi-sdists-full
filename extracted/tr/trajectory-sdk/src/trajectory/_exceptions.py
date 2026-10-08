@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-import httpx
+import httpx2
 
 
 class TrajectoryError(Exception):
@@ -18,10 +18,10 @@ class APIError(TrajectoryError):
   doc_url: str | None
   message: str
   param: str | None
-  request: httpx.Request
+  request: httpx2.Request
   type: str | None
 
-  def __init__(self, message: str, request: httpx.Request, body: object | None = None) -> None:
+  def __init__(self, message: str, request: httpx2.Request, body: object | None = None) -> None:
     super().__init__(message)
     self.body = body
     self.request = request
@@ -49,12 +49,12 @@ def _get_optional_dict(value: Any) -> dict[str, Any] | None:
 
 
 class APIConnectionError(APIError):
-  def __init__(self, request: httpx.Request, message: str = "Connection error.") -> None:
+  def __init__(self, request: httpx2.Request, message: str = "Connection error.") -> None:
     super().__init__(message, request)
 
 
 class APITimeoutError(APIConnectionError):
-  def __init__(self, request: httpx.Request) -> None:
+  def __init__(self, request: httpx2.Request) -> None:
     super().__init__(
       request,
       "Request timed out or interrupted. This could be due to a network timeout, "
@@ -65,7 +65,7 @@ class APITimeoutError(APIConnectionError):
 class APIResponseValidationError(APIError):
   request_id: str | None
 
-  def __init__(self, response: httpx.Response, body: object | None) -> None:
+  def __init__(self, response: httpx2.Response, body: object | None) -> None:
     message = (
       f"Data returned by API did not match the expected schema "
       f"(status {response.status_code}, request ID {response.headers.get('x-request-id')!r})."
@@ -80,10 +80,10 @@ class APIStatusError(APIError):
   """Raised when an API response has a status code of 4xx or 5xx."""
 
   request_id: str | None
-  response: httpx.Response
+  response: httpx2.Response
   status_code: int
 
-  def __init__(self, response: httpx.Response, body: object | None) -> None:
+  def __init__(self, response: httpx2.Response, body: object | None) -> None:
     message = f"Error code: {response.status_code}"
     if body is not None:
       message = f"{message} - {body}"

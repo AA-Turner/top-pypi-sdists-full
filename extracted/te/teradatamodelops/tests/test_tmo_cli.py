@@ -548,8 +548,9 @@ def test_set_cwd_updates_global_paths(tmp_path):
     assert tmo_cli.base_path == str(test_dir.resolve())
     assert tmo_cli.model_catalog == str(test_dir.resolve()) + "/model_definitions/"
     assert (
-        tmo_cli.fe_tasks_catalog
-        == str(test_dir.resolve()) + "/feature_engineering_tasks/"
+        tmo_cli.fe_tasks_catalog == str(
+            test_dir.resolve()
+        ) + "/feature_engineering_tasks/"
     )
 
 

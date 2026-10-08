@@ -14,6 +14,9 @@ class WorkflowExecutionCreateRequest(BaseModel):
     file_name: str | None = Field(
         None, description="File name associated with the workflow execution"
     )
+    file_names: list[str] | None = Field(
+        None, description="File references provided as inputs to the workflow run"
+    )
     conversation_id: str | None = Field(
         None, description="Conversation ID for workflow chat mode"
     )

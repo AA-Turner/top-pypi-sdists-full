@@ -1,16 +1,20 @@
+import base64
 import io
 import re
 from pathlib import Path
+from typing import NamedTuple
 from unittest import TestCase
 from xml.dom import minidom
 
 from pypdf import PdfReader
 from pypdf.generic import ArrayObject
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from xhtml2pdf import pisa, tags
 from xhtml2pdf.context import pisaContext
+from xhtml2pdf.document import pisaStory
 from xhtml2pdf.parser import AttrContainer, pisaGetAttributes
-from xhtml2pdf.xhtml2pdf_reportlab import tocNotifyKind
+from xhtml2pdf.xhtml2pdf_reportlab import PmlTableOfContents, tocNotifyKind
 
 
 class PisaTagTestCase(TestCase):
@@ -34,6 +38,39 @@ class PisaTagOLTestCase(TestCase):
         instance.start(context)
         self.assertEqual(instance.node, element)
         self.assertEqual(context.listCounter, 9)
+
+
+class ListMarkerFaceTestCase(TestCase):
+    """
+    A list's number is drawn by the first family of the list that has it.
+
+    The marker took the first family alone, so with a face that has no digits
+    first -- a Hebrew subset, or ZapfDingbats here -- "1." came out blank or
+    as dingbats, with no warning, while the item's text fell back as CSS says.
+    """
+
+    @staticmethod
+    def marker_run(family: str) -> str:
+        dest = io.BytesIO()
+        pisa.CreatePDF(
+            f'<ol style="font-family: {family}"><li>uno</li></ol>', dest=dest
+        )
+        page = PdfReader(io.BytesIO(dest.getvalue())).pages[0]
+        fonts = {
+            str(name): str(font.get_object()["/BaseFont"])
+            for name, font in page["/Resources"]["/Font"].items()
+        }
+        stream = page.get_contents().get_data().decode("latin-1")
+        name, text = re.findall(r"(/F\d+) [\d.]+ Tf[^()]*\(([^)]*)\) Tj", stream)[0]
+        return f"{fonts[name]} {text}"
+
+    def test_the_number_falls_back_with_the_text(self) -> None:
+        self.assertEqual("/Helvetica 1.", self.marker_run("ZapfDingbats, Helvetica"))
+
+    def test_a_number_no_family_can_draw_is_announced(self) -> None:
+        with self.assertLogs("xhtml2pdf", level="WARNING") as logged:
+            self.marker_run("ZapfDingbats")
+        self.assertTrue(any("'1' (U+0031)" in line for line in logged.output))
 
 
 class BadInputKeepsTheDocumentTestCase(TestCase):
@@ -114,6 +151,203 @@ class BadInputKeepsTheDocumentTestCase(TestCase):
         self.assert_warns_and_converts(
             "<p>a</p><pdf:spacer/><p>b</p>", "Ignoring <pdf:spacer> with no height"
         )
+
+
+class CorruptImageTestCase(TestCase):
+    """
+    An image that cannot be decoded is left out, not the whole document.
+
+    Its header is all that is read until it is drawn, so a truncated PNG got
+    through and then raised from inside ReportLab's drawImage, ending the
+    conversion -- as an <img>, a list marker, a background or a page
+    background alike.
+    """
+
+    PNG = (Path(__file__).parent / "samples" / "img" / "denker.png").read_bytes()
+
+    def assert_left_out(self, html: str) -> None:
+        uri = (
+            "data:image/png;base64,"
+            + base64.b64encode(self.PNG[: len(self.PNG) // 2]).decode()
+        )
+        dest = io.BytesIO()
+        with self.assertLogs("xhtml2pdf", level="WARNING") as logged:
+            result = pisa.pisaDocument(
+                io.StringIO(f"<html><body>{html.format(uri=uri)}</body></html>"), dest
+            )
+        self.assertEqual(0, result.err)
+        self.assertIn(
+            "after", PdfReader(io.BytesIO(dest.getvalue())).pages[0].extract_text()
+        )
+        self.assertTrue(
+            any("decode" in line or "background" in line for line in logged.output),
+            logged.output,
+        )
+
+    def test_an_img(self) -> None:
+        self.assert_left_out('<img src="{uri}"><p>after</p>')
+
+    def test_a_list_marker(self) -> None:
+        self.assert_left_out(
+            "<ul style=\"list-style-image: url('{uri}')\"><li>after</li></ul>"
+        )
+
+    def test_a_background(self) -> None:
+        self.assert_left_out("<p style=\"background-image: url('{uri}')\">after</p>")
+
+    def test_a_page_background(self) -> None:
+        self.assert_left_out(
+            "<style>@page {{ background-image: url('{uri}') }}</style><p>after</p>"
+        )
+
+
+class ChartParametersTestCase(TestCase):
+    """
+    What a chart's JSON declares reaches the drawing as a value it can use.
+
+    barWidth and barSpacing were read as strings, which the bar chart then
+    added to numbers: the conversion ended in a TypeError. fontName had to be
+    the face ReportLab registered ("noto sans_00"), not the family the
+    stylesheet names; and a line chart's strokeColor was read as an int, so
+    any colour was dropped without a word.
+    """
+
+    FONT = (
+        Path(__file__).parent
+        / "samples"
+        / "font"
+        / "Noto_Sans"
+        / "NotoSans-Regular.ttf"
+    )
+
+    def convert(self, chart: str, head: str = "") -> bytes:
+        dest = io.BytesIO()
+        html = (
+            f"<html><head>{head}</head><body>"
+            f'<canvas type="graph" width="300" height="200">{chart}</canvas>'
+            "</body></html>"
+        )
+        result = pisa.pisaDocument(io.StringIO(html), dest)
+        self.assertEqual(0, result.err)
+        return dest.getvalue()
+
+    @staticmethod
+    def fonts(pdf: bytes) -> set[str]:
+        page = PdfReader(io.BytesIO(pdf)).pages[0]
+        return {
+            str(font.get_object()["/BaseFont"])
+            for font in page["/Resources"]["/Font"].values()
+        }
+
+    def test_bar_lengths_are_numbers(self) -> None:
+        for key in ("barWidth", "barSpacing"):
+            with self.subTest(key):
+                self.convert(
+                    f'{{"type": "verticalbar", "data": [[1, 2, 3]], "{key}": 10}}'
+                )
+
+    def test_a_line_colour_is_kept(self) -> None:
+        pdf = self.convert(
+            '{"type": "horizontalline", "data": [[1, 2, 3]],'
+            ' "strokeColor": "#ff00ff"}'
+        )
+        stream = PdfReader(io.BytesIO(pdf)).pages[0].get_contents().get_data()
+        self.assertIn(b"1 0 1 RG", stream)
+
+    def test_a_font_is_named_by_its_family(self) -> None:
+        face = f'<style>@font-face {{ font-family: "Noto Sans"; src: url("{self.FONT}") }}</style>'
+        pdf = self.convert(
+            '{"type": "verticalbar", "data": [[1, 2]], "labels": ["a", "b"],'
+            ' "categoryAxis": {"labels": {"fontName": "Noto Sans"}}}',
+            head=face,
+        )
+        self.assertTrue(any("NotoSans" in name for name in self.fonts(pdf)))
+
+    def test_a_base_14_face_is_left_alone(self) -> None:
+        pdf = self.convert(
+            '{"type": "verticalbar", "data": [[1, 2]], "labels": ["a", "b"],'
+            ' "categoryAxis": {"labels": {"fontName": "Helvetica-Bold"}}}'
+        )
+        self.assertIn("/Helvetica-Bold", self.fonts(pdf))
+
+    def axis_labels(self, chart: str) -> list[str]:
+        text = PdfReader(io.BytesIO(self.convert(chart))).pages[0].extract_text()
+        return text.split()
+
+    def test_the_value_axis_starts_where_it_is_told(self) -> None:
+        """The axis began at the smallest value, 40: valueAxis was not read."""
+        for kind in ("verticalbar", "horizontalline"):
+            with self.subTest(kind):
+                labels = self.axis_labels(
+                    f'{{"type": "{kind}", "data": [[40, 45, 50]],'
+                    ' "labels": ["a", "b", "c"],'
+                    ' "valueAxis": {"valueMin": 0, "valueMax": 60, "valueStep": 20}}'
+                )
+                self.assertEqual(["0", "20", "40", "60"], labels[3:])
+
+    def test_the_value_axis_can_be_forced_to_zero(self) -> None:
+        labels = self.axis_labels(
+            '{"type": "verticalbar", "data": [[40, 45, 50]],'
+            ' "labels": ["a", "b", "c"], "valueAxis": {"forceZero": true}}'
+        )
+        self.assertEqual("0", labels[3])
+
+    def test_the_value_axis_grid_and_label_format(self) -> None:
+        pdf = self.convert(
+            '{"type": "verticalbar", "data": [[40, 50]], "labels": ["a", "b"],'
+            ' "valueAxis": {"visibleGrid": true, "gridStrokeColor": "#ff00ff",'
+            ' "labelTextFormat": "%d%%"}}'
+        )
+        page = PdfReader(io.BytesIO(pdf)).pages[0]
+        self.assertIn(b"1 0 1 RG", page.get_contents().get_data())
+        self.assertIn("50%", page.extract_text())
+
+    LEGEND = '"legend": {"x": 230, "y": 150}'
+
+    def test_a_bar_chart_has_a_legend_per_series(self) -> None:
+        """The legend of a bar or line chart was always empty."""
+        for kind in ("verticalbar", "horizontalline"):
+            with self.subTest(kind):
+                labels = self.axis_labels(
+                    f'{{"type": "{kind}", "data": [[1, 2], [3, 4]],'
+                    f' "labels": ["a", "b"], {self.LEGEND},'
+                    ' "seriesNames": ["North", "South"]}'
+                )
+                self.assertEqual(["North", "South"], labels[:2])
+
+    def test_a_series_without_a_name_is_numbered(self) -> None:
+        labels = self.axis_labels(
+            '{"type": "verticalbar", "data": [[1, 2], [3, 4]],'
+            f' "labels": ["a", "b"], {self.LEGEND}}}'
+        )
+        self.assertEqual(["Series", "1", "Series", "2"], labels[:4])
+
+    def test_the_authors_legend_is_kept(self) -> None:
+        """ColorNamePairs from the JSON was emptied and refilled."""
+        pdf = self.convert(
+            '{"type": "verticalbar", "data": [[1, 2]], "labels": ["a", "b"],'
+            ' "legend": {"x": 230, "y": 150,'
+            ' "colorNamePairs": [["#ff00ff", "Mine"]]}}'
+        )
+        page = PdfReader(io.BytesIO(pdf)).pages[0]
+        self.assertEqual("Mine", page.extract_text().split()[0])
+        self.assertIn(b"1 0 1 rg", page.get_contents().get_data())
+
+    def test_a_fourth_series_has_a_colour_of_its_own(self) -> None:
+        """Three series styles, picked modulo three: the fourth was red again."""
+        pdf = self.convert(
+            '{"type": "verticalbar", "data": [[1], [2], [3], [4]], "labels": ["a"],'
+            ' "seriesColors": ["#ff0000", "#00ff00", "#0000ff", "#ff00ff"]}'
+        )
+        stream = PdfReader(io.BytesIO(pdf)).pages[0].get_contents().get_data()
+        self.assertIn(b"1 0 1 rg", stream)
+
+    def test_a_pie_legend_is_unchanged(self) -> None:
+        labels = self.axis_labels(
+            '{"type": "pie", "data": [[1, 2, 3]], "labels": ["a", "b", "c"],'
+            f" {self.LEGEND}}}"
+        )
+        self.assertEqual(["a", "1", "b", "2", "c", "3"], labels[:6])
 
 
 class SelfClosingTocTestCase(TestCase):
@@ -368,27 +602,81 @@ class FormFieldTestCase(TestCase):
         )
 
 
-def toc_chunks(html: str, page: int = 0) -> list[tuple[float, str]]:
+class TocRun(NamedTuple):
+    """One run of text drawn on a page: where, at what size, what."""
+
+    x: float
+    y: float
+    size: float
+    text: str
+
+
+def toc_runs(html: str, page: int = 0) -> list[TocRun]:
     """
-    ``(x, text)`` for every chunk drawn on ``page``, left to right, top down.
+    Every run of text drawn on ``page``, left to right, top down.
 
     A table of contents is judged by where things land, not only by what the
     text says: whether the page number reaches the margin and whether a fill
     covers the gap are both positions, and extracted text alone shows neither.
+    The size tells a page number drawn properly from one shrunk to fit.
     """
     dest = io.BytesIO()
     result = pisa.pisaDocument(io.StringIO(html), dest)
     assert result.err == 0
-    out: list[tuple[float, float, str]] = []
+    out: list[TocRun] = []
 
     def visit(text, cm, tm, font_dict, font_size) -> None:  # noqa: ARG001
         if text and text.strip():
-            out.append((round(tm[4] * cm[0], 1), round(tm[5], 1), text.strip()))
+            out.append(
+                TocRun(
+                    round(tm[4] * cm[0], 1),
+                    round(tm[5] * cm[3] + cm[5], 1),
+                    round(font_size * tm[0], 2),
+                    text.strip(),
+                )
+            )
 
     dest.seek(0)
     reader = PdfReader(dest)
     reader.pages[page].extract_text(visitor_text=visit)
-    return [(x, text) for x, _, text in sorted(out, key=lambda c: (-c[1], c[0]))]
+    return sorted(out, key=lambda run: (-run.y, run.x))
+
+
+def toc_chunks(html: str, page: int = 0) -> list[tuple[float, str]]:
+    """``(x, text)`` for every chunk drawn on ``page``; see toc_runs."""
+    return [(run.x, run.text) for run in toc_runs(html, page)]
+
+
+def title_filling_the_line(html: str, word: str, filler: str) -> str:
+    """
+    A title for the index ``html`` lays out (``html % title``) that fits on
+    one line by itself but leaves less room than its page number takes: the
+    case where the number used to be shrunk to fit (#664).
+
+    The line's width is read off a one-word entry, from where its text
+    starts to where its number ends. The title is built out of ``word``, then
+    of ``filler``, a narrow word that lands it close to the edge.
+    """
+    (toc,) = [
+        flowable
+        for flowable in pisaStory(html % word).story
+        if isinstance(flowable, PmlTableOfContents)
+    ]
+    style = toc.levelStyles[0]
+
+    def width(text: str) -> float:
+        return stringWidth(text, style.fontName, style.fontSize)
+
+    runs = toc_runs(html % word)
+    line = max(run.x + width(run.text) for run in runs) - min(run.x for run in runs)
+
+    title = word
+    while width(f"{title} {word}") < line - 4 * width(word):
+        title = f"{title} {word}"
+    while width(f"{title} {filler}") <= line:
+        title = f"{title} {filler}"
+    assert line - width(title) < width("1"), (line, width(title))
+    return title
 
 
 class TocLeaderTestCase(TestCase):
@@ -512,6 +800,42 @@ class TocLeaderTestCase(TestCase):
         # the fill separates them; the number is never glued to the title
         self.assertNotIn(title + "1", joined)
         self.assertIn("..", joined)
+
+    LONG = (
+        '<html><body><div style="page-break-after:always"><pdf:toc leader="dots"/>'
+        "</div><h1>%s</h1></body></html>"
+    )
+
+    def assertNumberOnTheLastLine(self, runs: list[TocRun]) -> None:
+        """The number at the level's size, on the last line, after a fill."""
+        (number,) = [run for run in runs if run.text.endswith("2")]
+        lines = sorted({run.y for run in runs}, reverse=True)
+        self.assertEqual(2, len(lines), runs)
+        self.assertEqual(lines[-1], number.y, runs)
+        self.assertEqual(max(run.size for run in runs), number.size, runs)
+        self.assertIn("..", number.text)
+
+    def test_a_title_filling_its_last_line_keeps_a_full_size_number(self) -> None:
+        """
+        A title that fit the line by itself left the number no room, and
+        ReportLab shrank it in 10% steps to under a point (#664). Its last
+        word goes to a line of its own instead, with the number after it.
+        """
+        title = title_filling_the_line(self.LONG, "heading", "i")
+
+        self.assertNumberOnTheLastLine(toc_runs(self.LONG % title))
+
+    def test_a_title_ending_in_a_space_keeps_its_number_full_size(self) -> None:
+        """The marker sticks to the last word, not to a space after it."""
+        title = title_filling_the_line(self.LONG, "heading", "i")
+
+        self.assertNumberOnTheLastLine(toc_runs(self.LONG % f"{title} "))
+
+    def test_a_short_title_is_unchanged(self) -> None:
+        runs = toc_runs(self.LONG % "Short")
+
+        self.assertEqual(1, len({run.y for run in runs}), runs)
+        self.assertEqual(1, len({run.size for run in runs}), runs)
 
     def test_the_page_number_links_to_its_heading(self) -> None:
         """
@@ -707,6 +1031,48 @@ class TocWithoutEntriesTestCase(TestCase):
         self.assertIn("One", text)
 
 
+class TocFromContainersTestCase(TestCase):
+    """
+    A heading inside a table cell is an entry of the index.
+
+    Its outline entry was made as it was drawn, but the index heard only of
+    what the frame placed -- the table -- so the heading was in the PDF's
+    outline and missing from <pdf:toc>. A cell's content is also wrapped in
+    a keep-in-frame, which hid it the same way.
+    """
+
+    def index(self, body: str) -> str:
+        dest = io.BytesIO()
+        result = pisa.pisaDocument(
+            io.StringIO(f"<html><body><pdf:toc /><pdf:nextpage />{body}</body></html>"),
+            dest,
+        )
+        self.assertEqual(0, result.err)
+        dest.seek(0)
+        return PdfReader(dest).pages[0].extract_text()
+
+    def test_a_heading_in_a_cell(self) -> None:
+        index = self.index(
+            "<h2>Outside</h2><table><tr><td><h2>Inside</h2></td></tr></table>"
+        )
+        self.assertIn("Outside", index)
+        self.assertIn("Inside", index)
+
+    def test_a_repeated_header_row_is_one_entry(self) -> None:
+        rows = "".join(f"<tr><td>row {i}</td></tr>" for i in range(80))
+        index = self.index(
+            '<table repeat="1"><thead><tr><th><h3>Header</h3></th></tr></thead>'
+            f"{rows}</table>"
+        )
+        self.assertEqual(1, index.count("Header"))
+
+    def test_a_heading_in_a_keep_in_frame_block(self) -> None:
+        index = self.index(
+            '<div style="-pdf-keep-in-frame-mode: shrink"><h2>Kept</h2><p>x</p></div>'
+        )
+        self.assertIn("Kept", index)
+
+
 class TocLevelStylesTestCase(TestCase):
     """
     addTOC reads the .pdftoclevelN styles by rewriting the class of the
@@ -787,3 +1153,199 @@ class ImageBorderRadiusTestCase(TestCase):
 
     def test_an_image_without_a_radius_has_no_clip(self) -> None:
         self.assertIsNone(re.search(r" W\*? n", self._page("")))
+
+
+class LinkTargetTestCase(TestCase):
+    """<a href="#x"> reaches any element with id="x" (#615)."""
+
+    @staticmethod
+    def links(html: str) -> tuple[list[int], PdfReader]:
+        out = io.BytesIO()
+        pisa.CreatePDF(html, dest=out)
+        reader = PdfReader(io.BytesIO(out.getvalue()))
+        targets = []
+        for annot in reader.pages[0].get("/Annots", []):
+            dest = annot.get_object().get("/Dest")
+            if dest is not None:
+                targets.append(reader.get_page_number(dest[0].get_object()))
+        return targets, reader
+
+    def test_a_heading_id_is_a_destination(self) -> None:
+        targets, _reader = self.links(
+            '<p><a href="#intro">intro</a></p><pdf:nextpage/><h2 id="intro">Intro</h2>'
+        )
+        self.assertEqual([1], targets)
+
+    def test_ids_on_block_and_cell(self) -> None:
+        targets, _reader = self.links(
+            '<p><a href="#d">div</a> <a href="#c">cell</a></p><pdf:nextpage/>'
+            '<div id="d">div</div><pdf:nextpage/><table><tr><td id="c">cell</td></tr></table>'
+        )
+        self.assertEqual([1, 2], targets)
+
+    def test_a_name_still_works(self) -> None:
+        targets, _reader = self.links(
+            '<p><a href="#n">n</a></p><pdf:nextpage/><a name="n"></a><p>x</p>'
+        )
+        self.assertEqual([1], targets)
+
+    def test_a_link_to_nothing_is_dropped(self) -> None:
+        targets, _reader = self.links(
+            '<p><a href="#missing">x</a></p><p id="other">y</p>'
+        )
+        self.assertEqual([], targets)
+
+
+class RelativeLinkTestCase(TestCase):
+    """<a href="other.pdf"> links to that file (#660); it used to be no link."""
+
+    @staticmethod
+    def actions(html: str) -> list[dict]:
+        out = io.BytesIO()
+        pisa.CreatePDF(html, dest=out)
+        page = PdfReader(io.BytesIO(out.getvalue())).pages[0]
+        return [
+            {k: v for k, v in annot.get_object()["/A"].items() if k != "/D"}
+            for annot in page.get("/Annots", [])
+            if "/A" in annot.get_object()
+        ]
+
+    def test_a_pdf_is_opened(self) -> None:
+        self.assertEqual(
+            [{"/Type": "/Action", "/S": "/GoToR", "/F": "my file.pdf"}],
+            self.actions('<p><a href="my%20file.pdf">x</a></p>'),
+        )
+
+    def test_anything_else_is_a_uri(self) -> None:
+        for href in ("page.html", "docs/a.pdf#page=2", "../up.txt"):
+            with self.subTest(href=href):
+                self.assertEqual(
+                    [{"/Type": "/Action", "/S": "/URI", "/URI": href}],
+                    self.actions(f'<p><a href="{href}">x</a></p>'),
+                )
+
+    def test_on_an_image(self) -> None:
+        image = Path(__file__).parent / "samples" / "img" / "denker.png"
+        (action,) = self.actions(
+            f'<p><a href="b.pdf"><img src="{image}" width="20" height="20"></a></p>'
+        )
+        self.assertEqual("/GoToR", action["/S"])
+
+    def test_javascript_is_not_a_link(self) -> None:
+        self.assertEqual(
+            [], self.actions('<p><a href=" JavaScript:alert(1)">x</a></p>')
+        )
+
+
+class ImageLinkTestCase(TestCase):
+    """<a href><img></a> is a link over the image (#491)."""
+
+    IMAGE = Path(__file__).parent / "samples" / "img" / "denker.png"
+
+    def annotations(self, html: str) -> list:
+        out = io.BytesIO()
+        pisa.CreatePDF(html.replace("IMG", str(self.IMAGE)), dest=out)
+        page = PdfReader(io.BytesIO(out.getvalue())).pages[0]
+        return [annot.get_object() for annot in page.get("/Annots", [])]
+
+    def test_the_link_covers_the_image(self) -> None:
+        (annot,) = self.annotations(
+            '<p>x <a href="https://example.com/"><img src="IMG" width="40" height="80"></a></p>'
+        )
+        self.assertEqual("https://example.com/", annot["/A"]["/URI"])
+        x1, y1, x2, y2 = (float(v) for v in annot["/Rect"])
+        # 40x80 px is 30x60 pt.
+        self.assertAlmostEqual(30, x2 - x1, places=0)
+        self.assertAlmostEqual(60, y2 - y1, places=0)
+
+    def test_an_internal_link_on_an_image(self) -> None:
+        (annot,) = self.annotations(
+            '<p><a href="#end"><img src="IMG" width="20" height="20"></a></p>'
+            '<pdf:nextpage/><p id="end">end</p>'
+        )
+        self.assertIn("/Dest", annot)
+
+    def test_a_link_to_nothing_on_an_image_is_dropped(self) -> None:
+        self.assertEqual(
+            [],
+            self.annotations(
+                '<p><a href="#missing"><img src="IMG" width="20" height="20"></a></p>'
+            ),
+        )
+
+
+class RightToLeftTocTestCase(TestCase):
+    """
+    A right-to-left table of contents (#664): its page numbers were measured
+    from the end of a title set flush right, found no room, shrank below a
+    point and landed on the title's last letter; its levels were indented
+    from the left, which a right-aligned line does not show.
+    """
+
+    FONT = Path(__file__).parent / "samples" / "font" / "Arabic_font"
+    HTML = (
+        "<html><head><style>@font-face {{ font-family: A; src: url({font}) }}"
+        " body {{ font-family: A }}</style></head>"
+        '<body dir="{dir}"><div style="page-break-after:always">'
+        '<pdf:toc leader="dots"/></div>'
+        "<h1>{h1}</h1><h2>{h2}</h2></body></html>"
+    )
+
+    def render(self, direction: str) -> list[tuple[float, str]]:
+        h1, h2 = ("مقدمة", "الفصل") if direction == "rtl" else ("One", "Sub")
+        return toc_chunks(
+            self.HTML.format(
+                font=self.FONT / "MarkaziText-Regular.ttf", dir=direction, h1=h1, h2=h2
+            )
+        )
+
+    @staticmethod
+    def numbers(chunks: list[tuple[float, str]]) -> list[tuple[float, str]]:
+        return [(x, text) for x, text in chunks if text[0].isdigit()]
+
+    def test_the_page_numbers_are_on_the_left(self) -> None:
+        numbers = self.numbers(self.render("rtl"))
+        self.assertEqual(2, len(numbers), self.render("rtl"))
+        for x, text in numbers:
+            # The left margin, with the fill running on from the number.
+            self.assertLess(x, 40, numbers)
+            self.assertIn(".", text)
+
+    def test_left_to_right_is_unchanged(self) -> None:
+        chunks = self.render("ltr")
+        self.assertEqual([], self.numbers(chunks))
+        self.assertEqual(2, sum(text[-1].isdigit() for _, text in chunks), chunks)
+
+    def test_a_long_right_to_left_title_keeps_a_full_size_number(self) -> None:
+        """
+        The number of a title filling its last line shrank on the left just
+        as it did on the right; the last word moves down to leave it room.
+        """
+        html = self.HTML.format(
+            font=self.FONT / "MarkaziText-Regular.ttf", dir="rtl", h1="%s", h2="b"
+        ).replace("<h2>b</h2>", "")
+        title = title_filling_the_line(
+            html, "مقدمة", "\u0627"
+        )  # alef, the narrowest letter
+
+        runs = toc_runs(html % title)
+        (number,) = [run for run in runs if run.text[0].isdigit()]
+        lines = sorted({run.y for run in runs}, reverse=True)
+        self.assertEqual(2, len(lines), runs)
+        self.assertEqual(lines[-1], number.y, runs)
+        self.assertEqual(max(run.size for run in runs), number.size, runs)
+        self.assertLess(number.x, 40, runs)
+
+    def test_levels_are_indented_from_the_right(self) -> None:
+        html = self.HTML.format(
+            font=self.FONT / "MarkaziText-Regular.ttf", dir="rtl", h1="a", h2="b"
+        )
+        (toc,) = [
+            flowable
+            for flowable in pisaStory(html).story
+            if isinstance(flowable, PmlTableOfContents)
+        ]
+        level0, level1 = toc.levelStyles[:2]
+        self.assertTrue(level1.tocRTL)
+        self.assertEqual(0, level1.leftIndent)
+        self.assertGreater(level1.rightIndent, level0.rightIndent)

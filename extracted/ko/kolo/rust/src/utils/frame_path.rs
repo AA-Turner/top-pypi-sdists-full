@@ -1,11 +1,24 @@
 use hashbrown::HashMap;
-use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::MutexExt;
 use pyo3::types::{PyAny, PyFrame};
+use pyo3::{ffi, intern};
 use std::env::current_dir;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
+
+pub(super) fn frame_line_number(frame: &Bound<'_, PyFrame>) -> Result<usize, PyErr> {
+    let lineno = unsafe { ffi::PyFrame_GetLineNumber(frame.as_ptr().cast()) };
+    if lineno >= 0 {
+        return Ok(lineno as usize);
+    }
+
+    // CPython returns -1 when a frame has no current source line. Keep the
+    // existing `f_lineno` extraction behavior for that uncommon case.
+    frame
+        .getattr(intern!(frame.py(), "f_lineno"))?
+        .extract::<usize>()
+}
 
 /// Session-scoped cache for paths relative to the directory tracing started in.
 ///
@@ -51,7 +64,7 @@ impl FramePathCache {
                 }
             }
         };
-        let lineno = frame.getattr(intern!(py, "f_lineno"))?.extract::<usize>()?;
+        let lineno = frame_line_number(frame)?;
         Ok((
             format!("{}:{}", relative_path, lineno),
             code_id,

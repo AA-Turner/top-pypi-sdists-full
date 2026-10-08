@@ -35,6 +35,15 @@ PRICES: dict[str, tuple[float, float, float, float]] = {
     "claude-opus-5-5": (4.00, 0.20, 5.00, 20.00),
     "claude-sonnet-5": (2.00, 0.20, 2.50, 10.00),
     "claude-opus-5": (5.00, 0.50, 6.25, 25.00),
+    # gpt-6.1-sol up to 272K prompt tokens; LONG_CONTEXT below has the rest.
+    "gpt-6.1-sol": (2.00, 0.10, 2.50, 10.00),
+    "claude-haiku-4-5": (1.00, 0.10, 1.25, 5.00),
+    # Anthropic pricing page, 2026-10-07. Haiku 5.5 up to 100K prompt tokens;
+    # LONG_CONTEXT (where the tier lives) has the rest once it is on main.
+    "claude-sonnet-5-5": (2.00, 0.20, 2.50, 10.00),
+    "claude-haiku-5-5": (0.10, 0.01, 0.125, 0.50),
+    "gpt-6-luna": (0.10, 0.01, 0.10, 0.50),
+    "gpt-5.6-terra": (2.00, 0.20, 2.00, 12.00),
 }
 
 
@@ -55,6 +64,17 @@ def price_key(model: str | None) -> str | None:
                key=len, default=None)
 
 
+#: Models billed at other rates once a prompt passes a size: (the size, the
+#: prices from there). Every token of such a request is billed at them, as
+#: OpenAI does and as the proxy's `*_above_272k_tokens` fields meter it (#2451):
+#: the size counts the whole prompt, cached and written tokens included.
+LONG_CONTEXT: dict[str, tuple[int, tuple[float, float, float, float]]] = {
+    "gpt-6.1-sol": (272_000, (4.00, 0.20, 5.00, 15.00)),
+    # Anthropic pricing page, 2026-10-07: Haiku 5.5 prompts over 100K tokens.
+    "claude-haiku-5-5": (100_000, (0.50, 0.05, 0.625, 2.50)),
+}
+
+
 def cost(model: str | None, *, input_tokens: int, cache_read_tokens: int = 0, cache_write_tokens: int = 0,
          output_tokens: int = 0) -> float | None:
     """Estimated dollars of one response, or None when the model's price is unknown.
@@ -64,6 +84,9 @@ def cost(model: str | None, *, input_tokens: int, cache_read_tokens: int = 0, ca
     if key is None:
         return None
     p_in, p_read, p_write, p_out = PRICES[key]
+    long = LONG_CONTEXT.get(key)
+    if long is not None and int(input_tokens) > long[0]:
+        p_in, p_read, p_write, p_out = long[1]
     uncached = max(0, int(input_tokens) - int(cache_read_tokens) - int(cache_write_tokens))
     return (uncached * p_in + int(cache_read_tokens) * p_read + int(cache_write_tokens) * p_write
             + int(output_tokens) * p_out) / 1_000_000

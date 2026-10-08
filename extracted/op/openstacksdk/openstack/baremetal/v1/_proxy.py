@@ -31,6 +31,7 @@ from openstack.baremetal.v1 import runbooks as _runbooks
 from openstack.baremetal.v1 import volume_connector as _volumeconnector
 from openstack.baremetal.v1 import volume_target as _volumetarget
 from openstack import exceptions
+from openstack import fields as _fields
 from openstack import proxy
 from openstack import resource
 from openstack import utils
@@ -76,14 +77,19 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(resource_type, value)
         err_msg = f"No {resource_type.__name__} found for {value}"
         if fields:
+            field_mapping = {
+                key: val.name
+                for key, val in resource_type.__dict__.items()
+                if isinstance(val, _fields.Body)
+            }
             return res.fetch(
                 self,
                 error_message=err_msg,
-                fields=_common.fields_type(fields, resource_type),
+                fields=','.join(field_mapping.get(x, x) for x in fields),
             )
         return res.fetch(self, error_message=err_msg)
 
-    # ========== Chassis ==========
+    # ====== Chassis ======
 
     def chassis(
         self,
@@ -177,7 +183,7 @@ class Proxy(proxy.Proxy):
         warnings.warn(
             "The 'find_chassis' method is deprecated; use 'get_chassis' "
             "instead.",
-            os_warnings.RemovedInSDK60Warning,
+            os_warnings.RemovedInSDK50Warning,
         )
 
         return self._find(
@@ -251,7 +257,7 @@ class Proxy(proxy.Proxy):
             _chassis.Chassis, chassis, ignore_missing=ignore_missing
         )
 
-    # ========== Drivers ==========
+    # ====== Drivers ======
 
     def drivers(
         self,
@@ -321,7 +327,7 @@ class Proxy(proxy.Proxy):
             self, verb, method, body
         )
 
-    # ========== Nodes ==========
+    # ====== Nodes ======
 
     def nodes(
         self,
@@ -895,7 +901,7 @@ class Proxy(proxy.Proxy):
         """
         return self._delete(_node.Node, node, ignore_missing=ignore_missing)
 
-    # ========== Node actions ==========
+    # ====== Node Actions ======
 
     def add_node_trait(self, node: str | _node.Node, trait: str) -> None:
         """Add a trait to a node.
@@ -1018,7 +1024,7 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_node.Node, node)
         return res.list_firmware(self)
 
-    # ========== Ports ==========
+    # ====== Ports ======
 
     def ports(
         self,
@@ -1122,7 +1128,7 @@ class Proxy(proxy.Proxy):
         """
         warnings.warn(
             "The 'find_port' method is deprecated; use 'get_port' instead.",
-            os_warnings.RemovedInSDK60Warning,
+            os_warnings.RemovedInSDK50Warning,
         )
 
         return self._find(
@@ -1192,7 +1198,7 @@ class Proxy(proxy.Proxy):
         """
         return self._delete(_port.Port, port, ignore_missing=ignore_missing)
 
-    # ========== Port groups ==========
+    # ====== Port Groups ======
 
     def port_groups(
         self,
@@ -1361,7 +1367,7 @@ class Proxy(proxy.Proxy):
             _portgroup.PortGroup, port_group, ignore_missing=ignore_missing
         )
 
-    # ========== Virtual Media ==========
+    # ====== Virtual Media ======
 
     def attach_vmedia_to_node(
         self,
@@ -1414,7 +1420,7 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_node.Node, node)
         return res.detach_vmedia(self, device_types=device_types)
 
-    # ========== VIFs ==========
+    # ====== VIFs ======
 
     @renamed_param('port_group_id', 'port_group')
     @renamed_param('port_id', 'port')
@@ -1508,7 +1514,7 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_node.Node, node)
         return res.list_vifs(self)
 
-    # ========== Allocations ==========
+    # ====== Allocations ======
 
     def allocations(
         self,
@@ -1648,7 +1654,7 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_allocation.Allocation, allocation)
         return res.wait(self, timeout=timeout, ignore_error=ignore_error)
 
-    # ========== Volume connectors ==========
+    # ====== Volume Connectors ======
 
     def volume_connectors(
         self,
@@ -1750,7 +1756,7 @@ class Proxy(proxy.Proxy):
         warnings.warn(
             "The 'find_volume_connector' method is deprecated; use "
             "'get_volume_connector' instead.",
-            os_warnings.RemovedInSDK60Warning,
+            os_warnings.RemovedInSDK50Warning,
         )
 
         return self._find(
@@ -1847,7 +1853,7 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    # ========== Volume targets ==========
+    # ====== Volume Targets ======
 
     def volume_targets(
         self,
@@ -1947,7 +1953,7 @@ class Proxy(proxy.Proxy):
         warnings.warn(
             "The 'find_volume_target' method is deprecated; use "
             "'get_volume_target' instead.",
-            os_warnings.RemovedInSDK60Warning,
+            os_warnings.RemovedInSDK50Warning,
         )
 
         return self._find(
@@ -2037,7 +2043,7 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    # ========== Deploy templates ==========
+    # ====== Deploy Templates ======
 
     def deploy_templates(
         self,
@@ -2209,7 +2215,7 @@ class Proxy(proxy.Proxy):
             _deploytemplates.DeployTemplate, deploy_template, patch
         )
 
-    # ========== Runbooks ==========
+    # ====== Runbooks ======
 
     def runbooks(
         self,
@@ -2358,7 +2364,7 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_runbooks.Runbook, runbook)
         return res.set_traits(self, traits)
 
-    # ========== Conductors ==========
+    # ====== Conductors ======
 
     def conductors(
         self,
@@ -2399,7 +2405,7 @@ class Proxy(proxy.Proxy):
             _conductor.Conductor, conductor, fields=fields
         )
 
-    # ========== Utilities ==========
+    # ====== Utilities ======
 
     def wait_for_status(
         self,
@@ -2462,7 +2468,7 @@ class Proxy(proxy.Proxy):
         """
         return resource.wait_for_delete(self, res, interval, wait, callback)
 
-    # ========== Inspection Rules ==========
+    # ====== Inspection Rules ======
 
     def inspection_rules(
         self,

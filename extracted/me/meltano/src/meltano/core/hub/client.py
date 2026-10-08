@@ -21,6 +21,7 @@ from structlog.stdlib import get_logger
 from urllib3 import Retry
 
 from meltano.core.cloud.config import CLOUD_API_ROOT
+from meltano.core.config_service import builtin_settings
 from meltano.core.error import MeltanoError
 from meltano.core.hub.schema import IndexedPlugin, VariantRef
 from meltano.core.plugin import PluginDefinition, PluginRef, PluginType, Variant
@@ -28,6 +29,7 @@ from meltano.core.plugin.error import PluginNotFoundError
 from meltano.core.plugin.factory import base_plugin_factory
 from meltano.core.plugin_repository import PluginRepository
 from meltano.core.settings_store import SettingValueStore
+from meltano.core.utils import get_meltano_version
 
 if sys.version_info >= (3, 12):
     from typing import override  # noqa: ICN003
@@ -45,6 +47,11 @@ logger = get_logger(__name__)
 
 # How long an index of a plugin type is reused before it is fetched again.
 INDEX_CACHE_DURATION = timedelta(hours=1)
+
+# How long to wait for the Hub to respond, so that an unreachable Hub fails a
+# request rather than hold up the command without a limit. The timeout applies
+# to each attempt that the session retries.
+REQUEST_TIMEOUT_SECONDS = 10
 
 
 def index_cache_dir() -> Path:
@@ -71,16 +78,21 @@ def _read_index_cache(path: Path) -> dict[str, t.Any] | None:
         path: The path of the cache file.
 
     Returns:
-        The index, or `None` if it was never cached or has expired.
+        The index, or `None` if it was never cached, has expired or cannot be
+        read.
     """
-    if not path.exists():
-        return None
+    try:
+        if not path.exists():
+            return None
 
-    written = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-    if datetime.now(tz=timezone.utc) - written > INDEX_CACHE_DURATION:
-        return None
+        written = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        if datetime.now(tz=timezone.utc) - written > INDEX_CACHE_DURATION:
+            return None
 
-    return json.loads(path.read_text())
+        return json.loads(path.read_text())
+    except OSError as err:
+        logger.warning("Unable to read the Meltano Hub cache: %s", err)
+        return None
 
 
 def _write_index_cache(path: Path, index: dict[str, t.Any]) -> None:
@@ -89,14 +101,20 @@ def _write_index_cache(path: Path, index: dict[str, t.Any]) -> None:
     The file is renamed into place, so that a run which is interrupted part way
     through writing it leaves no half-written file for the next one to read.
 
+    A cache that cannot be written costs only a request the next time, so the
+    failure is a warning rather than an error.
+
     Args:
         path: The path of the cache file.
         index: The index to cache.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    partial = path.with_suffix(f".{os.getpid()}.partial")
-    partial.write_text(json.dumps(index))
-    os.replace(partial, path)  # noqa: PTH105
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        partial = path.with_suffix(f".{os.getpid()}.partial")
+        partial.write_text(json.dumps(index))
+        os.replace(partial, path)  # noqa: PTH105
+    except OSError as err:
+        logger.warning("Unable to cache the Meltano Hub response: %s", err)
 
 
 def _rejection_detail(response: requests.Response) -> str | None:
@@ -232,21 +250,22 @@ class MeltanoHubService(PluginRepository):
 
     session = requests.Session()
 
-    def __init__(self, project: Project) -> None:
+    def __init__(self, project: Project | None = None) -> None:
         """Initialize the service.
 
         Args:
-            project: The Meltano project.
+            project: The Meltano project, or `None` outside a project.
         """
         self.project = project
         self.session.headers.update(
             {
                 "Accept": "application/json",
-                "User-Agent": project.user_agent,
+                "User-Agent": f"Meltano/{get_meltano_version()}",
             },
         )
 
-        if self.project.settings.get("send_anonymous_usage_stats"):
+        self.session.headers.pop("X-Project-ID", None)
+        if self.project and self.project.settings.get("send_anonymous_usage_stats"):
             project_id = self.project.settings.get("project_id")
 
             self.session.headers["X-Project-ID"] = project_id
@@ -255,7 +274,9 @@ class MeltanoHubService(PluginRepository):
         self.cloud_authenticated = False
         if self.hub_url_auth:
             self.session.headers.update({"Authorization": self.hub_url_auth})
-        elif credentials := self.cloud_credentials():
+        # The token is a Meltano Cloud login, so a Hub that the project points
+        # at, which anyone can run, must never receive it.
+        elif not self.has_configured_hub and (credentials := self.cloud_credentials()):
             self.session.headers.update(credentials.auth_header)
             self.cloud_authenticated = True
 
@@ -283,19 +304,43 @@ class MeltanoHubService(PluginRepository):
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
+    def _setting(self, name: str) -> tuple[t.Any, SettingValueStore]:
+        """Get a setting, and the store that it came from.
+
+        Args:
+            name: The name of the setting.
+
+        Returns:
+            The value and its store. Outside a project, only the environment
+            or the default can set a value.
+        """
+        if self.project:
+            return self.project.settings.get_with_source(name)
+
+        definition = next(
+            setting for setting in builtin_settings() if setting.name == name
+        )
+        for env_var in definition.env_vars(["meltano"]):
+            with suppress(KeyError):
+                return env_var.get(os.environ), SettingValueStore.ENV
+
+        return definition.value, SettingValueStore.DEFAULT
+
     @property
     def has_configured_hub(self) -> bool:
         """Whether the project points Meltano at a Hub of its own."""
-        if self.project.settings.get("hub_api_root") or self.hub_url_auth:
+        hub_api_root, _ = self._setting("hub_api_root")
+        if hub_api_root or self.hub_url_auth:
             return True
 
-        _, source = self.project.settings.get_with_source("hub_url")
+        _, source = self._setting("hub_url")
         return source is not SettingValueStore.DEFAULT
 
     @property
     def hub_api_url(self) -> str:
         """The URL of the Hub API."""
-        if hub_api_root := self.project.settings.get("hub_api_root"):
+        hub_api_root, _ = self._setting("hub_api_root")
+        if hub_api_root:
             return hub_api_root
 
         # A logged in user reads the index that Meltano Cloud serves, which
@@ -304,13 +349,14 @@ class MeltanoHubService(PluginRepository):
         if self.cloud_authenticated and not self.has_configured_hub:
             return CLOUD_API_ROOT
 
-        hub_url = self.project.settings.get("hub_url")
+        hub_url, _ = self._setting("hub_url")
         return f"{hub_url}/meltano/api/v1"
 
     @property
     def hub_url_auth(self) -> str | None:
         """The `hub_url_auth` setting."""
-        return self.project.settings.get("hub_url_auth")
+        hub_url_auth, _ = self._setting("hub_url_auth")
+        return hub_url_auth
 
     @staticmethod
     def cloud_credentials() -> Credentials | None:
@@ -404,7 +450,11 @@ class MeltanoHubService(PluginRepository):
         )
 
         try:
-            response = self.session.send(prep, **settings)
+            response = self.session.send(
+                prep,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+                **settings,
+            )
         except requests.exceptions.ConnectionError as connection_err:
             reason = f"Could not connect to Meltano Hub at {url}"
             if cause := _connection_cause(connection_err):

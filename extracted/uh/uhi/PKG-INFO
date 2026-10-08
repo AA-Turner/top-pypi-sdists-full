@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uhi
-Version: 1.2.0
+Version: 1.2.1
 Summary: Unified Histogram Interface: tools to help library authors work with histograms
 Project-URL: Homepage, https://github.com/Scikit-HEP/uhi
 Project-URL: Repository, https://github.com/Scikit-HEP/uhi
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Typing :: Typed
 Requires-Python: >=3.10

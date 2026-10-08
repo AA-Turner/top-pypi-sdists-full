@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque, hash_map::Entry};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -19,8 +19,9 @@ use crate::{DynamicReturnable, StatsigErr};
 
 use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
 use super::metadata::{
-    RemoteConfigValueMetadata, RemoteConfigValueMetadataWire, RemoteValueReference,
-    add_raw_value_reference, hydrated_value, insert_reference, validate_reference_limits,
+    ReferenceTotals, RemoteConfigValueMetadata, RemoteConfigValueMetadataWire,
+    RemoteValueReference, add_raw_value_reference, hydrated_value, validate_duplicate_reference,
+    validate_reference_limits,
 };
 use super::telemetry::{HydrationOutcome, HydrationPhase, HydrationResult};
 use super::{DOWNLOAD_CONCURRENCY, HYDRATION_TIMEOUT, RemoteConfigValueHydrator, TAG};
@@ -111,23 +112,26 @@ pub(crate) struct ProtobufHydrationSession<'a> {
     // Keep verified bodies only until this update finishes. This preserves
     // same-response SHA deduplication without retaining worker-private blobs
     // for the lifetime of the adapter.
-    hydrated_values: HashMap<String, Arc<Vec<u8>>>,
+    verified_bodies: HashMap<String, Arc<Vec<u8>>>,
     // Previous snapshots share parsed values; their original bodies are not
     // retained. Registration validates each incoming reference before reuse.
     previous_values: VerifiedRemoteValues,
-    resolved_values: VerifiedRemoteValues,
+    parsed_values: VerifiedRemoteValues,
     // Keep the download fanout warm while the parser continues reading entity
     // envelopes. Unlike a batch-wide await, a completed request immediately
     // opens a slot for the next discovered SHA.
     in_flight_downloads: FuturesUnordered<RemoteValueDownload<'a>>,
-    in_flight_sha256: HashSet<String>,
+    // Enqueue each SHA only on its first registration. Seeded/reused entries
+    // are discarded lazily, so completed prefixes are never rescanned.
+    download_queue: VecDeque<String>,
+    // Registered SHAs absent from both the parsed-value and verified-body maps.
+    pending_values: usize,
     // Charge only discovered bytes. If later metadata cannot immediately
     // extend the base reservation, one separate expansion permit guarantees
     // enough space for the remainder of the response's concurrency window.
     response_budget: Option<OwnedSemaphorePermit>,
     response_expansion_budget: Option<OwnedSemaphorePermit>,
-    reference_count: usize,
-    total_bytes: u64,
+    reference_totals: ReferenceTotals,
     saw_remote_metadata: bool,
 }
 
@@ -194,15 +198,15 @@ pub(super) fn begin_session<'a>(
         started_at: Instant::now(),
         result: HydrationResult::new(hydrator),
         references: HashMap::new(),
-        hydrated_values: HashMap::new(),
+        verified_bodies: HashMap::new(),
         previous_values: HashMap::new(),
-        resolved_values: HashMap::new(),
+        parsed_values: HashMap::new(),
         in_flight_downloads: FuturesUnordered::new(),
-        in_flight_sha256: HashSet::new(),
+        download_queue: VecDeque::new(),
+        pending_values: 0,
         response_budget: None,
         response_expansion_budget: None,
-        reference_count: 0,
-        total_bytes: 0,
+        reference_totals: ReferenceTotals::default(),
         saw_remote_metadata: false,
     }
 }
@@ -473,31 +477,57 @@ impl ProtobufHydrationSession<'_> {
         self.saw_remote_metadata = true;
         self.mark_remote_metadata();
 
-        let mut references = HashMap::<String, RemoteValueReference>::new();
-        collect_protobuf_spec_references(&mut references, spec, self.source_url)?;
-        for (sha256, reference) in &references {
-            insert_reference(&mut self.references, sha256.clone(), reference.clone())?;
-        }
-        let (reference_count, total_bytes) = validate_reference_limits(self.references.values())?;
-        self.reference_count = reference_count;
-        self.total_bytes = total_bytes;
-
+        let mut spec_references = HashMap::<String, RemoteValueReference>::new();
+        collect_protobuf_spec_references(&mut spec_references, spec, self.source_url)?;
+        let totals = self.validated_reference_totals(&spec_references)?;
         let mut ready = true;
-        for (sha256, reference) in references {
-            if let Some(value) = self.previous_values.get(&sha256) {
-                if reference.metadata == value.metadata {
-                    self.resolved_values
-                        .insert(sha256.clone(), Arc::clone(value));
+        for (sha256, reference) in spec_references {
+            let previous = self
+                .previous_values
+                .get(&sha256)
+                .filter(|value| reference.metadata == value.metadata)
+                .map(Arc::clone);
+            match self.references.entry(sha256.clone()) {
+                Entry::Occupied(mut entry) => {
+                    let occurrences =
+                        validate_duplicate_reference(entry.key(), entry.get(), &reference)?;
+                    entry.get_mut().occurrences = occurrences;
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(reference);
+                    self.download_queue.push_back(sha256.clone());
+                    self.pending_values += 1;
                 }
             }
-            ready &= self
-                .resolved_values
-                .get(&sha256)
-                .is_some_and(|value| value.metadata == reference.metadata)
-                || self.hydrated_values.contains_key(&sha256);
+            if let Some(value) = previous {
+                self.mark_reference_ready(&sha256);
+                self.parsed_values.insert(sha256, value);
+            } else {
+                ready &= self.has_verified_value(&sha256);
+            }
         }
+        self.reference_totals = totals;
 
         Ok(ready)
+    }
+
+    fn validated_reference_totals(
+        &self,
+        spec_references: &HashMap<String, RemoteValueReference>,
+    ) -> Result<ReferenceTotals, StatsigErr> {
+        // Validate the new chunk before mutating session state. Check every
+        // duplicate first so metadata conflicts take precedence over limits.
+        for (sha256, reference) in spec_references {
+            if let Some(registered) = self.references.get(sha256) {
+                validate_duplicate_reference(sha256, registered, reference)?;
+            }
+        }
+        let mut totals = self.reference_totals;
+        for (sha256, reference) in spec_references {
+            let registered = self.references.get(sha256).unwrap_or(reference);
+            totals.add_occurrences(registered, reference.occurrences)?;
+        }
+        Ok(totals)
     }
 
     /// Install previous candidates once before reading the response. Incoming
@@ -529,7 +559,10 @@ impl ProtobufHydrationSession<'_> {
             return false;
         }
 
-        self.hydrated_values.extend(values);
+        for (sha256, value) in values {
+            self.mark_reference_ready(&sha256);
+            self.verified_bodies.insert(sha256, value);
+        }
         true
     }
 
@@ -551,7 +584,7 @@ impl ProtobufHydrationSession<'_> {
     /// concurrency backpressure uses `advance_download_window` instead.
     pub(crate) async fn download_registered_references(&mut self) -> Result<(), StatsigErr> {
         self.reserve_response_budget().await?;
-        while self.pending_reference_count() > 0 {
+        while self.pending_values > 0 {
             self.start_available_downloads();
             self.await_one_download().await?;
         }
@@ -559,8 +592,9 @@ impl ProtobufHydrationSession<'_> {
     }
 
     async fn reserve_response_budget(&mut self) -> Result<(), StatsigErr> {
-        // Reused parsed values hold no body bytes; downloads and seeded bodies do.
-        if (self.pending_reference_count() == 0 && self.hydrated_values.is_empty())
+        // Reused parsed values hold no bodies. Downloaded and seeded bodies
+        // still require byte admission, even when every value is ready.
+        if (self.pending_values == 0 && self.verified_bodies.is_empty())
             || self.try_reserve_response_budget()?
         {
             return Ok(());
@@ -588,7 +622,8 @@ impl ProtobufHydrationSession<'_> {
         } else {
             let permit = timeout(
                 remaining,
-                self.hydrator.reserve_response_bytes(self.total_bytes),
+                self.hydrator
+                    .reserve_response_bytes(self.reference_totals.total_bytes),
             )
             .await
             .map_err(|_| {
@@ -601,20 +636,16 @@ impl ProtobufHydrationSession<'_> {
     }
 
     fn try_reserve_response_budget(&mut self) -> Result<bool, StatsigErr> {
-        if self.response_budget.is_none() {
-            let Some(permit) = self.hydrator.try_reserve_response_bytes(self.total_bytes)? else {
-                return Ok(false);
-            };
-            self.response_budget = Some(permit);
-            return Ok(true);
-        }
+        let Some(reservation) = self.response_budget.as_mut() else {
+            self.response_budget = self
+                .hydrator
+                .try_reserve_response_bytes(self.reference_totals.total_bytes)?;
+            return Ok(self.response_budget.is_some());
+        };
 
-        let reserved = self
-            .response_budget
-            .as_ref()
-            .expect("an existing response reservation is required")
-            .num_permits();
+        let reserved = reservation.num_permits();
         let budgeted_total = self
+            .reference_totals
             .total_bytes
             .min(self.hydrator.response_budget.capacity as u64);
         if budgeted_total <= reserved as u64 || self.response_expansion_budget.is_some() {
@@ -623,10 +654,7 @@ impl ProtobufHydrationSession<'_> {
 
         let additional = budgeted_total - reserved as u64;
         if let Some(permit) = self.hydrator.try_reserve_response_bytes(additional)? {
-            self.response_budget
-                .as_mut()
-                .expect("an existing response reservation is required")
-                .merge(permit);
+            reservation.merge(permit);
             return Ok(true);
         }
 
@@ -634,14 +662,10 @@ impl ProtobufHydrationSession<'_> {
         // bytes: other responses may be in the same state. A single expansion
         // reservation covers the rest of this response's concurrency window.
         let expansion = (self.hydrator.response_budget.capacity - reserved) as u64;
-        let Some(permit) = self
+        self.response_expansion_budget = self
             .hydrator
-            .try_reserve_response_expansion_bytes(expansion)?
-        else {
-            return Ok(false);
-        };
-        self.response_expansion_budget = Some(permit);
-        Ok(true)
+            .try_reserve_response_expansion_bytes(expansion)?;
+        Ok(self.response_expansion_budget.is_some())
     }
 
     fn start_available_downloads(&mut self) {
@@ -649,7 +673,6 @@ impl ProtobufHydrationSession<'_> {
             let Some((sha256, reference)) = self.next_unstarted_reference() else {
                 break;
             };
-            self.in_flight_sha256.insert(sha256.clone());
             let hydrator = self.hydrator;
             self.in_flight_downloads.push(
                 async move {
@@ -661,17 +684,41 @@ impl ProtobufHydrationSession<'_> {
         }
     }
 
-    fn next_unstarted_reference(&self) -> Option<(String, RemoteValueReference)> {
-        self.references.iter().find_map(|(sha256, reference)| {
-            (!self.resolved_values.contains_key(sha256)
-                && !self.hydrated_values.contains_key(sha256)
-                && !self.in_flight_sha256.contains(sha256))
-            .then(|| (sha256.clone(), reference.clone()))
-        })
+    fn next_unstarted_reference(&mut self) -> Option<(String, RemoteValueReference)> {
+        self.discard_satisfied_queue_entries();
+        let sha256 = self.download_queue.pop_front()?;
+        let reference = self
+            .references
+            .get(&sha256)
+            .expect("reference was registered");
+        Some((sha256, reference.clone()))
     }
 
-    fn has_unstarted_references(&self) -> bool {
-        self.next_unstarted_reference().is_some()
+    fn has_unstarted_references(&mut self) -> bool {
+        self.discard_satisfied_queue_entries();
+        !self.download_queue.is_empty()
+    }
+
+    fn discard_satisfied_queue_entries(&mut self) {
+        while self
+            .download_queue
+            .front()
+            .is_some_and(|sha256| self.has_verified_value(sha256))
+        {
+            self.download_queue.pop_front();
+        }
+    }
+
+    fn has_verified_value(&self, sha256: &str) -> bool {
+        self.parsed_values.contains_key(sha256) || self.verified_bodies.contains_key(sha256)
+    }
+
+    fn mark_reference_ready(&mut self, sha256: &str) {
+        // Seeding can overlap parsed reuse or an active download. Only the
+        // first transition to an available value completes a pending SHA.
+        if !self.has_verified_value(sha256) {
+            self.pending_values -= 1;
+        }
     }
 
     async fn await_one_download(&mut self) -> Result<(), StatsigErr> {
@@ -693,19 +740,9 @@ impl ProtobufHydrationSession<'_> {
             .expect("pending remote references must have an active download");
         let (sha256, value) =
             download.inspect_err(|error| self.result.record_download_error(error))?;
-        self.in_flight_sha256.remove(&sha256);
-        self.hydrated_values.insert(sha256, value);
+        self.mark_reference_ready(&sha256);
+        self.verified_bodies.insert(sha256, value);
         Ok(())
-    }
-
-    fn pending_reference_count(&self) -> usize {
-        self.references
-            .keys()
-            .filter(|sha256| {
-                !self.resolved_values.contains_key(*sha256)
-                    && !self.hydrated_values.contains_key(*sha256)
-            })
-            .count()
     }
 
     pub(crate) fn saw_remote_metadata(&self) -> bool {
@@ -776,15 +813,15 @@ impl ProtobufHydrationSession<'_> {
     ) -> Result<Arc<VerifiedRemoteValue>, StatsigErr> {
         let metadata = self.registered_metadata(metadata)?;
         let sha256 = metadata.sha256.as_str();
-        if let Some(value) = self.resolved_values.get(sha256) {
+        if let Some(value) = self.parsed_values.get(sha256) {
             return Ok(Arc::clone(value));
         }
-        let body = hydrated_value(&self.hydrated_values, sha256)?;
+        let body = hydrated_value(&self.verified_bodies, sha256)?;
         let value = serde_json::from_slice::<DynamicReturnable>(body).map_err(|error| {
             hydration_error(HydrationFailureReason::InvalidJson, &error.to_string())
         })?;
         let entry = Arc::new(VerifiedRemoteValue { metadata, value });
-        self.resolved_values
+        self.parsed_values
             .insert(entry.metadata.sha256.to_string(), Arc::clone(&entry));
         Ok(entry)
     }
@@ -825,11 +862,11 @@ impl ProtobufHydrationSession<'_> {
             if values.contains_key(sha256) {
                 continue;
             }
-            if let Some(body) = self.hydrated_values.get(sha256) {
+            if let Some(body) = self.verified_bodies.get(sha256) {
                 values.insert(sha256.to_string(), Arc::clone(body));
                 continue;
             }
-            let value = self.resolved_values.get(sha256).ok_or_else(|| {
+            let value = self.parsed_values.get(sha256).ok_or_else(|| {
                 hydration_error(
                     HydrationFailureReason::MissingHydratedValue,
                     "remote value has no verified parsed value",
@@ -868,8 +905,10 @@ impl ProtobufHydrationSession<'_> {
             .log_hydration_outcome(self.started_at, outcome);
 
         if succeeded {
-            self.hydrator
-                .log_hydration_success(self.reference_count, self.total_bytes);
+            self.hydrator.log_hydration_success(
+                self.reference_totals.reference_count,
+                self.reference_totals.total_bytes,
+            );
         }
     }
 }

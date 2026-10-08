@@ -3746,3 +3746,6 @@ fn read_raw_protobuf_frames(data: &mut ResponseData) -> Vec<Vec<u8>> {
 
 #[path = "hydration_phase_tests.rs"]
 mod phase_tests;
+
+#[path = "protobuf_hydration_budget_tests.rs"]
+mod protobuf_budget_tests;

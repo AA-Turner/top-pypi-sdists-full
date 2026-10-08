@@ -11,11 +11,17 @@
 # under the License.
 
 import abc
+from collections.abc import Mapping
 import json
-import typing as ty
+from typing import (
+    Any,
+    ClassVar,
+    NotRequired,
+    Protocol,
+    runtime_checkable,
+    TypedDict,
+)
 import warnings
-
-import typing_extensions as ty_ext
 
 from keystoneauth1 import _utils as utils
 from keystoneauth1 import access
@@ -31,19 +37,19 @@ __all__ = ('Auth', 'AuthMethod', 'AuthConstructor', 'BaseAuth')
 class BaseAuth(base.BaseIdentityPlugin, metaclass=abc.ABCMeta):
     """Identity V3 Authentication Plugin.
 
-    :param string auth_url: Identity service endpoint for authentication.
-    :param string trust_id: Trust ID for trust scoping.
-    :param string system_scope: System information to scope to.
-    :param string domain_id: Domain ID for domain scoping.
-    :param string domain_name: Domain name for domain scoping.
-    :param string project_id: Project ID for project scoping.
-    :param string project_name: Project name for project scoping.
-    :param string project_domain_id: Project's domain ID for project.
-    :param string project_domain_name: Project's domain name for project.
-    :param bool reauthenticate: Allow fetching a new token if the current one
-                                is going to expire. (optional) default True
-    :param bool include_catalog: Include the service catalog in the returned
-                                 token. (optional) default True.
+    :param auth_url: Identity service endpoint for authentication.
+    :param trust_id: Trust ID for trust scoping.
+    :param system_scope: System information to scope to.
+    :param domain_id: Domain ID for domain scoping.
+    :param domain_name: Domain name for domain scoping.
+    :param project_id: Project ID for project scoping.
+    :param project_name: Project name for project scoping.
+    :param project_domain_id: Project's domain ID for project.
+    :param project_domain_name: Project's domain name for project.
+    :param reauthenticate: Allow fetching a new token if the current one is
+        going to expire. (optional) default True
+    :param include_catalog: Include the service catalog in the returned token.
+        (optional) default True.
     """
 
     auth_url: str
@@ -93,34 +99,34 @@ class BaseAuth(base.BaseIdentityPlugin, metaclass=abc.ABCMeta):
         )
 
 
-class _AuthIdentity(ty.TypedDict):
-    identity: dict[str, ty.Any]
-    scope: ty_ext.NotRequired[dict[str, ty.Any] | str]
+class _AuthIdentity(TypedDict):
+    identity: dict[str, Any]
+    scope: NotRequired[dict[str, Any] | str]
 
 
-class _AuthBody(ty.TypedDict):
+class _AuthBody(TypedDict):
     auth: _AuthIdentity
 
 
 class Auth(BaseAuth):
     """Identity V3 Authentication Plugin.
 
-    :param string auth_url: Identity service endpoint for authentication.
-    :param list auth_methods: A collection of methods to authenticate with.
-    :param string trust_id: Trust ID for trust scoping.
-    :param string domain_id: Domain ID for domain scoping.
-    :param string domain_name: Domain name for domain scoping.
-    :param string project_id: Project ID for project scoping.
-    :param string project_name: Project name for project scoping.
-    :param string project_domain_id: Project's domain ID for project.
-    :param string project_domain_name: Project's domain name for project.
-    :param bool reauthenticate: Allow fetching a new token if the current one
-                                is going to expire. (optional) default True
-    :param bool include_catalog: Include the service catalog in the returned
-                                 token. (optional) default True.
-    :param bool unscoped: Force the return of an unscoped token. This will make
-                          the keystone server return an unscoped token even if
-                          a default_project_id is set for this user.
+    :param auth_url: Identity service endpoint for authentication.
+    :param auth_methods: A collection of methods to authenticate with.
+    :param trust_id: Trust ID for trust scoping.
+    :param domain_id: Domain ID for domain scoping.
+    :param domain_name: Domain name for domain scoping.
+    :param project_id: Project ID for project scoping.
+    :param project_name: Project name for project scoping.
+    :param project_domain_id: Project's domain ID for project.
+    :param project_domain_name: Project's domain name for project.
+    :param reauthenticate: Allow fetching a new token if the current one is
+        going to expire. (optional) default True
+    :param include_catalog: Include the service catalog in the returned token.
+        (optional) default True.
+    :param unscoped: Force the return of an unscoped token. This will make the
+        keystone server return an unscoped token even if a default_project_id
+        is set for this user.
     """
 
     def __init__(
@@ -165,7 +171,7 @@ class Auth(BaseAuth):
         body: _AuthBody = {'auth': {'identity': {}}}
         ident = body['auth']['identity']
         # this is passed around for its side-effects
-        rkwargs: dict[str, ty.Any] = {}
+        rkwargs: dict[str, Any] = {}
 
         for method in self.auth_methods:
             name, auth_data = method.get_auth_data(
@@ -193,9 +199,8 @@ class Auth(BaseAuth):
 
         if sum(mutual_exclusion) > 1:
             raise exceptions.AuthorizationFailure(
-                message='Authentication cannot be scoped to multiple'
-                ' targets. Pick one of: project, domain, '
-                'trust, system or unscoped'
+                'Authentication cannot be scoped to multiple targets. '
+                'Pick one of: project, domain, trust, system or unscoped'
             )
 
         if self.domain_id:
@@ -225,6 +230,10 @@ class Auth(BaseAuth):
             # support scoping to the entire system.
             if self.system_scope == 'all':
                 body['auth']['scope'] = {'system': {'all': True}}
+            else:
+                raise exceptions.AuthorizationFailure(
+                    'Invalid system scope, only "all" is supported'
+                )
 
         token_url = self.token_url
 
@@ -329,17 +338,15 @@ class AuthMethod(metaclass=abc.ABCMeta):
         auth: Auth,
         headers: dict[str, str],
         request_kwargs: dict[str, object],
-    ) -> tuple[None, None] | tuple[str, ty.Mapping[str, object]]:
+    ) -> tuple[None, None] | tuple[str, Mapping[str, object]]:
         """Return the authentication section of an auth plugin.
 
         :param session: The communication session.
-        :type session: keystoneauth1.session.Session
-        :param base.Auth auth: The auth plugin calling the method.
-        :param dict headers: The headers that will be sent with the auth
-                             request if a plugin needs to add to them.
+        :param auth: The auth plugin calling the method.
+        :param headers: The headers that will be sent with the auth request if
+            a plugin needs to add to them.
         :return: The identifier of this plugin and a dict of authentication
-                 data for the auth type.
-        :rtype: tuple(string, dict)
+            data for the auth type.
         """
         raise NotImplementedError()
 
@@ -360,9 +367,9 @@ class AuthMethod(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
-@ty.runtime_checkable
-class SupportsMultiFactor(ty.Protocol):
-    _auth_method_class: ty.ClassVar[type[AuthMethod]]
+@runtime_checkable
+class SupportsMultiFactor(Protocol):
+    _auth_method_class: ClassVar[type[AuthMethod]]
 
 
 class AuthConstructor(Auth, metaclass=abc.ABCMeta):
@@ -376,12 +383,12 @@ class AuthConstructor(Auth, metaclass=abc.ABCMeta):
     creates the auth plugin with only that authentication method.
     """
 
-    _auth_method_class: ty.ClassVar[type[AuthMethod]]
+    _auth_method_class: ClassVar[type[AuthMethod]]
 
     def __init__(
         self,
         auth_url: str,
-        *args: ty.Any,
+        *args: Any,
         unscoped: bool = False,
         trust_id: str | None = None,
         system_scope: str | None = None,
@@ -393,7 +400,7 @@ class AuthConstructor(Auth, metaclass=abc.ABCMeta):
         project_domain_name: str | None = None,
         reauthenticate: bool = True,
         include_catalog: bool = True,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ):
         warnings.warn(
             f"'{AuthConstructor.__qualname__}' is deprecated and will be "

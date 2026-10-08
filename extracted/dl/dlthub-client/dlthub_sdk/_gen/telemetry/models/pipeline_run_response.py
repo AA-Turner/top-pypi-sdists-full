@@ -9,6 +9,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.pipeline_run_status import PipelineRunStatus
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="PipelineRunResponse")
@@ -18,9 +19,11 @@ T = TypeVar("T", bound="PipelineRunResponse")
 class PipelineRunResponse:
     """
     Attributes:
+        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
         id (UUID):
         pipeline_name (str):
-        status (str):
+        status (PipelineRunStatus | str):
+        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
         dataset_name (None | str | Unset):
         destination_name (None | str | Unset):
         dlt_version (None | str | Unset):
@@ -35,9 +38,11 @@ class PipelineRunResponse:
         total_rows_loaded (int | Unset):  Default: 0.
     """
 
+    created_at: datetime.datetime
     id: UUID
     pipeline_name: str
-    status: str
+    status: PipelineRunStatus | str
+    updated_at: datetime.datetime
     dataset_name: None | str | Unset = UNSET
     destination_name: None | str | Unset = UNSET
     dlt_version: None | str | Unset = UNSET
@@ -53,11 +58,19 @@ class PipelineRunResponse:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        created_at = self.created_at.isoformat()
+
         id = str(self.id)
 
         pipeline_name = self.pipeline_name
 
-        status = self.status
+        status: str
+        if isinstance(self.status, PipelineRunStatus):
+            status = self.status.value
+        else:
+            status = self.status
+
+        updated_at = self.updated_at.isoformat()
 
         dataset_name: None | str | Unset
         if isinstance(self.dataset_name, Unset):
@@ -127,9 +140,11 @@ class PipelineRunResponse:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "created_at": created_at,
                 "id": id,
                 "pipeline_name": pipeline_name,
                 "status": status,
+                "updated_at": updated_at,
             }
         )
         if dataset_name is not UNSET:
@@ -162,11 +177,26 @@ class PipelineRunResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        created_at = isoparse(d.pop("created_at"))
+
         id = UUID(d.pop("id"))
 
         pipeline_name = d.pop("pipeline_name")
 
-        status = d.pop("status")
+        def _parse_status(data: object) -> PipelineRunStatus | str:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                status_type_0 = PipelineRunStatus(data)
+
+                return status_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(PipelineRunStatus | str, data)
+
+        status = _parse_status(d.pop("status"))
+
+        updated_at = isoparse(d.pop("updated_at"))
 
         def _parse_dataset_name(data: object) -> None | str | Unset:
             if data is None:
@@ -274,9 +304,11 @@ class PipelineRunResponse:
         total_rows_loaded = d.pop("total_rows_loaded", UNSET)
 
         pipeline_run_response = cls(
+            created_at=created_at,
             id=id,
             pipeline_name=pipeline_name,
             status=status,
+            updated_at=updated_at,
             dataset_name=dataset_name,
             destination_name=destination_name,
             dlt_version=dlt_version,

@@ -282,6 +282,7 @@ from chalk.ml.utils import (
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
+    ComputeClass,
     DeleteScalingGroupResponse,
     GrpcReadinessProbe,
     GrpcStartupProbe,
@@ -5618,6 +5619,7 @@ class ChalkGRPCClient:
         validate: bool,
         retries: Optional[int],
         queue_policy: Optional[QueuePolicy],
+        compute_class: Optional[ComputeClass] = None,
     ) -> "ModelScalingGroupSpec":
         """Build a complete model-serving spec for a new deployment."""
         from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
@@ -5650,6 +5652,7 @@ class ChalkGRPCClient:
             secret_refs=self._resolve_secret_refs(secrets) if secrets is not None else None,
             readiness_probe=readiness_probe,
             startup_probe=startup_probe,
+            compute_class=compute_class,
         )
 
     def _create_model_scaling_group(
@@ -5690,6 +5693,7 @@ class ChalkGRPCClient:
         chalk_workload_identity: bool = False,
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
+        compute_class: Optional[ComputeClass] = None,
     ) -> ModelDeployment:
         """Deploy a registered model version behind a stable, named endpoint.
 
@@ -5708,6 +5712,7 @@ class ChalkGRPCClient:
             chalk_workload_identity=chalk_workload_identity,
             retries=retries,
             queue_policy=queue_policy,
+            compute_class=compute_class,
             validate=validate,
         )
         deployment = model_deployment_from_response(self._create_model_scaling_group(name, spec), self)
@@ -5805,6 +5810,7 @@ class ChalkGRPCClient:
                 chalk_workload_identity=spec.chalk_workload_identity,
                 retries=spec.retries,
                 queue_policy=spec.queue_policy,
+                compute_class=spec.compute_class,
                 validate=validate,
             )
         )
@@ -5925,6 +5931,7 @@ class ChalkGRPCClient:
         chalk_workload_identity: bool = False,
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
+        compute_class: Optional[ComputeClass] = None,
     ) -> dict[str, Any]:
         """Deprecated: use `create_model_deployment`.
 
@@ -5951,6 +5958,7 @@ class ChalkGRPCClient:
             chalk_workload_identity=chalk_workload_identity,
             retries=retries,
             queue_policy=queue_policy,
+            compute_class=compute_class,
         )
 
     def _deploy_model_version_to_scaling_group(
@@ -5973,6 +5981,7 @@ class ChalkGRPCClient:
         chalk_workload_identity: bool,
         retries: Optional[int],
         queue_policy: Optional[QueuePolicy],
+        compute_class: Optional[ComputeClass] = None,
     ) -> dict[str, Any]:
         """The legacy deploy: shares create_model_deployment's request but never waits."""
         spec = self._build_model_scaling_group_spec(
@@ -5992,6 +6001,7 @@ class ChalkGRPCClient:
             chalk_workload_identity=chalk_workload_identity,
             retries=retries,
             queue_policy=queue_policy,
+            compute_class=compute_class,
             validate=validate,
         )
         return json_format.MessageToDict(self._create_model_scaling_group(name, spec))

@@ -14,6 +14,7 @@ from unittest import mock
 
 from openstack.key_manager.v1 import _proxy
 from openstack.key_manager.v1 import container
+from openstack.key_manager.v1 import container_acl
 from openstack.key_manager.v1 import order
 from openstack.key_manager.v1 import project_quota
 from openstack.key_manager.v1 import quota
@@ -144,11 +145,7 @@ class TestKeyManagerProjectQuota(TestKeyManagerProxy):
         )
 
 
-class TestKeyManagerSecretACL(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
-
+class TestKeyManagerSecretACL(TestKeyManagerProxy):
     def test_get_secret_acl(self):
         self.verify_get(
             self.proxy.get_secret_acl,
@@ -156,7 +153,7 @@ class TestKeyManagerSecretACL(test_proxy_base.TestProxyBase):
             expected_args=[None],
             expected_kwargs={
                 "requires_id": False,
-                "path_args": {"secret_id": "resource_id"},
+                "secret_id": "resource_id",
             },
         )
 
@@ -166,9 +163,7 @@ class TestKeyManagerSecretACL(test_proxy_base.TestProxyBase):
             secret_acl.SecretACL,
             expected_args=[None],
             expected_kwargs={
-                "requires_id": False,
-                "path_args": {"secret_id": "resource_id"},
-                "method": "PUT",
+                "secret_id": "resource_id",
                 "x": 1,
                 "y": 2,
                 "z": 3,
@@ -181,9 +176,7 @@ class TestKeyManagerSecretACL(test_proxy_base.TestProxyBase):
             secret_acl.SecretACL,
             expected_args=[None],
             expected_kwargs={
-                "requires_id": False,
-                "path_args": {"secret_id": "resource_id"},
-                "method": "PATCH",
+                "secret_id": "resource_id",
                 "x": 1,
                 "y": 2,
                 "z": 3,
@@ -197,8 +190,75 @@ class TestKeyManagerSecretACL(test_proxy_base.TestProxyBase):
             False,
             expected_args=[None],
             expected_kwargs={
-                "requires_id": False,
-                "path_args": {"secret_id": "resource_id"},
+                "secret_id": "resource_id",
+            },
+        )
+
+
+class TestKeyManagerContainerACL(TestKeyManagerProxy):
+    def test_get_container_acl(self):
+        self._verify(
+            'openstack.proxy.Proxy._get',
+            self.proxy.get_container_acl,
+            method_args=['container-id'],
+            expected_args=[container_acl.ContainerACL, None],
+            expected_kwargs={
+                'requires_id': False,
+                'container_id': 'container-id',
+            },
+        )
+
+    def test_create_container_acl(self):
+        self._verify(
+            'openstack.proxy.Proxy._create',
+            self.proxy.create_container_acl,
+            method_args=['container-id'],
+            method_kwargs={
+                'read': {'users': ['user1'], 'project-access': False},
+            },
+            expected_args=[container_acl.ContainerACL],
+            expected_kwargs={
+                'container_id': 'container-id',
+                'read': {'users': ['user1'], 'project-access': False},
+            },
+        )
+
+    def test_update_container_acl(self):
+        self._verify(
+            'openstack.proxy.Proxy._update',
+            self.proxy.update_container_acl,
+            method_args=['container-id'],
+            method_kwargs={'read': {'project-access': True}},
+            expected_args=[container_acl.ContainerACL, None],
+            expected_kwargs={
+                'container_id': 'container-id',
+                'read': {'project-access': True},
+            },
+        )
+
+    def test_delete_container_acl(self):
+        self._verify(
+            'openstack.proxy.Proxy._delete',
+            self.proxy.delete_container_acl,
+            method_args=['container-id'],
+            method_kwargs={'ignore_missing': False},
+            expected_args=[container_acl.ContainerACL, None],
+            expected_kwargs={
+                'container_id': 'container-id',
+                'ignore_missing': False,
+            },
+        )
+
+    def test_delete_container_acl_ignore(self):
+        self._verify(
+            'openstack.proxy.Proxy._delete',
+            self.proxy.delete_container_acl,
+            method_args=['container-id'],
+            method_kwargs={'ignore_missing': True},
+            expected_args=[container_acl.ContainerACL, None],
+            expected_kwargs={
+                'container_id': 'container-id',
+                'ignore_missing': True,
             },
         )
 

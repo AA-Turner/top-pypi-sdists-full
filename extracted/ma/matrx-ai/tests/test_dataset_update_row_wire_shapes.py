@@ -1,10 +1,10 @@
-"""``dataset:update_row`` accepts the row the model actually sends.
+"""``table:update_row`` accepts the row the model actually sends.
 
 Live defect (2026-10-01 17:49–17:50Z, org Compass, agent Compass Dispatch Assistant): the
 provider schema declared ``data`` as an ARRAY of objects (the create shape), so for
 ``update_row`` the model could only send the row object as a JSON STRING. The wire model
 decoded that string, but the dispatcher then read the RAW ``args`` and handed the string to
-``dataset_update_row``, which answered "data must be a dict of field values." five times
+``table_update_row``, which answered "data must be a dict of field values." five times
 and the run ended without an answer. The arguments below are copied from ``chat.tool_call``
 rows cb819f35…, 3499029b… and a2c3c906… exactly.
 
@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from matrx_ai.tools.implementations import datasets_tools
+from matrx_ai.tools.implementations import table_tools
 from matrx_ai.tools.models import ToolContext
 
 _TABLE_ID = "522c3ff1-7229-439c-be00-5b20492cc328"
@@ -39,7 +39,7 @@ _LEDGER_STRING_ROW = {
     '"booking_status": "Under way", "shipper_reference": "CRA-22871"}',
     "action": "update_row",
     "row_id": _ROW_ID,
-    "dataset_id": _TABLE_ID,
+    "table_id": _TABLE_ID,
 }
 
 
@@ -50,7 +50,7 @@ class _Ctx(ToolContext):
 
 
 def _ctx() -> _Ctx:
-    return _Ctx(call_id="call-1", tool_name="dataset")
+    return _Ctx(call_id="call-1", tool_name="table")
 
 
 class _Arm:
@@ -69,13 +69,13 @@ class _Arm:
 def home(monkeypatch):
     """The record-store arm. Returns a reader of what reached the store."""
     arm = _Arm()
-    monkeypatch.setattr(datasets_tools, "_store_arm", lambda: arm)
+    monkeypatch.setattr(table_tools, "_store_arm", lambda: arm)
     return lambda: [data for _t, _r, data in arm.writes]
 
 
 @pytest.mark.asyncio
 async def test_ledger_json_string_row_is_written(home):
-    result = await datasets_tools.dataset(dict(_LEDGER_STRING_ROW), _ctx())
+    result = await table_tools.table(dict(_LEDGER_STRING_ROW), _ctx())
 
     assert result.success, result.error
     assert home() == [_FULL_ROW]
@@ -84,7 +84,7 @@ async def test_ledger_json_string_row_is_written(home):
 @pytest.mark.asyncio
 async def test_real_object_row_is_written(home):
     args = dict(_LEDGER_STRING_ROW, data=dict(_FULL_ROW))
-    result = await datasets_tools.dataset(args, _ctx())
+    result = await table_tools.table(args, _ctx())
 
     assert result.success, result.error
     assert home() == [_FULL_ROW]
@@ -93,7 +93,7 @@ async def test_real_object_row_is_written(home):
 @pytest.mark.asyncio
 async def test_field_value_pairs_are_the_same_row(home):
     pairs = [{"field": k, "value": v} for k, v in _FULL_ROW.items()]
-    result = await datasets_tools.dataset(dict(_LEDGER_STRING_ROW, data=pairs), _ctx())
+    result = await table_tools.table(dict(_LEDGER_STRING_ROW, data=pairs), _ctx())
 
     assert result.success, result.error
     assert home() == [_FULL_ROW]
@@ -102,8 +102,8 @@ async def test_field_value_pairs_are_the_same_row(home):
 @pytest.mark.asyncio
 async def test_missing_data_names_the_shape_with_an_example(home):
     # chat.tool_call a2c3c906-5229-4f8c-82c7-561471b473fc — no `data` at all.
-    args = {"action": "update_row", "row_id": _ROW_ID, "dataset_id": _TABLE_ID}
-    result = await datasets_tools.dataset(args, _ctx())
+    args = {"action": "update_row", "row_id": _ROW_ID, "table_id": _TABLE_ID}
+    result = await table_tools.table(args, _ctx())
 
     assert not result.success
     message = result.error.message
@@ -114,7 +114,7 @@ async def test_missing_data_names_the_shape_with_an_example(home):
 
 @pytest.mark.asyncio
 async def test_a_bare_string_is_refused_with_the_shape(home):
-    result = await datasets_tools.dataset(
+    result = await table_tools.table(
         dict(_LEDGER_STRING_ROW, data="booking_status = Under way"), _ctx()
     )
 
@@ -172,17 +172,17 @@ _LIVE_DATASET_PARAMETERS: dict[str, Any] = {
     "$variants": {
         "create": {
             "data": {"description": "Seed row objects; first row defines columns."},
-            "dataset_name": {"type": "string", "required": True, "description": "Name."},
+            "table_name": {"type": "string", "required": True, "description": "Name."},
         },
         "add_rows": {
             "rows": {"type": "array", "items": {"type": "object"}, "required": True,
                      "description": "Row objects to append."},
-            "dataset_id": {"type": "string", "required": True, "description": "Dataset."},
+            "table_id": {"type": "string", "required": True, "description": "Dataset."},
         },
         "update_row": {
             "data": {"description": "Full replacement row data."},
             "row_id": {"type": "string", "required": True, "description": "Row."},
-            "dataset_id": {"type": "string", "required": True, "description": "Dataset."},
+            "table_id": {"type": "string", "required": True, "description": "Dataset."},
         },
     },
 }

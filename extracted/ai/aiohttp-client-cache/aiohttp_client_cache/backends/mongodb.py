@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterable
 from typing import Any
 
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient
 
 from aiohttp_client_cache.backends import BaseCache, CacheBackend, ResponseOrKey, get_valid_kwargs
 
@@ -13,8 +12,8 @@ class MongoDBBackend(CacheBackend):
     """Async cache backend for `MongoDB <https://www.mongodb.com>`_
 
     Notes:
-        * Requires `motor <https://motor.readthedocs.io>`_
-        * Accepts keyword arguments for :py:class:`pymongo.MongoClient`
+        * Requires `pymongo <https://www.mongodb.com/docs/languages/python/pymongo-driver/current/>`_
+        * Accepts keyword arguments for :py:class:`pymongo.AsyncMongoClient`
 
     Args:
         cache_name: Database name
@@ -25,7 +24,7 @@ class MongoDBBackend(CacheBackend):
     def __init__(
         self,
         cache_name: str = 'aiohttp-cache',
-        connection: AsyncIOMotorClient = None,
+        connection: AsyncMongoClient | None = None,
         **kwargs: Any,
     ):
         super().__init__(cache_name=cache_name, **kwargs)
@@ -40,26 +39,29 @@ class MongoDBCache(BaseCache):
         db_name: database name (be careful with production databases)
         collection_name: collection name
         connection: MongoDB connection instance to use instead of creating a new one
-        kwargs: Additional keyword args for :py:class:`~motor.motor_asyncio.AsyncIOMotorClient`
+        kwargs: Additional keyword args for :py:class:`~pymongo.AsyncMongoClient`
     """
 
     def __init__(
         self,
         db_name: str,
         collection_name: str,
-        connection: AsyncIOMotorClient = None,
+        connection: AsyncMongoClient | None = None,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
 
-        # Motor accepts the same arguments as pymongo, plus one additional argument
-        connection_kwargs = get_valid_kwargs(MongoClient.__init__, kwargs, accept_varkwargs=False)
-        if kwargs.get('io_loop'):
-            connection_kwargs['io_loop'] = kwargs.pop('io_loop')
-
-        self.connection = connection or AsyncIOMotorClient(**connection_kwargs)
+        connection_kwargs = get_valid_kwargs(
+            AsyncMongoClient.__init__, kwargs, accept_varkwargs=False
+        )
+        self._owns_connection = connection is None
+        self.connection = connection or AsyncMongoClient(**connection_kwargs)
         self.db = self.connection[db_name]
         self.collection = self.db[collection_name]
+
+    async def close(self):
+        if self._owns_connection:
+            await self.connection.close()
 
     async def clear(self):
         await self.collection.drop()
@@ -72,8 +74,7 @@ class MongoDBCache(BaseCache):
         await self.collection.delete_many(spec)
 
     async def delete(self, key: str):
-        spec = {'_id': key}
-        await self.collection.delete_one(spec)
+        await self.collection.delete_one({'_id': key})
 
     async def keys(self) -> AsyncIterable[str]:
         async for doc in self.collection.find({}, {'_id': True}):
@@ -96,8 +97,7 @@ class MongoDBCache(BaseCache):
             yield doc['data']
 
     async def write(self, key: str, item: ResponseOrKey):
-        update = {'$set': {'data': item}}
-        await self.collection.update_one({'_id': key}, update, upsert=True)
+        await self.collection.update_one({'_id': key}, {'$set': {'data': item}}, upsert=True)
 
 
 class MongoDBPickleCache(MongoDBCache):

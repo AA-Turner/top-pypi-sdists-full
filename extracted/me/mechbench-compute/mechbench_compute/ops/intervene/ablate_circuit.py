@@ -7,7 +7,6 @@ from typing import Any
 
 import numpy as np
 
-from mechbench_compute._mlx import mx
 from mechbench_compute.api import (
     DEFAULT_OUTPUT,
     METRIC_DOC,
@@ -25,6 +24,7 @@ from mechbench_compute.api import (
     items_of,
     name_component,
     points,
+    read_f32,
     read_last_logp,
     read_metric,
     render,
@@ -190,9 +190,11 @@ def list_universe(universe: Mapping[str, Any], n_heads: int) -> list[tuple[str, 
 
 
 def check_points(model, names: Sequence[str], ablation: str) -> None:
-    from mechbench_compute.api import find_architecture
+    declared = getattr(model, "architecture", None)
+    if not hasattr(declared, "layer_points_of"):
+        from mechbench_compute.api import find_architecture
 
-    declared = find_architecture(getattr(model.arch, "model_type", None))
+        declared = find_architecture(getattr(model.arch, "model_type", None))
     have = declared.layer_points_of(model.arch) if declared is not None else None
     for point in names:
         if point.startswith("resid_"):
@@ -311,18 +313,18 @@ def ablate_circuits(
     captured: list[dict[str, np.ndarray]] = []
     for record, allowed in zip(records, outcomes, strict=True):
         r = render(model, record)
-        ids = r.array
-        n_tokens = int(np.array(ids).shape[-1])
+        ids = model.make_ids(r.ids)
+        n_tokens = len(r.ids)
         if -reach > n_tokens:
             raise ValueError(f"record {record.get('id')!r} is {n_tokens} tokens long; the universe reaches "
                              f"position {reach} from the end")
         res = model.run(ids, capture=captures) if captures else model.run(ids)
         lp = read_last_logp(res.logits)
         answer, _ = resolve_target(model, record, params, lp)
-        tokens = [model.tokenizer.decode([int(t)]) for t in np.array(ids).reshape(-1)]
+        tokens = [model.tokenizer.decode([int(t)]) for t in r.ids]
         rows.append({"record": record, "ids": ids, "tokens": tokens, "answer": answer, "chat": r.chat,
                      "lp": lp, "outcomes": allowed, "m_full": read_metric(answer, metric, res.logits, allowed)})
-        captured.append({n: np.array(res.cache[n].astype(mx.float32))[0] for n in captures})
+        captured.append({n: read_f32(res.cache[n])[0] for n in captures})
         if on_item:
             on_item()
 

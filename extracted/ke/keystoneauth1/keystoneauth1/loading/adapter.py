@@ -11,12 +11,12 @@
 # under the License.
 
 import argparse
-import typing as ty
+from typing import Any, TYPE_CHECKING
 
 from keystoneauth1 import adapter
 from keystoneauth1.loading import base
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from oslo_config import cfg
 
     from keystoneauth1.loading import opts
@@ -50,44 +50,55 @@ class Adapter(base._BaseLoader[adapter.Adapter]):
         or to manipulate the options before registering them yourself.
 
         The options that are set are:
-            :service_type:      The default service_type for URL discovery.
-            :service_name:      The default service_name for URL discovery.
-            :interface:         The default interface for URL discovery.
-                                (deprecated)
-            :valid_interfaces:  List of acceptable interfaces for URL
-                                discovery. Can be a list of any of
-                                'public', 'internal' or 'admin'.
-            :region_name:       The default region_name for URL discovery.
-            :endpoint_override: Always use this endpoint URL for requests
-                                for this client.
-            :version:           The minimum version restricted to a given Major
-                                API. Mutually exclusive with min_version and
-                                max_version.
-            :min_version:       The minimum major version of a given API,
-                                intended to be used as the lower bound of a
-                                range with max_version. Mutually exclusive with
-                                version. If min_version is given with no
-                                max_version it is as if max version is
-                                'latest'.
-            :max_version:       The maximum major version of a given API,
-                                intended to be used as the upper bound of a
-                                range with min_version. Mutually exclusive with
-                                version.
+
+            :service_type: The default service_type for URL discovery.
+            :service_name: The default service_name for URL discovery.
+            :valid_interfaces: List of acceptable interfaces for URL discovery.
+                Can be a list of any of 'public', 'internal' or 'admin'.
+            :region_name: The default region_name for URL discovery.
+            :endpoint_override: Always use this endpoint URL for requests for
+                this client.
+            :version: The minimum version restricted to a given Major API.
+                Mutually exclusive with min_version and max_version.
+            :min_version: The minimum major version of a given API, intended to
+                be used as the lower bound of a range with max_version.
+                Mutually exclusive with version. If min_version is given with
+                no max_version it is as if max version is 'latest'.
+            :max_version: The maximum major version of a given API, intended to
+                be used as the upper bound of a range with min_version.
+                Mutually exclusive with version.
+            :connect_retries: The maximum number of retries that should be
+                attempted for connection errors.
+            :connect_retry_delay: Delay (in seconds) between two retries
+                for connection errors. If not set, exponential retry starting
+                with 0.5 seconds up to a maximum of 60 seconds is used.
+            :status_code_retries: The maximum number of retries that should be
+                attempted for retriable HTTP status codes.
+            :status_code_retry_delay: Delay (in seconds) between two retries
+                for retriable status codes. If not set, exponential retry
+                starting with 0.5 seconds up to a maximum of 60 seconds is
+                used.
+            :retriable_status_codes: List of retriable HTTP status codes that
+                should be retried. If not set default to [503].
+
+        Additionally, the following options are registered if
+        ``include_deprecated`` is set to ``True`` (default).
+
+            :interface: The default interface for URL discovery.
 
         :param include_deprecated: If True (the default, for backward
-                                   compatibility), deprecated options are
-                                   included in the result.  If False, they are
-                                   excluded.
-        :param dict deprecated_opts: Deprecated options that should be included
-             in the definition of new options. This should be a dict from the
-             name of the new option to a list of oslo.DeprecatedOpts that
-             correspond to the new option. (optional)
+            compatibility), deprecated options are included in the result.  If
+            False, they are excluded.
+        :param deprecated_opts: Deprecated options that should be included in
+            the definition of new options. This should be a dict from the name
+            of the new option to a list of oslo.DeprecatedOpts that correspond
+            to the new option. (optional)
 
-             For example, to support the ``api_endpoint`` option pointing to
-             the new ``endpoint_override`` option name::
+            For example, to support the ``api_endpoint`` option pointing to the
+            new ``endpoint_override`` option name::
 
-                 old_opt = oslo_cfg.DeprecatedOpt('api_endpoint', 'old_group')
-                 deprecated_opts = {'endpoint_override': [old_opt]}
+                old_opt = oslo_cfg.DeprecatedOpt('api_endpoint', 'old_group')
+                deprecated_opts = {'endpoint_override': [old_opt]}
 
         :returns: A list of oslo_config options.
         """
@@ -117,8 +128,10 @@ class Adapter(base._BaseLoader[adapter.Adapter]):
             cfg.ListOpt(
                 'valid-interfaces',
                 deprecated_opts=deprecated_opts.get('valid-interfaces'),
-                help='List of interfaces, in order of preference, '
-                'for endpoint URL.',
+                help=(
+                    'List of interfaces, in order of preference, for endpoint '
+                    'URL.'
+                ),
             ),
             cfg.StrOpt(
                 'region-name',
@@ -128,76 +141,85 @@ class Adapter(base._BaseLoader[adapter.Adapter]):
             cfg.StrOpt(
                 'endpoint-override',
                 deprecated_opts=deprecated_opts.get('endpoint-override'),
-                help='Always use this endpoint URL for requests '
-                'for this client. NOTE: The unversioned '
-                'endpoint should be specified here; to '
-                'request a particular API version, use the '
-                '`version`, `min-version`, and/or '
-                '`max-version` options.',
+                help=(
+                    'Always use this endpoint URL for requests for this '
+                    'client. NOTE: The unversioned endpoint should be '
+                    'specified here; to request a particular API version, use '
+                    'the `version`, `min-version`, and/or `max-version` '
+                    'options.'
+                ),
             ),
             cfg.StrOpt(
                 'version',
                 deprecated_opts=deprecated_opts.get('version'),
-                help='Minimum Major API version within a given '
-                'Major API version for endpoint URL '
-                'discovery. Mutually exclusive with '
-                'min_version and max_version',
+                help=(
+                    'Minimum Major API version within a given Major API '
+                    'version for endpoint URL discovery. Mutually exclusive '
+                    'with min_version and max_version'
+                ),
             ),
             cfg.StrOpt(
                 'min-version',
                 deprecated_opts=deprecated_opts.get('min-version'),
-                help='The minimum major version of a given API, '
-                'intended to be used as the lower bound of a '
-                'range with max_version. Mutually exclusive '
-                'with version. If min_version is given with '
-                'no max_version it is as if max version is '
-                '"latest".',
+                help=(
+                    'The minimum major version of a given API, intended to be '
+                    'used as the lower bound of a range with max_version. '
+                    'Mutually exclusive with version. If min_version is '
+                    'given with no max_version it is as if max version is '
+                    '"latest".'
+                ),
             ),
             cfg.StrOpt(
                 'max-version',
                 deprecated_opts=deprecated_opts.get('max-version'),
-                help='The maximum major version of a given API, '
-                'intended to be used as the upper bound of a '
-                'range with min_version. Mutually exclusive '
-                'with version.',
+                help=(
+                    'The maximum major version of a given API, intended to be '
+                    'used as the upper bound of a range with min_version. '
+                    'Mutually exclusive with version.'
+                ),
             ),
             cfg.IntOpt(
                 'connect-retries',
                 deprecated_opts=deprecated_opts.get('connect-retries'),
-                help='The maximum number of retries that should be '
-                'attempted for connection errors.',
+                help=(
+                    'The maximum number of retries that should be attempted '
+                    'for connection errors.'
+                ),
             ),
             cfg.FloatOpt(
                 'connect-retry-delay',
                 deprecated_opts=deprecated_opts.get('connect-retry-delay'),
-                help='Delay (in seconds) between two retries '
-                'for connection errors. If not set, '
-                'exponential retry starting with 0.5 '
-                'seconds up to a maximum of 60 seconds '
-                'is used.',
+                help=(
+                    'Delay (in seconds) between two retries for connection '
+                    'errors. If not set, exponential retry starting with 0.5 '
+                    'seconds up to a maximum of 60 seconds is used.'
+                ),
             ),
             cfg.IntOpt(
                 'status-code-retries',
                 deprecated_opts=deprecated_opts.get('status-code-retries'),
-                help='The maximum number of retries that should be '
-                'attempted for retriable HTTP status codes.',
+                help=(
+                    'The maximum number of retries that should be attempted '
+                    'for retriable HTTP status codes.'
+                ),
             ),
             cfg.FloatOpt(
                 'status-code-retry-delay',
                 deprecated_opts=deprecated_opts.get('status-code-retry-delay'),
-                help='Delay (in seconds) between two retries '
-                'for retriable status codes. If not set, '
-                'exponential retry starting with 0.5 '
-                'seconds up to a maximum of 60 seconds '
-                'is used.',
+                help=(
+                    'Delay (in seconds) between two retries for retriable '
+                    'status codes. If not set, exponential retry starting '
+                    'with 0.5 seconds up to a maximum of 60 seconds is used.'
+                ),
             ),
             cfg.ListOpt(
                 'retriable-status-codes',
                 deprecated_opts=deprecated_opts.get('retriable-status-codes'),
                 item_type=types.Integer(),
-                help='List of retriable HTTP status codes that '
-                'should be retried. If not set default to '
-                ' [503]',
+                help=(
+                    'List of retriable HTTP status codes that should be '
+                    'retried. If not set default to `[503]`'
+                ),
             ),
         ]
 
@@ -207,18 +229,19 @@ class Adapter(base._BaseLoader[adapter.Adapter]):
                     'interface',
                     help='The default interface for endpoint URL discovery.',
                     deprecated_for_removal=True,
-                    deprecated_reason='Using valid-interfaces is'
-                    ' preferrable because it is'
-                    ' capable of accepting a list of'
-                    ' possible interfaces.',
+                    deprecated_reason=(
+                        'Using valid-interfaces is preferable because it is '
+                        'capable of accepting a list of possible interfaces.'
+                    ),
                 )
             ]
         return opts
 
+    @classmethod
     def register_conf_options(
-        self,
+        cls,
         conf: 'cfg.ConfigOpts',
-        group: str,
+        group: 'str | cfg.OptGroup',
         include_deprecated: bool = True,
         deprecated_opts: dict[str, list['cfg.DeprecatedOpt']] | None = None,
     ) -> list['cfg.Opt']:
@@ -253,64 +276,71 @@ class Adapter(base._BaseLoader[adapter.Adapter]):
             :status_code_retries: The maximum number of retries that should be
                                   attempted for retriable HTTP status codes.
 
-        :param oslo_config.Cfg conf: config object to register with.
-        :param string group: The ini group to register options in.
+        :param conf: config object to register with.
+        :param group: The ini group to register options in.
         :param include_deprecated: If True (the default, for backward
-                                   compatibility), deprecated options are
-                                   registered.  If False, they are excluded.
-        :param dict deprecated_opts: Deprecated options that should be included
-             in the definition of new options. This should be a dict from the
-             name of the new option to a list of oslo.DeprecatedOpts that
-             correspond to the new option. (optional)
+            compatibility), deprecated options are registered.  If False, they
+            are excluded.
+        :param deprecated_opts: Deprecated options that should be included in
+            the definition of new options. This should be a dict from the name
+            of the new option to a list of oslo.DeprecatedOpts that correspond
+            to the new option. (optional)
 
-             For example, to support the ``api_endpoint`` option pointing to
-             the new ``endpoint_override`` option name::
+            For example, to support the ``api_endpoint`` option pointing to the
+            new ``endpoint_override`` option name::
 
-                 old_opt = oslo_cfg.DeprecatedOpt('api_endpoint', 'old_group')
-                 deprecated_opts = {'endpoint_override': [old_opt]}
+                old_opt = oslo_cfg.DeprecatedOpt('api_endpoint', 'old_group')
+                deprecated_opts = {'endpoint_override': [old_opt]}
 
         :returns: The list of options that was registered.
         """
         from oslo_config import cfg
 
-        opts = self.get_conf_options(
+        if isinstance(group, str):
+            group = cfg.OptGroup(group)
+
+        opts = cls.get_conf_options(
             include_deprecated=include_deprecated,
             deprecated_opts=deprecated_opts,
         )
-        conf.register_group(cfg.OptGroup(group))
+        conf.register_group(group)
         conf.register_opts(opts, group=group)
         return opts
 
     def load_from_conf_options(
-        self, conf: 'cfg.ConfigOpts', group: str, **kwargs: ty.Any
+        self,
+        conf: 'cfg.ConfigOpts',
+        group: 'str | cfg.OptGroup',
+        **kwargs: Any,
     ) -> adapter.Adapter:
         """Create an Adapter object from an oslo_config object.
 
         The options must have been previously registered with
         register_conf_options.
 
-        :param oslo_config.Cfg conf: config object to register with.
-        :param string group: The ini group to register options in.
-        :param dict kwargs: Additional parameters to pass to Adapter
-                            construction.
+        :param conf: config object to register with.
+        :param group: The ini group to register options in.
+        :param kwargs: Additional parameters to pass to Adapter construction.
         :returns: A new Adapter object.
-        :rtype: :py:class:`.Adapter`
         """
+        from oslo_config import cfg
+
+        if isinstance(group, cfg.OptGroup):
+            group = group.name
         c = conf[group]
         process_conf_options(c, kwargs)
         return self.load_from_options(**kwargs)
 
 
 def process_conf_options(
-    confgrp: 'cfg.ConfigOpts.GroupAttr', kwargs: dict[str, ty.Any]
+    confgrp: 'cfg.ConfigOpts.GroupAttr', kwargs: dict[str, Any]
 ) -> None:
     """Set Adapter constructor kwargs based on conf options.
 
-    :param oslo_config.cfg.OptGroup confgrp: Config object group containing
-            options to inspect.
-    :param dict kwargs: Keyword arguments suitable for the constructor of
-            keystoneauth1.adapter.Adapter. Will be modified by this method.
-            Values already set remain unaffected.
+    :param confgrp: Config object group containing options to inspect.
+    :param kwargs: Keyword arguments suitable for the constructor of
+        keystoneauth1.adapter.Adapter. Will be modified by this method. Values
+        already set remain unaffected.
     :raise TypeError: If invalid conf option values or combinations are found.
     """
     if confgrp.valid_interfaces and getattr(confgrp, 'interface', None):
@@ -365,11 +395,11 @@ def register_service_argparse_arguments(
 
 def register_conf_options(
     conf: 'cfg.ConfigOpts',
-    group: str,
+    group: 'str | cfg.OptGroup',
     include_deprecated: bool = True,
     deprecated_opts: dict[str, list['cfg.DeprecatedOpt']] | None = None,
 ) -> list['cfg.Opt']:
-    return Adapter().register_conf_options(
+    return Adapter.register_conf_options(
         conf,
         group,
         include_deprecated=include_deprecated,
@@ -378,7 +408,7 @@ def register_conf_options(
 
 
 def load_from_conf_options(
-    conf: 'cfg.ConfigOpts', group: str, **kwargs: ty.Any
+    conf: 'cfg.ConfigOpts', group: 'str | cfg.OptGroup', **kwargs: Any
 ) -> adapter.Adapter:
     return Adapter().load_from_conf_options(conf, group, **kwargs)
 

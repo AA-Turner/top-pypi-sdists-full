@@ -14,14 +14,19 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
-import time
-from array import array
+from __future__ import annotations
 
-from ..msgs import create_message, encode_message, decode_message
-from ..errors import IpmiTimeoutError
-from ..logger import log
-from ..interfaces.ipmb import IpmbHeaderReq, checksum, rx_filter, encode_ipmb_msg
-from ..utils import py3_array_tobytes
+import logging
+import queue
+import threading
+import time
+from typing import Any
+from collections.abc import Callable
+
+from .ipmb import IpmbInterface
+from .router import MessageRouter
+
+logger = logging.getLogger(__name__)
 
 try:
     import pyaardvark
@@ -30,30 +35,61 @@ except ImportError:  # python 2
 except RuntimeError:  # python 3
     pyaardvark = None
 
+# The receive thread checks the adapter for received messages in this
+# interval. In between, it waits for device calls of other threads.
+POLL_INTERVAL = 0.001
 
-class Aardvark(object):
-    """This interface uses an I2C USB adapter."""
+
+class _DeviceCall:
+    """A device function call, done by the receive thread."""
+
+    def __init__(self, func: Callable[..., Any], args: tuple) -> None:
+        self.func = func
+        self.args = args
+        self.done = threading.Event()
+        self.result: Any = None
+        self.error: Exception | None = None
+
+    def run(self) -> None:
+        try:
+            self.result = self.func(*self.args)
+        except Exception as e:
+            self.error = e
+        self.done.set()
+
+
+class Aardvark(IpmbInterface):
+    """This interface uses an I2C USB adapter.
+
+    The adapter is enabled as I2C slave with the own IPMB address. A receive
+    thread passes all received messages to the router, so the interface
+    can also answer incoming requests (see `MessageRouter`).
+
+    The Aardvark API is not thread-safe. While the receive thread runs, it
+    does all device accesses, the other threads pass them to it.
+    """
 
     NAME = 'aardvark'
 
-    def __init__(self, slave_address=0x20, port=0, serial_number=None,
-                 enable_i2c_pullups=None, enable_target_power=None,
-                 enable_fastmode=None):
+    def __init__(self, slave_address: int = 0x20, port: int = 0,
+                 serial_number: str | None = None,
+                 enable_i2c_pullups: bool | None = None,
+                 enable_target_power: bool | None = None,
+                 enable_fastmode: bool | None = None,
+                 router: MessageRouter | None = None) -> None:
         if pyaardvark is None:
             raise RuntimeError('No pyaardvark module found. You can not '
                                'use this interface.')
 
-        self.slave_address = slave_address
+        super().__init__(slave_address, router)
         self.port = port
         self.serial_number = serial_number
         self.i2c_pullups = enable_i2c_pullups
         self.target_power = enable_target_power
         self.fastmode = enable_fastmode
-        self.timeout = 0.25
-        self.max_retries = 3
-        self.next_sequence_number = 0
+        self._calls: queue.Queue = queue.Queue()
 
-    def open(self):
+    def open(self) -> None:
         self._dev = pyaardvark.open(self.port, self.serial_number)
         self._dev.enable_i2c_slave(self.slave_address >> 1)
 
@@ -67,166 +103,72 @@ class Aardvark(object):
         else:
             self.enable_fastmode(False)
 
-    def close(self):
+        self._start_receiver()
+
+    def close(self) -> None:
+        self._stop_receiver()
+        self._run_calls()
         self._dev.close()
+        super().close()
 
-    def enable_pullups(self, enabled):
-        self._dev.i2c_pullups = enabled
+    def _wakeup_receiver(self) -> None:
+        self._calls.put(None)
 
-    def enable_target_power(self, enabled):
-        self._dev.target_power = enabled
+    def _call(self, func: Callable[..., Any], *args: Any) -> Any:
+        """Call a device function, in the receive thread if it runs."""
+        receiver = self._receiver
+        if receiver is None or receiver is threading.current_thread():
+            return func(*args)
 
-    def enable_fastmode(self, enabled):
-        if enabled:
-            self._dev.i2c_bitrate = 400
-        else:
-            self._dev.i2c_bitrate = 100
+        call = _DeviceCall(func, args)
+        self._calls.put(call)
+        if not call.done.wait(1.0):
+            raise OSError('aardvark receive thread does not respond')
+        if call.error is not None:
+            raise call.error
+        return call.result
 
-    def raw_write(self, address, data):
-        self._dev.i2c_master_write(address, data)
+    def _run_calls(self, timeout: float = 0) -> None:
+        """Run the queued device calls, wait up to timeout for the first."""
+        try:
+            call = self._calls.get(timeout=timeout) if timeout else \
+                self._calls.get_nowait()
+            while True:
+                if call is not None:
+                    call.run()
+                call = self._calls.get_nowait()
+        except queue.Empty:
+            pass
 
-    def establish_session(self, session):
-        pass
+    def enable_pullups(self, enabled: bool) -> None:
+        self._call(setattr, self._dev, 'i2c_pullups', enabled)
 
-    def close_session(self):
-        pass
+    def enable_target_power(self, enabled: bool) -> None:
+        self._call(setattr, self._dev, 'target_power', enabled)
 
-    def is_ipmc_accessible(self, target):
-        header = IpmbHeaderReq()
-        header.netfn = 6
-        header.rs_lun = 0
-        header.rs_sa = target.ipmb_address
-        header.rq_seq = self.next_sequence_number
-        header.rq_lun = 0
-        header.rq_sa = self.slave_address
-        header.cmdid = 1
-        self._send_raw(header, None)
-        self._receive_raw(header)
-        return True
+    def enable_fastmode(self, enabled: bool) -> None:
+        bitrate = 400 if enabled else 100
+        self._call(setattr, self._dev, 'i2c_bitrate', bitrate)
 
-    def _inc_sequence_number(self):
-        self.next_sequence_number = (self.next_sequence_number + 1) % 64
+    def raw_write(self, address: int, data: bytes) -> None:
+        self._call(self._dev.i2c_master_write, address, data)
 
-    @staticmethod
-    def _encode_ipmb_msg_req(header, cmd_data):
-        data = header.encode()
-        data.extend(cmd_data)
-        data.append(checksum(data[2:]))
+    def send_frame(self, frame: bytes) -> None:
+        i2c_addr = frame[0] >> 1
 
-        return data
+        logger.debug('IPMB TX [%s]', bytes(frame).hex(' '))
+        self._call(self._dev.i2c_master_write, i2c_addr, bytes(frame[1:]))
 
-    def _send_raw(self, header, raw_bytes):
-        raw_bytes = encode_ipmb_msg(header, raw_bytes)
-        i2c_addr = header.rs_sa >> 1
-
-        raw_bytes = array('B', raw_bytes)
-        log().debug('I2C TX to %02Xh [%s]', i2c_addr,
-                    ' '.join(['%02x' % b for b in raw_bytes]))
-        self._dev.i2c_master_write(i2c_addr, raw_bytes[1:])
-
-    def _receive_raw(self, header):
-        start_time = time.time()
-        rsp_received = False
-        poll_returned_no_data = False
-        while not rsp_received:
-            timeout = self.timeout - (time.time() - start_time)
-
-            if timeout <= 0 or poll_returned_no_data:
-                raise IpmiTimeoutError()
-
-            ret = self._dev.poll(int(timeout * 1000))
-
-            # poll returns an empty list if no event is pending
-            if not ret:
-                poll_returned_no_data = True
-                continue
-
-            (i2c_addr, rx_data) = self._dev.i2c_slave_read()
-            rx_data = array('B', rx_data)
-            log().debug('I2C RX from %02Xh [%s]', i2c_addr << 1,
-                        ' '.join(['%02x' % c for c in rx_data]))
-
-            rq_sa = array('B', [i2c_addr << 1, ])
-            rsp_received = rx_filter(header, rq_sa + rx_data)
-
-        return rx_data
-
-    def _send_and_receive(self, target, lun, netfn, cmdid, payload):
-        """Send and receive data using aardvark interface.
-
-        target:
-        lun:
-        netfn:
-        cmdid:
-        payload: IPMI message payload as bytestring
-
-        Returns the received data as bytestring
-        """
-        self._inc_sequence_number()
-
-        # assemble IPMB header
-        header = IpmbHeaderReq()
-        header.netfn = netfn
-        header.rs_lun = lun
-        header.rs_sa = target.ipmb_address
-        header.rq_seq = self.next_sequence_number
-        header.rq_lun = 0
-        header.rq_sa = self.slave_address
-        header.cmdid = cmdid
-
-        retries = 0
-        while retries < self.max_retries:
-            try:
-                self._send_raw(header, payload)
-                rx_data = self._receive_raw(header)
+    def _read_frame(self, timeout: float) -> bytes | None:
+        deadline = time.monotonic() + timeout
+        while not self._stop_receiver_event.is_set():
+            events = self._dev.poll(0)
+            if pyaardvark.POLL_I2C_READ in events:
+                (i2c_addr, rx_data) = self._dev.i2c_slave_read()
+                # the adapter strips the own address (rqSA) of the message
+                return bytes((i2c_addr << 1,)) + bytes(rx_data)
+            if time.monotonic() >= deadline:
                 break
-            except IpmiTimeoutError:
-                pass
-            except IOError:
-                pass
-
-            retries += 1
-            time.sleep(retries*0.2)
-
-        else:
-            raise IpmiTimeoutError()
-
-        return py3_array_tobytes(rx_data)[5:-1]
-
-    def send_and_receive_raw(self, target, lun, netfn, raw_bytes):
-        """Interface function to send and receive raw message.
-
-        target: IPMI target
-        lun: logical unit number
-        netfn: network function
-        raw_bytes: RAW bytes as bytestring
-
-        Returns the IPMI message response bytestring.
-        """
-        return self._send_and_receive(target=target,
-                                      lun=lun,
-                                      netfn=netfn,
-                                      cmdid=array('B', raw_bytes)[0],
-                                      payload=raw_bytes[1:])
-
-    def send_and_receive(self, req):
-        """Interface function to send and receive an IPMI message.
-
-        target: IPMI target
-        req: IPMI message request
-
-        Returns the IPMI message response.
-        """
-        log().debug('IPMI Request [%s]', req)
-
-        rx_data = self._send_and_receive(target=req.target,
-                                         lun=req.lun,
-                                         netfn=req.netfn,
-                                         cmdid=req.cmdid,
-                                         payload=encode_message(req))
-        rsp = create_message(req.netfn + 1, req.cmdid, req.group_extension)
-        decode_message(rsp, rx_data)
-
-        log().debug('IPMI Response [%s])', rsp)
-
-        return rsp
+            # a device call wakes up the wait immediately
+            self._run_calls(POLL_INTERVAL)
+        return None

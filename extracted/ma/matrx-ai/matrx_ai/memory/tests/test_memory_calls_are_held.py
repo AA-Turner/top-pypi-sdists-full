@@ -7,9 +7,9 @@ recorded as an "observer" event.
 
 from __future__ import annotations
 
-from matrx_utils.source_guard import stable_source
-
 from types import SimpleNamespace
+
+from matrx_utils.source_guard import stable_source
 
 import matrx_ai.mandates as mandates
 from matrx_ai.code_call_mandate_keys import MEMORY_OBSERVER_MANDATE, MEMORY_REFLECTOR_MANDATE
@@ -33,12 +33,12 @@ async def test_observer_sends_no_system_prompt_of_its_own() -> None:
         )
         return "<observations>\nDate: Jan 1, 2026\n* 🔴 (09:00) x\n</observations>"
 
-    await run_observer(ModelConfig(mandate_key=MEMORY_OBSERVER_MANDATE), "task", _llm)
+    await run_observer(ModelConfig(mandate_key=MEMORY_OBSERVER_MANDATE), {"new_messages": "task"}, _llm)
 
     assert seen[0]["mandate_key"] == MEMORY_OBSERVER_MANDATE
     # No turn of its own: the Holder authors the user turn and frames the material.
     assert seen[0]["messages"] == []
-    assert seen[0]["variables"] == {"material": "task"}
+    assert seen[0]["variables"] == {"new_messages": "task"}
     assert seen[0]["model"] is None
 
 
@@ -46,11 +46,11 @@ def test_no_task_text_is_composed_in_code() -> None:
     """The residue pass (2026-09-25): "## Your Task" and the compression
     guidance are the Holders'. The code offers material and level switches only."""
     from matrx_ai.memory import constants
-    from matrx_ai.memory.observer_agent import build_observer_prompt
+    from matrx_ai.memory.observer_agent import build_observer_variables
     from matrx_ai.memory.reflector_agent import build_reflector_variables
 
     assert not hasattr(constants, "COMPRESSION_GUIDANCE")
-    assert "Your Task" not in build_observer_prompt(None, [])
+    assert "Your Task" not in "".join(build_observer_variables(None, []).values())
     level_two = build_reflector_variables("obs", compression_level=2)
     assert "compression_guidance_level_2" not in level_two  # the Holder's text applies
     assert all(level_two[f"compression_guidance_level_{n}"] == "" for n in (1, 3, 4))
@@ -146,7 +146,7 @@ async def test_observer_retry_nudge_is_the_holders_text() -> None:
             return "no block here"
         return "<observations>\nDate: Jan 1, 2026\n* 🔴 (09:00) x\n</observations>"
 
-    await run_observer(ModelConfig(mandate_key=MEMORY_OBSERVER_MANDATE), "m", _llm)
+    await run_observer(ModelConfig(mandate_key=MEMORY_OBSERVER_MANDATE), {"new_messages": "m"}, _llm)
     assert calls[1] == [
         {"role": "assistant", "content": "no block here"},
         {"role": "user", "holder_text": "retry_nudge"},

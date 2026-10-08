@@ -2207,6 +2207,16 @@ class UnifiedAIClient:
                 if getattr(config, "runtime_offering_id", None)
                 else profile.resolution_route
             )
+        # BUILT-IN TOOLS — provider-side search / url fetch never becomes a
+        # ToolCallUsage, so the request row would read tool_calls_count=0. Record
+        # what ran beside the usage; CompletedRequest.to_storage_dict lands it in
+        # chat.request.metadata.builtin_tool_use.
+        if usage is not None and isinstance(getattr(usage, "metadata", None), dict):
+            from matrx_ai.config.builtin_tool_use import collect_builtin_tool_use
+
+            builtin = collect_builtin_tool_use(response)
+            if builtin:
+                usage.metadata["builtin_tool_use"] = builtin
         # CITATIONS — settle-time identity enrichment. This is the one seam
         # where the request (config.messages, wire-ordered documents) and the
         # response meet, so document citations get their `document_index`

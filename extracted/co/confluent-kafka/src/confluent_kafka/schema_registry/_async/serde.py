@@ -18,7 +18,7 @@
 
 import asyncio as _locks
 import logging
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
 
 from cachetools import LRUCache
 
@@ -29,6 +29,7 @@ from confluent_kafka.schema_registry import (
 )
 from confluent_kafka.schema_registry.common.schema_registry_client import RulePhase
 from confluent_kafka.schema_registry.common.serde import (
+    DLQ_RULE_NAME_HEADER,
     STRATEGY_TYPE_MAP,
     ErrorAction,
     FieldTransformer,
@@ -40,6 +41,11 @@ from confluent_kafka.schema_registry.common.serde import (
     RuleError,
     SchemaId,
     SubjectNameStrategyType,
+    ValidationRuleError,
+    ValidationRuleExecutor,
+    ValidationRulesExecution,
+    default_validation_rule_executor,
+    get_original_key,
 )
 from confluent_kafka.schema_registry.error import SchemaRegistryError
 from confluent_kafka.schema_registry.schema_registry_client import Rule, RuleKind, RuleMode, RuleSet, Schema
@@ -56,6 +62,7 @@ __all__ = [
     'AsyncBaseSerde',
     'AsyncBaseSerializer',
     'AsyncBaseDeserializer',
+    'async_build_serde',
     'KAFKA_CLUSTER_ID',
     'FALLBACK_TYPE',
 ]
@@ -83,10 +90,62 @@ class AsyncAssociatedNameStrategy:
     def __init__(self, cache_capacity: int = DEFAULT_CACHE_CAPACITY):
         self._cache: LRUCache = LRUCache(maxsize=cache_capacity)
         self._lock: _locks.Lock = _locks.Lock()
+        self._cluster_id_resolver: Optional[Callable[[], Awaitable[str]]] = None
 
     def _get_cache_key(self, topic: str, is_key: bool, record_name: Optional[str]) -> Tuple[str, bool, Optional[str]]:
         """Create a cache key from topic, is_key, and record_name."""
         return (topic, is_key, record_name)
+
+    def set_async_cluster_id_resolver(self, resolver: Callable[[], Awaitable[str]]) -> None:
+        """
+        Supply a callable resolving the id of the Kafka cluster the client is
+        connected to, used as the resource namespace of association lookups
+        when KAFKA_CLUSTER_ID is not configured.
+
+        *This API is experimental and subject to incompatible changes in future versions of the library.*
+
+        The resolver is not invoked here, only on a cache miss of a subject
+        lookup, so that creating a client never waits on a broker. The most
+        recently set resolver wins.
+
+        Args:
+            resolver (callable): Callable returning the cluster id.
+        """
+        self._cluster_id_resolver = resolver
+
+    async def _resolve_cluster_id(self, conf: Optional[dict]) -> str:
+        """
+        The resource namespace to look associations up under: the configured
+        cluster id, else the one the resolver returns, else the wildcard.
+
+        The resolved id is deliberately not cached here: the subject cache
+        already absorbs repeated lookups, and the Kafka client caches the id
+        itself, so a failure is simply retried on the next lookup.
+        """
+        kafka_cluster_id = (conf or {}).get(KAFKA_CLUSTER_ID)
+        if kafka_cluster_id:
+            return kafka_cluster_id
+
+        resolver = self._cluster_id_resolver
+        if resolver is None:
+            return NAMESPACE_WILDCARD
+
+        try:
+            kafka_cluster_id = await resolver()
+        except Exception as e:
+            raise SerializationError(
+                "associated name strategy: could not resolve the Kafka cluster id, "
+                "which typically means the client has not reached a broker yet; "
+                f"set {KAFKA_CLUSTER_ID} to supply it explicitly: {e}"
+            ) from e
+
+        if not kafka_cluster_id:
+            raise SerializationError(
+                "associated name strategy: the Kafka cluster id resolved to an empty "
+                f"string; set {KAFKA_CLUSTER_ID} to supply it explicitly"
+            )
+
+        return kafka_cluster_id
 
     async def _load_subject_name(
         self,
@@ -98,8 +157,6 @@ class AsyncAssociatedNameStrategy:
         conf: Optional[dict],
     ) -> Optional[str]:
         """Load the subject name from schema registry (not cached)."""
-        # Determine resource namespace from config
-        kafka_cluster_id = None
         fallback_strategy = SubjectNameStrategyType.TOPIC  # default fallback
 
         # If no client is available, skip association lookup and use fallback directly
@@ -107,7 +164,6 @@ class AsyncAssociatedNameStrategy:
             return topic_subject_name_strategy(ctx, record_name)
 
         if conf is not None:
-            kafka_cluster_id = conf.get(KAFKA_CLUSTER_ID)
             fallback_config = conf.get(FALLBACK_TYPE)
             if fallback_config is not None:
                 if isinstance(fallback_config, SubjectNameStrategyType):
@@ -124,7 +180,7 @@ class AsyncAssociatedNameStrategy:
                             f"Valid values are: {', '.join(valid_fallbacks)}"
                         )
 
-        resource_namespace = kafka_cluster_id if kafka_cluster_id is not None else NAMESPACE_WILDCARD
+        resource_namespace = await self._resolve_cluster_id(conf)
 
         # Determine association type based on whether this is key or value
         association_type = "key" if is_key else "value"
@@ -242,28 +298,167 @@ class AsyncAssociatedNameStrategy:
             self._cache.clear()
 
 
+_S = TypeVar('_S', bound='AsyncBaseSerde')
+
+
+async def async_build_serde(
+    schema_registry_client: Optional[AsyncSchemaRegistryClient],
+    schema_registry_conf: Optional[dict],
+    construct: Callable[[Optional[AsyncSchemaRegistryClient]], Awaitable[_S]],
+    init: Optional[Callable[[_S], Awaitable[None]]] = None,
+) -> _S:
+    """
+    Construct a serde for a builder, creating the Schema Registry client from
+    ``schema_registry_conf`` when no client was supplied.
+
+    A client created here is owned by the serde, which closes it when it is
+    closed itself; a supplied client stays the application's. If ``construct``
+    raises, a client created here is closed before the error propagates, as
+    nothing else references it yet; if ``init`` raises, the serde built so far
+    is closed, releasing that client with it.
+
+    Args:
+        schema_registry_client: Client supplied by the application, or None.
+
+        schema_registry_conf (dict): Configuration to create a client from
+            instead. Both None leaves the serde without a client.
+
+        construct (callable): Called with the client and returning the serde.
+
+        init (callable): Optional coroutine function awaited with the built
+            serde, for setup the builder's setters do not cover.
+
+    Returns:
+        The constructed serde.
+
+    Raises:
+        ValueError: If both a client and a configuration were supplied; there
+            is no sensible precedence between them, so the ambiguity is
+            rejected rather than one of the two silently ignored.
+    """
+    if schema_registry_client is not None and schema_registry_conf is not None:
+        raise ValueError("Cannot specify both a Schema Registry client and a configuration; use one or the other")
+
+    client = schema_registry_client
+    owned = False
+    if client is None and schema_registry_conf is not None:
+        client = AsyncSchemaRegistryClient.new_client(schema_registry_conf)
+        owned = True
+
+    try:
+        serde = await construct(client)
+    except BaseException:
+        if owned and client is not None:
+            try:
+                await client.aclose()
+            except Exception:
+                # logged, so that the construction error is the one raised
+                log.warning("Failed to close the Schema Registry client of a serde that failed to build", exc_info=True)
+        raise
+
+    if owned:
+        serde.own_schema_registry_client()
+
+    if init is not None:
+        try:
+            await init(serde)
+        except BaseException:
+            try:
+                await serde.aclose()
+            except Exception:
+                # logged, so that the init callback error is the one raised
+                log.warning("Failed to close a serde whose init callback failed", exc_info=True)
+            raise
+
+    return serde
+
+
 class AsyncBaseSerde(object):
     __slots__ = [
         '_use_schema_id',
         '_use_latest_version',
         '_use_latest_with_metadata',
         '_registry',
+        '_owns_registry',
         '_rule_registry',
         '_strategy_accepts_client',
         '_subject_name_conf',
         '_subject_name_func',
         '_field_transformer',
+        '_validation_rules_execution',
+        '_validation_rules_fail_fast',
+        '_validation_rule_executor',
     ]
 
     _use_schema_id: Optional[int]
     _use_latest_version: bool
     _use_latest_with_metadata: Optional[Dict[str, str]]
     _registry: Any  # AsyncSchemaRegistryClient
+    _owns_registry: bool
     _rule_registry: Any  # RuleRegistry
     _strategy_accepts_client: bool
     _subject_name_conf: Optional[dict]
     _subject_name_func: Callable[..., Any]
     _field_transformer: Optional[FieldTransformer]
+    _validation_rules_execution: ValidationRulesExecution
+    _validation_rules_fail_fast: bool
+    _validation_rule_executor: Optional[ValidationRuleExecutor]
+
+    def configure_validation_rules(self, conf: dict) -> None:
+        """
+        Pop and validate the inline validation rule configs from ``conf``.
+
+        When execution is not DISABLED the executor is resolved eagerly, so a missing
+        dependency surfaces at serializer construction rather than at the first record.
+        """
+        execution = conf.pop('validation.rules.execution', ValidationRulesExecution.DISABLED)
+        try:
+            self._validation_rules_execution = ValidationRulesExecution(execution)
+        except ValueError:
+            raise ValueError(
+                "validation.rules.execution must be one of {}".format(
+                    ", ".join(m.value for m in ValidationRulesExecution)
+                )
+            )
+
+        self._validation_rules_fail_fast = cast(bool, conf.pop('validation.rules.fail.fast', False))
+        if not isinstance(self._validation_rules_fail_fast, bool):
+            raise ValueError("validation.rules.fail.fast must be a boolean value")
+
+        executor = conf.pop('validation.rules.executor', None)
+        if self._validation_rules_execution == ValidationRulesExecution.DISABLED:
+            # Nothing will be validated, so don't import the CEL machinery.
+            self._validation_rule_executor = executor
+            return
+        if executor is None:
+            executor = default_validation_rule_executor()
+        if not isinstance(executor, ValidationRuleExecutor):
+            raise ValueError("validation.rules.executor must be a ValidationRuleExecutor instance")
+        self._validation_rule_executor = executor
+
+    def _validation_enabled(self, phase: Optional[ValidationRulesExecution] = None) -> bool:
+        """
+        True when inline validation rules should run at ``phase``.
+
+        Pass no phase when there is a single validation point — a serialization path
+        that applies no domain rules has nothing to run before or after, so any
+        enabled mode validates there.
+        """
+        if phase is None:
+            return self._validation_rules_execution != ValidationRulesExecution.DISABLED
+        return self._validation_rules_execution == phase
+
+    def _raise_validation_violations(self, violations: List[ValidationRuleError]) -> None:
+        """
+        Raise a single SerializationError aggregating every violation found.
+        """
+        if not violations:
+            return
+        count = len(violations)
+        lines = ["Validation rule failed ({} violation{}):".format(count, "" if count == 1 else "s")]
+        for violation in violations:
+            lines.append("  - {}".format(violation))
+        raise SerializationError("\n".join(lines))
 
     def configure_subject_name_strategy(
         self,
@@ -335,6 +530,36 @@ class AsyncBaseSerde(object):
         self._subject_name_func = AsyncAssociatedNameStrategy()
         self._strategy_accepts_client = True
 
+    def set_async_cluster_id_resolver(self, resolver: Callable[[], Awaitable[str]]) -> None:
+        """
+        Supply a callable resolving the id of the Kafka cluster the client is
+        connected to.
+
+        *This API is experimental and subject to incompatible changes in future versions of the library.*
+
+        Only the associated subject name strategy uses the cluster id, as the
+        resource namespace of its association lookups, so the resolver is
+        handed to that strategy and dropped otherwise. The strategy invokes it
+        lazily, on the first subject lookup, and not at all when
+        KAFKA_CLUSTER_ID was configured explicitly.
+
+        Args:
+            resolver (callable): Callable returning the cluster id.
+        """
+        if isinstance(self._subject_name_func, AsyncAssociatedNameStrategy):
+            self._subject_name_func.set_async_cluster_id_resolver(resolver)
+
+    def own_schema_registry_client(self) -> None:
+        """
+        Make this serde responsible for closing its Schema Registry client.
+
+        *This API is experimental and subject to incompatible changes in future versions of the library.*
+
+        Called by the serde builders for the client they created; a client
+        supplied by the application is never closed by the serde.
+        """
+        self._owns_registry = True
+
     async def _get_reader_schema(self, subject: str, fmt: Optional[str] = None) -> Optional[RegisteredSchema]:
         if self._use_schema_id is not None:
             schema = await self._registry.get_schema(self._use_schema_id, subject, fmt)
@@ -360,9 +585,19 @@ class AsyncBaseSerde(object):
         message: Any,
         inline_tags: Optional[Dict[str, Set[str]]],
         field_transformer: Optional[FieldTransformer],
+        original_message: Any = None,
     ) -> Any:
         return self._execute_rules_with_phase(
-            ser_ctx, subject, RulePhase.DOMAIN, rule_mode, source, target, message, inline_tags, field_transformer
+            ser_ctx,
+            subject,
+            RulePhase.DOMAIN,
+            rule_mode,
+            source,
+            target,
+            message,
+            inline_tags,
+            field_transformer,
+            original_message,
         )
 
     def _execute_rules_with_phase(
@@ -376,9 +611,12 @@ class AsyncBaseSerde(object):
         message: Any,
         inline_tags: Optional[Dict[str, Set[str]]],
         field_transformer: Optional[FieldTransformer],
+        original_message: Any = None,
     ) -> Any:
         if message is None or target is None:
             return message
+        if original_message is None:
+            original_message = message
         enabled_env: Optional[str] = None
         rules: Optional[List[Rule]] = None
         if rule_mode == RuleMode.UPGRADE:
@@ -406,6 +644,10 @@ class AsyncBaseSerde(object):
         if not rules:
             return message
 
+        is_key = ser_ctx is not None and ser_ctx.field == MessageField.KEY
+        original_key = original_message if is_key else get_original_key()
+        original_value = None if is_key else original_message
+
         for index in range(len(rules)):
             rule = rules[index]
             ctx = RuleContext(
@@ -420,8 +662,12 @@ class AsyncBaseSerde(object):
                 rules,
                 inline_tags,
                 field_transformer,
+                original_key,
+                original_value,
             )
             if self._is_disabled(ctx, rule):
+                continue
+            if self._is_dlq_replay(ctx, rule):
                 continue
             if rule.mode == RuleMode.WRITEREAD:
                 if rule_mode != RuleMode.READ and rule_mode != RuleMode.WRITE:
@@ -503,6 +749,29 @@ class AsyncBaseSerde(object):
             return True
         return rule.disabled
 
+    def _is_dlq_replay(self, ctx: RuleContext, rule: Rule) -> bool:
+        # A __rule.name header means this record came from a DLQ; skip that rule
+        # so it doesn't fail again.
+        headers = ctx.ser_ctx.headers if ctx.ser_ctx is not None else None
+        if not headers or rule.name is None:
+            return False
+        value: Any = None
+        if isinstance(headers, dict):
+            value = headers.get(DLQ_RULE_NAME_HEADER)
+        else:
+            for k, v in headers:
+                # last occurrence wins when a header key repeats
+                if k == DLQ_RULE_NAME_HEADER:
+                    value = v
+        if value is None:
+            return False
+        if isinstance(value, (bytes, bytearray)):
+            try:
+                value = value.decode('utf-8')
+            except UnicodeDecodeError:
+                return False
+        return value == rule.name
+
     def _run_action(
         self,
         ctx: RuleContext,
@@ -544,6 +813,56 @@ class AsyncBaseSerde(object):
         elif action_name == 'NONE':
             return NoneAction()
         return self._rule_registry.get_action(action_name)
+
+    async def aclose(self):
+        """
+        Release what this serde owns: the executors and actions of a rule
+        registry set on it, and the Schema Registry client when it was created
+        by a serde builder (see :py:func:`own_schema_registry_client`).
+
+        *This API is experimental and subject to incompatible changes in future versions of the library.*
+
+        A rule registry other than the global one is taken to be dedicated to
+        this serde, so its members are closed here; the global registry is
+        shared by every serde in the process and is left alone. A Schema
+        Registry client supplied by the application is never closed. Safe to
+        call more than once.
+        """
+        try:
+            self._close_rule_registry()
+        finally:
+            await self._close_owned_registry()
+
+    def _close_rule_registry(self) -> None:
+        # Close only the executors/actions this serde owns via a dedicated
+        # registry. Members of the shared global registry are process-lifetime and
+        # used by other serdes, so closing them here would tear down live resources.
+        from confluent_kafka.schema_registry.rule_registry import RuleRegistry
+
+        if self._rule_registry is None or self._rule_registry is RuleRegistry.get_global_instance():
+            return
+        # Close actions before executors, each isolated so one failure can't skip
+        # the rest (a buggy executor must not cost buffered DLQ records).
+        for action in self._rule_registry.get_actions():
+            try:
+                action.close()
+            except Exception as e:
+                log.warning("Error closing rule action %s: %s", type(action).__name__, e)
+        for executor in self._rule_registry.get_executors():
+            try:
+                executor.close()
+            except Exception as e:
+                log.warning("Error closing rule executor %s: %s", type(executor).__name__, e)
+
+    async def _close_owned_registry(self) -> None:
+        # Only the first call releases the client; a client the application
+        # supplied is never closed here.
+        if not getattr(self, '_owns_registry', False):
+            return
+
+        self._owns_registry = False
+        if self._registry is not None:
+            await self._registry.aclose()
 
 
 class AsyncBaseSerializer(AsyncBaseSerde, Serializer):

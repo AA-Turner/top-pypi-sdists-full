@@ -11,8 +11,9 @@
 # under the License.
 
 import abc
+from collections.abc import Callable
 import logging
-import typing as ty
+from typing import Any, cast, Generic, TYPE_CHECKING, TypeVar
 
 import stevedore
 from stevedore import extension
@@ -20,7 +21,7 @@ from stevedore import extension
 from keystoneauth1 import exceptions
 from keystoneauth1 import plugin
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from keystoneauth1.loading import base
     from keystoneauth1.loading import opts
 
@@ -38,11 +39,11 @@ __all__ = (
     'PLUGIN_NAMESPACE',
 )
 
-T = ty.TypeVar('T', covariant=True)
+T = TypeVar('T', covariant=True)
 
 
 def _auth_plugin_available(
-    ext: extension.Extension['base.BaseLoader[ty.Any]'],
+    ext: extension.Extension['base.BaseLoader[Any]'],
 ) -> bool:
     """Read the value of available for whether to load this plugin."""
     assert ext.obj is not None
@@ -50,8 +51,8 @@ def _auth_plugin_available(
 
 
 def _prefer_out_of_tree_plugin(
-    namespace: str, name: str, extensions: list[extension.Extension[ty.Any]]
-) -> extension.Extension[ty.Any]:
+    namespace: str, name: str, extensions: list[extension.Extension[Any]]
+) -> extension.Extension[Any]:
     """Resolve duplicate plugin entry points, preferring out-of-tree ones.
 
     keystoneauth1 ships in-tree loaders for some plugins that also have an
@@ -60,7 +61,7 @@ def _prefer_out_of_tree_plugin(
     implementation so deployers can override the one we ship.
     """
 
-    def _is_in_tree(ext: extension.Extension[ty.Any]) -> bool:
+    def _is_in_tree(ext: extension.Extension[Any]) -> bool:
         dist = ext.entry_point.dist
         if dist is not None:
             return dist.name == 'keystoneauth1'
@@ -85,7 +86,6 @@ def get_available_plugin_names() -> frozenset[str]:
     example what plugins they may specify.
 
     :returns: A list of names.
-    :rtype: frozenset
     """
     mgr = stevedore.EnabledExtensionManager(
         namespace=PLUGIN_NAMESPACE,
@@ -103,8 +103,7 @@ def get_available_plugin_loaders() -> dict[
     """Retrieve all the plugin classes available on the system.
 
     :returns: A dict with plugin entrypoint name as the key and the plugin
-              loader as the value.
-    :rtype: dict
+        loader as the value.
     """
     mgr: stevedore.EnabledExtensionManager[BaseLoader[plugin.BaseAuthPluginT]]
     mgr = stevedore.EnabledExtensionManager(
@@ -118,7 +117,7 @@ def get_available_plugin_loaders() -> dict[
     # Access the extensions by name so stevedore applies the conflict resolver.
     # We know obj is not None since we passed invoke_on_load=True above.
     return {
-        name: ty.cast('BaseLoader[plugin.BaseAuthPluginT]', ext.obj)
+        name: cast('BaseLoader[plugin.BaseAuthPluginT]', ext.obj)
         for name, ext in mgr.items()
     }
 
@@ -126,11 +125,8 @@ def get_available_plugin_loaders() -> dict[
 def get_plugin_loader(name: str) -> 'BaseLoader[plugin.BaseAuthPluginT]':
     """Retrieve a plugin class by its entrypoint name.
 
-    :param str name: The name of the object to get.
-
+    :param name: The name of the object to get.
     :returns: An auth plugin class.
-    :rtype: :py:class:`keystoneauth1.loading.BaseLoader`
-
     :raises keystoneauth1.exceptions.auth_plugins.NoMatchingPlugin:
         if a plugin cannot be created.
     """
@@ -148,7 +144,7 @@ def get_plugin_loader(name: str) -> 'BaseLoader[plugin.BaseAuthPluginT]':
     # NOTE(stephenfin): We know this will return an instance of the BaseLoader
     # rather than the class itself since we passed invoke_on_load=True above.
     # The hints in stevedore need work.
-    return ty.cast('BaseLoader[plugin.BaseAuthPluginT]', mgr.driver)
+    return cast('BaseLoader[plugin.BaseAuthPluginT]', mgr.driver)
 
 
 def get_plugin_options(name: str) -> list['opts.Opt']:
@@ -165,12 +161,12 @@ def get_plugin_options(name: str) -> list['opts.Opt']:
     return get_plugin_loader(name).get_options()
 
 
-class _BaseLoader(ty.Generic[T], metaclass=abc.ABCMeta):
+class _BaseLoader(Generic[T], metaclass=abc.ABCMeta):
     @property
     def plugin_class(self) -> type[T]:
         raise NotImplementedError()
 
-    def create_plugin(self, **kwargs: ty.Any) -> T:
+    def create_plugin(self, **kwargs: Any) -> T:
         """Create a plugin from the options available for the loader.
 
         Given the options that were specified by the loader create an
@@ -196,7 +192,6 @@ class _BaseLoader(ty.Generic[T], metaclass=abc.ABCMeta):
 
         :returns: A list of Param objects describing available plugin
                   parameters.
-        :rtype: list
         """
         return []
 
@@ -208,11 +203,11 @@ class _BaseLoader(ty.Generic[T], metaclass=abc.ABCMeta):
         be available to the current system it should override this property and
         return False to exclude itself from the plugin list.
 
-        :rtype: bool
+        :returns: True if the plugin is available for loading, else False.
         """
         return True
 
-    def load_from_options(self, **kwargs: ty.Any) -> T:
+    def load_from_options(self, **kwargs: Any) -> T:
         """Create a plugin from the arguments retrieved from get_options.
 
         A client can override this function to do argument validation or to
@@ -231,7 +226,7 @@ class _BaseLoader(ty.Generic[T], metaclass=abc.ABCMeta):
         return self.create_plugin(**kwargs)
 
     def load_from_options_getter(
-        self, getter: ty.Callable[['opts.Opt'], ty.Any], **kwargs: ty.Any
+        self, getter: Callable[['opts.Opt'], Any], **kwargs: Any
     ) -> T:
         """Load a plugin from getter function that returns appropriate values.
 
@@ -242,10 +237,7 @@ class _BaseLoader(ty.Generic[T], metaclass=abc.ABCMeta):
         :py:class:`keystoneauth1.loading.Opt` and returns a value to load with.
 
         :param getter: A function that returns a value for the given opt.
-        :type getter: callable
-
         :returns: An authentication Plugin.
-        :rtype: :py:class:`keystoneauth1.plugin.BaseAuthPlugin`
         """
         for opt in (o for o in self.get_options() if o.dest not in kwargs):
             val = getter(opt)

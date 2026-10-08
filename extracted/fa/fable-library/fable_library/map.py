@@ -10,6 +10,7 @@ from .array_ import Array, zero_create
 from .array_ import map as map_2
 from .bases import ComparableBase, DisposableBase, EnumerableBase, EnumeratorBase, EquatableBase, StringableBase
 from .core import FSharpRef, int32
+from .exception_bases import ExceptionBase
 from .list import FSharpList, cons, head, of_array_with_tail, singleton, tail
 from .list import empty as empty_1
 from .list import fold as fold_1
@@ -26,7 +27,6 @@ from .seq_native import map as map_1
 from .seq_native import unfold
 from .string_ import format, join
 from .system import NotSupportedException__ctor_Z721C83C5
-from .types import ExceptionBase
 from .util import UNIT, Disposable, Unit, compare, equals, get_enumerator, ignore, nullable, range, structural_hash
 
 

@@ -92,14 +92,16 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
         "OBJECT_FOREIGN_TABLE",
     ),
     "SetOperation": ("SETOP_NONE",),
+    "A_Expr_Kind": ("AEXPR_OP",),
     "BoolExprType": ("AND_EXPR",),
     "NullTestType": ("IS_NULL",),
+    "CmdType": ("CMD_UPDATE",),
     "TableLikeOption": (
         "CREATE_TABLE_LIKE_DEFAULTS",
         "CREATE_TABLE_LIKE_IDENTITY",
         "CREATE_TABLE_LIKE_GENERATED",
     ),
-    "JoinType": ("JOIN_FULL", "JOIN_RIGHT"),
+    "JoinType": ("JOIN_FULL", "JOIN_LEFT", "JOIN_RIGHT"),
     "SortByDir": ("SORTBY_DEFAULT",),
     "SortByNulls": ("SORTBY_NULLS_DEFAULT",),
     "VariableSetKind": (

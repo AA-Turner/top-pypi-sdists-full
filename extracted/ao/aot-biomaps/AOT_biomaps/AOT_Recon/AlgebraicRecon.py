@@ -1,4 +1,5 @@
-import concurrent
+from __future__ import annotations
+
 import warnings
 from AOT_biomaps.Config import config
 

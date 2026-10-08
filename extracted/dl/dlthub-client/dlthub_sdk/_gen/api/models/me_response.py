@@ -13,9 +13,6 @@ if TYPE_CHECKING:
     from ..models.organization_membership_response import OrganizationMembershipResponse
     from ..models.organization_response import OrganizationResponse
     from ..models.workspace_response import WorkspaceResponse
-    from ..models.workspace_with_membership_response import (
-        WorkspaceWithMembershipResponse,
-    )
 
 
 T = TypeVar("T", bound="MeResponse")
@@ -26,27 +23,25 @@ class MeResponse:
     """
     Attributes:
         email (str): The email of the current user
-        identity_id (UUID): The ID of the current identity in the current organization.
-        last_organization (OrganizationResponse): The organization where new workspaces are created by default
+        latest_organization (OrganizationResponse): The organization where new workspaces are created by default
+        organization_membership_id (UUID): The ID of the current identity in the current organization.
         primary_organization (OrganizationResponse): The organization where new workspaces are created by default
         user_id (UUID): The ID of the current user
-        last_workspace (None | Unset | WorkspaceResponse): The most recently accessed workspace; null when the user's
+        latest_workspace (None | Unset | WorkspaceResponse): The most recently accessed workspace; null when the user's
             current organization has no workspaces
         name (None | str | Unset): The user's display name (full name), or null if the identity provider supplied none
-        organizations (list[OrganizationMembershipResponse] | Unset): All organizations the user is a member of
-        workspaces (list[WorkspaceWithMembershipResponse] | Unset): All workspaces the user is a member of, with role
-            and organization info
+        organization_memberships (list[OrganizationMembershipResponse] | Unset): All organizations the user is a member
+            of
     """
 
     email: str
-    identity_id: UUID
-    last_organization: OrganizationResponse
+    latest_organization: OrganizationResponse
+    organization_membership_id: UUID
     primary_organization: OrganizationResponse
     user_id: UUID
-    last_workspace: None | Unset | WorkspaceResponse = UNSET
+    latest_workspace: None | Unset | WorkspaceResponse = UNSET
     name: None | str | Unset = UNSET
-    organizations: list[OrganizationMembershipResponse] | Unset = UNSET
-    workspaces: list[WorkspaceWithMembershipResponse] | Unset = UNSET
+    organization_memberships: list[OrganizationMembershipResponse] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,21 +49,21 @@ class MeResponse:
 
         email = self.email
 
-        identity_id = str(self.identity_id)
+        latest_organization = self.latest_organization.to_dict()
 
-        last_organization = self.last_organization.to_dict()
+        organization_membership_id = str(self.organization_membership_id)
 
         primary_organization = self.primary_organization.to_dict()
 
         user_id = str(self.user_id)
 
-        last_workspace: dict[str, Any] | None | Unset
-        if isinstance(self.last_workspace, Unset):
-            last_workspace = UNSET
-        elif isinstance(self.last_workspace, WorkspaceResponse):
-            last_workspace = self.last_workspace.to_dict()
+        latest_workspace: dict[str, Any] | None | Unset
+        if isinstance(self.latest_workspace, Unset):
+            latest_workspace = UNSET
+        elif isinstance(self.latest_workspace, WorkspaceResponse):
+            latest_workspace = self.latest_workspace.to_dict()
         else:
-            last_workspace = self.last_workspace
+            latest_workspace = self.latest_workspace
 
         name: None | str | Unset
         if isinstance(self.name, Unset):
@@ -76,39 +71,32 @@ class MeResponse:
         else:
             name = self.name
 
-        organizations: list[dict[str, Any]] | Unset = UNSET
-        if not isinstance(self.organizations, Unset):
-            organizations = []
-            for organizations_item_data in self.organizations:
-                organizations_item = organizations_item_data.to_dict()
-                organizations.append(organizations_item)
-
-        workspaces: list[dict[str, Any]] | Unset = UNSET
-        if not isinstance(self.workspaces, Unset):
-            workspaces = []
-            for workspaces_item_data in self.workspaces:
-                workspaces_item = workspaces_item_data.to_dict()
-                workspaces.append(workspaces_item)
+        organization_memberships: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.organization_memberships, Unset):
+            organization_memberships = []
+            for organization_memberships_item_data in self.organization_memberships:
+                organization_memberships_item = (
+                    organization_memberships_item_data.to_dict()
+                )
+                organization_memberships.append(organization_memberships_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "email": email,
-                "identity_id": identity_id,
-                "last_organization": last_organization,
+                "latest_organization": latest_organization,
+                "organization_membership_id": organization_membership_id,
                 "primary_organization": primary_organization,
                 "user_id": user_id,
             }
         )
-        if last_workspace is not UNSET:
-            field_dict["last_workspace"] = last_workspace
+        if latest_workspace is not UNSET:
+            field_dict["latest_workspace"] = latest_workspace
         if name is not UNSET:
             field_dict["name"] = name
-        if organizations is not UNSET:
-            field_dict["organizations"] = organizations
-        if workspaces is not UNSET:
-            field_dict["workspaces"] = workspaces
+        if organization_memberships is not UNSET:
+            field_dict["organization_memberships"] = organization_memberships
 
         return field_dict
 
@@ -119,16 +107,15 @@ class MeResponse:
         )
         from ..models.organization_response import OrganizationResponse
         from ..models.workspace_response import WorkspaceResponse
-        from ..models.workspace_with_membership_response import (
-            WorkspaceWithMembershipResponse,
-        )
 
         d = dict(src_dict)
         email = d.pop("email")
 
-        identity_id = UUID(d.pop("identity_id"))
+        latest_organization = OrganizationResponse.from_dict(
+            d.pop("latest_organization")
+        )
 
-        last_organization = OrganizationResponse.from_dict(d.pop("last_organization"))
+        organization_membership_id = UUID(d.pop("organization_membership_id"))
 
         primary_organization = OrganizationResponse.from_dict(
             d.pop("primary_organization")
@@ -136,7 +123,7 @@ class MeResponse:
 
         user_id = UUID(d.pop("user_id"))
 
-        def _parse_last_workspace(data: object) -> None | Unset | WorkspaceResponse:
+        def _parse_latest_workspace(data: object) -> None | Unset | WorkspaceResponse:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -144,14 +131,14 @@ class MeResponse:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                last_workspace_type_0 = WorkspaceResponse.from_dict(data)
+                latest_workspace_type_0 = WorkspaceResponse.from_dict(data)
 
-                return last_workspace_type_0
+                return latest_workspace_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(None | Unset | WorkspaceResponse, data)
 
-        last_workspace = _parse_last_workspace(d.pop("last_workspace", UNSET))
+        latest_workspace = _parse_latest_workspace(d.pop("latest_workspace", UNSET))
 
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
@@ -162,38 +149,28 @@ class MeResponse:
 
         name = _parse_name(d.pop("name", UNSET))
 
-        _organizations = d.pop("organizations", UNSET)
-        organizations: list[OrganizationMembershipResponse] | Unset = UNSET
-        if _organizations is not UNSET:
-            organizations = []
-            for organizations_item_data in _organizations:
-                organizations_item = OrganizationMembershipResponse.from_dict(
-                    organizations_item_data
+        _organization_memberships = d.pop("organization_memberships", UNSET)
+        organization_memberships: list[OrganizationMembershipResponse] | Unset = UNSET
+        if _organization_memberships is not UNSET:
+            organization_memberships = []
+            for organization_memberships_item_data in _organization_memberships:
+                organization_memberships_item = (
+                    OrganizationMembershipResponse.from_dict(
+                        organization_memberships_item_data
+                    )
                 )
 
-                organizations.append(organizations_item)
-
-        _workspaces = d.pop("workspaces", UNSET)
-        workspaces: list[WorkspaceWithMembershipResponse] | Unset = UNSET
-        if _workspaces is not UNSET:
-            workspaces = []
-            for workspaces_item_data in _workspaces:
-                workspaces_item = WorkspaceWithMembershipResponse.from_dict(
-                    workspaces_item_data
-                )
-
-                workspaces.append(workspaces_item)
+                organization_memberships.append(organization_memberships_item)
 
         me_response = cls(
             email=email,
-            identity_id=identity_id,
-            last_organization=last_organization,
+            latest_organization=latest_organization,
+            organization_membership_id=organization_membership_id,
             primary_organization=primary_organization,
             user_id=user_id,
-            last_workspace=last_workspace,
+            latest_workspace=latest_workspace,
             name=name,
-            organizations=organizations,
-            workspaces=workspaces,
+            organization_memberships=organization_memberships,
         )
 
         me_response.additional_properties = d

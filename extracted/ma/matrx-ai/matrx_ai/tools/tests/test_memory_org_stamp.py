@@ -31,6 +31,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.db import cxm
 from matrx_ai.tools.implementations import memory as memory_module
@@ -47,7 +48,9 @@ TEAM_ORG_ID = "team-org-11111111-1111-1111-1111-111111111111"
 USER_ID = "user-99999999-9999-9999-9999-999999999999"
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a: Any, **_kw: Any) -> None: ...
     async def send_data(self, *_a: Any, **_kw: Any) -> None: ...
 

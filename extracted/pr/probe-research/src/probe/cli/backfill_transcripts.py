@@ -95,6 +95,11 @@ BATCH_BYTES = MAX_BATCH_BYTES
 #: prevents is one unreachable server turning a 500-session import into 500
 #: identical stack traces.
 MAX_RETRIES_PER_BATCH = 4
+#: Times one session's batch 0 may restart on the other protocol in one run
+#: (`ProtocolRestarted`: protocol 3 refused -> 2, protocol 2 retired -> 3). One
+#: each way covers a settings rollout; more means the server's answers flip
+#: back and forth, and the session waits for a later run instead of looping.
+MAX_PROTOCOL_RESTARTS = 2
 
 SCHEMA = "probe.backfill.transcripts/1"
 
@@ -1099,6 +1104,7 @@ def upload_session(
         )
         rechecked = False
         expected_history = None
+        restarts = 0
         while True:
             stage = "reading transcript"
             body = journal.stage(
@@ -1117,9 +1123,23 @@ def upload_session(
             stage = "finalization" if json.loads(body).get("finalize") else "upload"
             try:
                 journal.deliver(transcript.session_id, wire, expected_body=body)
-            except ProtocolRestarted:
-                # Batch 0 was refused on protocol 3 and dropped; the same range
-                # is staged again on protocol 2 now, not on a later run.
+            except ProtocolRestarted as exc:
+                # Batch 0 was refused on its protocol (3 not enabled, or 2
+                # retired) and dropped; the same range is staged again on the
+                # other protocol now, not on a later run. Bounded: a server
+                # whose answers flip back and forth leaves the session for a
+                # later run instead of looping -- and says so, not the
+                # restart's "sent again" this run will not do.
+                restarts += 1
+                if restarts > MAX_PROTOCOL_RESTARTS:
+                    raise DeliveryPending(
+                        f"protocol restarted {restarts} times this run: {exc}",
+                        retryable=True,
+                        safe_message=(
+                            "the server refused this new session on both protocols; "
+                            "it is left for the next import"
+                        ),
+                    ) from exc
                 continue
             except ReconciliationRequired as exc:
                 if exc.status_code != 409 or rechecked:

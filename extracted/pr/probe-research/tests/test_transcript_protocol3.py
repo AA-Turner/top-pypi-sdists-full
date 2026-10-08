@@ -6,7 +6,10 @@ that door does behind the research-os gateway: receipts carry `accepts`, a new
 stream is pinned to the protocol of its first batch, protocol 3 needs
 `fragment_version` on every batch and one fragment per event ordinal (the
 fragment's `line.line_no`), and an open protocol-3 stream stays accepted after
-protocol 3 stops being offered.
+protocol 3 stops being offered. With protocol 2 retired for new streams
+(`SESSION_PROTOCOL2_NEW_STREAMS=false`, engine `protocol2_retired`) the door
+refuses a new stream's protocol-2 batch 0 with 409 `protocol 2 retired` and the
+receipts answer stops offering 2, only while protocol 3 can replace it.
 """
 
 from __future__ import annotations
@@ -73,6 +76,13 @@ class DoorWire:
         self.calls: list[bytes] = []
         #: A 409 detail the door gives every protocol-3 batch 0 (refusal tests).
         self.refuse_batch0: str | None = None
+        #: SESSION_PROTOCOL2_NEW_STREAMS: False retires protocol 2 for NEW streams.
+        self.protocol2_new_streams = True
+
+    def _protocol2_retired(self, protocol3: bool) -> bool:
+        """The engine's `protocol2_retired`: only while protocol 3 can take its
+        place (offered or enabled, and a fragment version the door reads)."""
+        return not self.protocol2_new_streams and protocol3 and bool(self.versions)
 
     def offer(self, offers: bool) -> None:
         self.offers = self.enabled = offers
@@ -89,7 +99,8 @@ class DoorWire:
         }
         if self.offers is not None:
             result["accepts"] = {
-                "protocols": [2, 3] if self.offers else [2],
+                "protocols": ([] if self._protocol2_retired(bool(self.offers)) else [2])
+                + ([3] if self.offers else []),
                 "fragment_versions": list(self.versions),
                 "events": self.events,
             }
@@ -150,6 +161,8 @@ class DoorWire:
                 return 409, {"detail": "unknown stream; first sequence must be zero"}
             if protocol == 3 and not self.enabled:
                 return 409, {"detail": "protocol 3 not enabled"}
+            if protocol == 2 and self._protocol2_retired(self.enabled):
+                return 409, {"detail": "protocol 2 retired"}
             stream = {
                 "stream_id": body["stream_id"], "protocol_version": protocol, "last_seq": -1,
                 "source_byte_end": 0, "source_line_end": 0, "event_end": 0,
@@ -704,6 +717,271 @@ def test_a_pending_batch_of_another_stream_is_never_acknowledged_as_this_one(tmp
     journal.close()
 
 
+# -- protocol 2 retired for new streams: a pending protocol-2 batch 0 goes on 3 -------
+# Gate 2 of #2454 (engine `SESSION_PROTOCOL2_NEW_STREAMS=false`). A session an
+# older tap staged on protocol 2, and the server never took, is refused at batch
+# 0 for good: the journal drops that batch and sends the session again from batch
+# 0 on protocol 3, under the same stream id.
+
+
+def _retire_protocol2(door: DoorWire, *, events: bool = False) -> None:
+    """Gate 2 at the door: protocol 3 offered and enabled, protocol 2 retired
+    for new streams."""
+    door.offer(True)
+    door.events = events
+    door.protocol2_new_streams = False
+
+
+def _old_staged(tmp_path, door: DoorWire, sid: str, path: Path, *, historical: bool = False):
+    """A tap 0.9.13 journal on this machine stages the session's protocol-2
+    batch 0 and never gets it to the server (offline, or the door changed)."""
+    old = OLD.Journal(door.base_url, CUSTOMER, door.source, directory=tmp_path / "state")
+    old_wire = OldWire(door)
+    old.ensure(sid, path, old_wire.receipts(sid), historical=False, cwd=CWD)
+    if historical:  # its daemon died: the orphan sweep froze the history
+        assert old.pin_orphan(sid, old_wire.receipts(sid))
+    staged = old.stage(sid, cwd=CWD, historical_only=historical)
+    assert json.loads(staged)["protocol_version"] == 2 and json.loads(staged)["batch_seq"] == 0
+    return old, old_wire, staged
+
+
+def _fragment_ordinals(door: DoorWire, sid: str) -> list[int]:
+    return [f["line"]["line_no"] for b in door.bodies(sid) for f in b.get("fragments", [])]
+
+
+def test_the_retired_detail_is_the_doors():
+    """prbe-knowledge `kb/session_receipts.py` `PROTOCOL2_RETIRED`, matched as text."""
+    assert sj.PROTOCOL2_RETIRED == "protocol 2 retired"
+    assert sj.PROTOCOL2_RETIRED not in sj.PROTOCOL3_REFUSALS
+
+
+def test_the_door_offers_protocol_2_until_retired_and_only_where_3_replaces_it():
+    """The fake follows the engine's `accepts`: 2 leaves the offer only while
+    protocol 3 is offered (the kill switch re-opens it)."""
+    door = DoorWire(offers=True)
+    sid = str(uuid.uuid4())
+    assert door.receipts(sid)["accepts"]["protocols"] == [2, 3]
+    door.protocol2_new_streams = False
+    answer = door.receipts(sid)
+    assert answer["accepts"]["protocols"] == [3] and answer["protocol_version"] == 2
+    assert sj.negotiate(answer) == (3, False)
+    door.offer(False)
+    assert door.receipts(sid)["accepts"]["protocols"] == [2]
+
+
+@pytest.mark.parametrize("events", [False, True], ids=["fragments", "fragments+events"])
+@pytest.mark.parametrize("historical", [False, True], ids=["live", "historical"])
+def test_an_older_taps_pending_protocol_2_batch_0_is_sent_again_on_3(tmp_path, historical, events):
+    """The gap #2454 names: refused for good, the pending protocol-2 batch 0
+    is dropped and the WHOLE session goes up on protocol 3, same stream id."""
+    door = DoorWire(offers=False)  # before the update: protocol 2 only
+    sid, path = _long_session(tmp_path)
+    old, old_wire, staged = _old_staged(tmp_path, door, sid, path, historical=historical)
+    stream = json.loads(staged)["stream_id"]
+    _retire_protocol2(door, events=events)
+    # The older tap keeps the refused batch and re-sends it: nothing lost, nothing sent.
+    with pytest.raises(OLD.ReconciliationRequired):
+        old.deliver(sid, old_wire)
+    assert old.pending(sid) == staged and door.accepted == {}
+
+    new = _journal(tmp_path, door)  # the machine updated
+    with pytest.raises(sj.ProtocolRestarted) as restarted:
+        new.deliver(sid, door)
+    assert restarted.value.protocol == 3 and restarted.value.retryable
+    assert "restarts on protocol 3" in str(restarted.value)
+    state = new.get(sid)
+    assert new.pending(sid) is None and state["stream_id"] == stream
+    assert state["protocol_offer"] == 3 and state["send_events"] is events
+    assert state.get("protocol_version") is None and state["last_seq"] == -1
+    assert (state["source_byte_end"], state["source_line_end"], state["event_end"]) == (0, 0, 0)
+    # Offered only: still where older taps see it, so none starts a second stream.
+    assert _tables(new) == {"sessions": {sid}, "fragment_sessions": set()}
+    if historical:
+        snapshot = Path(state["snapshot_path"])
+        assert snapshot.name.endswith(".snapshot-p3.jsonl")
+        assert snapshot.read_bytes() == path.read_bytes()
+
+    _drain(new, door, sid, max_body_bytes=12_000, historical_only=historical)
+    bodies = door.bodies(sid)
+    assert len(bodies) > 2 and {b["protocol_version"] for b in bodies} == {3}
+    assert all(json.loads(c)["protocol_version"] == 2 for c in door.calls[:2])  # both refusals
+    assert _fragment_ordinals(door, sid) == list(range(12))
+    assert door.streams[sid] | {"finalized": None} == door.streams[sid] | {
+        "stream_id": stream, "protocol_version": 3, "source_byte_end": path.stat().st_size,
+        "event_end": 12, "finalized": None,
+    }
+    assert all(("events" in b) is events for b in bodies if not b.get("finalize"))
+    assert new.get(sid)["protocol_version"] == 3
+    assert _tables(new) == {"sessions": set(), "fragment_sessions": {sid}}
+    if historical:
+        assert bodies[-1]["finalize"] and new.get(sid)["historical_complete"]
+        assert {b["snapshot_byte_end"] for b in bodies} == {path.stat().st_size}
+    _one_stream(door, sid, new)
+    old.close()
+    new.close()
+
+
+def test_an_open_protocol_2_stream_keeps_protocol_2_after_the_retirement(tmp_path):
+    """Open protocol-2 streams finish on 2: a later batch, a lost response's
+    replay of batch 0, and another device adopting the stream."""
+    door = DoorWire(offers=False)
+    sid, path = _session(tmp_path)
+    journal = _journal(tmp_path, door)
+    _start(journal, door, sid, path)
+    first = journal.stage(sid, cwd=CWD)
+    assert door.post(first)[0] == 202  # the server took batch 0; the answer was lost
+    _retire_protocol2(door)
+    journal.deliver(sid, door)  # a duplicate: settled by its receipt, no restart
+    assert journal.get(sid)["protocol_version"] == 2 and journal.pending(sid) is None
+    _write(path, [_user(sid, "after the retirement", 9)])
+    _drain(journal, door, sid)
+    other = _journal(tmp_path, door, name="other-device")
+    _write(path, [_user(sid, "on another device", 10)])
+    _start(other, door, sid, path)
+    _drain(other, door, sid)
+    assert [b["protocol_version"] for b in door.bodies(sid)] == [2, 2, 2]
+    assert door.streams[sid]["protocol_version"] == 2 and door.streams[sid]["event_end"] == 8
+    assert all(door.post(c)[0] == 202 for c in list(door.calls))  # nothing was refused
+    journal.close()
+    other.close()
+
+
+def test_a_protocol_3_session_is_untouched_by_the_retirement(tmp_path):
+    door = DoorWire(offers=True)
+    sid, path = _session(tmp_path)
+    journal = _journal(tmp_path, door)
+    _start(journal, door, sid, path)
+    _drain(journal, door, sid)
+    _retire_protocol2(door)
+    _write(path, [_user(sid, "after the retirement", 9)])
+    _drain(journal, door, sid)
+    assert [b["protocol_version"] for b in door.bodies(sid)] == [3, 3]
+    assert len(door.calls) == 2  # nothing refused, nothing restarted
+    journal.close()
+
+
+def test_the_restart_survives_a_tap_restart_and_a_lost_response(tmp_path):
+    """Idempotent: the process dies after the restart, then after the server
+    took protocol-3 batch 0 but before its answer arrived. One stream, one
+    protocol-3 batch 0, and the old protocol-2 bytes are never acknowledged."""
+    door = DoorWire(offers=False)
+    sid, path = _session(tmp_path)
+    old, _old_wire, staged = _old_staged(tmp_path, door, sid, path)
+    _retire_protocol2(door)
+    first = _journal(tmp_path, door)
+    with pytest.raises(sj.ProtocolRestarted):
+        first.deliver(sid, door)
+    first.close()  # dies before staging again
+
+    second = _journal(tmp_path, door)
+    batch0 = second.stage(sid, cwd=CWD)
+    assert json.loads(batch0)["protocol_version"] == 3 and json.loads(batch0)["batch_seq"] == 0
+    # A stale caller still holding the protocol-2 bytes changes nothing.
+    with pytest.raises(ReconciliationRequired):
+        second.deliver(sid, door, expected_body=staged)
+    assert second.pending(sid) == batch0 and second.get(sid)["protocol_offer"] == 3
+    assert door.post(batch0)[0] == 202  # the server took it; the answer was lost
+    second.close()
+
+    third = _journal(tmp_path, door)
+    assert third.stage(sid, cwd=CWD) == batch0  # the same immutable bytes
+    third.deliver(sid, door)
+    _write(path, [_user(sid, "later", 9)])
+    _drain(third, door, sid)
+    assert [b["protocol_version"] for b in door.bodies(sid)] == [3, 3]
+    assert sorted(
+        json.loads(c)["batch_seq"] for c in door.calls if json.loads(c)["protocol_version"] == 3
+    ) == [0, 0, 1]
+    assert third.get(sid)["protocol_version"] == 3 and door.streams[sid]["event_end"] == 7
+    _one_stream(door, sid, third)
+    old.close()
+    third.close()
+
+
+@pytest.mark.parametrize("why", ["no-builder", "server-holds-a-stream", "not-offered"])
+def test_a_retired_batch_0_waits_when_there_is_nothing_to_restart_on(tmp_path, monkeypatch, why):
+    """No restart unless the session can go on protocol 3 and the server holds
+    nothing for it: the batch stays pending (retried, never dropped)."""
+    door = DoorWire(offers=False)
+    sid, path = _session(tmp_path)
+    old, _old_wire, staged = _old_staged(tmp_path, door, sid, path)
+    _retire_protocol2(door)
+    if why == "no-builder":
+        monkeypatch.setattr(sj, "_fragment_module", lambda: None)
+    elif why == "not-offered":  # an answer without protocol 3 (an engine without the coupling)
+        monkeypatch.setattr(
+            door, "receipts",
+            lambda sid, **kw: DoorWire.receipts(door, sid, **kw) | {"accepts": {"protocols": []}},
+        )
+    else:  # between the refusal and the receipts read another device started it
+        held = {"state": "ready", "stream": {"stream_id": str(uuid.uuid4()), "last_seq": 0}}
+        monkeypatch.setattr(
+            door, "receipts", lambda sid, **kw: DoorWire.receipts(door, sid, **kw) | held
+        )
+    journal = _journal(tmp_path, door)
+    before = journal.get(sid)
+    with pytest.raises(ReconciliationRequired) as refused:
+        journal.deliver(sid, door)
+    assert refused.value.status_code == 409 and sj.recoverable(refused.value)
+    assert journal.pending(sid) == staged
+    assert {k: v for k, v in journal.get(sid).items() if k != "error"} == {
+        k: v for k, v in before.items() if k != "error"
+    }
+    assert door.accepted == {}
+    old.close()
+    journal.close()
+
+
+def test_a_retired_batch_0_of_a_deleted_session_is_settled_as_deleted(tmp_path):
+    door = DoorWire(offers=False)
+    sid, path = _session(tmp_path)
+    old, _old_wire, _staged = _old_staged(tmp_path, door, sid, path)
+    _retire_protocol2(door)
+    journal = _journal(tmp_path, door)
+    door.receipts = lambda s, **kw: DoorWire.receipts(door, s, **kw) | {"state": "deleted"}
+    with pytest.raises(sj.SessionDeleted):
+        journal.deliver(sid, door)
+    assert journal.pending(sid) is None and journal.is_deleted(sid)
+    old.close()
+    journal.close()
+
+
+@pytest.mark.parametrize("old_stages_in_the_gap", [False, True], ids=["old-resends-p3", "old-restages-p2"])
+def test_an_older_tap_beside_the_restart_leaves_one_stream(tmp_path, old_stages_in_the_gap):
+    """A 0.9.13 daemon still running on the machine drains the same session.
+    Either it re-sends the staged protocol-3 batch 0 (the server takes it once,
+    it cannot acknowledge it), or it stages protocol 2 again in the gap before
+    this tap re-stages (refused, restarted again). One stream either way, and
+    once the server holds it on 3 the older tap never sees it again."""
+    door = DoorWire(offers=False)
+    sid, path = _session(tmp_path)
+    old, old_wire, _staged = _old_staged(tmp_path, door, sid, path)
+    _retire_protocol2(door)
+    new = _journal(tmp_path, door)
+    with pytest.raises(sj.ProtocolRestarted):
+        new.deliver(sid, door)
+    if old_stages_in_the_gap:
+        problems = _old_tick(old, old_wire, sid, path)
+        assert [type(p).__name__ for p in problems] == ["ReconciliationRequired"]
+        assert json.loads(new.pending(sid))["protocol_version"] == 2
+        assert [type(p).__name__ for p in _settle(new, door, sid)] == ["ProtocolRestarted"]
+    else:
+        new.stage(sid, cwd=CWD)
+        problems = _old_tick(old, old_wire, sid, path)
+        assert [type(p).__name__ for p in problems] == ["ReconciliationRequired"]
+    assert _settle(new, door, sid) == []
+    assert old.get(sid) is None  # pinned to 3: out of the older tap's view
+    _write(path, [_user(sid, "later", 9)])
+    problems = _old_tick(old, old_wire, sid, path)  # its gap sweep: receipts say protocol 3
+    assert [type(p).__name__ for p in problems] == ["DeliveryPending"] and old.get(sid) is None
+    assert _settle(new, door, sid) == []
+    _one_stream(door, sid, new)
+    assert [b["protocol_version"] for b in door.bodies(sid)] == [3, 3]
+    assert door.streams[sid]["event_end"] == 7
+    old.close()
+    new.close()
+
+
 # -- the batch (§2, §3) --------------------------------------------------------------
 
 
@@ -1105,3 +1383,48 @@ def test_an_import_budget_below_protocol_3s_target_still_sends(tmp_path, monkeyp
     assert result.ok and result.error == "budget"
     assert result.batches >= 1 and 0 < result.bytes_sent <= 20_000
     assert all(len(body) <= 20_000 for body in wire.accepted.values())
+
+
+def test_the_importer_sends_a_retired_protocol_2_batch_0_again_on_3_in_the_same_run(
+    tmp_path, monkeypatch
+):
+    """`probe import` shares the journal: a protocol-2 batch 0 an earlier run
+    staged and never delivered is restarted on protocol 3 inline."""
+    monkeypatch.setenv("PROBE_TRANSCRIPT_STATE_DIR", str(tmp_path / "state"))
+    door = DoorWire(offers=False)
+    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: door)
+    transcript = _transcript(tmp_path)
+    poster = bt.Poster(door.base_url, door.token)
+    monkeypatch.setattr(door, "post", lambda body: (503, {"detail": "unavailable"}))
+    first = bt.upload_session(
+        transcript, bt.SessionRecord(session_id=transcript.session_id), poster, device_id=""
+    )
+    assert not first.ok and first.retryable  # protocol-2 batch 0 left pending
+    monkeypatch.setattr(door, "post", lambda body: DoorWire.post(door, body))
+    _retire_protocol2(door)
+    record = bt.SessionRecord(session_id=transcript.session_id)
+    result = bt.upload_session(transcript, record, poster, device_id="")
+    assert result.ok and result.error is None and record.finalized
+    assert json.loads(door.calls[0])["protocol_version"] == 2  # the refused batch 0
+    bodies = door.bodies(transcript.session_id)
+    assert {b["protocol_version"] for b in bodies} == {3} and bodies[-1]["finalize"]
+    assert bodies[-1]["event_end"] == 12
+
+
+def test_the_importer_stops_restarting_a_session_whose_server_flips(tmp_path, monkeypatch):
+    """Both refusals at once (protocol 3 refused at batch 0, protocol 2
+    retired) would restart forever; the run gives up after
+    MAX_PROTOCOL_RESTARTS and the session waits for a later run."""
+    monkeypatch.setenv("PROBE_TRANSCRIPT_STATE_DIR", str(tmp_path / "state"))
+    door = DoorWire(offers=True)
+    door.refuse_batch0 = "protocol 3 not enabled"
+    door.protocol2_new_streams = False
+    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: door)
+    transcript = _transcript(tmp_path)
+    result = bt.upload_session(
+        transcript, bt.SessionRecord(session_id=transcript.session_id),
+        bt.Poster(door.base_url, door.token), device_id="",
+    )
+    assert not result.ok and result.retryable and "left for the next import" in result.error
+    assert "sent again" not in result.error
+    assert len(door.calls) == bt.MAX_PROTOCOL_RESTARTS + 1 and door.accepted == {}

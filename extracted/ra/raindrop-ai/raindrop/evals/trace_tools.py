@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import math
+import json
 from typing import Any
 
 from .trace_schema import Snapshot, Trace
 
 TRACE_PROJECTION_SHA256 = (
-    "22c666c6ace47d74d3f7dc477e68b27547257b319ba4014a4a32fbf977baac72"
+    "243e395493cfac6358d104d6be52e35bf739a0192aed2367fa780b2119f0721c"
 )
 MAX_PAYLOAD_CHARS = 16 * 1024
+
+
+def format_trace(trace: dict[str, Any]) -> str:
+    """Serialize a canonical trace without adding evidence or truncating payloads."""
+    return json.dumps(trace, ensure_ascii=True, separators=(",", ":"), allow_nan=False)
 
 
 def trace_output(trace: dict[str, Any]) -> str | None:

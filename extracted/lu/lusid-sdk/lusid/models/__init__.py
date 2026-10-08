@@ -105,6 +105,7 @@ from lusid.models.amount import Amount
 from lusid.models.annul_quotes_response import AnnulQuotesResponse
 from lusid.models.annul_single_structured_data_response import AnnulSingleStructuredDataResponse
 from lusid.models.annul_structured_data_response import AnnulStructuredDataResponse
+from lusid.models.api_endpoint import ApiEndpoint
 from lusid.models.append_complex_market_data_request import AppendComplexMarketDataRequest
 from lusid.models.append_fx_forward_curve_by_quote_reference import AppendFxForwardCurveByQuoteReference
 from lusid.models.append_fx_forward_curve_data import AppendFxForwardCurveData
@@ -609,6 +610,7 @@ from lusid.models.fund_request import FundRequest
 from lusid.models.fund_share_class import FundShareClass
 from lusid.models.fund_structure import FundStructure
 from lusid.models.fund_structure_allocation_basis import FundStructureAllocationBasis
+from lusid.models.fund_structure_drift_materiality import FundStructureDriftMateriality
 from lusid.models.fund_structure_edge import FundStructureEdge
 from lusid.models.fund_structure_edge_target import FundStructureEdgeTarget
 from lusid.models.fund_structure_member_request import FundStructureMemberRequest
@@ -666,6 +668,8 @@ from lusid.models.get_structured_result_data_response import GetStructuredResult
 from lusid.models.get_subscription_response import GetSubscriptionResponse
 from lusid.models.get_transfer_request import GetTransferRequest
 from lusid.models.get_virtual_document_response import GetVirtualDocumentResponse
+from lusid.models.global_loan_facility_contract_state import GlobalLoanFacilityContractState
+from lusid.models.global_loan_facility_reinitialisation_event import GlobalLoanFacilityReinitialisationEvent
 from lusid.models.group_by_selector_compliance_parameter import GroupBySelectorComplianceParameter
 from lusid.models.group_by_step import GroupByStep
 from lusid.models.group_by_step_request import GroupByStepRequest
@@ -781,6 +785,7 @@ from lusid.models.investment_portfolio import InvestmentPortfolio
 from lusid.models.investment_portfolio_identifier import InvestmentPortfolioIdentifier
 from lusid.models.investor import Investor
 from lusid.models.investor_identifier import InvestorIdentifier
+from lusid.models.investor_loan_facility_reinitialisation_event import InvestorLoanFacilityReinitialisationEvent
 from lusid.models.investor_record import InvestorRecord
 from lusid.models.ir_vol_cube_data import IrVolCubeData
 from lusid.models.ir_vol_dependency import IrVolDependency
@@ -807,6 +812,8 @@ from lusid.models.list_complex_market_data_with_meta_data_response import ListCo
 from lusid.models.loan_facility import LoanFacility
 from lusid.models.loan_facility_contract_rollover_event import LoanFacilityContractRolloverEvent
 from lusid.models.loan_facility_delayed_compensation_payment_event import LoanFacilityDelayedCompensationPaymentEvent
+from lusid.models.loan_facility_tax_lot_allocation import LoanFacilityTaxLotAllocation
+from lusid.models.loan_facility_tax_lot_state import LoanFacilityTaxLotState
 from lusid.models.loan_interest_capitalisation_event import LoanInterestCapitalisationEvent
 from lusid.models.loan_interest_repayment_event import LoanInterestRepaymentEvent
 from lusid.models.loan_period import LoanPeriod
@@ -869,6 +876,7 @@ from lusid.models.movement_condition_match import MovementConditionMatch
 from lusid.models.movement_settlement_summary import MovementSettlementSummary
 from lusid.models.movement_type import MovementType
 from lusid.models.multi_currency_amounts import MultiCurrencyAmounts
+from lusid.models.named_price import NamedPrice
 from lusid.models.nav_activity_adjustment import NavActivityAdjustment
 from lusid.models.nav_activity_adjustment_response import NavActivityAdjustmentResponse
 from lusid.models.nav_activity_adjustment_response_type import NavActivityAdjustmentResponseType
@@ -1439,6 +1447,7 @@ from lusid.models.sequence_definition import SequenceDefinition
 from lusid.models.series_definition import SeriesDefinition
 from lusid.models.series_definition_request import SeriesDefinitionRequest
 from lusid.models.series_identifier_field import SeriesIdentifierField
+from lusid.models.service_api_endpoints import ServiceApiEndpoints
 from lusid.models.set_amortisation_rules_request import SetAmortisationRulesRequest
 from lusid.models.set_legal_entity_identifiers_request import SetLegalEntityIdentifiersRequest
 from lusid.models.set_legal_entity_properties_request import SetLegalEntityPropertiesRequest
@@ -1508,6 +1517,8 @@ from lusid.models.string_list import StringList
 from lusid.models.string_list_compliance_parameter import StringListComplianceParameter
 from lusid.models.structured_result_data import StructuredResultData
 from lusid.models.structured_result_data_id import StructuredResultDataId
+from lusid.models.structured_result_data_result import StructuredResultDataResult
+from lusid.models.structured_result_dataset import StructuredResultDataset
 from lusid.models.sub_holding_key_value_equals import SubHoldingKeyValueEquals
 from lusid.models.submit_rec_result_set_review_request import SubmitRecResultSetReviewRequest
 from lusid.models.subscribe_election import SubscribeElection
@@ -1728,6 +1739,7 @@ from lusid.models.valuation_point import ValuationPoint
 from lusid.models.valuation_point_data_query_parameters import ValuationPointDataQueryParameters
 from lusid.models.valuation_point_data_request import ValuationPointDataRequest
 from lusid.models.valuation_point_data_response import ValuationPointDataResponse
+from lusid.models.valuation_point_diagnostic import ValuationPointDiagnostic
 from lusid.models.valuation_point_entity import ValuationPointEntity
 from lusid.models.valuation_point_instrument import ValuationPointInstrument
 from lusid.models.valuation_point_overview import ValuationPointOverview
@@ -1891,6 +1903,7 @@ __all__ = [
     "AnnulQuotesResponse",
     "AnnulSingleStructuredDataResponse",
     "AnnulStructuredDataResponse",
+    "ApiEndpoint",
     "AppendComplexMarketDataRequest",
     "AppendFxForwardCurveByQuoteReference",
     "AppendFxForwardCurveData",
@@ -2395,6 +2408,7 @@ __all__ = [
     "FundShareClass",
     "FundStructure",
     "FundStructureAllocationBasis",
+    "FundStructureDriftMateriality",
     "FundStructureEdge",
     "FundStructureEdgeTarget",
     "FundStructureMemberRequest",
@@ -2452,6 +2466,8 @@ __all__ = [
     "GetSubscriptionResponse",
     "GetTransferRequest",
     "GetVirtualDocumentResponse",
+    "GlobalLoanFacilityContractState",
+    "GlobalLoanFacilityReinitialisationEvent",
     "GroupBySelectorComplianceParameter",
     "GroupByStep",
     "GroupByStepRequest",
@@ -2567,6 +2583,7 @@ __all__ = [
     "InvestmentPortfolioIdentifier",
     "Investor",
     "InvestorIdentifier",
+    "InvestorLoanFacilityReinitialisationEvent",
     "InvestorRecord",
     "IrVolCubeData",
     "IrVolDependency",
@@ -2593,6 +2610,8 @@ __all__ = [
     "LoanFacility",
     "LoanFacilityContractRolloverEvent",
     "LoanFacilityDelayedCompensationPaymentEvent",
+    "LoanFacilityTaxLotAllocation",
+    "LoanFacilityTaxLotState",
     "LoanInterestCapitalisationEvent",
     "LoanInterestRepaymentEvent",
     "LoanPeriod",
@@ -2655,6 +2674,7 @@ __all__ = [
     "MovementSettlementSummary",
     "MovementType",
     "MultiCurrencyAmounts",
+    "NamedPrice",
     "NavActivityAdjustment",
     "NavActivityAdjustmentResponse",
     "NavActivityAdjustmentResponseType",
@@ -3225,6 +3245,7 @@ __all__ = [
     "SeriesDefinition",
     "SeriesDefinitionRequest",
     "SeriesIdentifierField",
+    "ServiceApiEndpoints",
     "SetAmortisationRulesRequest",
     "SetLegalEntityIdentifiersRequest",
     "SetLegalEntityPropertiesRequest",
@@ -3294,6 +3315,8 @@ __all__ = [
     "StringListComplianceParameter",
     "StructuredResultData",
     "StructuredResultDataId",
+    "StructuredResultDataResult",
+    "StructuredResultDataset",
     "SubHoldingKeyValueEquals",
     "SubmitRecResultSetReviewRequest",
     "SubscribeElection",
@@ -3514,6 +3537,7 @@ __all__ = [
     "ValuationPointDataQueryParameters",
     "ValuationPointDataRequest",
     "ValuationPointDataResponse",
+    "ValuationPointDiagnostic",
     "ValuationPointEntity",
     "ValuationPointInstrument",
     "ValuationPointOverview",

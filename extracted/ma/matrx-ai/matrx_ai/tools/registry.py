@@ -654,6 +654,24 @@ class ToolRegistry:
             return name_or_id
         if name_or_id in self._tools_by_id:
             return self._tools_by_id[name_or_id]
+        return self._resolve_renamed_tool(name_or_id)
+
+    def _resolve_renamed_tool(self, name: str) -> str | None:
+        """A renamed tool answers to BOTH its names (``@tool(aliases=...)``).
+
+        During a rename window the DB row (the registry key) may carry the old name while a
+        request, agent or surface list carries the new one, or the reverse. Without this the
+        run announces "tools not registered" for a tool that is registered under its other
+        name (live 2026-10-07: ``dataset`` -> ``table``).
+        """
+        from matrx_ai.tools.declared import code_name_for, tool_aliases_of
+
+        canonical = code_name_for(name)
+        if canonical in self._tools:
+            return canonical
+        for alias in tool_aliases_of(canonical):
+            if alias in self._tools:
+                return alias
         return None
 
     def get_provider_tools(self, tool_names: list[str], provider: str) -> list[dict[str, Any]]:

@@ -21,11 +21,11 @@ from keystoneauth1 import session as ks_session
 class Password(base.BaseGenericPlugin):
     """A common user/password authentication plugin.
 
-    :param string username: Username for authentication.
-    :param string user_id: User ID for authentication.
-    :param string password: Password for authentication.
-    :param string user_domain_id: User's domain ID for authentication.
-    :param string user_domain_name: User's domain name for authentication.
+    :param username: Username for authentication.
+    :param user_id: User ID for authentication.
+    :param password: Password for authentication.
+    :param user_domain_id: User's domain ID for authentication.
+    :param user_domain_name: User's domain name for authentication.
     """
 
     def __init__(
@@ -88,7 +88,7 @@ class Password(base.BaseGenericPlugin):
 
             if self._password is None:
                 # FIXME(stephenfin): It would be better is password was a
-                # non-optional paramter to this plugin but that requires
+                # non-optional parameter to this plugin but that requires
                 # changing the __init__ signature
                 raise Exception('password is a required attribute')
 
@@ -106,7 +106,7 @@ class Password(base.BaseGenericPlugin):
         elif discover.version_match((3,), version):
             if self._password is None:
                 # FIXME(stephenfin): It would be better is password was a
-                # non-optional paramter to this plugin but that requires
+                # non-optional parameter to this plugin but that requires
                 # changing the __init__ signature
                 raise Exception('password is a required attribute')
 

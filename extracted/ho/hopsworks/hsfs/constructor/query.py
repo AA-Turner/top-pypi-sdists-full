@@ -136,7 +136,7 @@ class Query:
                 # on the cdc metadata columns.
                 is_cdc_query = bool(self.left_feature_group_start_time)
 
-                # Register on hudi/delta feature groups as temporary tables
+                # Register on hudi/delta/iceberg feature groups as temporary tables
                 fs_query._register_delta_tables(
                     feature_store_id=self._feature_store_id,
                     feature_store_name=self._feature_store_name,
@@ -145,6 +145,12 @@ class Query:
                 )
 
                 fs_query._register_hudi_tables(
+                    self._feature_store_id,
+                    self._feature_store_name,
+                    read_options,
+                )
+
+                fs_query._register_iceberg_tables(
                     self._feature_store_id,
                     self._feature_store_name,
                     read_options,
@@ -340,10 +346,23 @@ class Query:
                 filter=self._filter,
             )
         self.check_and_warn_ambiguous_features()
-
         if not read_options:
             read_options = {}
-        sql_query, online_conn = self._prep_read(online, read_options)
+        # When the left FG has partitioned_by set, add grain-column
+        # predicates equivalent to any event_time range filter — the grain
+        # columns are real partition columns, so every engine prunes on them.
+        # Apply the augmented filter only for the duration of SQL generation
+        # and restore the original afterwards, so reading the same Query
+        # instance repeatedly does not keep nesting AND clauses into _filter.
+        original_filter = self._filter
+        if not online:
+            from hsfs.constructor.partitioned_by_translator import _augment_filter
+
+            self._filter = _augment_filter(self._filter, self._left_feature_group)
+        try:
+            sql_query, online_conn = self._prep_read(online, read_options)
+        finally:
+            self._filter = original_filter
 
         schema = None
         if (

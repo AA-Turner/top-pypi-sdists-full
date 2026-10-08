@@ -52,6 +52,7 @@ class ModelContainerSpec(_message.Message):
         "readiness_probe",
         "startup_probe",
         "chalk_workload_identity",
+        "compute_class",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -79,6 +80,7 @@ class ModelContainerSpec(_message.Message):
     READINESS_PROBE_FIELD_NUMBER: _ClassVar[int]
     STARTUP_PROBE_FIELD_NUMBER: _ClassVar[int]
     CHALK_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
+    COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
     tags: _containers.ScalarMap[str, str]
     resources: _service_pb2.ResourceLimits
     env_vars: _containers.ScalarMap[str, str]
@@ -89,6 +91,7 @@ class ModelContainerSpec(_message.Message):
     readiness_probe: _service_pb2.ReadinessProbe
     startup_probe: _service_pb2.StartupProbe
     chalk_workload_identity: _service_pb2.ChalkWorkloadIdentity
+    compute_class: _service_pb2.ComputeClass
     def __init__(
         self,
         tags: _Optional[_Mapping[str, str]] = ...,
@@ -101,6 +104,7 @@ class ModelContainerSpec(_message.Message):
         readiness_probe: _Optional[_Union[_service_pb2.ReadinessProbe, _Mapping]] = ...,
         startup_probe: _Optional[_Union[_service_pb2.StartupProbe, _Mapping]] = ...,
         chalk_workload_identity: _Optional[_Union[_service_pb2.ChalkWorkloadIdentity, _Mapping]] = ...,
+        compute_class: _Optional[_Union[_service_pb2.ComputeClass, str]] = ...,
     ) -> None: ...
 
 class CreateModelScalingGroupRequest(_message.Message):

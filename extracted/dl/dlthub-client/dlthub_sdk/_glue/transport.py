@@ -42,97 +42,102 @@ import httpx
 
 # Current package
 from dlthub_sdk._gen.api.api.configurations import (
-    create_configuration,
     get_configuration,
-    get_latest_configuration,
+    get_configuration_latest,
+    issue_upload_configuration,
     list_configurations,
 )
 from dlthub_sdk._gen.api.api.dataplanes import list_dataplanes
 from dlthub_sdk._gen.api.api.deployments import (
-    create_deployment,
     get_deployment,
-    get_latest_deployment,
+    get_deployment_latest,
+    issue_upload_deployment,
     list_deployments,
 )
-from dlthub_sdk._gen.api.api.me import get_current_user, organization_me, workspace_me
+from dlthub_sdk._gen.api.api.job_runs import (
+    cancel_job_run,
+    cancel_job_runs,
+    create_job_run,
+    get_job_run,
+    list_job_runs,
+)
+from dlthub_sdk._gen.api.api.jobs import (
+    archive_job,
+    get_job,
+    list_jobs,
+    pause_job,
+    publish_job,
+    resume_job,
+    trigger_jobs,
+    unarchive_job,
+    unpublish_job,
+)
+from dlthub_sdk._gen.api.api.me import get_me, get_organization_me, get_workspace_me
 from dlthub_sdk._gen.api.api.organizations import (
     get_organization,
     list_organizations,
-    set_organization_region,
-)
-from dlthub_sdk._gen.api.api.runs import (
-    bulk_cancel_runs,
-    cancel_run,
-    create_run,
-    get_latest_run,
-    get_run,
-    list_runs,
-)
-from dlthub_sdk._gen.api.api.scripts import (
-    disable_public_url,
-    enable_public_url,
-    get_script,
-    list_scripts,
-    pause_script,
-    resume_script,
-    trigger_jobs,
+    set_region_organization,
 )
 from dlthub_sdk._gen.api.api.workspaces import (
+    archive_workspace,
     create_workspace,
-    deploy,
+    deploy_workspace,
     get_workspace,
-    get_workspace_dataplane_access_token,
+    issue_dataplane_token_workspace,
     list_workspace_members,
     list_workspaces,
+    unarchive_workspace,
     update_workspace,
 )
 from dlthub_sdk._gen.api.client import AuthenticatedClient, Client
 from dlthub_sdk._gen.api.models import (
-    BulkCancelRequest,
-    BulkCancelResponse,
+    CancelJobRunsRequest,
+    CancelJobRunsResponse,
     ConfigurationResponse,
-    CreateRunRequest,
-    CurrentUserResponse,
-    DataplaneAccessTokenResponse,
-    DataplaneInfo,
-    DeployManifestRequest,
-    DeployManifestRequestJobsItem,
-    DeployManifestResponse,
+    CreateJobRunRequest,
+    CreateWorkspaceRequest,
+    DataplaneCatalog,
+    DataplaneResponse,
     DeploymentResponse,
-    DetailedRunResponse,
-    DetailedScriptResponse,
+    DeployWorkspaceRequest,
+    DeployWorkspaceRequestJobsItem,
+    DeployWorkspaceResponse,
+    DetailedJobResponse,
+    DetailedJobRunResponse,
+    IssueDataplaneTokenWorkspaceResponse,
+    IssueUploadConfigurationResponse,
+    IssueUploadDeploymentResponse,
+    JobResponse,
     ListPageConfigurationResponse,
     ListPageDeploymentResponse,
-    ListPageDetailedRunResponse,
-    ListPageDetailedScriptResponse,
+    ListPageDetailedJobResponse,
+    ListPageDetailedJobRunResponse,
     ListPageOrganizationResponse,
     ListPageOrganizationWorkspaceResponse,
     ListPageWorkspaceMemberResponse,
+    MeResponse,
     OrganizationMeResponse,
     OrganizationResponse,
-    ScriptResponse,
-    SetOrganizationRegionRequest,
-    TriggeredJob,
+    RunStatus as GenRunStatus,
+    SetRegionOrganizationRequest,
     TriggerJobsRequest,
     TriggerJobsResponse,
-    UploadInitiatedResponse,
-    WorkspaceCreateRequest,
+    UpdateWorkspaceRequest,
     WorkspaceMeResponse,
     WorkspaceResponse,
-    WorkspaceUpdateRequest,
 )
 from dlthub_sdk._gen.api.types import UNSET as API_UNSET
 from dlthub_sdk._gen.dataplane_api.api.files import (
-    get_configuration_files_manifest,
-    get_deployment_files_manifest,
+    get_configuration_files,
+    get_deployment_files,
 )
 from dlthub_sdk._gen.dataplane_api.api.uploads import (
-    upload_configuration_bytes,
-    upload_deployment_bytes,
+    upload_configuration,
+    upload_deployment,
 )
 from dlthub_sdk._gen.dataplane_api.api.variables import (
-    change_workspace_variables,
     list_workspace_variables,
+    update_workspace_variables,
 )
 from dlthub_sdk._gen.dataplane_api.client import (
     AuthenticatedClient as DataplaneApiClient,
@@ -140,37 +145,37 @@ from dlthub_sdk._gen.dataplane_api.client import (
 from dlthub_sdk._gen.dataplane_api.models import (
     ConfigurationResponse as DataplaneConfigurationResponse,
     DeploymentResponse as DataplaneDeploymentResponse,
-    DeploymentUploadBody,
+    ManifestFilesResponse,
     PlainVariableUpsert,
     SecretVariableUpsert,
-    TFilesManifest,
-    UploadConfigurationBytesBody,
-    VariablesChange,
-    VariablesChangeResponse,
+    UpdatedVariablesResponse,
+    UpdateWorkspaceVariablesRequest,
+    UploadConfigurationBody,
+    UploadDeploymentRequest,
     WorkspaceVariablesResponse,
 )
 from dlthub_sdk._gen.dataplane_api.types import UNSET as DATAPLANE_UNSET, File
 from dlthub_sdk._gen.logs.models import LogLine
 from dlthub_sdk._gen.telemetry.api.default import (
-    get_job_result,
-    get_job_result_trace,
+    get_job_run_result,
+    get_job_run_result_trace,
     get_pipeline_run,
     get_pipeline_run_trace,
-    get_telemetry_watermark,
-    list_dataset_overview,
-    list_pipeline_overview,
+    get_workspace_watermark,
+    list_dataset_stats,
     list_pipeline_runs,
+    list_pipeline_stats,
 )
 from dlthub_sdk._gen.telemetry.client import AuthenticatedClient as TelemetryClient
 from dlthub_sdk._gen.telemetry.models import (
-    GetJobResultTraceResponse200,
-    GetPipelineRunTraceResponse200,
+    DetailedPipelineRunResponse,
     JobResultResponse,
-    ListPageDatasetOverviewResponse,
-    ListPagePipelineOverviewResponse,
+    JobResultTraceResponse,
+    ListPageDatasetStatsResponse,
     ListPagePipelineRunResponse,
-    PipelineRunDetailResponse,
+    ListPagePipelineStatsResponse,
     PipelineRunStatus as GenPipelineRunStatus,
+    PipelineRunTraceResponse,
     TelemetryWatermarkResponse,
 )
 from dlthub_sdk._gen.telemetry.types import UNSET as TELEMETRY_UNSET
@@ -254,7 +259,7 @@ def _cached_dataplane(
 
 
 def _hold_dataplane(
-    minted: DataplaneAccessTokenResponse,
+    minted: IssueDataplaneTokenWorkspaceResponse,
     dataplane_url: str,
     verify_ssl: bool,
     headers: Mapping[str, str],
@@ -339,10 +344,8 @@ _ORGANIZATION: _Op[OrganizationResponse] = _Op(
 _ORGANIZATION_LIST: _Op[ListPageOrganizationResponse] = _Op(
     ListPageOrganizationResponse, EntityKind.ORGANIZATION
 )
-#: `/user` is gated to human principals, so an API key cannot reach it.
-_CURRENT_USER: _Op[CurrentUserResponse] = _Op(
-    CurrentUserResponse, EntityKind.ORGANIZATION
-)
+#: `/me` is gated to human principals, so an API key cannot reach it.
+_CURRENT_USER: _Op[MeResponse] = _Op(MeResponse, EntityKind.ORGANIZATION)
 _ORGANIZATION_ME: _Op[OrganizationMeResponse] = _Op(
     OrganizationMeResponse, EntityKind.ORGANIZATION
 )
@@ -353,8 +356,8 @@ _CONFIGURATION: _Op[ConfigurationResponse] = _Op(
 _CONFIGURATION_LIST: _Op[ListPageConfigurationResponse] = _Op(
     ListPageConfigurationResponse, EntityKind.WORKSPACE
 )
-_CONFIGURATION_FILES: _Op[TFilesManifest] = _Op(
-    TFilesManifest, EntityKind.CONFIGURATION, dataplane=True
+_CONFIGURATION_FILES: _Op[ManifestFilesResponse] = _Op(
+    ManifestFilesResponse, EntityKind.CONFIGURATION, dataplane=True
 )
 _DEPLOYMENT: _Op[DeploymentResponse] = _Op(DeploymentResponse, EntityKind.DEPLOYMENT)
 #: The upload answers with the data plane's own class. Structurally identical to
@@ -366,51 +369,54 @@ _DP_DEPLOYMENT: _Op[DataplaneDeploymentResponse] = _Op(
 _DP_CONFIGURATION: _Op[DataplaneConfigurationResponse] = _Op(
     DataplaneConfigurationResponse, EntityKind.CONFIGURATION, dataplane=True
 )
-_DEPLOYMENT_FILES: _Op[TFilesManifest] = _Op(
-    TFilesManifest, EntityKind.DEPLOYMENT, dataplane=True
+_DEPLOYMENT_FILES: _Op[ManifestFilesResponse] = _Op(
+    ManifestFilesResponse, EntityKind.DEPLOYMENT, dataplane=True
 )
 _DEPLOYMENT_LIST: _Op[ListPageDeploymentResponse] = _Op(
     ListPageDeploymentResponse, EntityKind.WORKSPACE
 )
-_BULK_CANCEL: _Op[BulkCancelResponse] = _Op(BulkCancelResponse, EntityKind.WORKSPACE)
+_BULK_CANCEL: _Op[CancelJobRunsResponse] = _Op(
+    CancelJobRunsResponse, EntityKind.WORKSPACE
+)
 #: The platform answers with a bare array, so the check is against ``list``.
-_DATAPLANE_LIST: _Op[list[DataplaneInfo]] = _Op(list, EntityKind.DATAPLANE)
-_RUN: _Op[DetailedRunResponse] = _Op(DetailedRunResponse, EntityKind.JOB_RUN)
-_RUN_LIST: _Op[ListPageDetailedRunResponse] = _Op(
-    ListPageDetailedRunResponse, EntityKind.WORKSPACE
+_DATAPLANE_LIST: _Op[DataplaneCatalog] = _Op(DataplaneCatalog, EntityKind.DATAPLANE)
+_RUN: _Op[DetailedJobRunResponse] = _Op(DetailedJobRunResponse, EntityKind.JOB_RUN)
+_RUN_LIST: _Op[ListPageDetailedJobRunResponse] = _Op(
+    ListPageDetailedJobRunResponse, EntityKind.WORKSPACE
 )
-_DATAPLANE_TOKEN: _Op[DataplaneAccessTokenResponse] = _Op(
-    DataplaneAccessTokenResponse, EntityKind.WORKSPACE
+_DATAPLANE_TOKEN: _Op[IssueDataplaneTokenWorkspaceResponse] = _Op(
+    IssueDataplaneTokenWorkspaceResponse, EntityKind.WORKSPACE
 )
-_TRIGGERED_JOB: _Op[TriggeredJob] = _Op(TriggeredJob, EntityKind.JOB)
-_VARIABLE_CHANGE: _Op[VariablesChangeResponse] = _Op(
-    VariablesChangeResponse, EntityKind.VARIABLE, dataplane=True
+#: Addressed by job id, so a refusal to start reports as that job.
+_STARTED_RUN: _Op[DetailedJobRunResponse] = _Op(DetailedJobRunResponse, EntityKind.JOB)
+_VARIABLE_CHANGE: _Op[UpdatedVariablesResponse] = _Op(
+    UpdatedVariablesResponse, EntityKind.VARIABLE, dataplane=True
 )
 _TELEMETRY_WATERMARK: _Op[TelemetryWatermarkResponse] = _Op(
     TelemetryWatermarkResponse, EntityKind.WORKSPACE, dataplane=True
 )
-_PIPELINE_RUN: _Op[PipelineRunDetailResponse] = _Op(
-    PipelineRunDetailResponse, EntityKind.PIPELINE_RUN, dataplane=True
+_PIPELINE_RUN: _Op[DetailedPipelineRunResponse] = _Op(
+    DetailedPipelineRunResponse, EntityKind.PIPELINE_RUN, dataplane=True
 )
 #: Addressed by run id, so a missing result reports as that run.
 _JOB_RESULT: _Op[JobResultResponse] = _Op(
     JobResultResponse, EntityKind.JOB_RUN, dataplane=True
 )
 #: Addressed by run id too, so a missing envelope reports as that run.
-_JOB_RESULT_TRACE: _Op[GetJobResultTraceResponse200] = _Op(
-    GetJobResultTraceResponse200, EntityKind.JOB_RUN, dataplane=True
+_JOB_RESULT_TRACE: _Op[JobResultTraceResponse] = _Op(
+    JobResultTraceResponse, EntityKind.JOB_RUN, dataplane=True
 )
 _PIPELINE_RUN_LIST: _Op[ListPagePipelineRunResponse] = _Op(
     ListPagePipelineRunResponse, EntityKind.WORKSPACE, dataplane=True
 )
-_PIPELINE_RUN_TRACE: _Op[GetPipelineRunTraceResponse200] = _Op(
-    GetPipelineRunTraceResponse200, EntityKind.PIPELINE_RUN, dataplane=True
+_PIPELINE_RUN_TRACE: _Op[PipelineRunTraceResponse] = _Op(
+    PipelineRunTraceResponse, EntityKind.PIPELINE_RUN, dataplane=True
 )
-_PIPELINE_OVERVIEW: _Op[ListPagePipelineOverviewResponse] = _Op(
-    ListPagePipelineOverviewResponse, EntityKind.WORKSPACE, dataplane=True
+_PIPELINE_OVERVIEW: _Op[ListPagePipelineStatsResponse] = _Op(
+    ListPagePipelineStatsResponse, EntityKind.WORKSPACE, dataplane=True
 )
-_DATASET_OVERVIEW: _Op[ListPageDatasetOverviewResponse] = _Op(
-    ListPageDatasetOverviewResponse, EntityKind.WORKSPACE, dataplane=True
+_DATASET_OVERVIEW: _Op[ListPageDatasetStatsResponse] = _Op(
+    ListPageDatasetStatsResponse, EntityKind.WORKSPACE, dataplane=True
 )
 _VARIABLES: _Op[WorkspaceVariablesResponse] = _Op(
     WorkspaceVariablesResponse, EntityKind.WORKSPACE, dataplane=True
@@ -425,19 +431,25 @@ _WORKSPACE_LIST: _Op[ListPageOrganizationWorkspaceResponse] = _Op(
 _WORKSPACE_MEMBER_LIST: _Op[ListPageWorkspaceMemberResponse] = _Op(
     ListPageWorkspaceMemberResponse, EntityKind.WORKSPACE
 )
-_SCRIPT_DETAIL: _Op[DetailedScriptResponse] = _Op(
-    DetailedScriptResponse, EntityKind.JOB
+_JOB_DETAIL: _Op[DetailedJobResponse] = _Op(DetailedJobResponse, EntityKind.JOB)
+_JOB_LIST: _Op[ListPageDetailedJobResponse] = _Op(
+    ListPageDetailedJobResponse, EntityKind.WORKSPACE
 )
-_SCRIPT_LIST: _Op[ListPageDetailedScriptResponse] = _Op(
-    ListPageDetailedScriptResponse, EntityKind.WORKSPACE
-)
-_SCRIPT: _Op[ScriptResponse] = _Op(ScriptResponse, EntityKind.JOB)
+_JOB: _Op[JobResponse] = _Op(JobResponse, EntityKind.JOB)
 _LOG: _Op[LogLine] = _Op(LogLine, EntityKind.JOB_RUN, dataplane=True)
+# The statuses a bulk cancel looks for; a cancelling run is already on its way out.
+_ACTIVE_RUN_STATUSES = [
+    GenRunStatus.PENDING,
+    GenRunStatus.STARTING,
+    GenRunStatus.RUNNING,
+]
+# The widest page the platform serves, so a ref lookup is one call for most workspaces.
+_LOOKUP_PAGE = 1000
 
 #: The logs service is reached on the workspace's own data plane, so its reads go
 #: through the client already minted for that plane rather than a second one.
-_LOGS_READ = "/logs/v1/workspaces/{workspace_id}/runs/{run_id}/logs"
-_LOGS_STREAM = _LOGS_READ + "/stream"
+_LOGS_READ = "/logs/v1/workspaces/{workspace_id}/job-runs/{run_id}/logs"
+_LOGS_STREAM = "/logs/v1/workspaces/{workspace_id}/job-runs/{run_id}/log-stream"
 _NDJSON = "application/x-ndjson"
 _SSE = "text/event-stream"
 
@@ -454,14 +466,14 @@ _UPLOAD_TIMEOUT = httpx.Timeout(300.0, connect=30.0)
 _TAR_MIME = "application/x-tar"
 _JSON_MIME = "application/json"
 
-_DEPLOY_REPORT: _Op[DeployManifestResponse] = _Op(
-    DeployManifestResponse, EntityKind.JOB
+_DEPLOY_REPORT: _Op[DeployWorkspaceResponse] = _Op(
+    DeployWorkspaceResponse, EntityKind.JOB
 )
-_DEPLOYMENT_UPLOAD: _Op[UploadInitiatedResponse] = _Op(
-    UploadInitiatedResponse, EntityKind.DEPLOYMENT
+_DEPLOYMENT_UPLOAD: _Op[IssueUploadDeploymentResponse] = _Op(
+    IssueUploadDeploymentResponse, EntityKind.DEPLOYMENT
 )
-_CONFIGURATION_UPLOAD: _Op[UploadInitiatedResponse] = _Op(
-    UploadInitiatedResponse, EntityKind.CONFIGURATION
+_CONFIGURATION_UPLOAD: _Op[IssueUploadConfigurationResponse] = _Op(
+    IssueUploadConfigurationResponse, EntityKind.CONFIGURATION
 )
 
 
@@ -550,17 +562,19 @@ class Transport(Protocol):
 
     def get_organization(self, *, organization_id: str) -> OrganizationResponse: ...
 
-    def get_current_user(self) -> CurrentUserResponse: ...
+    def get_me(self) -> MeResponse: ...
 
-    def organization_me(self, *, organization_id: str) -> OrganizationMeResponse: ...
+    def get_organization_me(
+        self, *, organization_id: str
+    ) -> OrganizationMeResponse: ...
 
-    def workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse: ...
+    def get_workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse: ...
 
     def list_organizations(
         self, *, limit: int, offset: int
     ) -> ListPageOrganizationResponse: ...
 
-    def set_organization_region(
+    def set_region_organization(
         self, *, organization_id: str, dataplane_id: str
     ) -> OrganizationResponse: ...
 
@@ -568,13 +582,9 @@ class Transport(Protocol):
         self, *, organization_id: str, name: str, description: str | None
     ) -> WorkspaceResponse: ...
 
-    def enable_public_url(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse: ...
+    def publish_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
-    def disable_public_url(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse: ...
+    def unpublish_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
     def trigger_jobs(
         self,
@@ -591,12 +601,12 @@ class Transport(Protocol):
         self,
         *,
         workspace_id: str,
-        job_ref: str,
+        job_id: str,
         trigger: str,
         profile: str | None | Keep,
         refresh: bool,
         skip_freshness: bool,
-    ) -> TriggeredJob: ...
+    ) -> DetailedJobRunResponse: ...
 
     def change_variables(
         self,
@@ -607,7 +617,7 @@ class Transport(Protocol):
         plain: Mapping[str, str],
         secret: Mapping[str, str],
         deletes: Sequence[str],
-    ) -> VariablesChangeResponse: ...
+    ) -> UpdatedVariablesResponse: ...
 
     def list_variables(
         self,
@@ -632,45 +642,57 @@ class Transport(Protocol):
         self, *, workspace_id: str, name: str | Keep, description: str | None | Keep
     ) -> WorkspaceResponse: ...
 
-    def list_dataplanes(self) -> list[DataplaneInfo]: ...
+    def archive_workspace(self, *, workspace_id: str) -> WorkspaceResponse: ...
 
-    def get_run(self, *, workspace_id: str, run_id: str) -> DetailedRunResponse: ...
+    def unarchive_workspace(self, *, workspace_id: str) -> WorkspaceResponse: ...
+
+    def list_dataplanes(self) -> list[DataplaneResponse]: ...
+
+    def get_run(self, *, workspace_id: str, run_id: str) -> DetailedJobRunResponse: ...
 
     def get_latest_run(
         self, *, workspace_id: str, job_id: str | None
-    ) -> DetailedRunResponse: ...
+    ) -> DetailedJobRunResponse: ...
 
     def list_runs(
-        self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListPageDetailedRunResponse: ...
+        self,
+        *,
+        workspace_id: str,
+        job_id: str | None,
+        limit: int,
+        offset: int,
+        number: int | None,
+    ) -> ListPageDetailedJobRunResponse: ...
 
-    def cancel_run(self, *, workspace_id: str, run_id: str) -> DetailedRunResponse: ...
+    def cancel_run(
+        self, *, workspace_id: str, run_id: str
+    ) -> DetailedJobRunResponse: ...
 
     def cancel_runs(
         self, *, workspace_id: str, job_refs: Sequence[str], dry_run: bool
-    ) -> BulkCancelResponse: ...
+    ) -> CancelJobRunsResponse: ...
 
-    def get_telemetry_watermark(
+    def get_workspace_watermark(
         self, *, workspace_id: str, dataplane_url: str
     ) -> TelemetryWatermarkResponse: ...
 
     def get_pipeline_run(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> PipelineRunDetailResponse: ...
+    ) -> DetailedPipelineRunResponse: ...
 
-    def get_job_result(
+    def get_job_run_result(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
     ) -> JobResultResponse: ...
 
-    def get_job_result_trace(
+    def get_job_run_result_trace(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
-    ) -> GetJobResultTraceResponse200: ...
+    ) -> JobResultTraceResponse: ...
 
     def get_pipeline_run_trace(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> GetPipelineRunTraceResponse200: ...
+    ) -> PipelineRunTraceResponse: ...
 
-    def list_pipeline_overview(
+    def list_pipeline_stats(
         self,
         *,
         workspace_id: str,
@@ -682,9 +704,9 @@ class Transport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPagePipelineOverviewResponse: ...
+    ) -> ListPagePipelineStatsResponse: ...
 
-    def list_dataset_overview(
+    def list_dataset_stats(
         self,
         *,
         workspace_id: str,
@@ -696,7 +718,7 @@ class Transport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPageDatasetOverviewResponse: ...
+    ) -> ListPageDatasetStatsResponse: ...
 
     def list_pipeline_runs(
         self,
@@ -717,45 +739,53 @@ class Transport(Protocol):
 
     def get_configuration_files(
         self, *, workspace_id: str, dataplane_url: str, configuration_id: str
-    ) -> TFilesManifest: ...
+    ) -> ManifestFilesResponse: ...
 
     def get_deployment_files(
         self, *, workspace_id: str, dataplane_url: str, deployment_id: str
-    ) -> TFilesManifest: ...
+    ) -> ManifestFilesResponse: ...
 
     def get_configuration(
-        self, *, workspace_id: str, version: int
+        self, *, workspace_id: str, configuration_id: str
     ) -> ConfigurationResponse: ...
 
-    def get_latest_configuration(
+    def get_configuration_latest(
         self, *, workspace_id: str
     ) -> ConfigurationResponse: ...
 
     def list_configurations(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageConfigurationResponse: ...
 
     def get_deployment(
-        self, *, workspace_id: str, version: int
+        self, *, workspace_id: str, deployment_id: str
     ) -> DeploymentResponse: ...
 
-    def get_latest_deployment(self, *, workspace_id: str) -> DeploymentResponse: ...
+    def get_deployment_latest(self, *, workspace_id: str) -> DeploymentResponse: ...
 
     def list_deployments(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageDeploymentResponse: ...
 
-    def get_script(
-        self, *, workspace_id: str, job_ref: str
-    ) -> DetailedScriptResponse: ...
+    def get_job(self, *, workspace_id: str, job_id: str) -> DetailedJobResponse: ...
 
-    def list_scripts(
-        self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListPageDetailedScriptResponse: ...
+    def list_jobs(
+        self,
+        *,
+        workspace_id: str,
+        limit: int,
+        offset: int,
+        archived: bool | Keep,
+        ref: str | None,
+    ) -> ListPageDetailedJobResponse: ...
 
-    def pause_script(self, *, workspace_id: str, job_ref: str) -> ScriptResponse: ...
+    def pause_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
-    def resume_script(self, *, workspace_id: str, job_ref: str) -> ScriptResponse: ...
+    def resume_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
+
+    def archive_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
+
+    def unarchive_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
     def upload_deployment(
         self,
@@ -779,7 +809,7 @@ class Transport(Protocol):
         module: str | None,
         description: str | None | Keep,
         dry_run: bool,
-    ) -> DeployManifestResponse: ...
+    ) -> DeployWorkspaceResponse: ...
 
     def read_logs(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
@@ -867,7 +897,7 @@ class HttpTransport:
         if cached is not None:
             return cached
         minted = _unwrap(
-            get_workspace_dataplane_access_token.sync_detailed(
+            issue_dataplane_token_workspace.sync_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _DATAPLANE_TOKEN,
@@ -996,16 +1026,16 @@ class HttpTransport:
             follow=follow,
         )
 
-    def list_dataplanes(self) -> list[DataplaneInfo]:
+    def list_dataplanes(self) -> list[DataplaneResponse]:
         return _call(
             lambda: list_dataplanes.sync_detailed(client=self._api),
             _DATAPLANE_LIST,
             None,
-        )
+        ).items
 
-    def get_run(self, *, workspace_id: str, run_id: str) -> DetailedRunResponse:
+    def get_run(self, *, workspace_id: str, run_id: str) -> DetailedJobRunResponse:
         return _call(
-            lambda: get_run.sync_detailed(
+            lambda: get_job_run.sync_detailed(
                 UUID(workspace_id), UUID(run_id), client=self._api
             ),
             _RUN,
@@ -1014,35 +1044,37 @@ class HttpTransport:
 
     def get_latest_run(
         self, *, workspace_id: str, job_id: str | None
-    ) -> DetailedRunResponse:
-        return _call(
-            lambda: get_latest_run.sync_detailed(
-                UUID(workspace_id),
-                client=self._api,
-                script_id=UUID(job_id) if job_id else API_UNSET,
-            ),
-            _RUN,
-            "latest",
+    ) -> DetailedJobRunResponse:
+        page = self.list_runs(
+            workspace_id=workspace_id, limit=1, offset=0, job_id=job_id, number=None
         )
+        return _latest(page)
 
     def list_runs(
-        self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListPageDetailedRunResponse:
+        self,
+        *,
+        workspace_id: str,
+        job_id: str | None,
+        limit: int,
+        offset: int,
+        number: int | None,
+    ) -> ListPageDetailedJobRunResponse:
         return _call(
-            lambda: list_runs.sync_detailed(
+            lambda: list_job_runs.sync_detailed(
                 UUID(workspace_id),
                 client=self._api,
                 limit=limit,
                 offset=offset,
-                script_id=UUID(job_id) if job_id else API_UNSET,
+                job_id=UUID(job_id) if job_id else API_UNSET,
+                number=API_UNSET if number is None else number,
             ),
             _RUN_LIST,
             workspace_id,
         )
 
-    def cancel_run(self, *, workspace_id: str, run_id: str) -> DetailedRunResponse:
+    def cancel_run(self, *, workspace_id: str, run_id: str) -> DetailedJobRunResponse:
         return _call(
-            lambda: cancel_run.sync_detailed(
+            lambda: cancel_job_run.sync_detailed(
                 UUID(workspace_id), UUID(run_id), client=self._api
             ),
             _RUN,
@@ -1051,17 +1083,65 @@ class HttpTransport:
 
     def cancel_runs(
         self, *, workspace_id: str, job_refs: Sequence[str], dry_run: bool
-    ) -> BulkCancelResponse:
-        body = BulkCancelRequest(job_refs=list(job_refs), dry_run=dry_run)
+    ) -> CancelJobRunsResponse:
+        run_ids = self._active_run_ids(workspace_id, job_refs)
+        if not run_ids:
+            return CancelJobRunsResponse(succeeded=[], failed=[], skipped=[])
+        body = CancelJobRunsRequest(job_run_ids=run_ids, dry_run=dry_run)
         return _call(
-            lambda: bulk_cancel_runs.sync_detailed(
+            lambda: cancel_job_runs.sync_detailed(
                 UUID(workspace_id), client=self._api, body=body
             ),
             _BULK_CANCEL,
             workspace_id,
         )
 
-    def list_pipeline_overview(
+    def _job_ids_by_ref(
+        self, workspace_id: str, refs: Sequence[str]
+    ) -> dict[str, UUID]:
+        """The workspace's non-archived jobs among ``refs``, paged in bulk."""
+        wanted = set(refs)
+        found: dict[str, UUID] = {}
+        offset = 0
+        while True:
+            page = self.list_jobs(
+                workspace_id=workspace_id,
+                limit=_LOOKUP_PAGE,
+                offset=offset,
+                archived=False,
+                ref=None,
+            )
+            found.update(
+                (job.job_ref, job.id) for job in page.items if job.job_ref in wanted
+            )
+            offset += len(page.items)
+            if not page.items or offset >= page.total or wanted <= found.keys():
+                return found
+
+    def _active_run_ids(self, workspace_id: str, refs: Sequence[str]) -> list[UUID]:
+        """The workspace's active runs of the jobs named by ``refs``, paged in bulk."""
+        wanted = set(refs)
+        run_ids: list[UUID] = []
+        offset = 0
+        while True:
+            page = _call(
+                lambda: list_job_runs.sync_detailed(
+                    UUID(workspace_id),
+                    client=self._api,
+                    status=_ACTIVE_RUN_STATUSES,
+                    include_system_job_runs=True,
+                    limit=_LOOKUP_PAGE,
+                    offset=offset,
+                ),
+                _RUN_LIST,
+                workspace_id,
+            )
+            run_ids.extend(run.id for run in page.items if run.job.job_ref in wanted)
+            offset += len(page.items)
+            if not page.items or offset >= page.total:
+                return run_ids
+
+    def list_pipeline_stats(
         self,
         *,
         workspace_id: str,
@@ -1073,14 +1153,14 @@ class HttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPagePipelineOverviewResponse:
+    ) -> ListPagePipelineStatsResponse:
         return self._dataplane_call(
-            lambda dp: list_pipeline_overview.sync_detailed(
+            lambda dp: list_pipeline_stats.sync_detailed(
                 UUID(workspace_id),
                 client=_as_telemetry(dp),
                 start=start,
                 end=end,
-                tz="UTC",
+                timezone="UTC",
                 limit=limit,
                 offset=offset,
                 pipeline_name=[pipeline_name] if pipeline_name else TELEMETRY_UNSET,
@@ -1101,7 +1181,7 @@ class HttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    def list_dataset_overview(
+    def list_dataset_stats(
         self,
         *,
         workspace_id: str,
@@ -1113,14 +1193,14 @@ class HttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPageDatasetOverviewResponse:
+    ) -> ListPageDatasetStatsResponse:
         return self._dataplane_call(
-            lambda dp: list_dataset_overview.sync_detailed(
+            lambda dp: list_dataset_stats.sync_detailed(
                 UUID(workspace_id),
                 client=_as_telemetry(dp),
                 start=start,
                 end=end,
-                tz="UTC",
+                timezone="UTC",
                 limit=limit,
                 offset=offset,
                 dataset_name=[dataset_name] if dataset_name else TELEMETRY_UNSET,
@@ -1143,7 +1223,7 @@ class HttpTransport:
 
     def get_pipeline_run_trace(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> GetPipelineRunTraceResponse200:
+    ) -> PipelineRunTraceResponse:
         return self._dataplane_call(
             lambda dp: get_pipeline_run_trace.sync_detailed(
                 UUID(workspace_id),
@@ -1158,7 +1238,7 @@ class HttpTransport:
 
     def get_pipeline_run(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> PipelineRunDetailResponse:
+    ) -> DetailedPipelineRunResponse:
         return self._dataplane_call(
             lambda dp: get_pipeline_run.sync_detailed(
                 UUID(workspace_id),
@@ -1171,11 +1251,11 @@ class HttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    def get_job_result(
+    def get_job_run_result(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
     ) -> JobResultResponse:
         return self._dataplane_call(
-            lambda dp: get_job_result.sync_detailed(
+            lambda dp: get_job_run_result.sync_detailed(
                 UUID(workspace_id),
                 UUID(run_id),
                 client=_as_telemetry(dp),
@@ -1186,11 +1266,11 @@ class HttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    def get_job_result_trace(
+    def get_job_run_result_trace(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
-    ) -> GetJobResultTraceResponse200:
+    ) -> JobResultTraceResponse:
         return self._dataplane_call(
-            lambda dp: get_job_result_trace.sync_detailed(
+            lambda dp: get_job_run_result_trace.sync_detailed(
                 UUID(workspace_id),
                 UUID(run_id),
                 client=_as_telemetry(dp),
@@ -1223,7 +1303,7 @@ class HttpTransport:
                 client=_as_telemetry(dp),
                 start=start,
                 end=end,
-                tz="UTC",
+                timezone="UTC",
                 limit=limit,
                 offset=offset,
                 job_run_id=[UUID(job_run_id)] if job_run_id else TELEMETRY_UNSET,
@@ -1243,11 +1323,11 @@ class HttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    def get_telemetry_watermark(
+    def get_workspace_watermark(
         self, *, workspace_id: str, dataplane_url: str
     ) -> TelemetryWatermarkResponse:
         return self._dataplane_call(
-            lambda dp: get_telemetry_watermark.sync_detailed(
+            lambda dp: get_workspace_watermark.sync_detailed(
                 UUID(workspace_id), client=_as_telemetry(dp)
             ),
             _TELEMETRY_WATERMARK,
@@ -1258,9 +1338,9 @@ class HttpTransport:
 
     def get_configuration_files(
         self, *, workspace_id: str, dataplane_url: str, configuration_id: str
-    ) -> TFilesManifest:
+    ) -> ManifestFilesResponse:
         return self._dataplane_call(
-            lambda dp: get_configuration_files_manifest.sync_detailed(
+            lambda dp: get_configuration_files.sync_detailed(
                 UUID(workspace_id), UUID(configuration_id), client=dp
             ),
             _CONFIGURATION_FILES,
@@ -1271,9 +1351,9 @@ class HttpTransport:
 
     def get_deployment_files(
         self, *, workspace_id: str, dataplane_url: str, deployment_id: str
-    ) -> TFilesManifest:
+    ) -> ManifestFilesResponse:
         return self._dataplane_call(
-            lambda dp: get_deployment_files_manifest.sync_detailed(
+            lambda dp: get_deployment_files.sync_detailed(
                 UUID(workspace_id), UUID(deployment_id), client=dp
             ),
             _DEPLOYMENT_FILES,
@@ -1291,10 +1371,10 @@ class HttpTransport:
         plain: Mapping[str, str],
         secret: Mapping[str, str],
         deletes: Sequence[str],
-    ) -> VariablesChangeResponse:
+    ) -> UpdatedVariablesResponse:
         body = _variables_change(profile, plain, secret, deletes)
         return self._dataplane_call(
-            lambda dp: change_workspace_variables.sync_detailed(
+            lambda dp: update_workspace_variables.sync_detailed(
                 UUID(workspace_id), client=dp, body=body
             ),
             _VARIABLE_CHANGE,
@@ -1316,8 +1396,8 @@ class HttpTransport:
             lambda dp: list_workspace_variables.sync_detailed(
                 UUID(workspace_id),
                 client=dp,
-                profile=_wire(profile, DATAPLANE_UNSET),
-                workspace=True if workspace else DATAPLANE_UNSET,
+                scope_profile=_wire(profile, DATAPLANE_UNSET),
+                is_workspace_scope=True if workspace else DATAPLANE_UNSET,
             ),
             _VARIABLES,
             workspace_id,
@@ -1334,25 +1414,27 @@ class HttpTransport:
             organization_id,
         )
 
-    def get_current_user(self) -> CurrentUserResponse:
+    def get_me(self) -> MeResponse:
         return _call(
-            lambda: get_current_user.sync_detailed(client=self._api),
+            lambda: get_me.sync_detailed(client=self._api),
             _CURRENT_USER,
             None,
         )
 
-    def organization_me(self, *, organization_id: str) -> OrganizationMeResponse:
+    def get_organization_me(self, *, organization_id: str) -> OrganizationMeResponse:
         return _call(
-            lambda: organization_me.sync_detailed(
+            lambda: get_organization_me.sync_detailed(
                 UUID(organization_id), client=self._api
             ),
             _ORGANIZATION_ME,
             organization_id,
         )
 
-    def workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse:
+    def get_workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse:
         return _call(
-            lambda: workspace_me.sync_detailed(UUID(workspace_id), client=self._api),
+            lambda: get_workspace_me.sync_detailed(
+                UUID(workspace_id), client=self._api
+            ),
             _WORKSPACE_ME,
             workspace_id,
         )
@@ -1369,12 +1451,12 @@ class HttpTransport:
             None,
         )
 
-    def set_organization_region(
+    def set_region_organization(
         self, *, organization_id: str, dataplane_id: str
     ) -> OrganizationResponse:
-        body = SetOrganizationRegionRequest(dataplane_id=dataplane_id)
+        body = SetRegionOrganizationRequest(dataplane_id=dataplane_id)
         return _call(
-            lambda: set_organization_region.sync_detailed(
+            lambda: set_region_organization.sync_detailed(
                 UUID(organization_id), client=self._api, body=body
             ),
             _ORGANIZATION,
@@ -1384,7 +1466,7 @@ class HttpTransport:
     def create_workspace(
         self, *, organization_id: str, name: str, description: str | None
     ) -> WorkspaceResponse:
-        body = WorkspaceCreateRequest(name=name, description=description)
+        body = CreateWorkspaceRequest(name=name, description=description)
         return _call(
             lambda: create_workspace.sync_detailed(
                 UUID(organization_id), client=self._api, body=body
@@ -1393,22 +1475,22 @@ class HttpTransport:
             name,
         )
 
-    def enable_public_url(self, *, workspace_id: str, job_ref: str) -> ScriptResponse:
+    def publish_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return _call(
-            lambda: enable_public_url.sync_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: publish_job.sync_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
         )
 
-    def disable_public_url(self, *, workspace_id: str, job_ref: str) -> ScriptResponse:
+    def unpublish_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return _call(
-            lambda: disable_public_url.sync_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: unpublish_job.sync_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
         )
 
     def trigger_jobs(
@@ -1421,8 +1503,15 @@ class HttpTransport:
         refresh: bool,
         dry_run: bool,
     ) -> TriggerJobsResponse:
+        job_ids = (
+            None
+            if job_refs is None
+            else _required_job_ids(
+                job_refs, self._job_ids_by_ref(workspace_id, job_refs)
+            )
+        )
         body = TriggerJobsRequest(
-            job_refs=list(job_refs) if job_refs is not None else API_UNSET,
+            job_ids=job_ids if job_ids is not None else API_UNSET,
             selectors=list(selectors) if selectors is not None else API_UNSET,
             profile=_wire(profile, API_UNSET),
             refresh=refresh,
@@ -1440,25 +1529,25 @@ class HttpTransport:
         self,
         *,
         workspace_id: str,
-        job_ref: str,
+        job_id: str,
         trigger: str,
         profile: str | None | Keep,
         refresh: bool,
         skip_freshness: bool,
-    ) -> TriggeredJob:
-        body = CreateRunRequest(
-            script_id_or_ref=job_ref,
+    ) -> DetailedJobRunResponse:
+        body = CreateJobRunRequest(
+            job_id=UUID(job_id),
             trigger=trigger,
             profile=_wire(profile, API_UNSET),
             refresh=refresh,
             skip_freshness=skip_freshness,
         )
         return _call(
-            lambda: create_run.sync_detailed(
+            lambda: create_job_run.sync_detailed(
                 UUID(workspace_id), client=self._api, body=body
             ),
-            _TRIGGERED_JOB,
-            job_ref,
+            _STARTED_RUN,
+            job_id,
         )
 
     def get_workspace(self, *, workspace_id: str) -> WorkspaceResponse:
@@ -1493,13 +1582,31 @@ class HttpTransport:
     def update_workspace(
         self, *, workspace_id: str, name: str | Keep, description: str | None | Keep
     ) -> WorkspaceResponse:
-        body = WorkspaceUpdateRequest(
+        body = UpdateWorkspaceRequest(
             name=_wire(name, API_UNSET),
             description=_wire(description, API_UNSET),
         )
         return _call(
             lambda: update_workspace.sync_detailed(
                 UUID(workspace_id), client=self._api, body=body
+            ),
+            _WORKSPACE,
+            workspace_id,
+        )
+
+    def archive_workspace(self, *, workspace_id: str) -> WorkspaceResponse:
+        return _call(
+            lambda: archive_workspace.sync_detailed(
+                UUID(workspace_id), client=self._api
+            ),
+            _WORKSPACE,
+            workspace_id,
+        )
+
+    def unarchive_workspace(self, *, workspace_id: str) -> WorkspaceResponse:
+        return _call(
+            lambda: unarchive_workspace.sync_detailed(
+                UUID(workspace_id), client=self._api
             ),
             _WORKSPACE,
             workspace_id,
@@ -1526,7 +1633,7 @@ class HttpTransport:
             The stored deployment, as the data plane wrote it back.
         """
         initiated = _call(
-            lambda: create_deployment.sync_detailed(
+            lambda: issue_upload_deployment.sync_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _DEPLOYMENT_UPLOAD,
@@ -1534,20 +1641,21 @@ class HttpTransport:
         )
         client, deployment_id = _upload_target(
             initiated,
+            workspace_id,
             initiated.deployment_id,
             "deployments",
             EntityKind.DEPLOYMENT,
             self._verify_ssl,
             self._headers,
         )
-        body = DeploymentUploadBody(
-            files=_as_file(code, "workspace.tar.gz", _TAR_MIME),
-            requirements=_as_file(requirements, "requirements.json", _JSON_MIME),
+        body = UploadDeploymentRequest(
+            file=_as_file(code, "workspace.tar.gz", _TAR_MIME),
+            requirements_file=_as_file(requirements, "requirements.json", _JSON_MIME),
         )
         try:
             return _call(
-                lambda: upload_deployment_bytes.sync_detailed(
-                    deployment_id, client=client, body=body
+                lambda: upload_deployment.sync_detailed(
+                    UUID(workspace_id), deployment_id, client=client, body=body
                 ),
                 _DP_DEPLOYMENT,
                 str(deployment_id),
@@ -1568,7 +1676,7 @@ class HttpTransport:
             The stored configuration, as the data plane wrote it back.
         """
         initiated = _call(
-            lambda: create_configuration.sync_detailed(
+            lambda: issue_upload_configuration.sync_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _CONFIGURATION_UPLOAD,
@@ -1576,19 +1684,20 @@ class HttpTransport:
         )
         client, configuration_id = _upload_target(
             initiated,
+            workspace_id,
             initiated.configuration_id,
             "configurations",
             EntityKind.CONFIGURATION,
             self._verify_ssl,
             self._headers,
         )
-        body = UploadConfigurationBytesBody(
+        body = UploadConfigurationBody(
             file=_as_file(data, "configurations.tar.gz", _TAR_MIME)
         )
         try:
             return _call(
-                lambda: upload_configuration_bytes.sync_detailed(
-                    configuration_id, client=client, body=body
+                lambda: upload_configuration.sync_detailed(
+                    UUID(workspace_id), configuration_id, client=client, body=body
                 ),
                 _DP_CONFIGURATION,
                 str(configuration_id),
@@ -1606,12 +1715,12 @@ class HttpTransport:
         module: str | None,
         description: str | None | Keep,
         dry_run: bool,
-    ) -> DeployManifestResponse:
+    ) -> DeployWorkspaceResponse:
         body = _manifest_body(
             jobs, manifest_hash, engine_version, module, description, dry_run
         )
         return _call(
-            lambda: deploy.sync_detailed(
+            lambda: deploy_workspace.sync_detailed(
                 UUID(workspace_id), client=self._api, body=body
             ),
             _DEPLOY_REPORT,
@@ -1619,19 +1728,19 @@ class HttpTransport:
         )
 
     def get_configuration(
-        self, *, workspace_id: str, version: int
+        self, *, workspace_id: str, configuration_id: str
     ) -> ConfigurationResponse:
         return _call(
             lambda: get_configuration.sync_detailed(
-                UUID(workspace_id), version, client=self._api
+                UUID(workspace_id), UUID(configuration_id), client=self._api
             ),
             _CONFIGURATION,
-            str(version),
+            configuration_id,
         )
 
-    def get_latest_configuration(self, *, workspace_id: str) -> ConfigurationResponse:
+    def get_configuration_latest(self, *, workspace_id: str) -> ConfigurationResponse:
         return _call(
-            lambda: get_latest_configuration.sync_detailed(
+            lambda: get_configuration_latest.sync_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _CONFIGURATION,
@@ -1639,28 +1748,34 @@ class HttpTransport:
         )
 
     def list_configurations(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageConfigurationResponse:
         return _call(
             lambda: list_configurations.sync_detailed(
-                UUID(workspace_id), client=self._api, limit=limit, offset=offset
+                UUID(workspace_id),
+                client=self._api,
+                limit=limit,
+                offset=offset,
+                version=API_UNSET if version is None else version,
             ),
             _CONFIGURATION_LIST,
             workspace_id,
         )
 
-    def get_deployment(self, *, workspace_id: str, version: int) -> DeploymentResponse:
+    def get_deployment(
+        self, *, workspace_id: str, deployment_id: str
+    ) -> DeploymentResponse:
         return _call(
             lambda: get_deployment.sync_detailed(
-                UUID(workspace_id), version, client=self._api
+                UUID(workspace_id), UUID(deployment_id), client=self._api
             ),
             _DEPLOYMENT,
-            str(version),
+            deployment_id,
         )
 
-    def get_latest_deployment(self, *, workspace_id: str) -> DeploymentResponse:
+    def get_deployment_latest(self, *, workspace_id: str) -> DeploymentResponse:
         return _call(
-            lambda: get_latest_deployment.sync_detailed(
+            lambda: get_deployment_latest.sync_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _DEPLOYMENT,
@@ -1668,56 +1783,85 @@ class HttpTransport:
         )
 
     def list_deployments(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageDeploymentResponse:
         return _call(
             lambda: list_deployments.sync_detailed(
-                UUID(workspace_id), client=self._api, limit=limit, offset=offset
+                UUID(workspace_id),
+                client=self._api,
+                limit=limit,
+                offset=offset,
+                version=API_UNSET if version is None else version,
             ),
             _DEPLOYMENT_LIST,
             workspace_id,
         )
 
-    def get_script(self, *, workspace_id: str, job_ref: str) -> DetailedScriptResponse:
+    def get_job(self, *, workspace_id: str, job_id: str) -> DetailedJobResponse:
         return _call(
-            lambda: get_script.sync_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: get_job.sync_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT_DETAIL,
-            job_ref,
+            _JOB_DETAIL,
+            job_id,
         )
 
-    def list_scripts(
-        self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListPageDetailedScriptResponse:
+    def list_jobs(
+        self,
+        *,
+        workspace_id: str,
+        limit: int,
+        offset: int,
+        archived: bool | Keep,
+        ref: str | None,
+    ) -> ListPageDetailedJobResponse:
         return _call(
-            lambda: list_scripts.sync_detailed(
+            lambda: list_jobs.sync_detailed(
                 UUID(workspace_id),
                 client=self._api,
                 limit=limit,
                 offset=offset,
-                archived=_wire(archived, API_UNSET),
+                is_archived=_wire(archived, API_UNSET),
+                ref=API_UNSET if ref is None else ref,
             ),
-            _SCRIPT_LIST,
+            _JOB_LIST,
             workspace_id,
         )
 
-    def pause_script(self, *, workspace_id: str, job_ref: str) -> ScriptResponse:
+    def pause_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return _call(
-            lambda: pause_script.sync_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: pause_job.sync_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
         )
 
-    def resume_script(self, *, workspace_id: str, job_ref: str) -> ScriptResponse:
+    def resume_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return _call(
-            lambda: resume_script.sync_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: resume_job.sync_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
+        )
+
+    def archive_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
+        return _call(
+            lambda: archive_job.sync_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
+            ),
+            _JOB,
+            job_id,
+        )
+
+    def unarchive_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
+        return _call(
+            lambda: unarchive_job.sync_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
+            ),
+            _JOB,
+            job_id,
         )
 
 
@@ -1728,19 +1872,19 @@ class AsyncTransport(Protocol):
         self, *, organization_id: str
     ) -> OrganizationResponse: ...
 
-    async def get_current_user(self) -> CurrentUserResponse: ...
+    async def get_me(self) -> MeResponse: ...
 
-    async def organization_me(
+    async def get_organization_me(
         self, *, organization_id: str
     ) -> OrganizationMeResponse: ...
 
-    async def workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse: ...
+    async def get_workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse: ...
 
     async def list_organizations(
         self, *, limit: int, offset: int
     ) -> ListPageOrganizationResponse: ...
 
-    async def set_organization_region(
+    async def set_region_organization(
         self, *, organization_id: str, dataplane_id: str
     ) -> OrganizationResponse: ...
 
@@ -1748,13 +1892,9 @@ class AsyncTransport(Protocol):
         self, *, organization_id: str, name: str, description: str | None
     ) -> WorkspaceResponse: ...
 
-    async def enable_public_url(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse: ...
+    async def publish_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
-    async def disable_public_url(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse: ...
+    async def unpublish_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
     async def trigger_jobs(
         self,
@@ -1771,12 +1911,12 @@ class AsyncTransport(Protocol):
         self,
         *,
         workspace_id: str,
-        job_ref: str,
+        job_id: str,
         trigger: str,
         profile: str | None | Keep,
         refresh: bool,
         skip_freshness: bool,
-    ) -> TriggeredJob: ...
+    ) -> DetailedJobRunResponse: ...
 
     async def change_variables(
         self,
@@ -1787,7 +1927,7 @@ class AsyncTransport(Protocol):
         plain: Mapping[str, str],
         secret: Mapping[str, str],
         deletes: Sequence[str],
-    ) -> VariablesChangeResponse: ...
+    ) -> UpdatedVariablesResponse: ...
 
     async def list_variables(
         self,
@@ -1812,49 +1952,59 @@ class AsyncTransport(Protocol):
         self, *, workspace_id: str, name: str | Keep, description: str | None | Keep
     ) -> WorkspaceResponse: ...
 
-    async def list_dataplanes(self) -> list[DataplaneInfo]: ...
+    async def archive_workspace(self, *, workspace_id: str) -> WorkspaceResponse: ...
+
+    async def unarchive_workspace(self, *, workspace_id: str) -> WorkspaceResponse: ...
+
+    async def list_dataplanes(self) -> list[DataplaneResponse]: ...
 
     async def get_run(
         self, *, workspace_id: str, run_id: str
-    ) -> DetailedRunResponse: ...
+    ) -> DetailedJobRunResponse: ...
 
     async def get_latest_run(
         self, *, workspace_id: str, job_id: str | None
-    ) -> DetailedRunResponse: ...
+    ) -> DetailedJobRunResponse: ...
 
     async def list_runs(
-        self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListPageDetailedRunResponse: ...
+        self,
+        *,
+        workspace_id: str,
+        job_id: str | None,
+        limit: int,
+        offset: int,
+        number: int | None,
+    ) -> ListPageDetailedJobRunResponse: ...
 
     async def cancel_run(
         self, *, workspace_id: str, run_id: str
-    ) -> DetailedRunResponse: ...
+    ) -> DetailedJobRunResponse: ...
 
     async def cancel_runs(
         self, *, workspace_id: str, job_refs: Sequence[str], dry_run: bool
-    ) -> BulkCancelResponse: ...
+    ) -> CancelJobRunsResponse: ...
 
-    async def get_telemetry_watermark(
+    async def get_workspace_watermark(
         self, *, workspace_id: str, dataplane_url: str
     ) -> TelemetryWatermarkResponse: ...
 
     async def get_pipeline_run(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> PipelineRunDetailResponse: ...
+    ) -> DetailedPipelineRunResponse: ...
 
-    async def get_job_result(
+    async def get_job_run_result(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
     ) -> JobResultResponse: ...
 
-    async def get_job_result_trace(
+    async def get_job_run_result_trace(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
-    ) -> GetJobResultTraceResponse200: ...
+    ) -> JobResultTraceResponse: ...
 
     async def get_pipeline_run_trace(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> GetPipelineRunTraceResponse200: ...
+    ) -> PipelineRunTraceResponse: ...
 
-    async def list_pipeline_overview(
+    async def list_pipeline_stats(
         self,
         *,
         workspace_id: str,
@@ -1866,9 +2016,9 @@ class AsyncTransport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPagePipelineOverviewResponse: ...
+    ) -> ListPagePipelineStatsResponse: ...
 
-    async def list_dataset_overview(
+    async def list_dataset_stats(
         self,
         *,
         workspace_id: str,
@@ -1880,7 +2030,7 @@ class AsyncTransport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPageDatasetOverviewResponse: ...
+    ) -> ListPageDatasetStatsResponse: ...
 
     async def list_pipeline_runs(
         self,
@@ -1901,51 +2051,57 @@ class AsyncTransport(Protocol):
 
     async def get_configuration_files(
         self, *, workspace_id: str, dataplane_url: str, configuration_id: str
-    ) -> TFilesManifest: ...
+    ) -> ManifestFilesResponse: ...
 
     async def get_deployment_files(
         self, *, workspace_id: str, dataplane_url: str, deployment_id: str
-    ) -> TFilesManifest: ...
+    ) -> ManifestFilesResponse: ...
 
     async def get_configuration(
-        self, *, workspace_id: str, version: int
+        self, *, workspace_id: str, configuration_id: str
     ) -> ConfigurationResponse: ...
 
-    async def get_latest_configuration(
+    async def get_configuration_latest(
         self, *, workspace_id: str
     ) -> ConfigurationResponse: ...
 
     async def list_configurations(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageConfigurationResponse: ...
 
     async def get_deployment(
-        self, *, workspace_id: str, version: int
+        self, *, workspace_id: str, deployment_id: str
     ) -> DeploymentResponse: ...
 
-    async def get_latest_deployment(
+    async def get_deployment_latest(
         self, *, workspace_id: str
     ) -> DeploymentResponse: ...
 
     async def list_deployments(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageDeploymentResponse: ...
 
-    async def get_script(
-        self, *, workspace_id: str, job_ref: str
-    ) -> DetailedScriptResponse: ...
+    async def get_job(
+        self, *, workspace_id: str, job_id: str
+    ) -> DetailedJobResponse: ...
 
-    async def list_scripts(
-        self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListPageDetailedScriptResponse: ...
+    async def list_jobs(
+        self,
+        *,
+        workspace_id: str,
+        limit: int,
+        offset: int,
+        archived: bool | Keep,
+        ref: str | None,
+    ) -> ListPageDetailedJobResponse: ...
 
-    async def pause_script(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse: ...
+    async def pause_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
-    async def resume_script(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse: ...
+    async def resume_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
+
+    async def archive_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
+
+    async def unarchive_job(self, *, workspace_id: str, job_id: str) -> JobResponse: ...
 
     async def upload_deployment(
         self,
@@ -1969,7 +2125,7 @@ class AsyncTransport(Protocol):
         module: str | None,
         description: str | None | Keep,
         dry_run: bool,
-    ) -> DeployManifestResponse: ...
+    ) -> DeployWorkspaceResponse: ...
 
     def read_logs(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
@@ -2054,7 +2210,7 @@ class AsyncHttpTransport:
         if cached is not None:
             return cached
         minted = _unwrap(
-            await get_workspace_dataplane_access_token.asyncio_detailed(
+            await issue_dataplane_token_workspace.asyncio_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _DATAPLANE_TOKEN,
@@ -2183,16 +2339,19 @@ class AsyncHttpTransport:
             follow=follow,
         )
 
-    async def list_dataplanes(self) -> list[DataplaneInfo]:
-        return await _acall(
+    async def list_dataplanes(self) -> list[DataplaneResponse]:
+        catalog = await _acall(
             lambda: list_dataplanes.asyncio_detailed(client=self._api),
             _DATAPLANE_LIST,
             None,
         )
+        return catalog.items
 
-    async def get_run(self, *, workspace_id: str, run_id: str) -> DetailedRunResponse:
+    async def get_run(
+        self, *, workspace_id: str, run_id: str
+    ) -> DetailedJobRunResponse:
         return await _acall(
-            lambda: get_run.asyncio_detailed(
+            lambda: get_job_run.asyncio_detailed(
                 UUID(workspace_id), UUID(run_id), client=self._api
             ),
             _RUN,
@@ -2201,27 +2360,29 @@ class AsyncHttpTransport:
 
     async def get_latest_run(
         self, *, workspace_id: str, job_id: str | None
-    ) -> DetailedRunResponse:
-        return await _acall(
-            lambda: get_latest_run.asyncio_detailed(
-                UUID(workspace_id),
-                client=self._api,
-                script_id=UUID(job_id) if job_id else API_UNSET,
-            ),
-            _RUN,
-            "latest",
+    ) -> DetailedJobRunResponse:
+        page = await self.list_runs(
+            workspace_id=workspace_id, limit=1, offset=0, job_id=job_id, number=None
         )
+        return _latest(page)
 
     async def list_runs(
-        self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListPageDetailedRunResponse:
+        self,
+        *,
+        workspace_id: str,
+        job_id: str | None,
+        limit: int,
+        offset: int,
+        number: int | None,
+    ) -> ListPageDetailedJobRunResponse:
         return await _acall(
-            lambda: list_runs.asyncio_detailed(
+            lambda: list_job_runs.asyncio_detailed(
                 UUID(workspace_id),
                 client=self._api,
                 limit=limit,
                 offset=offset,
-                script_id=UUID(job_id) if job_id else API_UNSET,
+                job_id=UUID(job_id) if job_id else API_UNSET,
+                number=API_UNSET if number is None else number,
             ),
             _RUN_LIST,
             workspace_id,
@@ -2229,9 +2390,9 @@ class AsyncHttpTransport:
 
     async def cancel_run(
         self, *, workspace_id: str, run_id: str
-    ) -> DetailedRunResponse:
+    ) -> DetailedJobRunResponse:
         return await _acall(
-            lambda: cancel_run.asyncio_detailed(
+            lambda: cancel_job_run.asyncio_detailed(
                 UUID(workspace_id), UUID(run_id), client=self._api
             ),
             _RUN,
@@ -2240,17 +2401,67 @@ class AsyncHttpTransport:
 
     async def cancel_runs(
         self, *, workspace_id: str, job_refs: Sequence[str], dry_run: bool
-    ) -> BulkCancelResponse:
-        body = BulkCancelRequest(job_refs=list(job_refs), dry_run=dry_run)
+    ) -> CancelJobRunsResponse:
+        run_ids = await self._active_run_ids(workspace_id, job_refs)
+        if not run_ids:
+            return CancelJobRunsResponse(succeeded=[], failed=[], skipped=[])
+        body = CancelJobRunsRequest(job_run_ids=run_ids, dry_run=dry_run)
         return await _acall(
-            lambda: bulk_cancel_runs.asyncio_detailed(
+            lambda: cancel_job_runs.asyncio_detailed(
                 UUID(workspace_id), client=self._api, body=body
             ),
             _BULK_CANCEL,
             workspace_id,
         )
 
-    async def list_pipeline_overview(
+    async def _job_ids_by_ref(
+        self, workspace_id: str, refs: Sequence[str]
+    ) -> dict[str, UUID]:
+        """The workspace's non-archived jobs among ``refs``, paged in bulk."""
+        wanted = set(refs)
+        found: dict[str, UUID] = {}
+        offset = 0
+        while True:
+            page = await self.list_jobs(
+                workspace_id=workspace_id,
+                limit=_LOOKUP_PAGE,
+                offset=offset,
+                archived=False,
+                ref=None,
+            )
+            found.update(
+                (job.job_ref, job.id) for job in page.items if job.job_ref in wanted
+            )
+            offset += len(page.items)
+            if not page.items or offset >= page.total or wanted <= found.keys():
+                return found
+
+    async def _active_run_ids(
+        self, workspace_id: str, refs: Sequence[str]
+    ) -> list[UUID]:
+        """The workspace's active runs of the jobs named by ``refs``, paged in bulk."""
+        wanted = set(refs)
+        run_ids: list[UUID] = []
+        offset = 0
+        while True:
+            page = await _acall(
+                lambda: list_job_runs.asyncio_detailed(
+                    UUID(workspace_id),
+                    client=self._api,
+                    status=_ACTIVE_RUN_STATUSES,
+                    include_system_job_runs=True,
+                    limit=_LOOKUP_PAGE,
+                    offset=offset,
+                ),
+                _RUN_LIST,
+                workspace_id,
+            )
+            run_ids.extend(run.id for run in page.items if run.job.job_ref in wanted)
+            offset += len(page.items)
+            if not page.items or offset >= page.total:
+                return run_ids
+
+    async def list_pipeline_stats(
         self,
         *,
         workspace_id: str,
@@ -2262,14 +2473,14 @@ class AsyncHttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPagePipelineOverviewResponse:
+    ) -> ListPagePipelineStatsResponse:
         return await self._dataplane_call(
-            lambda dp: list_pipeline_overview.asyncio_detailed(
+            lambda dp: list_pipeline_stats.asyncio_detailed(
                 UUID(workspace_id),
                 client=_as_telemetry(dp),
                 start=start,
                 end=end,
-                tz="UTC",
+                timezone="UTC",
                 limit=limit,
                 offset=offset,
                 pipeline_name=[pipeline_name] if pipeline_name else TELEMETRY_UNSET,
@@ -2290,7 +2501,7 @@ class AsyncHttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    async def list_dataset_overview(
+    async def list_dataset_stats(
         self,
         *,
         workspace_id: str,
@@ -2302,14 +2513,14 @@ class AsyncHttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPageDatasetOverviewResponse:
+    ) -> ListPageDatasetStatsResponse:
         return await self._dataplane_call(
-            lambda dp: list_dataset_overview.asyncio_detailed(
+            lambda dp: list_dataset_stats.asyncio_detailed(
                 UUID(workspace_id),
                 client=_as_telemetry(dp),
                 start=start,
                 end=end,
-                tz="UTC",
+                timezone="UTC",
                 limit=limit,
                 offset=offset,
                 dataset_name=[dataset_name] if dataset_name else TELEMETRY_UNSET,
@@ -2332,7 +2543,7 @@ class AsyncHttpTransport:
 
     async def get_pipeline_run_trace(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> GetPipelineRunTraceResponse200:
+    ) -> PipelineRunTraceResponse:
         return await self._dataplane_call(
             lambda dp: get_pipeline_run_trace.asyncio_detailed(
                 UUID(workspace_id),
@@ -2347,7 +2558,7 @@ class AsyncHttpTransport:
 
     async def get_pipeline_run(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
-    ) -> PipelineRunDetailResponse:
+    ) -> DetailedPipelineRunResponse:
         return await self._dataplane_call(
             lambda dp: get_pipeline_run.asyncio_detailed(
                 UUID(workspace_id),
@@ -2360,11 +2571,11 @@ class AsyncHttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    async def get_job_result(
+    async def get_job_run_result(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
     ) -> JobResultResponse:
         return await self._dataplane_call(
-            lambda dp: get_job_result.asyncio_detailed(
+            lambda dp: get_job_run_result.asyncio_detailed(
                 UUID(workspace_id),
                 UUID(run_id),
                 client=_as_telemetry(dp),
@@ -2375,11 +2586,11 @@ class AsyncHttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    async def get_job_result_trace(
+    async def get_job_run_result_trace(
         self, *, workspace_id: str, dataplane_url: str, run_id: str
-    ) -> GetJobResultTraceResponse200:
+    ) -> JobResultTraceResponse:
         return await self._dataplane_call(
-            lambda dp: get_job_result_trace.asyncio_detailed(
+            lambda dp: get_job_run_result_trace.asyncio_detailed(
                 UUID(workspace_id),
                 UUID(run_id),
                 client=_as_telemetry(dp),
@@ -2412,7 +2623,7 @@ class AsyncHttpTransport:
                 client=_as_telemetry(dp),
                 start=start,
                 end=end,
-                tz="UTC",
+                timezone="UTC",
                 limit=limit,
                 offset=offset,
                 job_run_id=[UUID(job_run_id)] if job_run_id else TELEMETRY_UNSET,
@@ -2432,11 +2643,11 @@ class AsyncHttpTransport:
             dataplane_url=dataplane_url,
         )
 
-    async def get_telemetry_watermark(
+    async def get_workspace_watermark(
         self, *, workspace_id: str, dataplane_url: str
     ) -> TelemetryWatermarkResponse:
         return await self._dataplane_call(
-            lambda dp: get_telemetry_watermark.asyncio_detailed(
+            lambda dp: get_workspace_watermark.asyncio_detailed(
                 UUID(workspace_id), client=_as_telemetry(dp)
             ),
             _TELEMETRY_WATERMARK,
@@ -2447,9 +2658,9 @@ class AsyncHttpTransport:
 
     async def get_configuration_files(
         self, *, workspace_id: str, dataplane_url: str, configuration_id: str
-    ) -> TFilesManifest:
+    ) -> ManifestFilesResponse:
         return await self._dataplane_call(
-            lambda dp: get_configuration_files_manifest.asyncio_detailed(
+            lambda dp: get_configuration_files.asyncio_detailed(
                 UUID(workspace_id), UUID(configuration_id), client=dp
             ),
             _CONFIGURATION_FILES,
@@ -2460,9 +2671,9 @@ class AsyncHttpTransport:
 
     async def get_deployment_files(
         self, *, workspace_id: str, dataplane_url: str, deployment_id: str
-    ) -> TFilesManifest:
+    ) -> ManifestFilesResponse:
         return await self._dataplane_call(
-            lambda dp: get_deployment_files_manifest.asyncio_detailed(
+            lambda dp: get_deployment_files.asyncio_detailed(
                 UUID(workspace_id), UUID(deployment_id), client=dp
             ),
             _DEPLOYMENT_FILES,
@@ -2480,10 +2691,10 @@ class AsyncHttpTransport:
         plain: Mapping[str, str],
         secret: Mapping[str, str],
         deletes: Sequence[str],
-    ) -> VariablesChangeResponse:
+    ) -> UpdatedVariablesResponse:
         body = _variables_change(profile, plain, secret, deletes)
         return await self._dataplane_call(
-            lambda dp: change_workspace_variables.asyncio_detailed(
+            lambda dp: update_workspace_variables.asyncio_detailed(
                 UUID(workspace_id), client=dp, body=body
             ),
             _VARIABLE_CHANGE,
@@ -2505,8 +2716,8 @@ class AsyncHttpTransport:
             lambda dp: list_workspace_variables.asyncio_detailed(
                 UUID(workspace_id),
                 client=dp,
-                profile=_wire(profile, DATAPLANE_UNSET),
-                workspace=True if workspace else DATAPLANE_UNSET,
+                scope_profile=_wire(profile, DATAPLANE_UNSET),
+                is_workspace_scope=True if workspace else DATAPLANE_UNSET,
             ),
             _VARIABLES,
             workspace_id,
@@ -2523,25 +2734,29 @@ class AsyncHttpTransport:
             organization_id,
         )
 
-    async def get_current_user(self) -> CurrentUserResponse:
+    async def get_me(self) -> MeResponse:
         return await _acall(
-            lambda: get_current_user.asyncio_detailed(client=self._api),
+            lambda: get_me.asyncio_detailed(client=self._api),
             _CURRENT_USER,
             None,
         )
 
-    async def organization_me(self, *, organization_id: str) -> OrganizationMeResponse:
+    async def get_organization_me(
+        self, *, organization_id: str
+    ) -> OrganizationMeResponse:
         return await _acall(
-            lambda: organization_me.asyncio_detailed(
+            lambda: get_organization_me.asyncio_detailed(
                 UUID(organization_id), client=self._api
             ),
             _ORGANIZATION_ME,
             organization_id,
         )
 
-    async def workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse:
+    async def get_workspace_me(self, *, workspace_id: str) -> WorkspaceMeResponse:
         return await _acall(
-            lambda: workspace_me.asyncio_detailed(UUID(workspace_id), client=self._api),
+            lambda: get_workspace_me.asyncio_detailed(
+                UUID(workspace_id), client=self._api
+            ),
             _WORKSPACE_ME,
             workspace_id,
         )
@@ -2557,12 +2772,12 @@ class AsyncHttpTransport:
             None,
         )
 
-    async def set_organization_region(
+    async def set_region_organization(
         self, *, organization_id: str, dataplane_id: str
     ) -> OrganizationResponse:
-        body = SetOrganizationRegionRequest(dataplane_id=dataplane_id)
+        body = SetRegionOrganizationRequest(dataplane_id=dataplane_id)
         return await _acall(
-            lambda: set_organization_region.asyncio_detailed(
+            lambda: set_region_organization.asyncio_detailed(
                 UUID(organization_id), client=self._api, body=body
             ),
             _ORGANIZATION,
@@ -2572,7 +2787,7 @@ class AsyncHttpTransport:
     async def create_workspace(
         self, *, organization_id: str, name: str, description: str | None
     ) -> WorkspaceResponse:
-        body = WorkspaceCreateRequest(name=name, description=description)
+        body = CreateWorkspaceRequest(name=name, description=description)
         return await _acall(
             lambda: create_workspace.asyncio_detailed(
                 UUID(organization_id), client=self._api, body=body
@@ -2581,26 +2796,22 @@ class AsyncHttpTransport:
             name,
         )
 
-    async def enable_public_url(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse:
+    async def publish_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return await _acall(
-            lambda: enable_public_url.asyncio_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: publish_job.asyncio_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
         )
 
-    async def disable_public_url(
-        self, *, workspace_id: str, job_ref: str
-    ) -> ScriptResponse:
+    async def unpublish_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return await _acall(
-            lambda: disable_public_url.asyncio_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: unpublish_job.asyncio_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
         )
 
     async def trigger_jobs(
@@ -2613,8 +2824,15 @@ class AsyncHttpTransport:
         refresh: bool,
         dry_run: bool,
     ) -> TriggerJobsResponse:
+        job_ids = (
+            None
+            if job_refs is None
+            else _required_job_ids(
+                job_refs, await self._job_ids_by_ref(workspace_id, job_refs)
+            )
+        )
         body = TriggerJobsRequest(
-            job_refs=list(job_refs) if job_refs is not None else API_UNSET,
+            job_ids=job_ids if job_ids is not None else API_UNSET,
             selectors=list(selectors) if selectors is not None else API_UNSET,
             profile=_wire(profile, API_UNSET),
             refresh=refresh,
@@ -2632,25 +2850,25 @@ class AsyncHttpTransport:
         self,
         *,
         workspace_id: str,
-        job_ref: str,
+        job_id: str,
         trigger: str,
         profile: str | None | Keep,
         refresh: bool,
         skip_freshness: bool,
-    ) -> TriggeredJob:
-        body = CreateRunRequest(
-            script_id_or_ref=job_ref,
+    ) -> DetailedJobRunResponse:
+        body = CreateJobRunRequest(
+            job_id=UUID(job_id),
             trigger=trigger,
             profile=_wire(profile, API_UNSET),
             refresh=refresh,
             skip_freshness=skip_freshness,
         )
         return await _acall(
-            lambda: create_run.asyncio_detailed(
+            lambda: create_job_run.asyncio_detailed(
                 UUID(workspace_id), client=self._api, body=body
             ),
-            _TRIGGERED_JOB,
-            job_ref,
+            _STARTED_RUN,
+            job_id,
         )
 
     async def get_workspace(self, *, workspace_id: str) -> WorkspaceResponse:
@@ -2687,13 +2905,31 @@ class AsyncHttpTransport:
     async def update_workspace(
         self, *, workspace_id: str, name: str | Keep, description: str | None | Keep
     ) -> WorkspaceResponse:
-        body = WorkspaceUpdateRequest(
+        body = UpdateWorkspaceRequest(
             name=_wire(name, API_UNSET),
             description=_wire(description, API_UNSET),
         )
         return await _acall(
             lambda: update_workspace.asyncio_detailed(
                 UUID(workspace_id), client=self._api, body=body
+            ),
+            _WORKSPACE,
+            workspace_id,
+        )
+
+    async def archive_workspace(self, *, workspace_id: str) -> WorkspaceResponse:
+        return await _acall(
+            lambda: archive_workspace.asyncio_detailed(
+                UUID(workspace_id), client=self._api
+            ),
+            _WORKSPACE,
+            workspace_id,
+        )
+
+    async def unarchive_workspace(self, *, workspace_id: str) -> WorkspaceResponse:
+        return await _acall(
+            lambda: unarchive_workspace.asyncio_detailed(
+                UUID(workspace_id), client=self._api
             ),
             _WORKSPACE,
             workspace_id,
@@ -2717,7 +2953,7 @@ class AsyncHttpTransport:
             The stored deployment, as the data plane wrote it back.
         """
         initiated = await _acall(
-            lambda: create_deployment.asyncio_detailed(
+            lambda: issue_upload_deployment.asyncio_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _DEPLOYMENT_UPLOAD,
@@ -2725,20 +2961,21 @@ class AsyncHttpTransport:
         )
         client, deployment_id = _upload_target(
             initiated,
+            workspace_id,
             initiated.deployment_id,
             "deployments",
             EntityKind.DEPLOYMENT,
             self._verify_ssl,
             self._headers,
         )
-        body = DeploymentUploadBody(
-            files=_as_file(code, "workspace.tar.gz", _TAR_MIME),
-            requirements=_as_file(requirements, "requirements.json", _JSON_MIME),
+        body = UploadDeploymentRequest(
+            file=_as_file(code, "workspace.tar.gz", _TAR_MIME),
+            requirements_file=_as_file(requirements, "requirements.json", _JSON_MIME),
         )
         try:
             return await _acall(
-                lambda: upload_deployment_bytes.asyncio_detailed(
-                    deployment_id, client=client, body=body
+                lambda: upload_deployment.asyncio_detailed(
+                    UUID(workspace_id), deployment_id, client=client, body=body
                 ),
                 _DP_DEPLOYMENT,
                 str(deployment_id),
@@ -2759,7 +2996,7 @@ class AsyncHttpTransport:
             The stored configuration, as the data plane wrote it back.
         """
         initiated = await _acall(
-            lambda: create_configuration.asyncio_detailed(
+            lambda: issue_upload_configuration.asyncio_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _CONFIGURATION_UPLOAD,
@@ -2767,19 +3004,20 @@ class AsyncHttpTransport:
         )
         client, configuration_id = _upload_target(
             initiated,
+            workspace_id,
             initiated.configuration_id,
             "configurations",
             EntityKind.CONFIGURATION,
             self._verify_ssl,
             self._headers,
         )
-        body = UploadConfigurationBytesBody(
+        body = UploadConfigurationBody(
             file=_as_file(data, "configurations.tar.gz", _TAR_MIME)
         )
         try:
             return await _acall(
-                lambda: upload_configuration_bytes.asyncio_detailed(
-                    configuration_id, client=client, body=body
+                lambda: upload_configuration.asyncio_detailed(
+                    UUID(workspace_id), configuration_id, client=client, body=body
                 ),
                 _DP_CONFIGURATION,
                 str(configuration_id),
@@ -2797,12 +3035,12 @@ class AsyncHttpTransport:
         module: str | None,
         description: str | None | Keep,
         dry_run: bool,
-    ) -> DeployManifestResponse:
+    ) -> DeployWorkspaceResponse:
         body = _manifest_body(
             jobs, manifest_hash, engine_version, module, description, dry_run
         )
         return await _acall(
-            lambda: deploy.asyncio_detailed(
+            lambda: deploy_workspace.asyncio_detailed(
                 UUID(workspace_id), client=self._api, body=body
             ),
             _DEPLOY_REPORT,
@@ -2810,21 +3048,21 @@ class AsyncHttpTransport:
         )
 
     async def get_configuration(
-        self, *, workspace_id: str, version: int
+        self, *, workspace_id: str, configuration_id: str
     ) -> ConfigurationResponse:
         return await _acall(
             lambda: get_configuration.asyncio_detailed(
-                UUID(workspace_id), version, client=self._api
+                UUID(workspace_id), UUID(configuration_id), client=self._api
             ),
             _CONFIGURATION,
-            str(version),
+            configuration_id,
         )
 
-    async def get_latest_configuration(
+    async def get_configuration_latest(
         self, *, workspace_id: str
     ) -> ConfigurationResponse:
         return await _acall(
-            lambda: get_latest_configuration.asyncio_detailed(
+            lambda: get_configuration_latest.asyncio_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _CONFIGURATION,
@@ -2832,30 +3070,34 @@ class AsyncHttpTransport:
         )
 
     async def list_configurations(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageConfigurationResponse:
         return await _acall(
             lambda: list_configurations.asyncio_detailed(
-                UUID(workspace_id), client=self._api, limit=limit, offset=offset
+                UUID(workspace_id),
+                client=self._api,
+                limit=limit,
+                offset=offset,
+                version=API_UNSET if version is None else version,
             ),
             _CONFIGURATION_LIST,
             workspace_id,
         )
 
     async def get_deployment(
-        self, *, workspace_id: str, version: int
+        self, *, workspace_id: str, deployment_id: str
     ) -> DeploymentResponse:
         return await _acall(
             lambda: get_deployment.asyncio_detailed(
-                UUID(workspace_id), version, client=self._api
+                UUID(workspace_id), UUID(deployment_id), client=self._api
             ),
             _DEPLOYMENT,
-            str(version),
+            deployment_id,
         )
 
-    async def get_latest_deployment(self, *, workspace_id: str) -> DeploymentResponse:
+    async def get_deployment_latest(self, *, workspace_id: str) -> DeploymentResponse:
         return await _acall(
-            lambda: get_latest_deployment.asyncio_detailed(
+            lambda: get_deployment_latest.asyncio_detailed(
                 UUID(workspace_id), client=self._api
             ),
             _DEPLOYMENT,
@@ -2863,58 +3105,85 @@ class AsyncHttpTransport:
         )
 
     async def list_deployments(
-        self, *, workspace_id: str, limit: int, offset: int
+        self, *, workspace_id: str, limit: int, offset: int, version: int | None
     ) -> ListPageDeploymentResponse:
         return await _acall(
             lambda: list_deployments.asyncio_detailed(
-                UUID(workspace_id), client=self._api, limit=limit, offset=offset
+                UUID(workspace_id),
+                client=self._api,
+                limit=limit,
+                offset=offset,
+                version=API_UNSET if version is None else version,
             ),
             _DEPLOYMENT_LIST,
             workspace_id,
         )
 
-    async def get_script(
-        self, *, workspace_id: str, job_ref: str
-    ) -> DetailedScriptResponse:
+    async def get_job(self, *, workspace_id: str, job_id: str) -> DetailedJobResponse:
         return await _acall(
-            lambda: get_script.asyncio_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: get_job.asyncio_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT_DETAIL,
-            job_ref,
+            _JOB_DETAIL,
+            job_id,
         )
 
-    async def list_scripts(
-        self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListPageDetailedScriptResponse:
+    async def list_jobs(
+        self,
+        *,
+        workspace_id: str,
+        limit: int,
+        offset: int,
+        archived: bool | Keep,
+        ref: str | None,
+    ) -> ListPageDetailedJobResponse:
         return await _acall(
-            lambda: list_scripts.asyncio_detailed(
+            lambda: list_jobs.asyncio_detailed(
                 UUID(workspace_id),
                 client=self._api,
                 limit=limit,
                 offset=offset,
-                archived=_wire(archived, API_UNSET),
+                is_archived=_wire(archived, API_UNSET),
+                ref=API_UNSET if ref is None else ref,
             ),
-            _SCRIPT_LIST,
+            _JOB_LIST,
             workspace_id,
         )
 
-    async def pause_script(self, *, workspace_id: str, job_ref: str) -> ScriptResponse:
+    async def pause_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return await _acall(
-            lambda: pause_script.asyncio_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: pause_job.asyncio_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
         )
 
-    async def resume_script(self, *, workspace_id: str, job_ref: str) -> ScriptResponse:
+    async def resume_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
         return await _acall(
-            lambda: resume_script.asyncio_detailed(
-                UUID(workspace_id), job_ref, client=self._api
+            lambda: resume_job.asyncio_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
             ),
-            _SCRIPT,
-            job_ref,
+            _JOB,
+            job_id,
+        )
+
+    async def archive_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
+        return await _acall(
+            lambda: archive_job.asyncio_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
+            ),
+            _JOB,
+            job_id,
+        )
+
+    async def unarchive_job(self, *, workspace_id: str, job_id: str) -> JobResponse:
+        return await _acall(
+            lambda: unarchive_job.asyncio_detailed(
+                UUID(workspace_id), UUID(job_id), client=self._api
+            ),
+            _JOB,
+            job_id,
         )
 
 
@@ -3090,8 +3359,17 @@ def _with_user_agent(headers: Mapping[str, str] | None) -> dict[str, str]:
     return merged
 
 
+def _required_job_ids(refs: Sequence[str], found: Mapping[str, UUID]) -> list[UUID]:
+    """A trigger names its jobs by ref; one the workspace does not hold is not found."""
+    for ref in refs:
+        if ref not in found:
+            raise NotFound(EntityKind.JOB, ref)
+    return [found[ref] for ref in refs]
+
+
 def _upload_target(
-    initiated: UploadInitiatedResponse,
+    initiated: IssueUploadDeploymentResponse | IssueUploadConfigurationResponse,
+    workspace_id: str,
     entity_id: object,
     collection: str,
     kind: EntityKind,
@@ -3104,7 +3382,8 @@ def _upload_target(
     never cached beside the workspace's own.
 
     Args:
-        initiated: What the create call answered.
+        initiated: What the issue-upload call answered.
+        workspace_id: The workspace the upload lands in.
         entity_id: The id it minted, which the generated route takes.
         collection: The route's collection segment.
         kind: What is being uploaded.
@@ -3121,7 +3400,7 @@ def _upload_target(
     if not isinstance(entity_id, UUID):
         raise InvalidResponse(f"the platform authorised an upload with no {kind} id")
     parsed = urlparse(initiated.upload_url)
-    expected = f"/api/v1/{collection}/{entity_id}/upload"
+    expected = f"/api/v1/workspaces/{workspace_id}/{collection}/{entity_id}/-upload"
     if parsed.path != expected:
         raise InvalidResponse(
             f"the platform wants the {kind} posted to {parsed.path!r}, not the "
@@ -3150,7 +3429,7 @@ def _manifest_body(
     module: str | None,
     description: str | None | Keep,
     dry_run: bool,
-) -> DeployManifestRequest:
+) -> DeployWorkspaceRequest:
     """Build a deploy request, leaving the job definitions opaque.
 
     Args:
@@ -3170,12 +3449,12 @@ def _manifest_body(
             version it runs, so only a non-mapping fails here.
     """
     try:
-        definitions = [DeployManifestRequestJobsItem.from_dict(job) for job in jobs]
+        definitions = [DeployWorkspaceRequestJobsItem.from_dict(job) for job in jobs]
     except (KeyError, TypeError, ValueError) as e:
         raise BadRequest(
             f"a job definition is not one the platform accepts: {e}"
         ) from e
-    return DeployManifestRequest(
+    return DeployWorkspaceRequest(
         job_definition_engine_version=engine_version,
         job_definition_hash=manifest_hash,
         jobs=definitions,
@@ -3194,7 +3473,7 @@ def _variables_change(
     plain: Mapping[str, str],
     secret: Mapping[str, str],
     deletes: Sequence[str],
-) -> VariablesChange:
+) -> UpdateWorkspaceVariablesRequest:
     """Build a change body, omitting the halves the caller left empty.
 
     Args:
@@ -3214,7 +3493,7 @@ def _variables_change(
         SecretVariableUpsert(name=name, type_="secret", value=value)
         for name, value in secret.items()
     ]
-    return VariablesChange(
+    return UpdateWorkspaceVariablesRequest(
         profile=profile,
         upserts=upserts or DATAPLANE_UNSET,
         deletes=list(deletes) or DATAPLANE_UNSET,
@@ -3236,6 +3515,17 @@ def _wire(value: V | Keep, unset: U) -> V | U:
         ``None`` and reaches the platform as a null.
     """
     return unset if value is KEEP else value
+
+
+def _latest(page: ListPageDetailedJobRunResponse) -> DetailedJobRunResponse:
+    """The newest run on a page listed newest first.
+
+    Raises:
+        NotFound: The workspace, or the job, has no run yet.
+    """
+    if not page.items:
+        raise NotFound(EntityKind.JOB_RUN, "latest")
+    return page.items[0]
 
 
 def _call(fetch: Callable[[], _Reply[T | E]], op: _Op[T], ref: str | None) -> T:
@@ -3332,6 +3622,9 @@ def _field_errors(resp: _Reply[Any]) -> tuple[FieldError, ...]:
     except (ValueError, UnicodeDecodeError):
         return ()
     extra = body.get("extra") if isinstance(body, dict) else None
+    # A run the platform declined to start lists why under ``extra.reasons``.
+    if isinstance(extra, dict) and isinstance(extra.get("reasons"), list):
+        extra = extra["reasons"]
     reasons: list[FieldError] = []
     for item in extra if isinstance(extra, list) else [extra]:
         if isinstance(item, str):

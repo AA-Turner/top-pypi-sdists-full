@@ -186,6 +186,7 @@ class WorkflowService:
         propagate_headers: bool = False,
         headers: dict[str, str] | None = None,
         tags: list[str] | None = None,
+        file_names: list[str] | None = None,
     ) -> dict:
         """Run a workflow with optional input parameters.
 
@@ -197,6 +198,7 @@ class WorkflowService:
             propagate_headers: Enable propagation of X-* HTTP headers to MCP servers
             headers: Optional additional HTTP headers (e.g., X-* for MCP propagation)
             tags: Optional tags to attach to the workflow execution trace in Langfuse.
+            file_names: Optional list of file references provided as inputs to the run.
 
         Returns:
             dict: Created workflow execution details
@@ -204,6 +206,7 @@ class WorkflowService:
         return self.executions(workflow_id).create(
             user_input=user_input,
             file_name=file_name,
+            file_names=file_names,
             session_id=session_id,
             propagate_headers=propagate_headers,
             headers=headers,

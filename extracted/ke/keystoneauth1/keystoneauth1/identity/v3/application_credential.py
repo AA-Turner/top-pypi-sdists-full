@@ -12,7 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from collections.abc import Mapping
+from typing import Any
 
 from keystoneauth1.identity.v3 import base
 from keystoneauth1 import session as ks_session
@@ -24,20 +25,18 @@ __all__ = ('ApplicationCredentialMethod', 'ApplicationCredential')
 class ApplicationCredentialMethod(base.AuthMethod):
     """Construct a User/Passcode based authentication method.
 
-    :param string application_credential_secret: Application credential secret.
-    :param string application_credential_id: Application credential id.
-    :param string application_credential_name: The name of the application
-                                               credential, if an ID is not
-                                               provided.
-    :param string username: Username for authentication, if an application
-                            credential ID is not provided.
-    :param string user_id: User ID for authentication, if an application
-                           credential ID is not provided.
-    :param string user_domain_id: User's domain ID for authentication, if an
-                                  application credential ID is not provided.
-    :param string user_domain_name: User's domain name for authentication, if
-                                    an application credential ID is not
-                                    provided.
+    :param application_credential_secret: Application credential secret.
+    :param application_credential_id: Application credential id.
+    :param application_credential_name: The name of the application
+        credential, if an ID is not provided.
+    :param username: Username for authentication, if an application credential
+        ID is not provided.
+    :param user_id: User ID for authentication, if an application credential ID
+        is not provided.
+    :param user_domain_id: User's domain ID for authentication, if an
+        application credential ID is not provided.
+    :param user_domain_name: User's domain name for authentication, if an
+        application credential ID is not provided.
     """
 
     application_credential_secret: str
@@ -73,8 +72,8 @@ class ApplicationCredentialMethod(base.AuthMethod):
         auth: base.Auth,
         headers: dict[str, str],
         request_kwargs: dict[str, object],
-    ) -> tuple[None, None] | tuple[str, ty.Mapping[str, object]]:
-        auth_data: dict[str, ty.Any] = {
+    ) -> tuple[None, None] | tuple[str, Mapping[str, object]]:
+        auth_data: dict[str, Any] = {
             'secret': self.application_credential_secret
         }
 
@@ -118,16 +117,16 @@ class ApplicationCredentialMethod(base.AuthMethod):
 class ApplicationCredential(base.Auth):
     """A plugin for authenticating with an application credential.
 
-    :param string auth_url: Identity service endpoint for authentication.
-    :param string application_credential_secret: Application credential secret.
-    :param string application_credential_id: Application credential ID.
-    :param string application_credential_name: Application credential name.
-    :param string username: Username for authentication.
-    :param string user_id: User ID for authentication.
-    :param string user_domain_id: User's domain ID for authentication.
-    :param string user_domain_name: User's domain name for authentication.
-    :param bool reauthenticate: Allow fetching a new token if the current one
-                                is going to expire. (optional) default True
+    :param auth_url: Identity service endpoint for authentication.
+    :param application_credential_secret: Application credential secret.
+    :param application_credential_id: Application credential ID.
+    :param application_credential_name: Application credential name.
+    :param username: Username for authentication.
+    :param user_id: User ID for authentication.
+    :param user_domain_id: User's domain ID for authentication.
+    :param user_domain_name: User's domain name for authentication.
+    :param reauthenticate: Allow fetching a new token if the current one is
+        going to expire. (optional) default True
     """
 
     _auth_method_class = ApplicationCredentialMethod

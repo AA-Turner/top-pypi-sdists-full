@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 PDHG.py
 
@@ -77,6 +79,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 if CUPY_AVAILABLE:
@@ -319,8 +322,8 @@ def PDHG(
         # Step sizes configuration
         if tau == "auto" or sigma == "auto":
             tau_res, sigma_q_res, sigma_p = calculate_step_size_PDHG(SMatrix, preconditioner_type, num_subsets, numIterations_stepCalculation, show_logs)
-            tau_vec = xp.asarray(tau_res, dtype=xp.float32) if isinstance(tau_res, (np.ndarray, cp.ndarray)) else xp.full(ZX, tau_res, dtype=xp.float32)
-            sigma_q = xp.asarray(sigma_q_res, dtype=xp.float32) if isinstance(sigma_q_res, (np.ndarray, cp.ndarray)) else xp.full(NT, sigma_q_res, dtype=xp.float32)
+            tau_vec = xp.asarray(tau_res, dtype=xp.float32) if isinstance(tau_res, np.ndarray) or (cp is not None and isinstance(tau_res, cp.ndarray)) else xp.full(ZX, tau_res, dtype=xp.float32)
+            sigma_q = xp.asarray(sigma_q_res, dtype=xp.float32) if isinstance(sigma_q_res, np.ndarray) or (cp is not None and isinstance(sigma_q_res, cp.ndarray)) else xp.full(NT, sigma_q_res, dtype=xp.float32)
         else:
             sigma_q = xp.full(NT, sigma, dtype=xp.float32)
             sigma_p = sigma
@@ -409,4 +412,4 @@ def PDHG(
         final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
         final_result *= y_max / SMatrix.normalization_factor
         
-        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)
+        return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else ([final_result], [it + 1], cost_history)

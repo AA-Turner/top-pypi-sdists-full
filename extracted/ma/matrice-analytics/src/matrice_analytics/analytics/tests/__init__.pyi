@@ -53,6 +53,28 @@ def main() -> None: ...
 # From test_safety_analytics
 def run(video_path: Any, people_model_path: str, ppe_model_path: Any, manifest_path: Any, out_dir: Any) -> None: ...
 
+# From test_ultralytics_harness_guard
+def test_conftest_lists_every_ultralytics_harness() -> None:
+    """
+    `collect_ignore` must name every harness that imports ultralytics.
+    
+        A harness added later without a ``conftest`` entry would break the directory
+        walk for anyone without the dependency -- the exact failure the guard was
+        added to prevent.
+    """
+    ...
+
+# From test_ultralytics_harness_guard
+def test_ultralytics_harnesses_are_guarded_either_way() -> None:
+    """
+    The six harnesses must stay importable-or-skipped, never a hard error.
+    
+        Asserts the property the guards exist to provide rather than the mechanism:
+        ``ultralytics`` is either present (the harnesses run) or absent (they skip).
+        Both are valid; what must never happen is a collection error.
+    """
+    ...
+
 # From test_volume_analytics
 def get_index_to_category(manifest_name: str) -> dict[int, str]:
     """
@@ -268,4 +290,4 @@ class ZoneAnalyticsTestProcessor:
     def process_video(self: Any) -> Any: ...
 
 
-from . import conftest, test_identity_analytics, test_incident_analytics, test_quality_analytics, test_redis_publisher_config, test_safety_analytics, test_volume_analytics, test_zone_analytics
+from . import conftest, test_identity_analytics, test_incident_analytics, test_quality_analytics, test_redis_publisher_config, test_safety_analytics, test_ultralytics_harness_guard, test_volume_analytics, test_zone_analytics

@@ -400,6 +400,10 @@ _PROBLEMS: typing.Final = {
     "mode-755": "has mode 0755, not 0700",
     "mode-500": "has mode 0500, not 0700",
 }
+_UNREACHABLE: typing.Final = {
+    "file": "Not a directory",
+    "symlink-loop": "Too many levels of symbolic links",
+}
 _DEFAULT_PREFIXES: typing.Final = {
     "linux": "run/user",
     "freebsd": "var/run/user",
@@ -472,17 +476,20 @@ def test_runtime_dir_xdg_runtime_dir_of_other_user_warns(
 
 @_POSIX_ONLY
 @pytest.mark.usefixtures("runtime_uid")
+@pytest.mark.parametrize("kind", list(_UNREACHABLE))
+@pytest.mark.parametrize("ensure_exists", [pytest.param(False, id="lazy"), pytest.param(True, id="ensure-exists")])
 def test_runtime_dir_unreachable_xdg_runtime_dir_warns(
-    runtime_temp_dir: Path, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    runtime_temp_dir: Path, temp_dir: Path, monkeypatch: pytest.MonkeyPatch, kind: str, ensure_exists: bool
 ) -> None:
-    (blocker := runtime_temp_dir / "blocker").touch()
+    _create(blocker := runtime_temp_dir / "blocker", kind)
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(blocker / "session"))
     with pytest.warns(RuntimeDirWarning) as record:
-        _ = Unix(appname="app").user_runtime_dir
+        assert Unix(appname="app", ensure_exists=ensure_exists).user_runtime_dir == str(temp_dir / "app")
     expected: typing.Final = (
-        f"XDG_RUNTIME_DIR {blocker / 'session'} cannot be checked: Not a directory, falling back to {temp_dir}"
+        f"XDG_RUNTIME_DIR {blocker / 'session'} cannot be checked: {_UNREACHABLE[kind]}, falling back to {temp_dir}"
     )
     assert [str(warning.message) for warning in record] == [expected]
+    assert (temp_dir / "app").is_dir() is ensure_exists
 
 
 @_POSIX_ONLY
@@ -602,6 +609,8 @@ def _create(path: Path, kind: str) -> None:
             path.symlink_to(target)
         case "file":
             path.touch()
+        case "symlink-loop":
+            path.symlink_to(path)
 
 
 def test_ensure_exists_creates_folder(monkeypatch: pytest.MonkeyPatch, posix_tmp_path: str) -> None:
@@ -1224,6 +1233,23 @@ def test_user_path_site_redirect(
     dirs: typing.Final = Unix(appname="foo", version="1.0", multipath=multipath, use_site_for_root=use_site_for_root)
     base: typing.Final = "/xdg/a" if uid == 0 and use_site_for_root else f"/user/with{os.pathsep}separator"
     assert getattr(dirs, prop) == Path(base) / ("applications" if prop == "user_applications_path" else "foo/1.0")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows ignores POSIX mode bits")
+@pytest.mark.parametrize("uid", [pytest.param(0, id="root"), pytest.param(1000, id="user")], indirect=True)
+@pytest.mark.parametrize("kind", ["config", "data"])
+def test_place_file_with_use_site_for_root_keeps_site_dir_readable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, uid: int, kind: str
+) -> None:
+    monkeypatch.setenv(f"XDG_{kind.upper()}_HOME", str(tmp_path / "user"))
+    monkeypatch.setenv(f"XDG_{kind.upper()}_DIRS", str(tmp_path / "site"))
+    getattr(Unix(appname="foo", use_site_for_root=True), f"place_{kind}_file")("sub/app.toml")
+    (reference := tmp_path / "reference").mkdir()
+    expected: typing.Final = stat.S_IMODE(reference.stat().st_mode) if uid == 0 else 0o700
+    created: typing.Final = (tmp_path / ("site" if uid == 0 else "user")).rglob("*")
+    assert {path.name: oct(stat.S_IMODE(path.stat().st_mode)) for path in created} == dict.fromkeys(
+        ["foo", "sub"], oct(expected)
+    )
 
 
 @pytest.fixture

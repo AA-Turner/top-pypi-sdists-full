@@ -1,176 +1,60 @@
+from __future__ import annotations
+
+import logging
 import os
 import select
-import time
-from array import array
 
-from ..msgs import create_message, encode_message, decode_message
-from ..errors import IpmiTimeoutError
-from ..logger import log
-from ..interfaces.ipmb import IpmbHeaderReq, checksum, rx_filter, encode_ipmb_msg
+from .ipmb import IpmbInterface
+from .router import MessageRouter
+
+logger = logging.getLogger(__name__)
 
 
-class IpmbDev(object):
-    """This interface uses ipmb-dev-int linux driver."""
+class IpmbDev(IpmbInterface):
+    """This interface uses ipmb-dev-int linux driver.
+
+    The driver receives all messages addressed to the slave address of the
+    device. A receive thread passes them to the router, so the interface can
+    also answer incoming requests (see `MessageRouter`).
+    """
 
     NAME = 'ipmbdev'
 
-    def __init__(self, slave_address=0x20, port='/dev/ipmb-0'):
+    def __init__(self, slave_address: int = 0x20,
+                 port: str = '/dev/ipmb-0',
+                 router: MessageRouter | None = None) -> None:
         # TODO: slave address is currently not defined here
-        self.slave_address = slave_address
+        super().__init__(slave_address, router)
         self.port = port
-        self.timeout = 0.25
-        self.max_retries = 3
-        self.next_sequence_number = 0
 
-    def open(self):
+    def open(self) -> None:
         self._dev = os.open(self.port, os.O_RDWR)
+        # wakes up the receive thread on close
+        self._wakeup_r, self._wakeup_w = os.pipe()
+        self._start_receiver()
 
-    def close(self):
+    def close(self) -> None:
+        self._stop_receiver()
         os.close(self._dev)
+        os.close(self._wakeup_r)
+        os.close(self._wakeup_w)
+        super().close()
 
-    def establish_session(self, session):
-        pass
+    def _wakeup_receiver(self) -> None:
+        os.write(self._wakeup_w, b'\0')
 
-    def close_session(self):
-        pass
+    def send_frame(self, frame: bytes) -> None:
+        logger.debug('IPMB TX [%s]', bytes(frame).hex(' '))
+        os.write(self._dev, bytes([len(frame)]) + bytes(frame))
 
-    def is_ipmc_accessible(self, target):
-        header = IpmbHeaderReq()
-        header.netfn = 6
-        header.rs_lun = 0
-        header.rs_sa = target.ipmb_address
-        header.rq_seq = self.next_sequence_number
-        header.rq_lun = 0
-        header.rq_sa = self.slave_address
-        header.cmdid = 1
-        self._send_raw(header, None)
-        self._receive_raw(header)
-        return True
+    def _read_frame(self, timeout: float) -> bytes | None:
+        r, w, e = select.select([self._dev, self._wakeup_r], [], [], timeout)
+        if self._dev not in r:
+            return None
 
-    def _inc_sequence_number(self):
-        self.next_sequence_number = (self.next_sequence_number + 1) % 64
-
-    @staticmethod
-    def _encode_ipmb_msg_req(header, cmd_data):
-        data = header.encode()
-        data.extend(cmd_data)
-        data.append(checksum(data[2:]))
-
-        return data
-
-    def _send_raw(self, header, raw_bytes):
-        raw_bytes = encode_ipmb_msg(header, raw_bytes)
-        i2c_addr = header.rs_sa >> 1
-
-        log().debug('I2C TX to %02Xh [%s]', i2c_addr,
-                    ' '.join(['%02x' % b for b in raw_bytes]))
-        os.write(self._dev, bytes([len(raw_bytes)]) + raw_bytes)
-
-    def _receive_raw(self, header):
-        start_time = time.time()
-        rsp_received = False
-        poll_returned_no_data = False
-        while not rsp_received:
-            timeout = self.timeout - (time.time() - start_time)
-
-            if timeout <= 0 or poll_returned_no_data:
-                raise IpmiTimeoutError()
-
-            r, w, e = select.select([self._dev], [], [], timeout)
-            if self._dev not in r:
-                poll_returned_no_data = True
-                continue
-
-            rx_data = os.read(self._dev, 256)
-            # ipmb-dev-int puts message length into first byte
-            assert rx_data[0] == len(rx_data) - 1
-            rx_data = rx_data[1:]
-
-            rx_data = array('B', rx_data)
-            log().debug('I2C RX from %02Xh [%s]', rx_data[3],
-                        ' '.join(['%02x' % c for c in rx_data]))
-
-            rsp_received = rx_filter(header, rx_data)
-            rx_data = rx_data[1:]
-
-        return rx_data
-
-    def _send_and_receive(self, target, lun, netfn, cmdid, payload):
-        """Send and receive data using ipmb-dev-int interface.
-
-        target:
-        lun:
-        netfn:
-        cmdid:
-        payload: IPMI message payload as bytestring
-
-        Returns the received data as bytestring
-        """
-        self._inc_sequence_number()
-
-        # assemble IPMB header
-        header = IpmbHeaderReq()
-        header.netfn = netfn
-        header.rs_lun = lun
-        header.rs_sa = target.ipmb_address
-        header.rq_seq = self.next_sequence_number
-        header.rq_lun = 0
-        header.rq_sa = self.slave_address
-        header.cmdid = cmdid
-
-        retries = 0
-        while retries < self.max_retries:
-            try:
-                self._send_raw(header, payload)
-                rx_data = self._receive_raw(header)
-                break
-            except IpmiTimeoutError:
-                pass
-            except IOError:
-                pass
-
-            retries += 1
-            time.sleep(retries * 0.2)
-
-        else:
-            raise IpmiTimeoutError()
-
-        return rx_data[5:-1]
-
-    def send_and_receive_raw(self, target, lun, netfn, raw_bytes):
-        """Interface function to send and receive raw message.
-
-        target: IPMI target
-        lun: logical unit number
-        netfn: network function
-        raw_bytes: RAW bytes as bytestring
-
-        Returns the IPMI message response bytestring.
-        """
-        return self._send_and_receive(target=target,
-                                      lun=lun,
-                                      netfn=netfn,
-                                      cmdid=array('B', raw_bytes)[0],
-                                      payload=raw_bytes[1:])
-
-    def send_and_receive(self, req):
-        """Interface function to send and receive an IPMI message.
-
-        target: IPMI target
-        req: IPMI message request
-
-        Returns the IPMI message response.
-        """
-        log().debug('IPMI Request [%s]', req)
-
-        rx_data = self._send_and_receive(target=req.target,
-                                         lun=req.lun,
-                                         netfn=req.netfn,
-                                         cmdid=req.cmdid,
-                                         payload=encode_message(req))
-        rsp = create_message(req.netfn + 1, req.cmdid, req.group_extension)
-        decode_message(rsp, rx_data)
-
-        log().debug('IPMI Response [%s])', rsp)
-
-        return rsp
+        rx_data = os.read(self._dev, 256)
+        # ipmb-dev-int puts message length into first byte
+        if not rx_data or rx_data[0] != len(rx_data) - 1:
+            logger.debug('ipmbdev RX bad length [%s]', rx_data.hex(' '))
+            return None
+        return rx_data[1:]

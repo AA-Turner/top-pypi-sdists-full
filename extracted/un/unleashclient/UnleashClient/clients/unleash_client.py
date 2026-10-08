@@ -1,0 +1,659 @@
+# pylint: disable=invalid-name
+import threading
+import uuid
+import warnings
+from datetime import datetime, timezone
+from enum import IntEnum
+from typing import Any, Callable, Dict, Optional
+
+from apscheduler.schedulers.base import BaseScheduler
+from yggdrasil_engine.engine import UnleashEngine
+
+from UnleashClient._context import _ContextEnricher
+from UnleashClient._evaluator import _Evaluator
+from UnleashClient._event_dispatcher import _EventDispatcher
+from UnleashClient._feature_store import _FeatureStore
+from UnleashClient._headers import _HeaderFactory
+from UnleashClient._instance_registry import _get_instance_registry
+from UnleashClient._metrics import _MetricsReporter
+from UnleashClient._payloads import _build_register_payload
+from UnleashClient._scheduler import _ScheduledJob, _Scheduler
+from UnleashClient._transport import _Transport
+from UnleashClient.cache import BaseCache, FileCache
+from UnleashClient.config import (
+    ExperimentalMode,
+    UnleashConfig,
+    redact_to_print_safely,
+)
+from UnleashClient.connectors import (
+    BaseConnector,
+    BootstrapConnector,
+    OfflineConnector,
+    PollingConnector,
+    StreamingConnector,
+)
+from UnleashClient.constants import (
+    ETAG,
+    METRIC_LAST_SENT_TIME,
+    REQUEST_RETRIES,
+    REQUEST_TIMEOUT,
+)
+from UnleashClient.events import (
+    BaseEvent,
+    UnleashEventType,
+    UnleashReadyEvent,
+)
+from UnleashClient.impact_metrics import ImpactMetrics
+from UnleashClient.utils import (
+    LOGGER,
+    InstanceAllowType,
+)
+
+INSTANCES = _get_instance_registry()
+
+
+class _RunState(IntEnum):
+    UNINITIALIZED = 0
+    INITIALIZED = 1
+    SHUTDOWN = 2
+
+
+def build_ready_callback(
+    event_callback: Optional[Callable[[BaseEvent], None]] = None,
+) -> Optional[Callable]:
+    """
+    Builds a callback function that can be used to notify when the Unleash client is ready.
+
+    .. deprecated::
+        READY is now emitted through :class:`UnleashClient._event_dispatcher._EventDispatcher`,
+        which deduplicates it itself.  This helper is retained for backwards
+        compatibility and is no longer used internally.
+    """
+
+    if not event_callback:
+        return None
+
+    already_fired = False
+
+    def ready_callback() -> None:
+        """
+        Callback function to notify that the Unleash client is ready.
+        This will only call the event_callback once.
+        """
+        nonlocal already_fired
+        if already_fired:
+            return
+        if event_callback:
+            event = UnleashReadyEvent(
+                event_type=UnleashEventType.READY,
+                event_id=uuid.uuid4(),
+            )
+            already_fired = True
+            event_callback(event)
+
+    return ready_callback
+
+
+# pylint: disable=dangerous-default-value
+class UnleashClient:
+    """
+    A client for the Unleash feature toggle system.
+
+    :param url: URL of the unleash server, required.
+    :param app_name: Name of the application using the unleash client, required.
+    :param environment: Name of the environment using the unleash client, optional & defaults to "default".
+    :param instance_id: Unique identifier for unleash client instance, optional & defaults to "unleash-python-sdk"
+    :param refresh_interval: Provisioning refresh interval in seconds, optional & defaults to 15 seconds
+    :params request_timeout: Timeout for requests to unleash server in seconds, optional & defaults to 30 seconds
+    :params request_retries: Number of retries for requests to unleash server, optional & defaults to 3
+    :param refresh_jitter: Provisioning refresh interval jitter in seconds, optional & defaults to None
+    :param metrics_interval: Metrics refresh interval in seconds, optional & defaults to 60 seconds
+    :param metrics_jitter: Metrics refresh interval jitter in seconds, optional & defaults to None
+    :param disable_metrics: Disables sending metrics to unleash server, optional & defaults to false.
+    :param disable_registration: Disables registration with unleash server, optional & defaults to false.
+    :param custom_headers: Default headers to send to unleash server, optional & defaults to empty.
+    :param custom_options: Default requests parameters, optional & defaults to empty.  Can be used to skip SSL verification.
+    :param custom_strategies: Dictionary of custom strategy names : custom strategy objects.
+    :param cache_directory: Location of the cache directory. When unset, FCache will determine the location.
+    :param verbose_log_level: Numerical log level (https://docs.python.org/3/library/logging.html#logging-levels) for cases where checking a feature flag fails.
+    :param cache: Custom cache implementation that extends UnleashClient.cache.BaseCache.  When unset, UnleashClient will use Fcache.
+    :param scheduler: Custom APScheduler object.  Use this if you want to customize jobstore or executors.  When unset, UnleashClient will create it's own scheduler.
+    :param scheduler_executor: Name of APSCheduler executor to use if using a custom scheduler.
+    :param multiple_instance_mode: Determines how multiple instances being instantiated is handled by the SDK, when set to InstanceAllowType.BLOCK, the client constructor will fail when more than one instance is detected, when set to InstanceAllowType.WARN, multiple instances will be allowed but log a warning, when set to InstanceAllowType.SILENTLY_ALLOW, no warning or failure will be raised when instantiating multiple instances of the client. Defaults to InstanceAllowType.WARN
+    :param event_callback: Function to call if impression events are enabled.  Called on a dedicated background thread, so it must not rely on thread local state from the caller.
+    :param experimental_mode: Optional dict to configure mode. Use {"type": "streaming"} to enable streaming or {"type": "polling"} (default).
+    :param sdk_flavor: Optional identifier of an integration built on top of this SDK (e.g. an OpenFeature provider). Sent in the register + metrics payloads alongside sdkVersion so adoption of the integration can be tracked. Leave unset for plain SDK usage.
+    :param sdk_flavor_version: Optional version of the integration named by sdk_flavor.
+    """
+
+    def __init__(  # noqa: PLR0913, PLR0917
+        self,
+        url: str,
+        app_name: str,
+        environment: str = "default",
+        instance_id: str = "unleash-python-sdk",
+        refresh_interval: int = 15,
+        refresh_jitter: Optional[int] = None,
+        metrics_interval: int = 60,
+        metrics_jitter: Optional[int] = None,
+        disable_metrics: bool = False,
+        disable_registration: bool = False,
+        custom_headers: Optional[dict] = None,
+        custom_options: Optional[dict] = None,
+        request_timeout: int = REQUEST_TIMEOUT,
+        request_retries: int = REQUEST_RETRIES,
+        custom_strategies: Optional[dict] = None,
+        cache_directory: Optional[str] = None,
+        project_name: Optional[str] = None,
+        verbose_log_level: int = 30,
+        cache: Optional[BaseCache] = None,
+        scheduler: Optional[BaseScheduler] = None,
+        scheduler_executor: Optional[str] = None,
+        multiple_instance_mode: InstanceAllowType = InstanceAllowType.WARN,
+        event_callback: Optional[Callable[[BaseEvent], None]] = None,
+        experimental_mode: Optional[ExperimentalMode] = None,
+        sdk_flavor: Optional[str] = None,
+        sdk_flavor_version: Optional[str] = None,
+    ) -> None:
+        self._config = UnleashConfig(
+            url=url,
+            app_name=app_name,
+            environment=environment,
+            instance_id=instance_id,
+            refresh_interval=refresh_interval,
+            refresh_jitter=refresh_jitter,
+            metrics_interval=metrics_interval,
+            metrics_jitter=metrics_jitter,
+            disable_metrics=disable_metrics,
+            disable_registration=disable_registration,
+            custom_headers=custom_headers,
+            custom_options=custom_options,
+            request_timeout=request_timeout,
+            request_retries=request_retries,
+            project_name=project_name,
+            verbose_log_level=verbose_log_level,
+            sdk_flavor=sdk_flavor,
+            sdk_flavor_version=sdk_flavor_version,
+            experimental_mode=experimental_mode,
+            custom_strategies=custom_strategies,
+        )
+        self._enricher = _ContextEnricher(self._config)
+        self._headers = _HeaderFactory(self._config)
+        self.unleash_event_callback = event_callback
+        # Events are handed to the dispatcher, which delivers them to the user's
+        # callback on its own thread.  The callback is never called from here.
+        self.__events: Optional[_EventDispatcher] = (
+            _EventDispatcher(event_callback) if event_callback is not None else None
+        )
+        self._lifecycle_lock = threading.RLock()
+        self._closed = threading.Event()
+
+        _get_instance_registry().register(
+            identifier=self._config.instance_identifier, mode=multiple_instance_mode
+        )
+
+        # Class objects
+        self._engine = UnleashEngine()
+
+        self.impact_metrics = ImpactMetrics(
+            self._engine,
+            self._config.app_name,
+            self._config.impact_metrics_environment,
+        )
+
+        self._cache = cache or FileCache(
+            self.unleash_app_name, directory=cache_directory
+        )
+        self._cache.mset({METRIC_LAST_SENT_TIME: datetime.now(timezone.utc), ETAG: ""})
+        self.unleash_bootstrapped = self._cache.bootstrapped
+
+        self._store = _FeatureStore(
+            engine=self._engine, cache=self._cache, events=self.__events
+        )
+
+        self._evaluator = _Evaluator(
+            engine=self._engine,
+            enricher=self._enricher,
+            config=self._config,
+            events=self.__events,
+        )
+
+        self._transport = _Transport(self._config, self._headers)
+
+        self._scheduler = _Scheduler(scheduler, scheduler_executor)
+
+        self._metrics = _MetricsReporter(
+            config=self._config,
+            transport=self._transport,
+            scheduler=self._scheduler,
+            engine=self._engine,
+            impact_metrics=self.impact_metrics,
+        )
+
+        # Client status
+        self._run_state = _RunState.UNINITIALIZED
+
+        # Bootstrapping
+        if self.unleash_bootstrapped:
+            # A store with no dispatcher: start() runs here, before
+            # initialize_client(), and emitting READY from the constructor would
+            # move it earlier for bootstrapped clients.  See the TODO on
+            # BootstrapConnector.
+            BootstrapConnector(
+                store=_FeatureStore(engine=self._engine, cache=self._cache)
+            ).start()
+
+        self.connector: BaseConnector = None
+
+    @property
+    def metric_job(self) -> _ScheduledJob:
+        return self._metrics.job
+
+    @metric_job.setter
+    def metric_job(self, value: _ScheduledJob) -> None:
+        self._metrics.job = value
+
+    @property
+    def unleash_scheduler(self) -> BaseScheduler:
+        return self._scheduler.scheduler
+
+    @unleash_scheduler.setter
+    def unleash_scheduler(self, value: BaseScheduler) -> None:
+        self._scheduler.scheduler = value
+
+    @property
+    def unleash_executor_name(self) -> str:
+        return self._scheduler.executor_name
+
+    @unleash_executor_name.setter
+    def unleash_executor_name(self, value: str) -> None:
+        self._scheduler.executor_name = value
+
+    @property
+    def unleash_url(self) -> str:
+        return self._config.url
+
+    @unleash_url.setter
+    def unleash_url(self, value: str) -> None:
+        self._config.url = value
+
+    @property
+    def unleash_app_name(self) -> str:
+        return self._config.app_name
+
+    @unleash_app_name.setter
+    def unleash_app_name(self, value: str) -> None:
+        self._config.app_name = value
+
+    @property
+    def unleash_environment(self) -> str:
+        return self._config.environment
+
+    @unleash_environment.setter
+    def unleash_environment(self, value: str) -> None:
+        self._config.environment = value
+
+    @property
+    def unleash_instance_id(self) -> str:
+        return self._config.instance_id
+
+    @unleash_instance_id.setter
+    def unleash_instance_id(self, value: str) -> None:
+        self._config.instance_id = value
+
+    @property
+    def unleash_refresh_interval(self) -> int:
+        return self._config.refresh_interval
+
+    @unleash_refresh_interval.setter
+    def unleash_refresh_interval(self, value: int) -> None:
+        self._config.refresh_interval = value
+
+    @property
+    def unleash_refresh_jitter(self) -> Optional[int]:
+        return self._config.refresh_jitter
+
+    @unleash_refresh_jitter.setter
+    def unleash_refresh_jitter(self, value: Optional[int]) -> None:
+        self._config.refresh_jitter = value
+
+    @property
+    def unleash_metrics_interval(self) -> int:
+        return self._config.metrics_interval
+
+    @unleash_metrics_interval.setter
+    def unleash_metrics_interval(self, value: int) -> None:
+        self._config.metrics_interval = value
+
+    @property
+    def unleash_metrics_jitter(self) -> Optional[int]:
+        return self._config.metrics_jitter
+
+    @unleash_metrics_jitter.setter
+    def unleash_metrics_jitter(self, value: Optional[int]) -> None:
+        self._config.metrics_jitter = value
+
+    @property
+    def unleash_request_timeout(self) -> int:
+        return self._config.request_timeout
+
+    @unleash_request_timeout.setter
+    def unleash_request_timeout(self, value: int) -> None:
+        self._config.request_timeout = value
+
+    @property
+    def unleash_request_retries(self) -> int:
+        return self._config.request_retries
+
+    @unleash_request_retries.setter
+    def unleash_request_retries(self, value: int) -> None:
+        self._config.request_retries = value
+
+    @property
+    def unleash_disable_metrics(self) -> bool:
+        return self._config.disable_metrics
+
+    @unleash_disable_metrics.setter
+    def unleash_disable_metrics(self, value: bool) -> None:
+        self._config.disable_metrics = value
+
+    @property
+    def unleash_disable_registration(self) -> bool:
+        return self._config.disable_registration
+
+    @unleash_disable_registration.setter
+    def unleash_disable_registration(self, value: bool) -> None:
+        self._config.disable_registration = value
+
+    @property
+    def unleash_custom_headers(self) -> dict:
+        return self._config.custom_headers
+
+    @unleash_custom_headers.setter
+    def unleash_custom_headers(self, value: dict) -> None:
+        self._config.custom_headers = value
+
+    @property
+    def unleash_custom_options(self) -> dict:
+        return self._config.custom_options
+
+    @unleash_custom_options.setter
+    def unleash_custom_options(self, value: dict) -> None:
+        self._config.custom_options = value
+
+    @property
+    def unleash_static_context(self) -> Dict[str, Any]:
+        return self._config.static_context
+
+    @unleash_static_context.setter
+    def unleash_static_context(self, value: Dict[str, Any]) -> None:
+        self._config.static_context = value
+
+    @property
+    def unleash_project_name(self) -> Optional[str]:
+        return self._config.project_name
+
+    @unleash_project_name.setter
+    def unleash_project_name(self, value: Optional[str]) -> None:
+        self._config.project_name = value
+
+    @property
+    def unleash_verbose_log_level(self) -> int:
+        return self._config.verbose_log_level
+
+    @unleash_verbose_log_level.setter
+    def unleash_verbose_log_level(self, value: int) -> None:
+        self._config.verbose_log_level = value
+
+    @property
+    def unleash_sdk_flavor(self) -> Optional[str]:
+        return self._config.sdk_flavor
+
+    @unleash_sdk_flavor.setter
+    def unleash_sdk_flavor(self, value: Optional[str]) -> None:
+        self._config.sdk_flavor = value
+
+    @property
+    def unleash_sdk_flavor_version(self) -> Optional[str]:
+        return self._config.sdk_flavor_version
+
+    @unleash_sdk_flavor_version.setter
+    def unleash_sdk_flavor_version(self, value: Optional[str]) -> None:
+        self._config.sdk_flavor_version = value
+
+    @property
+    def connector_mode(self) -> ExperimentalMode:
+        return self._config.experimental_mode
+
+    @connector_mode.setter
+    def connector_mode(self, value: ExperimentalMode) -> None:
+        self._config.experimental_mode = value
+
+    @property
+    def strategy_mapping(self) -> dict:
+        return self._config.custom_strategies
+
+    @strategy_mapping.setter
+    def strategy_mapping(self, value: dict) -> None:
+        self._config.custom_strategies = value
+
+    @property
+    def unleash_metrics_interval_str_millis(self) -> str:
+        return self._config.metrics_interval_str_millis
+
+    @property
+    def connection_id(self):
+        return self._config.connection_id
+
+    @property
+    def is_initialized(self):
+        return self._run_state == _RunState.INITIALIZED
+
+    def initialize_client(self, fetch_toggles: bool = True) -> None:
+        """
+        Initializes client and starts communication with central unleash server(s).
+
+        This kicks off:
+
+        * Client registration
+        * Provisioning poll
+        * Stats poll
+
+        If `fetch_toggles` is `False`, feature toggle polling will be turned off
+        and instead the client will only load features from the cache. This is
+        usually used to cater the multi-process setups, e.g. Django, Celery,
+        etc.
+
+        This will raise an exception on registration if the URL is invalid. It is done automatically if called inside a context manager as in:
+
+        .. code-block:: python
+
+            with UnleashClient(
+                url="https://foo.bar",
+                app_name="myClient1",
+                instance_id="myinstanceid"
+                ) as client:
+                pass
+        """
+        # Only perform initialization steps if client is not initialized.
+        with self._lifecycle_lock:
+            if self._closed.is_set() or self._run_state > _RunState.UNINITIALIZED:
+                warnings.warn(
+                    "Attempted to initialize an Unleash Client instance that has already been initialized."
+                )
+                return
+            try:
+                start_scheduler = False
+
+                if self._config.custom_strategies:
+                    self._engine.register_custom_strategies(
+                        self._config.custom_strategies
+                    )
+
+                # Register app
+                if not self.unleash_disable_registration:
+                    self._transport.register(
+                        _build_register_payload(self._config, self.strategy_mapping)
+                    )
+                mode = self.connector_mode.get("type", "polling")
+
+                if mode == "streaming" and fetch_toggles:
+                    self.connector = StreamingConnector(
+                        store=self._store,
+                        url=self.unleash_url,
+                        headers=self._headers.streaming(),
+                        request_timeout=self.unleash_request_timeout,
+                        custom_options=self.unleash_custom_options,
+                    )
+                elif fetch_toggles:
+                    start_scheduler = True
+                    self.connector = PollingConnector(
+                        store=self._store,
+                        scheduler=self._scheduler,
+                        transport=self._transport,
+                        refresh_interval=self.unleash_refresh_interval,
+                        refresh_jitter=self.unleash_refresh_jitter,
+                    )
+                else:
+                    start_scheduler = True
+                    self.connector = OfflineConnector(
+                        store=self._store,
+                        scheduler=self._scheduler,
+                        refresh_interval=self.unleash_refresh_interval,
+                        refresh_jitter=self.unleash_refresh_jitter,
+                    )
+
+                self.connector.start()
+
+                if not self.unleash_disable_metrics:
+                    # _Scheduler.start() no-ops when it is already running, so this can
+                    # be unconditional.
+                    start_scheduler = True
+
+                    self._metrics.start()
+
+                if start_scheduler:
+                    self._scheduler.start()
+                self._run_state = _RunState.INITIALIZED
+
+            except Exception as excep:
+                # Log exceptions during initialization.  is_initialized will remain false.
+                LOGGER.warning(
+                    "Exception during UnleashClient initialization: %s", excep
+                )
+                raise excep
+
+    def feature_definitions(self) -> dict:
+        """
+        Returns a dict containing all feature definitions known to the SDK at the time of calling.
+        Normally this would be a pared down version of the response from the Unleash API but this
+        may also be a result from bootstrapping or loading from backup.
+
+        Example response:
+
+        {
+            "feature1": {
+                "project": "default",
+                "type": "release",
+            }
+        }
+        """
+
+        return self._evaluator.feature_definitions()
+
+    def destroy(self) -> None:
+        """
+        Gracefully shuts down the Unleash client by stopping jobs and stopping
+        the scheduler.
+
+        For cache teardown:
+        - Default disk-backed FileCache instances are preserved on disk.
+        - Custom non-FileCache implementations will have destroy() called.
+
+        You shouldn't need this too much!
+        """
+        with self._lifecycle_lock:
+            if self._closed.is_set():
+                return
+            self._closed.set()
+            self._run_state = _RunState.SHUTDOWN
+            if self.connector:
+                self.connector.stop()
+
+            self._metrics.stop()
+
+            try:
+                # hasattr: the constructor raises before assigning _scheduler when a
+                # custom scheduler was passed without an executor name.
+                if hasattr(self, "_scheduler") and self._scheduler.scheduler:
+                    self._scheduler.shutdown(wait=True)
+            except Exception as exc:
+                LOGGER.warning("Exception during scheduler teardown: %s", exc)
+
+            # Disk-backed FileCache instances can be shared across processes.
+            # Avoid deleting them during shutdown to prevent cache races.
+            if not isinstance(self._cache, FileCache):
+                try:
+                    self._cache.destroy()
+                except Exception as exc:
+                    LOGGER.warning("Exception during cache teardown: %s", exc)
+
+            # Closed last: the scheduler has to drain first, otherwise an
+            # in-flight poll can still queue events we'd silently drop.
+            if self.__events:
+                self.__events.close()
+
+    @staticmethod
+    def _redact_to_print_safely(value: Optional[str]) -> Optional[str]:
+        return redact_to_print_safely(value)
+
+    def is_enabled(
+        self,
+        feature_name: str,
+        context: Optional[dict] = None,
+        fallback_function: Callable = None,
+    ) -> bool:
+        """
+        Checks if a feature toggle is enabled.
+
+        Notes:
+
+        * If client hasn't been initialized yet or an error occurs, flag will default to false.
+
+        :param feature_name: Name of the feature
+        :param context: Dictionary with context (e.g. IPs, email) for feature toggle.
+        :param fallback_function: Allows users to provide a custom function to set default value.
+        :return: Feature flag result
+        """
+        return self._evaluator.is_enabled(feature_name, context, fallback_function)
+
+    def get_variant(self, feature_name: str, context: Optional[dict] = None) -> dict:
+        """
+        Checks if a feature toggle is enabled.  If so, return variant.
+
+        Notes:
+
+        * If client hasn't been initialized yet or an error occurs, flag will default to false.
+
+        :param feature_name: Name of the feature
+        :param context: Dictionary with context (e.g. IPs, email) for feature toggle.
+        :return: Variant and feature flag status.
+        """
+        result = self._evaluator.get_variant(feature_name, context)
+
+        if not result.is_found and (self.unleash_bootstrapped or self.is_initialized):
+            LOGGER.log(
+                self.unleash_verbose_log_level,
+                "Attempted to get feature flag/variation %s, but client wasn't initialized!",
+                feature_name,
+            )
+
+        return result.variant
+
+    def __enter__(self) -> "UnleashClient":
+        self.initialize_client()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.destroy()
+        return False

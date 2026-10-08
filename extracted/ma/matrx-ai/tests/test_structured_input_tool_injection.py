@@ -18,6 +18,8 @@ and defeat the server's "default to NOT editable" contract.
 
 from __future__ import annotations
 
+from matrx_connect.emitters.silent_emitter import SilentEmitter
+
 from matrx_ai.config.message_config import MessageList, UnifiedMessage
 from matrx_ai.config.read_only_resources import (
     READ_ONLY_RESOURCE_IDS_KEY,
@@ -85,7 +87,7 @@ def test_structured_input_editable_tool_names_includes_workbook_and_document() -
     names = structured_input_editable_tool_names()
     assert "workbook" in names
     assert "document" in names
-    assert "dataset" in names
+    assert "table" in names
     assert "pick_list" in names
 
 
@@ -175,7 +177,9 @@ def test_is_resource_read_only_false_without_context() -> None:
     assert is_resource_read_only(None) is False
 
 
-class _NullEmitter:
+class _NullEmitter(SilentEmitter):
+    """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
     async def send_chunk(self, *_a, **_kw) -> None: ...
     async def send_data(self, *_a, **_kw) -> None: ...
     async def send_tool_event(self, *_a, **_kw) -> None: ...
@@ -274,14 +278,14 @@ async def test_dataset_write_tool_hard_blocks_locked_table() -> None:
     from matrx_connect import AppContext
     from matrx_connect.context.app_context import clear_app_context, set_app_context
 
-    from matrx_ai.tools.implementations.datasets_tools import dataset
+    from matrx_ai.tools.implementations.table_tools import table
     from matrx_ai.tools.models import ToolContext
 
     ctx = AppContext(emitter=_NullEmitter(), metadata={READ_ONLY_RESOURCE_IDS_KEY: {"table-id"}})
     token = set_app_context(ctx)
     try:
-        result = await dataset(
-            {"action": "add_rows", "dataset_id": "table-id", "rows": [{"name": "blocked"}]},
+        result = await table(
+            {"action": "add_rows", "table_id": "table-id", "rows": [{"name": "blocked"}]},
             ToolContext(call_id="c2"),
         )
         assert result.success is False

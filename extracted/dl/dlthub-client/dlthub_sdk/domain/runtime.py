@@ -63,7 +63,7 @@ class Runtime(Namespace[M]):
     def me(self) -> Caller[Any] | Awaitable[Caller[Any]]:
         """Return the human this token belongs to.
 
-        **Only a user token can call this.** The platform gates ``/user`` to
+        **Only a user token can call this.** The platform gates ``/me`` to
         human principals, so an API key is refused however broad its grants.
         Reading the API key's own identity is what :meth:`Organization.me` and
         :meth:`Workspace.me` are for — both answer for any principal, and both
@@ -80,7 +80,7 @@ class Runtime(Namespace[M]):
             NotAuthorized: The token is not a user token.
             NotAuthenticated: The token is missing, malformed, or rejected.
         """
-        return self._ctx.run(lambda t: t.get_current_user(), Caller._from_payload)
+        return self._ctx.run(lambda t: t.get_me(), Caller._from_payload)
 
     @overload
     def close(self: Runtime[Sync]) -> None: ...

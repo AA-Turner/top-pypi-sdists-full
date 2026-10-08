@@ -191,6 +191,7 @@ class AsyncScoringControlAsyncScoringControl4TriggeredFunction(TypedDict):
         | AsyncScoringControlAsyncScoringControl4TriggeredFunctionScope1
     )
     idempotency_key: NotRequired[str | None]
+    triggered_xact_id: NotRequired[str | float | None]
 
 
 class AsyncScoringControlAsyncScoringControl4(TypedDict):
@@ -1815,6 +1816,10 @@ class ProjectAutomationConfig1Credentials1(TypedDict):
     service_account_email: str
     """
     The GCP service account email to impersonate
+    """
+    credential_name: NotRequired[str | None]
+    """
+    The name of a Google workload identity federation credential configured in this organization's AI providers. Supported data planes can use it regardless of hosting environment. If omitted, the data plane's GCP identity is used.
     """
 
 

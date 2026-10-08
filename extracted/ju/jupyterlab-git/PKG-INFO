@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyterlab_git
-Version: 0.54.1
+Version: 0.55.0
 Dynamic: Keywords
 Summary: A JupyterLab extension for version control using git
 Project-URL: Homepage, https://github.com/jupyterlab/jupyterlab-git
@@ -56,6 +56,7 @@ Requires-Dist: jupyterlab-git-core[nbdime]>=0.52.0
 Requires-Dist: traitlets~=5.0
 Provides-Extra: dev
 Requires-Dist: black; extra == 'dev'
+Requires-Dist: jupyter-builder>=1.2.0; extra == 'dev'
 Requires-Dist: jupyterlab~=4.0; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Provides-Extra: test

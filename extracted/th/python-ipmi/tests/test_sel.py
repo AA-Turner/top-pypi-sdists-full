@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from pyipmi import interfaces, create_connection
+from pyipmi.errors import CompletionCodeError, DecodingError
 from pyipmi.msgs.registry import create_response_by_name
 from pyipmi.sel import SelEntry, SelInfo
+from pyipmi.utils import ByteBuffer
+
+from .ipmi_helper import create_ipmi
 
 
 class TestSel:
@@ -37,75 +42,77 @@ class TestSel:
 
 
 class TestSelInfo:
-    rsp = create_response_by_name('GetSelInfo')
-    rsp.version = 1
-    rsp.entries = 1023
-    rsp.free_bytes = 512
-    info = SelInfo(rsp)
 
-    assert info.version == 1
-    assert info.entries == 1023
-    assert info.free_bytes == 512
+    def test_sel_info(self):
+        rsp = create_response_by_name('GetSelInfo')
+        rsp.version = 1
+        rsp.entries = 1023
+        rsp.free_bytes = 512
+        info = SelInfo(rsp)
 
-    rsp.operation_support.get_sel_allocation_info = 1
-    rsp.operation_support.reserve_sel = 0
-    rsp.operation_support.partial_add_sel_entry = 0
-    rsp.operation_support.delete_sel = 0
-    rsp.operation_support.overflow_flag = 0
-    info = SelInfo(rsp)
-    assert 'get_sel_allocation_info' in info.operation_support
-    assert 'reserve_sel' not in info.operation_support
-    assert 'partial_add_sel_entry' not in info.operation_support
-    assert 'delete_sel' not in info.operation_support
-    assert 'overflow_flag' not in info.operation_support
+        assert info.version == 1
+        assert info.entries == 1023
+        assert info.free_bytes == 512
 
-    rsp.operation_support.get_sel_allocation_info = 0
-    rsp.operation_support.reserve_sel = 1
-    rsp.operation_support.partial_add_sel_entry = 0
-    rsp.operation_support.delete_sel = 0
-    rsp.operation_support.overflow_flag = 0
-    info = SelInfo(rsp)
-    assert 'get_sel_allocation_info' not in info.operation_support
-    assert 'reserve_sel' in info.operation_support
-    assert 'partial_add_sel_entry' not in info.operation_support
-    assert 'delete_sel' not in info.operation_support
-    assert 'overflow_flag' not in info.operation_support
+        rsp.operation_support.get_sel_allocation_info = 1
+        rsp.operation_support.reserve_sel = 0
+        rsp.operation_support.partial_add_sel_entry = 0
+        rsp.operation_support.delete_sel = 0
+        rsp.operation_support.overflow_flag = 0
+        info = SelInfo(rsp)
+        assert 'get_sel_allocation_info' in info.operation_support
+        assert 'reserve_sel' not in info.operation_support
+        assert 'partial_add_sel_entry' not in info.operation_support
+        assert 'delete_sel' not in info.operation_support
+        assert 'overflow_flag' not in info.operation_support
 
-    rsp.operation_support.get_sel_allocation_info = 0
-    rsp.operation_support.reserve_sel = 0
-    rsp.operation_support.partial_add_sel_entry = 1
-    rsp.operation_support.delete_sel = 0
-    rsp.operation_support.overflow_flag = 0
-    info = SelInfo(rsp)
-    assert 'get_sel_allocation_info' not in info.operation_support
-    assert 'reserve_sel' not in info.operation_support
-    assert 'partial_add_sel_entry' in info.operation_support
-    assert 'delete_sel' not in info.operation_support
-    assert 'overflow_flag' not in info.operation_support
+        rsp.operation_support.get_sel_allocation_info = 0
+        rsp.operation_support.reserve_sel = 1
+        rsp.operation_support.partial_add_sel_entry = 0
+        rsp.operation_support.delete_sel = 0
+        rsp.operation_support.overflow_flag = 0
+        info = SelInfo(rsp)
+        assert 'get_sel_allocation_info' not in info.operation_support
+        assert 'reserve_sel' in info.operation_support
+        assert 'partial_add_sel_entry' not in info.operation_support
+        assert 'delete_sel' not in info.operation_support
+        assert 'overflow_flag' not in info.operation_support
 
-    rsp.operation_support.get_sel_allocation_info = 0
-    rsp.operation_support.reserve_sel = 0
-    rsp.operation_support.partial_add_sel_entry = 0
-    rsp.operation_support.delete_sel = 1
-    rsp.operation_support.overflow_flag = 0
-    info = SelInfo(rsp)
-    assert 'get_sel_allocation_info' not in info.operation_support
-    assert 'reserve_sel' not in info.operation_support
-    assert 'partial_add_sel_entry' not in info.operation_support
-    assert 'delete_sel' in info.operation_support
-    assert 'overflow_flag' not in info.operation_support
+        rsp.operation_support.get_sel_allocation_info = 0
+        rsp.operation_support.reserve_sel = 0
+        rsp.operation_support.partial_add_sel_entry = 1
+        rsp.operation_support.delete_sel = 0
+        rsp.operation_support.overflow_flag = 0
+        info = SelInfo(rsp)
+        assert 'get_sel_allocation_info' not in info.operation_support
+        assert 'reserve_sel' not in info.operation_support
+        assert 'partial_add_sel_entry' in info.operation_support
+        assert 'delete_sel' not in info.operation_support
+        assert 'overflow_flag' not in info.operation_support
 
-    rsp.operation_support.get_sel_allocation_info = 0
-    rsp.operation_support.reserve_sel = 0
-    rsp.operation_support.partial_add_sel_entry = 0
-    rsp.operation_support.delete_sel = 0
-    rsp.operation_support.overflow_flag = 1
-    info = SelInfo(rsp)
-    assert 'get_sel_allocation_info' not in info.operation_support
-    assert 'reserve_sel' not in info.operation_support
-    assert 'partial_add_sel_entry' not in info.operation_support
-    assert 'delete_sel' not in info.operation_support
-    assert 'overflow_flag' in info.operation_support
+        rsp.operation_support.get_sel_allocation_info = 0
+        rsp.operation_support.reserve_sel = 0
+        rsp.operation_support.partial_add_sel_entry = 0
+        rsp.operation_support.delete_sel = 1
+        rsp.operation_support.overflow_flag = 0
+        info = SelInfo(rsp)
+        assert 'get_sel_allocation_info' not in info.operation_support
+        assert 'reserve_sel' not in info.operation_support
+        assert 'partial_add_sel_entry' not in info.operation_support
+        assert 'delete_sel' in info.operation_support
+        assert 'overflow_flag' not in info.operation_support
+
+        rsp.operation_support.get_sel_allocation_info = 0
+        rsp.operation_support.reserve_sel = 0
+        rsp.operation_support.partial_add_sel_entry = 0
+        rsp.operation_support.delete_sel = 0
+        rsp.operation_support.overflow_flag = 1
+        info = SelInfo(rsp)
+        assert 'get_sel_allocation_info' not in info.operation_support
+        assert 'reserve_sel' not in info.operation_support
+        assert 'partial_add_sel_entry' not in info.operation_support
+        assert 'delete_sel' not in info.operation_support
+        assert 'overflow_flag' in info.operation_support
 
 
 class TestSelEnty:
@@ -152,3 +159,102 @@ class TestSelEnty:
         assert SelEntry.type_to_string(0x02) == 'System Event'
         assert SelEntry.type_to_string(0xc0) == 'OEM timestamped (0xc0)'
         assert SelEntry.type_to_string(0xe0) == 'OEM non-timestamped (0xe0)'
+
+
+# system event record 0x0001: timestamp 0x12345678, generator 0x0020,
+# sensor type 0x01 (temperature) number 4, assertion, threshold event
+SEL_RECORD = (b'\x01\x00\x02\x78\x56\x34\x12\x20'
+              b'\x00\x04\x01\x04\x01\x52\x00\x00')
+
+
+def test_sel_entry_str():
+    entry = SelEntry(ByteBuffer(SEL_RECORD))
+    assert entry.record_id == 1
+    assert entry.timestamp == 0x12345678
+    s = str(entry)
+    assert 'SEL Record ID 0x0001' in s
+    assert 'Sensor Type: 0x01' in s
+    assert 'Sensor Number: 4' in s
+
+
+@pytest.mark.parametrize('entry_type, string', [
+    (0x02, 'System Event'),
+    (0xc0, 'OEM timestamped (0xc0)'),
+    (0xe0, 'OEM non-timestamped (0xe0)'),
+    (0x10, None),
+])
+def test_sel_entry_type_to_string(entry_type, string):
+    assert SelEntry.type_to_string(entry_type) == string
+
+
+@pytest.mark.parametrize('data', [SEL_RECORD[:15],
+                                  SEL_RECORD[:2] + b'\x10' + SEL_RECORD[3:]])
+def test_sel_entry_invalid(data):
+    with pytest.raises(DecodingError):
+        SelEntry(ByteBuffer(data))
+
+
+def test_get_sel_entry():
+    ipmi = create_ipmi({'GetSelEntry': b'\x00\xff\xff' + SEL_RECORD})
+    (entry, next_id) = ipmi.get_sel_entry(1, reservation=0x1234)
+    assert ipmi.requests == [('GetSelEntryReq', b'\x34\x12\x01\x00\x00\xff')]
+    assert entry.record_id == 1
+    assert next_id == 0xffff
+
+
+def test_get_sel_entry_partial_reads():
+    # the device can't return the entire record, it is read in pieces
+    ipmi = create_ipmi({'GetSelEntry': [
+        b'\xca',
+        b'\xca',
+        b'\x00\xff\xff' + SEL_RECORD[:15],
+        b'\x00\xff\xff' + SEL_RECORD[15:],
+    ]})
+    (entry, _) = ipmi.get_sel_entry(1)
+    assert bytes(entry.data) == SEL_RECORD
+    # entire record (0xff), then 16 bytes, then 15 bytes and the last one
+    assert [data[-2:] for (_, data) in ipmi.requests] == [
+        b'\x00\xff', b'\x00\x10', b'\x00\x0f', b'\x0f\x01']
+
+
+def test_delete_sel_entry():
+    ipmi = create_ipmi({'DeleteSelEntry': b'\x00\x01\x00'})
+    assert ipmi.delete_sel_entry(1, reservation=0x1234) == 1
+    assert ipmi.requests == [('DeleteSelEntryReq', b'\x34\x12\x01\x00')]
+
+
+def test_get_and_clear_sel_entry():
+    ipmi = create_ipmi({
+        'ReserveSel': [b'\x00\x01\x00', b'\x00\x02\x00', b'\x00\x03\x00'],
+        # the reservation is canceled while reading and while deleting
+        'GetSelEntry': [b'\xc5', b'\x00\xff\xff' + SEL_RECORD,
+                        b'\x00\xff\xff' + SEL_RECORD],
+        'DeleteSelEntry': [b'\xc5', b'\x00\x01\x00'],
+    })
+    entry = ipmi.get_and_clear_sel_entry(1)
+    assert entry.record_id == 1
+    assert ipmi.requests[-1] == ('DeleteSelEntryReq', b'\x03\x00\x01\x00')
+
+
+@pytest.mark.parametrize('command', ['GetSelEntry', 'DeleteSelEntry'])
+def test_get_and_clear_sel_entry_error(command):
+    rsp = {'ReserveSel': b'\x00\x01\x00',
+           'GetSelEntry': b'\x00\xff\xff' + SEL_RECORD,
+           'DeleteSelEntry': b'\x00\x01\x00'}
+    rsp[command] = b'\xcb'
+    ipmi = create_ipmi(rsp)
+    with pytest.raises(CompletionCodeError):
+        ipmi.get_and_clear_sel_entry(1)
+
+
+def test_clear_sel(monkeypatch):
+    monkeypatch.setattr('pyipmi.helper.time.sleep', lambda t: None)
+    ipmi = create_ipmi({'ReserveSel': b'\x00\x34\x12',
+                        'ClearSel': [b'\x00\x01', b'\x00\x00',
+                                     b'\x00\x01']})
+    ipmi.clear_sel()
+    # 'CLR' with initiate erase, then get erase status until completed
+    assert ipmi.requests[1:] == [
+        ('ClearSelReq', b'\x34\x12CLR\xaa'),
+        ('ClearSelReq', b'\x34\x12CLR\x00'),
+        ('ClearSelReq', b'\x34\x12CLR\x00')]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uiprotect
-Version: 23.0.0
+Version: 23.0.1
 Summary: Python API for Unifi Protect (Unofficial)
 License-Expression: MIT
 License-File: LICENSE
@@ -23,7 +23,8 @@ Provides-Extra: cli
 Requires-Dist: aiofiles (>=24)
 Requires-Dist: aiohttp (>=3.14.3)
 Requires-Dist: aiozoneinfo (>=0.2.3)
-Requires-Dist: av (>=17.0.1)
+Requires-Dist: av (>=17.0.1) ; python_version < "3.12"
+Requires-Dist: av (>=19.0.0) ; python_version >= "3.12"
 Requires-Dist: convertertools (>=0.5.0)
 Requires-Dist: orjson (>=3.11.9)
 Requires-Dist: packaging (>=26.3)

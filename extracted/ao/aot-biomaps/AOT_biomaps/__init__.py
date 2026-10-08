@@ -1,6 +1,5 @@
 import os
 import sys
-import warnings
 import numpy as np
 
 # --- 1. JIT DEPENDENCY CHECK ---
@@ -10,16 +9,10 @@ ensure_system_dependencies()
 
 # --- 2. Check Python version compatibility with CuPy ---
 if sys.version_info < (3, 8):
-    raise RuntimeError(
-        f"Python {sys.version_info.major}.{sys.version_info.minor} is not supported. "
-        f"AOT_biomaps requires Python 3.8 or later for CuPy compatibility."
-    )
+    raise RuntimeError(f"Python {sys.version_info.major}.{sys.version_info.minor} is not supported. AOT_biomaps requires Python 3.8 or later for CuPy compatibility.")
 elif sys.version_info > (3, 12):
-    warnings.warn(
-        f"Python {sys.version_info.major}.{sys.version_info.minor} may not be fully supported by CuPy. "
-        f"Consider using Python 3.8-3.12 for best compatibility.",
-        UserWarning
-    )
+    print(f"[AOT-biomaps] Warning : Python {sys.version_info.major}.{sys.version_info.minor} may not be fully supported by CuPy. "
+          f"Consider using Python 3.8-3.12 for best compatibility.")
 
 # --- 3. Load CuPy BEFORE k-wave imports ---
 import os
@@ -28,12 +21,12 @@ os.environ.setdefault('KWAVE_CPU_ONLY', '1')
 try:
     import cupy as cp
 except ImportError:
-    warnings.warn("CuPy not available. Falling back to CPU.", UserWarning)
+    cp = None
+    print("[AOT-biomaps] Warning : CuPy not available. Falling back to CPU.")
 
 # --- Then import modules (k-wave will load AFTER CuPy and szip) ---
 from .AOT_Medium._mainMedium import *
 from .AOT_Medium.HomogeneousMedium import *
-from .AOT_Medium.PVAMedium import *
 from .AOT_Medium.MediumEnums import *
 # ACOUSTIC
 from .AOT_Acoustic._mainAcoustic import *
@@ -77,7 +70,7 @@ from .AOT_Recon.AOT_SMatrix._mainSMatrix import *
 from .Config import config
 from .Settings import *
 
-__version__ = '2.9.1009'
+__version__ = '2.9.1021'
 __process__ = config.get_process()
 
 # Reference to the config object
@@ -141,247 +134,6 @@ def initialize(process=None, gpu_id=None):
     __config__._update()
     
     return __process__
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

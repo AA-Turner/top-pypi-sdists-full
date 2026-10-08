@@ -1,5 +1,5 @@
 """Auto-generated stub for module: vehicle_monitoring_drone_view."""
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from ..Trackers import ConfigDrivenTracker, TrackerProfile
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
@@ -7,6 +7,10 @@ from ..core.config import AlertConfig, BaseConfig
 from ..utils import BBoxSmoothingConfig, BBoxSmoothingTracker, apply_category_mapping, bbox_smoothing, count_objects_in_zones, filter_by_confidence, match_results_structure
 from ..utils.agnostic_nms import AgnosticNMS
 from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
+
+# Functions
+def resolve_category(d: Dict[str, Any], index_to_category: Optional[Dict[int, str]] = None) -> Tuple[str, Optional[int]]: ...
+def to_bbox_dict(d: Dict[str, Any]) -> Dict[str, Any]: ...
 
 # Classes
 class VehicleMonitoringDroneViewConfig:

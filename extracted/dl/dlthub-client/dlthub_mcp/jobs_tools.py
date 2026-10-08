@@ -1,6 +1,6 @@
 """Read-only tools over the jobs a workspace deploys and the runs they produced.
 
-A **job** is one deployed unit of work — what the platform API calls a script. A
+A **job** is one deployed unit of work. A
 **run** is one execution of a job.
 """
 
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 # Python internals
 from typing import Optional
+from uuid import UUID
 
 # Other libraries
 from dlt.common.typing import Annotated
@@ -18,6 +19,14 @@ from dlthub_mcp._client import tool, tool_error, workspace
 from dlthub_mcp._paging import PAGE_SIZE, page, skip
 from dlthub_sdk import Job, JobResult, JobResultTrace, JobRun, Sync
 from dlthub_sdk.errors import NotFound
+
+
+def _job(job_ref_or_id: str) -> Job[Sync]:
+    try:
+        job_id = UUID(job_ref_or_id)
+    except ValueError:
+        return workspace().jobs.get_by_ref(job_ref_or_id)
+    return workspace().jobs.get(id=str(job_id))
 
 
 @tool
@@ -60,7 +69,7 @@ def dlthub_get_job(job_ref: str) -> Annotated[Job[Sync], CONTEXT_READ]:
     Returns:
         The job, with its triggers, next scheduled run and definition.
     """
-    return workspace().jobs.get(ref=job_ref)
+    return _job(job_ref)
 
 
 @tool
@@ -74,7 +83,8 @@ def dlthub_list_runs(
     more.
 
     Args:
-        job: Limit to one job, by the ``job_ref`` from ``dlthub_list_jobs``.
+        job: Limit to one job, by the ``job_ref`` from ``dlthub_list_jobs`` or
+            the job's uuid.
             Omit for every job in the workspace.
         limit: How many runs to return, at most 100.
         offset: How many runs to skip, for paging.
@@ -82,7 +92,7 @@ def dlthub_list_runs(
     Returns:
         Runs with their number, status, trigger and timings.
     """
-    runs = workspace().jobs.get(ref=job).runs if job else workspace().job_runs
+    runs = _job(job).runs if job else workspace().job_runs
     return list(runs.list(limit=page(limit), offset=skip(offset)))
 
 
@@ -92,8 +102,7 @@ def dlthub_get_run(run_id: str) -> Annotated[JobRun[Sync], CONTEXT_READ]:
 
     Reach for this for the runs you will actually mention, not for every row of a
     listing — it costs one call each. A run is addressed by uuid and nothing
-    else; the platform offers no lookup by number, so take the id from
-    ``dlthub_list_runs``.
+    else, so take the id from ``dlthub_list_runs``.
 
     Args:
         run_id: The run's uuid, from ``dlthub_list_runs``.

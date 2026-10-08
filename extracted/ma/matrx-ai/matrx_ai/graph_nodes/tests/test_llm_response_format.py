@@ -32,9 +32,15 @@ def test_build_response_format_from_real_schema():
     envelope = rf["json_schema"]
     assert envelope["name"] == "llm_chat_output"
     assert envelope["strict"] is True
-    # The portability gate closes the object (additionalProperties:false).
-    assert envelope["schema"]["additionalProperties"] is False
+    # The envelope carries the AUTHOR's schema untouched; closing the object
+    # (additionalProperties:false) is each provider translator's job on its wire copy.
+    assert "additionalProperties" not in envelope["schema"]
     assert set(envelope["schema"]["properties"]) == {"found", "temperature_f"}
+    from matrx_ai.providers.anthropic.translator import AnthropicTranslator
+
+    wire = AnthropicTranslator._build_anthropic_output_format(rf)
+    assert wire is not None
+    assert wire["schema"]["additionalProperties"] is False
 
 
 def test_empty_schema_fails_loudly():

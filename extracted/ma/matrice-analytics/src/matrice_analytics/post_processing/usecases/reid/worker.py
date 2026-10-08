@@ -109,6 +109,31 @@ class EmbedWorker:
         with self._lock:
             return track_id in self._pending or track_id in self._inflight
 
+    def drain(self, timeout_s: float = 2.0) -> bool:
+        """Block until nothing is queued or in flight. True if it went idle.
+
+        The worker is asynchronous by design: a crop is offered on one frame
+        and its verdict collected some frames later, which keeps the frame
+        path off the GPU. The cost is that WHICH frame a verdict lands on
+        depends on thread scheduling, so the same video replayed twice can
+        resolve a track against a different gallery state and report a
+        different unique count (12-16 observed on one 3907-frame clip).
+
+        Callers that need a repeatable number -- offline evaluation,
+        threshold calibration, regression tests -- call this after each
+        frame to pin the schedule. It makes the result bitwise repeatable
+        and costs throughput, so it is opt-in and must NOT be called on a
+        live realtime path.
+        """
+        end = time.monotonic() + max(0.0, timeout_s)
+        while True:
+            with self._lock:
+                if not self._pending and not self._inflight:
+                    return True
+            if time.monotonic() >= end:
+                return False
+            time.sleep(0.001)
+
     def starving(self, grace_s: float = 2.0) -> bool:
         """True when work has been queued for ``grace_s`` with nothing completed.
 

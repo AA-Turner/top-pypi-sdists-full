@@ -20,6 +20,10 @@ import pytest
 from rich.console import Console
 from rich.text import Text
 from snowflake.cli.api.commands.command_docs import (
+    Admonition,
+    AdmonitionType,
+    Bullet,
+    BulletList,
     Code,
     CommandDocs,
     Example,
@@ -153,6 +157,158 @@ def test_render_usage_help_rejects_unknown_blocks():
         render_usage_help(("not a block",))  # type: ignore[arg-type]
 
 
+def test_render_usage_help_renders_bullets():
+    rendered = _render(
+        render_usage_help(
+            (
+                PlainText(parts=("Changes:",)),
+                BulletList(
+                    items=(
+                        Bullet(parts=("Creates new objects.",)),
+                        Bullet(parts=("Alters existing objects.",)),
+                    )
+                ),
+            )
+        )
+    )
+
+    assert [line.rstrip() for line in rendered.splitlines()] == [
+        "Changes:",
+        "",
+        "• Creates new objects.",
+        "• Alters existing objects.",
+    ]
+
+
+def test_render_usage_help_styles_spans_inside_a_bullet():
+    blocks = (
+        BulletList(
+            items=(
+                Bullet(
+                    parts=(
+                        "Exit code ",
+                        Code(value="0"),
+                        " if all tests pass.",
+                    )
+                ),
+            )
+        ),
+    )
+    table = render_usage_help(blocks).renderables[0]
+    (bullet_cell,) = table.columns[1].cells
+    assert bullet_cell.plain == "Exit code 0 if all tests pass."
+    assert [(span.start, span.end, span.style) for span in bullet_cell.spans] == [
+        (10, 11, STYLE_INLINE_CODE)
+    ]
+
+
+def test_render_usage_help_renders_link_title_and_ignores_href():
+    rendered = _render(
+        render_usage_help(
+            (
+                PlainText(
+                    parts=(
+                        "See ",
+                        RelatedLink(
+                            href="/user-guide/dcm-projects/dcm-projects-use#label-dcm-projects-deploy",
+                            title="Deploying DCM projects",
+                        ),
+                        ".",
+                    )
+                ),
+            )
+        )
+    )
+
+    assert rendered.strip() == "See Deploying DCM projects."
+    assert "http" not in rendered
+    assert "#" not in rendered
+
+
+def test_render_usage_help_link_without_title_prints_the_href():
+    rendered = _render(
+        render_usage_help(
+            (
+                PlainText(
+                    parts=("See ", RelatedLink(href="#label-dcm-projects-deploy"), ".")
+                ),
+            )
+        )
+    )
+
+    assert rendered.strip() == "See #label-dcm-projects-deploy."
+
+
+def test_render_usage_help_renders_note_with_inline_content():
+    rendered = _render(
+        render_usage_help(
+            (
+                Admonition(
+                    parts=(
+                        "Use ",
+                        Code(value="--force"),
+                        " with this ",
+                        Ref(name="dcm-object"),
+                        ".",
+                    )
+                ),
+            )
+        )
+    )
+
+    assert rendered.strip() == "Note: Use --force with this DCM project."
+
+
+def test_render_usage_help_bolds_only_the_note_prefix():
+    blocks = (
+        Admonition(
+            parts=("Use ", Code(value="--force"), " please."),
+            admonition_type=AdmonitionType.NOTE,
+        ),
+    )
+    (note_text,) = render_usage_help(blocks).renderables
+
+    assert note_text.plain == "Note: Use --force please."
+    assert [(span.start, span.end, span.style) for span in note_text.spans] == [
+        (0, 6, "bold"),
+        (10, 17, STYLE_INLINE_CODE),
+    ]
+
+
+def test_render_usage_help_renders_admonition_labels():
+    caution_rendered = _render(
+        render_usage_help(
+            (
+                Admonition(
+                    parts=("Be careful.",), admonition_type=AdmonitionType.CAUTION
+                ),
+            )
+        )
+    )
+    warning_rendered = _render(
+        render_usage_help(
+            (Admonition(parts=("Watch out.",), admonition_type=AdmonitionType.WARNING),)
+        )
+    )
+    preview_rendered = _render(
+        render_usage_help(
+            (Admonition(parts=("Preview.",), admonition_type=AdmonitionType.PREVIEW),)
+        )
+    )
+
+    assert caution_rendered.strip() == "Caution: Be careful."
+    assert warning_rendered.strip() == "Warning: Watch out."
+    assert preview_rendered.strip() == "Preview Feature: Preview."
+
+
+def test_render_usage_help_renders_include_help_content():
+    from snowflake.cli.api.commands.command_docs import DBT_DEPLOY_FORCE_WARNING
+
+    rendered = _render(render_usage_help((DBT_DEPLOY_FORCE_WARNING,)))
+
+    assert "Warning: Don't use --force unless you intentionally" in rendered
+
+
 def test_panel_keeps_the_title():
     panel = _panel("Usage notes", Text("hi"))
 
@@ -184,6 +340,29 @@ def test_example_lines_empty_versus_optional_fields():
         "Output: out",
         "",
         "snow b",
+    ]
+
+
+def test_example_lines_multiline_output():
+    lines = list(
+        _example_lines(
+            (
+                Example(
+                    command="snow logs foo",
+                    output="""\
+╭─ Error ──
+│ oops
+╰─────────""",
+                ),
+            )
+        )
+    )
+    assert [line.plain for line in lines] == [
+        "snow logs foo",
+        "Output:",
+        "╭─ Error ──",
+        "│ oops",
+        "╰─────────",
     ]
 
 

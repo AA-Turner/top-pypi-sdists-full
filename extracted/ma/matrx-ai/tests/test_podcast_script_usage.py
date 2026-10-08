@@ -15,13 +15,20 @@ does not refund the tokens the agent already burned.
 
 from __future__ import annotations
 
+import pytest
+from matrx_graph import checks as graph_checks
+from matrx_graph import knobs as graph_knobs
+
 from matrx_ai.agent_runners.podcast_generator import (
     InputDataType,
     PodcastRequest,
     PodcastType,
     SpeakerSpec,
     _validated_script_stage,
+    podcast_script_check,
+    podcast_spoken_text,
 )
+from matrx_ai.agents.executor import AgentRunResult
 from matrx_ai.config.usage_config import (
     AggregatedUsage,
     ModelUsageSummary,
@@ -29,14 +36,14 @@ from matrx_ai.config.usage_config import (
 )
 
 
-class _FakeAgentRunResult:
-    """The only three attributes ``_validated_script_stage`` reads."""
-
-    def __init__(self, *, success: bool, output: str, error: str | None = None):
-        self.success = success
-        self.output = output
-        self.error = error
-        self.usage_aggregated = AggregatedUsage(
+def _FakeAgentRunResult(*, success: bool, output: str, error: str | None = None) -> AgentRunResult:
+    """A real ``AgentRunResult`` (the check-and-revise step ``model_copy``s it)
+    with a paid usage record and no conversation — so the step checks only."""
+    return AgentRunResult(
+        success=success,
+        output=output,
+        error=error,
+        usage_aggregated=AggregatedUsage(
             by_model={
                 "m1": ModelUsageSummary(
                     input_tokens=1000, output_tokens=500, total_tokens=1500, cost=0.0421
@@ -45,7 +52,22 @@ class _FakeAgentRunResult:
             total=UsageTotals(
                 input_tokens=1000, output_tokens=500, total_tokens=1500, total_cost=0.0421
             ),
-        )
+        ),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _host_wiring(monkeypatch):
+    """GATE 2 runs through the check-and-revise step, which names the podcast
+    host check BY NAME — register it the way the host does, and read the
+    starting revision bounds instead of the knob rows (no database here)."""
+    monkeypatch.setitem(graph_checks._HOST_CHECKS, "podcast.script", podcast_script_check)
+    monkeypatch.setitem(graph_checks._HOST_PROJECTIONS, "podcast.spoken_text", podcast_spoken_text)
+
+    async def _starting_policy():
+        return graph_knobs.STARTING_RESPONSE_CHECK_POLICY
+
+    monkeypatch.setattr(graph_knobs, "response_check_policy", _starting_policy)
 
 
 _GOOD_SCRIPT = (
@@ -65,8 +87,8 @@ def _request() -> PodcastRequest:
     )
 
 
-def test_a_PASSING_script_carries_the_agents_cost():
-    stage = _validated_script_stage(
+async def test_a_PASSING_script_carries_the_agents_cost():
+    stage = await _validated_script_stage(
         _FakeAgentRunResult(success=True, output=_GOOD_SCRIPT), _request()
     )
     assert stage.success is True
@@ -75,9 +97,9 @@ def test_a_PASSING_script_carries_the_agents_cost():
     assert stage.usage["total_tokens"] == 1500
 
 
-def test_a_GATE_2_REJECTED_script_still_carries_the_agents_cost():
+async def test_a_GATE_2_REJECTED_script_still_carries_the_agents_cost():
     """The rejection is free; the agent call that produced it was not."""
-    stage = _validated_script_stage(
+    stage = await _validated_script_stage(
         _FakeAgentRunResult(success=True, output=_CAST_VIOLATING_SCRIPT), _request()
     )
     assert stage.success is False
@@ -85,10 +107,41 @@ def test_a_GATE_2_REJECTED_script_still_carries_the_agents_cost():
     assert stage.usage["cost_usd"] == 0.0421
 
 
-def test_a_FAILED_script_agent_still_carries_its_cost():
-    stage = _validated_script_stage(
+async def test_a_FAILED_script_agent_still_carries_its_cost():
+    stage = await _validated_script_stage(
         _FakeAgentRunResult(success=False, output="", error="provider 500"), _request()
     )
     assert stage.success is False
     assert stage.usage is not None
     assert stage.usage["cost_usd"] == 0.0421
+
+
+async def test_REVISION_TURNS_are_billed_once_on_top_of_the_agents_cost(monkeypatch):
+    """Revision turns are real model calls: their cost lands in the stage usage,
+    exactly once (it was written to a field the stage never read, so free)."""
+    from unittest.mock import MagicMock
+
+    from matrx_ai import revision as revision_mod
+    from matrx_ai.revision import RevisionAttempt, RevisionOutcome
+
+    check = MagicMock()
+    check.misses.return_value = []
+    check.rendered = "ok"
+    check.model_dump.return_value = {}
+    attempts = [
+        RevisionAttempt(n=0, text=_GOOD_SCRIPT, check=check),
+        RevisionAttempt(n=1, text=_GOOD_SCRIPT, check=check, cost_usd=0.010),
+        RevisionAttempt(n=2, text=_GOOD_SCRIPT, check=check, cost_usd=0.020),
+    ]
+    outcome = RevisionOutcome(outcome="revised", final=attempts[-1], attempts=attempts)
+
+    async def fake_revise(**_kw):
+        return outcome
+
+    monkeypatch.setattr(revision_mod, "revise_until_passing", fake_revise)
+    stage = await _validated_script_stage(
+        _FakeAgentRunResult(success=True, output=_GOOD_SCRIPT), _request()
+    )
+    assert stage.success is True
+    assert stage.usage is not None
+    assert stage.usage["cost_usd"] == pytest.approx(0.0421 + 0.010 + 0.020)

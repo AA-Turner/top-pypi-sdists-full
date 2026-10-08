@@ -19,43 +19,23 @@ from typing import Any, List, Optional
 
 from click import Command
 from snowflake.cli._app.dev.docs.template_utils import get_template_environment
-from snowflake.cli.api.commands.command_docs import CommandDocs, get_command_docs
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    collect_page_includes,
+    get_command_docs,
+    plain_text,
+)
 from snowflake.cli.api.commands.command_docs_rendering import (
     mdx_escape,
+    render_blocks_mdx,
     render_paragraph_mdx,
-    render_usage_mdx,
 )
 from snowflake.cli.api.secure_path import SecurePath
 from typer.core import TyperArgument
 
 log = logging.getLogger(__name__)
 
-CMD_USAGE_TMPL = "usage.mdx.jinja2"
-OVERVIEW_TMPL = "overview.mdx.jinja2"
 CMD_PAGE_TMPL = "page.mdx.jinja2"
-
-
-def generate_command_docs(
-    root: SecurePath, command: Command, cmd_parts: Optional[List] = None
-):
-    """
-    Iterates recursively through commands info. Creates a file structure resembling
-    commands structure. For each terminal command creates a "usage" MDX file.
-    """
-    if getattr(command, "hidden", False):
-        return
-
-    root.mkdir(exist_ok=True)
-    if cmd_parts is None:
-        _render_command_usage(command, root, cmd_parts, template_name=OVERVIEW_TMPL)
-
-    cmd_parts = cmd_parts or []
-    if hasattr(command, "commands"):
-        for command_name, command_info in command.commands.items():
-            path = root / command.name if command.name != "default" else root
-            generate_command_docs(path, command_info, [*cmd_parts, command_name])
-    else:
-        _render_command_usage(command, root, cmd_parts)
 
 
 def generate_command_pages(
@@ -101,7 +81,7 @@ def _template_env_with_filters():
     env.filters[get_main_option.__name__] = get_main_option
     env.filters[collapse_whitespace.__name__] = collapse_whitespace
     env.filters[mdx_escape.__name__] = mdx_escape
-    env.filters[render_usage_mdx.__name__] = render_usage_mdx
+    env.filters[render_blocks_mdx.__name__] = render_blocks_mdx
     env.filters[render_paragraph_mdx.__name__] = render_paragraph_mdx
     return env
 
@@ -117,37 +97,10 @@ def _split_params(command: Command):
     return arguments, options
 
 
-def _render_command_usage(
-    command: Command,
-    root: SecurePath,
-    path: Optional[List] = None,
-    template_name: str = CMD_USAGE_TMPL,
-):
-    # This is end command
-    command_name = command.name
-    env = _template_env_with_filters()
-    template = env.get_template(template_name)
-    arguments, options = _split_params(command)
-
-    # MDX include fragments that hand-authored command-reference pages in
-    # snowflake-prod-docs compose via MDX imports.
-    file_path = root / f"usage-{command_name}.mdx"
-    log.info("Creating %s", file_path)
-    command_help_params = _split_docstring(command.help)
-    template_params = {
-        "name": command_name,
-        "options": options,
-        "arguments": arguments,
-        "path": path,
-    }
-    with file_path.open("w+") as fh:
-        fh.write(template.render(command_help_params | template_params))
-
-
 def _write_command_page(command: Command, root: SecurePath, path: List):
     file_path = root / f"{command.name}.mdx"
     log.info("Creating %s", file_path)
-    with file_path.open("w+") as fh:
+    with file_path.open("w+", encoding="utf-8") as fh:
         fh.write(_command_page_markdown(command, path))
 
 
@@ -163,6 +116,7 @@ def _command_page_markdown(command: Command, path: List) -> str:
         "arguments": arguments,
         "path": path,
         "docs": docs,
+        "page_imports": collect_page_includes(docs),
         "help": command_help_params.get("help", ""),
         "usage_notes_fallback": _page_usage_notes_fallback(docs, command_help_params),
         "examples_fallback": _page_examples_fallback(docs, command_help_params),
@@ -211,4 +165,9 @@ def _page_examples_fallback(
 ) -> str | None:
     if docs.examples is not None:
         return None
-    return _additional_section(command_help_params, "Examples")
+    fallback = _additional_section(command_help_params, "Examples")
+    if fallback is not None:
+        return fallback
+    if docs.usage_notes == (plain_text("None."),):
+        return "None."
+    return None

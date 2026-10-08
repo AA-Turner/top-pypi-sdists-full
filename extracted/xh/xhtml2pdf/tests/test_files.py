@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import tempfile
 import threading
 import warnings
@@ -205,6 +206,24 @@ class PmlImageReaderTest(LocalServerMixin, TestCase):
         self.addCleanup(reader.fp.close)
         self.assertEqual((70, 137), reader.getSize())
 
+    def test_grey_with_alpha_keeps_its_alpha(self) -> None:
+        """A PNG in mode LA gets a soft mask, not a black box (#349)."""
+        from PIL import Image
+
+        from xhtml2pdf.xhtml2pdf_reportlab import PmlImageReader
+
+        grey = Image.new("LA", (2, 1))
+        grey.putdata([(200, 0), (200, 255)])
+        buffer = io.BytesIO()
+        grey.save(buffer, "PNG")
+        buffer.seek(0)
+        reader = PmlImageReader(buffer)
+        data = reader.getRGBData()
+        self.assertEqual("RGB", reader.mode)
+        self.assertEqual(bytes([200] * 6), data)
+        assert reader._dataA is not None
+        self.assertEqual(bytes([0, 255]), reader._dataA.getRGBData())
+
     def test_unreachable_url_raises(self) -> None:
         from xhtml2pdf.xhtml2pdf_reportlab import PmlImageReader
 
@@ -332,3 +351,25 @@ class NamedFileIsOpenableTest(TestCase):
         cleanFiles()
 
         self.assertTrue(Path(name).exists())
+
+
+class WindowsPathTest(TestCase):
+    """A Windows path is a local path, not a URL with the scheme "c" (#447)."""
+
+    def test_the_directory_of_a_windows_document(self) -> None:
+        from xhtml2pdf.context import getDirName
+
+        self.assertEqual(r"C:\Users\me\docs", getDirName(r"C:\Users\me\docs\test.html"))
+        self.assertEqual("C:/Users/me", getDirName("C:/Users/me/test.html"))
+
+    def test_urls_and_posix_paths_are_unchanged(self) -> None:
+        from xhtml2pdf.context import getDirName
+
+        self.assertEqual("https://x.org/a/b.html", getDirName("https://x.org/a/b.html"))
+        self.assertEqual(str(Path("/tmp").resolve()), getDirName("/tmp/a.html"))
+
+    def test_the_context_keeps_the_directory(self) -> None:
+        from xhtml2pdf.context import pisaContext
+
+        context = pisaContext(r"C:\Users\me\docs\test.html")
+        self.assertEqual(r"C:\Users\me\docs", context.pathDirectory)

@@ -4,12 +4,12 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from .choice import Choice1Of2, Choice2Of2, FSharpChoice_2
+from .exception_bases import ExceptionBase
 from .fsharp_collections import ComparisonIdentity_Structural, HashIdentity_Structural
 from .option import value as value_1
 from .protocols import IComparer_1, IDisposable, IEqualityComparer, IEqualityComparer_1
 from .system import ArgumentNullException__ctor_Z721C83C5, NullReferenceException__ctor
 from .system_text import StringBuilder__Append_Z721C83C5
-from .types import ExceptionBase
 from .util import UNIT, Unit, dispose, equals, ignore, structural_hash
 
 

@@ -25,18 +25,18 @@ if TYPE_CHECKING:
     # Typing only: domain never imports _gen at runtime.
     # Current package
     from dlthub_sdk._gen.telemetry.models import (
-        DatasetOverviewResponse,
-        GetPipelineRunTraceResponse200,
+        DatasetStatsResponse,
+        DetailedPipelineRunResponse,
         LoadPackageResponse,
-        PipelineOverviewResponse,
-        PipelineRunDetailResponse,
         PipelineRunResponse,
         PipelineRunTableResponse,
+        PipelineRunTraceResponse,
+        PipelineStatsResponse,
         TelemetryWatermarkResponse,
     )
 
     #: list returns the row, get the detailed shape.
-    PipelineRunPayload = PipelineRunResponse | PipelineRunDetailResponse
+    PipelineRunPayload = PipelineRunResponse | DetailedPipelineRunResponse
 
 #: The window a listing covers when the caller names none.
 DEFAULT_WINDOW = timedelta(days=7)
@@ -144,7 +144,7 @@ class Telemetry(Namespace[M]):
         workspace_id = self._ctx.require_workspace()
         dataplane_url = self._ctx.require_dataplane()
         return self._ctx.run(
-            lambda t: t.get_telemetry_watermark(
+            lambda t: t.get_workspace_watermark(
                 workspace_id=workspace_id, dataplane_url=dataplane_url
             ),
             TelemetryStatus._from_payload,
@@ -224,7 +224,7 @@ class Telemetry(Namespace[M]):
         start, end = _window(since, until)
 
         def listing(t: Any, page: int, skip: int) -> Any:
-            return t.list_pipeline_overview(
+            return t.list_pipeline_stats(
                 workspace_id=workspace_id,
                 dataplane_url=dataplane_url,
                 start=start,
@@ -305,7 +305,7 @@ class Telemetry(Namespace[M]):
         start, end = _window(since, until)
 
         def listing(t: Any, page: int, skip: int) -> Any:
-            return t.list_dataset_overview(
+            return t.list_dataset_stats(
                 workspace_id=workspace_id,
                 dataplane_url=dataplane_url,
                 start=start,
@@ -355,7 +355,7 @@ class PipelineTable:
         rows_loaded: Rows written to it. Lower than ``rows_extracted`` when its
             load job failed part-way.
         bytes_loaded: Bytes written.
-        load_state: What its load job ended as.
+        load_job_state: What its load job ended as.
         write_disposition: How it was written — append, replace or merge.
     """
 
@@ -364,7 +364,7 @@ class PipelineTable:
     rows_extracted: int | None
     rows_loaded: int | None
     bytes_loaded: int | None
-    load_state: str | None
+    load_job_state: str | None
     write_disposition: str | None
 
     @staticmethod
@@ -375,7 +375,7 @@ class PipelineTable:
             rows_extracted=_narrow.whole(payload.rows_extracted),
             rows_loaded=_narrow.whole(payload.rows_loaded),
             bytes_loaded=_narrow.whole(payload.bytes_loaded),
-            load_state=_narrow.text(payload.load_job_state),
+            load_job_state=_narrow.text(payload.load_job_state),
             write_disposition=_narrow.text(payload.write_disposition),
         )
 
@@ -390,25 +390,25 @@ class LoadPackage:
     Attributes:
         load_id: dlt's load id, which is how a package is identified in logs.
         schema_name: The schema it carried.
-        status: What the load ended as.
-        jobs: How many load jobs it held.
-        failed_jobs: How many of them failed.
-        rows_loaded: Rows it wrote.
-        bytes_loaded: Bytes it wrote.
-        pending: Whether it is still waiting to be loaded.
-        schema_migrated: Whether loading it changed the destination's schema.
+        load_status: What the load ended as.
+        job_count: How many load jobs it held.
+        failed_job_count: How many of them failed.
+        total_rows_loaded: Rows it wrote.
+        total_bytes_loaded: Bytes it wrote.
+        is_pending: Whether it is still waiting to be loaded.
+        has_schema_migration: Whether loading it changed the destination's schema.
         completed_at: When it finished.
     """
 
     load_id: str
     schema_name: str | None
-    status: str | None
-    jobs: int
-    failed_jobs: int
-    rows_loaded: int
-    bytes_loaded: int
-    pending: bool
-    schema_migrated: bool
+    load_status: str | None
+    job_count: int
+    failed_job_count: int
+    total_rows_loaded: int
+    total_bytes_loaded: int
+    is_pending: bool
+    has_schema_migration: bool
     completed_at: datetime | None
 
     @staticmethod
@@ -416,13 +416,13 @@ class LoadPackage:
         return LoadPackage(
             load_id=payload.load_id,
             schema_name=_narrow.text(payload.schema_name),
-            status=_narrow.text(payload.load_status),
-            jobs=_count(payload.job_count),
-            failed_jobs=_count(payload.failed_job_count),
-            rows_loaded=_count(payload.total_rows_loaded),
-            bytes_loaded=_count(payload.total_bytes_loaded),
-            pending=payload.is_pending is True,
-            schema_migrated=payload.has_schema_migration is True,
+            load_status=_narrow.text(payload.load_status),
+            job_count=_count(payload.job_count),
+            failed_job_count=_count(payload.failed_job_count),
+            total_rows_loaded=_count(payload.total_rows_loaded),
+            total_bytes_loaded=_count(payload.total_bytes_loaded),
+            is_pending=payload.is_pending is True,
+            has_schema_migration=payload.has_schema_migration is True,
             completed_at=_narrow.moment(payload.completed_at),
         )
 
@@ -447,7 +447,7 @@ class PipelineRunTrace:
 class PipelineRun(Entity[M]):
     """One dlt pipeline run, as telemetry recorded it.
 
-    A job run executes whatever pipelines its script calls, so one run can
+    A job run executes whatever pipelines its job calls, so one run can
     produce several of these. Addressed by its own uuid, which is *not* a job
     run id — only :meth:`PipelineRuns.list` hands one out.
 
@@ -455,18 +455,18 @@ class PipelineRun(Entity[M]):
         id: This pipeline run's uuid.
         pipeline_name: The dlt pipeline's name.
         status: What became of it.
-        dataset: The dataset it wrote to, when it reported one.
-        destination: Where it wrote.
+        dataset_name: The dataset it wrote to, when it reported one.
+        destination_name: Where it wrote.
         started_at: When it began.
-        ended_at: When it finished.
-        duration_seconds: How long it ran.
-        rows_extracted: Rows read from the source.
-        rows_loaded: Rows written to the destination. Lower than
-            ``rows_extracted`` when a load failed part-way.
-        bytes_loaded: Bytes written.
+        finished_at: When it finished.
+        duration_ms: How long it ran, in milliseconds.
+        total_rows_extracted: Rows read from the source.
+        total_rows_loaded: Rows written to the destination. Lower than
+            ``total_rows_extracted`` when a load failed part-way.
+        total_bytes_loaded: Bytes written.
         error_step: Which dlt step failed, when one did.
         error_message: What it said.
-        schema_migrated: Whether the load changed the destination's schema.
+        has_schema_migration: Whether the load changed the destination's schema.
         dlt_version: The dlt that ran it.
         tables: The tables it wrote, with rows per table. Empty on a listed row
             — only :meth:`PipelineRuns.get` reads them.
@@ -477,17 +477,17 @@ class PipelineRun(Entity[M]):
     id: str
     pipeline_name: str
     status: PipelineRunStatus
-    dataset: str | None
-    destination: str | None
+    dataset_name: str | None
+    destination_name: str | None
     started_at: datetime | None
-    ended_at: datetime | None
-    duration_seconds: float | None
-    rows_extracted: int
-    rows_loaded: int
-    bytes_loaded: int
+    finished_at: datetime | None
+    duration_ms: int | None
+    total_rows_extracted: int
+    total_rows_loaded: int
+    total_bytes_loaded: int
     error_step: str | None
     error_message: str | None
-    schema_migrated: bool | None
+    has_schema_migration: bool | None
     dlt_version: str | None
     tables: tuple[PipelineTable, ...]
     load_packages: tuple[LoadPackage, ...]
@@ -525,28 +525,23 @@ class PipelineRun(Entity[M]):
 
     @staticmethod
     def _from_payload(ctx: _Ctx[Any], payload: PipelineRunPayload) -> PipelineRun[Any]:
-        duration_ms = getattr(payload, "duration_ms", None)
         return PipelineRun._bind(
             ctx,
             PipelineRun(
                 id=str(payload.id),
                 pipeline_name=payload.pipeline_name,
                 status=PipelineRunStatus(str(payload.status)),
-                dataset=_narrow.text(payload.dataset_name),
-                destination=_narrow.text(payload.destination_name),
+                dataset_name=_narrow.text(payload.dataset_name),
+                destination_name=_narrow.text(payload.destination_name),
                 started_at=_narrow.moment(payload.started_at),
-                ended_at=_narrow.moment(payload.finished_at),
-                duration_seconds=(
-                    duration_ms / 1000
-                    if isinstance(duration_ms, (int, float))
-                    else None
-                ),
-                rows_extracted=_count(payload.total_rows_extracted),
-                rows_loaded=_count(payload.total_rows_loaded),
-                bytes_loaded=_count(payload.total_bytes_loaded),
+                finished_at=_narrow.moment(payload.finished_at),
+                duration_ms=_narrow.whole(getattr(payload, "duration_ms", None)),
+                total_rows_extracted=_count(payload.total_rows_extracted),
+                total_rows_loaded=_count(payload.total_rows_loaded),
+                total_bytes_loaded=_count(payload.total_bytes_loaded),
                 error_step=_narrow.text(payload.error_step),
                 error_message=_narrow.text(payload.error_message),
-                schema_migrated=(
+                has_schema_migration=(
                     payload.has_schema_migration
                     if isinstance(payload.has_schema_migration, bool)
                     else None
@@ -582,63 +577,63 @@ class PipelineActivity:
 
     Attributes:
         pipeline_name: The dlt pipeline's name.
-        runs: How many times it ran.
-        succeeded: How many of those succeeded.
-        failed: How many did not. Derived, since the platform reports the
+        total_pipeline_run_count: How many times it ran.
+        succeeded_pipeline_run_count: How many of those succeeded.
+        failed_pipeline_run_count: How many did not. Derived, since the platform reports the
             successes and the total.
-        success_rate: The platform's own figure, between 0 and 1.
-        rows_extracted: Rows read across every run.
-        rows_loaded: Rows written across every run.
-        bytes_loaded: Bytes written across every run.
-        average_duration_seconds: Mean run length, or ``None`` when nothing
+        success_ratio: The platform's own figure, between 0 and 1.
+        total_rows_extracted: Rows read across every run.
+        total_rows_loaded: Rows written across every run.
+        total_bytes_loaded: Bytes written across every run.
+        average_duration_ms: Mean run length in milliseconds, or ``None`` when nothing
             finished.
-        total_duration_seconds: Time spent running, across the window.
+        total_duration_ms: Milliseconds spent running, across the window.
         latest_status: What its most recent run ended as.
-        latest_run_at: When that run happened.
-        latest_dataset: The dataset it most recently wrote to.
-        latest_destination: The destination it most recently wrote to.
-        latest_sources: The sources its most recent run read.
+        latest_pipeline_run_at: When that run happened.
+        latest_dataset_name: The dataset it most recently wrote to.
+        latest_destination_name: The destination it most recently wrote to.
+        latest_source_names: The sources its most recent run read.
     """
 
     pipeline_name: str
-    runs: int
-    succeeded: int
-    failed: int
-    success_rate: float
-    rows_extracted: int
-    rows_loaded: int
-    bytes_loaded: int
-    average_duration_seconds: float | None
-    total_duration_seconds: float
+    total_pipeline_run_count: int
+    succeeded_pipeline_run_count: int
+    failed_pipeline_run_count: int
+    success_ratio: float
+    total_rows_extracted: int
+    total_rows_loaded: int
+    total_bytes_loaded: int
+    average_duration_ms: int | None
+    total_duration_ms: int
     latest_status: str | None
-    latest_run_at: datetime | None
-    latest_dataset: str | None
-    latest_destination: str | None
-    latest_sources: tuple[str, ...]
+    latest_pipeline_run_at: datetime | None
+    latest_dataset_name: str | None
+    latest_destination_name: str | None
+    latest_source_names: tuple[str, ...]
 
     @staticmethod
     def _from_payload(
-        _ctx: _Ctx[Any], payload: PipelineOverviewResponse
+        _ctx: _Ctx[Any], payload: PipelineStatsResponse
     ) -> PipelineActivity:
-        runs = _count(payload.total_runs)
-        succeeded = _count(payload.succeeded_runs)
+        runs = _count(payload.total_pipeline_run_count)
+        succeeded = _count(payload.succeeded_pipeline_run_count)
         sources = payload.latest_source_names
         return PipelineActivity(
             pipeline_name=payload.pipeline_name,
-            runs=runs,
-            succeeded=succeeded,
-            failed=max(0, runs - succeeded),
-            success_rate=float(payload.success_rate),
-            rows_extracted=_count(payload.total_rows_extracted),
-            rows_loaded=_count(payload.total_rows_loaded),
-            bytes_loaded=_count(payload.total_bytes_loaded),
-            average_duration_seconds=_narrow.seconds(payload.avg_duration_ms),
-            total_duration_seconds=_narrow.seconds(payload.total_duration_ms) or 0.0,
+            total_pipeline_run_count=runs,
+            succeeded_pipeline_run_count=succeeded,
+            failed_pipeline_run_count=max(0, runs - succeeded),
+            success_ratio=float(payload.success_ratio),
+            total_rows_extracted=_count(payload.total_rows_extracted),
+            total_rows_loaded=_count(payload.total_rows_loaded),
+            total_bytes_loaded=_count(payload.total_bytes_loaded),
+            average_duration_ms=_narrow.whole(payload.average_duration_ms),
+            total_duration_ms=_count(payload.total_duration_ms),
             latest_status=_narrow.text(payload.latest_status),
-            latest_run_at=_narrow.moment(payload.latest_run_at),
-            latest_dataset=_narrow.text(payload.latest_dataset_name),
-            latest_destination=_narrow.text(payload.latest_destination_name),
-            latest_sources=tuple(sources) if isinstance(sources, list) else (),
+            latest_pipeline_run_at=_narrow.moment(payload.latest_pipeline_run_at),
+            latest_dataset_name=_narrow.text(payload.latest_dataset_name),
+            latest_destination_name=_narrow.text(payload.latest_destination_name),
+            latest_source_names=tuple(sources) if isinstance(sources, list) else (),
         )
 
 
@@ -648,59 +643,59 @@ class DatasetActivity:
 
     Attributes:
         dataset_name: The dataset's name.
-        pipelines: How many distinct pipelines wrote here. More than one means
+        distinct_pipeline_count: How many distinct pipelines wrote here. More than one means
             they share it, which is worth knowing before blaming any of them.
-        runs: How many runs wrote here.
-        succeeded: How many of those succeeded.
-        failed: How many did not. Derived, as for a pipeline.
-        success_rate: The platform's own figure, between 0 and 1.
-        rows_loaded: Rows written across every run.
-        bytes_loaded: Bytes written across every run.
-        schema_migrations: How many loads changed the schema here.
-        average_duration_seconds: Mean run length, or ``None`` when nothing
+        total_pipeline_run_count: How many runs wrote here.
+        succeeded_pipeline_run_count: How many of those succeeded.
+        failed_pipeline_run_count: How many did not. Derived, as for a pipeline.
+        success_ratio: The platform's own figure, between 0 and 1.
+        total_rows_loaded: Rows written across every run.
+        total_bytes_loaded: Bytes written across every run.
+        schema_migration_count: How many loads changed the schema here.
+        average_duration_ms: Mean run length in milliseconds, or ``None`` when nothing
             finished.
         latest_status: What the most recent run ended as.
-        latest_run_at: When that run happened.
-        latest_pipeline: Which pipeline wrote most recently.
-        latest_destination: Where it wrote.
+        latest_pipeline_run_at: When that run happened.
+        latest_pipeline_name: Which pipeline wrote most recently.
+        latest_destination_name: Where it wrote.
     """
 
     dataset_name: str
-    pipelines: int
-    runs: int
-    succeeded: int
-    failed: int
-    success_rate: float
-    rows_loaded: int
-    bytes_loaded: int
-    schema_migrations: int
-    average_duration_seconds: float | None
+    distinct_pipeline_count: int
+    total_pipeline_run_count: int
+    succeeded_pipeline_run_count: int
+    failed_pipeline_run_count: int
+    success_ratio: float
+    total_rows_loaded: int
+    total_bytes_loaded: int
+    schema_migration_count: int
+    average_duration_ms: int | None
     latest_status: str | None
-    latest_run_at: datetime | None
-    latest_pipeline: str | None
-    latest_destination: str | None
+    latest_pipeline_run_at: datetime | None
+    latest_pipeline_name: str | None
+    latest_destination_name: str | None
 
     @staticmethod
     def _from_payload(
-        _ctx: _Ctx[Any], payload: DatasetOverviewResponse
+        _ctx: _Ctx[Any], payload: DatasetStatsResponse
     ) -> DatasetActivity:
-        runs = _count(payload.total_runs)
-        succeeded = _count(payload.succeeded_runs)
+        runs = _count(payload.total_pipeline_run_count)
+        succeeded = _count(payload.succeeded_pipeline_run_count)
         return DatasetActivity(
             dataset_name=payload.dataset_name,
-            pipelines=_count(payload.distinct_pipeline_count),
-            runs=runs,
-            succeeded=succeeded,
-            failed=max(0, runs - succeeded),
-            success_rate=float(payload.success_rate),
-            rows_loaded=_count(payload.total_rows_loaded),
-            bytes_loaded=_count(payload.total_bytes_loaded),
-            schema_migrations=_count(payload.schema_migration_count),
-            average_duration_seconds=_narrow.seconds(payload.avg_duration_ms),
+            distinct_pipeline_count=_count(payload.distinct_pipeline_count),
+            total_pipeline_run_count=runs,
+            succeeded_pipeline_run_count=succeeded,
+            failed_pipeline_run_count=max(0, runs - succeeded),
+            success_ratio=float(payload.success_ratio),
+            total_rows_loaded=_count(payload.total_rows_loaded),
+            total_bytes_loaded=_count(payload.total_bytes_loaded),
+            schema_migration_count=_count(payload.schema_migration_count),
+            average_duration_ms=_narrow.whole(payload.average_duration_ms),
             latest_status=_narrow.text(payload.latest_status),
-            latest_run_at=_narrow.moment(payload.latest_run_at),
-            latest_pipeline=_narrow.text(payload.latest_pipeline_name),
-            latest_destination=_narrow.text(payload.latest_destination_name),
+            latest_pipeline_run_at=_narrow.moment(payload.latest_pipeline_run_at),
+            latest_pipeline_name=_narrow.text(payload.latest_pipeline_name),
+            latest_destination_name=_narrow.text(payload.latest_destination_name),
         )
 
 
@@ -771,13 +766,9 @@ class PipelineRuns(Collection[M]):
         dataplane_url = self._ctx.require_dataplane()
 
         def parse(
-            _ctx: _Ctx[Any], payload: GetPipelineRunTraceResponse200
+            _ctx: _Ctx[Any], payload: PipelineRunTraceResponse
         ) -> PipelineRunTrace:
-            # The platform returns the trace verbatim, so the generated model
-            # declares no fields and everything lands in additional_properties.
-            return PipelineRunTrace(
-                pipeline_run_id=id, trace=dict(payload.additional_properties)
-            )
+            return PipelineRunTrace(pipeline_run_id=id, trace=payload.to_dict())
 
         return self._ctx.run(
             lambda t: t.get_pipeline_run_trace(

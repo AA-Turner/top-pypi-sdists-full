@@ -7,8 +7,8 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.error_response_400 import ErrorResponse400
-from ...models.pipeline_run_detail_response import PipelineRunDetailResponse
+from ...models.detailed_pipeline_run_response import DetailedPipelineRunResponse
+from ...models.error_response import ErrorResponse
 from ...types import Response
 
 
@@ -29,16 +29,36 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse400 | PipelineRunDetailResponse | None:
+) -> DetailedPipelineRunResponse | ErrorResponse | None:
     if response.status_code == 200:
-        response_200 = PipelineRunDetailResponse.from_dict(response.json())
+        response_200 = DetailedPipelineRunResponse.from_dict(response.json())
 
         return response_200
 
     if response.status_code == 400:
-        response_400 = ErrorResponse400.from_dict(response.json())
+        response_400 = ErrorResponse.from_dict(response.json())
 
         return response_400
+
+    if response.status_code == 401:
+        response_401 = ErrorResponse.from_dict(response.json())
+
+        return response_401
+
+    if response.status_code == 403:
+        response_403 = ErrorResponse.from_dict(response.json())
+
+        return response_403
+
+    if response.status_code == 404:
+        response_404 = ErrorResponse.from_dict(response.json())
+
+        return response_404
+
+    if response.status_code == 500:
+        response_500 = ErrorResponse.from_dict(response.json())
+
+        return response_500
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -48,7 +68,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse400 | PipelineRunDetailResponse]:
+) -> Response[DetailedPipelineRunResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -62,7 +82,7 @@ def sync_detailed(
     pipeline_run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[ErrorResponse400 | PipelineRunDetailResponse]:
+) -> Response[DetailedPipelineRunResponse | ErrorResponse]:
     """GetPipelineRun
 
     Args:
@@ -74,7 +94,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | PipelineRunDetailResponse]
+        Response[DetailedPipelineRunResponse | ErrorResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -93,7 +113,7 @@ def sync(
     pipeline_run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> ErrorResponse400 | PipelineRunDetailResponse | None:
+) -> DetailedPipelineRunResponse | ErrorResponse | None:
     """GetPipelineRun
 
     Args:
@@ -105,7 +125,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | PipelineRunDetailResponse
+        DetailedPipelineRunResponse | ErrorResponse
     """
     return sync_detailed(
         workspace_id=workspace_id,
@@ -119,7 +139,7 @@ async def asyncio_detailed(
     pipeline_run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[ErrorResponse400 | PipelineRunDetailResponse]:
+) -> Response[DetailedPipelineRunResponse | ErrorResponse]:
     """GetPipelineRun
 
     Args:
@@ -131,7 +151,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | PipelineRunDetailResponse]
+        Response[DetailedPipelineRunResponse | ErrorResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -148,7 +168,7 @@ async def asyncio(
     pipeline_run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-) -> ErrorResponse400 | PipelineRunDetailResponse | None:
+) -> DetailedPipelineRunResponse | ErrorResponse | None:
     """GetPipelineRun
 
     Args:
@@ -160,7 +180,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | PipelineRunDetailResponse
+        DetailedPipelineRunResponse | ErrorResponse
     """
     return (
         await asyncio_detailed(

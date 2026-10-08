@@ -10,18 +10,26 @@ from copy import deepcopy
 from operator import truth
 from string import whitespace
 from typing import TYPE_CHECKING
+from urllib.parse import unquote
 
+from bidi import get_display
 from reportlab.graphics import renderPDF
 from reportlab.lib.abag import ABag
 from reportlab.lib.colors import Color
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.textsplit import ALL_CANNOT_START
-from reportlab.pdfbase.pdfmetrics import getAscentDescent, stringWidth
+from reportlab.pdfbase.pdfmetrics import getAscentDescent
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.paraparser import ParaParser
 from reportlab.rl_settings import _FUZZ
 
-from xhtml2pdf.util import drawBoxBackground, drawBoxBorders, getSize, roundedClip
+from xhtml2pdf.util import (
+    drawBoxBackground,
+    drawBoxBorders,
+    getSize,
+    roundedClip,
+    stringWidth,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -230,6 +238,7 @@ def _putFragLine(cur_x, tx, line):
     autoLeading = xs.autoLeading
     leading = xs.leading
     cur_x += xs.leftIndent
+    line_x = cur_x
     dal = autoLeading in {"min", "max"}
     if dal:
         if autoLeading == "max":
@@ -310,6 +319,13 @@ def _putFragLine(cur_x, tx, line):
                             h,
                             mask="auto",
                         )
+                # An image inside <a href>. The links of a line are gathered
+                # from its text, and an image has none, so a linked image
+                # made no link at all; its own rectangle is the link.
+                if f.link:
+                    _doLink(
+                        tx, f.link, (cur_x_s, cur_y + iy0, cur_x_s + w, cur_y + iy0 + h)
+                    )
                 cur_x += w
                 cur_x_s += w
                 setXPos(tx, cur_x_s - tx._x0)
@@ -386,9 +402,12 @@ def _putFragLine(cur_x, tx, line):
                     # Where the text has reached, which is what a callback
                     # that fills the rest of the line needs -- the table of
                     # contents draws its leader and page number from here.
+                    # line_x is where the line began, which is where the text
+                    # of a right-to-left line ends.
                     tx._canvas._curr_tx_info = {
                         "tx": tx,
                         "cur_x": cur_x,
+                        "line_x": line_x,
                         "cur_y": cur_y,
                         "leading": leading,
                         "xs": tx.XtraState,
@@ -574,19 +593,120 @@ def _sameFrag(f, g):
         or hasattr(g, "lineBreak")
     ):
         return 0
-    for a in (
-        "fontName",
-        "fontSize",
-        "textColor",
-        "backColor",
-        "rise",
-        "underline",
-        "strike",
-        "link",
-    ):
-        if getattr(f, a, None) != getattr(g, a, None):
+    for a in _SAME_FRAG_ATTRIBUTES:
+        x = getattr(f, a, None)
+        y = getattr(g, a, None)
+        # Frags of one render mostly share their values, and a colour's == is
+        # a method call that builds two tuples.
+        if x is not y and x != y:
             return 0
     return 1
+
+
+_SAME_FRAG_ATTRIBUTES = (
+    "fontName",
+    "fontSize",
+    "textColor",
+    "backColor",
+    "rise",
+    "underline",
+    "strike",
+    "link",
+)
+
+
+def _breakable(f) -> bool:
+    """Whether a piece's text may be broken between any two characters."""
+    return getattr(f, "splitLongWords", False) and not hasattr(f, "cbDefn")
+
+
+def _chunkWord(pieces, maxWidth):
+    """
+    Split one word, given as its (frag, text) pieces, into words no wider than
+    maxWidth, in the fragword shape _getFragWords returns.
+
+    The word may only be broken between two characters of breakable pieces:
+    the text of an element without overflow-wrap that is glued to one with
+    it, a "." after a link or a "(" before it, stays with the character it
+    touches. A marker is kept, with the room it takes.
+    """
+    # Runs that cannot be broken, each a list of (frag, text, width).
+    runs: list[list] = []
+    previous = False
+    for f, text in pieces:
+        if isinstance(text, bytes):
+            text = text.decode("utf8")
+        if hasattr(f, "cbDefn"):
+            cb = f.cbDefn
+            atoms = [(f, text, getattr(cb, "advance", 0) + getattr(cb, "reserve", 0))]
+            breakable = False
+        elif _breakable(f):
+            atoms = [(f, ch, stringWidth(ch, f.fontName, f.fontSize)) for ch in text]
+            breakable = True
+        else:
+            atoms = [(f, text, stringWidth(text, f.fontName, f.fontSize))]
+            breakable = False
+        for atom in atoms:
+            if not runs or (breakable and previous):
+                runs.append([atom])
+            else:
+                runs[-1].append(atom)
+            previous = breakable
+
+    chunks = []
+    chunk: list = []
+    width = 0
+    for run in runs:
+        runWidth = sum(atom[2] for atom in run)
+        if chunk and width + runWidth > maxWidth:
+            chunks.append([width, *chunk])
+            chunk, width = [], 0
+        for f, text, _w in run:
+            if chunk and chunk[-1][0] is f and text and chunk[-1][1]:
+                chunk[-1] = (f, chunk[-1][1] + text)
+            else:
+                chunk.append((f, text))
+        width += runWidth
+    if chunk:
+        chunks.append([width, *chunk])
+    return chunks
+
+
+def _splitLongWords(fragWords, maxWidth):
+    """
+    Break each word wider than maxWidth whose text says it may be broken
+    (overflow-wrap: break-word), into pieces that fit.
+
+    A piece fills a line of its own, so the space a line break stands for
+    is never put between two of them, and the last one is followed by the
+    space the word was followed by. Only the text that may be broken is
+    broken; a word with a line break in it is left alone.
+    """
+    if maxWidth <= 0:
+        return fragWords
+    result = []
+    for word in fragWords:
+        pieces = word[1:]
+        if (
+            word[0] > maxWidth
+            and any(_breakable(f) for f, _text in pieces)
+            and not any(hasattr(f, "lineBreak") for f, _text in pieces)
+        ):
+            result.extend(_chunkWord(pieces, maxWidth))
+        else:
+            result.append(word)
+    return result
+
+
+def _reserved(words) -> float:
+    """
+    The room the markers on a line reserve, which counts as free space.
+
+    The line breaker counted it so that the line leaves it free, but nothing
+    is drawn there by the text: aligning the line as though it were text
+    would put the room on the wrong side of a line set flush right.
+    """
+    return sum(getattr(getattr(w, "cbDefn", None), "reserve", 0) for w in words)
 
 
 def _getFragWords(frags):
@@ -647,9 +767,12 @@ def _getFragWords(frags):
             else:
                 # A marker rides along with the word it sits in. An inline
                 # box's edge brings its padding and border with it: no word of
-                # its own, but width the line breaker has to count.
+                # its own, but width the line breaker has to count. A
+                # reserve is room kept free after the word for something the
+                # marker's callback draws there (a table of contents' page
+                # number); see _reserved.
                 W.append((f, ""))
-                n += getattr(f.cbDefn, "advance", 0)
+                n += getattr(f.cbDefn, "advance", 0) + getattr(f.cbDefn, "reserve", 0)
         elif hasattr(f, "lineBreak"):
             # pass the frag through.  The line breaker will scan for it.
             if W != []:
@@ -745,6 +868,65 @@ def _reopen_inline_boxes(lines) -> list:
     return reopened
 
 
+def _bulletWidth(bulletText, style) -> float:
+    if isinstance(bulletText, str):
+        return stringWidth(bulletText, style.bulletFontName, style.bulletFontSize)
+    return sum(
+        (
+            f.image.drawWidth
+            if hasattr(f, "image")
+            else stringWidth(f.text, f.fontName, f.fontSize)
+        )
+        for f in bulletText
+    )
+
+
+def _drawBulletRTL(canvas, offset, cur_y, bulletText, style, width):
+    """
+    Draw the marker of a right-to-left list item, on the right.
+
+    The mirror of _drawBullet: the marker ends where a left-to-right one
+    starts, at the edge of the margin the list is indented by, here the
+    right one. It used to be drawn on the left of a right-aligned item.
+    """
+    # In visual order: "1." in a right-to-left line reads ".1", as a browser
+    # draws it.
+    if isinstance(bulletText, str):
+        bulletText = get_display(bulletText, base_dir="R")
+    else:
+        bulletText = [
+            (
+                f
+                if hasattr(f, "image")
+                else f.clone(text=get_display(f.text, base_dir="R"))
+            )
+            for f in reversed(bulletText)
+        ]
+    y = cur_y + getattr(style, "bulletOffsetY", 0)
+    x = width - getattr(style, "bulletRightIndent", 0) - _bulletWidth(bulletText, style)
+    tx2 = canvas.beginText(x, y)
+    tx2.setFont(style.bulletFontName, style.bulletFontSize)
+    tx2.setFillColor(
+        (hasattr(style, "bulletColor") and style.bulletColor) or style.textColor
+    )
+    if isinstance(bulletText, str):
+        tx2.textOut(bulletText)
+    else:
+        for f in bulletText:
+            if hasattr(f, "image"):
+                image = f.image
+                canvas.drawImage(
+                    image.getImage(), tx2.getX(), y, image.drawWidth, image.drawHeight
+                )
+                tx2.moveCursor(image.drawWidth, 0)
+            else:
+                tx2.setFont(f.fontName, f.fontSize)
+                tx2.setFillColor(f.textColor)
+                tx2.textOut(f.text)
+    canvas.drawText(tx2)
+    return offset
+
+
 def _drawBullet(canvas, offset, cur_y, bulletText, style):
     """Draw a bullet text could be a simple string or a frag list."""
     tx2 = canvas.beginText(
@@ -783,9 +965,18 @@ def _drawBullet(canvas, offset, cur_y, bulletText, style):
     return max(offset, bulletEnd - style.leftIndent)
 
 
-def _handleBulletWidth(bulletText, style, maxWidths):
+def _handleBulletWidth(bulletText, style, maxWidths, *, rtl=False):
     """Work out bullet width and adjust maxWidths[0] if neccessary."""
-    if bulletText:
+    if bulletText and rtl:
+        # The same overrun, measured from the right.
+        bulletLeft = (
+            getattr(style, "bulletRightIndent", 0)
+            + _bulletWidth(bulletText, style)
+            + 0.6 * style.bulletFontSize
+        )
+        if bulletLeft > style.rightIndent:
+            maxWidths[0] -= bulletLeft - style.rightIndent
+    elif bulletText:
         if isinstance(bulletText, str):
             bulletWidth = stringWidth(
                 bulletText, style.bulletFontName, style.bulletFontSize
@@ -882,6 +1073,23 @@ def _do_under_line(i, t_off, ws, tx, lm=-0.125):
 _scheme_re = re.compile(r"^[a-zA-Z][-+a-zA-Z0-9]+$")
 
 
+def _doRelativeLink(canvas, link, rect):
+    """
+    Link to another file, named relative to this one: <a href="other.pdf">.
+
+    It used to be no link at all. A PDF is opened with a /GoToR action, as
+    the vendor "pdf:" scheme already did, which a viewer resolves against the
+    directory of the PDF holding the link; anything else -- page.html, a
+    PDF with a fragment, which /GoToR cannot carry -- is a /URI with the
+    reference as written, the way a browser would keep it.
+    """
+    path, _, fragment = link.partition("#")
+    if not fragment and path.lower().endswith(".pdf"):
+        canvas.linkURL(unquote(path), rect, relative=1, kind="GoToR")
+    else:
+        canvas.linkURL(link, rect, relative=1, kind="URI")
+
+
 def _doLink(tx, link, rect):
     parts = link.split(":", 1)
     scheme = (len(parts) == 2 and parts[0].lower()) or ""
@@ -890,6 +1098,8 @@ def _doLink(tx, link, rect):
         if kind == "GoToR":
             link = parts[1]
         tx._canvas.linkURL(link, rect, relative=1, kind=kind)
+    elif scheme != "document" and not link.startswith("#"):
+        _doRelativeLink(tx._canvas, link, rect)
     else:
         if link[0] == "#":
             link = link[1:]
@@ -966,12 +1176,16 @@ def _do_post_text(tx):
             )
     xs.inlineBoxSpans = []
 
-    # Background
+    # Background. In its own graphics state: a colour with an alpha sets the
+    # fill opacity too, and the line's text, which resets only the colour,
+    # came out as translucent as its background.
     for x1, x2, c, fs in xs.backgrounds:
         inlineFF = fs * 0.125
         gap = inlineFF * 1.25
+        tx._canvas.saveState()
         tx._canvas.setFillColor(c)
         tx._canvas.rect(x1, y - gap, x2 - x1, fs + 1, fill=1, stroke=0)
+        tx._canvas.restoreState()
     xs.backgrounds = []
     xs.background = 0
     xs.backgroundColor = None
@@ -1295,11 +1509,7 @@ class Paragraph(Flowable):
         )
         later_widths = availWidth - leftIndent - style.rightIndent
 
-        if style.wordWrap == "CJK":
-            # use Asian text wrap algorithm to break characters
-            blPara = self.breakLinesCJK([first_line_width, later_widths])
-        else:
-            blPara = self.breakLines([first_line_width, later_widths])
+        blPara = self._brokenLines(first_line_width, later_widths)
         self.blPara = blPara
         autoLeading = getattr(self, "autoLeading", getattr(style, "autoLeading", ""))
         leading = style.leading
@@ -1323,6 +1533,53 @@ class Paragraph(Flowable):
 
         return self.width, height
 
+    def _brokenLines(self, first_line_width, later_widths):
+        """
+        The lines broken at these widths, remembered while nothing changes.
+
+        A paragraph is asked to wrap at the same width over and over: a table
+        sizes and then places each cell, a frame measures what it then adds,
+        and multiBuild lays the whole story out once per pass. Breaking the
+        lines is what that costs, so the last answer is kept with what it was
+        computed from -- the widths, and each fragment's identity, text and
+        inline object size, which _calcImageMaxSizes changes with the height
+        offered -- and handed back while they still match. breakLines leaves
+        nothing else behind than its answer and self.width.
+        """
+        style = self.style
+        key = (
+            first_line_width,
+            later_widths,
+            style.wordWrap,
+            getattr(self, "autoLeading", getattr(style, "autoLeading", "")),
+            self.dir,
+            tuple(
+                (
+                    id(f),
+                    getattr(f, "text", None),
+                    getattr(getattr(f, "cbDefn", None), "width", None),
+                    getattr(getattr(f, "cbDefn", None), "height", None),
+                )
+                for f in self.frags
+            ),
+        )
+        cached = self.__dict__.get("_brokenLinesCache")
+        if (
+            cached is not None
+            and cached[0] == key
+            and not getattr(self, "_splitpara", 0)
+        ):
+            self.width = cached[2]
+            self.height = 0
+            return cached[1]
+        if style.wordWrap == "CJK":
+            # use Asian text wrap algorithm to break characters
+            blPara = self.breakLinesCJK([first_line_width, later_widths])
+        else:
+            blPara = self.breakLines([first_line_width, later_widths])
+        self._brokenLinesCache = (key, blPara, self.width)
+        return blPara
+
     def minWidth(self):
         """Attempt to determine a minimum sensible width."""
         frags = self.frags
@@ -1335,13 +1592,13 @@ class Paragraph(Flowable):
             fN = f.fontName
             words = (hasattr(f, "text") and split(f.text, " ")) or f.words
 
-            def func(w: list, fS=fS, fN=fN) -> int:
+            def func(w: list, fS=fS, fN=fN) -> float:
                 return stringWidth(w, fN, fS)
 
         else:
             words = _getFragWords(frags)
 
-            def func(w: list, fS=None, fN=None) -> int:  # noqa: ARG001
+            def func(w: list, fS=None, fN=None) -> float:  # noqa: ARG001
                 return w[0]
 
         return max(map(func, words))
@@ -1482,7 +1739,7 @@ class Paragraph(Flowable):
         style = self.style
 
         # for bullets, work out width and ensure we wrap the right amount onto line one
-        _handleBulletWidth(self.bulletText, style, maxWidths)
+        _handleBulletWidth(self.bulletText, style, maxWidths, rtl=self.dir == "rtl")
 
         maxWidth = maxWidths[0]
 
@@ -1497,6 +1754,13 @@ class Paragraph(Flowable):
             fontName = f.fontName
             ascent, descent = getAscentDescent(fontName, fontSize)
             words = (hasattr(f, "text") and split(f.text, " ")) or f.words
+            if getattr(f, "splitLongWords", False):
+                fragWords = [
+                    [stringWidth(w, fontName, fontSize), (f, w)] for w in words
+                ]
+                words = [
+                    piece[1][1] for piece in _splitLongWords(fragWords, min(maxWidths))
+                ]
             spaceWidth = stringWidth(" ", fontName, fontSize, self.encoding)
             cLine = []
             currentWidth = -spaceWidth  # hack to get around extra space for word 1
@@ -1552,6 +1816,8 @@ class Paragraph(Flowable):
         # which flipped the Latin words of a right-to-left document letter by
         # letter -- "and Latin text" came out "dna nitaL txet".
         frag_words = _getFragWords(frags)
+        if any(getattr(f, "splitLongWords", False) for f in frags):
+            frag_words = _splitLongWords(frag_words, min(maxWidths))
         for w in frag_words:
             f = w[-1][0]
             fontName = f.fontName
@@ -1579,7 +1845,9 @@ class Paragraph(Flowable):
                     continue  # throw it away
                 nText = w[1][1] if isinstance(w[1][1], str) else str(w[1][1], "utf-8")
 
-                if nText:
+                # A word that starts with a marker (an anchor) still puts
+                # text on the line, after which the next word may wrap.
+                if any(piece[1] for piece in w[1:]):
                     n += 1
                 fontSize = f.fontSize
                 if calcBounds:
@@ -1659,7 +1927,7 @@ class Paragraph(Flowable):
                 # end of line
                 lines.append(
                     FragLine(
-                        extraSpace=maxWidth - currentWidth,
+                        extraSpace=maxWidth - currentWidth + _reserved(words),
                         wordCount=n,
                         lineBreak=lineBreak,
                         words=words,
@@ -1722,7 +1990,7 @@ class Paragraph(Flowable):
             self.width = max(currentWidth, self.width)
             lines.append(
                 ParaLines(
-                    extraSpace=(maxWidth - currentWidth),
+                    extraSpace=(maxWidth - currentWidth + _reserved(words)),
                     wordCount=n,
                     words=words,
                     fontSize=maxSize,
@@ -1744,7 +2012,7 @@ class Paragraph(Flowable):
         style = self.style
 
         # for bullets, work out width and ensure we wrap the right amount onto line one
-        _handleBulletWidth(self.bulletText, style, maxWidths)
+        _handleBulletWidth(self.bulletText, style, maxWidths, rtl=self.dir == "rtl")
         if len(self.frags) > 1:
             autoLeading = getattr(
                 self, "autoLeading", getattr(style, "autoLeading", "")
@@ -1872,7 +2140,12 @@ class Paragraph(Flowable):
                     f, "ascent", f.fontSize
                 )  # TODO fix XPreformatted to remove this hack
                 if bulletText:
-                    offset = _drawBullet(canvas, offset, cur_y, bulletText, style)
+                    if self.dir == "rtl":
+                        offset = _drawBulletRTL(
+                            canvas, offset, cur_y, bulletText, style, self.width
+                        )
+                    else:
+                        offset = _drawBullet(canvas, offset, cur_y, bulletText, style)
 
                 # set up the font etc.
                 canvas.setFillColor(f.textColor)
@@ -1955,7 +2228,12 @@ class Paragraph(Flowable):
                 # default?
                 dpl = _leftDrawParaLineX
                 if bulletText:
-                    offset = _drawBullet(canvas, offset, cur_y, bulletText, style)
+                    if self.dir == "rtl":
+                        offset = _drawBulletRTL(
+                            canvas, offset, cur_y, bulletText, style, self.width
+                        )
+                    else:
+                        offset = _drawBullet(canvas, offset, cur_y, bulletText, style)
                 if alignment == TA_LEFT:
                     dpl = _leftDrawParaLineX
                 elif alignment == TA_CENTER:

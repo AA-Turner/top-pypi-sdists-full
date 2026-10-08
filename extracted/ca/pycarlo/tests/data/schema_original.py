@@ -7495,6 +7495,36 @@ class RcaStatus(sgqlc.types.Enum):
     __choices__ = ("CANCELED", "EMPTY", "EXPIRED", "FAILED", "FOUND", "PARTIAL_DATA")
 
 
+class ReinforcementLoopAgentErrorKind(sgqlc.types.Enum):
+    """MISSING_PERMISSIONS: Monte Carlo's warehouse role can't read
+    resources the reinforcement loop needs to diagnose the agent.
+
+    Enumeration Choices:
+
+    * `MISSING_PERMISSIONS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MISSING_PERMISSIONS",)
+
+
+class ReinforcementLoopAgentResourceKind(sgqlc.types.Enum):
+    """A kind of resource the reinforcement loop reads to diagnose an
+    agent: its configuration (e.g. a Cortex agent's definition), its
+    semantic models (e.g. Snowflake semantic views), or its search
+    services (e.g. Cortex search services).
+
+    Enumeration Choices:
+
+    * `AGENT_CONFIGURATION`None
+    * `SEARCH_SERVICE`None
+    * `SEMANTIC_MODEL`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT_CONFIGURATION", "SEARCH_SERVICE", "SEMANTIC_MODEL")
+
+
 class ReinforcementLoopClusterKind(sgqlc.types.Enum):
     """BUILT_IN: a default cluster the catalog seeds. EVAL_DERIVED: one
     eval monitor's low-scoring conversations (see evalScoreThreshold).
@@ -9785,6 +9815,18 @@ class TsaAutomationThreshold(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ALL", "HIGH", "HIGH_MEDIUM", "OFF")
+
+
+class TsaInvestigationBillingStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `FREE`None
+    * `INCLUDED_IN_BATCH`None
+    * `NEW_BATCH`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FREE", "INCLUDED_IN_BATCH", "NEW_BATCH")
 
 
 class TuningUnavailableReason(sgqlc.types.Enum):
@@ -20200,6 +20242,21 @@ class UpdateGoldenSetInput(sgqlc.types.Input):
 
     retention_days = sgqlc.types.Field(Int, graphql_name="retentionDays")
     """New retention window in days."""
+
+
+class UpdateReinforcementLoopAgentInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon", "is_paused")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Observability agent name."""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the agent's trace table, as on getAgentGraph."""
+
+    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
+    """Pause or resume the loop for the agent. Omit or null: unchanged."""
 
 
 class UpdateReinforcementLoopSelectorInput(sgqlc.types.Input):
@@ -49300,6 +49357,7 @@ class Mutation(sgqlc.types.Type):
         "trigger_reinforcement_loop_dispatch",
         "delete_reinforcement_loop_issues_by_issue_id",
         "delete_reinforcement_loop_issues_by_agent",
+        "update_reinforcement_loop_agent",
         "update_reinforcement_loop_selector",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
@@ -49580,7 +49638,6 @@ class Mutation(sgqlc.types.Type):
         "set_job_generates_incidents",
         "set_job_generates_alerts",
         "set_dbt_cloud_event_filter",
-        "set_dbt_cloud_environment_filter",
         "snooze_dbt_node",
         "unsnooze_dbt_node",
         "update_dbt_project_info",
@@ -51562,6 +51619,33 @@ class Mutation(sgqlc.types.Type):
     * `trace_table_mcon` (`String!`): The agent's trace table MCON —
       the same agentName/traceTableMcon pair
       getReinforcementLoopIssues takes.
+    """
+
+    update_reinforcement_loop_agent = sgqlc.types.Field(
+        "UpdateReinforcementLoopAgent",
+        graphql_name="updateReinforcementLoopAgent",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UpdateReinforcementLoopAgentInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Pause or resume the reinforcement loop for an
+    agent. While paused, the loop diagnoses nothing for any Issue
+    space of the agent; unpausing resumes from where it stopped.
+    Omitted fields are unchanged. Creates the agent's settings if
+    absent.
+
+    Arguments:
+
+    * `input` (`UpdateReinforcementLoopAgentInput!`)None
     """
 
     update_reinforcement_loop_selector = sgqlc.types.Field(
@@ -61793,6 +61877,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "allowed_dbt_cloud_environments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="allowedDbtCloudEnvironments",
+                        default=None,
+                    ),
+                ),
+                (
                     "connection_id",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
@@ -61819,42 +61911,14 @@ class Mutation(sgqlc.types.Type):
       environment connection id or name is in this list are handled
       (automatic warehouse matching is not used). Only valid when
       filterDbtCloudEvents is true.
+    * `allowed_dbt_cloud_environments` (`[String!]`): dbt environment
+      names to keep, matched case-insensitively. When the list is non-
+      empty, events from other environments or without an environment
+      name are dropped. An empty list clears the allow-list. Omit it
+      or pass null to leave it unchanged.
     * `connection_id` (`UUID!`): dbt Cloud webhook connection id
     * `filter_dbt_cloud_events` (`Boolean!`): When true, drop runs
       that don't belong to this connection's warehouse
-    """
-
-    set_dbt_cloud_environment_filter = sgqlc.types.Field(
-        "SetDbtCloudEnvironmentFilter",
-        graphql_name="setDbtCloudEnvironmentFilter",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "allowed_dbt_cloud_environments",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="allowedDbtCloudEnvironments",
-                        default=None,
-                    ),
-                ),
-                (
-                    "connection_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Set the dbt environment allow-list for a dbt Cloud
-    webhook connection
-
-    Arguments:
-
-    * `allowed_dbt_cloud_environments` (`[String!]`): dbt environment
-      names to keep, matched case-insensitively. Events without an
-      environment name are dropped.
-    * `connection_id` (`UUID!`): dbt Cloud webhook connection id
     """
 
     snooze_dbt_node = sgqlc.types.Field(
@@ -79792,6 +79856,7 @@ class Query(sgqlc.types.Type):
         "get_golden_test_runs",
         "get_reinforcement_loop_issues",
         "get_reinforcement_loop_reports",
+        "get_reinforcement_loop_agent",
         "get_reinforcement_loop_selectors",
         "get_reinforcement_loop_diagnosis_triggers",
         "get_reinforcement_loop_v2_issues",
@@ -79886,6 +79951,7 @@ class Query(sgqlc.types.Type):
         "get_billing_contract_invoices",
         "get_account_entitlements",
         "get_billing_monitor_usage",
+        "get_tsa_investigations",
         "get_field_metrics_info",
         "get_field_metric_data",
         "get_field_overview_properties",
@@ -81370,6 +81436,37 @@ class Query(sgqlc.types.Type):
       narrows to that workflow, its absence returns every workflow.
       NO_WORKFLOW narrows to the report whose workflow is null and
       must be sent without a workflowName; NAMED requires one.
+    """
+
+    get_reinforcement_loop_agent = sgqlc.types.Field(
+        sgqlc.types.non_null("ReinforcementLoopAgent"),
+        graphql_name="getReinforcementLoopAgent",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The reinforcement loop's state for one agent:
+    whether the user paused it, and whether the loop can't diagnose it
+    and why. An agent with no saved settings reports the defaults.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Observability agent name.
+    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
+      — same value passed as `traceTableMcon` on getAgentGraph.
     """
 
     get_reinforcement_loop_selectors = sgqlc.types.Field(
@@ -84427,6 +84524,35 @@ class Query(sgqlc.types.Type):
 
     * `start_on` (`DateTime!`): Start date, inclusive.
     * `end_before` (`DateTime!`): End date, not inclusive.
+    """
+
+    get_tsa_investigations = sgqlc.types.Field(
+        "TsaInvestigationResults",
+        graphql_name="getTsaInvestigations",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "start_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startOn", default=None
+                    ),
+                ),
+                (
+                    "end_before",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endBefore", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get billed Troubleshooting Agent investigations and
+    the credits each one charged.
+
+    Arguments:
+
+    * `start_on` (`DateTime!`): Start time, inclusive.
+    * `end_before` (`DateTime!`): End time, not inclusive.
     """
 
     get_field_metrics_info = sgqlc.types.Field(
@@ -106338,6 +106464,70 @@ class RegisterGitlabApp(sgqlc.types.Type):
     """GitLab URL to request authorization code"""
 
 
+class ReinforcementLoopAgent(sgqlc.types.Type):
+    """The reinforcement loop's state for one agent. An agent with no
+    saved settings reports the defaults: not paused, no error.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "is_paused",
+        "error_state",
+        "is_running",
+        "last_checked_at",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+
+    is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
+    """The user's switch. While paused, the loop diagnoses nothing for
+    any Issue space of the agent; unpausing resumes from where it
+    stopped.
+    """
+
+    error_state = sgqlc.types.Field("ReinforcementLoopAgentErrorState", graphql_name="errorState")
+    """Why the loop can't diagnose the agent; null when nothing is wrong.
+    The loop clears it at its next check once the problem is fixed.
+    """
+
+    is_running = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRunning")
+    """True when the agent is not paused and has no error."""
+
+    last_checked_at = sgqlc.types.Field(DateTime, graphql_name="lastCheckedAt")
+    """When the loop last checked it can read the agent's resources; null
+    for agents it hasn't checked or whose platform has no check.
+    """
+
+
+class ReinforcementLoopAgentErrorState(sgqlc.types.Type):
+    """Why the reinforcement loop can't diagnose an agent."""
+
+    __schema__ = schema
+    __field_names__ = ("kind", "resources", "message", "since")
+    kind = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopAgentErrorKind), graphql_name="kind"
+    )
+
+    resources = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopAgentResourceKind))
+        ),
+        graphql_name="resources",
+    )
+    """The kinds of resource the loop couldn't read."""
+
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
+    """A sentence for the user."""
+
+    since = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="since")
+    """When the problem was first seen."""
+
+
 class ReinforcementLoopAvailableCluster(sgqlc.types.Type):
     """An Issue cluster the reinforcement loop can be pointed at."""
 
@@ -106750,7 +106940,7 @@ class ReinforcementLoopSelector(sgqlc.types.Type):
     """
 
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
-    """Whether the loop runs for this agent at all."""
+    """Whether the loop runs for this Issue space."""
 
     eval_score_threshold = sgqlc.types.Field(
         sgqlc.types.non_null(Float), graphql_name="evalScoreThreshold"
@@ -109338,24 +109528,15 @@ class SetDataLakeCatalogMappings(sgqlc.types.Type):
     """Whether the mutation succeeded."""
 
 
-class SetDbtCloudEnvironmentFilter(sgqlc.types.Type):
-    """Set the dbt environment allow-list on a dbt Cloud webhook
-    connection. When the list is non-empty, webhook events from other
-    environments are dropped. An empty or omitted list clears it.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("connection",)
-    connection = sgqlc.types.Field(Connection, graphql_name="connection")
-
-
 class SetDbtCloudEventFilter(sgqlc.types.Type):
     """Configure dbt Cloud webhook event filtering on a connection. When
     filterDbtCloudEvents is true, runs that don't belong to this
     connection's warehouse are dropped. Provide
     allowedDbtCloudConnections (dbt connection ids/names) to drop by
     an explicit allow-list instead of automatic warehouse matching —
-    only valid when filterDbtCloudEvents is true.
+    only valid when filterDbtCloudEvents is true. Provide
+    allowedDbtCloudEnvironments to set the dbt environment allow-list.
+    Both filters are saved together.
     """
 
     __schema__ = schema
@@ -115549,6 +115730,55 @@ class TsaAnalysisResultType(sgqlc.types.Type):
     """
 
 
+class TsaInvestigation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "created_time",
+        "alert_id",
+        "triggered_by",
+        "billing_status",
+        "units",
+        "credits",
+    )
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the investigation completed and was billed"""
+
+    alert_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="alertId")
+    """The investigated alert"""
+
+    triggered_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="triggeredBy")
+    """Email of the user who started the investigation, or 'Agent on
+    <domain>' for agents
+    """
+
+    billing_status = sgqlc.types.Field(
+        sgqlc.types.non_null(TsaInvestigationBillingStatus), graphql_name="billingStatus"
+    )
+    """FREE: within the monthly free investigations. NEW_BATCH: opened a
+    new batch of paid investigations and was charged for it.
+    INCLUDED_IN_BATCH: covered by a batch already charged this month.
+    """
+
+    units = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="units")
+    """Units charged for this investigation. CBP v1 accounts are billed
+    on these.
+    """
+
+    credits = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="credits")
+    """Credits charged for this investigation. CBP v2 accounts are billed
+    on these.
+    """
+
+
+class TsaInvestigationResults(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("investigations",)
+    investigations = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TsaInvestigation)), graphql_name="investigations"
+    )
+    """Billed investigations, oldest first."""
+
+
 class TuneTableMonitorAssetRuleThreshold(sgqlc.types.Type):
     """Tune ONLY the breach boundary of a table monitor's per-asset OOTB
     replacement rule.  Changes a single asset/metric detector's auto
@@ -116617,6 +116847,13 @@ class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateReinforcementLoopAgent(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("agent",)
+    agent = sgqlc.types.Field(sgqlc.types.non_null(ReinforcementLoopAgent), graphql_name="agent")
+    """The agent after the update."""
 
 
 class UpdateReinforcementLoopSelector(sgqlc.types.Type):

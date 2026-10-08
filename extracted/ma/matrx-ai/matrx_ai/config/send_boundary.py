@@ -243,6 +243,23 @@ async def prepare_for_send(
 # --------------------------------------------------------------------------- #
 
 
+def config_with_messages(config: Any, messages: list[Any]) -> Any:
+    """A shallow copy of ``config`` carrying ``messages`` — for RECORDS, never the wire.
+
+    Run history persists a turn the model never saw as a request (a local-model
+    turn, a mirrored coding session). The config it files must carry the full
+    transcript; building that copy is a message-list replacement, so it lives here,
+    in the one module the guard allows to do it.
+    """
+    from copy import copy
+
+    from matrx_ai.config.message_config import MessageList
+
+    clone = copy(config)
+    clone.messages = MessageList(_messages=list(messages))
+    return clone
+
+
 def _preflight(config: Any, *, stage: str, conversation_id: str | None) -> dict[str, Any] | None:
     """Measure the prompt against the resolved model's context window.
 

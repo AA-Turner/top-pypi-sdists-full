@@ -180,6 +180,160 @@ class MongodbWrite(ExternalTransform):
         expansion_service=expansion_service)
 
 
+class KinesisRead(ExternalTransform):
+  """
+  Reads records from an Amazon Kinesis stream and outputs Beam Rows with `data`
+  (bytes) plus stream metadata fields.
+  """
+  identifier = "beam:schematransform:org.apache.beam:kinesis_read:v1"
+
+  def __init__(
+      self,
+      aws_access_key,
+      aws_secret_key,
+      region,
+      stream_name,
+      initial_position_in_stream=None,
+      initial_timestamp_in_stream=None,
+      max_capacity_per_shard=None,
+      max_num_records=None,
+      max_read_time=None,
+      rate_limit=None,
+      request_records_limit=None,
+      service_endpoint=None,
+      up_to_date_threshold=None,
+      verify_certificate=None,
+      watermark_idle_duration_threshold=None,
+      watermark_policy=None,
+      expansion_service=None):
+    """
+    :param aws_access_key: (str)
+      AWS access key id. 
+    :param aws_secret_key: (str)
+      AWS secret access key. 
+    :param region: (str)
+      AWS region, for example us-east-1. 
+    :param stream_name: (str)
+      Kinesis stream name to read from. 
+    :param initial_position_in_stream: (str)
+      Where to start reading in the stream: LATEST, TRIM_HORIZON, or
+      AT_TIMESTAMP. 
+    :param initial_timestamp_in_stream: (int64)
+      Epoch millis timestamp used when initial_position_in_stream is
+      AT_TIMESTAMP. 
+    :param max_capacity_per_shard: (int64)
+      Maximum number of records to hold in memory per shard. 
+    :param max_num_records: (int64)
+      Maximum number of records to read. When set, the resulting PCollection
+      is bounded. 
+    :param max_read_time: (int64)
+      Maximum read time in milliseconds. When set, the resulting PCollection
+      is bounded. 
+    :param rate_limit: (int64)
+      Fixed delay between GetRecords calls in milliseconds. 
+    :param request_records_limit: (int64)
+      Max records returned by a single GetRecords call (1-10000). 
+    :param service_endpoint: (str)
+      Optional custom Kinesis service endpoint URI. 
+    :param up_to_date_threshold: (int64)
+      Threshold duration in milliseconds after which a shard is considered up
+      to date. 
+    :param verify_certificate: (boolean)
+      Whether to verify TLS certificates. Defaults to true. Never disable in
+      production. 
+    :param watermark_idle_duration_threshold: (int64)
+      Idle duration threshold in milliseconds for ARRIVAL_TIME watermark
+      policy. 
+    :param watermark_policy: (str)
+      Watermark policy: ARRIVAL_TIME or PROCESSING_TIME. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:expansion-service:shadowJar")
+    super().__init__(
+        aws_access_key=aws_access_key,
+        aws_secret_key=aws_secret_key,
+        region=region,
+        stream_name=stream_name,
+        initial_position_in_stream=initial_position_in_stream,
+        initial_timestamp_in_stream=initial_timestamp_in_stream,
+        max_capacity_per_shard=max_capacity_per_shard,
+        max_num_records=max_num_records,
+        max_read_time=max_read_time,
+        rate_limit=rate_limit,
+        request_records_limit=request_records_limit,
+        service_endpoint=service_endpoint,
+        up_to_date_threshold=up_to_date_threshold,
+        verify_certificate=verify_certificate,
+        watermark_idle_duration_threshold=watermark_idle_duration_threshold,
+        watermark_policy=watermark_policy,
+        expansion_service=expansion_service)
+
+
+class KinesisWrite(ExternalTransform):
+  """
+  Writes Beam Rows to an Amazon Kinesis stream. Each input row must include a
+  `data` (bytes) field, or a `payload` string/bytes field. Optional per-row
+  `partition_key` overrides the configured default partition key.
+  """
+  identifier = "beam:schematransform:org.apache.beam:kinesis_write:v1"
+
+  def __init__(
+      self,
+      aws_access_key,
+      aws_secret_key,
+      partition_key,
+      region,
+      stream_name,
+      aggregation_enabled=None,
+      aggregation_max_buffered_time=None,
+      aggregation_max_bytes=None,
+      aggregation_shard_refresh_interval=None,
+      service_endpoint=None,
+      verify_certificate=None,
+      expansion_service=None):
+    """
+    :param aws_access_key: (str)
+      AWS access key id. 
+    :param aws_secret_key: (str)
+      AWS secret access key. 
+    :param partition_key: (str)
+      Default partition key used when the input row does not contain a
+      partition_key field. 
+    :param region: (str)
+      AWS region, for example us-east-1. 
+    :param stream_name: (str)
+      Kinesis stream name to write to. 
+    :param aggregation_enabled: (boolean)
+      Enable KPL-compatible record aggregation. 
+    :param aggregation_max_buffered_time: (int64)
+      Max time in milliseconds to buffer records when aggregation is enabled. 
+    :param aggregation_max_bytes: (int64)
+      Max aggregated record size in bytes when aggregation is enabled. 
+    :param aggregation_shard_refresh_interval: (int64)
+      Shard map refresh interval in minutes when aggregation is enabled. 
+    :param service_endpoint: (str)
+      Optional custom Kinesis service endpoint URI. 
+    :param verify_certificate: (boolean)
+      Whether to verify TLS certificates. Defaults to true. Never disable in
+      production. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:expansion-service:shadowJar")
+    super().__init__(
+        aws_access_key=aws_access_key,
+        aws_secret_key=aws_secret_key,
+        partition_key=partition_key,
+        region=region,
+        stream_name=stream_name,
+        aggregation_enabled=aggregation_enabled,
+        aggregation_max_buffered_time=aggregation_max_buffered_time,
+        aggregation_max_bytes=aggregation_max_bytes,
+        aggregation_shard_refresh_interval=aggregation_shard_refresh_interval,
+        service_endpoint=service_endpoint,
+        verify_certificate=verify_certificate,
+        expansion_service=expansion_service)
+
+
 class TfrecordRead(ExternalTransform):
 
   identifier = "beam:schematransform:org.apache.beam:tfrecord_read:v1"

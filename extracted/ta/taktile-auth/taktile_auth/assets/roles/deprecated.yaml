@@ -1,0 +1,41 @@
+# Deprecated or unused roles, kept so existing tokens and DB rows still resolve.
+taktile_admin: # DEPRECATED but still used in some places (most tests)
+    - org_admin/*
+    - d_admin/*
+    - d_owner/*
+    - r:internal_resources/*
+    - r+w+d:access_request/*
+d_admin/org_id:
+    # DEPRECATED
+    - d_editor/org_id
+    # For compatibility
+    - d_member/org_id
+    - ws_admin/org_id,*
+    - w+d:flow_service/org_id
+    - w+d:connect_provider/org_id
+    - r+w+d:connect_resource/org_id
+    - w:organization/org_id
+d_editor/org_id:
+    # DEPRECATED
+    # For compatibility
+    - d_member/org_id
+    - ws_editor/org_id,*
+    - r+w+d:flow/org_id
+    - r:flow_service/org_id
+    - r:flow_endpoint/org_id
+    - r:connect_provider/org_id
+    - r:connect_resource/org_id
+d_api_key/org_id:
+    # DEPRECATED
+    - d_member/org_id
+    # For compatibility
+    - api_key_sandbox/org_id,*
+    - api_key_production/org_id,*
+    - r:flow/org_id
+    - r+w:flow_endpoint/org_id
+    - r:connect_provider/org_id
+    - r+w:connect_resource/org_id
+
+# unused
+case_dashboard_member/org_id,ws_id,dashboard_id:
+    - r+w:workspace_case_dashboard/org_id,ws_id,dashboard_id

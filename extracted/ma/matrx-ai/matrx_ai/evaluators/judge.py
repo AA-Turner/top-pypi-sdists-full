@@ -67,7 +67,6 @@ Anti-patterns
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -313,49 +312,18 @@ def _verdict_model(contract: JudgeContract) -> type[JudgeAssessment]:
     return _Contracted
 
 
-def _user_message(
-    contract: JudgeContract,
-    subject: JudgeSubject,
-    reference: JudgeSubject | None,
-    context: dict[str, Any] | None,
-) -> str:
-    parts = [f"## The question\n{contract.question}"]
-    if contract.rubric:
-        parts.append(f"## Rubric — {contract.rubric_name}\n{contract.rubric}")
-    if reference is not None:
-        parts.append(
-            f"## Reference ({reference.label or 'reference'})\n```\n"
-            f"{_format_output(reference.content)}\n```"
-        )
-        if reference.metrics:
-            parts.append(
-                "### Reference measured metrics\n```json\n"
-                f"{json.dumps(reference.metrics, indent=2, default=str)}\n```"
-            )
-    parts.append(
-        f"## Subject ({subject.label or 'subject'})\n```\n{_format_output(subject.content)}\n```"
-    )
-    if subject.metrics:
-        parts.append(
-            "### Subject measured metrics\n```json\n"
-            f"{json.dumps(subject.metrics, indent=2, default=str)}\n```"
-        )
-    if context:
-        parts.append(f"## Context\n```json\n{json.dumps(context, indent=2, default=str)}\n```")
-    parts.append("Return your verdict in the required structured shape.")
-    return "\n\n".join(parts)
-
-
 def _judge_offer(
     contract: JudgeContract,
     subject: JudgeSubject,
     reference: JudgeSubject | None,
     context: dict[str, Any] | None,
-    composed: str,
 ) -> dict[str, Any]:
-    """The judge's inputs value by value (absent ones omitted)."""
+    """The judge's inputs value by value (absent ones omitted).
+
+    The Holder AUTHORS the user turn around these names (2026-10-07); the code
+    never composes it. Dicts ride raw — the prompt door canonicalizes them.
+    """
     offer: dict[str, Any] = {
-        "composed_message": composed,
         "judge_key": str(contract.key),
         "judge_version": str(contract.version),
         "judge_mode": str(contract.mode),
@@ -367,11 +335,14 @@ def _judge_offer(
         "rubric_name": contract.rubric_name if contract.rubric else None,
         "rubric_text": contract.rubric or None,
         "subject_label": subject.label or None,
+        "subject_metrics": dict(subject.metrics) if subject.metrics else None,
+        "case_context": dict(context) if context else None,
     }
     if reference is not None:
         optional.update(
             reference_label=reference.label or None,
             reference_content=_format_output(reference.content),
+            reference_metrics=dict(reference.metrics) if reference.metrics else None,
         )
     offer.update({k: v for k, v in optional.items() if v})
     return offer
@@ -515,7 +486,6 @@ class Judge:
         mandate_key = (
             COMPARATIVE_JUDGE_MANDATE if contract.mode == "comparative" else RUBRIC_JUDGE_MANDATE
         )
-        user_message = _user_message(contract, subject, reference, context)
         try:
             held = await hold_code_call(
                 mandate_key,
@@ -526,9 +496,7 @@ class Judge:
                 variables={
                     "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
                     **({} if contract.web_access else {"web_clause": ""}),
-                    # Offered for mapping only (pass_by_name=False in the host's
-                    # provision): the current default-pin Holder never gets these.
-                    **_judge_offer(contract, subject, reference, context, user_message),
+                    **_judge_offer(contract, subject, reference, context),
                 },
                 metadata={
                     "source_app": "matrx-ai",
@@ -537,6 +505,8 @@ class Judge:
                     "judge_version": contract.version,
                 },
             )
+            # The Holder authors the user turn; the site only offers values.
+            user = held.authored_user()
         except MandateResolutionUnavailable as exc:
             raise JudgeError(f"judge {contract.key!r}: {exc}") from exc
         model = held.pick_model(contract.model)
@@ -544,7 +514,7 @@ class Judge:
         try:
             verdict = await run_held_pydantic(
                 held,
-                user=user_message,
+                user=user,
                 output_cls=_verdict_model(contract),
                 model=contract.model,
                 max_tokens=contract.max_tokens,

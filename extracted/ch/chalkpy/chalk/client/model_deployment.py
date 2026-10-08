@@ -24,6 +24,7 @@ from chalk.client._model_remote import (
 )
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
+    ComputeClass,
     GrpcReadinessProbe,
     GrpcStartupProbe,
     ScalingGroupResourceRequest,
@@ -33,6 +34,7 @@ from chalk.scalinggroup.spec import (
 from chalk.utils.collections import FrozenOrderedSet
 
 if TYPE_CHECKING:
+    from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
     from chalk.client.client_grpc import ChalkGRPCClient
 
 DEPLOY_MODEL_VERSION_DEPRECATION = (
@@ -119,6 +121,9 @@ class ModelDeploymentSpec:
         Requires Redis Streams and uses the queue's fixed reclaim delay.
     queue_policy
         Pending-item capacity and asynchronous result retention.
+    compute_class
+        Where to run the model container. ``HOST`` requires fixed replicas without
+        autoscaling triggers; the default is the Kubernetes pod-based class.
     """
 
     model_version: int
@@ -132,6 +137,7 @@ class ModelDeploymentSpec:
     chalk_workload_identity: bool = False
     retries: Optional[int] = None
     queue_policy: Optional[QueuePolicy] = None
+    compute_class: Optional[ComputeClass] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -164,6 +170,8 @@ class ModelDeployment:
     available_replicas: int
     model_id: Optional[str] = None
     """The owning registry model's stable ID, when returned by the API."""
+    compute_class: Optional[ComputeClass] = None
+    """The selected revision's execution environment, or ``None`` when unspecified."""
 
     _client: Any = dataclasses.field(default=None, repr=False, compare=False)
 
@@ -455,6 +463,24 @@ def _resources_from_proto(container_spec: Any) -> Optional[ScalingGroupResourceR
     )
 
 
+def _compute_class_from_proto(container_spec: Any) -> Optional[ComputeClass]:
+    if not container_spec.HasField("compute_class"):
+        return None
+    from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
+
+    try:
+        name = container_pb.ComputeClass.Name(container_spec.compute_class)
+    except ValueError:
+        return None
+    prefix = "COMPUTE_CLASS_"
+    if not name.startswith(prefix):
+        return None
+    try:
+        return ComputeClass(name[len(prefix) :])
+    except ValueError:
+        return None
+
+
 def _model_name_by_id(
     client: Any, model_id: Optional[str], recorded_name: str, names: Optional[dict[str, str]] = None
 ) -> str:
@@ -519,6 +545,7 @@ def model_deployment_from_proto(
         status_message=_optional_str(source, "status_message"),
         scaling=auto_scaling_spec_from_proto(spec.scaling_spec),
         resources=_resources_from_proto(spec.container_spec),
+        compute_class=_compute_class_from_proto(spec.container_spec),
         created_at=_timestamp(record if record is not None else pb, "created_at"),
         updated_at=_timestamp(source, "updated_at"),
         deleted_at=_timestamp(source, "deleted_at"),
@@ -602,6 +629,15 @@ def resources_to_proto(resources: ScalingGroupResourceRequest) -> Any:
     return container_pb.ResourceLimits(cpu=resources.cpu, memory=resources.memory, gpu=resources.gpu)
 
 
+def compute_class_to_proto(compute_class: ComputeClass) -> container_pb.ComputeClass:
+    from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
+
+    return {
+        ComputeClass.K8S: container_pb.COMPUTE_CLASS_K8S,
+        ComputeClass.HOST: container_pb.COMPUTE_CLASS_HOST,
+    }[compute_class]
+
+
 def readiness_probe_to_proto(probe: GrpcReadinessProbe) -> Any:
     from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
 
@@ -657,6 +693,7 @@ def merge_model_spec(
     secret_refs: Optional[Sequence[Any]] = None,
     readiness_probe: Optional[GrpcReadinessProbe] = None,
     startup_probe: Optional[GrpcStartupProbe] = None,
+    compute_class: Optional[ComputeClass] = None,
 ) -> Any:
     """Return a copy of a ``ModelScalingGroupSpec`` with the given fields replaced.
 
@@ -720,6 +757,8 @@ def merge_model_spec(
         container.readiness_probe.CopyFrom(readiness_probe_to_proto(readiness_probe))
     if startup_probe is not None:
         container.startup_probe.CopyFrom(startup_probe_to_proto(startup_probe))
+    if compute_class is not None:
+        container.compute_class = compute_class_to_proto(compute_class)
     return spec
 
 

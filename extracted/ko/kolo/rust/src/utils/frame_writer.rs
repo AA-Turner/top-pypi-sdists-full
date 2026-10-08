@@ -1,12 +1,12 @@
-use pyo3::exceptions::{PyAttributeError, PyOSError};
-use pyo3::intern;
+use pyo3::exceptions::PyAttributeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyFrame, PyString, PyStringMethods};
+use pyo3::{ffi, intern};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::frame_path::FramePathCache;
+use super::frame_path::{frame_line_number, FramePathCache};
 use super::frame_store::STRING_KEY;
-use super::frame_types::{get_qualname, get_qualname_module, timestamp, Arg, Event};
+use super::frame_types::{get_qualname, get_qualname_module, timestamp, Arg, Event, FrameId};
 use super::msgpack_encoding::{
     write_f64_pair, write_frame_path_pair, write_frame_qualname_pair, write_str_pair,
     write_user_code_call_site,
@@ -26,7 +26,6 @@ pub fn write_frame_with_serializer(
     frame_id: &str,
     lightweight_repr: bool,
     omit_return_locals: bool,
-    native_root: bool,
     value_interning: Option<ValueInterningContext<'_>>,
 ) -> Result<(), PyErr> {
     write_frame_with_serializer_inner(
@@ -41,7 +40,6 @@ pub fn write_frame_with_serializer(
         frame_id,
         lightweight_repr,
         omit_return_locals,
-        native_root,
         None,
         value_interning,
     )
@@ -60,7 +58,6 @@ pub fn write_frame_with_cached_code_metadata(
     frame_id: &str,
     lightweight_repr: bool,
     omit_return_locals: bool,
-    native_root: bool,
     cached_code_metadata: (&str, Option<&str>, Option<&AtomicBool>),
     value_interning: Option<ValueInterningContext<'_>>,
 ) -> Result<(), PyErr> {
@@ -76,7 +73,6 @@ pub fn write_frame_with_cached_code_metadata(
         frame_id,
         lightweight_repr,
         omit_return_locals,
-        native_root,
         Some(cached_code_metadata),
         value_interning,
     )
@@ -95,7 +91,6 @@ fn write_frame_with_serializer_inner(
     frame_id: &str,
     lightweight_repr: bool,
     omit_return_locals: bool,
-    native_root: bool,
     cached_code_metadata: Option<(&str, Option<&str>, Option<&AtomicBool>)>,
     value_interning: Option<ValueInterningContext<'_>>,
 ) -> Result<(), PyErr> {
@@ -109,206 +104,125 @@ fn write_frame_with_serializer_inner(
 
     // Keep the established error propagation for the five fallible PyFrame
     // reads below. Their failure arms are not injectable on an exact CPython
-    // frame, while the observable path, qualname, fallback, and rollback
-    // branches are covered directly.
-    let (
-        path,
-        cached_path,
-        mut qualname,
-        cached_qualname,
-        code_id,
-        native_eligible,
-        cached_native_eligibility,
-    ) = match cached_code_metadata {
-        Some((relative_path, co_qualname, native_eligibility)) => {
-            let lineno = pyframe
-                .getattr(intern!(py, "f_lineno"))
-                .and_then(|lineno| lineno.extract::<usize>())?;
-            let (qualname, cached_qualname) = match co_qualname {
-                Some(co_qualname) => (None, Some((get_qualname_module(pyframe, py)?, co_qualname))),
-                None => (get_qualname(pyframe, py)?, None),
-            };
-            (
-                None,
-                Some((relative_path, lineno)),
-                qualname,
-                cached_qualname,
-                None,
-                native_eligibility
-                    .map(|eligible| eligible.load(Ordering::Relaxed))
-                    .unwrap_or(false),
-                native_eligibility,
-            )
-        }
-        None => {
-            let (path, code_id, native_eligible) =
-                frame_paths.frame_path_and_native_eligibility(pyframe)?;
-            (
-                Some(path),
-                None,
-                get_qualname(pyframe, py)?,
-                None,
-                Some(code_id),
-                native_eligible,
-                None,
-            )
-        }
-    };
+    // frame, while the observable path, qualname, and rollback branches are
+    // covered directly.
+    let (path, cached_path, mut qualname, cached_qualname, code_id, native_eligibility) =
+        match cached_code_metadata {
+            Some((relative_path, co_qualname, native_eligibility)) => {
+                let lineno = frame_line_number(pyframe)?;
+                let (qualname, cached_qualname) = match co_qualname {
+                    Some(co_qualname) => {
+                        (None, Some((get_qualname_module(pyframe, py)?, co_qualname)))
+                    }
+                    None => (get_qualname(pyframe, py)?, None),
+                };
+                (
+                    None,
+                    Some((relative_path, lineno)),
+                    qualname,
+                    cached_qualname,
+                    None,
+                    native_eligibility.map(|eligible| (eligible.load(Ordering::Relaxed), eligible)),
+                )
+            }
+            None => {
+                let (path, code_id, native_eligible) =
+                    frame_paths.frame_path_and_native_eligibility(pyframe)?;
+                (
+                    Some(path),
+                    None,
+                    get_qualname(pyframe, py)?,
+                    None,
+                    native_eligible.then_some(code_id),
+                    None,
+                )
+            }
+        };
     let locals = get_locals(pyframe, event, omit_return_locals)?;
 
-    if native_root && !lightweight_repr && native_eligible {
-        let native_start = buf.len();
-        let mut encoder = match value_interning {
-            Some(context) => NativeMsgpackEncoder::with_value_interning(context),
-            _ => NativeMsgpackEncoder::new(),
-        };
+    let frame_start = buf.len();
+    let mut encoder =
+        NativeMsgpackEncoder::with_value_interning(serializer, lightweight_repr, value_interning);
 
-        rmp::encode::write_map_len(buf, 10).expect("Writing to memory, not I/O");
-        match cached_path {
-            Some((relative_path, lineno)) => write_frame_path_pair(buf, relative_path, lineno),
-            None => write_str_pair(buf, "path", path.as_deref()),
-        }
-        write_str_pair(buf, "co_name", Some(name));
-        let wrote_cached_qualname = cached_qualname
-            .as_ref()
-            .and_then(|(module, co_qualname)| {
-                module
-                    .cast_exact::<PyString>()
-                    .ok()
-                    .and_then(|module| module.to_str().ok())
-                    .map(|module| write_frame_qualname_pair(buf, module, co_qualname))
-            })
-            .is_some();
-        if !wrote_cached_qualname {
-            qualname = qualname.or_else(|| {
-                cached_qualname
-                    .as_ref()
-                    .map(|(module, co_qualname)| format!("{module}.{co_qualname}"))
-            });
-            write_str_pair(buf, "qualname", qualname.as_deref());
-        }
-        write_str_pair(buf, "event", Some(event.into()));
-        write_str_pair(buf, "frame_id", Some(frame_id));
-        rmp::encode::write_str(buf, arg_key).expect("Writing to memory, not I/O");
+    rmp::encode::write_map_len(buf, 10).expect("Writing to memory, not I/O");
+    match cached_path {
+        Some((relative_path, lineno)) => write_frame_path_pair(buf, relative_path, lineno),
+        None => write_str_pair(buf, "path", path.as_deref()),
+    }
+    write_str_pair(buf, "co_name", Some(name));
+    let wrote_cached_qualname = cached_qualname
+        .as_ref()
+        .and_then(|(module, co_qualname)| {
+            module
+                .cast_exact::<PyString>()
+                .ok()
+                .and_then(|module| module.to_str().ok())
+                .map(|module| write_frame_qualname_pair(buf, module, co_qualname))
+        })
+        .is_some();
+    if !wrote_cached_qualname {
+        qualname = qualname.or_else(|| {
+            cached_qualname
+                .as_ref()
+                .map(|(module, co_qualname)| format!("{module}.{co_qualname}"))
+        });
+        write_str_pair(buf, "qualname", qualname.as_deref());
+    }
+    write_str_pair(buf, "event", Some(event.into()));
+    write_str_pair(buf, "frame_id", Some(frame_id));
+    rmp::encode::write_str(buf, arg_key).expect("Writing to memory, not I/O");
+    if let Err(error) = encoder.encode(arg, buf) {
+        buf.truncate(frame_start);
+        return Err(error.into_pyerr());
+    }
+    rmp::encode::write_str(buf, "locals").expect("Writing to memory, not I/O");
+    if let Err(error) = encoder.encode(&locals, buf) {
+        buf.truncate(frame_start);
+        return Err(error.into_pyerr());
+    }
+    write_f64_pair(buf, "timestamp", timestamp());
+    write_str_pair(buf, "type", Some("frame"));
+    write_user_code_call_site(buf, user_code_call_site.as_ref());
 
-        let arg_complete = encoder.write(arg, buf, 0);
-        if let Some(error) = encoder.writer_circuit_error.take() {
-            buf.truncate(native_start);
-            return Err(PyOSError::new_err(error));
-        }
-        if arg_complete {
-            rmp::encode::write_str(buf, "locals").expect("Writing to memory, not I/O");
-            let locals_complete = encoder.write(&locals, buf, 0);
-            if let Some(error) = encoder.writer_circuit_error.take() {
-                buf.truncate(native_start);
-                return Err(PyOSError::new_err(error));
-            }
-            if locals_complete {
-                write_f64_pair(buf, "timestamp", timestamp());
-                write_str_pair(buf, "type", Some("frame"));
-                write_user_code_call_site(buf, user_code_call_site.as_ref());
-                return Ok(());
-            }
-        }
-
-        // The native probe writes directly into the destination arena. Roll
-        // back the incomplete root before the established all-Python fallback
-        // so callers still observe an atomic frame append.
-        buf.truncate(native_start);
-
-        if let Some(native_eligibility) = cached_native_eligibility {
+    if encoder.used_default_hook() {
+        // Diagnostics only: remember code whose values needed the msgpack
+        // default hook (formerly routed to the Python serializer).
+        if let Some((true, native_eligibility)) = native_eligibility {
             // The diagnostic cache getter pairs this one-time transition with
             // Acquire. The ordinary hot-path eligibility probe remains Relaxed.
             native_eligibility.store(false, Ordering::Release);
         } else if let Some(code_id) = code_id {
             frame_paths.mark_native_msgpack_unsupported(py, code_id);
         }
-
-        // Atomic fallback: pass the complete frame map to the existing Python
-        // serializer after discarding the incomplete native root above.
-        let path = path.unwrap_or_else(|| {
-            let (relative_path, lineno) = cached_path.expect("cached frame path exists");
-            format!("{relative_path}:{lineno}")
-        });
-        qualname = qualname.or_else(|| {
-            cached_qualname
-                .as_ref()
-                .map(|(module, co_qualname)| format!("{module}.{co_qualname}"))
-        });
-        let frame_data = PyDict::new(py);
-        frame_data.set_item("path", &path)?;
-        frame_data.set_item("co_name", name)?;
-        frame_data.set_item("qualname", qualname.as_deref())?;
-        frame_data.set_item("event", <Event as Into<&str>>::into(event))?;
-        frame_data.set_item("frame_id", frame_id)?;
-        frame_data.set_item(arg_key, arg)?;
-        frame_data.set_item("locals", &locals)?;
-        frame_data.set_item("timestamp", timestamp())?;
-        frame_data.set_item("type", "frame")?;
-        frame_data.set_item(
-            "user_code_call_site",
-            user_code_call_site
-                .as_ref()
-                .map(|call_site| call_site.into_pydict(py)),
-        )?;
-        return serializer.dump_msgpack_into(py, frame_data.as_any(), false, buf);
     }
-
-    // A code object already known to be ineligible skips native encoding and
-    // uses the established Python serializer path. The event that discovered
-    // unsupported data still took the atomic whole-root fallback above.
-    // Serialize frame data as msgpack.
-    let path = path.unwrap_or_else(|| {
-        let (relative_path, lineno) = cached_path.expect("cached frame path exists");
-        format!("{relative_path}:{lineno}")
-    });
-    qualname = qualname.or_else(|| {
-        cached_qualname
-            .as_ref()
-            .map(|(module, co_qualname)| format!("{module}.{co_qualname}"))
-    });
-    let arg = serializer.dump_msgpack_bytes(py, arg, lightweight_repr)?;
-    let locals = serializer.dump_msgpack_bytes(py, &locals, lightweight_repr)?;
-
-    // Reserve once for the already-known payloads and string fields. The fixed
-    // allowance covers the ten map keys, msgpack headers, timestamp, type, and
-    // an ordinary user-code call site. This avoids repeatedly growing every
-    // per-event frame buffer without retaining a blanket 1 KiB allocation for
-    // small frames.
-    buf.reserve(
-        arg.as_bytes().len()
-            + locals.as_bytes().len()
-            + path.len()
-            + name.len()
-            + qualname.as_deref().map_or(0, str::len)
-            + frame_id.len()
-            + 192,
-    );
-
-    // The map length must match the number of key, value pairs written next exactly.
-    rmp::encode::write_map_len(buf, 10).expect("Writing to memory, not I/O");
-
-    write_str_pair(buf, "path", Some(&path));
-    write_str_pair(buf, "co_name", Some(name));
-    write_str_pair(buf, "qualname", qualname.as_deref());
-    write_str_pair(buf, "event", Some(event.into()));
-    write_str_pair(buf, "frame_id", Some(frame_id));
-    rmp::encode::write_str(buf, arg_key).expect("Writing to memory, not I/O");
-    buf.extend_from_slice(arg.as_bytes());
-    rmp::encode::write_str(buf, "locals").expect("Writing to memory, not I/O");
-    buf.extend_from_slice(locals.as_bytes());
-    write_f64_pair(buf, "timestamp", timestamp());
-    write_str_pair(buf, "type", Some("frame"));
-    write_user_code_call_site(buf, user_code_call_site.as_ref());
     Ok(())
 }
 
 pub struct UserCodeCallSite {
-    pub call_frame_id: String,
+    pub(super) call_frame_id: FrameId,
     pub line_number: i32,
 }
 
 impl UserCodeCallSite {
+    #[cfg(test)]
+    pub(super) fn into_pydict<'py>(&self, py: Python<'py>) -> Bound<'py, PyDict> {
+        let call_site = PyDict::new(py);
+        call_site
+            .set_item("call_frame_id", self.call_frame_id.as_str())
+            .expect(STRING_KEY);
+        call_site
+            .set_item("line_number", self.line_number)
+            .expect(STRING_KEY);
+        call_site
+    }
+}
+
+pub struct PluginUserCodeCallSite {
+    call_frame_id: String,
+    line_number: i32,
+}
+
+impl PluginUserCodeCallSite {
     pub fn into_pydict<'py>(&self, py: Python<'py>) -> Bound<'py, PyDict> {
         let call_site = PyDict::new(py);
         call_site
@@ -327,7 +241,7 @@ impl UserCodeCallSite {
 pub fn user_code_call_site(
     call_frames: Vec<(Bound<'_, PyAny>, String)>,
     frame_id: &str,
-) -> Result<Option<UserCodeCallSite>, PyErr> {
+) -> Result<Option<PluginUserCodeCallSite>, PyErr> {
     let (call_frame, call_frame_id) = match call_frames
         .iter()
         .rev()
@@ -340,18 +254,32 @@ pub fn user_code_call_site(
         }
     };
 
-    build_user_code_call_site(call_frame, call_frame_id)
+    let pyframe = call_frame.cast::<PyFrame>()?;
+    Ok(Some(PluginUserCodeCallSite {
+        call_frame_id: call_frame_id.clone(),
+        line_number: frame_line_number_i32(pyframe)?,
+    }))
+}
+
+fn frame_line_number_i32(frame: &Bound<'_, PyFrame>) -> Result<i32, PyErr> {
+    let lineno = unsafe { ffi::PyFrame_GetLineNumber(frame.as_ptr().cast()) };
+    if lineno >= 0 {
+        return Ok(lineno);
+    }
+
+    frame
+        .getattr(intern!(frame.py(), "f_lineno"))?
+        .extract::<i32>()
 }
 
 pub(super) fn build_user_code_call_site(
     call_frame: &Bound<'_, PyAny>,
-    call_frame_id: &str,
+    call_frame_id: FrameId,
 ) -> Result<Option<UserCodeCallSite>, PyErr> {
-    let pyframe = call_frame.downcast::<PyFrame>()?;
-    let py = pyframe.py();
+    let pyframe = call_frame.cast::<PyFrame>()?;
     Ok(Some(UserCodeCallSite {
-        call_frame_id: call_frame_id.to_string(),
-        line_number: pyframe.getattr(intern!(py, "f_lineno"))?.extract()?,
+        call_frame_id,
+        line_number: frame_line_number_i32(pyframe)?,
     }))
 }
 
@@ -394,12 +322,12 @@ fn get_locals<'py>(
 
     // In Python 3.13+, f_locals might be a proxy object (FrameLocalsProxy) instead of a dict
     // Try to downcast to PyDict, if that fails, convert to dict
-    let locals = match locals.downcast::<PyDict>() {
+    let locals = match locals.cast::<PyDict>() {
         Ok(dict) => dict.clone(),
         Err(_) => {
             // Convert to dict by calling dict() constructor on the proxy
             let dict_type = py.get_type::<PyDict>();
-            dict_type.call1((&locals,))?.downcast_into::<PyDict>()?
+            dict_type.call1((&locals,))?.cast_into::<PyDict>()?
         }
     };
 

@@ -1563,7 +1563,7 @@ def py_schema_as_nullable(schema: PyStructType) -> PyStructType:
     return relax(schema)
 
 
-def _py_schema_without_null_types(schema: PyStructType) -> PyStructType:
+def py_schema_without_null_types(schema: PyStructType) -> PyStructType:
     """Recursively substitute ``StringType`` for every ``NullType`` in a pyspark schema.
 
     Spark's ``NullType`` (``"void"`` in ``DataType.json()``) has no Snowflake counterpart:
@@ -1612,13 +1612,13 @@ def columns_from_spark_schema(schema: PyStructType) -> list[NssColumn]:
     ``spark_type`` is each field's ``DataType.json()`` — the client's schema as sent (parsed
     by ``map_read.parse_data_source_schema_to_spark``), with no Snowpark round-trip, matching
     the JSON form ``INFER_STAGE_FILE_SCHEMA`` emits. The one substitution is
-    :func:`_py_schema_without_null_types`; ``INFER_STAGE_FILE_SCHEMA`` never returns ``void``
+    :func:`py_schema_without_null_types`; ``INFER_STAGE_FILE_SCHEMA`` never returns ``void``
     (Spark's own JSON/CSV inference canonicalizes an all-null field to ``StringType``), so
     only an explicit schema can carry one.
     """
     return [
         NssColumn(f.name, f.dataType.json(), f.nullable)
-        for f in _py_schema_without_null_types(schema).fields
+        for f in py_schema_without_null_types(schema).fields
     ]
 
 

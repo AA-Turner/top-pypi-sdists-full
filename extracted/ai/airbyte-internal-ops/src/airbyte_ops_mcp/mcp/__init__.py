@@ -11,6 +11,7 @@ Domain is automatically inferred from the file stem where tools are defined:
 - `context_store_ops`: MotherDuck / context-store diagnostics
 - `organization_admin`: is_agentic flag, payment config, customer tiers
 - `github_ops`: CI workflow trigger/status, Docker image info, subscriptions
+- `data_ops`: data warehouse (airbyte-warehouse) on-demand dbt dispatch
 - `human_in_the_loop`: human escalation, team-roster lookup, Slack newsletter posting
 - `devin_ops`: reminders, secret requests, session feedback and naming
 - `prompts`: prompt templates for common workflows

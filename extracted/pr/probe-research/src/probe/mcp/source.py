@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import base64
 import re
 import time
@@ -867,6 +868,23 @@ class ResearchOSSource:
         return self.client.transport.get(
             f"/v1/artifacts/{artifact_id}/sessions", params={"limit": limit}
         )
+
+    def intent(self, kind: str, entity_id: str) -> dict | None:
+        """``GET /v1/intent/{kind}/{id}``: the researcher's ask behind a run,
+        experiment or project, quoted from the session that created it, or None.
+
+        Best effort, never a reason a card fails: a 404 (no ask known), an
+        older server without the route, or any transport error reads as no
+        intent. NOT A PURE READ, as `project_readme` is not: a miss is resolved
+        on the server from the session's trajectory and cached."""
+        try:
+            found = self.client.transport.get(f"/v1/intent/{kind}/{entity_id}")
+        except errors.NotFoundError:
+            return None
+        except Exception as exc:  # noqa: BLE001 -- a card never fails on this field
+            logging.getLogger(__name__).debug("intent read failed: %s", type(exc).__name__)
+            return None
+        return found if isinstance(found, dict) else None
 
     def project_readme(self, project_id: str) -> dict:
         """``GET /v1/projects/{ref}/readme``: the attached repository's README

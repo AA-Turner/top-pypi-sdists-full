@@ -125,6 +125,19 @@ CSS_PROPERTIES: tuple[CSSProperty, ...] = (
     CSSProperty("vertical-align", "text", note="table cells and inline images"),
     CSSProperty("white-space", "text", note="pre, pre-wrap, pre-line, nowrap"),
     CSSProperty(
+        "overflow-wrap",
+        "text",
+        consumer=LOOP,
+        note="break-word/anywhere split a word wider than its line",
+    ),
+    CSSProperty("word-wrap", "text", consumer=LOOP, note="overflow-wrap's old name"),
+    CSSProperty(
+        "word-break",
+        "text",
+        consumer=LOOP,
+        note="break-all breaks anywhere, as -pdf-word-wrap: CJK",
+    ),
+    CSSProperty(
         "text-indent",
         "text",
         frag="firstLineIndent",
@@ -175,7 +188,8 @@ CSS_PROPERTIES: tuple[CSSProperty, ...] = (
         frag="height",
         initial=None,
         applied_by_hand=True,
-        note="images, table cells, flex items and barcodes",
+        note="images, table cells, flex items, barcodes, positioned boxes and"
+        " blocks, where it is the least the content takes",
     ),
     CSSProperty("zoom", "box", note="not CSS; scales images"),
 )
@@ -251,6 +265,24 @@ CSS_PROPERTIES += (
     # ~ pagination ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     CSSProperty("page-break-before", "page", consumer=LOOP, note="emits a flowable"),
     CSSProperty("page-break-after", "page", consumer=LOOP, note="emits a flowable"),
+    CSSProperty("page-break-inside", "page", consumer=LOOP, note="avoid only"),
+    CSSProperty("break-before", "page", consumer=LOOP, note="page-break-before"),
+    CSSProperty("break-after", "page", consumer=LOOP, note="page-break-after"),
+    CSSProperty("break-inside", "page", consumer=LOOP, note="page-break-inside"),
+    # ~ positioning ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Read by hand in pisaLoop; see xhtml2pdf/builders/position.py. The
+    # top/left/... of an @page or @frame rule never come through here:
+    # those rules are read by getFrameDimensions.
+    CSSProperty(
+        "position", "position", consumer=LOOP, note="relative, absolute, fixed"
+    ),
+    CSSProperty("top", "position", consumer=LOOP),
+    CSSProperty("right", "position", consumer=LOOP),
+    CSSProperty("bottom", "position", consumer=LOOP),
+    CSSProperty("left", "position", consumer=LOOP),
+    CSSProperty(
+        "z-index", "position", consumer=LOOP, note="orders absolute and fixed boxes"
+    ),
     # ~ proprietary ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     CSSProperty("-pdf-page-break", "pdf", consumer=LOOP, note="before only"),
     CSSProperty("-pdf-frame-break", "pdf", consumer=LOOP),
@@ -481,9 +513,44 @@ def reset_non_inherited(frag) -> None:
     element's own declarations apply, so a value set on the parent does not
     reach the child unless the child declares it too. getParaFrag calls it
     on the root frag so the attributes exist from the start.
+
+    A frag whose class already holds the initial value (see
+    context._with_defaults) drops its own copy instead of writing another.
     """
+    own = frag.__dict__
+    defaults = type(frag)
     for name, value in NON_INHERITED_FRAG_INITIALS.items():
-        setattr(frag, name, value)
+        if getattr(defaults, name, _NO_DEFAULT) is value:
+            own.pop(name, None)
+        else:
+            setattr(frag, name, value)
+
+
+_NO_DEFAULT = object()
+
+
+#: Values that cannot change once made, so a frag can share its class's copy
+#: of an equal one instead of keeping its own.
+_IMMUTABLE = (str, int, float, bool, type(None))
+
+
+def compact_frag(frag) -> None:
+    """
+    Drop what `frag` holds that its class already holds, the same value.
+
+    CSS2Frag and the tags write a value for much of what they read even when
+    it comes out as the default, so an element's frag would carry a few dozen
+    copies of the class's own values into every clone made from it. Only
+    immutable values go: a list equal today could be appended to tomorrow.
+    """
+    defaults = type(frag)
+    own = frag.__dict__
+    for name, value in list(own.items()):
+        if type(value) in _IMMUTABLE:
+            default = getattr(defaults, name, _NO_DEFAULT)
+            # repr tells 0.0 from -0.0, which compare equal and print apart.
+            if type(default) is type(value) and repr(default) == repr(value):
+                del own[name]
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

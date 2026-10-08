@@ -88,10 +88,12 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from probe._compat import StrEnum
+from probe._shared import telemetry
 from pathlib import Path
 from typing import Callable
 
 from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, tools
+from probe.daemon import alerts
 from probe.daemon import gate as gate_mod
 from probe.daemon.adapters.base import MODE_BYPASS, MODE_UNKNOWN, Adapter
 from probe.daemon.events import Event, Kind
@@ -423,6 +425,8 @@ class Worker:
         self._release(lease.REASON_ERROR)
         _device_error(f"session {sid}: its switch file could not be read for {SWITCH_UNREADABLE_EXIT_S:.0f}s; "
                       "the daemon stopped and the agent records")
+        alerts.report(alerts.Kind.SWITCH_UNREADABLE, session_id=sid, lane=LANE_WRITE,
+                      text=f"switch file unreadable for {SWITCH_UNREADABLE_EXIT_S:.0f}s")
         return EXIT_RESPAWN_LATER
 
     def _went_inline(self) -> bool:
@@ -604,6 +608,8 @@ class Worker:
                             f"it at byte {offset:,}: nothing after that is in the session store")])
         _device_error(f"session {sid}: its chat log ({stream}) was rewritten in place ({why}); the daemon stopped "
                       f"reading it at byte {offset:,} instead of reading it again")
+        alerts.report(alerts.Kind.CHAT_LOG_REWRITTEN, session_id=sid, lane=LANE_WRITE,
+                      text=f"chat log ({stream}) rewritten in place: {why}")
         return added
 
     def _skip_line(self, stream: str, path: Path, handle, offset: int, end: int, *, notice: bool,
@@ -1111,6 +1117,8 @@ class Worker:
             return self._refused_key(f"the model ({status})", reason=reason)
         if status in (402,) or "budget" in text:
             self._release(lease.REASON_BUDGET)
+        else:
+            alerts.report_bite_failure(exc, session_id=self.session.session_id, lane=LANE_WRITE)
         if _gateway_failure(exc):
             self.gateway_failures += 1
             if self.gateway_failures >= GATEWAY_FAILURES_BEFORE_RELEASE and self.released_reason is None:
@@ -1120,6 +1128,10 @@ class Worker:
                 _device_error(f"session {self.session.session_id}: the daemon's model failed "
                               f"{self.gateway_failures} times in a row ({text[:200]}); the agent records until it "
                               "answers again")
+                # It answered, with an error: ours, not their network (a 504 is the model's timeout).
+                if status is not None and status >= 500 and status not in alerts.USER_SIDE_STATUSES:
+                    alerts.report(alerts.Kind.GATEWAY_DOWN, session_id=self.session.session_id, lane=LANE_WRITE,
+                                  exc=exc, count=self.gateway_failures)
         else:
             self.gateway_failures = 0
         self.failures += 1
@@ -1187,6 +1199,7 @@ class Worker:
         why = (f"skipped as too costly: {times} bites in a row hit their limits (model requests, tool calls or "
                "tokens) on them") if cause == CutShort.LIMITS else (
                f"skipped: {times} bites in a row went round in circles on them (the loop detector stopped them)")
+        skipped = self.store.pending_count(built.first_seq, built.last_seq)
         with self.store.tx():
             self.store.mark_covered(bite_id, built.last_seq)
             self.store.close_bite(bite_id, outcome="cut short: skipped", error=text, **spent)
@@ -1196,6 +1209,10 @@ class Worker:
             self.store.add([_notice_event(self.store, (
                 f"{what} (turn {self.store.turn_of(built.first_seq)}) were not recorded: {why}."))])
         _device_error(f"session {self.session.session_id}: {what} were {why}")
+        how = (f"{times} bites in a row hit their limits" if cause == CutShort.LIMITS
+               else f"the loop detector stopped {times} bites in a row")
+        alerts.report(alerts.Kind.EVENTS_SKIPPED, session_id=self.session.session_id, lane=LANE_WRITE,
+                      text=f"{skipped} events skipped: {how}", count=skipped)
         return True
 
     def _defer(self, built: bite_mod.Bite) -> None:
@@ -2068,6 +2085,7 @@ def main(argv: list[str] | None = None) -> int:
     except model_mod.NoKey as exc:
         _device_error(str(exc))
         return EXIT_DO_NOT_RESPAWN
+    alerts.configure(ep.base_url)
     # Before anything is recorded: whose traces these are (`shipper.bind`). A
     # folder recorded under another account or server stays local, unshipped.
     shipper_mod.bind(args.session_id, ep.base_url, ep.key)
@@ -2112,6 +2130,10 @@ def main(argv: list[str] | None = None) -> int:
             lease.release(sid, lease.REASON_ERROR)
         except Exception:  # noqa: BLE001
             pass
+        # After the lease: the agent records again before the up to 3.5 s flush below.
+        alerts.report(alerts.Kind.CRASHED, session_id=sid, lane=LANE_WRITE, exc=exc)
+        # The stack (Probe's own frames, no message) as a `$exception`; it flushes both before exit.
+        telemetry.report_crash(exc, surface="daemon", base_url=ep.base_url)
         return EXIT_CRASHED
     finally:
         mailbox.finishing_path(sid).unlink(missing_ok=True)

@@ -3,8 +3,9 @@ from __future__ import annotations
 from http.cookies import SimpleCookie
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, web
 from yarl import URL
 
 from aiohttp_client_cache.backends import CacheBackend
@@ -13,7 +14,8 @@ from aiohttp_client_cache.session import CachedSession, CacheMixin, ClientSessio
 
 pytestmark = [pytest.mark.asyncio]
 
-
+aiohttp_314 = tuple(int(x) for x in aiohttp.__version__.split('.')[:2]) >= (3, 14)
+extra_args = {'stream_writer': MagicMock()} if aiohttp_314 else {}
 FakeCachedResponse = CachedResponse(method='GET', reason='OK', status=200, url='url', version='1.1')
 FakeClientResponse = ClientResponse(
     method='GET',
@@ -26,6 +28,7 @@ FakeClientResponse = ClientResponse(
     # loop=asyncio.get_event_loop(),
     loop=MagicMock(),
     session=None,  # type: ignore[arg-type]
+    **extra_args,  # type: ignore[arg-type]
 )
 
 
@@ -162,6 +165,25 @@ async def test_session__cookies(mock_request):
 
 
 @patch.object(ClientSession, '_request', return_value=FakeCachedResponse)
+async def test_session__redirect_cookies(mock_request):
+    cache = MagicMock(spec=CacheBackend)
+    redirect = MagicMock(
+        url=URL('https://redirect.com'), cookies=SimpleCookie({'redirect_cookie': 'value'})
+    )
+    response = AsyncMock(
+        is_expired=False, url=URL('https://test.com'), cookies=None, history=[redirect]
+    )
+    cache.request.return_value = response
+
+    async with CachedSession(cache=cache) as session:
+        session.cookie_jar.clear()
+        await session.get('http://test.url')
+        cookies = session.cookie_jar.filter_cookies(URL('https://redirect.com'))
+
+    assert cookies['redirect_cookie'].value == 'value'
+
+
+@patch.object(ClientSession, '_request', return_value=FakeCachedResponse)
 async def test_session__empty_cookies(mock_request):
     """Previous versions didn't set cookies if they were empty. Just make sure it doesn't explode."""
     cache = MagicMock(spec=CacheBackend)
@@ -191,6 +213,22 @@ async def test_mixin(mock_request):
     assert mock_request.called is False
 
 
+@patch.object(ClientSession, '_request', return_value=FakeClientResponse)
+async def test_session__locks_do_not_leak(mock_request):
+    """Locks are only needed while requests are actively contending for a cache key, so distinct
+    keys should not accumulate indefinitely.
+    """
+    cache = MagicMock(spec=CacheBackend)
+    cache.request.return_value = None
+    cache.create_key.side_effect = lambda method, url, **kwargs: str(url)
+
+    async with CachedSession(cache=cache) as session:
+        for i in range(1000):
+            await session.get(f'http://test.url/{i}')
+
+        assert len(session._locks) == 0
+
+
 @patch.object(ClientSession, '_request', return_value=FakeCachedResponse)
 async def test_session__cache_include_headers(mock_request):
     async with CachedSession(cache=CacheBackend(include_headers=True)) as session:
@@ -203,3 +241,45 @@ async def test_session__cache_include_headers(mock_request):
         await session.get('https://test.com')
 
         assert mock_request.called is True
+
+
+async def test_session_url_helpers_include_session_headers(aiohttp_server):
+    async def ok(request):
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get('/', ok)
+    server = await aiohttp_server(app)
+    url = server.make_url('/')
+    cache = CacheBackend(include_headers=True)
+    async with CachedSession(cache=cache, headers={'X-Test': '1'}) as session:
+        await session.get(url)
+        assert await session.has_url(url)
+        await session.delete_url(url)
+        assert await cache.responses.size() == 0
+
+
+async def test_session__base_url_in_cache_key(aiohttp_server):
+    base_urls = []
+    for text in ['a', 'b']:
+
+        async def handler(request, text=text):
+            return web.Response(text=text)
+
+        app = web.Application()
+        app.router.add_get('/x', handler)
+        base_urls.append((await aiohttp_server(app)).make_url('/'))
+
+    cache = CacheBackend()
+    for base_url, expected_text in zip(base_urls, ['a', 'b'], strict=True):
+        async with CachedSession(base_url, cache=cache) as session:
+            response = await session.get('/x')
+            assert await response.text() == expected_text
+            assert response.from_cache is False
+            assert await session.has_url('/x')
+            assert await session.has_url(base_url / 'x')
+
+    async with CachedSession(base_urls[0], cache=cache) as session:
+        await session.delete_url('/x')
+        assert not await cache.has_url(base_urls[0] / 'x')
+        assert await cache.has_url(base_urls[1] / 'x')

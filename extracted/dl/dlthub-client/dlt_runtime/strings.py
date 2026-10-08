@@ -31,7 +31,7 @@ TRIGGER_STATUS_MESSAGES: Final[dict[str, str]] = {
         " automatically when they finish."
     ),
     "skipped_out_of_interval": (
-        "Trigger time is outside the script's configured interval window"
+        "Trigger time is outside the job's configured interval window"
         " (interval_start / interval_end)."
     ),
     "skipped_already_covered": "A previous run already covers this interval.",

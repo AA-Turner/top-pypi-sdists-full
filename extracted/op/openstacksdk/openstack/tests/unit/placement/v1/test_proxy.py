@@ -11,10 +11,14 @@
 # under the License.
 
 from openstack.placement.v1 import _proxy
+from openstack.placement.v1 import allocation
+from openstack.placement.v1 import allocation_candidate
 from openstack.placement.v1 import resource_class
 from openstack.placement.v1 import resource_provider
+from openstack.placement.v1 import resource_provider_allocation
 from openstack.placement.v1 import resource_provider_inventory
 from openstack.placement.v1 import resource_provider_trait
+from openstack.placement.v1 import usage
 from openstack.tests.unit import test_proxy_base as test_proxy_base
 
 
@@ -22,6 +26,84 @@ class TestPlacementProxy(test_proxy_base.TestProxyBase):
     def setUp(self):
         super().setUp()
         self.proxy = _proxy.Proxy(self.session)
+
+
+class TestPlacementUsage(TestPlacementProxy):
+    def test_usages(self):
+        self.verify_list(
+            self.proxy.usages,
+            usage.Usage,
+            method_kwargs={
+                'project_id': 'test_project',
+                'user_id': 'test_user',
+            },
+            expected_kwargs={
+                'project_id': 'test_project',
+                'user_id': 'test_user',
+                'consumer_type': None,
+            },
+        )
+
+
+class TestPlacementAllocation(TestPlacementProxy):
+    def test_create_allocations(self):
+        self._verify(
+            'openstack.placement.v1.allocation.Allocation.set',
+            self.proxy.create_allocations,
+            method_kwargs={
+                'allocations': {
+                    'consumer-uuid': {
+                        'allocations': {},
+                        'project_id': 'project-uuid',
+                        'user_id': 'user-uuid',
+                        'consumer_generation': None,
+                        'consumer_type': 'INSTANCE',
+                    },
+                },
+            },
+            expected_args=[self.proxy],
+            expected_kwargs={
+                'allocations': {
+                    'consumer-uuid': {
+                        'allocations': {},
+                        'project_id': 'project-uuid',
+                        'user_id': 'user-uuid',
+                        'consumer_generation': None,
+                        'consumer_type': 'INSTANCE',
+                    },
+                },
+            },
+        )
+
+    def test_allocation_get(self):
+        self.verify_get(
+            self.proxy.get_allocation,
+            allocation.Allocation,
+        )
+
+    def test_allocation_update(self):
+        self.verify_update(
+            self.proxy.update_allocation,
+            allocation.Allocation,
+            False,
+        )
+
+    def test_allocation_delete(self):
+        self.verify_delete(
+            self.proxy.delete_allocation,
+            allocation.Allocation,
+            False,
+        )
+
+
+class TestPlacementAllocationCandidate(TestPlacementProxy):
+    def test_allocation_candidates(self):
+        self.verify_list(
+            self.proxy.allocation_candidates,
+            allocation_candidate.AllocationCandidate,
+            method_kwargs={'resources': 'VCPU:1', 'limit': 10},
+            expected_kwargs={'resources': 'VCPU:1', 'limit': 10},
+        )
 
 
 class TestPlacementResourceClass(TestPlacementProxy):
@@ -117,6 +199,16 @@ class TestPlacementResourceProvider(TestPlacementProxy):
         )
 
 
+class TestPlacementResourceProviderAllocation(TestPlacementProxy):
+    def test_resource_provider_allocations(self):
+        self.verify_list(
+            self.proxy.resource_provider_allocations,
+            resource_provider_allocation.ResourceProviderAllocation,
+            method_kwargs={'resource_provider': 'test_id'},
+            expected_kwargs={'resource_provider_id': 'test_id'},
+        )
+
+
 class TestPlacementResourceProviderInventory(TestPlacementProxy):
     def test_resource_provider_inventory_create(self):
         self.verify_create(
@@ -173,6 +265,26 @@ class TestPlacementResourceProviderInventory(TestPlacementProxy):
             expected_kwargs={'resource_provider_id': 'test_id'},
         )
 
+    def test_set_resource_provider_inventories(self):
+        self._verify(
+            'openstack.placement.v1.resource_provider.ResourceProvider.set_inventories',
+            self.proxy.set_resource_provider_inventories,
+            method_args=['value', {'VCPU': {'total': 8}}, 0],
+            expected_args=[self.proxy],
+            expected_kwargs={
+                'inventories': {'VCPU': {'total': 8}},
+                'resource_provider_generation': 0,
+            },
+        )
+
+    def test_delete_resource_provider_inventories(self):
+        self._verify(
+            'openstack.placement.v1.resource_provider.ResourceProvider.delete_inventories',
+            self.proxy.delete_resource_provider_inventories,
+            method_args=['value'],
+            expected_args=[self.proxy],
+        )
+
 
 class TestPlacementResourceProviderTrait(TestPlacementProxy):
     def test_get_resource_provider_trait(self):
@@ -196,5 +308,20 @@ class TestPlacementResourceProviderTrait(TestPlacementProxy):
             },
             expected_kwargs={
                 'traits': ['TEST_TRIAT', 'TEST_TRAIT2'],
+            },
+        )
+
+    def test_delete_resource_provider_trait(self):
+        self._verify(
+            'openstack.proxy.Proxy._delete',
+            self.proxy.delete_resource_provider_trait,
+            method_args=['test_id'],
+            expected_args=[
+                resource_provider_trait.ResourceProviderTrait,
+                None,
+            ],
+            expected_kwargs={
+                'resource_provider_id': 'test_id',
+                'ignore_missing': True,
             },
         )

@@ -93,6 +93,10 @@ logger = logging.getLogger(__name__)
 
 # `@oc-hydra` usergroup: default escalation point when no release owner resolves.
 _AUTOPILOT_ESCALATION_FALLBACK = "S0BJ4K3LC4X"
+WORKFLOW_STARTED_ALERT_MINUTES = 120
+WORKFLOW_STARTED_REALERT_MINUTES = 24 * 60
+AUTOPILOT_CRON_INTERVAL_MINUTES = 30
+WORKFLOW_STARTED_ALERT_WINDOW_MINUTES = 2 * AUTOPILOT_CRON_INTERVAL_MINUTES
 
 
 @dataclass(frozen=True)
@@ -228,6 +232,7 @@ class HoldDecision:
 
     kind: Literal["sibling", "stale", "workflow_started", "unavailable"]
     message: str
+    age_minutes: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -325,20 +330,20 @@ def _record_hold(
     rollout: ConnectorRolloutRecord,
     rc_version: str,
     decision: HoldDecision,
-) -> None:
+) -> AutopilotAction:
     """Record a hold without taking a forward or notification action."""
-    result.holds.append(
-        AutopilotAction(
-            rollout_id=rollout.rollout_id,
-            actor_definition_id=rollout.actor_definition_id,
-            connector_name=rollout.connector_name,
-            rc_version=rc_version,
-            action="hold",
-            success=False,
-            message=f"Held: {decision.message}",
-            tier=rollout.tier,
-        )
+    action = AutopilotAction(
+        rollout_id=rollout.rollout_id,
+        actor_definition_id=rollout.actor_definition_id,
+        connector_name=rollout.connector_name,
+        rc_version=rc_version,
+        action="hold",
+        success=False,
+        message=f"Held: {decision.message}",
+        tier=rollout.tier,
     )
+    result.holds.append(action)
+    return action
 
 
 def blocking_sibling_reason(
@@ -421,7 +426,73 @@ def _stale_workflow_started_reason(
             f"workflow_started rollout has been unchanged for {age_minutes:.0f} "
             f"minutes (threshold={WORKFLOW_STARTED_STALE_MINUTES})"
         ),
+        age_minutes=age_minutes,
     )
+
+
+def should_alert_stale_workflow_started(age_minutes: float) -> bool:
+    """Select the first cron window after 2h, then one per 24h.
+
+    There is no DB field to mark a `workflow_started` row as alerted, so
+    re-alerting is stateless and uses cron-aligned age windows. Each window is
+    two cron intervals so a single delayed/skipped tick doesn't lose the alert;
+    a duplicate ping is the accepted cost of having no delivery state.
+    """
+    if (
+        WORKFLOW_STARTED_ALERT_MINUTES
+        <= age_minutes
+        < WORKFLOW_STARTED_ALERT_MINUTES + WORKFLOW_STARTED_ALERT_WINDOW_MINUTES
+    ):
+        return True
+    return (
+        age_minutes >= WORKFLOW_STARTED_ALERT_MINUTES
+        and (age_minutes - WORKFLOW_STARTED_ALERT_MINUTES)
+        % WORKFLOW_STARTED_REALERT_MINUTES
+        < WORKFLOW_STARTED_ALERT_WINDOW_MINUTES
+    )
+
+
+def _notify_stale_workflow_started(
+    rollout: ConnectorRolloutRecord,
+    rc_version: str,
+    age_minutes: float,
+    hold_reason: str,
+) -> str:
+    """Notify the escalation target about a stale `workflow_started` rollout."""
+    release_context = _release_context(rollout.connector_name, rc_version)
+    target = release_context.escalation_target
+    release_section = f"\n\n{release_context.text}" if release_context.text else ""
+    message = (
+        f"{rollout.connector_name} {rc_version} ({rollout.tier}) rollout "
+        f"`{rollout.rollout_id}` has been stuck in `workflow_started` for "
+        f"{age_minutes / 60:.0f}h. AutoPilot will not advance rows in this state.\n"
+        f"AutoPilot hold reason: {hold_reason}\n\n"
+        "Check whether actors were pinned (`get_actor_sync_info`) and either "
+        "`progress_connector_rollout` or `finalize_connector_rollout` it manually."
+        f"{release_section}"
+    )
+    try:
+        send_hitl_notification(
+            target_person=target,
+            cc_persons=release_context.escalation_cc,
+            message=message,
+            agent_session_url=build_ci_run_url(),
+            connector_name=rollout.connector_name,
+            header_emoji="⏸️",
+            header_label="AutoPilot: rollout stuck in workflow_started",
+            pr_url=release_context.pr_url,
+        )
+    except Exception as exc:
+        error = str(exc) or type(exc).__name__
+        logger.warning(
+            "auto-advance: Failed to send stale workflow_started notification "
+            "for %s (rollout=%s): %s",
+            rollout.connector_name,
+            rollout.rollout_id,
+            exc,
+        )
+        return f" — escalation failed: {error}"
+    return f" — escalated to {target}"
 
 
 def _load_rollouts_by_actor(
@@ -761,18 +832,34 @@ def run_auto_advance(
         current_pct = rollout.current_target_rollout_pct or 0
         final_pct = rollout.final_target_rollout_pct or 100
 
-        hold_decision = blocking_sibling_reason(
-            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+        stale_decision = (
+            _stale_workflow_started_reason(rollout) if is_recovery else None
         )
-        if hold_decision is None and is_recovery:
-            hold_decision = _stale_workflow_started_reason(rollout)
+        hold_decision = (
+            blocking_sibling_reason(
+                rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+            )
+            or stale_decision
+        )
         if hold_decision is not None:
-            _record_hold(
+            hold_action = _record_hold(
                 result=result,
                 rollout=rollout,
                 rc_version=rc_version,
                 decision=hold_decision,
             )
+            if (
+                not dry_run
+                and stale_decision is not None
+                and stale_decision.age_minutes is not None
+                and should_alert_stale_workflow_started(stale_decision.age_minutes)
+            ):
+                hold_action.message += _notify_stale_workflow_started(
+                    rollout,
+                    rc_version,
+                    stale_decision.age_minutes,
+                    hold_reason=hold_decision.message,
+                )
             continue
 
         if current_pct >= final_pct and not is_recovery:

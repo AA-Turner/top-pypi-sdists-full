@@ -11,6 +11,11 @@ or `codex`.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from probe.cli import autoupdate, claude_cli, doctor, updater, upgrading
@@ -649,3 +654,179 @@ def test_a_blocked_later_step_never_hides_the_commands_without_the_fix(monkeypat
     assert "plugin already at the latest (0.96.1)" in text
     assert LICENSE_FIX not in text
     assert "update them manually" in text
+
+
+# ---------------------------------------------------------------------------
+# Sessions still running a tap from before the update.
+#
+# Each session runs its own capture daemon for as long as it lives, and the
+# server shows a machine's OLDEST live tap. On 2026-10-07 anthrogen's dev pod
+# reported tap 0.9.3 while its own update report said the tap was current at
+# 0.9.14: a session born on 10-04, before the tap moved, was still uploading.
+# ---------------------------------------------------------------------------
+
+
+def _claude_tap_cache(home):
+    return home / ".claude" / "plugins" / "cache" / updater.MARKETPLACE / updater.TAP_PLUGIN_NAME
+
+
+def _daemon_command(session_id, root, cwd):
+    """A capture daemon's command line, as hooks/session-start.sh spawns it."""
+    return [
+        "-m", "tap", "watch", "--session-id", session_id, "--cwd", str(cwd),
+        "--plugin-root", str(root), "--transcript", str(cwd / f"{session_id}.jsonl"),
+    ]
+
+
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="reads this user's process list")
+def test_live_daemons_on_an_older_tap_are_found_in_the_process_list(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    cache = _claude_tap_cache(home)
+    stale_id, fresh_id = f"pytest-stale-{os.getpid()}", f"pytest-fresh-{os.getpid()}"
+    sleeper = [sys.executable, "-c", "import time; time.sleep(60)"]
+    processes = [
+        # Real processes with the daemons' argv (a sleep stands in for `tap watch`).
+        subprocess.Popen([*sleeper, *_daemon_command(stale_id, cache / "0.7.1", tmp_path)]),
+        subprocess.Popen([*sleeper, *_daemon_command(fresh_id, cache / "0.7.2", tmp_path)]),
+        # The wrapper's own command line names the same words with "$SID"
+        # quoted: it is not a daemon.
+        subprocess.Popen([
+            "/bin/bash", "-c",
+            'sleep 60; "$PY" -m tap watch --session-id "$SID" --cwd "$CWD" --plugin-root "$ROOT" "$@"',
+            "wrapper", stale_id,
+        ]),
+    ]
+    try:
+        found = {daemon.session_id: daemon.version for daemon in updater.tap_daemons()}
+        assert found.get(stale_id) == "0.7.1"
+        assert found.get(fresh_id) == "0.7.2"
+        assert not [sid for sid in found if '"' in sid or "$" in sid]
+
+        assert updater.stale_tap_daemons("claude_code", "0.7.2") == ("0.7.1",)
+        # Another agent's home: not its daemons.
+        assert updater.stale_tap_daemons("codex", "0.7.2") == ()
+        assert updater.stale_tap_daemons("claude_code", None) == ()
+    finally:
+        for process in processes:
+            process.kill()
+            process.wait()
+
+
+def test_a_daemon_without_a_versioned_folder_is_read_from_its_record(tmp_path, monkeypatch):
+    """Kimi Code's copy has no version folder; taps 0.9.16+ leave a record."""
+    monkeypatch.setenv("KIMI_CODE_HOME", str(tmp_path / "kimi"))
+    root = tmp_path / "kimi" / "plugins" / "managed" / "probe-research-tap"
+    sid = f"pytest-record-{os.getpid()}"
+    record = Path(f"/tmp/probe-research-tap-watcher-{sid}.version")
+    try:
+        record.write_text("0.7.1")
+        monkeypatch.setattr(
+            updater, "_process_commands",
+            lambda: [" ".join(["/usr/bin/python3", *_daemon_command(sid, root, tmp_path)])],
+        )
+        assert updater.stale_tap_daemons("kimi_code", "0.7.2") == ("0.7.1",)
+    finally:
+        record.unlink(missing_ok=True)
+
+
+def _update_beside_an_old_session(monkeypatch, daemons):
+    _stub_cli(monkeypatch)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    cache = _claude_tap_cache(Path(os.environ["HOME"]))
+    monkeypatch.setattr(
+        updater, "_process_commands",
+        lambda: [
+            " ".join(["/usr/bin/python3", *_daemon_command(sid, cache / version, Path("/home/x"))])
+            for sid, version in daemons
+        ],
+    )
+    monkeypatch.setattr(
+        upgrading.updater, "update_plugin", lambda target: _claude_result("0.7.1", "0.7.2")
+    )
+    return upgrading.perform_update(base_url="https://x", include_plugin=True)
+
+
+def test_an_update_beside_a_session_on_the_old_tap_says_to_restart_it(monkeypatch):
+    from probe.cli import update_report
+
+    outcome = _update_beside_an_old_session(
+        monkeypatch, [("876d3d5e-bd40-47b9-a657-aecd83354a11", "0.7.1")]
+    )
+
+    note = "1 session started before the update still runs tap 0.7.1; restart it to switch to 0.7.2"
+    assert f"transcript tap updated to 0.7.2; {note}" in "\n".join(outcome.lines)
+    # The update did its part: not a failure, and no manual commands.
+    assert outcome.ok is True
+    assert "update them manually" not in "\n".join(outcome.lines)
+    attempt = autoupdate.load().last_attempt
+    assert attempt.plugin_ok is True
+    assert attempt.plugin_detail == note
+    # The result is what the update did; why the machine still reads the old
+    # tap rides in its detail ("behind" is kept for a tap left behind).
+    tap = update_report._read_pending()["attempt"]["body"]["tap"]
+    assert (tap["result"], tap["after"], tap["detail"]) == ("updated", "0.7.2", note)
+
+
+def test_a_current_tap_beside_an_old_session_stays_current_with_the_note(monkeypatch):
+    from probe.cli import update_report
+
+    _stub_cli(monkeypatch)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    cache = _claude_tap_cache(Path(os.environ["HOME"]))
+    monkeypatch.setattr(
+        updater, "_process_commands",
+        lambda: [" ".join(["/usr/bin/python3", *_daemon_command("s1", cache / "0.7.1", Path("/x"))])],
+    )
+    monkeypatch.setattr(
+        upgrading.updater, "update_plugin", lambda target: _claude_result("0.7.2", "0.7.2")
+    )
+    upgrading.perform_update(base_url="https://x", include_plugin=True)
+    tap = update_report._read_pending()["attempt"]["body"]["tap"]
+    assert tap["result"] == "current"
+    assert tap["detail"].startswith("1 session started before the update still runs tap 0.7.1")
+
+
+def test_a_tap_left_behind_is_still_behind_beside_an_old_session(monkeypatch):
+    from probe.cli import update_report
+
+    _stub_cli(monkeypatch)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    cache = _claude_tap_cache(Path(os.environ["HOME"]))
+    monkeypatch.setattr(
+        updater, "_process_commands",
+        lambda: [" ".join(["/usr/bin/python3", *_daemon_command("s1", cache / "0.6.0", Path("/x"))])],
+    )
+    monkeypatch.setattr(
+        upgrading.updater, "update_plugin",
+        lambda target: updater.PluginResult(
+            True, True, False, "0.96.1", "0.96.1", "plugin already at the latest (0.96.1)",
+            tap_before="0.7.1", tap_after="0.7.1", tap_detail=updater.TAP_NOOP,
+        ),
+    )
+    upgrading.perform_update(base_url="https://x", include_plugin=True)
+    tap = update_report._read_pending()["attempt"]["body"]["tap"]
+    assert (tap["result"], tap["after"]) == ("behind", "0.7.1")
+
+
+def test_sessions_on_the_new_tap_change_nothing(monkeypatch):
+    from probe.cli import update_report
+
+    outcome = _update_beside_an_old_session(monkeypatch, [("s1", "0.7.2"), ("s2", "0.7.3")])
+
+    text = "\n".join(outcome.lines)
+    assert "transcript tap updated to 0.7.2" in text
+    assert "started before the update" not in text
+    assert update_report._read_pending()["attempt"]["body"]["tap"]["result"] == "updated"
+    assert autoupdate.load().last_attempt.plugin_detail == ""
+
+
+def test_several_old_sessions_are_counted_once_each(monkeypatch):
+    outcome = _update_beside_an_old_session(
+        monkeypatch, [("s1", "0.7.1"), ("s2", "0.6.9"), ("s1", "0.7.1")]
+    )
+    assert (
+        "2 sessions started before the update still run tap 0.6.9, 0.7.1; "
+        "restart them to switch to 0.7.2"
+    ) in "\n".join(outcome.lines)

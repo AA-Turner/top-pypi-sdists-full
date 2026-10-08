@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-beam
-Version: 2.76.0
+Version: 2.77.0
 Summary: Apache Beam SDK for Python
 Home-page: https://beam.apache.org
 Download-URL: https://pypi.python.org/pypi/apache-beam
@@ -20,7 +20,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: cryptography<49.0.0,>=39.0.0
+Requires-Dist: cryptography<51.0.0,>=39.0.0
 Requires-Dist: fastavro<2,>=0.23.6
 Requires-Dist: fasteners<1.0,>=0.3
 Requires-Dist: grpcio!=1.48.0,!=1.59.*,!=1.60.*,!=1.61.*,!=1.62.0,!=1.62.1,!=1.66.*,!=1.67.*,!=1.68.*,!=1.69.*,!=1.70.*,<2,>=1.33.1
@@ -85,6 +85,7 @@ Requires-Dist: sqlalchemy-pytds>=1.0.2; extra == "test"
 Requires-Dist: pg8000>=1.31.5; extra == "test"
 Requires-Dist: PyMySQL>=1.1.0; extra == "test"
 Requires-Dist: oracledb>=3.1.1; extra == "test"
+Requires-Dist: deltalake>=0.15.0; extra == "test"
 Provides-Extra: gcp
 Requires-Dist: cachetools<7,>=3.1.0; extra == "gcp"
 Requires-Dist: google-api-core<3,>=2.0.0; extra == "gcp"
@@ -100,7 +101,7 @@ Requires-Dist: google-cloud-dataflow-client<0.14.0,>=0.13.0; extra == "gcp"
 Requires-Dist: google-cloud-bigquery<4,>=2.0.0; extra == "gcp"
 Requires-Dist: google-cloud-bigquery-storage<3,>=2.6.3; extra == "gcp"
 Requires-Dist: google-cloud-core<3,>=2.0.0; extra == "gcp"
-Requires-Dist: google-cloud-bigtable<3,>=2.42.0; extra == "gcp"
+Requires-Dist: google-cloud-bigtable<3,>=2.44.0; extra == "gcp"
 Requires-Dist: google-cloud-build<4,>=3.35.0; extra == "gcp"
 Requires-Dist: google-cloud-spanner<4,>=3.0.0; extra == "gcp"
 Requires-Dist: google-cloud-dlp<4,>=3.0.0; extra == "gcp"
@@ -118,6 +119,8 @@ Requires-Dist: PyMySQL>=1.1.0; extra == "gcp"
 Requires-Dist: keyrings.google-artifactregistry-auth; extra == "gcp"
 Requires-Dist: orjson<4,>=3.9.7; extra == "gcp"
 Requires-Dist: regex>=2020.6.8; extra == "gcp"
+Provides-Extra: gcp-test
+Requires-Dist: google-cloud-firestore<3,>=2.0.0; extra == "gcp-test"
 Provides-Extra: interactive
 Requires-Dist: facets-overview<2,>=1.1.0; extra == "interactive"
 Requires-Dist: google-cloud-dataproc<6,>=5.0.0; extra == "interactive"

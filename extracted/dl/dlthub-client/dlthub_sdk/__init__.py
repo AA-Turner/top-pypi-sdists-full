@@ -52,7 +52,7 @@ from dlthub_sdk.domain.jobs import (
     TriggerResult,
     TriggerStatus,
 )
-from dlthub_sdk.domain.logs import LogLine
+from dlthub_sdk.domain.logs import LogIoStream, LogLine, LogSource, LogStage
 from dlthub_sdk.domain.organizations import (
     Membership,
     Organization,
@@ -240,7 +240,10 @@ __all__ = [
     "Jobs",
     "Keep",
     "LoadPackage",
+    "LogIoStream",
     "LogLine",
+    "LogSource",
+    "LogStage",
     "Membership",
     "NotAuthenticated",
     "NotAuthorized",

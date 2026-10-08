@@ -12,11 +12,11 @@
 
 import argparse
 import os
-import typing as ty
+from typing import Any, Optional, TYPE_CHECKING
 
 from keystoneauth1.loading import base
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from keystoneauth1.loading import opts
     from keystoneauth1 import plugin
 
@@ -39,7 +39,7 @@ def _register_plugin_argparse_arguments(
 
 
 def register_argparse_arguments(
-    parser: argparse.ArgumentParser, argv: list[str], default: ty.Any = None
+    parser: argparse.ArgumentParser, argv: list[str], default: Any = None
 ) -> base.BaseLoader['plugin.BaseAuthPluginT'] | None:
     """Register CLI options needed to create a plugin.
 
@@ -47,14 +47,10 @@ def register_argparse_arguments(
     the options required for that specific plugin if available.
 
     :param parser: the parser to attach argparse options to.
-    :type parser: argparse.ArgumentParser
-    :param list argv: the arguments provided to the appliation.
-    :param str/class default: a default plugin name or a plugin object to use
-                              if one isn't specified by the CLI. default: None.
-
+    :param argv: the arguments provided to the application.
+    :param default: a default plugin name or a plugin object to use if one
+        isn't specified by the CLI. default: None.
     :returns: The plugin class that will be loaded or None if not provided.
-    :rtype: :class:`keystoneauth1.loader.BaseLoader`
-
     :raises keystoneauth1.exceptions.auth_plugins.NoMatchingPlugin:
         if a plugin cannot be created.
     """
@@ -89,18 +85,15 @@ def register_argparse_arguments(
 
 
 def load_from_argparse_arguments(
-    namespace: argparse.Namespace, **kwargs: ty.Any
-) -> ty.Optional['plugin.BaseAuthPluginT']:
+    namespace: argparse.Namespace, **kwargs: Any
+) -> Optional['plugin.BaseAuthPluginT']:
     """Retrieve the created plugin from the completed argparse results.
 
     Loads and creates the auth plugin from the information parsed from the
     command line by argparse.
 
-    :param Namespace namespace: The result from CLI parsing.
-
+    :param namespace: The result from CLI parsing.
     :returns: An auth plugin, or None if a name is not provided.
-    :rtype: :class:`keystoneauth1.plugin.BaseAuthPlugin`
-
     :raises keystoneauth1.exceptions.auth_plugins.NoMatchingPlugin:
         if a plugin cannot be created.
     """
@@ -115,7 +108,7 @@ def load_from_argparse_arguments(
     else:
         loader = base.get_plugin_loader(os_auth_type)
 
-    def _getter(opt: 'opts.Opt') -> ty.Any:
+    def _getter(opt: 'opts.Opt') -> Any:
         return getattr(namespace, f'os_{opt.dest}')
 
     return loader.load_from_options_getter(_getter, **kwargs)

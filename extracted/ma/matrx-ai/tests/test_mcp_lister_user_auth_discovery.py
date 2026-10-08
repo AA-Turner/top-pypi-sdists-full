@@ -173,7 +173,11 @@ def lister_host(monkeypatch):
     saved_ext = dict(_ext._registry)
     _ext._registry["mcp_auth_resolver"] = fake_resolver
 
-    class _NullEmitter:
+    from matrx_connect.emitters.silent_emitter import SilentEmitter
+
+    class _NullEmitter(SilentEmitter):
+        """Every Emitter method is a no-op (SilentEmitter mirrors the protocol); overrides below."""
+
         async def send_chunk(self, *_a, **_kw): ...
         async def send_reasoning_chunk(self, *_a, **_kw): ...
         async def send_data(self, *_a, **_kw): ...

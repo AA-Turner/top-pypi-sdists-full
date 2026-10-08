@@ -47,18 +47,6 @@ def moment(value: Any) -> datetime | None:
     return value if isinstance(value, datetime) else None
 
 
-def seconds(value: Any) -> float | None:
-    """Turn a millisecond duration into seconds, as the rest of this SDK reports.
-
-    Args:
-        value: What the payload carries.
-
-    Returns:
-        The duration in seconds, or ``None`` for anything unset.
-    """
-    return value / 1000 if isinstance(value, (int, float)) else None
-
-
 def data(value: Any) -> Any:
     """Narrow a job-defined value the generated model may leave unset.
 

@@ -1,32 +1,31 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ops
-Version: 3.8.3
+Version: 3.9.0
 Summary: The Python library behind great charms
-Author: The Charm Tech team at Canonical Ltd.
-License-Expression: Apache-2.0
 Project-URL: Homepage, https://canonical.com/juju/docs/ops/latest/
 Project-URL: Repository, https://github.com/canonical/operator
 Project-URL: Issues, https://github.com/canonical/operator/issues
 Project-URL: Documentation, https://canonical.com/juju/docs/ops/latest/
 Project-URL: Changelog, https://github.com/canonical/operator/blob/main/CHANGES.md
-Classifier: Programming Language :: Python :: 3
+Author: The Charm Tech team at Canonical Ltd.
+License-Expression: Apache-2.0
+License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE.txt
-Requires-Dist: PyYAML==6.*
-Requires-Dist: websocket-client==1.*
 Requires-Dist: opentelemetry-api~=1.0
-Provides-Extra: testing
-Requires-Dist: ops-scenario==8.8.3; extra == "testing"
-Provides-Extra: tracing
-Requires-Dist: ops-tracing==3.8.3; extra == "tracing"
+Requires-Dist: pyyaml==6.*
+Requires-Dist: websocket-client==1.*
 Provides-Extra: harness
-Dynamic: license-file
+Provides-Extra: testing
+Requires-Dist: ops-scenario==8.9.0; extra == 'testing'
+Provides-Extra: tracing
+Requires-Dist: ops-tracing==3.9.0; extra == 'tracing'
+Description-Content-Type: text/markdown
 
 # The `ops` library
 
@@ -183,4 +182,4 @@ Congratulations, you’ve just built your first Kubernetes charm using `ops`!
 
 - Read the [docs](https://canonical.com/juju/docs/ops/latest/).
 - Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and join our [chat](https://matrix.to/#/#charmhub-ops:ubuntu.com) and [forum](https://discourse.charmhub.io/) or [open an issue](https://github.com/canonical/operator/issues).
-- Read our [CONTRIBUTING guide](https://github.com/canonical/operator/blob/main/HACKING.md) and contribute!
+- Read our [contributing guide](https://github.com/canonical/operator/blob/main/CONTRIBUTING.md) and contribute!

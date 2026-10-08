@@ -1,0 +1,205 @@
+# Granular permissions, not generally available. Customers can assign these
+# roles only on the per-user permissions page, which decide-ui shows only when
+# the `granular-permissions` feature flag is on. Check that flag's state in
+# decide-ui's featureFlags.ts for the customer's org before recommending any of
+# these roles.
+# P141c workspace admin: manage permissions, API keys and folders, view all folders.
+# Deliberately no w:flows — folder management stays separable from Edit Logic.
+ws_manager/org_id,ws_id:
+    - ws_member/org_id,ws_id
+    - flow_viewer/org_id,ws_id,*
+    - r+w:workspace_user_management/org_id,ws_id
+    - r+w:workspace_api_keys/org_id,ws_id
+    - w+d:flow_folders/org_id,ws_id
+flow_viewer/org_id,ws_id,flow_folder_id:
+    - r:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - r:jobs/org_id,ws_id,flow_folder_id
+    - r:job_run/org_id,ws_id,flow_folder_id,{env=*}
+    - file_viewer_sandbox/org_id,ws_id
+flow_execute_sandbox/org_id,ws_id,flow_folder_id:
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=test}
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=sandbox}
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=test}
+flow_execute_live/org_id,ws_id,flow_folder_id:
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=live}
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=live}
+flow_editor/org_id,ws_id,flow_folder_id:
+    - flow_viewer/org_id,ws_id,flow_folder_id
+    - flow_execute_sandbox/org_id,ws_id,flow_folder_id
+    - file_user_sandbox/org_id,ws_id
+    - w:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - d:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - w:jobs/org_id,ws_id,flow_folder_id
+    - d:job_run/org_id,ws_id,flow_folder_id,{env=sandbox}
+    - d:job_run/org_id,ws_id,flow_folder_id,{env=test}
+flow_deployer/org_id,ws_id,flow_folder_id:
+    - flow_editor/org_id,ws_id,flow_folder_id
+    - deploy:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - deploy:jobs/org_id,ws_id,flow_folder_id
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=live}
+    # Lets deployers view and test webhooks, which live in the internal folder (constants.INTERNAL_FLOW_FOLDER_ID).
+    - r:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=*}
+    - execute:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=sandbox}
+    - execute:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=test}
+
+# P141c workspace-scoped agent and session-viewer roles.
+agent_viewer/org_id,ws_id:
+    - r:workspace_agent_management/org_id,ws_id,{type=*}
+agent_execute_sandbox/org_id,ws_id:
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=sandbox,type=agent}
+agent_execute_live/org_id,ws_id:
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=live,type=agent}
+agent_editor/org_id,ws_id:
+    - agent_viewer/org_id,ws_id
+    - agent_execute_sandbox/org_id,ws_id
+    - session_viewer_sandbox/org_id,ws_id
+    - w+d:workspace_agent_management/org_id,ws_id,{type=*}
+    - r:workspace_agent_execution/org_id,ws_id,{env=*,type=agent}
+agent_deployer/org_id,ws_id:
+    - agent_editor/org_id,ws_id
+    - deploy:workspace_agent_management/org_id,ws_id,{type=*}
+session_viewer_sandbox/org_id,ws_id:
+    - r:agent_sessions/org_id,ws_id,{env=sandbox}
+session_viewer_live/org_id,ws_id:
+    - session_viewer_sandbox/org_id,ws_id
+    - r:agent_sessions/org_id,ws_id,{env=live}
+copilot_user/org_id,ws_id:
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=*,type=copilot}
+
+# P141c connect roles, carved verbatim from the ws_* roles (capability-neutral)
+connection_viewer/org_id,ws_id:
+    - r:workspace_connection/org_id,ws_id
+connection_user_sandbox/org_id,ws_id:
+    - w:workspace_connection_execution/org_id,ws_id,{env=sandbox}
+connection_user_live/org_id,ws_id:
+    - w:workspace_connection_execution/org_id,ws_id,{env=live}
+connection_user/org_id,ws_id:
+    # no env arg on connection resources yet, so no sandbox/live split
+    - r+w:workspace_connection_resource/org_id,ws_id
+connection_editor/org_id,ws_id:
+    - connection_viewer/org_id,ws_id
+    - connection_user_sandbox/org_id,ws_id
+    - w+d:workspace_connection/org_id,ws_id
+    - r+d:workspace_connection_resource/org_id,ws_id
+    - r+w+d:workspace_connection_tenant/org_id,ws_id
+    - w:workspace_connection_secret/org_id,ws_id
+integration_builder/org_id,ws_id:
+    - connection_editor/org_id,ws_id
+    - w:workspace_integration_builder/org_id,ws_id
+
+# P141c decision-history roles, carved verbatim from ws_editor (capability-neutral)
+dh_viewer_sandbox/org_id,ws_id:
+    # we enforce live vs non-live only, so test rides along with sandbox
+    - r:decision_history/org_id,ws_id,{env=sandbox}
+    - r:decision_history/org_id,ws_id,{env=test}
+dh_viewer_live/org_id,ws_id:
+    - dh_viewer_sandbox/org_id,ws_id
+    # legacy env-unaware string: old call sites grant all envs, so live-only
+    - r:workspace_decision_history/org_id,ws_id
+    - r:decision_history/org_id,ws_id,{env=live}
+# delete carved the same way from ws_admin and api_key_history_admin
+dh_deleter_sandbox/org_id,ws_id:
+    - d:decision_history/org_id,ws_id,{env=sandbox}
+    - d:decision_history/org_id,ws_id,{env=test}
+dh_deleter_live/org_id,ws_id:
+    - dh_deleter_sandbox/org_id,ws_id
+    # legacy env-unaware string: old call sites delete in all envs, so live-only
+    - d:workspace_decision_history/org_id,ws_id
+    - d:decision_history/org_id,ws_id,{env=live}
+
+# P141c chart roles (Insights)
+chart_viewer_sandbox/org_id,ws_id:
+    - r:workspace_analytics_dashboard/org_id,ws_id
+    - r:aggregate_decision_history/org_id,ws_id,{env=sandbox}
+    - r:aggregate_decision_history/org_id,ws_id,{env=test}
+chart_viewer_live/org_id,ws_id:
+    - chart_viewer_sandbox/org_id,ws_id
+    - r:aggregate_decision_history/org_id,ws_id,{env=live}
+chart_editor_sandbox/org_id,ws_id:
+    - chart_viewer_sandbox/org_id,ws_id
+    - dh_viewer_sandbox/org_id,ws_id
+    # Edit Charts: exploring and pinning charts is a dashboard write
+    - w:workspace_analytics_dashboard/org_id,ws_id
+chart_editor_live/org_id,ws_id:
+    - chart_viewer_live/org_id,ws_id
+    - dh_viewer_live/org_id,ws_id
+    - w:workspace_analytics_dashboard/org_id,ws_id
+
+# P141c case-management roles, carved verbatim from the ws_* roles (capability-neutral)
+case_reviewer/org_id,ws_id:
+    - r:workspace_case/org_id,ws_id
+    - r:workspace_case_queue/org_id,ws_id
+    - r:workspace_case_template/org_id,ws_id
+    - r+w:workspace_review_case/org_id,ws_id,{env=*}
+case_editor/org_id,ws_id:
+    - case_reviewer/org_id,ws_id
+    - r+w:workspace_case_template/org_id,ws_id
+    - r+w:workspace_case/org_id,ws_id
+    - r:workspace_case_analytics/org_id,ws_id
+case_admin/org_id,ws_id:
+    - case_editor/org_id,ws_id
+    - r+w:workspace_case_queue/org_id,ws_id
+    - r+w:workspace_case_dashboard/org_id,ws_id,*
+
+# P141c data-layer roles (entities/events/features), carved verbatim from the ws_* roles (capability-neutral)
+data_viewer/org_id,ws_id:
+    - r:workspace_management/org_id,ws_id,{env=*,type=*}
+    - r:workspace_feature_query/org_id,ws_id,{env=*,component=*,current_status_live=*}
+    # leftover entity instance reads: viewer is sandbox-only (live used w:workspace_data)
+    - r:workspace_record/org_id,ws_id,{env=sandbox,type=entity}
+    # leftover event/feature instance reads used r:workspace_data (live included)
+    - r:workspace_record/org_id,ws_id,{env=*,type=event}
+    - r:workspace_record/org_id,ws_id,{env=*,type=feature}
+data_editor/org_id,ws_id:
+    - data_viewer/org_id,ws_id
+    - w+d:workspace_feature_query/org_id,ws_id,{env=*,component=definition,current_status_live=inactive}
+    - w:workspace_feature_query/org_id,ws_id,{env=sandbox,component=status,current_status_live=*}
+    - r:workspace_record/org_id,ws_id,{env=live,type=entity}
+    - w:workspace_record/org_id,ws_id,{env=sandbox,type=entity}
+    - w:workspace_record/org_id,ws_id,{env=sandbox,type=event}
+data_admin/org_id,ws_id:
+    - data_editor/org_id,ws_id
+    - w+d:workspace_management/org_id,ws_id,{env=*,type=feature}
+    - w+d:workspace_management/org_id,ws_id,{env=*,type=event}
+    - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
+    - r:workspace_sensitive_field/org_id,ws_id,{env=*,type=*}
+    - w:workspace_feature_query/org_id,ws_id,{env=live,component=status,current_status_live=*}
+    - w:workspace_record/org_id,ws_id,{env=live,type=entity}
+    - w:workspace_record/org_id,ws_id,{env=live,type=event}
+
+# P141c file roles, carved verbatim from the ws_* roles (capability-neutral)
+file_viewer_sandbox/org_id,ws_id:
+    - r:workspace_file/org_id,ws_id,{env=sandbox}
+file_user_sandbox/org_id,ws_id:
+    - file_viewer_sandbox/org_id,ws_id
+    - w:workspace_file/org_id,ws_id,{env=sandbox}
+file_viewer_live/org_id,ws_id:
+    - r:workspace_file/org_id,ws_id,{env=live}
+file_user_live/org_id,ws_id:
+    - file_viewer_live/org_id,ws_id
+    - w:workspace_file/org_id,ws_id,{env=live}
+file_user/org_id,ws_id:
+    - r+w:workspace_file/org_id,ws_id,{env=*}
+
+# P141c combined data & case personas (composition only)
+data_case_viewer/org_id,ws_id:
+    - data_viewer/org_id,ws_id
+    - case_reviewer/org_id,ws_id
+    # temporary additional permissions to be pushed further down the
+    # hierarchy or made separately assignable in future
+    - copilot_user/org_id,ws_id
+    - file_viewer_sandbox/org_id,ws_id
+    - file_viewer_live/org_id,ws_id
+data_case_editor/org_id,ws_id:
+    - data_editor/org_id,ws_id
+    - case_editor/org_id,ws_id
+    - copilot_user/org_id,ws_id
+    - file_user_sandbox/org_id,ws_id
+    - file_user_live/org_id,ws_id
+data_case_admin/org_id,ws_id:
+    - data_admin/org_id,ws_id
+    - case_admin/org_id,ws_id
+    - copilot_user/org_id,ws_id
+    - file_user_sandbox/org_id,ws_id
+    - file_user_live/org_id,ws_id

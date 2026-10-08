@@ -197,3 +197,35 @@ def _clear_ctx():
         clear_app_context()
     except Exception:
         pass
+
+
+async def test_single_message_wrappers_accept_every_kwarg_of_the_messages_funnel(monkeypatch):
+    """``run_held_pydantic`` hands one kwargs bag to ``llm_to_pydantic`` OR
+    ``llm_messages_to_pydantic``. The judge passes internal_web_search / api_keys /
+    system_run, so the single-message twin must accept them (it crashed with
+    ``unexpected keyword argument 'internal_web_search'``) and forward them."""
+    import inspect
+
+    from matrx_ai.graph_nodes._strict_json import (
+        llm_messages_to_pydantic,
+        llm_to_pydantic_measured,
+    )
+
+    base = set(inspect.signature(llm_messages_to_pydantic).parameters) - {"messages"}
+    for fn in (llm_to_pydantic, llm_to_pydantic_measured):
+        assert base - {"user"} <= set(inspect.signature(fn).parameters), fn.__name__
+
+    seen: dict = {}
+
+    async def _fake(messages, system_text, **kwargs):
+        seen.update(kwargs)
+        return _StubResult('{"brief": ["x"]}', "stop")
+
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _fake)
+    _install_ctx(monkeypatch, _RecordingEmitter())
+    out = await llm_to_pydantic(
+        model="m", system="s", user="u", output_cls=_Brief,
+        internal_web_search=True, api_keys={"ANTHROPIC_API_KEY": "k"}, system_run=True,
+    )
+    assert out.brief == ["x"]
+    assert seen["internal_web_search"] is True

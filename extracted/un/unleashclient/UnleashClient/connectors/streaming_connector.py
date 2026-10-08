@@ -1,38 +1,41 @@
 import threading
-from typing import Callable, Optional
+from typing import Optional
 
 from ld_eventsource import SSEClient
 from ld_eventsource.config import ConnectStrategy, ErrorStrategy, RetryDelayStrategy
-from yggdrasil_engine.engine import UnleashEngine
 
-from UnleashClient.cache import BaseCache
+from UnleashClient._feature_store import _FeatureStore
 from UnleashClient.connectors.base_connector import BaseConnector
-from UnleashClient.constants import APPLICATION_HEADERS, FEATURES_URL, STREAMING_URL
+from UnleashClient.constants import STREAMING_URL
 from UnleashClient.utils import LOGGER
 
 
 class StreamingConnector(BaseConnector):
     def __init__(
         self,
-        engine: UnleashEngine,
-        cache: BaseCache,
+        store: _FeatureStore,
         url: str,
         headers: dict,
         request_timeout: int,
-        ready_callback: Optional[Callable] = None,
         backoff_initial: float = 2.0,
         backoff_max: float = 30.0,
         backoff_multiplier: float = 2.0,
         backoff_jitter: Optional[float] = 0.5,
         custom_options: Optional[dict] = None,
     ) -> None:
-        super().__init__(engine=engine, cache=cache, ready_callback=ready_callback)
+        """
+        :param request_timeout: Seconds to wait for the stream response.
+        :param backoff_initial: Seconds to wait before the first reconnect.
+        :param backoff_max: Ceiling on the reconnect delay, in seconds.
+        :param backoff_multiplier: Factor the delay grows by on each attempt.
+        :param backoff_jitter: Fraction of the delay to randomize by, not a number of
+                               seconds -- 0.5 means the delay varies by up to 50%.
+                               Unlike ``refresh_jitter`` on the polling and offline
+                               connectors, which is in seconds.
+        """
+        super().__init__(store)
         self._base_url = url.rstrip("/") + STREAMING_URL
-        self._headers = {
-            **headers,
-            **APPLICATION_HEADERS,
-            "Accept": "text/event-stream",
-        }
+        self._headers = dict(headers)
         self._timeout = request_timeout
         self._backoff_initial = backoff_initial
         self._backoff_max = backoff_max
@@ -99,24 +102,23 @@ class StreamingConnector(BaseConnector):
 
                 if event.event in ("unleash-connected", "unleash-updated"):
                     try:
-                        self.engine.take_state(event.data)
-                        self.cache.set(FEATURES_URL, self.engine.get_state())
-
-                        if event.event == "unleash-connected" and self.ready_callback:
-                            try:
-                                self.ready_callback()
-                            except Exception:
-                                LOGGER.debug("Ready callback failed", exc_info=True)
+                        self._store.apply_streamed(
+                            event.data,
+                            emit_ready=event.event == "unleash-connected",
+                        )
                     except Exception:
+                        # TODO: Worth considering if this error handling could be hidden
+                        # directly in "apply_streamed" instead of here. Otherwise, state
+                        # management is still leaking out of the store, which is not ideal.
                         LOGGER.error("Error applying streaming state", exc_info=True)
-                        self.load_features()
+                        self._store.load_from_cache()
                 else:
                     LOGGER.debug("Ignoring SSE event type: %s", event.event)
 
             LOGGER.debug("SSE stream ended")
         except Exception as exc:
             LOGGER.warning("Streaming connection failed: %s", exc)
-            self.load_features()
+            self._store.load_from_cache()
         finally:
             try:
                 if self._client is not None:

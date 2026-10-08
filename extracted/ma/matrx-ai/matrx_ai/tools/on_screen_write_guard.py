@@ -102,7 +102,14 @@ def output_is_person_decline(output: Any) -> bool:
 
 
 def writer_key(tool_name: str, arguments: Mapping[str, Any] | None) -> str | None:
-    """The census key (``tool`` or ``tool:action``) when this call is a surface write."""
+    """The census key (``tool`` or ``tool:action``) when this call is a surface write.
+
+    The census is keyed by the name a tool is declared under in code; a call arriving under a
+    rename alias (the DB's old name during a rename window) maps to it first.
+    """
+    from matrx_ai.tools.declared import code_name_for
+
+    tool_name = code_name_for(tool_name)
     args = arguments or {}
     for field in _DISPATCH_FIELDS:
         value = args.get(field)

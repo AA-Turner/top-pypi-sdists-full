@@ -319,6 +319,11 @@ class SyncClient:
         return self._call(self._client.block())
 
     @property
+    def finalized_block(self) -> int:
+        """Current finalized chain block number. Reads the chain on every access."""
+        return self._call(self._client.finalized_block())
+
+    @property
     def time(self) -> datetime:
         """UTC timestamp of the current chain head block. Reads the chain on
         every access; ``timestamp(block=...)`` reads another block's time."""
@@ -399,6 +404,30 @@ class SyncClient:
     def reads(self) -> list[dict]:
         return self._client.reads()
 
+    def mine_pow_registration(
+        self,
+        netuid: int,
+        hotkey_ss58: str,
+        coldkey_ss58: str,
+        *,
+        workers: int = 4,
+        max_seconds: float = 300,
+        backend: str = "auto",
+        device_ids: tuple[int, ...] | None = None,
+    ):
+        """Mine a fresh public challenge for fee-free subnet registration."""
+        return self._call(
+            self._client.mine_pow_registration(
+                netuid,
+                hotkey_ss58,
+                coldkey_ss58,
+                workers=workers,
+                max_seconds=max_seconds,
+                backend=backend,
+                device_ids=device_ids,
+            )
+        )
+
     def submit_call(self, call, wallet, **kwargs):
         return self._call(self._client.submit_call(call, wallet, **kwargs))
 
@@ -417,6 +446,19 @@ class SyncClient:
     def multisig(self, signatories, threshold):
         multi = self._call(self._client.multisig(signatories, threshold))
         return _SyncNamespace(multi, self._call)
+
+    def preflight(self, intent, wallet, *, proxy_for=None, proxy_type=None):
+        return self._call(
+            self._client.preflight(
+                intent,
+                wallet,
+                proxy_for=proxy_for,
+                proxy_type=proxy_type,
+            )
+        )
+
+    def estimate_shielded_carrier_fee(self, fee_payer):
+        return self._call(self._client.estimate_shielded_carrier_fee(fee_payer))
 
     def plan(self, intent, wallet, **kwargs):
         return self._call(self._client.plan(intent, wallet, **kwargs))

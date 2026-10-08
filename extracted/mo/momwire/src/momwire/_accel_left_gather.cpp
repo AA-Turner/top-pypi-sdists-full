@@ -1,5 +1,6 @@
 #include "_accel_common.h"
 
+#include <complex>
 #include <cstring>
 #include <stdexcept>
 #ifdef _OPENMP
@@ -776,6 +777,303 @@ static py::tuple product_chunk_index(
                           sidx);
 }
 
+
+// The product tiles' per-tile bookkeeping (momwire#1377), copies only.
+//
+// `product_rows`: `_ProductPlan.rows(ids)` of a plan that kept each row's
+// flat grid position -- (a, b) = divmod(kept_pos[id], nB), the grouped node
+// and line node (g, l) = (grank[a], b) on slot "z", (grank[b], a) on "zp",
+// and the row (key_r[kid[g, l]], zA[a], zB[b]). Every float is an element
+// copied from its array, so the rows are numpy's to the bit.
+template <class KP>
+static py::array_t<double> product_rows_impl(
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> ids,
+    py::array_t<KP, py::array::c_style> kept_pos, int64_t nB, bool slot_z,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> grank,
+    py::array_t<int32_t, py::array::c_style> kid,
+    py::array_t<double, py::array::c_style> key_r,
+    py::array_t<double, py::array::c_style> zA,
+    py::array_t<double, py::array::c_style> zB) {
+    if (kid.ndim() != 2) throw std::runtime_error("product_rows: kid must be 2-D");
+    if (nB <= 0) throw std::runtime_error("product_rows: nB must be positive");
+    const py::ssize_t m = ids.size(), nG = kid.shape(0), nL = kid.shape(1);
+    const py::ssize_t n_rows = kept_pos.size(), n_key = key_r.size();
+    const py::ssize_t nA = zA.size(), nBs = zB.size(), n_gr = grank.size();
+    const int64_t *I = ids.data(), *GR = grank.data();
+    const KP *KPp = kept_pos.data();
+    const int32_t *K = kid.data();
+    const double *R = key_r.data(), *ZA = zA.data(), *ZB = zB.data();
+    py::array_t<double> out(std::vector<py::ssize_t>{m, 3});
+    double *O = out.mutable_data();
+    int bad = 0;
+    {
+        py::gil_scoped_release nogil;
+#pragma omp parallel for schedule(static) reduction(| : bad)
+        for (py::ssize_t i = 0; i < m; ++i) {
+            const int64_t id = I[i];
+            if (id < 0 || id >= n_rows) {
+                bad |= 1;
+                continue;
+            }
+            const int64_t f = static_cast<int64_t>(KPp[id]);
+            const int64_t a = f / nB, b = f % nB;
+            if (f < 0 || a >= nA || b >= nBs) {
+                bad |= 1;
+                continue;
+            }
+            const int64_t gnode = slot_z ? a : b, l = slot_z ? b : a;
+            if (gnode >= n_gr || l >= nL) {
+                bad |= 1;
+                continue;
+            }
+            const int64_t g = GR[gnode];
+            if (g < 0 || g >= nG) {
+                bad |= 1;
+                continue;
+            }
+            const int32_t k = K[g * nL + l];
+            if (k < 0 || k >= n_key) {
+                bad |= 1;
+                continue;
+            }
+            O[3 * i] = R[k];
+            O[3 * i + 1] = ZA[a];
+            O[3 * i + 2] = ZB[b];
+        }
+    }
+    if (bad) throw std::runtime_error("product_rows: index out of range");
+    return out;
+}
+
+// `tile_block`: one tile's block and stores, what `_ProductTiles.chunks`
+// did with numpy on the fused route --
+//     refuse a row already done, mark the tile's rows done;
+//     tb[:, j] = vals[pos][:, kcols[j]]       (pos empty: vals in row order)
+//     held[hpos[ids[i]], :] = tb[i, :]        where that slot is >= 0
+//     loc[ids[i]] = i
+// -- each value an element copied, so the stores are the same bits. Returns
+// (tb in column-major order, whether a row was asked twice); nothing is
+// written when one was.
+template <class P>
+static py::tuple tile_block_impl(
+    py::array_t<std::complex<double>> vals, py::array_t<P, py::array::c_style> pos,
+    std::vector<int> kcols, py::array_t<int32_t, py::array::c_style> ids,
+    py::array_t<bool, py::array::c_style> done, py::array_t<int32_t, py::array::c_style> loc,
+    py::array_t<int32_t, py::array::c_style> hpos, py::array_t<std::complex<double>> held) {
+    if (vals.ndim() != 2 || held.ndim() != 2)
+        throw std::runtime_error("tile_block: vals and held must be 2-D");
+    const py::ssize_t m = ids.size(), nv = vals.shape(0), nk = static_cast<py::ssize_t>(kcols.size());
+    const py::ssize_t n_rows = done.size();
+    const bool have_pos = pos.size() != 0, have_h = hpos.size() != 0;
+    if (nv != m || (have_pos && pos.size() != m))
+        throw std::runtime_error("tile_block: one value row per id");
+    if (loc.size() != n_rows || (have_h && hpos.size() != n_rows))
+        throw std::runtime_error("tile_block: loc and hpos must be row-length");
+    if (held.shape(1) != nk) throw std::runtime_error("tile_block: held width");
+    for (int k : kcols)
+        if (k < 0 || k >= vals.shape(1)) throw std::runtime_error("tile_block: kernel column");
+    const int32_t *I = ids.data();
+    const P *Pp = have_pos ? pos.data() : nullptr;
+    for (py::ssize_t i = 0; i < m; ++i) {
+        if (I[i] < 0 || I[i] >= n_rows) throw std::runtime_error("tile_block: id out of range");
+        if (Pp && (Pp[i] < 0 || Pp[i] >= m)) throw std::runtime_error("tile_block: pos out of range");
+    }
+    bool *D = done.mutable_data();
+    for (py::ssize_t i = 0; i < m; ++i)
+        if (D[I[i]]) return py::make_tuple(py::none(), true);
+    const int32_t *H = have_h ? hpos.data() : nullptr;
+    const py::ssize_t n_held = held.shape(0);
+    if (H)
+        for (py::ssize_t i = 0; i < m; ++i)
+            if (H[I[i]] >= n_held) throw std::runtime_error("tile_block: held slot out of range");
+    auto V = vals.unchecked<2>();
+    auto HD = held.mutable_unchecked<2>();
+    py::array_t<std::complex<double>, py::array::f_style> tb(std::vector<py::ssize_t>{m, nk});
+    std::complex<double> *T = tb.mutable_data();
+    int32_t *L = loc.mutable_data();
+    {
+        py::gil_scoped_release nogil;
+#pragma omp parallel for schedule(static)
+        for (py::ssize_t i = 0; i < m; ++i) {
+            const py::ssize_t src = Pp ? static_cast<py::ssize_t>(Pp[i]) : i;
+            const int32_t r = I[i];
+            const int32_t h = H ? H[r] : -1;
+            for (py::ssize_t j = 0; j < nk; ++j) {
+                const std::complex<double> v = V(src, kcols[j]);
+                T[j * m + i] = v;
+                if (h >= 0) HD(h, j) = v;
+            }
+            D[r] = true;
+            L[r] = static_cast<int32_t>(i);
+        }
+    }
+    return py::make_tuple(tb, false);
+}
+
+// `loc[ids] = value`, the tile's places cleared after its columns are served.
+static void fill_rows_i32(py::array_t<int32_t, py::array::c_style> ids,
+                          py::array_t<int32_t, py::array::c_style> loc, int32_t value) {
+    const py::ssize_t m = ids.size(), n = loc.size();
+    const int32_t *I = ids.data();
+    for (py::ssize_t i = 0; i < m; ++i)
+        if (I[i] < 0 || I[i] >= n) throw std::runtime_error("fill_rows_i32: id out of range");
+    int32_t *L = loc.mutable_data();
+    py::gil_scoped_release nogil;
+#pragma omp parallel for schedule(static)
+    for (py::ssize_t i = 0; i < m; ++i) L[I[i]] = value;
+}
+
+
+// `_ProductTiles._plan_held_recycled`'s sandwich marks (momwire#1377): group
+// g's key k (local rank) is read late by the line nodes n with
+// kl_rank[g, n] == k whose column is ready after k's tile
+// (tile_of_key[kid[g, n]] < ready[n]), the last at the latest such ready[n];
+// every z row of (g, k) -- rowflat[off[g] + z * nk[g] + k] -- gets
+// last = max(last, that tile) and sand = true. numpy's walk did the same per
+// group by np.unique and np.maximum.at; a max of integers is the same in any
+// order, so the same `last` and `sand`. Serial: groups share rows.
+static void late_sandwich_rows(py::array_t<int16_t, py::array::c_style> tile_of_key,
+                               py::array_t<int32_t, py::array::c_style> kid,
+                               py::array_t<int32_t, py::array::c_style> kl_rank,
+                               py::array_t<int64_t, py::array::c_style | py::array::forcecast> ready,
+                               py::array_t<int32_t, py::array::c_style> rowflat,
+                               py::array_t<int64_t, py::array::c_style | py::array::forcecast> off,
+                               py::array_t<int64_t, py::array::c_style | py::array::forcecast> nz,
+                               py::array_t<int64_t, py::array::c_style | py::array::forcecast> nk,
+                               py::array_t<int16_t, py::array::c_style> last,
+                               py::array_t<bool, py::array::c_style> sand,
+                               uintptr_t cancel_flag = 0) {
+    if (kid.ndim() != 2 || kl_rank.ndim() != 2 || kid.shape(0) != kl_rank.shape(0) ||
+        kid.shape(1) != kl_rank.shape(1))
+        throw std::runtime_error("late_sandwich_rows: kid and kl_rank (groups, line)");
+    const py::ssize_t nG = kid.shape(0), nL = kid.shape(1);
+    if (ready.size() != nL || off.size() < nG || nz.size() < nG || nk.size() < nG)
+        throw std::runtime_error("late_sandwich_rows: shapes");
+    const py::ssize_t n_key = tile_of_key.size(), n_flat = rowflat.size(), n_rows = last.size();
+    if (sand.size() != n_rows) throw std::runtime_error("late_sandwich_rows: sand length");
+    const int16_t *TK = tile_of_key.data();
+    const int32_t *K = kid.data(), *KL = kl_rank.data(), *RF = rowflat.data();
+    const int64_t *RD = ready.data(), *OF = off.data(), *NZ = nz.data(), *NK = nk.data();
+    int16_t *LS = last.mutable_data();
+    bool *SD = sand.mutable_data();
+    int64_t max_nk = 0;
+    for (py::ssize_t g = 0; g < nG; ++g) {
+        max_nk = std::max(max_nk, NK[g]);
+        if (OF[g] < 0 || NZ[g] < 0 || NK[g] < 0 || OF[g] + NZ[g] * NK[g] > n_flat)
+            throw std::runtime_error("late_sandwich_rows: row table out of range");
+    }
+    for (py::ssize_t q = 0; q < nG * nL; ++q)
+        if (K[q] < 0 || K[q] >= n_key) throw std::runtime_error("late_sandwich_rows: key out of range");
+    for (py::ssize_t q = 0; q < n_flat; ++q)
+        if (RF[q] < 0 || RF[q] >= n_rows) throw std::runtime_error("late_sandwich_rows: row out of range");
+    py::gil_scoped_release nogil;
+    MW_CANCEL_SERIAL_SETUP(cancel_flag);
+    std::vector<int64_t> lk(static_cast<size_t>(max_nk), -1);
+    std::vector<int64_t> touched;
+    for (py::ssize_t g = 0; g < nG; ++g) {
+        MW_CANCEL_SERIAL_POLL();
+        touched.clear();
+        const int32_t *Kg = K + g * nL, *KLg = KL + g * nL;
+        for (py::ssize_t n = 0; n < nL; ++n) {
+            if (!(static_cast<int64_t>(TK[Kg[n]]) < RD[n])) continue;
+            const int32_t k = KLg[n];
+            if (k < 0 || k >= NK[g]) throw std::runtime_error("late_sandwich_rows: rank out of range");
+            if (lk[k] < 0) touched.push_back(k);
+            lk[k] = std::max(lk[k], RD[n]);
+        }
+        for (int64_t k : touched) {
+            const int16_t t = static_cast<int16_t>(lk[k]);
+            for (int64_t z = 0; z < NZ[g]; ++z) {
+                const int32_t row = RF[OF[g] + z * NK[g] + k];
+                if (LS[row] < t) LS[row] = t;
+                SD[row] = true;
+            }
+            lk[k] = -1;
+        }
+    }
+}
+
+
+// `_ProductTiles.__init__`'s two per-group passes of a many-group product
+// (momwire#1377), group by group in the order numpy took them:
+//   key_row_counts: counts[kids[g][j]] += nz[g]       (an integer sum)
+//   tile_per_row:   t_row[rowflat[off[g] + z * nk[g] + j]] = tile_of_key[kids[g][j]]
+// (a row shared by groups is written in group order, as numpy wrote it).
+static py::array_t<int32_t> key_row_counts(
+    std::vector<py::array_t<int32_t, py::array::c_style>> kids,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> nz, int64_t n_key) {
+    if (static_cast<py::ssize_t>(kids.size()) > nz.size())
+        throw std::runtime_error("key_row_counts: one nz per group");
+    py::array_t<int32_t> out(static_cast<py::ssize_t>(n_key));
+    int32_t *O = out.mutable_data();
+    std::fill(O, O + n_key, 0);
+    const int64_t *NZ = nz.data();
+    for (size_t g = 0; g < kids.size(); ++g) {
+        const int32_t *K = kids[g].data();
+        const py::ssize_t m = kids[g].size();
+        for (py::ssize_t j = 0; j < m; ++j) {
+            if (K[j] < 0 || K[j] >= n_key) throw std::runtime_error("key_row_counts: key out of range");
+            O[K[j]] += static_cast<int32_t>(NZ[g]);
+        }
+    }
+    return out;
+}
+
+static py::array_t<int16_t> tile_per_row(
+    py::array_t<int32_t, py::array::c_style> rowflat,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> off,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> nz,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> nk,
+    std::vector<py::array_t<int32_t, py::array::c_style>> kids,
+    py::array_t<int16_t, py::array::c_style> tile_of_key, int64_t n_rows) {
+    const py::ssize_t nG = static_cast<py::ssize_t>(kids.size());
+    if (off.size() < nG || nz.size() < nG || nk.size() < nG)
+        throw std::runtime_error("tile_per_row: one off, nz, nk per group");
+    const int32_t *RF = rowflat.data();
+    const int64_t *OF = off.data(), *NZ = nz.data(), *NK = nk.data();
+    const int16_t *TK = tile_of_key.data();
+    const py::ssize_t n_flat = rowflat.size(), n_key = tile_of_key.size();
+    py::array_t<int16_t> out(static_cast<py::ssize_t>(n_rows));
+    int16_t *T = out.mutable_data();
+    // np.empty's contents where no group writes; every row is written when
+    // the tables cover the rows, which the caller's tiles check.
+    std::fill(T, T + n_rows, static_cast<int16_t>(0));
+    for (py::ssize_t g = 0; g < nG; ++g) {
+        const int32_t *K = kids[g].data();
+        if (kids[g].size() != NK[g]) throw std::runtime_error("tile_per_row: kids[g] is nk[g] keys");
+        if (OF[g] < 0 || OF[g] + NZ[g] * NK[g] > n_flat)
+            throw std::runtime_error("tile_per_row: row table out of range");
+        for (int64_t z = 0; z < NZ[g]; ++z) {
+            const int32_t *row = RF + OF[g] + z * NK[g];
+            for (int64_t j = 0; j < NK[g]; ++j) {
+                if (row[j] < 0 || row[j] >= n_rows || K[j] < 0 || K[j] >= n_key)
+                    throw std::runtime_error("tile_per_row: index out of range");
+                T[row[j]] = TK[K[j]];
+            }
+        }
+    }
+    return out;
+}
+
+
+// `values[flat % n]` for non-negative int64 flat positions (momwire#1377):
+// the plan's key z, `lzv[kf % nL]`, an element copy per key.
+static py::array_t<double> take_mod(py::array_t<double, py::array::c_style> values,
+                                    py::array_t<int64_t, py::array::c_style> flat, int64_t n) {
+    if (n <= 0 || values.size() != n) throw std::runtime_error("take_mod: one value per residue");
+    const py::ssize_t m = flat.size();
+    const int64_t *F = flat.data();
+    const double *V = values.data();
+    for (py::ssize_t i = 0; i < m; ++i)
+        if (F[i] < 0) throw std::runtime_error("take_mod: negative position");
+    py::array_t<double> out(m);
+    double *O = out.mutable_data();
+    py::gil_scoped_release nogil;
+#pragma omp parallel for schedule(static)
+    for (py::ssize_t i = 0; i < m; ++i) O[i] = V[F[i] % n];
+    return out;
+}
+
 }  // namespace left_gather
 
 void register_left_gather(py::module_ &m) {
@@ -799,6 +1097,51 @@ void register_left_gather(py::module_ &m) {
           py::arg("base"), py::arg("cols"), py::arg("loc"), py::arg("hpos"),
           py::arg("want_sidx"), py::arg("n_threads"));
     m.attr("product_chunk_index_1290") = true;
+    m.def("product_rows", &left_gather::product_rows_impl<int32_t>,
+          "`_ProductPlan.rows(ids)` of a plan with kept grid positions: rows "
+          "(key_r[kid[g, l]], zA[a], zB[b]) for (a, b) = divmod(kept_pos[id], "
+          "nB), copies only. momwire#1377.",
+          py::arg("ids"), py::arg("kept_pos"), py::arg("nB"), py::arg("slot_z"),
+          py::arg("grank"), py::arg("kid"), py::arg("key_r"), py::arg("zA"),
+          py::arg("zB"));
+    m.def("product_rows", &left_gather::product_rows_impl<int64_t>,
+          py::arg("ids"), py::arg("kept_pos"), py::arg("nB"), py::arg("slot_z"),
+          py::arg("grank"), py::arg("kid"), py::arg("key_r"), py::arg("zA"),
+          py::arg("zB"));
+    m.def("tile_block", &left_gather::tile_block_impl<int64_t>,
+          "One product tile's block, held store, places and done marks, as "
+          "`_ProductTiles.chunks` formed them, copies only: (tb, asked_twice). "
+          "momwire#1377.",
+          py::arg("vals"), py::arg("pos"), py::arg("kcols"), py::arg("ids"),
+          py::arg("done"), py::arg("loc"), py::arg("hpos"), py::arg("held"));
+    m.def("tile_block", &left_gather::tile_block_impl<int32_t>,
+          py::arg("vals"), py::arg("pos"), py::arg("kcols"), py::arg("ids"),
+          py::arg("done"), py::arg("loc"), py::arg("hpos"), py::arg("held"));
+    m.def("fill_rows_i32", &left_gather::fill_rows_i32,
+          "loc[ids] = value for int32 arrays. momwire#1377.",
+          py::arg("ids"), py::arg("loc"), py::arg("value"));
+    m.attr("product_tiles_1377") = true;
+    m.def("late_sandwich_rows", &left_gather::late_sandwich_rows,
+          "The sandwich's late rows of a many-group product: per group, each "
+          "key's latest ready tile over the line nodes that read it late, "
+          "marked over its z rows into last (max) and sand. momwire#1377.",
+          py::arg("tile_of_key"), py::arg("kid"), py::arg("kl_rank"), py::arg("ready"),
+          py::arg("rowflat"), py::arg("off"), py::arg("nz"), py::arg("nk"), py::arg("last"),
+          py::arg("sand"), py::arg("cancel_flag") = 0);
+    m.attr("late_sandwich_rows_1377") = true;
+    m.def("key_row_counts", &left_gather::key_row_counts,
+          "counts[kids[g][j]] += nz[g] over the groups, int32. momwire#1377.",
+          py::arg("kids"), py::arg("nz"), py::arg("n_key"));
+    m.def("tile_per_row", &left_gather::tile_per_row,
+          "t_row[rowflat[off[g] + z * nk[g] + j]] = tile_of_key[kids[g][j]] over "
+          "the groups in order, int16. momwire#1377.",
+          py::arg("rowflat"), py::arg("off"), py::arg("nz"), py::arg("nk"), py::arg("kids"),
+          py::arg("tile_of_key"), py::arg("n_rows"));
+    m.attr("tile_init_passes_1377") = true;
+    m.def("take_mod", &left_gather::take_mod,
+          "values[flat % n] for non-negative int64 positions. momwire#1377.",
+          py::arg("values"), py::arg("flat"), py::arg("n"));
+    m.attr("take_mod_1377") = true;
     m.def("left_products_gathered", &left_gather::left_products_gathered,
           "The crossing main sandwich's six left products (P1 U, P2 U, "
           "P3 (k2 V + dz'W), P3 W, P4 W, P4 V) of four (n_out, nA) CSR "

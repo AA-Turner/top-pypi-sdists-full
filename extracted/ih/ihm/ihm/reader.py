@@ -481,6 +481,10 @@ class SystemReader:
         self.revisions = IDMapper(self.system.revisions, ihm.Revision,
                                   *(None,) * 4)
 
+        #: Mapping from ID to :class:`ihm.Collection` objects
+        self.collections = IDMapper(self.system.collections, ihm.Collection,
+                                    None)
+
         #: Mapping from ID to :class:`ihm.Entity` objects
         self.entities = IDMapper(self.system.entities, _make_new_entity)
 
@@ -1060,8 +1064,17 @@ class _CollectionHandler(Handler):
     category = '_ihm_entry_collection'
 
     def __call__(self, id, name, details):
-        c = ihm.Collection(id=id, name=name, details=details)
-        self.system.collections.append(c)
+        c = self.sysr.collections.get_by_id(id)
+        c.name = name
+        c.details = details
+
+
+class _CollectionMappingHandler(Handler):
+    category = '_ihm_entry_collection_mapping'
+
+    def __call__(self, collection_id, entry_id):
+        c = self.sysr.collections.get_by_id(collection_id)
+        c.entries.append(entry_id)
 
 
 class _StructHandler(Handler):
@@ -3119,6 +3132,7 @@ class _CrossLinkListHandler(Handler):
                  group_id, id, entity_id_1, entity_id_2, seq_id_1, seq_id_2,
                  linker_type, details):
         dataset = self.sysr.datasets.get_by_id_or_none(dataset_list_id)
+        _force_other = False
         if linker_chem_comp_descriptor_id is None and linker_type is not None:
             linker = self._get_linker_by_name(linker_type)
         else:
@@ -3126,9 +3140,12 @@ class _CrossLinkListHandler(Handler):
                 linker_chem_comp_descriptor_id)
             if linker_type:
                 self._linker_type[linker] = linker_type
+                _force_other = (linker_type.lower() == 'other')
         # Group all crosslinks with same dataset and linker in one
         # CrossLinkRestraint object
         r = self.sysr.xl_restraints.get_by_attrs(dataset, linker)
+        if _force_other:
+            r._force_other = True
 
         xl_group = self.sysr.experimental_xl_groups.get_by_id(group_id)
         xl = self.sysr.experimental_xls.get_by_id(id)
@@ -4150,7 +4167,8 @@ class IHMVariant(Variant):
     system_reader = SystemReader
 
     _handlers = [
-        _CollectionHandler, _StructHandler, _SoftwareHandler, _CitationHandler,
+        _CollectionHandler, _CollectionMappingHandler, _StructHandler,
+        _SoftwareHandler, _CitationHandler,
         _DatabaseHandler, _DatabaseStatusHandler,
         _AuditAuthorHandler, _AuditRevisionHistoryHandler,
         _AuditRevisionDetailsHandler, _AuditRevisionGroupHandler,

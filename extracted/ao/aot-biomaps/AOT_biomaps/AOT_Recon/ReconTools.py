@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 ReconTools.py
 
@@ -25,6 +27,7 @@ try:
     from cupyx.scipy.ndimage import map_coordinates
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 
@@ -164,7 +167,7 @@ def estimate_lipschitz_constant(SMatrix, preconditioner, num_iters=20, show_logs
         eps = 1e-12
         L_est = 0.0
 
-        for _ in trange(num_iters, desc="[AOT-biomaps] Estimating Lipschitz constant", disable=not show_logs):
+        for _ in trange(num_iters, desc=f"[AOT-biomaps] Estimating Lipschitz constant ({SMatrix.device.upper()})", disable=not show_logs):
             # Forward projection -> u = A * v_k
             Av = forward_projection(SMatrix, v)
             if float(xp.sum(xp.abs(Av))) < eps:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -54,7 +55,20 @@ between its releases, so the version is part of the measurement.
 )
 
 
+TASK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
+
+
+def check_task_names(tasks: list) -> list[str]:
+    bad = [t for t in tasks if not (isinstance(t, str) and TASK_NAME.fullmatch(t))]
+    if bad:
+        raise ValueError(
+            f"eval/benchmark refuses task(s) {bad!r}: a task is named, in letters, digits, "
+            "'_' and '-', never a path to a task file")
+    return tasks
+
+
 def run(ctx, inputs, params):
+    check_task_names(list(params.get("tasks") or []))
     import lm_eval
 
     pass
@@ -105,13 +119,20 @@ def run(ctx, inputs, params):
              "value": r.get("value"), "stderr": r.get("stderr"),
              "n": r.get("n"), "coords": r["coords"]}
             for r in recs]
-    import mlx_lm
+    from mechbench_compute.backends import backend_of
 
+    backend = backend_of(model)
+    if backend == "mlx":
+        import mlx_lm
+
+        how = f"mlx_lm {mlx_lm.__version__} unused for load"
+    else:
+        how = f"the {backend} backend"
     return {"kind": "records/table",
             "name": params.get("name", f"suite-{variant}"),
             "description": (
                 f"lm-eval {lm_eval.__version__} via MechbenchLM "
-                f"(mlx_lm {mlx_lm.__version__} unused for load); "
+                f"({how}); "
                 f"tasks={','.join(tasks)} limit={limit} "
                 f"fewshot={num_fewshot}"),
             "row_axis": "task-metric",

@@ -51,9 +51,10 @@ import ipaddress
 import logging
 import socket
 import threading
+import time
 import urllib.parse as urlparse
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -62,11 +63,16 @@ if TYPE_CHECKING:
 
 __all__ = [
     "PERMISSIVE_POLICY",
+    "RenderBudget",
+    "RenderLimitError",
     "ResourceAccessError",
     "ResourceAccessPolicy",
+    "active_budget",
     "active_policy",
+    "check_deadline",
     "current_policy",
     "default_policy",
+    "render_budget",
     "use_policy",
 ]
 
@@ -81,6 +87,16 @@ REMOTE_SCHEMES: frozenset[str] = frozenset({"http", "https"})
 
 class ResourceAccessError(Exception):
     """A resource was refused by the active :class:`ResourceAccessPolicy`."""
+
+
+class RenderLimitError(Exception):
+    """
+    A render went past a limit on the whole document, and was abandoned.
+
+    Not a :class:`ResourceAccessError`: a refused resource leaves the document
+    without it and the render goes on, whereas a document that is too large,
+    too deep or out of time has no useful remainder to render.
+    """
 
 
 def _is_internal(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
@@ -129,6 +145,31 @@ class ResourceAccessPolicy:
         network rules.
     :param max_resource_bytes: how large a single fetched resource may be,
         before and after decompression. ``None`` removes the limit.
+    :param max_local_bytes: how large a local file or a decoded ``data:`` URI
+        may be. ``None``, the default, removes the limit: the caller's own
+        document is read under a policy too, and it may be large.
+    :param max_image_pixels: how many pixels an image may decode to, read
+        from its header before it is decoded. ``None``, the default, leaves
+        only Pillow's own decompression-bomb guard.
+    :param max_resources: how many distinct files and URLs one render may
+        read. ``data:`` URIs are part of the document and do not count.
+    :param max_total_bytes: how many bytes those may add up to.
+    :param max_fetch_seconds: how long one network fetch may take in all,
+        across its retries and redirects. The socket timeout bounds each read
+        only, so a server sending a byte every few seconds is never cut off
+        without this.
+    :param max_render_seconds: how long a render may take. Checked between
+        elements, fetches and flowables, so it is a bound, not a precise stop.
+    :param max_document_bytes: how large the source document may be.
+    :param max_depth: how deeply its elements may nest.
+    :param allow_remote_pdf_backgrounds: use a PDF page background that was
+        fetched over the network or written inline as a ``data:`` URI. A PDF
+        is a complex format parsed by pypdf; one from a file beside the
+        document is the integrator's, one from anywhere else is the
+        document author's.
+
+    Every limit after ``max_resource_bytes`` is off (``None``) by default;
+    :meth:`server` turns them all on.
     """
 
     allow_remote: bool = True
@@ -148,6 +189,53 @@ class ResourceAccessPolicy:
     #: worker: without a limit, a 203KB response declaring Content-Encoding:
     #: gzip expands to 209MB of resident memory.
     max_resource_bytes: int | None = 20 * 1024 * 1024
+    #: Off by default, unlike the network limit, because a local read has
+    #: always been unbounded and documents rely on it: a large image beside
+    #: the document is not an attack when the caller wrote the document.
+    max_local_bytes: int | None = None
+    #: The byte limits do not bound an image: a 400-byte PNG can declare
+    #: 50,000 x 50,000 pixels, gigabytes once decoded.
+    max_image_pixels: int | None = None
+    max_resources: int | None = None
+    max_total_bytes: int | None = None
+    max_fetch_seconds: float | None = None
+    max_render_seconds: float | None = None
+    max_document_bytes: int | None = None
+    max_depth: int | None = None
+    allow_remote_pdf_backgrounds: bool = True
+
+    @classmethod
+    def server(
+        cls, base_dir: str | Path | None = None, **overrides: object
+    ) -> ResourceAccessPolicy:
+        """
+        The policy for rendering HTML you did not write: every limit on.
+
+        Local reads are confined to ``base_dir`` and denied outright without
+        one -- not the working directory, which on a server holds its source
+        and its settings. Any field can be given to change one limit and keep
+        the others, ``ResourceAccessPolicy.server(media, max_depth=50)``.
+
+        The values are generous for a document and far below what it takes
+        to hurt a worker; the security guide lists them.
+        """
+        policy = cls(
+            base_dir=Path(base_dir) if base_dir is not None else None,
+            max_resource_bytes=20 * 1024 * 1024,
+            max_local_bytes=20 * 1024 * 1024,
+            # A 24 megapixel photograph, 6000 x 4000, fits; decoded as RGBA
+            # this is 100 MB.
+            max_image_pixels=25_000_000,
+            max_resources=100,
+            max_total_bytes=50 * 1024 * 1024,
+            max_fetch_seconds=10,
+            max_render_seconds=60,
+            max_document_bytes=10 * 1024 * 1024,
+            # Far from the ~1,200 levels where the walks run out of stack.
+            max_depth=200,
+            allow_remote_pdf_backgrounds=False,
+        )
+        return replace(policy, **overrides)  # type: ignore[arg-type]
 
     @property
     def roots(self) -> tuple[Path, ...]:
@@ -268,6 +356,27 @@ class ResourceAccessPolicy:
             )
             raise ResourceAccessError(msg)
 
+    def check_local_size(self, size: int, where: str | Path) -> None:
+        """Raise :class:`ResourceAccessError` if a local resource is too large."""
+        limit = self.max_local_bytes
+        if limit is not None and size > limit:
+            msg = (
+                f"{str(where)[:120]!r} is larger than the {limit} bytes a local "
+                f"resource may take"
+            )
+            raise ResourceAccessError(msg)
+
+    def check_image_pixels(self, width: float, height: float, where: object) -> None:
+        """Raise :class:`ResourceAccessError` if an image is too large to decode."""
+        limit = self.max_image_pixels
+        pixels = int(width) * int(height)
+        if limit is not None and pixels > limit:
+            msg = (
+                f"{str(where)[:120]!r} is {int(width)} x {int(height)} = "
+                f"{pixels} pixels, more than the {limit} an image may decode to"
+            )
+            raise ResourceAccessError(msg)
+
 
 #: No confinement at all: any host, any path. Used for resources the *caller*
 #: named explicitly (the source document on the command line) and by
@@ -306,6 +415,7 @@ class _ActivePolicy(threading.local):
     def __init__(self) -> None:
         super().__init__()
         self.policy: ResourceAccessPolicy | None = None
+        self.budget: RenderBudget | None = None
 
 
 _active: _ActivePolicy = _ActivePolicy()
@@ -333,6 +443,95 @@ def active_policy() -> ResourceAccessPolicy | None:
     allow everything".
     """
     return _active.policy
+
+
+class RenderBudget:
+    """
+    What one render has spent against its policy's limits on the whole.
+
+    A policy is shared, frozen, often a module constant; what a render has
+    used so far is not, so it lives here, one per render.
+    """
+
+    def __init__(self, policy: ResourceAccessPolicy) -> None:
+        self.policy: ResourceAccessPolicy = policy
+        self.started: float = time.monotonic()
+        #: The resources charged so far, so that one read twice -- an image
+        #: used on every page, or the same file asked for by getData() and
+        #: notFound() -- is charged once.
+        self.charged: set[object] = set()
+        self.total_bytes: int = 0
+
+    def remaining(self) -> float | None:
+        """Seconds left before the render's deadline, or None for no deadline."""
+        limit = self.policy.max_render_seconds
+        if limit is None:
+            return None
+        return limit - (time.monotonic() - self.started)
+
+    def check_deadline(self) -> None:
+        """Raise :class:`RenderLimitError` once the render is out of time."""
+        remaining = self.remaining()
+        if remaining is not None and remaining <= 0:
+            msg = (
+                f"the render took longer than the "
+                f"{self.policy.max_render_seconds:g} seconds it may take"
+            )
+            raise RenderLimitError(msg)
+
+    def admit(self, key: object, where: object) -> None:
+        """Raise :class:`ResourceAccessError` if one more resource is too many."""
+        limit = self.policy.max_resources
+        if limit is not None and key not in self.charged and len(self.charged) >= limit:
+            msg = (
+                f"{str(where)[:120]!r} would be more than {limit} resources "
+                f"in one document"
+            )
+            raise ResourceAccessError(msg)
+
+    def charge(self, key: object, size: int, where: object) -> None:
+        """Count a resource that was read, or refuse it if it does not fit."""
+        if key in self.charged:
+            return
+        self.admit(key, where)
+        limit = self.policy.max_total_bytes
+        if limit is not None and self.total_bytes + size > limit:
+            msg = (
+                f"{str(where)[:120]!r} does not fit in the {limit} bytes one "
+                f"document's resources in all may take"
+            )
+            raise ResourceAccessError(msg)
+        self.charged.add(key)
+        self.total_bytes += size
+
+
+@contextmanager
+def render_budget(policy: ResourceAccessPolicy) -> Iterator[RenderBudget]:
+    """
+    Keep a budget for the render in this block.
+
+    A render nested in another -- pisaStory inside pisaDocument -- shares the
+    outer one's budget rather than starting its clock again.
+    """
+    if _active.budget is not None:
+        yield _active.budget
+        return
+    _active.budget = RenderBudget(policy)
+    try:
+        yield _active.budget
+    finally:
+        _active.budget = None
+
+
+def active_budget() -> RenderBudget | None:
+    """The budget of the render in progress on this thread, if any."""
+    return _active.budget
+
+
+def check_deadline() -> None:
+    """Raise :class:`RenderLimitError` if the render in progress is out of time."""
+    if _active.budget is not None:
+        _active.budget.check_deadline()
 
 
 @contextmanager

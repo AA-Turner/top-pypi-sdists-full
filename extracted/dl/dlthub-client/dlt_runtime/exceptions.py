@@ -59,6 +59,10 @@ class NoRunsFound(RuntimeClientException):
     """No runs exist for the requested job or workspace."""
 
 
+class NoJobResult(RuntimeClientException):
+    """The run declared no job result."""
+
+
 class NoRunnableRun(RuntimeClientException):
     """Run is already in a terminal state and cannot be cancelled."""
 

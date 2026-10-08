@@ -14,5 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from . import beam_interactive_api_pb2_grpc
 from . import beam_interactive_api_pb2
+from . import beam_interactive_api_pb2_grpc

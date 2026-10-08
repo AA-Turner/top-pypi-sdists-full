@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import StrEnum
 import json
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
 DEFAULT_REGISTRY = Path(".sarj-standards-rollout.toml")
+MAX_CONCURRENT_CONSUMERS = 16
 SOURCE_REPOSITORY = "https://github.com/sarj-ai/code-standards.git"
 VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:[a-zA-Z0-9.-]+)?\Z")
 BOT_COMMIT_PREFIX = "chore(standards): adopt "
@@ -68,6 +70,7 @@ class RolloutChannel(StrEnum):
 
 
 class RolloutCommand(StrEnum):
+    VERIFY_RELEASE = "verify-release"
     APPLY = "apply"
     PLAN = "plan"
     RECONCILE = "reconcile"
@@ -151,6 +154,15 @@ SECONDARY_JAVASCRIPT_ROOT_EXCLUSIONS = frozenset(
         "venv",
     }
 )
+REPOSITORY_SCAN_EXCLUSIONS = SECONDARY_JAVASCRIPT_ROOT_EXCLUSIONS - {
+    "example",
+    "examples",
+    "fixture",
+    "fixtures",
+    "test",
+    "testdata",
+    "tests",
+}
 
 
 class RolloutError(RuntimeError):
@@ -188,6 +200,10 @@ class RolloutArgs:
     version: str | None = None
     dry_run: bool = False
     channel: RolloutChannel = RolloutChannel.STABLE
+    consumer: str | None = None
+    jobs: int = 1
+    command_timeout: float = 900
+    github_output: Path | None = None
 
 
 class CommandRunner(Protocol):
@@ -201,18 +217,31 @@ class CommandRunner(Protocol):
     ) -> subprocess.CompletedProcess[str]: ...
 
 
+@dataclass(frozen=True)
 class SubprocessRunner:
-    @staticmethod
+    command_timeout: float = 900
+
     def run(
+        self,
         command: Sequence[str],
         *,
         cwd: Path | None = None,
         check: bool = True,
         env: Mapping[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- explicit argv; shell remains disabled
-            list(command), cwd=cwd, check=check, text=True, capture_output=True, env=env
-        )
+        try:
+            return subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- explicit argv; shell remains disabled
+                list(command),
+                cwd=cwd,
+                check=check,
+                text=True,
+                capture_output=True,
+                env=env,
+                timeout=self.command_timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            msg = f"{command[0]} exceeded the {self.command_timeout:g}s command timeout"
+            raise RolloutError(msg) from exc
 
 
 @dataclass(frozen=True)
@@ -227,6 +256,11 @@ class Consumer:
     baseline_rules: tuple[str, ...] = ()
     baseline_paths: tuple[str, ...] = ()
     baseline_update: tuple[str, ...] = ()
+    partial_clone: bool = False
+
+    @property
+    def identity(self) -> str:
+        return f"{self.repository}@{self.branch}"
 
 
 class OutcomeState(StrEnum):
@@ -245,6 +279,7 @@ class Outcome:
     state: OutcomeState
     url: str = ""
     detail: str = ""
+    elapsed_seconds: float | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -254,6 +289,7 @@ class Outcome:
             "state": self.state.value,
             "url": self.url or None,
             "detail": self.detail or None,
+            "elapsedSeconds": self.elapsed_seconds,
         }
 
 
@@ -309,6 +345,16 @@ def load_registry(path: Path) -> tuple[Consumer, ...]:
 def select_channel(consumers: Sequence[Consumer], channel: RolloutChannel) -> tuple[Consumer, ...]:
     ceiling = ROLLOUT_CHANNELS.index(channel)
     return tuple(item for item in consumers if ROLLOUT_CHANNELS.index(item.channel) <= ceiling)
+
+
+def select_consumer(consumers: Sequence[Consumer], identity: str | None) -> tuple[Consumer, ...]:
+    if identity is None:
+        return tuple(consumers)
+    selected = tuple(item for item in consumers if item.identity == identity)
+    if not selected:
+        msg = f"rollout consumer {identity!r} is not in the selected channel"
+        raise RolloutError(msg)
+    return selected
 
 
 def validate_version(version: str) -> str:
@@ -386,8 +432,7 @@ def verify_release(
                 "--isolated",
                 "--python",
                 "3.14",
-                "--refresh-package",
-                "code-standards",
+                "--refresh",
                 "--from",
                 f"code-standards=={version}",
                 "code-standards",
@@ -403,14 +448,29 @@ def verify_release(
     else:
         msg = f"PyPI artifact did not report version {version}"
         raise RolloutError(msg)
+    return _published_tag_sha(version, runner, sleep=sleep)
+
+
+def _published_tag_sha(version: str, runner: CommandRunner, *, sleep: Callable[[float], None]) -> str:
     tag = f"refs/tags/standards-v{version}"
     peeled = tag + "^{}"
-    remote = runner.run(("git", "ls-remote", SOURCE_REPOSITORY, tag, peeled))
+    command = ("git", "ls-remote", SOURCE_REPOSITORY, tag, peeled)
+    remote = runner.run(command)
+    for _attempt in range(1, RELEASE_VISIBILITY_ATTEMPTS):
+        if stdout(remote):
+            break
+        sys.stderr.write(f"Waiting for immutable Standards tag standards-v{version}\n")
+        sleep(RELEASE_VISIBILITY_DELAY.total_seconds())
+        remote = runner.run(command)
     refs = {
         fields[1]: fields[0] for line in stdout(remote).splitlines() if len(fields := line.split()) == LS_REMOTE_FIELDS
     }
     sha = refs.get(peeled)
-    if len(refs) != LS_REMOTE_FIELDS or sha is None or not re.fullmatch(r"[0-9a-f]{40}", sha):
+    if (
+        set(refs) != {tag, peeled}
+        or sha is None
+        or any(not re.fullmatch(r"[0-9a-f]{40}", ref) for ref in refs.values())
+    ):
         msg = f"published tag standards-v{version} is absent or invalid"
         raise RolloutError(msg)
     return sha
@@ -618,9 +678,36 @@ def status_one(consumer: Consumer, version: str, runner: CommandRunner) -> Outco
     return Outcome(consumer, OutcomeState.MISSING, detail=f"base branch has {adopted or 'no readable manifest'}")
 
 
-def status(version: str, consumers: Sequence[Consumer], runner: CommandRunner) -> tuple[Outcome, ...]:
+def status(version: str, consumers: Sequence[Consumer], runner: CommandRunner, *, jobs: int = 1) -> tuple[Outcome, ...]:
     validate_version(version)
-    return tuple(status_one(item, version, runner) for item in consumers)
+    return map_consumers(consumers, lambda item: status_one(item, version, runner), jobs=jobs)
+
+
+def consumer_outcome(consumer: Consumer, operation: Callable[[Consumer], Outcome]) -> Outcome:
+    started = time.monotonic()
+    try:
+        outcome = operation(consumer)
+    except subprocess.CalledProcessError as exc:
+        outcome = Outcome(consumer, OutcomeState.ERROR, detail=process_failure_detail(exc))
+    except (OSError, RolloutError) as exc:
+        outcome = Outcome(consumer, OutcomeState.ERROR, detail=str(exc))
+    return replace(outcome, elapsed_seconds=round(time.monotonic() - started, 3))
+
+
+def map_consumers(
+    consumers: Sequence[Consumer], operation: Callable[[Consumer], Outcome], *, jobs: int
+) -> tuple[Outcome, ...]:
+    if not 1 <= jobs <= MAX_CONCURRENT_CONSUMERS:
+        msg = "rollout jobs must be between 1 and 16"
+        raise RolloutError(msg)
+    if jobs == 1 or len(consumers) <= 1:
+        return tuple(consumer_outcome(item, operation) for item in consumers)
+
+    def run_consumer(item: Consumer) -> Outcome:
+        return consumer_outcome(item, operation)
+
+    with ThreadPoolExecutor(max_workers=min(jobs, len(consumers)), thread_name_prefix="rollout") as pool:
+        return tuple(pool.map(run_consumer, consumers))
 
 
 def changed_paths(repo: Path, runner: CommandRunner) -> tuple[str, ...]:
@@ -671,11 +758,12 @@ def reject_git_metadata(
     if any(line.startswith("-\t-\t") for line in numbers.splitlines()):
         msg = "update may not add or modify binary files"
         raise RolloutError(msg)
+    tracked_result = runner.run(("git", "ls-files", "-z", "--", *paths), cwd=repo)
+    tracked_paths = frozenset((tracked_result.stdout or "").split("\0"))
     for relative in paths:
         candidate = repo / relative
-        tracked = runner.run(("git", "ls-files", "--error-unmatch", "--", relative), cwd=repo, check=False)
         untracked_executable = (
-            tracked.returncode != 0
+            relative not in tracked_paths
             and candidate.exists()
             and bool(stat.S_IMODE(candidate.stat().st_mode) & stat.S_IXUSR)
         )
@@ -863,8 +951,8 @@ def load_consumer_manifest(repo: Path, *, for_setup: bool = False) -> adoption_m
 def managed_rollout_paths(repo: Path, workflow_paths: frozenset[str]) -> frozenset[str]:
     allowed = set(DEFAULT_ALLOWED_ROLLOUT_PATHS)
     allowed.update(workflow_paths)
-    for path in repo.rglob("*"):
-        if path.is_file() and path.name in MANAGED_ROLLOUT_NAMES:
+    for path in repository_files(repo, MANAGED_ROLLOUT_NAMES):
+        if path.is_file():
             allowed.add(path.relative_to(repo).as_posix())
     adopted = load_consumer_manifest(repo, for_setup=True)
     roots = {repo}
@@ -992,10 +1080,16 @@ def secondary_javascript_roots(repo: Path, primary: Path) -> tuple[Path, ...]:
     return tuple(sorted(roots, key=lambda path: path.relative_to(repository).as_posix()))
 
 
+def repository_files(repo: Path, names: frozenset[str]) -> tuple[Path, ...]:
+    matches: list[Path] = []
+    for current, directories, files in os.walk(repo):
+        directories[:] = sorted(directory for directory in directories if directory not in REPOSITORY_SCAN_EXCLUSIONS)
+        matches.extend(Path(current) / name for name in files if name in names)
+    return tuple(sorted(matches))
+
+
 def _declared_corepack_manager(repo: Path) -> str | None:
-    for manifest in sorted(repo.glob("**/package.json")):
-        if any(part in {"node_modules", ".git"} for part in manifest.parts):
-            continue
+    for manifest in repository_files(repo, frozenset({"package.json"})):
         try:
             parsed: object = parse_json(manifest.read_text(encoding="utf-8"))
         except OSError, json.JSONDecodeError:
@@ -1184,6 +1278,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
     *,
     dry_run: bool = False,
 ) -> Outcome:
+    progress(consumer, "checking current adoption")
     existing = status_one(consumer, version, runner)
     retry_verification = existing.state is OutcomeState.BLOCKED and existing.detail.startswith(
         "consumer verification failed"
@@ -1201,6 +1296,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
     # the rollout outcome or prevent later consumers from being reconciled.
     with tempfile.TemporaryDirectory(prefix="standards-rollout-", ignore_cleanup_errors=True) as temporary:
         repo = Path(temporary) / "repo"
+        progress(consumer, "cloning consumer")
         runner.run(
             (
                 "gh",
@@ -1211,6 +1307,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
                 "--",
                 "--branch",
                 consumer.branch,
+                *(("--filter=blob:none",) if consumer.partial_clone else ()),
             )
         )
         base_sha = stdout(runner.run(("git", "rev-parse", "HEAD"), cwd=repo))
@@ -1231,6 +1328,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
             "--root",
             ".",
         )
+        progress(consumer, "provisioning declared tools")
         unauthenticated, tool_prefix = provision_consumer_tools(
             repo,
             Path(temporary) / "corepack-bin",
@@ -1244,11 +1342,13 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
         except ValueError as exc:
             raise RolloutError(str(exc)) from exc
         failures: list[str] = []
+        progress(consumer, "updating bundle and dependencies")
         try:
-            runner.run((*tool_prefix, *tool, "update", "--to", version), cwd=repo, env=unauthenticated)
+            update_consumer_bundle(repo, version, runner, tool_prefix, tool, environment=unauthenticated)
         except subprocess.CalledProcessError as exc:
             msg = f"{consumer.name}: dependency installation failed before a coherent rollout patch was prepared:\n"
             raise RolloutError(msg + process_failure_detail(exc)) from exc
+        progress(consumer, "refreshing scoped baselines")
         baseline_rules = rollout_baseline_rules(
             consumer,
             previous_react_doctor_policy,
@@ -1257,6 +1357,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
         allowed_baseline_paths, baseline_path, expected_baseline = _prepare_rollout_baseline(
             consumer, repo, runner, baseline_rules, tool_prefix, tool=tool, environment=unauthenticated
         )
+        progress(consumer, "diagnosing adoption and bootstrapping consumer")
         doctor = runner.run((*tool_prefix, *tool, "doctor"), cwd=repo, env=unauthenticated, check=False)
         if doctor.returncode != 0:
             failures.append("Standards doctor failed:\n" + verification_detail(doctor))
@@ -1283,6 +1384,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
         if bootstrap is not None:
             failures.append("consumer bootstrap failed:\n" + verification_detail(bootstrap))
         else:
+            progress(consumer, "verifying candidate patch")
             verification_failure_detail = _verify_rollout_patch(
                 consumer,
                 repo,
@@ -1317,10 +1419,46 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
             runner,
             comparison=f"origin/{consumer.branch}...HEAD",
         )
+        progress(consumer, "validating and pushing managed head")
         pushed_head_sha = push_rollout_head(repo, consumer, preparation, base_sha, runner, environment=unauthenticated)
+    progress(consumer, "publishing pull request")
     return _publish_rollout_pull(
         consumer, version, runner, branch, pushed_head_sha=pushed_head_sha, verification_failure=verification_failure
     )
+
+
+def update_consumer_bundle(
+    repo: Path,
+    version: str,
+    runner: CommandRunner,
+    tool_prefix: tuple[str, ...],
+    tool: tuple[str, ...],
+    *,
+    environment: Mapping[str, str],
+    sleep: Callable[[float], None] = time.sleep,
+) -> None:
+    # A consumer can provision a different uv than the release probe used.
+    # Refresh the dependency graph once; sibling releases can also be absent
+    # from cached index metadata. Subsequent commands reuse that cache.
+    command = (*tool_prefix, tool[0], "--refresh", *tool[1:], "--version")
+    for attempt in range(RELEASE_VISIBILITY_ATTEMPTS):
+        result = runner.run(command, cwd=repo, env=environment, check=False)
+        if result.returncode == 0:
+            if stdout(result) != f"code-standards {version}":
+                msg = f"consumer package probe did not report Code Standards {version}"
+                raise RolloutError(msg)
+            break
+        detail = verification_detail(result)
+        missing_release = (
+            "No solution found when resolving tool dependencies" in detail
+            and re.search(rf"there is no version of code-standards=={re.escape(version)}(?:\s|$)", detail) is not None
+        )
+        # Only the read-only probe retries. The mutating update executes once.
+        if not missing_release or attempt + 1 == RELEASE_VISIBILITY_ATTEMPTS:
+            result.check_returncode()
+        sys.stderr.write(f"Waiting for Code Standards {version} in the consumer package index\n")
+        sleep(RELEASE_VISIBILITY_DELAY.total_seconds())
+    runner.run((*tool_prefix, *tool, "update", "--to", version), cwd=repo, env=environment)
 
 
 def push_rollout_head(
@@ -1358,9 +1496,23 @@ def push_rollout_head(
     return head_sha
 
 
-def plan(version: str, consumers: Sequence[Consumer], runner: CommandRunner) -> Plan:
+def progress(consumer: Consumer, phase: str) -> None:
+    sys.stderr.write(f"standards-rollout: {consumer.identity}: {phase}\n")
+    sys.stderr.flush()
+
+
+def plan(version: str, consumers: Sequence[Consumer], runner: CommandRunner, *, jobs: int = 1) -> Plan:
     sha = verify_release(version, runner)
-    return Plan(sha, status(version, consumers, runner))
+    return Plan(sha, status(version, consumers, runner, jobs=jobs))
+
+
+def prior_wave_is_adopted(consumer: Consumer, outcomes: Sequence[Outcome]) -> bool:
+    ceiling = ROLLOUT_CHANNELS.index(consumer.channel)
+    return all(
+        item.state in {OutcomeState.MERGED, OutcomeState.ALREADY_CURRENT}
+        for item in outcomes
+        if ROLLOUT_CHANNELS.index(item.consumer.channel) < ceiling
+    )
 
 
 def apply(
@@ -1369,20 +1521,33 @@ def apply(
     runner: CommandRunner,
     *,
     dry_run: bool = False,
+    consumer: str | None = None,
+    jobs: int = 1,
 ) -> tuple[Outcome, ...]:
+    targets = select_consumer(consumers, consumer)
     verify_release(version, runner)
-    selected_channel = max((ROLLOUT_CHANNELS.index(item.channel) for item in consumers), default=0)
+    selected_channel = max((ROLLOUT_CHANNELS.index(item.channel) for item in targets), default=0)
     prior = tuple(item for item in consumers if ROLLOUT_CHANNELS.index(item.channel) < selected_channel)
-    if prior:
-        prior_status = status(version, prior, runner)
-        if any(item.state not in {OutcomeState.MERGED, OutcomeState.ALREADY_CURRENT} for item in prior_status):
-            blocked = tuple(
-                Outcome(item, OutcomeState.BLOCKED, detail="prior rollout wave has not merged cleanly")
-                for item in consumers
-                if item not in prior
-            )
-            return (*prior_status, *blocked)
-    return _apply_consumers(consumers, version, runner, dry_run=dry_run)
+    prior_status = status(version, prior, runner, jobs=jobs) if prior else ()
+    settled: dict[Consumer, Outcome] = {}
+    ready: list[Consumer] = []
+    for target in targets:
+        if not prior_wave_is_adopted(target, prior_status):
+            settled[target] = Outcome(target, OutcomeState.BLOCKED, detail="prior rollout wave has not merged cleanly")
+        elif (
+            known := next((item for item in prior_status if item.consumer == target), None)
+        ) is not None and known.state in {
+            OutcomeState.MERGED,
+            OutcomeState.ALREADY_CURRENT,
+            OutcomeState.PR_OPEN,
+        }:
+            settled[target] = known
+        else:
+            ready.append(target)
+    settled.update(
+        (item.consumer, item) for item in _apply_consumers(ready, version, runner, dry_run=dry_run, jobs=jobs)
+    )
+    return tuple(settled[item] for item in targets)
 
 
 def latest_version(runner: CommandRunner) -> str:
@@ -1392,8 +1557,7 @@ def latest_version(runner: CommandRunner) -> str:
             "--isolated",
             "--python",
             "3.14",
-            "--refresh-package",
-            "code-standards",
+            "--refresh",
             "--from",
             "code-standards",
             "code-standards",
@@ -1431,33 +1595,84 @@ def print_outcomes(version: str, outcomes: Sequence[Outcome], *, source_sha: str
     )
 
 
+def list_consumers(registry: Path, channel: RolloutChannel) -> int:
+    try:
+        consumers = select_channel(load_registry(registry), channel)
+    except (OSError, RolloutError) as exc:
+        sys.stderr.write(f"standards-rollout: {exc}\n")
+        return 2
+    if not consumers:
+        sys.stderr.write(f"standards-rollout: rollout channel {channel!r} selects no consumers\n")
+        return 2
+    sys.stdout.write(json.dumps([{"name": item.name, "identity": item.identity} for item in consumers]) + "\n")
+    return 0
+
+
+def pending_matrix(outcomes: Sequence[Outcome]) -> list[dict[str, str]]:
+    pending = tuple(item for item in outcomes if item.state not in {OutcomeState.MERGED, OutcomeState.ALREADY_CURRENT})
+    if not pending:
+        return []
+    first_wave = min(ROLLOUT_CHANNELS.index(item.consumer.channel) for item in pending)
+    return [
+        {"name": item.consumer.name, "identity": item.consumer.identity}
+        for item in pending
+        if ROLLOUT_CHANNELS.index(item.consumer.channel) == first_wave
+        and (
+            item.state in {OutcomeState.MISSING, OutcomeState.ERROR}
+            or (item.state is OutcomeState.BLOCKED and item.detail.startswith("consumer verification failed"))
+        )
+    ]
+
+
 def execute(args: RolloutArgs, runner: CommandRunner) -> int:
+    if args.command is RolloutCommand.VERIFY_RELEASE:
+        return _print_verified_release(args.version, runner)
     consumers = select_channel(load_registry(args.registry), args.channel)
     if not consumers:
         msg = f"rollout channel {args.channel!r} selects no consumers"
         raise RolloutError(msg)
+    targets = select_consumer(consumers, args.consumer)
     version = validate_version(args.version) if args.version else latest_version(runner)
     match args.command:
         case RolloutCommand.PLAN:
-            rollout_plan = plan(version, consumers, runner)
+            rollout_plan = plan(version, targets, runner, jobs=args.jobs)
             outcomes = rollout_plan.outcomes
             print_outcomes(version, outcomes, source_sha=rollout_plan.source_sha)
+            if args.github_output is not None:
+                with args.github_output.open("a", encoding="utf-8") as output:
+                    output.write(f"consumers={json.dumps(pending_matrix(outcomes))}\n")
         case RolloutCommand.STATUS:
-            outcomes = status(version, consumers, runner)
+            outcomes = status(version, targets, runner, jobs=args.jobs)
             print_outcomes(version, outcomes)
+            if any(item.state in {OutcomeState.BLOCKED, OutcomeState.ERROR} for item in outcomes):
+                return 2
             return (
                 0 if all(item.state in {OutcomeState.MERGED, OutcomeState.ALREADY_CURRENT} for item in outcomes) else 1
             )
         case RolloutCommand.APPLY | RolloutCommand.RECONCILE:
-            outcomes = apply(version, consumers, runner, dry_run=args.dry_run)
+            outcomes = apply(version, consumers, runner, dry_run=args.dry_run, consumer=args.consumer, jobs=args.jobs)
             print_outcomes(version, outcomes)
-            if any(item.state in {OutcomeState.BLOCKED, OutcomeState.ERROR} for item in outcomes):
+            if any(
+                item.state is OutcomeState.ERROR
+                or (item.state is OutcomeState.BLOCKED and item.detail != "prior rollout wave has not merged cleanly")
+                for item in outcomes
+            ):
                 return 1
         case None:
             msg = "rollout command is required"
             raise RolloutError(msg)
         case unreachable:
             assert_never(unreachable)
+    return 0
+
+
+def _print_verified_release(version: str | None, runner: CommandRunner) -> int:
+    if version is None:
+        msg = "verify-release requires an exact published version"
+        raise RolloutError(msg)
+    version = validate_version(version)
+    sha = verify_release(version, runner)
+    sys.stdout.write(json.dumps({"version": version, "source_sha": sha}) + "\n")
     return 0
 
 
@@ -1471,23 +1686,51 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
     exit_code = 0
 
     @app.callback()
-    def configure(registry: Annotated[Path, typer.Option("--registry")] = DEFAULT_REGISTRY) -> None:
+    def configure(
+        registry: Annotated[Path, typer.Option("--registry")] = DEFAULT_REGISTRY,
+        jobs: Annotated[
+            int, typer.Option("--jobs", min=1, max=MAX_CONCURRENT_CONSUMERS, help="maximum concurrent consumers")
+        ] = 1,
+        command_timeout: Annotated[
+            float, typer.Option("--command-timeout", min=1, help="timeout per command in seconds")
+        ] = 900,
+        github_output: Annotated[
+            Path | None, typer.Option("--github-output", help="append the pending plan matrix")
+        ] = None,
+    ) -> None:
         args.registry = registry
+        args.jobs = jobs
+        args.command_timeout = command_timeout
+        args.github_output = github_output
 
-    def run(command: RolloutCommand, version: str | None, channel: RolloutChannel, *, dry_run: bool = False) -> None:
+    def run(
+        command: RolloutCommand,
+        version: str | None,
+        channel: RolloutChannel,
+        *,
+        dry_run: bool = False,
+        consumer: str | None = None,
+    ) -> None:
         nonlocal exit_code
         args.command = command
         args.version = version
         args.channel = channel
         args.dry_run = dry_run
-        exit_code = _execute_cli(args, runner or SubprocessRunner())
+        args.consumer = consumer
+        exit_code = _execute_cli(args, runner or SubprocessRunner(command_timeout=args.command_timeout))
 
     @app.command("plan")
     def plan_command(
         version: Annotated[str, typer.Option("--version")],
         channel: Annotated[RolloutChannel, typer.Option("--channel")] = RolloutChannel.STABLE,
+        consumer: Annotated[str | None, typer.Option("--consumer", help="repository@branch")] = None,
     ) -> None:
-        run(RolloutCommand.PLAN, version, channel)
+        run(RolloutCommand.PLAN, version, channel, consumer=consumer)
+
+    @app.command("verify-release")
+    def verify_release_command(version: Annotated[str, typer.Option("--version")]) -> None:
+        """Verify the published CLI and immutable tag without a consumer registry."""
+        run(RolloutCommand.VERIFY_RELEASE, version, RolloutChannel.STABLE)
 
     @app.command("apply")
     def apply_command(
@@ -1495,15 +1738,26 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
         version: Annotated[str, typer.Option("--version")],
         channel: Annotated[RolloutChannel, typer.Option("--channel")] = RolloutChannel.STABLE,
         dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+        consumer: Annotated[
+            str | None, typer.Option("--consumer", help="repository@branch; default: every consumer")
+        ] = None,
     ) -> None:
-        run(RolloutCommand.APPLY, version, channel, dry_run=dry_run)
+        run(RolloutCommand.APPLY, version, channel, dry_run=dry_run, consumer=consumer)
 
     @app.command("status")
     def status_command(
         version: Annotated[str, typer.Option("--version")],
         channel: Annotated[RolloutChannel, typer.Option("--channel")] = RolloutChannel.STABLE,
+        consumer: Annotated[str | None, typer.Option("--consumer", help="repository@branch")] = None,
     ) -> None:
-        run(RolloutCommand.STATUS, version, channel)
+        run(RolloutCommand.STATUS, version, channel, consumer=consumer)
+
+    @app.command("consumers")
+    def consumers_command(
+        channel: Annotated[RolloutChannel, typer.Option("--channel")] = RolloutChannel.STABLE,
+    ) -> None:
+        nonlocal exit_code
+        exit_code = list_consumers(args.registry, channel)
 
     @app.command("reconcile")
     def reconcile_command(
@@ -1511,8 +1765,11 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
         version: Annotated[str | None, typer.Option("--version", help="default: latest published version")] = None,
         channel: Annotated[RolloutChannel, typer.Option("--channel")] = RolloutChannel.STABLE,
         dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+        consumer: Annotated[
+            str | None, typer.Option("--consumer", help="repository@branch; default: every consumer")
+        ] = None,
     ) -> None:
-        run(RolloutCommand.RECONCILE, version, channel, dry_run=dry_run)
+        run(RolloutCommand.RECONCILE, version, channel, dry_run=dry_run, consumer=consumer)
 
     try:
         app(args=None if argv is None else list(argv), prog_name="standards-rollout")
@@ -1551,6 +1808,7 @@ def _registry_consumer(entry_value: object) -> Consumer:
         "baseline_rules",
         "baseline_paths",
         "baseline_update",
+        "partial_clone",
     }:
         msg = f"invalid registry entry keys: {entry_value!r}"
         raise RolloutError(msg)
@@ -1583,6 +1841,7 @@ def _registry_consumer(entry_value: object) -> Consumer:
         verify=verify,
         requires_approval=requires_approval,
         auto_merge=auto_merge,
+        partial_clone=optional_bool(entry, "partial_clone"),
         channel=RolloutChannel(channel_value),
         baseline_rules=_registry_strings(baseline_rules_value),
         baseline_paths=baseline_paths,
@@ -1689,17 +1948,9 @@ def _rollout_baseline_selector(
 
 
 def _apply_consumers(
-    consumers: Sequence[Consumer], version: str, runner: CommandRunner, *, dry_run: bool
+    consumers: Sequence[Consumer], version: str, runner: CommandRunner, *, dry_run: bool, jobs: int = 1
 ) -> tuple[Outcome, ...]:
-    outcomes: list[Outcome] = []
-    for consumer in consumers:
-        try:
-            outcomes.append(apply_one(consumer, version, runner, dry_run=dry_run))
-        except subprocess.CalledProcessError as exc:
-            outcomes.append(Outcome(consumer, OutcomeState.ERROR, detail=process_failure_detail(exc)))
-        except (OSError, RolloutError) as exc:
-            outcomes.append(Outcome(consumer, OutcomeState.ERROR, detail=str(exc)))
-    return tuple(outcomes)
+    return map_consumers(consumers, lambda item: apply_one(item, version, runner, dry_run=dry_run), jobs=jobs)
 
 
 def _provision_mise(

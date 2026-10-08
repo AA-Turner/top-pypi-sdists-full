@@ -9,7 +9,7 @@ tool answers with the platform's ONE hold shape
 the person to choose the organization they are working in and try again.
 
 Law: ``common-docs/policies/context-is-carried-never-rebuilt.md`` and aidream
-CLAUDE.md "A default organization decides NOTHING".
+CLAUDE.md "A assumed organization decides NOTHING".
 """
 
 from __future__ import annotations

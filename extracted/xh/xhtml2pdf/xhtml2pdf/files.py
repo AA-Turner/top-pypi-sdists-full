@@ -5,9 +5,12 @@ import gzip
 import http.client as httplib
 import logging
 import mimetypes
+import shutil
+import socket
 import sys
 import tempfile
 import threading
+import time
 import urllib.parse as urlparse
 from abc import abstractmethod
 from contextlib import suppress
@@ -23,6 +26,7 @@ from xhtml2pdf.config.httpconfig import httpConfig
 from xhtml2pdf.config.resources import (
     ResourceAccessError,
     ResourceAccessPolicy,
+    active_budget,
     current_policy,
 )
 
@@ -60,6 +64,17 @@ class TmpFiles(threading.local):
         #: wrapper: NamedTemporaryFile does not record `delete` as an
         #: attribute, so asking it later answers nothing.
         self.unlink_at_clean: list[str] = []
+        #: A directory of this render's own, made on first use: 0700, so its
+        #: files cannot be listed or opened by another user, and removed as a
+        #: whole by cleanFiles(). A file left behind by a crash is left in
+        #: it, under a name that says where it came from.
+        self.directory: str | None = None
+
+    def tmpdir(self) -> str:
+        """The render's private temporary directory, made if need be."""
+        if self.directory is None:
+            self.directory = tempfile.mkdtemp(prefix="xhtml2pdf-")
+        return self.directory
 
     def append(self, file) -> None:
         self.files.append(file)
@@ -75,6 +90,9 @@ class TmpFiles(threading.local):
                 Path(name).unlink()
         self.files.clear()
         self.unlink_at_clean.clear()
+        if self.directory is not None:
+            shutil.rmtree(self.directory, ignore_errors=True)
+            self.directory = None
 
 
 files_tmp: TmpFiles = TmpFiles()  # permanent safe file, to prevent file close
@@ -131,7 +149,7 @@ class pisaTempFile:
                 self.strategy = 1
                 # was never assigned, so getFileName() always returned None
                 self.name = getattr(new_delegate, "name", None)
-                log.warning("Created temporary file %s", self.name)
+                log.debug("Created temporary file %s", self.name)
             except Exception:
                 self.capacity = -1
 
@@ -207,9 +225,34 @@ class BaseFile:
     def extract_data(self) -> bytes | None:
         raise NotImplementedError
 
+    def budget_key(self) -> object | None:
+        """
+        What this resource is charged to the render's budget as.
+
+        ``None`` for one that is not charged at all: a ``data:`` URI is part
+        of the document, and bytes or a temporary file came from the caller.
+        """
+        return (type(self).__name__, self.basepath, self.path)
+
+    def extract_charged(self) -> bytes | None:
+        """``extract_data``, within the render's budget if there is one."""
+        budget = active_budget()
+        key = self.budget_key() if budget is not None else None
+        if budget is None or key is None:
+            return self.extract_data()
+        remaining = budget.remaining()
+        if remaining is not None and remaining <= 0:
+            msg = f"{str(self.path)[:120]!r} was asked for after the render ran out of time"
+            raise ResourceAccessError(msg)
+        budget.admit(key, self.path)
+        data = self.extract_data()
+        if data:
+            budget.charge(key, len(data), self.uri or self.path)
+        return data
+
     def get_data(self) -> bytes | None:
         try:
-            return self.extract_data()
+            return self.extract_charged()
         except ResourceAccessError as e:
             # A refusal is a decision, not a failure: log it as its own thing
             # and carry on with the resource missing, the same way an
@@ -250,7 +293,7 @@ class BaseFile:
         # Not a context manager: the handle outlives this call on purpose,
         # registered below for cleanFiles() to close.
         tmp_file = tempfile.NamedTemporaryFile(  # noqa: SIM115
-            suffix=self.suffix, delete=keep_open
+            suffix=self.suffix, delete=keep_open, dir=files_tmp.tmpdir()
         )
         # Register unconditionally. Registration used to sit inside the `if
         # data` below, so a temp file created for an empty resource was never
@@ -289,6 +332,9 @@ class InlineDataURI(BaseFile):
 
     mime_params: list
 
+    def budget_key(self) -> object | None:  # noqa: PLR6301
+        return None
+
     def extract_data(self) -> bytes | None:
         if not self.path.startswith("data:") or "," not in self.path:
             msg = "Data URI is malformed"
@@ -308,9 +354,15 @@ class InlineDataURI(BaseFile):
         # mime_params are preserved for future use
         self.mime_params = params[1:] if params and "/" in params[0] else params
 
+        # Checked on the decoded payload, which is what the rest of the render
+        # holds on to. Decoding first costs nothing the markup has not already
+        # paid: the payload cannot decode to more than it is written as.
         if is_base64:
-            return base64.b64decode(urllib_unquote(data).encode("utf-8"))
-        return unquote_to_bytes(data)
+            decoded = base64.b64decode(urllib_unquote(data).encode("utf-8"))
+        else:
+            decoded = unquote_to_bytes(data)
+        self.policy.check_local_size(len(decoded), f"data:{header}")
+        return decoded
 
 
 # Backwards-compatible alias: this class was named after the base64 form only.
@@ -343,9 +395,39 @@ class LocalProtocolURI(BaseFile):
         self.policy.check_path(path)
         if not path.is_file():
             return None
+        self.policy.check_local_size(path.stat().st_size, path)
         self.suffix = path.suffix
         self.mimetype = LocalFileURI.guess_mimetype(path)
         return path.read_bytes()
+
+
+class _Watchdog:
+    """
+    Cuts a connection off at a deadline, whatever it is waiting for.
+
+    The socket timeout bounds a single read, so a server sending one byte
+    every few seconds is never timed out. Shutting the socket down from a
+    timer interrupts the read that is blocked on it, headers or body.
+    """
+
+    def __init__(self, conn: httplib.HTTPConnection, seconds: float) -> None:
+        # The socket itself, taken now: once a response that closes the
+        # connection has begun, http.client hands the socket over to it and
+        # sets conn.sock to None.
+        self.sock: socket.socket | None = conn.sock
+        self.fired: bool = False
+        self.timer: threading.Timer = threading.Timer(seconds, self._fire)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def _fire(self) -> None:
+        self.fired = True
+        if self.sock is not None:
+            with suppress(OSError):
+                self.sock.shutdown(socket.SHUT_RDWR)
+
+    def cancel(self) -> None:
+        self.timer.cancel()
 
 
 class NetworkFileUri(BaseFile):
@@ -360,14 +442,45 @@ class NetworkFileUri(BaseFile):
         super().__init__(path, basepath, policy)
         self.attempts: int = 3
         self.actual_attempts: int = 0
+        #: When this fetch must be over, as a time.monotonic() value, and what
+        #: set it; None for no deadline.
+        self.deadline: float | None = None
+        self.deadline_reason: str = ""
+
+    def _set_deadline(self) -> None:
+        """Fix the deadline once, for every attempt and redirect of this fetch."""
+        now = time.monotonic()
+        limit = self.policy.max_fetch_seconds
+        if limit is not None:
+            self.deadline = now + limit
+            self.deadline_reason = f"the {limit:g} seconds a fetch may take"
+        budget = active_budget()
+        remaining = budget.remaining() if budget is not None else None
+        if remaining is not None and (
+            self.deadline is None or now + remaining < self.deadline
+        ):
+            self.deadline = now + remaining
+            self.deadline_reason = "the time left for the render"
+
+    def time_left(self, uri: str) -> float | None:
+        """Seconds left for this fetch; refuses it once there are none."""
+        if self.deadline is None:
+            return None
+        left = self.deadline - time.monotonic()
+        if left <= 0:
+            msg = f"{uri[:120]!r} took longer than {self.deadline_reason}"
+            raise ResourceAccessError(msg)
+        return left
 
     def get_data(self) -> bytes | None:
         data = None
+        self._set_deadline()
         # try several attempts if network problems happens
         while self.attempts > self.actual_attempts and data is None:
             self.actual_attempts += 1
             try:
-                data = self.extract_data()
+                self.time_left(str(self.path))
+                data = self.extract_charged()
             except ResourceAccessError as e:
                 # Retrying a refusal would only repeat it three times over.
                 log.warning("Blocked by the resource policy: %s", e)
@@ -410,14 +523,25 @@ class NetworkFileUri(BaseFile):
                     if key in {"timeout", "source_address", "blocksize"}
                 },
             )
+        left = self.time_left(uri)
+        watchdog: _Watchdog | None = None
+        if left is not None:
+            conn.timeout = min(conn.timeout or left, left)
         try:
+            if left is not None:
+                conn.connect()
+                watchdog = _Watchdog(conn, left)
             conn.request("GET", path)
             r1: HTTPResponse = conn.getresponse()
             if 200 <= r1.status < 300:
                 self.mimetype = r1.getheader("Content-Type", "").split(";")[0]
                 is_gzip = r1.getheader("content-encoding") == "gzip"
                 # the body must be read before the connection is closed
-                return self._read_capped(r1, uri), is_gzip, None
+                body = self._read_capped(r1, uri)
+                if watchdog is not None and watchdog.fired:
+                    # cut off: whatever came back is a truncated body
+                    self.time_left(uri)
+                return body, is_gzip, None
             if 300 <= r1.status < 400:
                 location = r1.getheader("Location")
                 r1.read()  # drain, so the connection can be reused/closed cleanly
@@ -434,7 +558,15 @@ class NetworkFileUri(BaseFile):
             log.warning(
                 "Received non-success status for %r: %d %s", uri, r1.status, r1.reason
             )
+        except Exception:
+            # OSError from the socket, or IncompleteRead from http.client:
+            # either way the cut-off is the reason, not the network.
+            if watchdog is not None and watchdog.fired:
+                self.time_left(uri)
+            raise
         finally:
+            if watchdog is not None:
+                watchdog.cancel()
             # the connection was never closed, leaking a socket per image
             conn.close()
         return None, False, None
@@ -449,6 +581,7 @@ class NetworkFileUri(BaseFile):
             # Checked per hop: a 302 to http://169.254.169.254/ would
             # otherwise walk straight past a check made only on the first URL.
             self.policy.check_url(uri)
+            self.time_left(uri)
             data, is_gzip, redirect = self._request(uri)
             if redirect is None:
                 return data, is_gzip
@@ -542,6 +675,8 @@ class LocalFileURI(BaseFile):
         # exactly why the resolved result has to be vetted.
         self.policy.check_path(uri)
         if uri.is_file():
+            # From the size on disk, so an oversized file is never read at all.
+            self.policy.check_local_size(uri.stat().st_size, uri)
             self.uri = uri
             self.suffix = uri.suffix
             self.mimetype = self.guess_mimetype(uri)
@@ -555,6 +690,9 @@ class LocalFileURI(BaseFile):
 
 
 class BytesFileUri(BaseFile):
+    def budget_key(self) -> object | None:  # noqa: PLR6301
+        return None
+
     def extract_data(self) -> bytes | None:
         # ``path`` is normally already bytes here; calling .encode() on it
         # raised AttributeError, which get_data() swallowed into a silent None.
@@ -580,6 +718,9 @@ class LocalTmpFile(BaseFile):
         if self.path is None:
             self.path = tmp_file.name
         return tmp_file
+
+    def budget_key(self) -> object | None:  # noqa: PLR6301
+        return None
 
     def extract_data(self) -> bytes | None:
         if self.path is None:

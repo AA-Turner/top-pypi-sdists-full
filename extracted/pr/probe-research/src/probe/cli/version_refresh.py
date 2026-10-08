@@ -89,6 +89,20 @@ def _refresh() -> None:
             version_policy.release_refresh(int(owner) if owner else None)
         except (TypeError, ValueError):
             version_policy.release_refresh()
+    _flush_update_reports(version_policy.base_url())
+
+
+def _flush_update_reports(base: str) -> None:
+    """Send the update reports still waiting -- above all the skips the
+    every-command check recorded and could not send itself, because it runs
+    inside training loops (`update_report`). This process is already detached
+    and already talking to the API once per TTL, so it is the cheap place."""
+    try:
+        from probe.cli import update_report
+
+        update_report.flush(base)
+    except Exception:  # noqa: BLE001 - detached, and only telemetry
+        pass
 
 
 def _wait_for_harness() -> bool:
@@ -114,7 +128,12 @@ def _wait_for_harness() -> bool:
     env = {
         name: value
         for name, value in os.environ.items()
-        if name not in (autoupdate.WAIT_FOR_HARNESS_PID_ENV, autoupdate.WAIT_FOR_PID_ENV)
+        if name
+        not in (
+            autoupdate.WAIT_FOR_HARNESS_PID_ENV,
+            autoupdate.WAIT_FOR_PID_ENV,
+            autoupdate.PI_PID_ENV,
+        )
     }
     try:
         os.execve(
@@ -136,7 +155,7 @@ def _apply() -> None:
     so no wait).
     """
     from probe import version_policy
-    from probe.cli import autoupdate
+    from probe.cli import autoupdate, update_report
     from probe.cli.upgrading import perform_update
 
     # Single-writer across concurrent sessions. Without it, several Claude Code
@@ -144,7 +163,10 @@ def _apply() -> None:
     if not autoupdate.acquire_lock():
         return
     try:
-        perform_update(base_url=version_policy.base_url())
+        perform_update(
+            base_url=version_policy.base_url(),
+            trigger=update_report.trigger_from_env(update_report.Trigger.CLI),
+        )
     finally:
         autoupdate.release_lock()
 
@@ -166,7 +188,7 @@ def _apply_if_newer() -> None:
     against one version and upgrading toward another.
     """
     from probe import __version__, version_policy
-    from probe.cli import autoupdate, updater
+    from probe.cli import autoupdate, update_report, updater
     from probe.cli.upgrading import perform_update, update_owed_pi_package
 
     base = version_policy.base_url()
@@ -201,7 +223,11 @@ def _apply_if_newer() -> None:
             if autoupdate.pi_update_pending():
                 update_owed_pi_package()
             return
-        perform_update(base_url=base, manifest=manifest)
+        perform_update(
+            base_url=base,
+            manifest=manifest,
+            trigger=update_report.trigger_from_env(update_report.Trigger.CLI),
+        )
     finally:
         autoupdate.release_lock()
 

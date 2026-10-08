@@ -19,6 +19,7 @@ Actions registered:
 - ``ai.agent.react``           — inline ReAct-style agent with structured
                                  Thought / Action / Observation trace.
 - ``ai.conversation.continue`` — append a user turn to an existing thread.
+- ``ai.conversation.revise`` — check an answer; revise it in the same thread on a miss.
 - ``ai.transcribe``            — catalog-dispatched speech-to-text.
 - ``ai.text_to_speech``        — voice synthesis (ElevenLabs / Groq /
                                  Google / OpenAI) via UnifiedConfig.
@@ -62,6 +63,7 @@ def register_with_graph() -> None:
         image_pipeline_actions,
         llm_action,
         mandate_action,
+        revise_action,
         scrape_action,
         search_action,
         transcribe_action,

@@ -103,28 +103,13 @@ impl IdListPropagationState {
     }
 }
 
-// This proof is only for telemetry. An absent/invalid range never fails a download.
-pub(super) fn downloaded_range(
-    status: Option<u16>,
-    content_range: Option<&str>,
-    requested_start: u64,
-    body_len: usize,
-    cdn_query_range: bool,
-) -> Option<Range<u64>> {
+// Validate the received interval before applying bytes or recording propagation.
+pub(super) fn downloaded_range(content_range: &str, body_len: usize) -> Option<Range<u64>> {
     let len = u64::try_from(body_len).ok()?;
-    if let Some(header) = content_range {
-        let (range, total) = header.strip_prefix("bytes ")?.split_once('/')?;
-        let (start, end) = range.split_once('-')?;
-        let start = start.parse::<u64>().ok()?;
-        let end = end.parse::<u64>().ok()?.checked_add(1)?;
-        let total = total.parse::<u64>().ok()?;
-        return (end <= total && end.checked_sub(start) == Some(len)).then_some(start..end);
-    }
-    // The default CDN implements ranges through a query parameter and returns HTTP 200.
-    // A normal HTTP server may ignore Range and return the entire file instead.
-    if status != Some(200) {
-        return None;
-    }
-    let start = if cdn_query_range { requested_start } else { 0 };
-    Some(start..start.checked_add(len)?)
+    let (range, total) = content_range.strip_prefix("bytes ")?.split_once('/')?;
+    let (start, end) = range.split_once('-')?;
+    let start = start.parse::<u64>().ok()?;
+    let end = end.parse::<u64>().ok()?.checked_add(1)?;
+    let total = total.parse::<u64>().ok()?;
+    (end <= total && end.checked_sub(start) == Some(len)).then_some(start..end)
 }

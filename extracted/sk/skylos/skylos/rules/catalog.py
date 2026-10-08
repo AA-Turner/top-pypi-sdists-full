@@ -45,9 +45,19 @@ _RULES = (
     RuleCatalogEntry(
         "SKY-A114", "Skylos settings or hooks changed", "ai_defect", "HIGH"
     ),
+    RuleCatalogEntry("SKY-A115", "Test answer hard-coded in code", "ai_defect", "HIGH"),
+    RuleCatalogEntry("SKY-A116", "Code detects the test run", "ai_defect", "HIGH"),
+    RuleCatalogEntry(
+        "SKY-A117", "Comparison rigged to always pass", "ai_defect", "HIGH"
+    ),
+    RuleCatalogEntry("SKY-A118", "Inline suppression added", "ai_defect", "LOW"),
+    RuleCatalogEntry(
+        "SKY-A119", "Linter or scanner settings weakened", "ai_defect", "HIGH"
+    ),
     RuleCatalogEntry(
         "SKY-A120", "Changed line not checked by tests", "ai_defect", "MEDIUM"
     ),
+    RuleCatalogEntry("SKY-A121", "CI check weakened", "ai_defect", "HIGH"),
     RuleCatalogEntry(
         "SKY-SCA-LIC001", "Dependency license policy violation", "dependency", "HIGH"
     ),

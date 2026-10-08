@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, Iterable
 
-import httpx
+import httpx2
 
 from trajectory._base_client import make_request_options
 from trajectory._resource import APIResource
@@ -31,7 +31,7 @@ class Telemetry(APIResource):
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> TelemetryEventsIngestResponse:
     """Ingest Events
 

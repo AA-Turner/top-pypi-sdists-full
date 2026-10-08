@@ -405,6 +405,10 @@ _CANCELLABLE_KERNELS = (
     "bspline_assemble_offedge_block_refl",
     "bspline_assemble_offedge_block_ek",
     "bspline_assemble_offedge_block_refl_ek",
+    # Their laddered twins (momwire#1362), the entries an EK H-matrix far
+    # block reaches by default; the same poll, so the same translation.
+    "bspline_assemble_offedge_block_ek_tiered",
+    "bspline_assemble_offedge_block_refl_ek_tiered",
     "sinusoidal_galerkin_far_fill",
     "somm_six_integrals_batch",
     # The razor-blade formulation's fused moment fill (momwire#742). It polls
@@ -462,6 +466,12 @@ _CANCELLABLE_KERNELS = (
     "near_interface_six_columns",
     # momwire#1335: the plan's key ids (factorize_rows of the same rows).
     "factorize_line_keys",
+    # momwire#1377: the tiles' key classes and class sums, row order and
+    # late-row marks.
+    "factorize_float_classes",
+    "class_sums",
+    "stable_tile_order",
+    "late_sandwich_rows",
 )
 
 # Methods of the extension's classes that take `cancel_flag`, as (class,

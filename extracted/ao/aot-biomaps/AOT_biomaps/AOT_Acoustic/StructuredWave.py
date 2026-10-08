@@ -1,4 +1,4 @@
-import warnings
+from __future__ import annotations
 
 from AOT_biomaps.Config import config
 from ._mainAcoustic import KWAVE_AVAILABLE, AcousticField
@@ -14,6 +14,7 @@ try:
     import cupy as cp
     CUPY_AVAILABLE = True
 except ImportError:
+    cp = None
     CUPY_AVAILABLE = False
 
 try:
@@ -21,7 +22,7 @@ try:
     KWAVE_AVAILABLE = True
 except ImportError:
     KWAVE_AVAILABLE = False
-    warnings.warn("kWave is not available. Some acoustic simulation features will be disabled.", UserWarning)   
+    print("[AOT-biomaps] Warning: kWave is not available. Some acoustic simulation features will be disabled.")   
 
 
 class StructuredWave(AcousticField):

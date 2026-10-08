@@ -43,7 +43,7 @@ def to_sqlalchemy_filter(
     resource_name : str
         resource_name of the resource we try to filter for
     mappings : t.Dict[str, str]
-        mapping of the names in the roles.yaml file to table column name. If a
+        mapping of the names in the role YAML files to table column name. If a
         name is not mentioned as a key, it is not part of the query.
 
     Returns

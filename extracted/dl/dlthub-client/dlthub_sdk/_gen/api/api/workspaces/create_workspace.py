@@ -7,12 +7,8 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.create_workspace_response_409 import CreateWorkspaceResponse409
-from ...models.error_response_400 import ErrorResponse400
-from ...models.error_response_401 import ErrorResponse401
-from ...models.error_response_403 import ErrorResponse403
-from ...models.error_response_404 import ErrorResponse404
-from ...models.workspace_create_request import WorkspaceCreateRequest
+from ...models.create_workspace_request import CreateWorkspaceRequest
+from ...models.error_response import ErrorResponse
 from ...models.workspace_response import WorkspaceResponse
 from ...types import Response
 
@@ -20,7 +16,7 @@ from ...types import Response
 def _get_kwargs(
     organization_id: UUID,
     *,
-    body: WorkspaceCreateRequest,
+    body: CreateWorkspaceRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -41,44 +37,41 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> (
-    CreateWorkspaceResponse409
-    | ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | WorkspaceResponse
-    | None
-):
+) -> ErrorResponse | WorkspaceResponse | None:
     if response.status_code == 201:
         response_201 = WorkspaceResponse.from_dict(response.json())
 
         return response_201
 
     if response.status_code == 400:
-        response_400 = ErrorResponse400.from_dict(response.json())
+        response_400 = ErrorResponse.from_dict(response.json())
 
         return response_400
 
     if response.status_code == 401:
-        response_401 = ErrorResponse401.from_dict(response.json())
+        response_401 = ErrorResponse.from_dict(response.json())
 
         return response_401
 
     if response.status_code == 403:
-        response_403 = ErrorResponse403.from_dict(response.json())
+        response_403 = ErrorResponse.from_dict(response.json())
 
         return response_403
 
     if response.status_code == 404:
-        response_404 = ErrorResponse404.from_dict(response.json())
+        response_404 = ErrorResponse.from_dict(response.json())
 
         return response_404
 
     if response.status_code == 409:
-        response_409 = CreateWorkspaceResponse409.from_dict(response.json())
+        response_409 = ErrorResponse.from_dict(response.json())
 
         return response_409
+
+    if response.status_code == 500:
+        response_500 = ErrorResponse.from_dict(response.json())
+
+        return response_500
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -88,14 +81,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[
-    CreateWorkspaceResponse409
-    | ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | WorkspaceResponse
-]:
+) -> Response[ErrorResponse | WorkspaceResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -108,15 +94,8 @@ def sync_detailed(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: WorkspaceCreateRequest,
-) -> Response[
-    CreateWorkspaceResponse409
-    | ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | WorkspaceResponse
-]:
+    body: CreateWorkspaceRequest,
+) -> Response[ErrorResponse | WorkspaceResponse]:
     """CreateWorkspace
 
     Creates a new workspace under an organization. Optionally, you can provide a name and description
@@ -126,14 +105,14 @@ def sync_detailed(
 
     Args:
         organization_id (UUID):
-        body (WorkspaceCreateRequest):
+        body (CreateWorkspaceRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CreateWorkspaceResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse]
+        Response[ErrorResponse | WorkspaceResponse]
     """
     kwargs = _get_kwargs(
         organization_id=organization_id,
@@ -151,16 +130,8 @@ def sync(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: WorkspaceCreateRequest,
-) -> (
-    CreateWorkspaceResponse409
-    | ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | WorkspaceResponse
-    | None
-):
+    body: CreateWorkspaceRequest,
+) -> ErrorResponse | WorkspaceResponse | None:
     """CreateWorkspace
 
     Creates a new workspace under an organization. Optionally, you can provide a name and description
@@ -170,14 +141,14 @@ def sync(
 
     Args:
         organization_id (UUID):
-        body (WorkspaceCreateRequest):
+        body (CreateWorkspaceRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CreateWorkspaceResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse
+        ErrorResponse | WorkspaceResponse
     """
     return sync_detailed(
         organization_id=organization_id,
@@ -190,15 +161,8 @@ async def asyncio_detailed(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: WorkspaceCreateRequest,
-) -> Response[
-    CreateWorkspaceResponse409
-    | ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | WorkspaceResponse
-]:
+    body: CreateWorkspaceRequest,
+) -> Response[ErrorResponse | WorkspaceResponse]:
     """CreateWorkspace
 
     Creates a new workspace under an organization. Optionally, you can provide a name and description
@@ -208,14 +172,14 @@ async def asyncio_detailed(
 
     Args:
         organization_id (UUID):
-        body (WorkspaceCreateRequest):
+        body (CreateWorkspaceRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CreateWorkspaceResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse]
+        Response[ErrorResponse | WorkspaceResponse]
     """
     kwargs = _get_kwargs(
         organization_id=organization_id,
@@ -231,16 +195,8 @@ async def asyncio(
     organization_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: WorkspaceCreateRequest,
-) -> (
-    CreateWorkspaceResponse409
-    | ErrorResponse400
-    | ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | WorkspaceResponse
-    | None
-):
+    body: CreateWorkspaceRequest,
+) -> ErrorResponse | WorkspaceResponse | None:
     """CreateWorkspace
 
     Creates a new workspace under an organization. Optionally, you can provide a name and description
@@ -250,14 +206,14 @@ async def asyncio(
 
     Args:
         organization_id (UUID):
-        body (WorkspaceCreateRequest):
+        body (CreateWorkspaceRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CreateWorkspaceResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | WorkspaceResponse
+        ErrorResponse | WorkspaceResponse
     """
     return (
         await asyncio_detailed(

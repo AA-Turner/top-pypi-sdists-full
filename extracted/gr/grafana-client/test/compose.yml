@@ -67,7 +67,7 @@ services:
       - "9095:9095"
 
   mariadb:
-    image: docker.io/mariadb:10
+    image: docker.io/mariadb:13
     ports:
       - "3306:3306"
     environment:
@@ -81,6 +81,6 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
 
   prometheus:
-    image: docker.io/prom/prometheus:v3.14.0
+    image: docker.io/prom/prometheus:v3.15.0
     ports:
       - "9090:9090"

@@ -26,7 +26,7 @@ if TYPE_CHECKING:
         PlainPublicVariable,
         ScopeVariablesResponse,
         SecretPublicVariable,
-        VariablesChangeResponse,
+        UpdatedVariablesResponse,
         WorkspaceVariablesResponse,
     )
 
@@ -67,7 +67,7 @@ class VariableChange:
 
     @staticmethod
     def _all_from_payload(
-        _ctx: _Ctx[Any], payload: VariablesChangeResponse
+        _ctx: _Ctx[Any], payload: UpdatedVariablesResponse
     ) -> tuple[VariableChange, ...]:
         return tuple(
             VariableChange(name=r.name, status=VariableChangeStatus(str(r.status)))
@@ -403,7 +403,7 @@ class Variables(Namespace[M]):
         )
 
 
-def _one_change(ctx: _Ctx[Any], payload: VariablesChangeResponse) -> VariableChange:
+def _one_change(ctx: _Ctx[Any], payload: UpdatedVariablesResponse) -> VariableChange:
     """Unwrap a single-name change.
 
     Args:

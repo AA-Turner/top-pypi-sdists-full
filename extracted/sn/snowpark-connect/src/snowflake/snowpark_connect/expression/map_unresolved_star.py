@@ -22,6 +22,18 @@ from snowflake.snowpark_connect.utils.identifiers import (
 )
 
 
+def _struct_field_path(column: str, field_names: list[str]) -> str:
+    """Build ``column:"f1":"f2"`` for a struct column and its nested field names.
+
+    ``column`` must already be a Snowpark SQL column name and is used as is.
+    Field names are JSON keys and may contain spaces, dots, colons or dashes, which
+    an unquoted path splits or misreads, so each one is double-quoted. Quoting does
+    not change matching: Snowflake path keys are case-sensitive either way.
+    """
+    quoted = [quote_name_without_upper_casing(name) for name in field_names]
+    return ":".join([column, *quoted])
+
+
 def check_struct_and_get_field_datatype(field_name, schema):
     if isinstance(schema, StructType):
         if field_name in schema.names:
@@ -133,9 +145,9 @@ def map_unresolved_star(
                     continue
 
                 spark_names = candidate_leaf_field.names
-                prefix_candidate = ":".join(fields)
                 all_snowpark_names = [
-                    f"{prefix_candidate}:{spark_name}" for spark_name in spark_names
+                    _struct_field_path(fields[0], [*fields[1:], spark_name])
+                    for spark_name in spark_names
                 ]
                 final_sql_expr = snowpark_fn.sql_expr(", ".join(all_snowpark_names))
 
@@ -286,12 +298,13 @@ def map_unresolved_star_struct(
                 continue
 
             spark_names: list[str] = candidate_leaf_field.names
-            prefix_candidate = ":".join(fields)
 
             for struct_field in candidate_leaf_field.fields:
                 lit_col = snowpark_fn.lit(struct_field.name)
                 expanded_args.append(TypedColumn(lit_col, lambda: [StringType()]))
-                field_snowpark_name = f"{prefix_candidate}:{struct_field.name}"
+                field_snowpark_name = _struct_field_path(
+                    fields[0], [*fields[1:], struct_field.name]
+                )
                 field_col = snowpark_fn.sql_expr(field_snowpark_name)
                 field_type = FieldType(struct_field.datatype, struct_field.nullable)
                 expanded_args.append(TypedColumn(field_col, lambda ft=field_type: [ft]))

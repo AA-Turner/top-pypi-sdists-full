@@ -4,7 +4,7 @@ requires = ["uv-build>=0.12,<0.13"]
 
 [project]
 name = "pytest-redis"
-version = "5.0.0"
+version = "5.0.1"
 description = "Redis fixtures and fixture factories for Pytest."
 readme = "README.rst"
 keywords = [
@@ -52,24 +52,24 @@ async = ["pytest-asyncio>=1.0.0"]
 [project.urls]
 Source = "https://github.com/dbfixtures/pytest-redis"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-redis/issues"
-Changelog = "https://github.com/dbfixtures/pytest-redis/blob/v5.0.0/CHANGES.rst"
+Changelog = "https://github.com/dbfixtures/pytest-redis/blob/v5.0.1/CHANGES.rst"
 
 [project.entry-points.pytest11]
 pytest_redis = "pytest_redis.plugin"
 
 [dependency-groups]
 dev = [
-    "coverage==7.16.0",
-    "mirakuru==3.0.2",
+    "coverage==7.16.2",
+    "mirakuru==3.0.3",
     "mock==5.2.0",
     "mypy==2.3.1; implementation_name=='cpython'",
     "packaging==26.3",
-    "port-for==1.0.0",
+    "port-for==1.1.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-xdist==3.8.0",
     "redis==8.1.0",
-    "towncrier==25.8.0",
+    "towncrier==26.9.0",
     "types-mock==5.2.0.20260518",
 ]
 release = ["tbump==6.11.0"]
@@ -84,11 +84,11 @@ line-length = 100
 
 [tool.ruff.lint]
 select = [
+    "D",
     "E",
     "F",
-    "I",
-    "D",
     "FBT",
+    "I",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -136,7 +136,7 @@ message_template = "Release {new_version}"
 tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "5.0.0"
+current = "5.0.1"
 regex = '''
   (?P<major>\d+)
   \.

@@ -1930,3 +1930,29 @@ def test_a_dated_model_name_prices_as_its_own_model_not_a_shorter_one():
 
     assert usage.price_key("claude-opus-5-5-20261001") == "claude-opus-5-5"
     assert usage.price_key("claude-opus-5-20261001") == "claude-opus-5"
+
+
+
+def test_gpt_6_1_sol_is_priced_per_context_tier():
+    """OpenAI bills a gpt-6.1-sol prompt over 272,000 tokens (cached and written
+    included) at its long rates on every token; up to it, at half. The daemon's
+    ledger prices locally (no proxy header), so it must tier like the proxy."""
+    from probe.daemon import usage
+
+    # 100K fresh + 100K read + 72K written = 272,000: short ($2 / $0.10 / $2.50 / $10)
+    assert usage.cost("gpt-6.1-sol", input_tokens=272_000, cache_read_tokens=100_000,
+                      cache_write_tokens=72_000, output_tokens=10_000) == pytest.approx(0.2 + 0.01 + 0.18 + 0.1)
+    # one token more: every token at the long rates ($4 / $0.20 / $5 / $15)
+    assert usage.cost("gpt-6.1-sol", input_tokens=272_001, cache_read_tokens=100_000,
+                      cache_write_tokens=72_000, output_tokens=10_000) == pytest.approx(
+        (100_001 * 4 + 100_000 * 0.2 + 72_000 * 5 + 10_000 * 15) / 1e6)
+
+
+def test_claude_haiku_5_5_is_priced_per_context_tier():
+    """Anthropic bills a Haiku 5.5 prompt over 100,000 tokens at 5x on every token."""
+    from probe.daemon import usage
+
+    assert usage.cost("claude-haiku-5-5", input_tokens=100_000, output_tokens=1_000) == pytest.approx(
+        (100_000 * 0.10 + 1_000 * 0.50) / 1e6)
+    assert usage.cost("claude-haiku-5-5", input_tokens=100_001, output_tokens=1_000) == pytest.approx(
+        (100_001 * 0.50 + 1_000 * 2.50) / 1e6)

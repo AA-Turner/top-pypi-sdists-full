@@ -9,7 +9,6 @@ import builtins
 import ast
 import collections
 import contextlib
-import doctest
 import functools
 import os
 import re
@@ -38,6 +37,12 @@ def _custom_builtins() -> frozenset[str]:
 
 
 parse_format_string = string.Formatter().parse
+
+
+@functools.cache
+def _doctest_parser():
+    import doctest
+    return doctest.DocTestParser().get_examples
 
 
 def getAlternatives(n):
@@ -775,11 +780,10 @@ class Checker:
 
     @property
     def futuresAllowed(self):
-        if not all(isinstance(scope, ModuleScope)
-                   for scope in self.scopeStack):
-            return False
-
-        return self.scope._futures_allowed
+        return (
+            isinstance(self.scope, ModuleScope) and
+            self.scope._futures_allowed
+        )
 
     @futuresAllowed.setter
     def futuresAllowed(self, value):
@@ -1251,12 +1255,10 @@ class Checker:
         finally:
             self.nodeDepth -= 1
 
-    _getDoctestExamples = doctest.DocTestParser().get_examples
-
     def handleDoctests(self, node):
         try:
             (docstring, node_lineno) = self.getDocstring(node.body[0])
-            examples = docstring and self._getDoctestExamples(docstring)
+            examples = docstring and _doctest_parser()(docstring)
         except (ValueError, IndexError):
             # e.g. line 6 of the docstring for <string> has inconsistent
             # leading whitespace: ...
@@ -1583,7 +1585,9 @@ class Checker:
                 for k, v in iter_dict_children(node.args[1]):
                     _non_annotation(k)
                     _annotation(v)
-            _non_annotations(node.args[2:])
+                _non_annotations(node.args[2:])
+            else:
+                _non_annotations(node.args[1:])
 
             # TypedDict("a", a=int)
             if sys.version_info >= (3, 13):  # pragma: >=3.13 cover
@@ -1606,7 +1610,9 @@ class Checker:
                         _annotations(elt.elts[1:])
                     else:
                         _non_annotation(elt)
-            _non_annotations(node.args[2:])
+                _non_annotations(node.args[2:])
+            else:
+                _non_annotations(node.args[1:])
 
             # NamedTuple("a", a=int)
             if sys.version_info >= (3, 15):  # pragma: >=3.15 cover

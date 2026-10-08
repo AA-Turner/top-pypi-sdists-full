@@ -244,7 +244,6 @@ class EmbeddingManager:
         """Load all staff embeddings from API and cache them."""
         if not self.face_client:
             self.logger.error("Face client not available for loading staff embeddings")
-            print("ERROR: Face client not available for loading staff embeddings")
             return False
 
         try:
@@ -322,9 +321,6 @@ class EmbeddingManager:
                         f"Expected_dim={expected_dim}. Mismatch examples (staffId, dim): {mismatch_examples[:5]}"
                     )
                     self.logger.error(error_msg)
-                    print("=============== ERROR: NO VALID EMBEDDINGS ===============")
-                    print(f"ERROR: {error_msg}")
-                    print("=============== STOPPING PIPELINE ===============")
                     raise RuntimeError(
                         f"Failed to load staff embeddings due to dimension mismatch. Observed dims: {dims_summary}"
                     )
@@ -390,7 +386,7 @@ class EmbeddingManager:
             embedding_metadata = self.embedding_metadata.copy()
 
         if embeddings_matrix is None:
-            print("ERROR: _find_best_local_match - embeddings_matrix copy is None")
+            self.logger.error("_find_best_local_match - embeddings_matrix copy is None")
             return None
 
         try:
@@ -399,9 +395,6 @@ class EmbeddingManager:
             if embeddings_matrix.shape[1] != query_array.shape[1]:
                 self.logger.warning(
                     f"Query embedding dim mismatch: query={query_array.shape[1]} staff={embeddings_matrix.shape[1]}"
-                )
-                print(
-                    f"ERROR: DIMENSION MISMATCH - query={query_array.shape[1]} staff={embeddings_matrix.shape[1]}"
                 )
                 return None
 
@@ -442,8 +435,10 @@ class EmbeddingManager:
         try:
             query_array = np.array(query_embedding, dtype=np.float32).reshape(1, -1)
             if embeddings_matrix.shape[1] != query_array.shape[1]:
-                print(
-                    f"ERROR: get_best_similarity DIMENSION MISMATCH - query={query_array.shape[1]} staff={embeddings_matrix.shape[1]}"
+                self.logger.warning(
+                    "get_best_similarity dim mismatch: query=%s staff=%s",
+                    query_array.shape[1],
+                    embeddings_matrix.shape[1],
                 )
                 return 0.0
             qn = np.linalg.norm(query_array)

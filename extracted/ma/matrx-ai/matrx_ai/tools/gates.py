@@ -94,10 +94,10 @@ def _is_admin(args: Mapping[str, Any], ctx: Any) -> bool:
     """
     if ctx is None:
         return False
-    # THE ADMIN SURFACE (2026-09-25): admin identity AND an admin surface.
-    from matrx_connect import admin_surface_active
+    # Admin tools run for an admin from any surface (Arman, 2026-10-07).
+    from matrx_connect import admin_tool_authorized
 
-    return admin_surface_active(ctx) if hasattr(ctx, "admin_surface") else admin_surface_active()
+    return admin_tool_authorized(ctx) if hasattr(ctx, "is_admin") else admin_tool_authorized()
 
 
 @register("requires_client_executor")

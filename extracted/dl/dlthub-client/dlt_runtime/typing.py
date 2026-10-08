@@ -14,7 +14,7 @@ from dlt.common.typing import NotRequired, TypedDict
 
 
 class FileDelta(TypedDict):
-    """Per-file diff between two TFilesManifests."""
+    """Per-file diff between two FilesManifestResponses."""
 
     # added/updated/deleted are sorted lists of relative_path strings
     added: list[str]
@@ -35,6 +35,16 @@ class SyncResult(TypedDict):
     # from latest remote, so a real run would have uploaded.
     status: Literal["no_changes", "not_found", "created", "would_create"]
     data: NotRequired[dict[str, Any]]
+
+
+class JobResultInfo(TypedDict):
+    """The fields of dlt's `TJobResult`, which older dlt versions do not carry."""
+
+    type: str
+    engine_version: int
+    result: NotRequired[Any]
+    object: NotRequired[list[dict[str, str]]]
+    job_ref: NotRequired[str]
 
 
 class RuntimeInfo(TypedDict):
@@ -76,7 +86,7 @@ class WorkspaceInfo(TypedDict):
 
 
 class OrganizationInfo(TypedDict):
-    """Organization the user belongs to (from `/user`)."""
+    """Organization the user belongs to (from `/me`)."""
 
     id: str
     name: str
@@ -112,7 +122,7 @@ class CallerIdentity(TypedDict):
 
     email: str
     user_id: str
-    identity_id: str
+    organization_membership_id: str
 
 
 class CallerInfo(TypedDict):

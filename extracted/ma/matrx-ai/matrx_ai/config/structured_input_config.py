@@ -654,7 +654,7 @@ class TableInputContent(_StructuredInputBase):
     type: Literal["input_table"] = "input_table"
     bookmarks: list[dict[str, Any]] = field(default_factory=list)
     _editable_tools: frozenset[str] = field(
-        default=frozenset({"dataset"}),
+        default=frozenset({"table"}),
         init=False,
         repr=False,
         compare=False,

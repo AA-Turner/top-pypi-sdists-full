@@ -2268,6 +2268,111 @@ def test_python_instance_member_call_not_overconnected(tmp_path):
     assert bad == [], f"instance member call must not connect cross-file: {bad}"
 
 
+def _self_attr_call_targets(result, caller_label):
+    """(target label, target file name, confidence) for each `calls` edge out of
+    the method labelled `caller_label` (#2860)."""
+    nodes = {n["id"]: n for n in result["nodes"]}
+    return sorted(
+        (nodes[e["target"]]["label"], Path(nodes[e["target"]].get("source_file") or "").name,
+         e["confidence"])
+        for e in result["edges"]
+        if e["relation"] == "calls" and nodes[e["source"]]["label"] == caller_label
+    )
+
+
+_AGENTS_PY = (
+    "class AgentRunner:\n"
+    "    def bull_researcher(self, idea):\n"
+    "        return idea\n\n"
+    "class Other:\n"
+    "    def bull_researcher(self, idea):\n"
+    "        return None\n"
+)
+_WORKFLOWS_PY = (
+    "class Workflows:\n"
+    "    def __init__(self):\n"
+    "        self.agents = AgentRunner()\n\n"
+    "    def deep_portfolio_review(self, idea):\n"
+    "        return self.agents.bull_researcher(idea)\n"
+)
+
+
+def test_python_self_attr_call_resolves_to_constructor_class_same_file(tmp_path):
+    """`self.agents = AgentRunner()` in __init__ types `self.agents.m()` in
+    another method of the class, even though `Other` owns a same-named method."""
+    src = tmp_path / "app.py"
+    src.write_text(_AGENTS_PY + "\n" + _WORKFLOWS_PY)
+    result = extract([src], cache_root=tmp_path)
+    assert _self_attr_call_targets(result, ".deep_portfolio_review()") == [
+        (".bull_researcher()", "app.py", "INFERRED")
+    ]
+
+
+def test_python_self_attr_call_resolves_across_an_import(tmp_path):
+    """The #2860 repro split over two files: the class comes from an import."""
+    agents = tmp_path / "agents.py"
+    workflows = tmp_path / "workflows.py"
+    agents.write_text(_AGENTS_PY)
+    workflows.write_text("from agents import AgentRunner\n\n" + _WORKFLOWS_PY)
+    result = extract([workflows, agents], cache_root=tmp_path)
+    assert _self_attr_call_targets(result, ".deep_portfolio_review()") == [
+        (".bull_researcher()", "agents.py", "INFERRED")
+    ]
+
+
+def test_python_self_attr_call_uses_the_annotation(tmp_path):
+    """`self.repo: Repo = make_repo()` types the field from its annotation."""
+    src = tmp_path / "svc.py"
+    src.write_text(
+        "class Repo:\n"
+        "    def save(self):\n"
+        "        return 1\n\n"
+        "class Cache:\n"
+        "    def save(self):\n"
+        "        return 2\n\n"
+        "def make_repo():\n"
+        "    return Repo()\n\n"
+        "class Service:\n"
+        "    def setup(self):\n"
+        "        self.repo: Repo = make_repo()\n\n"
+        "    def run(self):\n"
+        "        return self.repo.save()\n"
+    )
+    result = extract([src], cache_root=tmp_path)
+    assert _self_attr_call_targets(result, ".run()") == [(".save()", "svc.py", "INFERRED")]
+
+
+def test_python_self_attr_call_ambiguous_or_missing_method_adds_no_edge(tmp_path):
+    """A field bound to two classes, or to an untypable value as well as a class,
+    stays untyped; a typed field whose class lacks the method adds nothing -
+    never an edge to another class's same-named method."""
+    src = tmp_path / "svc.py"
+    src.write_text(
+        "class A:\n"
+        "    def m(self):\n"
+        "        return 1\n\n"
+        "class B:\n"
+        "    def m(self):\n"
+        "        return 2\n\n"
+        "    def only_b(self):\n"
+        "        return 3\n\n"
+        "class Holder:\n"
+        "    def __init__(self, factory):\n"
+        "        self.x = A()\n"
+        "        self.y = A()\n"
+        "        self.z = A()\n\n"
+        "    def reset(self, factory):\n"
+        "        self.x = B()\n"
+        "        self.y = factory()\n\n"
+        "    def use(self):\n"
+        "        self.x.m()\n"
+        "        self.y.m()\n"
+        "        return self.z.only_b()\n"
+    )
+    result = extract([src], cache_root=tmp_path)
+    assert _self_attr_call_targets(result, ".use()") == []
+
+
 def test_python_unresolved_member_calls_do_not_bind_to_bare_function(tmp_path):
     """#2417: unresolved attribute calls must not bind by bare method name.
 
@@ -2799,6 +2904,7 @@ def test_spawn_cannot_reimport_main_true_for_stdin_caller(monkeypatch):
     from graphify import extract as extract_mod
 
     monkeypatch.setattr(multiprocessing, "get_start_method", lambda allow_none=True: "spawn")
+    monkeypatch.setattr(__main__, "__spec__", None, raising=False)
     monkeypatch.setattr(__main__, "__file__", "<stdin>", raising=False)
     assert extract_mod._spawn_cannot_reimport_main() is True
 
@@ -2810,6 +2916,7 @@ def test_spawn_cannot_reimport_main_true_for_repl_without_file(monkeypatch):
     from graphify import extract as extract_mod
 
     monkeypatch.setattr(multiprocessing, "get_start_method", lambda allow_none=True: "spawn")
+    monkeypatch.setattr(__main__, "__spec__", None, raising=False)
     monkeypatch.delattr(__main__, "__file__", raising=False)
     assert extract_mod._spawn_cannot_reimport_main() is True
 
@@ -2825,6 +2932,36 @@ def test_spawn_cannot_reimport_main_false_for_real_script(tmp_path, monkeypatch)
     script.write_text("x = 1\n", encoding="utf-8")
     monkeypatch.setattr(multiprocessing, "get_start_method", lambda allow_none=True: "spawn")
     monkeypatch.setattr(__main__, "__file__", str(script), raising=False)
+    assert extract_mod._spawn_cannot_reimport_main() is False
+
+
+@pytest.mark.parametrize(
+    ("spec_name", "main_file"),
+    [
+        # pip/uv console script on Windows: __main__.py zipped inside graphify.exe
+        ("__main__", r"C:\venv\Scripts\graphify.exe\__main__.py"),
+        # `python -m graphify`
+        ("graphify.__main__", None),
+    ],
+    ids=["console_script_exe", "python_m"],
+)
+def test_spawn_cannot_reimport_main_false_when_main_has_a_spec(monkeypatch, spec_name, main_file):
+    """A __main__ with a module spec is re-imported by name, never by path, and a
+    spec named ``__main__`` is skipped in the worker (multiprocessing.spawn), so
+    the pool works even though ``__file__`` is not a file on disk. Reading the
+    graphify.exe console script as a stdin caller ran every Windows CLI
+    extraction on one core."""
+    import importlib.machinery
+    import multiprocessing
+    import __main__
+    from graphify import extract as extract_mod
+
+    monkeypatch.setattr(multiprocessing, "get_start_method", lambda allow_none=True: "spawn")
+    monkeypatch.setattr(__main__, "__spec__", importlib.machinery.ModuleSpec(spec_name, None), raising=False)
+    if main_file is None:
+        monkeypatch.delattr(__main__, "__file__", raising=False)
+    else:
+        monkeypatch.setattr(__main__, "__file__", main_file, raising=False)
     assert extract_mod._spawn_cannot_reimport_main() is False
 
 

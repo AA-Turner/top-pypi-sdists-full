@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cognee
-Version: 1.6.2
+Version: 1.6.3
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -24,8 +24,9 @@ Requires-Dist: alembic<2,>=1.13.3
 Requires-Dist: cbor2>=5.8.0
 Requires-Dist: cryptography<51,>=43.0.0
 Requires-Dist: datamodel-code-generator>=0.54.0
+Requires-Dist: dateparser<2,>=1.2
 Requires-Dist: diskcache>=5.6.3
-Requires-Dist: dlt[sqlalchemy]<2,>=1.9.0
+Requires-Dist: dlt[sqlalchemy]<1.31,>=1.9.0
 Requires-Dist: enola-cli==0.4.26
 Requires-Dist: fakeredis[lua]>=2.32.0
 Requires-Dist: fastapi-users[sqlalchemy]>=15.0.2
@@ -39,7 +40,7 @@ Requires-Dist: instructor<1.15.3,>=1.9.1
 Requires-Dist: jinja2<4,>=3.1.3
 Requires-Dist: ladybug<0.18,>=0.17.0; sys_platform == 'darwin' and ('Darwin Kernel Version 22.' in platform_version or 'Darwin Kernel Version 23.' in platform_version)
 Requires-Dist: ladybug==0.19.0; sys_platform != 'darwin' or ('Darwin Kernel Version 22.' not in platform_version and 'Darwin Kernel Version 23.' not in platform_version)
-Requires-Dist: lancedb<1.0.0,>=0.24.3
+Requires-Dist: lancedb<0.40.0,>=0.39.0
 Requires-Dist: langdetect>=1.0.9
 Requires-Dist: limits<6,>=4.4.1
 Requires-Dist: litellm<1.97.0,>=1.83.7
@@ -53,7 +54,7 @@ Requires-Dist: packaging>=24.0
 Requires-Dist: pandas<3.0.0,>=2.2.2
 Requires-Dist: pydantic-settings!=2.12.*,!=2.13.*,!=2.14.0,!=2.14.1,<3,>=2.7.0
 Requires-Dist: pydantic>=2.10.5
-Requires-Dist: pylance<=0.36.0,>=0.22.0
+Requires-Dist: pylance<12.1.0,>=12.0.0
 Requires-Dist: pympler<2.0.0,>=1.1
 Requires-Dist: pypdf<7.0.0,>=6.6.2
 Requires-Dist: python-dotenv<2.0.0,>=1.0.1
@@ -86,7 +87,6 @@ Provides-Extra: deepeval
 Requires-Dist: deepeval<4,>=3.0.1; extra == 'deepeval'
 Provides-Extra: dev
 Requires-Dist: coverage<8,>=7.3.2; extra == 'dev'
-Requires-Dist: dateparser<2,>=1.2; extra == 'dev'
 Requires-Dist: deptry<0.21,>=0.20.0; extra == 'dev'
 Requires-Dist: gitpython<4,>=3.1.43; extra == 'dev'
 Requires-Dist: mkdocs-material<10,>=9.5.42; extra == 'dev'
@@ -125,6 +125,7 @@ Provides-Extra: fastembed
 Provides-Extra: gliner
 Requires-Dist: gliner2[local]<3,>=2.0.0; extra == 'gliner'
 Requires-Dist: protobuf>=5.29.6; extra == 'gliner'
+Requires-Dist: psutil>=5.9; extra == 'gliner'
 Requires-Dist: sentencepiece>=0.2.0; extra == 'gliner'
 Requires-Dist: torch<3,>=2.1; extra == 'gliner'
 Provides-Extra: gmail
@@ -187,7 +188,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.20.0; extra == 'trac
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.20.0; extra == 'tracing'
 Requires-Dist: opentelemetry-sdk<2,>=1.20.0; extra == 'tracing'
 Provides-Extra: turso
-Requires-Dist: libsql-experimental<0.1,>=0.0.55; extra == 'turso'
+Requires-Dist: pyturso<0.8,>=0.7.2; extra == 'turso'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -431,8 +432,8 @@ The UI launcher requires Node.js/npm; Docker is needed for its MCP service. See 
 
 ## Explore examples
 
-- [Build a small Company Brain from text, code, and session lessons](examples/demos/company_brain/docs_code_conversations/company_brain_demo.py).
-- [Build a Company Brain from a database, a ticket export, and meeting notes](examples/demos/company_brain/multi_source/), then browse it in the UI and query it from Claude Code or Codex.
+- [Build a small Company Brain from text, code, and session lessons](examples/cookbooks/company_brain/docs_code_conversations/company_brain_demo.py).
+- [Build a Company Brain from your database, ticket export, and docs](examples/cookbooks/company_brain/company_qa/) (or a sample company), then browse it in the UI and query it from Claude Code or Codex.
 - [Import memory from Mem0, Letta, Zep, or Graphiti](https://docs.cognee.ai/examples/migrate-memory-systems) using the COGX exchange format.
 - [Run with local Ollama models](https://docs.cognee.ai/guides/local-ollama), including a local embedding model.
 - [Visualize your knowledge graph](https://docs.cognee.ai/guides/graph-visualization) and inspect its connections.

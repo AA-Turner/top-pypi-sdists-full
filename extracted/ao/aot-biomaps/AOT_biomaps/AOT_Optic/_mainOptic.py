@@ -1,7 +1,6 @@
 from .Laser import Laser
 from .Absorber import Absorber
 import numpy as np
-import warnings
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable

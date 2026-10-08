@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -43,6 +44,7 @@ from matrx_ai.processing.blocks.block_detector import (
     DetectedBlock,
     detect_json_block_type,
     root_kind_declaration,
+    IncrementalBlockSplitter,
     split_content_into_blocks,
 )
 from matrx_ai.processing.blocks.envelope import (
@@ -447,6 +449,19 @@ def _run_integrity_check() -> None:
 # StreamBlockProcessor
 # ---------------------------------------------------------------------------
 
+#: Linear-time streaming (2026-10-08, lane S): per-token work that re-reads a whole long line
+#: or a whole large region is done once per growth step of 1/GROWTH of it once it passes FLOOR
+#: characters — n log n total instead of n squared. Live-view granularity only; finished blocks
+#: come from ``finalize``'s full split either way.
+_LONG_LINE_FLOOR = 4096
+_LONG_LINE_GROWTH = 32
+_PARTIAL_FLOOR = 4096
+_PARTIAL_GROWTH = 32
+#: The partial-table-row check needs only the first non-blank character of the line still
+#: arriving — never a copy of the line (``str.lstrip``'s whitespace is ``\s`` for str patterns).
+_LEADING_SPACE = re.compile(r"\s*")
+
+
 class StreamBlockProcessor:
     """
     Stateful processor that sits between LLM token stream and NDJSON output.
@@ -469,6 +484,19 @@ class StreamBlockProcessor:
         self._blocks: list[RenderBlockState] = []    # All blocks seen so far
         self._block_counter: int = 0             # For generating block IDs
         self._last_split_result: list[DetectedBlock] = []  # Previous split for diffing
+        # The live split re-reads only the unsettled tail (block_detector § Incremental
+        # splitting): a whole-buffer re-split per token made every stream quadratic in its
+        # length. ``_split_fed`` is how much of the buffer the splitter has been given;
+        # ``_settled_reconciled`` is how many leading blocks the last reconcile saw settled —
+        # the same DetectedBlock objects every later split, so they are never re-compared.
+        self._splitter = IncrementalBlockSplitter()
+        self._long_line_start = -1
+        self._long_line_detected_len = 0
+        # block_id -> content length when its partial value was last computed (see
+        # ``_stamp_partial``: a large region is re-closed and re-fingerprinted per growth step).
+        self._partial_computed_at: dict[str, int] = {}
+        self._split_fed = 0
+        self._settled_reconciled = 0
         self._pending_events: list[RenderBlockEvent] = []
         self._finalized: bool = False
 
@@ -528,9 +556,25 @@ class StreamBlockProcessor:
         # window creates a speculative text block per table row (e.g. "| One")
         # that the next re-split absorbs into the table — a phantom block the
         # client was already told about. Hold emission until the row completes.
-        tail = self._buffer[self._buffer.rfind("\n") + 1:]
-        if tail.lstrip().startswith("|"):
+        line_start = self._buffer.rfind("\n") + 1
+        line_len = len(self._buffer) - line_start
+        first_char = _LEADING_SPACE.match(self._buffer, line_start).end()
+        if self._buffer.startswith("|", first_char):
             return []
+
+        # A LONG line still arriving (a one-line JSON answer — an Applet build is one 56 KB
+        # line) is re-read whole by every detection, so detecting on every token of it is
+        # quadratic in the line. Past ``_LONG_LINE_FLOOR`` characters it is re-detected each
+        # time it grows by 1/``_LONG_LINE_GROWTH`` of itself, and always when it ends — the
+        # live view still moves every ~3% of the line; ``finalize`` re-splits the whole
+        # buffer, so the finished blocks never depend on this.
+        if line_len >= _LONG_LINE_FLOOR:
+            if self._long_line_start != line_start:
+                self._long_line_start = line_start
+                self._long_line_detected_len = 0
+            if line_len < self._long_line_detected_len + self._long_line_detected_len // _LONG_LINE_GROWTH:
+                return []
+            self._long_line_detected_len = line_len
 
         return self._detect_and_emit()
 
@@ -946,6 +990,20 @@ class StreamBlockProcessor:
             # a transient, and law 6 says a partial never goes backwards.
             return
 
+        # Closing, parsing and fingerprinting the partial reads the WHOLE region, so doing it
+        # on every token is quadratic in the region. Past ``_PARTIAL_FLOOR`` characters it is
+        # recomputed each time the region grows by 1/``_PARTIAL_GROWTH`` of itself — the
+        # provisional render still advances every ~3%, and the terminal is unaffected.
+        size = len(block.content or "")
+        computed_at = self._partial_computed_at.get(block.block_id)
+        if (
+            computed_at is not None
+            and computed_at >= _PARTIAL_FLOOR
+            and size < computed_at + computed_at // _PARTIAL_GROWTH
+        ):
+            return
+        self._partial_computed_at[block.block_id] = size
+
         produced = self._partial_value(block)
         if produced is None:
             return
@@ -1044,12 +1102,19 @@ class StreamBlockProcessor:
         Run block detection on the current buffer and emit events
         for new/changed blocks.
         """
-        # Split the accumulated buffer
-        current_blocks = split_content_into_blocks(self._buffer)
-        return self._reconcile_blocks(current_blocks, is_final=False)
+        # Split the accumulated buffer — incrementally: the same answer as
+        # ``split_content_into_blocks(self._buffer)``, re-reading only the unsettled tail.
+        appended = self._buffer[self._split_fed :]
+        self._split_fed = len(self._buffer)
+        current_blocks = self._splitter.split(appended)
+        events = self._reconcile_blocks(
+            current_blocks, is_final=False, skip_settled=self._settled_reconciled
+        )
+        self._settled_reconciled = self._splitter.settled_count
+        return events
 
     def _reconcile_blocks(
-        self, detected: list[DetectedBlock], *, is_final: bool
+        self, detected: list[DetectedBlock], *, is_final: bool, skip_settled: int = 0
     ) -> list[RenderBlockEvent]:
         """
         Reconcile detected blocks with our tracked block list.
@@ -1068,7 +1133,12 @@ class StreamBlockProcessor:
         """
         events: list[RenderBlockEvent] = []
 
-        for idx, detected_block in enumerate(detected):
+        # ``skip_settled`` leading blocks are the very DetectedBlock objects the previous
+        # reconcile applied, so each would answer "unchanged" — skipping them is the same
+        # answer without the per-token walk over every block of a long answer.
+        start = min(skip_settled, len(self._blocks), len(detected)) if not is_final else 0
+        for idx in range(start, len(detected)):
+            detected_block = detected[idx]
             if idx < len(self._blocks):
                 # Existing block — check for updates
                 existing = self._blocks[idx]

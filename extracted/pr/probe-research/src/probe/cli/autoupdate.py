@@ -50,6 +50,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from probe import version_policy
+from probe._compat import StrEnum
 
 STATE_DIRNAME = version_policy.STATE_DIRNAME
 STATE_FILENAME = version_policy.STATE_FILENAME
@@ -136,6 +137,19 @@ class Attempt:
         return f"{out} — still at {landed}" if landed else out
 
 
+class Trigger(StrEnum):
+    """What asked for an update (or for the skip of one). Here, in the
+    stdlib-only module, because the every-command path names it without
+    importing an HTTP client; `update_report` reports it."""
+
+    #: A coding agent's session start: the plugin's SessionStart hook, pi's start.
+    SESSION_START = "session_start"
+    #: The CLI on its own: the every-command check, or a run's end.
+    CLI = "cli"
+    #: A person chose Update in `probe wizard` (or `probe update`) at a terminal.
+    MANUAL = "manual"
+
+
 #: Why an eligible upgrade was not applied. These are NOT failures -- each one is
 #: the system working correctly -- but they are indistinguishable from a dead
 #: auto-updater unless they are recorded, which is the whole point of `Skip`.
@@ -163,6 +177,11 @@ class Skip:
     reason: str
     count: int = 1
     available: str | None = None  # the version we would have moved to
+    #: What asked for the update that was skipped (a `Trigger` value). Absent on
+    #: records written before it existed, which were all the every-command
+    #: check's or the spawned updater's own run-lock recheck: `cli`. A plain
+    #: string, not the enum: a newer CLI may have written a value this one lacks.
+    trigger: str = Trigger.CLI.value
 
     def describe(self) -> str:
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(self.at))
@@ -220,6 +239,7 @@ def load() -> Settings:
                 # reading that preserves the old meaning: we saw exactly this.
                 count=int(skip_raw.get("count", 1)),
                 available=skip_raw.get("available"),
+                trigger=str(skip_raw.get("trigger") or Trigger.CLI.value),
             )
         except (KeyError, TypeError, ValueError):
             skip = None
@@ -309,9 +329,88 @@ def forget() -> None:
         pass
 
 
-def record_attempt(attempt: Attempt) -> None:
+#: The passes of the Update run `merged_attempts` is holding, each with the
+#: agent it ran for; None outside one.
+_held_attempts: list[tuple[str | None, Attempt]] | None = None
+
+
+@contextmanager
+def merged_attempts():
+    """Hold every attempt recorded inside, and record ONE merged attempt on exit.
+
+    For an update that runs one pass per coding agent (the wizard's Update, see
+    `update_report.merged_run`, which enters this). Each pass used to overwrite
+    `last_attempt`, so the LAST agent's result was all `probe doctor` showed:
+    a sandboxed Update whose Claude Code pass could not update its plugin
+    recorded success, because pi ran last with nothing to update (2026-10-07).
+    Nested runs belong to the outermost one. Never raises on its own account.
+    """
+    global _held_attempts
+    if _held_attempts is not None:
+        yield
+        return
+    _held_attempts = []
+    try:
+        yield
+    finally:
+        held, _held_attempts = _held_attempts, None
+        if held:
+            try:
+                _write_attempt(merge_attempts(held))
+            except Exception:  # noqa: BLE001 - a diagnostic must never break the run
+                pass
+
+
+def merge_attempts(passes: list[tuple[str | None, Attempt]]) -> Attempt:
+    """One record for an Update run made of several agents' passes.
+
+    The server report's rule (`update_report.merge_passes`, `RESULT_PRIORITY`)
+    on this record's booleans: a failure beats a success, and a pass with
+    nothing to update -- an agent with no Probe plugins -- never hides one that
+    failed. The CLI half is the first pass that failed, else the first pass
+    (the one that ran the upgrade); the plugin half fails if any pass's did,
+    and its detail names each agent that failed (in a success, each agent
+    with a plugin that has a note). Dated by the first pass."""
+    if len(passes) == 1:
+        return passes[0][1]
+    attempts = [attempt for _agent, attempt in passes]
+    first = attempts[0]
+    cli = next((attempt for attempt in attempts if not attempt.ok), first)
+    failed = [(agent, attempt) for agent, attempt in passes if not attempt.plugin_ok]
+    # In a success, only an agent that HAS a plugin has news (sessions still on
+    # an older tap); "no Probe plugins installed in Kimi Code" is not news.
+    noted = failed or [
+        (agent, attempt) for agent, attempt in passes if attempt.plugin_detail and attempt.plugin_version
+    ]
+    detail = "; ".join(
+        f"{agent}: {attempt.plugin_detail}" if agent else attempt.plugin_detail
+        for agent, attempt in noted
+        if attempt.plugin_detail
+    )
+    versions = [attempt.plugin_version for _agent, attempt in failed or passes]
+    return Attempt(
+        at=min(attempt.at for attempt in attempts),
+        ok=cli.ok,
+        detail=cli.detail,
+        from_version=first.from_version,
+        to_version=cli.to_version,
+        plugin_ok=not failed,
+        plugin_detail=detail,
+        plugin_version=next((version for version in versions if version), None),
+    )
+
+
+def record_attempt(attempt: Attempt, *, agent: str | None = None) -> None:
     """Persist the outcome of one run. This is the ONLY way a detached upgrade
-    can tell anyone what happened."""
+    can tell anyone what happened. Inside `merged_attempts`, held for the run's
+    one merged record instead; `agent` names the coding agent the pass was for."""
+    if _held_attempts is not None:
+        _held_attempts.append((agent, attempt))
+        return
+    _write_attempt(attempt)
+
+
+def _write_attempt(attempt: Attempt) -> None:
     with _state_write_lock():
         raw = _read()
         raw["last_attempt"] = {
@@ -330,13 +429,25 @@ def record_attempt(attempt: Attempt) -> None:
         _write(raw)
 
 
-def record_skip(reason: str, *, available: str | None = None, now: int | None = None) -> None:
+def record_skip(
+    reason: str,
+    *,
+    available: str | None = None,
+    now: int | None = None,
+    trigger: Trigger = Trigger.CLI,
+) -> None:
     """Note that an available upgrade was deliberately not applied.
 
     Writes to `last_skip`, NEVER to `last_attempt`: the two answer different
     questions and doctor prints both. Consecutive skips for the same reason
     increment a counter instead of appending, so a fortnight-long sweep costs one
     small field rather than an unbounded log nothing prunes.
+
+    This record is also what the SERVER hears about a skip: `update_report.flush`
+    sends `last_skip` when it changed since it last sent one. Nothing is sent
+    from here -- this runs inside training loops -- so a skip costs exactly the
+    one local write it always did, and reaches the server from the next
+    detached manifest refresh or update instead.
 
     Never raises. This runs on the CLI's every-command path, and a diagnostic
     that can break `probe log` is worse than no diagnostic.
@@ -357,6 +468,7 @@ def record_skip(reason: str, *, available: str | None = None, now: int | None = 
                 "reason": reason,
                 "count": count,
                 "available": available,
+                "trigger": str(trigger),
             }
             _write(raw)
     except Exception:  # noqa: BLE001 -- see docstring
@@ -365,12 +477,21 @@ def record_skip(reason: str, *, available: str | None = None, now: int | None = 
 
 #: The spawner puts its own pid here so the detached child can wait for it.
 WAIT_FOR_PID_ENV = "PROBE_AUTOUPDATE_WAIT_PID"
+#: What asked for a spawned update (`update_report.Trigger`): `cli` or
+#: `session_start`. Here, not in update_report, because the spawn runs on the
+#: every-command path and must not import an HTTP client to name an env var.
+#: It survives the harness wait's re-exec (`version_refresh._wait_for_harness`).
+TRIGGER_ENV = "PROBE_AUTOUPDATE_TRIGGER"
 #: The coding agent whose session start spawned the update (pi, which has no
 #: hook): the update runs after IT exits, because it rewrites the package folder
 #: that agent loads from. Waited on before the update lock is taken, so a long
 #: session never holds up any other agent's update.
 WAIT_FOR_HARNESS_PID_ENV = "PROBE_AUTOUPDATE_WAIT_HARNESS_PID"
 WAIT_FOR_HARNESS_TIMEOUT = 12 * 3600
+#: The pi whose session start spawned an update that does NOT wait for it
+#: (`main._spawn_session_start_update`): `pi update` is deferred while it lives,
+#: a backstop to `upgrading._pi_running`'s reading of process titles.
+PI_PID_ENV = "PROBE_AUTOUPDATE_PI_PID"
 
 #: Set while pi's package update is owed: the pi step skipped it because pi was
 #: running. Without it the only retry was the NEXT CLI release, since every

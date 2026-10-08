@@ -29,7 +29,7 @@ class SecretPublicVariable:
         type_ (Literal['secret']): Write-only, never shown again
         updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
         updated_by (UUID): User who last updated the variable
-        value (None | Unset): Always `null` for a secret
+        value (None | str | Unset): Always `null` for a secret
     """
 
     created_at: datetime.datetime
@@ -38,7 +38,7 @@ class SecretPublicVariable:
     type_: Literal["secret"]
     updated_at: datetime.datetime
     updated_by: UUID
-    value: None | Unset = UNSET
+    value: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,7 +54,11 @@ class SecretPublicVariable:
 
         updated_by = str(self.updated_by)
 
-        value = self.value
+        value: None | str | Unset
+        if isinstance(self.value, Unset):
+            value = UNSET
+        else:
+            value = self.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -90,7 +94,14 @@ class SecretPublicVariable:
 
         updated_by = UUID(d.pop("updated_by"))
 
-        value = d.pop("value", UNSET)
+        def _parse_value(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        value = _parse_value(d.pop("value", UNSET))
 
         secret_public_variable = cls(
             created_at=created_at,

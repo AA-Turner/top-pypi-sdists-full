@@ -433,11 +433,28 @@ _LEGACY_PROFILES: Dict[str, LegacyAnalyticsProfile] = {
         # branch is shared (see _resolve_metric_value) rather than copied, so
         # the two cannot drift.
         #
-        # The re-identification shows up in the VALUE, not in a new key:
-        # people_in_interval stops double-counting someone who left and came
-        # back, which is the whole point of the use case.
+        # This app publishes a DIFFERENT pair from people_counting, because
+        # re-identification makes a second question answerable:
+        #
+        #   total_people_in_interval - distinct ReID-unique people seen at any
+        #       point in the window. agg_type "max", NOT "sum": the value is
+        #       already a per-window distinct count, so summing it across a
+        #       5-min or hourly rollup would multiply it by the number of
+        #       buckets. "max" gives the busiest minute in the rollup, which
+        #       is the only honest scalar available without re-running the
+        #       set union at rollup time.
+        #   new_people_in_interval - of those, the ones never seen in any
+        #       earlier window. agg_type "sum" IS correct here: each person
+        #       is new exactly once in their lifetime, so summing over
+        #       buckets never double-counts and an hourly figure is a true
+        #       distinct-arrivals count.
+        #
+        # RENAMED from people_in_interval, which was ambiguous once a second
+        # people metric existed. The resolver still answers the old spelling
+        # so a backend mid-migration is not left with a hole.
         volume_metrics=(
-            VolumeMetricSpec("people_in_interval", "sum"),
+            VolumeMetricSpec("total_people_in_interval", "max"),
+            VolumeMetricSpec("new_people_in_interval", "sum"),
             VolumeMetricSpec("occupancy_percentage", "mean"),
         ),
         default_tracking_categories=("person",),
@@ -1645,6 +1662,100 @@ def build_incident_message(
     )
 
 
+# --- people_counting_extended window metrics -------------------------------
+#
+# These three helpers hold the per-window distinct-identity logic for
+# people_counting_extended. They are module-level rather than inline in
+# LegacyAnalyticsSession because the three methods that use them
+# (ingest_agg_summary, _resolve_metric_value, _reset_window) are already far
+# over the org complexity cap, and growing a function that is over cap is what
+# scripts/check-complexity.py blocks on. Extracting leaves the call sites one
+# line each and the behaviour identical.
+
+_PCE_APP = "people_counting_extended"
+
+
+def _pce_window_max(current: int, reported: Any) -> int:
+    """Fold one frame's running per-window figure into the window maximum.
+
+    The use case publishes a RUNNING per-window distinct count on every frame,
+    not a per-frame delta, so the correct fold is max, never sum: a sum would
+    multiply the figure by the frame count. Max rather than last-write so an
+    out-of-order or partial final frame cannot shrink it.
+    """
+    if isinstance(reported, (int, float)):
+        return max(current, int(reported))
+    return current
+
+
+def _pce_ingest_window(
+    session: "LegacyAnalyticsSession", tracking: Dict[str, Any], profile: LegacyAnalyticsProfile
+) -> Dict[str, Any]:
+    """Fold this frame's running per-window counts into the window maxima.
+
+    Returns the caller's `dict(tracking)` copy so the call fits on the line
+    that stores it -- ingest_agg_summary is over the org length cap and
+    growing it is what scripts/check-complexity.py blocks on.
+    """
+    if profile.application_key_name == _PCE_APP:
+        session.window_total_people_in_interval = _pce_window_max(
+            session.window_total_people_in_interval, tracking.get("total_people_in_interval")
+        )
+        session.window_new_people_in_interval = _pce_window_max(
+            session.window_new_people_in_interval, tracking.get("new_people_in_interval")
+        )
+    return dict(tracking)
+
+
+_PC_APPS = ("people_counting", _PCE_APP)
+
+
+def _pc_resolve_metric(session: "LegacyAnalyticsSession", app: str, key: str) -> float:
+    """Resolve a people_counting / people_counting_extended volume metric.
+
+    Extracted from _resolve_metric_value verbatim: that method is ~800 lines
+    against a 120-line cap, and scripts/check-complexity.py blocks any growth
+    of a function already over cap. The extended app answers a different pair
+    (see _pce_resolve_metric); everything else is the original branch.
+    """
+    if app == _PCE_APP:
+        return _pce_resolve_metric(session, key)
+    if key in ("people_in_interval", "occupancy_in_interval"):
+        return float(session.window_new_sum.get("person", 0))
+    if key == "total_occupancy":
+        # Latest cumulative total_counts["person"] - no window delta or reset.
+        return float(session.latest_totals.get("person", 0))
+    if key == "occupancy_percentage":
+        return round(min(float(session.last_occupancy) / 50.0 * 100.0, 100.0), 2)
+    return 0.0
+
+
+def _pce_resolve_metric(session: "LegacyAnalyticsSession", key: str) -> float:
+    """Resolve a people_counting_extended volume metric.
+
+    total_people_in_interval is read from the use case's own per-window
+    identity set (published in tracking_stats), NOT derived from
+    window_new_sum: a person who leaves and returns inside one window
+    contributes one current_new_count each time, so a sum would count them
+    twice -- the exact double-counting this use case exists to remove.
+
+    people_in_interval is still answered, with the total, so a backend
+    mid-migration is not left with a hole.
+    """
+    if key in ("total_people_in_interval", "people_in_interval"):
+        return float(session.window_total_people_in_interval)
+    # Of those, the ones never seen in ANY earlier window.
+    if key == "new_people_in_interval":
+        return float(session.window_new_people_in_interval)
+    if key == "occupancy_in_interval":
+        return float(session.window_new_sum.get("person", 0))
+    if key == "total_occupancy":
+        return float(session.latest_totals.get("person", 0))
+    if key == "occupancy_percentage":
+        return round(min(float(session.last_occupancy) / 50.0 * 100.0, 100.0), 2)
+    return 0.0
+
+
 @dataclass
 class LegacyAnalyticsSession:
     """Per-stream accumulator for 60s ``results-agg`` publishing."""
@@ -1661,6 +1772,12 @@ class LegacyAnalyticsSession:
     window_person_max: int = 0
     # VOLUME window (mirrors VolumeProcessor simple mode)
     window_new_sum: Dict[str, int] = field(default_factory=dict)
+    # people_counting_extended only. The use case publishes a running
+    # per-window distinct count on every frame (not a per-frame delta), so
+    # these take the max over the window rather than a sum -- a sum would
+    # multiply the figure by the frame count.
+    window_total_people_in_interval: int = 0
+    window_new_people_in_interval: int = 0
     # First-frame-of-window occupancy snapshot (legacy; no longer used for
     # total_current_counts rollup — see prev_window_last_frame_current).
     window_baseline: Dict[str, int] = field(default_factory=dict)
@@ -1921,7 +2038,7 @@ class LegacyAnalyticsSession:
             return
 
         self.saw_tracking = True
-        self.latest_tracking = dict(tracking)
+        self.latest_tracking = _pce_ingest_window(self, tracking, profile)
         current = _filter_count_map(
             _count_list_to_map(tracking.get("current_counts")), profile.default_tracking_categories
         )
@@ -3046,16 +3163,8 @@ class LegacyAnalyticsSession:
             if key == "critical_accidents":
                 return float(self.window_critical_accidents)
             return 0.0
-        if app in ("people_counting", "people_counting_extended"):
-            if key in ("people_in_interval", "occupancy_in_interval"):
-                # Sum of current_new_counts["person"] across every frame in the 60s window.
-                return float(self.window_new_sum.get("person", 0))
-            if key == "total_occupancy":
-                # Latest cumulative total_counts["person"] — no window delta or reset.
-                return float(self.latest_totals.get("person", 0))
-            if key == "occupancy_percentage":
-                return round(min(float(self.last_occupancy) / 50.0 * 100.0, 100.0), 2)
-            return 0.0
+        if app in _PC_APPS:
+            return _pc_resolve_metric(self, app, key)
         if app == "footfall":
             # entry / exit: NEW "in"/"out" line-crossings summed over the 60s
             # window (agg_type "sum"), from window_new_sum (accumulated in
@@ -3606,8 +3715,7 @@ class LegacyAnalyticsSession:
         }
 
     def _reset_window(self) -> None:
-        self.window_weapon_max = 0
-        self.window_person_max = 0
+        self.window_weapon_max = self.window_person_max = 0
         self.window_new_sum.clear()
         self.window_baseline.clear()
         self.window_baseline_set = False
@@ -3615,6 +3723,7 @@ class LegacyAnalyticsSession:
         self.window_start_totals.clear()
         self.window_start_totals_set = False
         self.window_entry_total = 0
+        self.window_total_people_in_interval = self.window_new_people_in_interval = 0
         self.window_exit_total = 0
         self.window_corridor_occupancy_peak = 0
         self.last_occupancy = 0

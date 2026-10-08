@@ -36,6 +36,7 @@ from hsfs.constructor.filter import Filter, Logic
 from hsfs.constructor.query import Query
 from hsfs.core import (
     feature_view_api,
+    keywords_api,
     query_constructor_api,
     statistics_engine,
     tags_api,
@@ -73,6 +74,9 @@ class FeatureViewEngine:
 
         self._feature_view_api = feature_view_api.FeatureViewApi(feature_store_id)
         self._tags_api = tags_api.TagsApi(feature_store_id, self.ENTITY_TYPE)
+        self._keywords_api = keywords_api.KeywordsApi(
+            feature_store_id, self.ENTITY_TYPE
+        )
         self._statistics_engine = statistics_engine.StatisticsEngine(
             feature_store_id, self._TRAINING_DATA_API_PATH
         )
@@ -184,6 +188,19 @@ class FeatureViewEngine:
                     )
                 )
 
+        offline_only_grains = feature_view_obj._offline_only_partition_features()
+        if offline_only_grains and feature_view_obj._has_online_feature_group():
+            warnings.warn(
+                "This feature view selects partitioned_by grain column(s) "
+                f"{offline_only_grains} that are derived from event_time and stored "
+                "only offline (online_partition_columns is disabled on their feature "
+                "group). The online serving APIs (get_feature_vector / "
+                "get_feature_vectors) cannot return these columns and will raise if "
+                "called. The offline APIs (get_batch_data / training data) return "
+                "them normally.",
+                stacklevel=1,
+            )
+
         updated_fv = self._feature_view_api._post(feature_view_obj)
         print(
             "Feature view created successfully, explore it at \n"
@@ -264,10 +281,7 @@ class FeatureViewEngine:
         dropped_features = set()
 
         # Statistics only required for computing schema if one-hot-encoder in the transformation functions
-        statistics_required = any(
-            tf.hopsworks_udf.function_name == "one_hot_encoder"
-            for tf in feature_view.transformation_functions
-        )
+        statistics_required = feature_view._schema_requires_training_statistics()
 
         if statistics_required:
             if not training_dataset_version:
@@ -890,8 +904,17 @@ class FeatureViewEngine:
             training_dataset_version=training_dataset_obj.version,
         )
 
-        if engine._get_type().startswith("spark"):
-            # if spark engine, read td and compute stats
+        if (
+            engine._get_type().startswith("spark")
+            and training_dataset_obj.statistics_config.enabled
+        ):
+            # The read-back exists only to feed statistics, so it is gated on the
+            # same flag.
+            # `_compute_training_dataset_statistics` checks `enabled` itself, but
+            # checking only there meant `statistics_config=False` still re-read
+            # every split of the freshly written dataset and then threw the
+            # dataframes away, which on a large training dataset is the most
+            # expensive step of creation.
             if training_dataset_obj.splits:
                 td_df = {
                     split.name: self._training_dataset_engine._read(
@@ -1141,6 +1164,65 @@ class FeatureViewEngine:
     def _get_tags(self, feature_view_obj, training_dataset_version=None):
         return self._tags_api._get(
             feature_view_obj, training_dataset_version=training_dataset_version
+        )
+
+    def _get_tag_metadata(
+        self, feature_view_obj, name: str, training_dataset_version=None
+    ):
+        """Get the tag with a certain name as a Tag object, or None if it does not exist."""
+        return self._tags_api._get_metadata(
+            feature_view_obj, name, training_dataset_version=training_dataset_version
+        ).get(name)
+
+    def _get_tags_metadata(self, feature_view_obj, training_dataset_version=None):
+        """Get all tags for a feature view or training dataset as Tag objects."""
+        return self._tags_api._get_metadata(
+            feature_view_obj, training_dataset_version=training_dataset_version
+        )
+
+    def _get_keywords(self, feature_view_obj, training_dataset_version=None):
+        """Get all keywords of a feature view or one of its training datasets."""
+        return self._keywords_api._get(
+            feature_view_obj, training_dataset_version=training_dataset_version
+        )
+
+    def _get_keywords_metadata(self, feature_view_obj, training_dataset_version=None):
+        """Get all keywords of a feature view or one of its training datasets with their attachment times."""
+        return self._keywords_api._get_with_metadata(
+            feature_view_obj, training_dataset_version=training_dataset_version
+        )
+
+    def _set_keywords(
+        self, feature_view_obj, keywords: list[str], training_dataset_version=None
+    ):
+        """Replace the whole keyword set of a feature view or one of its training datasets."""
+        return self._keywords_api._replace(
+            feature_view_obj,
+            keywords,
+            training_dataset_version=training_dataset_version,
+        )
+
+    def _add_keywords(
+        self, feature_view_obj, keywords: list[str], training_dataset_version=None
+    ):
+        """Add keywords to a feature view or one of its training datasets, keeping the existing ones."""
+        current = self._keywords_api._get(
+            feature_view_obj, training_dataset_version=training_dataset_version
+        )
+        return self._keywords_api._replace(
+            feature_view_obj,
+            list(dict.fromkeys(current + keywords)),
+            training_dataset_version=training_dataset_version,
+        )
+
+    def _delete_keyword(
+        self, feature_view_obj, keyword: str, training_dataset_version=None
+    ):
+        """Remove a single keyword from a feature view or one of its training datasets."""
+        return self._keywords_api._delete(
+            feature_view_obj,
+            keyword,
+            training_dataset_version=training_dataset_version,
         )
 
     def _get_parent_feature_groups(
@@ -1800,17 +1882,17 @@ class FeatureViewEngine:
                     logging_features=logging_features,
                     transformed_features=(
                         transformed_features,
-                        fv._transformed_feature_names,
+                        fv._get_transformed_feature_names(training_dataset_version),
                         constants.FEATURE_LOGGING.TRANSFORMED_FEATURES,
                     ),
                     untransformed_features=(
                         untransformed_features,
-                        fv._untransformed_feature_names,
+                        fv._get_untransformed_feature_names(training_dataset_version),
                         constants.FEATURE_LOGGING.UNTRANSFORMED_FEATURES,
                     ),
                     predictions=(
                         predictions,
-                        list(fv._label_column_names),
+                        list(fv._get_label_column_names(training_dataset_version)),
                         constants.FEATURE_LOGGING.PREDICTIONS,
                     ),
                     serving_keys=(
@@ -1860,17 +1942,17 @@ class FeatureViewEngine:
                     logging_features=logging_features,
                     transformed_features=(
                         transformed_features,
-                        fv._transformed_feature_names,
+                        fv._get_transformed_feature_names(training_dataset_version),
                         constants.FEATURE_LOGGING.TRANSFORMED_FEATURES,
                     ),
                     untransformed_features=(
                         untransformed_features,
-                        fv._untransformed_feature_names,
+                        fv._get_untransformed_feature_names(training_dataset_version),
                         constants.FEATURE_LOGGING.UNTRANSFORMED_FEATURES,
                     ),
                     predictions=(
                         predictions,
-                        list(fv._label_column_names),
+                        list(fv._get_label_column_names(training_dataset_version)),
                         constants.FEATURE_LOGGING.PREDICTIONS,
                     ),
                     serving_keys=(

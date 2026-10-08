@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from mechbench_compute.hub import check_hub_id
 from mechbench_compute.model_ref import describe_layers
 from mechbench_compute.protocol.model_cache_stale import ModelCacheStale
 from mechbench_compute.protocol.model_fingerprint import mark_loaded, read_applied
@@ -14,9 +15,10 @@ class ModelLoading:
                 f"{model_id.describe()} is a remote endpoint: this operation "
                 "runs local weights and cannot use one. Use "
                 "text/chat, which serves both.")
+        hub_only = True
         if hasattr(model_id, "base"):
             if getattr(model_id, "base_kind", None) == "bench":
-                model_id = str(self._materialize_checkpoint(model_id.base))
+                model_id, hub_only = str(self._materialize_checkpoint(model_id.base)), False
             else:
                 model_id = model_id.base
         if not model_id:
@@ -25,14 +27,20 @@ class ModelLoading:
                 "runs one names it in its own params, so the result can say "
                 "which weights produced it."
             )
-        from mechbench_compute.backends import backend_of, load_model_class
+        if hub_only:
+            check_hub_id(str(model_id))
+        from mechbench_compute.backends import backend_of, device_for, load_model_class
 
         backend = self._backend
+        accelerator = getattr(self, "_accelerator", None)
+        device = device_for(backend, accelerator)
         if (self._model is None or (model_id and model_id != self._model_id)
-                or backend_of(self._model) != backend.name):
+                or backend_of(self._model) != backend.name
+                or (device is not None and getattr(self._model, "accelerator", None) != accelerator)):
             self._model = load_model_class(backend).load(
-                model_id, on_download=self._on_download,
-                on_download_bytes=self._on_download_bytes)
+                model_id, hub_only=hub_only, on_download=self._on_download,
+                on_download_bytes=self._on_download_bytes,
+                **({"device": device} if device is not None else {}))
             self._model_id = model_id
         if hasattr(self._model, "attention"):
             self._model.attention = self._attention
@@ -40,6 +48,9 @@ class ModelLoading:
         return self._model
 
     def evict_model(self) -> None:
+        describe = getattr(self._model, "describe_hardware", None)
+        if describe is not None:
+            self._described = describe()
         self._model = None
         self._model_id = None
 
@@ -105,7 +116,8 @@ class ModelLoading:
             return info
         model = self._model if backend_of(self._model) == self._backend.name else None
         describe = getattr(model, "describe_hardware", None)
-        return {**info, "backend": self._backend.name, **(describe() if describe else {}),
+        described = describe() if describe else self._described or {}
+        return {**info, "backend": self._backend.name, **described,
                 "attention": sorted(self._attention)}
 
     @staticmethod

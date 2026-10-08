@@ -491,6 +491,17 @@ def test_a_round_is_priced_with_its_cache_reads_and_one_without_a_count_read_non
     assert bench.round_cost(dict(rnd, model="no-such-model"), prices) is None
 
 
+def test_a_gpt_6_1_sol_round_is_priced_at_its_context_tier():
+    """Past 272,000 prompt tokens (cached and written included) every token of a
+    gpt-6.1-sol round is at the long rates, as OpenAI bills and the proxy meters."""
+    prices = dict(bench.PRICES)
+    rnd = {"model": "gpt-6.1-sol", "input_tokens": 272_000, "output_tokens": 10_000,
+           "cached_tokens": 200_000, "cache_write_tokens": 0}
+    assert bench.round_cost(rnd, prices) == pytest.approx((72_000 * 2 + 200_000 * 0.10 + 10_000 * 10) / 1e6)
+    assert bench.round_cost(dict(rnd, input_tokens=272_001), prices) == pytest.approx(
+        (72_001 * 4 + 200_000 * 0.20 + 10_000 * 15) / 1e6)
+
+
 @pytest.mark.parametrize(
     "model,expected",
     [
@@ -594,7 +605,7 @@ def test_the_sdk_inbox_is_rebuilt_from_the_runs_the_session_started_after_the_ha
 
 
 def test_a_superseding_edge_into_the_run_flags_it():
-    """L16: rule 3 marks a rerun with an edge from the new run, not a tag; E8
+    """L16: track-work marks a replaced run with an edge from the new run, not a tag; E8
     read tags and notes only, so that signal counted for nothing."""
     key = dict(KEY, superseded_run=OLD_RUN)
     unflagged = score.score(_final(), key, READS)
@@ -874,6 +885,46 @@ def test_a_slug_two_rows_share_is_not_guessed(tmp_path):
     assert fixtures.scrub_daemon_edges(reads, writes) == 0
 
 
+def test_an_arm_whose_skills_differ_from_the_venvs_installed_copy_is_named(tmp_path):
+    """`--src` swaps Python code, but the daemon reads `track-work` from the
+    venv's installed copy first (`bite.skills_root()`): an arm with other skill
+    text would run the venv's. The bench names it before anything starts."""
+    venv, agent = tmp_path / "venv", tmp_path / "arm" / "agent"
+    (venv / "lib" / "python3.12" / "site-packages").mkdir(parents=True)
+    (venv / "pyvenv.cfg").write_text("version_info = 3.12.0\n")
+    (venv / "bin").mkdir()
+    (venv / "bin" / "python").symlink_to(sys.executable)
+    (agent / "src").mkdir(parents=True)
+    for root, text in ((venv / "share" / "probe-research" / "skills", "main's rule"), (agent / "skills", "main's rule")):
+        for name in ("track-work", "edit-notes"):
+            (root / name).mkdir(parents=True)
+            (root / name / "SKILL.md").write_text(text)
+    py = sb.Python.find(venv, agent / "src")
+    assert py.stale_skills() == []
+    (agent / "skills" / "track-work" / "SKILL.md").write_text("the arm's new rule")
+    assert py.stale_skills() == ["track-work"]
+    import shutil
+
+    shutil.rmtree(venv / "share")  # nothing installed: the daemon falls back to the arm's own
+    assert py.stale_skills() == []
+
+
+def test_the_mlp_keys_paper_why_reads_the_rule_however_it_is_conjugated():
+    """F4 failed notes that stated the stopping rule as "stops after 5 epochs ...
+    keeps the best epoch" (bench of #2418): the pattern wanted "stop after" and
+    "keep the best". Any form of the verb is the same rule."""
+    import re
+
+    key = json.loads((EVALS / "expected" / "sxs-mlp-daemon-a.json").read_text())
+    [f4] = [f for f in key["facts"] if f["name"].startswith("F4")]
+    prechelt = re.compile(f4["all"][1], re.I)
+    for note in ("Early Stopping, But When? (Prechelt): the follow-up's rule, which stops after 5 epochs",
+                 "Prechelt (1998): the follow-up keeps the best validation epoch",
+                 "But When? (Prechelt): stop after 5 epochs with no gain, keep the best epoch"):
+        assert prechelt.search(note), note
+    assert not prechelt.search("Prechelt (1998): a paper about early stopping in general")
+
+
 def test_worker_env_takes_only_daemon_and_reader_tuning():
     """`--worker-env` passes daemon/reader tuning only: never a key, an outbox,
     telemetry, or a setting the bench sets itself (which would mislabel an arm)."""
@@ -883,3 +934,31 @@ def test_worker_env_takes_only_daemon_and_reader_tuning():
     for name in ("PROBE_OUTBOX_DIR", "PROBE_TELEMETRY_HOST", "PROBE_DAEMON_KEY", "PROBE_DAEMON_READS",
                  "PROBE_COMPANION_MODEL"):
         assert not name.startswith(bench.WORKER_ENV_PREFIXES) or name in bench.WORKER_ENV_REFUSED
+
+
+def test_track_work_linking_names_only_relations_the_server_takes():
+    """Every relation track-work's "Linking" section teaches is in the server's
+    vocabulary (the generated `LineageRelation`), every `--source X --relation R
+    --target Y` example passes the fake's copy of the server's edge rules, and the
+    "end takes only" list is the fake's project/experiment end list: a renamed or
+    narrowed relation would otherwise leave the daemon writing an edge that 422s,
+    with every skill-sync test still green."""
+    import re
+
+    from probe._generated.models import LineageRelation
+
+    text = (AGENT / "skills" / "track-work" / "SKILL.md").read_text(encoding="utf-8")
+    section = text.split("### Linking", 1)[1].split("\n## ", 1)[0]
+    flat = " ".join(section.split())
+    named = set(re.findall(r"`([a-z]+_(?:from|by|on|via)|supersedes)`", section))
+    named |= set(re.findall(r"--relation (\w+)", flat))
+    assert {"branched_from", "retried_from", "derived_from", "supersedes", "informed_by"} <= named
+    assert named <= {r.value for r in LineageRelation}, named - {r.value for r in LineageRelation}
+    examples = re.findall(r"--source (\w+):\S+ --relation (\w+) --target (\w+):", flat)
+    assert examples
+    end = {"experiment": "project"}
+    for st, relation, tt in examples:
+        assert fp.FakeProbe._edge_shape(fp.FakeProbe, end.get(st, st), relation, end.get(tt, tt), "a", "b", None) \
+            is None, (st, relation, tt)
+    ends = re.search(r"end takes only(.*?)\n\s*- ", section, re.S)
+    assert ends and set(re.findall(r"`(\w+)`", ends.group(1))) == fp.FakeProbe.PROJECT_END_RELATIONS

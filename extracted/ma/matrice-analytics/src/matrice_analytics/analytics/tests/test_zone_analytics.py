@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import logging
 import os
 import pprint
 import sys
@@ -11,6 +12,16 @@ from typing import Any
 
 import cv2
 import numpy as np
+import pytest
+
+# `collect_ignore` in conftest.py skips this module when `ultralytics` is absent,
+# but pytest applies collect_ignore only when it DISCOVERS a path -- naming the
+# file explicitly bypasses it, which is what the pre-push build battery does when
+# a sibling changes. importorskip is checked at import time either way.
+pytest.importorskip(
+    "ultralytics", reason="heavy ML dep; the deployment image provides it (CLAUDE.md 8.9)"
+)
+
 from ultralytics import YOLO
 
 # --- Import bootstrap (analytics + footfall only) ---
@@ -22,6 +33,8 @@ _ROOT = Path(
 _SRC = _ROOT / "src"
 _PKG = _SRC / "matrice_analytics"
 sys.path.insert(0, str(_SRC))
+
+_logger = logging.getLogger(__name__)
 
 
 def _register_pkg(name: str, path: Path) -> None:
@@ -280,6 +293,19 @@ class ZoneAnalyticsTestProcessor:
     # Main processing loop
     # ------------------------------------------------------------------
 
+    def _log_frame_progress(
+        self, loop_idx: int, frame_idx: int, det_count: int, zone_counts
+    ) -> None:
+        """Emit the per-frame progress line (one print() before PY-09)."""
+        _logger.info(
+            "[Loop %d/%d] Frame %4d | detections: %3d | zones: %s",
+            loop_idx + 1,
+            self.loop_count,
+            frame_idx,
+            det_count,
+            zone_counts,
+        )
+
     def process_video(self):
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
@@ -292,15 +318,15 @@ class ZoneAnalyticsTestProcessor:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         video_writer = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
 
-        print(f"Video: {self.video_path} ({width}x{height} @ {fps:.1f} fps)")
-        print(f"Model: {self.model_path}")
-        print("Manifest: vehicle_type_monitoring")
-        print(f"Zones active: {self.engine.zones_active}")
-        print(f"Zone processors: {list(self.engine.zone_processors.keys())}")
-        print(f"Output video: {self.output_video_path}")
-        print(f"JSON dir: {self.json_dir}")
-        print(f"Loop count: {self.loop_count}")
-        print("-" * 60)
+        _logger.info("Video: %s (%sx%s @ %.1f fps)", self.video_path, width, height, fps)
+        _logger.info("Model: %s", self.model_path)
+        _logger.info("Manifest: vehicle_type_monitoring")
+        _logger.info("Zones active: %s", self.engine.zones_active)
+        _logger.info("Zone processors: %s", list(self.engine.zone_processors.keys()))
+        _logger.info("Output video: %s", self.output_video_path)
+        _logger.info("JSON dir: %s", self.json_dir)
+        _logger.info("Loop count: %s", self.loop_count)
+        _logger.info("%s", "-" * 60)
 
         frame_idx = 0
         done = False
@@ -312,7 +338,7 @@ class ZoneAnalyticsTestProcessor:
 
             if loop_idx > 0:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                print(f"\n--- Loop {loop_idx + 1}/{self.loop_count} ---")
+                _logger.info("\n--- Loop %s/%s ---", loop_idx + 1, self.loop_count)
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -342,7 +368,7 @@ class ZoneAnalyticsTestProcessor:
                     agg_path = os.path.join(self.json_dir, "agg", f"agg_{frame_idx:04d}.json")
                     with open(agg_path, "w") as f:
                         json.dump(agg_serialized, f, indent=2)
-                    print(f"  ** Aggregation at frame {frame_idx} — saved: {agg_path}")
+                    _logger.info("  ** Aggregation at frame %s — saved: %s", frame_idx, agg_path)
 
                 # Draw on frame
                 annotated = frame.copy()
@@ -362,14 +388,11 @@ class ZoneAnalyticsTestProcessor:
                     zn: len(zd.get("tracking_stats", {}).get("detections", []))
                     for zn, zd in agg_summary.items()
                 }
-                print(
-                    f"[Loop {loop_idx + 1}/{self.loop_count}] Frame {frame_idx:4d} | "
-                    f"detections: {len(detections):3d} | zones: {zone_counts}"
-                )
+                self._log_frame_progress(loop_idx, frame_idx, len(detections), zone_counts)
 
                 frame_idx += 1
                 if self.max_frames and frame_idx >= self.max_frames:
-                    print(f"Max frame limit ({self.max_frames}) reached.")
+                    _logger.info("Max frame limit (%s) reached.", self.max_frames)
                     done = True
                     break
 
@@ -387,15 +410,15 @@ class ZoneAnalyticsTestProcessor:
         with open(all_agg_path, "w") as f:
             json.dump(aggregated_results, f, indent=2)
 
-        print(f"\nFinal aggregation saved: {final_agg_path}")
-        print(f"All aggregated results saved: {all_agg_path}")
-        print("\nFinal aggregation:")
+        _logger.info("\nFinal aggregation saved: %s", final_agg_path)
+        _logger.info("All aggregated results saved: %s", all_agg_path)
+        _logger.info("\nFinal aggregation:")
         pprint.pprint(final_serialized)  # noqa: T203
 
         cap.release()
         video_writer.release()
-        print(f"\nOutput video saved: {self.output_video_path}")
-        print(f"Processing complete. {frame_idx} frames processed.")
+        _logger.info("\nOutput video saved: %s", self.output_video_path)
+        _logger.info("Processing complete. %s frames processed.", frame_idx)
 
 
 if __name__ == "__main__":

@@ -405,11 +405,11 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         )
 
     state = _read_browser_dom_state(ctx)
-    # The extension's claim is not enough: admin-only browser tools exist only for
-    # a run started from an admin surface (THE ADMIN SURFACE, 2026-09-25).
-    from matrx_connect import admin_surface_active
+    # The extension's claim is not enough: the server's own context must say the
+    # caller is an admin. Admin tools run for an admin from any chat (2026-10-07).
+    from matrx_connect import admin_tool_authorized
 
-    is_admin = bool(state.get("is_admin", False)) and admin_surface_active()
+    is_admin = bool(state.get("is_admin", False)) and admin_tool_authorized()
     granted = frozenset(state.get("optional_permissions_granted") or [])
     desktop_status: str = state.get("desktop_bridge", "none")
     loaded_categories: list[str] = list(state.get("loaded_categories") or [])

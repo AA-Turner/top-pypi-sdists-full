@@ -2206,12 +2206,16 @@ def get_table_from_name(
     _tt_on_changes = metadata_table_name == "changes" and _tt_key == "as-of-timestamp"
     if _tt_key and (_tt_on_base or _tt_on_changes):
         from snowflake.snowpark_connect.utils.cld_context import (
-            catalog_kind as resolve_catalog_kind,
+            catalog_kind_for_table_parts as resolve_catalog_kind_for_table_parts,
         )
 
         telemetry.report_iceberg_time_travel_read(
             _time_travel_bound_kind.get(_tt_key, "unknown"),
-            catalog_kind=resolve_catalog_kind(),
+            # Resolve from the metadata-stripped base parts: `schema.tbl.changes`
+            # must not treat the schema as the target database (SNOW-4237460).
+            catalog_kind=resolve_catalog_kind_for_table_parts(
+                session, base_table_parts, backtick_flags
+            ),
         )
 
     if metadata_table_name is not None:
@@ -2265,7 +2269,7 @@ def get_table_from_name(
             # SPARK_INCREMENTAL_READ hook below. `.changes` also allows end-only.
             if eff_start_snap is not None or eff_end_snap is not None:
                 from snowflake.snowpark_connect.utils.cld_context import (
-                    catalog_kind as resolve_catalog_kind,
+                    catalog_kind_for_table_parts as resolve_catalog_kind_for_table_parts,
                 )
 
                 if eff_start_snap is not None and eff_end_snap is not None:
@@ -2277,7 +2281,12 @@ def get_table_from_name(
                 telemetry.report_iceberg_incremental_read(
                     bound_kind=_incr_bound_kind,
                     surface="changelog",
-                    catalog_kind=resolve_catalog_kind(),
+                    # Resolve from the metadata-stripped base parts: the raw name
+                    # here ends in `.changes`, so a 3-part `schema.tbl.changes`
+                    # would otherwise treat the schema as a db (SNOW-4237460).
+                    catalog_kind=resolve_catalog_kind_for_table_parts(
+                        session, base_table_parts, backtick_flags
+                    ),
                 )
             # DELTA-003: TIMESTAMP AS OF -> end timestamp bound
             eff_start_ts = None
@@ -2395,7 +2404,7 @@ def get_table_from_name(
         df = session.read.option("branch", iceberg_branch).table(snowpark_name)
     elif iceberg_start_snapshot_id is not None:
         from snowflake.snowpark_connect.utils.cld_context import (
-            catalog_kind as resolve_catalog_kind,
+            catalog_kind_for_table as resolve_catalog_kind_for_table,
         )
 
         telemetry.report_iceberg_incremental_read(
@@ -2403,7 +2412,7 @@ def get_table_from_name(
             if iceberg_end_snapshot_id is not None
             else "start_only",
             surface="plain_table",
-            catalog_kind=resolve_catalog_kind(),
+            catalog_kind=resolve_catalog_kind_for_table(session, table_name),
         )
         # SNOW-3527701: Snowpark routes incremental reads through
         # TABLE(SPARK_INCREMENTAL_READ(...)), which supports unmanaged Iceberg

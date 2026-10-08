@@ -9,7 +9,7 @@ import math
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import rfc8785
 from pydantic import Field
@@ -42,10 +42,12 @@ class PortableEvaluator(Model):
     slug: str
     name: str
     output: Output
-    scope: str = "batch"
+    scope: str = "trace"
 
 
 class PortableJudgeRequest(Model):
+    text: str
+    output_type: Literal["boolean", "score"]
     trace: dict[str, Any]
     trace_pair: dict[str, Any] | None = None
     rubric: str
@@ -80,7 +82,7 @@ def verify_portable_eval_artifact(
         or artifact["format"] != "raindrop.eval-program"
         or isinstance(artifact["formatVersion"], bool)
         or artifact["formatVersion"] != 1
-        or artifact["runtimeAbi"] != "raindrop-eval-v2"
+        or artifact["runtimeAbi"] != "raindrop-eval-v3"
     ):
         raise ValueError("Invalid portable evaluator artifact")
     if (
@@ -96,7 +98,7 @@ def verify_portable_eval_artifact(
     if (
         set(identity)
         != {"id", "slug", "programVersion", "executionMode", "outputType", "scope"}
-        or identity["scope"] != "batch"
+        or identity["scope"] != "trace"
         or identity["outputType"] not in ("boolean", "score", "number")
         or identity["executionMode"] not in ("judge", "deterministic")
     ):
@@ -203,25 +205,30 @@ async def evaluate_portable_evaluator(
                 or evaluator.judge is None
             ):
                 raise ValueError("Judge unavailable")
+            remaining_seconds = deadline - time.monotonic()
+            if remaining_seconds <= 0:
+                raise TimeoutError("Judge deadline exceeded")
             verdict = await asyncio.wait_for(
                 invoke(
                     evaluator.judge,
                     PortableJudgeRequest(
                         trace=by_id[request["traceId"]],
+                        text=request["text"],
+                        output_type=request["outputType"],
                         trace_pair=row_by_id.get(request["traceId"]),
                         rubric=request["rubric"][:40000],
                     ),
                 ),
                 timeout=min(
                     limits.judge_timeout_ms / 1000,
-                    max(0.001, deadline - time.monotonic()),
+                    remaining_seconds,
                 ),
             )
             return {
                 "type": "judge_response",
                 "requestId": request_id,
                 "status": "completed",
-                "result": parse_verdict(evaluator.output, verdict),
+                "result": parse_verdict(request["outputType"], verdict),
             }
         except Exception:
             return {
@@ -237,7 +244,9 @@ async def evaluate_portable_evaluator(
             + json.dumps(response["requestId"])
             + "]("
             + json.dumps(json.dumps(response))
-            + ");"
+            + "); delete __hostWaiters["
+            + json.dumps(response["requestId"])
+            + "];"
         )
 
     pending: set[asyncio.Task[dict[str, Any]]] = set()
@@ -251,19 +260,14 @@ async def evaluate_portable_evaluator(
             while vm.execute_pending_job():
                 if time.monotonic() >= deadline:
                     raise TimeoutError(f"Portable evaluator exceeded {timeout_ms}ms")
-            requests = json.loads(vm.eval("JSON.stringify(__hostQueue.splice(0))"))
+            # Keep queued evidence inside the memory-limited VM. Only active
+            # callback slots cross into Python tasks.
+            capacity = limits.judge_concurrency - len(pending)
+            requests = json.loads(
+                vm.eval(f"JSON.stringify(__hostQueue.splice(0, {capacity}))")
+            )
             for request in requests:
-                if len(pending) < limits.judge_concurrency:
-                    pending.add(asyncio.create_task(judge(request)))
-                else:
-                    respond(
-                        {
-                            "type": "judge_response",
-                            "requestId": request["requestId"],
-                            "status": "unavailable",
-                            "message": "Judge unavailable",
-                        }
-                    )
+                pending.add(asyncio.create_task(judge(request)))
             if pending:
                 completed, pending = await asyncio.wait(
                     pending, return_when=asyncio.FIRST_COMPLETED
